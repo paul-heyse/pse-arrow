@@ -231,26 +231,50 @@ async fn local_edits_preserve_unchanged_products_parent_and_true_noops() {
         .unwrap();
     assert!(first.canonical_revision().is_none());
     let before = prepared(&first).await;
-    let noop = first.with_declarations(declarations(original)).await.unwrap();
+    let noop = first
+        .with_declarations(declarations(original))
+        .await
+        .unwrap();
     assert_eq!(first.revision_id(), noop.revision_id());
     let effects = runtime.shared.math().preparation_effects();
     let again = prepared(&noop).await;
     let effects = runtime.shared.math().preparation_effects().since(effects);
     assert_eq!(effects.workspaces, 0);
     assert!(pse_math::SharedAllocation::ptr_eq(
-        &before.compiled().admitted, &again.compiled().admitted
+        &before.compiled().admitted,
+        &again.compiled().admitted
     ));
     let changed = first.with_declarations(declarations("package p { def Root { var x: Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
     assert_ne!(first.revision_id(), changed.revision_id());
     let after = prepared(&changed).await;
     for (key, body) in &before.compiled().admitted.bodies {
-        assert!(Arc::ptr_eq(body.math(), after.compiled().admitted.bodies[key].math()));
+        assert!(Arc::ptr_eq(
+            body.math(),
+            after.compiled().admitted.bodies[key].math()
+        ));
     }
-    let removed = changed.with_declarations(declarations(
-        "package p { def Root { var x: Scalar; eq a:x*x==1; } }"
-    )).await.unwrap();
-    assert!(!removed.declarations().await.unwrap().iter().any(|row| row.name == "Other"));
-    assert!(first.declarations().await.unwrap().iter().any(|row| row.name == "Other"));
+    let removed = changed
+        .with_declarations(declarations(
+            "package p { def Root { var x: Scalar; eq a:x*x==1; } }",
+        ))
+        .await
+        .unwrap();
+    assert!(
+        !removed
+            .declarations()
+            .await
+            .unwrap()
+            .iter()
+            .any(|row| row.name == "Other")
+    );
+    assert!(
+        first
+            .declarations()
+            .await
+            .unwrap()
+            .iter()
+            .any(|row| row.name == "Other")
+    );
     let historical = prepared(&first).await;
     assert_eq!(before.solved(), historical.solved());
     runtime.shared.math().clear_program_cache();
@@ -325,10 +349,7 @@ async fn local_package_admission_preserves_source_identity_and_accelerators_on_e
         .await
         .unwrap();
     assert_eq!(first.revision.identity(), fresh.revision.identity());
-    assert_ne!(
-        first.revision_id(),
-        fresh.revision_id()
-    );
+    assert_ne!(first.revision_id(), fresh.revision_id());
 }
 
 #[tokio::test]
@@ -1510,9 +1531,10 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         .await
         .unwrap();
     let fresh_model = prepared(&fresh).await;
-    assert!(!Arc::ptr_eq(
-        new_residual.math(), body_for_row(&fresh_model, row).math()
-    ), "the oracle uses a separate runtime and independently admitted body");
+    assert!(
+        !Arc::ptr_eq(new_residual.math(), body_for_row(&fresh_model, row).math()),
+        "the oracle uses a separate runtime and independently admitted body"
+    );
     let fresh_value = fresh
         .observe(
             fresh_model,

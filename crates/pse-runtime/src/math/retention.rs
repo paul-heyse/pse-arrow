@@ -203,14 +203,15 @@ impl Pressure {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         if *demands == 0 {
-            self.artifact_fence
-                .admit(generation, || {
-                    if let Value::Scalars(incoming) = &value
-                        && let Some(Value::Scalars(existing)) = self.artifacts.get(key)
-                        && existing.len() > incoming.len()
-                    { return; }
-                    self.artifacts.put(key, value);
-                });
+            self.artifact_fence.admit(generation, || {
+                if let Value::Scalars(incoming) = &value
+                    && let Some(Value::Scalars(existing)) = self.artifacts.get(key)
+                    && existing.len() > incoming.len()
+                {
+                    return;
+                }
+                self.artifacts.put(key, value);
+            });
         }
     }
     pub(super) fn clear(&self) {
@@ -305,13 +306,26 @@ impl ModelingCache {
             self.bypasses.fetch_add(1, Ordering::Relaxed);
         }
     }
-    pub(crate) fn result_projection(&self, key: &crate::workflow::result_export::ProjectionKey) -> Option<Arc<crate::workflow::result_export::RetainedProjection>> {
+    pub(crate) fn result_projection(
+        &self,
+        key: &crate::workflow::result_export::ProjectionKey,
+    ) -> Option<Arc<crate::workflow::result_export::RetainedProjection>> {
         match self.get(&Key::ResultProjection(key.clone()))? {
-            Product::ResultProjection(value) => Some(value), _ => None,
+            Product::ResultProjection(value) => Some(value),
+            _ => None,
         }
     }
-    pub(crate) fn retain_result_projection(&self, generation: u64, key: crate::workflow::result_export::ProjectionKey, value: Arc<crate::workflow::result_export::RetainedProjection>) {
-        self.put(generation, Key::ResultProjection(key), Product::ResultProjection(value));
+    pub(crate) fn retain_result_projection(
+        &self,
+        generation: u64,
+        key: crate::workflow::result_export::ProjectionKey,
+        value: Arc<crate::workflow::result_export::RetainedProjection>,
+    ) {
+        self.put(
+            generation,
+            Key::ResultProjection(key),
+            Product::ResultProjection(value),
+        );
     }
     pub(crate) fn ingress(
         &self,
@@ -735,9 +749,11 @@ mod pressure_tests {
         assert_eq!(*service.pressure.demands.lock().unwrap(), 2);
         assert_eq!(service.cpu.available_permits(), 2);
         let artifact_epoch = service.retention.generation();
-        service
-            .pressure
-            .publish_artifact(artifact_epoch, &key(4), Value::Artifact(artifact.clone()));
+        service.pressure.publish_artifact(
+            artifact_epoch,
+            &key(4),
+            Value::Artifact(artifact.clone()),
+        );
         assert_eq!(service.entries.len(), 0);
         service.modeling_cache.retain_solver(
             service.modeling_cache.generation(),
@@ -749,9 +765,11 @@ mod pressure_tests {
         assert!(matches!(first.await, Err(MathRuntimeError::Cancelled)));
         assert_eq!(*service.pressure.demands.lock().unwrap(), 1);
         assert_eq!(service.entries.cache_limit(), 0);
-        service
-            .pressure
-            .publish_artifact(artifact_epoch, &key(5), Value::Artifact(artifact.clone()));
+        service.pressure.publish_artifact(
+            artifact_epoch,
+            &key(5),
+            Value::Artifact(artifact.clone()),
+        );
         assert_eq!(service.entries.len(), 0);
         // Broadcasting without freeing anything must not count as capacity.
         service.released.notify_waiters();

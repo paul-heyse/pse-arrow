@@ -656,7 +656,11 @@ impl CanonicalStore {
                                     return Err(CanonicalError::OperationReused);
                                 }
                                 Ok(None) if error.source_transaction_refused() => {
-                                    return Err(CanonicalError::SourceEditRefused {problem:problem.into(),operation:operation.into(),source:Box::new(error)});
+                                    return Err(CanonicalError::SourceEditRefused {
+                                        problem: problem.into(),
+                                        operation: operation.into(),
+                                        source: Box::new(error),
+                                    });
                                 }
                                 _ => return Err(error),
                             }

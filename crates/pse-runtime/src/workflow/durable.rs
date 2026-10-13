@@ -856,7 +856,7 @@ impl DurableAttempt {
         let mut inputs = packages
             .iter()
             .map(|p| p.recorded_revision().cloned())
-            .collect::<Result<Vec<_>,_>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         inputs.sort_by(|a, b| a.key.cmp(&b.key));
         inputs.dedup_by(|a, b| a.key == b.key);
         self.register_selection(
@@ -1822,11 +1822,11 @@ fn request_inputs(request: &RunRequest) -> Result<Vec<Revision>, WorkflowError> 
             .sources
             .iter()
             .map(|source| source.recorded_revision().cloned())
-            .collect::<Result<Vec<_>,_>>()?,
+            .collect::<Result<Vec<_>, _>>()?,
         RunRequest::Modeling(steps) => steps
             .iter()
             .map(|s| s.source.recorded_revision().cloned())
-            .collect::<Result<Vec<_>,_>>()?,
+            .collect::<Result<Vec<_>, _>>()?,
         RunRequest::Simulation(s) => vec![s.source.recorded_revision()?.clone()],
         RunRequest::Fit(f) => vec![f.source.recorded_revision()?.clone()],
         #[cfg(feature = "solver-diffsol")]

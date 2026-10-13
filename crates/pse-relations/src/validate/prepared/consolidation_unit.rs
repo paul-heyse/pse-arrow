@@ -546,86 +546,166 @@ impl super::super::planner::ValidationPlanner for ScopedCountingPlanner {
         Arc::new(self.clone())
     }
     fn create_logical_expr(&self, sql: &str, schema: &DFSchema) -> datafusion_common::Result<Expr> {
-        self.bindings.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.bindings
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         self.state.create_logical_expr(sql, schema)
     }
-    fn prepare(&self, expression: Expr, schema: &DFSchema) -> datafusion_common::Result<Arc<dyn PhysicalExpr>> {
+    fn prepare(
+        &self,
+        expression: Expr,
+        schema: &DFSchema,
+    ) -> datafusion_common::Result<Arc<dyn PhysicalExpr>> {
         super::super::planner::ValidationPlanner::prepare(&self.state, expression, schema)
     }
-    fn prepare_in_scope(&self, expression: Expr, schema: &DFSchema, scope: &AdmissionScope) -> datafusion_common::Result<Arc<dyn PhysicalExpr>> {
-        self.scoped_preparations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        super::super::planner::ValidationPlanner::prepare_in_scope(&self.state, expression, schema, scope)
+    fn prepare_in_scope(
+        &self,
+        expression: Expr,
+        schema: &DFSchema,
+        scope: &AdmissionScope,
+    ) -> datafusion_common::Result<Arc<dyn PhysicalExpr>> {
+        self.scoped_preparations
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        super::super::planner::ValidationPlanner::prepare_in_scope(
+            &self.state,
+            expression,
+            schema,
+            scope,
+        )
     }
 }
 
 #[test]
 fn stable_checks_bind_once_and_reprepare_for_distinct_admission_scopes() {
-    use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
     use datafusion::logical_expr::{ColumnarValue, Volatility, create_udf};
+    use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
     use std::sync::atomic::{AtomicUsize, Ordering};
     let mut registry = RegistryBuilder::new();
-    registry.declare_relation(RelationDecl::new(
-        Namespace::Authored, "scope_control", 1, Authority::Authored,
-        SnapshotClass::Model, "invocation relative validity",
-    ).pk(&["n"]).columns(vec![FieldContract::key(
-        "n", FieldContract::native(DataType::Int64), "timestamp seconds",
-    )]).checks(BTreeMap::from([
-        ("fresh".into(), "to_timestamp_seconds(n) <= now()".into()),
-        ("immutable".into(), "immutable_policy(n)".into()),
-    ])));
+    registry.declare_relation(
+        RelationDecl::new(
+            Namespace::Authored,
+            "scope_control",
+            1,
+            Authority::Authored,
+            SnapshotClass::Model,
+            "invocation relative validity",
+        )
+        .pk(&["n"])
+        .columns(vec![FieldContract::key(
+            "n",
+            FieldContract::native(DataType::Int64),
+            "timestamp seconds",
+        )])
+        .checks(BTreeMap::from([
+            ("fresh".into(), "to_timestamp_seconds(n) <= now()".into()),
+            ("immutable".into(), "immutable_policy(n)".into()),
+        ])),
+    );
     let registry = registry.build().unwrap();
     let spec = registry.relation("authored.scope_control").unwrap();
     let immutable_evaluations = Arc::new(AtomicUsize::new(0));
     let session = SessionContext::new();
     let evaluations = immutable_evaluations.clone();
-    session.register_udf(create_udf("immutable_policy", vec![DataType::Int64], DataType::Boolean,
-        Volatility::Immutable, Arc::new(move |_| {
+    session.register_udf(create_udf(
+        "immutable_policy",
+        vec![DataType::Int64],
+        DataType::Boolean,
+        Volatility::Immutable,
+        Arc::new(move |_| {
             evaluations.fetch_add(1, Ordering::Relaxed);
-            Ok(ColumnarValue::Scalar(datafusion_common::ScalarValue::Boolean(Some(true))))
-        })));
+            Ok(ColumnarValue::Scalar(
+                datafusion_common::ScalarValue::Boolean(Some(true)),
+            ))
+        }),
+    ));
     let planner = ScopedCountingPlanner {
-        state: session.state(), bindings: Arc::new(AtomicUsize::new(0)),
+        state: session.state(),
+        bindings: Arc::new(AtomicUsize::new(0)),
         scoped_preparations: Arc::new(AtomicUsize::new(0)),
     };
     let context = ValidationContext::new(&registry, planner.clone());
-    let now = context.admission_scope().execution_props().query_execution_start_time.unwrap();
-    let raw = RecordBatch::try_new(pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
-        vec![Arc::new(Int64Array::from(vec![now.timestamp()]))]).unwrap();
+    let now = context
+        .admission_scope()
+        .execution_props()
+        .query_execution_start_time
+        .unwrap();
+    let raw = RecordBatch::try_new(
+        pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+        vec![Arc::new(Int64Array::from(vec![now.timestamp()]))],
+    )
+    .unwrap();
     let cancel = pse_columnar::CancellationToken::new();
-    let checked = crate::columnar::FieldCheckedBatch::admit(&registry, spec, raw, &context, &cancel).unwrap();
+    let checked =
+        crate::columnar::FieldCheckedBatch::admit(&registry, spec, raw, &context, &cancel).unwrap();
     let first = context.relation(&registry, spec).unwrap();
     assert_eq!(planner.bindings.load(Ordering::Relaxed), 2);
     assert_eq!(planner.scoped_preparations.load(Ordering::Relaxed), 1);
     let immutable_count = immutable_evaluations.load(Ordering::Relaxed);
     let same = context.for_scope(context.admission_scope().clone());
-    assert!(Arc::ptr_eq(&first, &same.relation(&registry, spec).unwrap()));
-    checked.readmit_context(&registry, spec, &same, &cancel).unwrap();
+    assert!(Arc::ptr_eq(
+        &first,
+        &same.relation(&registry, spec).unwrap()
+    ));
+    checked
+        .readmit_context(&registry, spec, &same, &cancel)
+        .unwrap();
     assert_eq!(first.evaluation_count(), 1);
 
     // Equal timestamps do not make successful evidence valid in an independent scope.
-    let equal_clock = context.for_scope(AdmissionScope::from_execution_props(context.admission_scope().execution_props()));
-    assert!(!context.admission_scope().same_invocation(equal_clock.admission_scope()));
+    let equal_clock = context.for_scope(AdmissionScope::from_execution_props(
+        context.admission_scope().execution_props(),
+    ));
+    assert!(
+        !context
+            .admission_scope()
+            .same_invocation(equal_clock.admission_scope())
+    );
     let equal_prepared = equal_clock.relation(&registry, spec).unwrap();
     assert!(!first.same_native_owner(&equal_prepared));
-    checked.readmit_context(&registry, spec, &equal_clock, &cancel).unwrap();
+    checked
+        .readmit_context(&registry, spec, &equal_clock, &cancel)
+        .unwrap();
     assert_eq!(equal_prepared.evaluation_count(), 1);
-    checked.project_exact(&registry, spec, &[0], &cancel, &equal_clock).unwrap();
-    assert_eq!(equal_prepared.evaluation_count(), 2, "projection rechecks scope-sensitive evidence");
-    assert_eq!(immutable_evaluations.load(Ordering::Relaxed), immutable_count,
-        "unchanged immutable predicates retain their evidence across scopes");
+    checked
+        .project_exact(&registry, spec, &[0], &cancel, &equal_clock)
+        .unwrap();
+    assert_eq!(
+        equal_prepared.evaluation_count(),
+        2,
+        "projection rechecks scope-sensitive evidence"
+    );
+    assert_eq!(
+        immutable_evaluations.load(Ordering::Relaxed),
+        immutable_count,
+        "unchanged immutable predicates retain their evidence across scopes"
+    );
 
     // Re-preparation must use the selected scope, not the old owner's query time.
     let mut earlier = context.admission_scope().execution_props().clone();
     earlier.query_execution_start_time = Some(now - std::time::Duration::from_secs(60));
     let earlier = context.for_scope(AdmissionScope::from_execution_props(&earlier));
-    assert!(checked.readmit_context(&registry, spec, &earlier, &cancel).is_err());
-    assert_eq!(planner.bindings.load(Ordering::Relaxed), 2, "no SQL reparsing on scope changes");
+    assert!(
+        checked
+            .readmit_context(&registry, spec, &earlier, &cancel)
+            .is_err()
+    );
+    assert_eq!(
+        planner.bindings.load(Ordering::Relaxed),
+        2,
+        "no SQL reparsing on scope changes"
+    );
     assert_eq!(planner.scoped_preparations.load(Ordering::Relaxed), 3);
     assert_eq!(context.prepared_count().unwrap(), 1);
-    assert_eq!(immutable_evaluations.load(Ordering::Relaxed), immutable_count);
+    assert_eq!(
+        immutable_evaluations.load(Ordering::Relaxed),
+        immutable_count
+    );
     let cancelled = pse_columnar::CancellationToken::new();
     cancelled.cancel();
-    assert!(checked.readmit_context(&registry, spec, &equal_clock, &cancelled).is_err());
+    assert!(
+        checked
+            .readmit_context(&registry, spec, &equal_clock, &cancelled)
+            .is_err()
+    );
 }
 
 #[test]
@@ -633,12 +713,22 @@ fn scoped_preparation_is_coherent_concurrent_and_does_not_retain_contexts() {
     let registry = RegistryBuilder::new().build().unwrap();
     let schema = Arc::new(Schema::new_with_metadata(
         vec![Field::new("n", DataType::Int64, false)],
-        HashMap::from([(pse_schema::arrow::KEY_CHECKS.into(),
-            r#"{"clock":"to_timestamp_seconds(n) <= now()"}"#.into())]),
+        HashMap::from([(
+            pse_schema::arrow::KEY_CHECKS.into(),
+            r#"{"clock":"to_timestamp_seconds(n) <= now()"}"#.into(),
+        )]),
     ));
     let owner = ValidationContext::new(&registry, SessionContext::new().state());
-    let now = owner.admission_scope().execution_props().query_execution_start_time.unwrap();
-    let input = RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![now.timestamp()]))]).unwrap();
+    let now = owner
+        .admission_scope()
+        .execution_props()
+        .query_execution_start_time
+        .unwrap();
+    let input = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(Int64Array::from(vec![now.timestamp()]))],
+    )
+    .unwrap();
     let mut past = owner.admission_scope().execution_props().clone();
     past.query_execution_start_time = Some(now - std::time::Duration::from_secs(60));
     let past = owner.for_scope(AdmissionScope::from_execution_props(&past));
@@ -656,7 +746,10 @@ fn scoped_preparation_is_coherent_concurrent_and_does_not_retain_contexts() {
     let held = current.prepare(&registry, schema).unwrap();
     drop(current);
     drop(owner);
-    assert!(weak.upgrade().is_none(), "compiled contracts retain no context/cache cycle");
+    assert!(
+        weak.upgrade().is_none(),
+        "compiled contracts retain no context/cache cycle"
+    );
     assert!(held.evaluate(&input, 8, &cancel).unwrap().is_valid());
 }
 
@@ -664,13 +757,23 @@ fn scoped_preparation_is_coherent_concurrent_and_does_not_retain_contexts() {
 fn immutable_contracts_share_across_scopes_and_nested_volatile_checks_still_refuse() {
     let registry = RegistryBuilder::new().build().unwrap();
     let context = ValidationContext::new(&registry, SessionContext::new().state());
-    let schema = Arc::new(Schema::new_with_metadata(vec![Field::new("n", DataType::Int64, false)],
-        HashMap::from([(pse_schema::arrow::KEY_CHECKS.into(), r#"{"positive":"n > 0"}"#.into())])));
+    let schema = Arc::new(Schema::new_with_metadata(
+        vec![Field::new("n", DataType::Int64, false)],
+        HashMap::from([(
+            pse_schema::arrow::KEY_CHECKS.into(),
+            r#"{"positive":"n > 0"}"#.into(),
+        )]),
+    ));
     let first = context.prepare(&registry, schema.clone()).unwrap();
     let next = context.new_scope().prepare(&registry, schema).unwrap();
     assert!(Arc::ptr_eq(&first, &next));
-    let volatile = Arc::new(Schema::new_with_metadata(vec![Field::new("n", DataType::Int64, false)],
-        HashMap::from([(pse_schema::arrow::KEY_CHECKS.into(), r#"{"bad":"n > 0 AND random() > 0.1"}"#.into())])));
+    let volatile = Arc::new(Schema::new_with_metadata(
+        vec![Field::new("n", DataType::Int64, false)],
+        HashMap::from([(
+            pse_schema::arrow::KEY_CHECKS.into(),
+            r#"{"bad":"n > 0 AND random() > 0.1"}"#.into(),
+        )]),
+    ));
     assert!(context.prepare(&registry, volatile).is_err());
 }
 
@@ -678,23 +781,53 @@ fn immutable_contracts_share_across_scopes_and_nested_volatile_checks_still_refu
 fn scoped_logical_contract_keeps_stable_checks_visible_and_uses_native_execution_clock() {
     let registry = RegistryBuilder::new().build().unwrap();
     let owner = ValidationContext::new(&registry, SessionContext::new().state());
-    let now = owner.admission_scope().execution_props().query_execution_start_time.unwrap();
+    let now = owner
+        .admission_scope()
+        .execution_props()
+        .query_execution_start_time
+        .unwrap();
     let mut earlier = owner.admission_scope().execution_props().clone();
     earlier.query_execution_start_time = Some(now - std::time::Duration::from_secs(60));
     let earlier = owner.for_scope(AdmissionScope::from_execution_props(&earlier));
-    let schema = Arc::new(Schema::new_with_metadata(vec![Field::new("n", DataType::Int64, false)],
-        HashMap::from([(pse_schema::arrow::KEY_CHECKS.into(), r#"{"clock":"to_timestamp_seconds(n) <= now()"}"#.into())])));
+    let schema = Arc::new(Schema::new_with_metadata(
+        vec![Field::new("n", DataType::Int64, false)],
+        HashMap::from([(
+            pse_schema::arrow::KEY_CHECKS.into(),
+            r#"{"clock":"to_timestamp_seconds(n) <= now()"}"#.into(),
+        )]),
+    ));
     let prepared = earlier.prepare(&registry, schema.clone()).unwrap();
-    let input = RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![now.timestamp()]))]).unwrap();
+    let input = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(Int64Array::from(vec![now.timestamp()]))],
+    )
+    .unwrap();
     let cancel = pse_columnar::CancellationToken::new();
     assert!(!prepared.evaluate(&input, 8, &cancel).unwrap().is_valid());
-    let expression = prepared.predicate(vec![Expr::Column(datafusion_common::Column::from_name("n"))]).unwrap();
-    assert!(scope_sensitive(&expression).unwrap(), "the actual Stable function stays visible");
+    let expression = prepared
+        .predicate(vec![Expr::Column(datafusion_common::Column::from_name(
+            "n",
+        ))])
+        .unwrap();
+    assert!(
+        scope_sensitive(&expression).unwrap(),
+        "the actual Stable function stays visible"
+    );
     assert!(!expression.is_volatile());
     let native = DFSchema::try_from(schema.as_ref().clone()).unwrap();
     let physical = super::super::planner::ValidationPlanner::prepare_in_scope(
-        &SessionContext::new().state(), expression, &native, owner.admission_scope(),
-    ).unwrap();
+        &SessionContext::new().state(),
+        expression,
+        &native,
+        owner.admission_scope(),
+    )
+    .unwrap();
     let value = physical.evaluate(&input).unwrap().into_array(1).unwrap();
-    assert!(value.as_any().downcast_ref::<BooleanArray>().unwrap().value(0));
+    assert!(
+        value
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .unwrap()
+            .value(0)
+    );
 }

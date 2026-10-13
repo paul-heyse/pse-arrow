@@ -249,7 +249,8 @@ async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
     }));
     let retained = handle.result().await.unwrap().unwrap();
     let run = runtime
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .canonical_run(&retained.run)
         .await
         .unwrap()
@@ -502,7 +503,8 @@ async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
     assert!(status.points[1].outcome.as_ref().unwrap().scientific.usable);
     let retained = handle.result().await.unwrap().unwrap();
     let run = runtime
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .canonical_run(&retained.run)
         .await
         .unwrap()
@@ -538,9 +540,15 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
             &handle.study_id().to_string(),
             OccurrenceKey(5),
         );
-        let scope = runtime.canonical_store().unwrap().study_scope(&key).await.unwrap();
+        let scope = runtime
+            .canonical_store()
+            .unwrap()
+            .study_scope(&key)
+            .await
+            .unwrap();
         let claim = runtime
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .claim_study_point(
                 &scope,
                 None,
@@ -557,20 +565,23 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
         .await
         .unwrap();
         let point = runtime
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .canonical_study_point(&key)
             .await
             .unwrap()
             .unwrap();
         let assigned_hint = runtime
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .study_assigned_page(&point.study, None)
             .await
             .unwrap();
         assert!(assigned_hint.iter().any(|hint| hint.key == point.key));
         assert!(runtime.recover_study_point(&point.key).await.unwrap());
         let actual = runtime
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .canonical_attempt(claim.fence.attempt())
             .await
             .unwrap()
@@ -578,7 +589,8 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
         assert!(actual.terminal);
         assert_eq!(actual.outcome.as_deref(), Some("failed"));
         let after = runtime
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .canonical_study_point(&key)
             .await
             .unwrap()
@@ -592,7 +604,8 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
         // normal policy has concluded it or may claim a genuinely new retry next.
         assert!(!runtime.recover_study_point(&point.key).await.unwrap());
         let unchanged = runtime
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .canonical_study_point(&key)
             .await
             .unwrap()
@@ -942,14 +955,24 @@ async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
         seed: pse_operations::mint_id(),
     };
     let (physical, _) = sources(CASES);
-    let before = runtime.canonical_store().unwrap().study_page(None).await.unwrap();
+    let before = runtime
+        .canonical_store()
+        .unwrap()
+        .study_page(None)
+        .await
+        .unwrap();
     let failure = runtime
         .start_defined_study(physical, definition, &crate::CancelSource::new())
         .await
         .unwrap_err();
     assert!(matches!(failure, WorkflowError::SeedRead(_)), "{failure:?}");
     assert_eq!(
-        runtime.canonical_store().unwrap().study_page(None).await.unwrap(),
+        runtime
+            .canonical_store()
+            .unwrap()
+            .study_page(None)
+            .await
+            .unwrap(),
         before
     );
     assert!(matches!(
@@ -1438,7 +1461,8 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
     );
     let key = handle.study_id().to_string();
     let header = runtime
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .canonical_study(&key)
         .await
         .unwrap()
@@ -1447,7 +1471,8 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
     assert_eq!(header.point_count, 1000);
     assert_eq!(header.next_ordinal, 1000);
     let first = runtime
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .canonical_study_point(&pse_operations::canonical_studies::point_key(
             &key,
             OccurrenceKey(0),
@@ -1456,7 +1481,8 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
         .unwrap()
         .unwrap();
     let repeated = runtime
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .canonical_study_point(&pse_operations::canonical_studies::point_key(
             &key,
             OccurrenceKey(20),
@@ -1465,7 +1491,8 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
         .unwrap()
         .unwrap();
     let last = runtime
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .canonical_study_point(&pse_operations::canonical_studies::point_key(
             &key,
             OccurrenceKey(999),

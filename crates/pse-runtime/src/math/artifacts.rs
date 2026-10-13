@@ -13,7 +13,10 @@ use pse_ids::ContentHash;
 use pse_math::guarded::CompiledBody;
 use std::sync::{Arc, atomic::Ordering};
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(super) enum Key { Artifact(ContentHash), Scalars(ContentHash) }
+pub(super) enum Key {
+    Artifact(ContentHash),
+    Scalars(ContentHash),
+}
 impl CacheKey for Key {
     fn size(&self) -> usize {
         128
@@ -50,7 +53,13 @@ pub(super) enum Value {
 }
 impl CacheValue for Value {
     fn size(&self) -> usize {
-        match self { Self::Artifact(artifact) => artifact.lease.size().saturating_add(artifact.program.scalar_products().retained_bytes()), Self::Scalars(products) => products.retained_bytes() }
+        match self {
+            Self::Artifact(artifact) => artifact
+                .lease
+                .size()
+                .saturating_add(artifact.program.scalar_products().retained_bytes()),
+            Self::Scalars(products) => products.retained_bytes(),
+        }
     }
 }
 impl MathService {
@@ -59,37 +68,80 @@ impl MathService {
         self.trim_compiler_lanes();
         self.pressure.clear();
     }
-    async fn scalar_products(self: &Arc<Self>, request: ArtifactRequest) -> Result<Arc<pse_math::library::ScalarProducts>, MathRuntimeError> {
+    async fn scalar_products(
+        self: &Arc<Self>,
+        request: ArtifactRequest,
+    ) -> Result<Arc<pse_math::library::ScalarProducts>, MathRuntimeError> {
         let key = Key::Scalars(request.scalar_key());
-        if let Some(Value::Scalars(products)) = self.entries.get(&key) { return Ok(products); }
+        if let Some(Value::Scalars(products)) = self.entries.get(&key) {
+            return Ok(products);
+        }
         let service = self.clone();
         let epoch = self.retention.generation();
         let population = super::PopulationScope::capture();
-        self.scalar_flights.load_owned(key.clone(), move |cancel| population.run(async move {
-            if let Some(Value::Scalars(products)) = service.entries.get(&key) { return Ok(products); }
-            let construction = super::jobs::ConstructionEstimate::from_bound(request.construction_allocation_bound()?, service.policy.worker_bytes);
-            let known_limit = construction.bytes();
-            let foreign = service.policy.foreign_bytes;
-            let check = cancel.flag();
-            let (products, lease) = service.job_retained_construction(request.cores(), construction, cancel, None, move |flag| {
-                let products = request.build_scalars(&flag).map_err(MathRuntimeError::Math)?;
-                let known = products.retained_bytes();
-                if known > known_limit { return Err(MathRuntimeError::Limit("scalar retained construction extent")); }
-                let retained = known.checked_add(if products.is_empty() { 0 } else { foreign }).ok_or(MathRuntimeError::Limit("scalar retained foreign extent"))?;
-                Ok((products, retained))
-            }).await?;
-            if check.load(Ordering::Acquire) { return Err(MathRuntimeError::Cancelled); }
-            service.live.fetch_add(lease.size(), Ordering::AcqRel);
-            let owner = Arc::new(ProgramOwner { lease, live: service.live.clone() });
-            let products = Arc::new(products.with_owner_and_foreign_allowance(owner, foreign));
-            service.pressure.publish_artifact(epoch, &key, Value::Scalars(products.clone()));
-            Ok(products)
-        })).await.map_err(|error| match error {
-            FlightError::Load(error) => MathRuntimeError::Shared(error),
-            FlightError::Capacity => MathRuntimeError::Limit("scalar flights"),
-            FlightError::Retiring => MathRuntimeError::Retiring,
-            FlightError::Panicked => MathRuntimeError::Panic("scalar task panic".into()),
-        })
+        self.scalar_flights
+            .load_owned(key.clone(), move |cancel| {
+                population.run(async move {
+                    if let Some(Value::Scalars(products)) = service.entries.get(&key) {
+                        return Ok(products);
+                    }
+                    let construction = super::jobs::ConstructionEstimate::from_bound(
+                        request.construction_allocation_bound()?,
+                        service.policy.worker_bytes,
+                    );
+                    let known_limit = construction.bytes();
+                    let foreign = service.policy.foreign_bytes;
+                    let check = cancel.flag();
+                    let (products, lease) = service
+                        .job_retained_construction(
+                            request.cores(),
+                            construction,
+                            cancel,
+                            None,
+                            move |flag| {
+                                let products = request
+                                    .build_scalars(&flag)
+                                    .map_err(MathRuntimeError::Math)?;
+                                let known = products.retained_bytes();
+                                if known > known_limit {
+                                    return Err(MathRuntimeError::Limit(
+                                        "scalar retained construction extent",
+                                    ));
+                                }
+                                let retained = known
+                                    .checked_add(if products.is_empty() { 0 } else { foreign })
+                                    .ok_or(MathRuntimeError::Limit(
+                                        "scalar retained foreign extent",
+                                    ))?;
+                                Ok((products, retained))
+                            },
+                        )
+                        .await?;
+                    if check.load(Ordering::Acquire) {
+                        return Err(MathRuntimeError::Cancelled);
+                    }
+                    service.live.fetch_add(lease.size(), Ordering::AcqRel);
+                    let owner = Arc::new(ProgramOwner {
+                        lease,
+                        live: service.live.clone(),
+                    });
+                    let products =
+                        Arc::new(products.with_owner_and_foreign_allowance(owner, foreign));
+                    service.pressure.publish_artifact(
+                        epoch,
+                        &key,
+                        Value::Scalars(products.clone()),
+                    );
+                    Ok(products)
+                })
+            })
+            .await
+            .map_err(|error| match error {
+                FlightError::Load(error) => MathRuntimeError::Shared(error),
+                FlightError::Capacity => MathRuntimeError::Limit("scalar flights"),
+                FlightError::Retiring => MathRuntimeError::Retiring,
+                FlightError::Panicked => MathRuntimeError::Panic("scalar task panic".into()),
+            })
     }
     /// Obtain a compiler-issued artifact; callers cannot supply an independent cache key.
     pub async fn artifact(
@@ -135,10 +187,24 @@ impl MathService {
                     let check = cancel.flag();
                     let (program, lease) = service
                         .job_retained_construction(cores, construction, cancel, None, move |flag| {
-                            let program = request.build_reusing(&flag, &scalars).map_err(MathRuntimeError::Math)?;
+                            let program = request
+                                .build_reusing(&flag, &scalars)
+                                .map_err(MathRuntimeError::Math)?;
                             let known = program.retained_bytes();
-                            if known > known_limit { return Err(MathRuntimeError::Limit("program retained construction extent")); }
-                            let retained = known.checked_add(if program.scalar_products().has_unowned() { foreign } else { 0 }).ok_or(MathRuntimeError::Limit("program retained foreign extent"))?;
+                            if known > known_limit {
+                                return Err(MathRuntimeError::Limit(
+                                    "program retained construction extent",
+                                ));
+                            }
+                            let retained = known
+                                .checked_add(if program.scalar_products().has_unowned() {
+                                    foreign
+                                } else {
+                                    0
+                                })
+                                .ok_or(MathRuntimeError::Limit(
+                                    "program retained foreign extent",
+                                ))?;
                             Ok((program, retained))
                         })
                         .await?;
@@ -151,15 +217,23 @@ impl MathService {
                         live: service.live.clone(),
                     });
                     let artifact = Arc::new(Artifact {
-                        program: Arc::new(program.with_owner_and_scalar_foreign_allowance(lease.clone(), foreign)),
+                        program: Arc::new(
+                            program.with_owner_and_scalar_foreign_allowance(lease.clone(), foreign),
+                        ),
                         lease,
                     });
                     // Keep order-specific provider-lift scalars as seeds for later
                     // upgrades too; every borrowed entry retains its first lease.
-                    service.pressure.publish_artifact(epoch, &scalar_key, Value::Scalars(Arc::new(artifact.program.scalar_products().clone())));
-                    service
-                        .pressure
-                        .publish_artifact(epoch, &key, Value::Artifact(artifact.clone()));
+                    service.pressure.publish_artifact(
+                        epoch,
+                        &scalar_key,
+                        Value::Scalars(Arc::new(artifact.program.scalar_products().clone())),
+                    );
+                    service.pressure.publish_artifact(
+                        epoch,
+                        &key,
+                        Value::Artifact(artifact.clone()),
+                    );
                     Ok(artifact)
                 })
             })
@@ -223,7 +297,10 @@ impl CacheComponent for MathService {
         {
             rows.push(CacheEntryReport {
                 cache: self.entries.name(),
-                key: match key { Key::Artifact(hash) => hash.to_string(), Key::Scalars(hash) => format!("scalar:{hash}") },
+                key: match key {
+                    Key::Artifact(hash) => hash.to_string(),
+                    Key::Scalars(hash) => format!("scalar:{hash}"),
+                },
                 bytes: e.size_bytes,
                 hits: e.hits,
             });
@@ -258,16 +335,27 @@ mod tests {
     use super::*;
     #[tokio::test(flavor = "current_thread")]
     async fn large_rational_scalar_foreign_capacity_survives_eviction_until_last_worker() {
-        let (service, _cache) = super::super::tests::service_with_policy(256 << 20, super::super::MathPolicy::default());
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy::default(),
+        );
         let denominator = "9".repeat(300);
-        let source = format!("package p {{def Root {{param p:Scalar=1;var x:Scalar;eq a:x*p==1/{denominator};annotation start x(1);}}}}");
+        let source = format!(
+            "package p {{def Root {{param p:Scalar=1;var x:Scalar;eq a:x*p==1/{denominator};annotation start x(1);}}}}"
+        );
         let (preparation, _, _) = super::super::tests::component_fixture_source(&service, &source);
         let request = preparation.compiled().artifacts[0].clone();
         let scalar = service.scalar_products(request.clone()).await.unwrap();
-        assert_eq!(scalar.foreign_allowance_bytes(), service.policy.foreign_bytes);
+        assert_eq!(
+            scalar.foreign_allowance_bytes(),
+            service.policy.foreign_bytes
+        );
         let artifact = service.artifact(request).await.unwrap();
         let worker = artifact.program.worker();
-        assert_eq!(artifact.program.scalar_products().foreign_allowance_bytes(), service.policy.foreign_bytes);
+        assert_eq!(
+            artifact.program.scalar_products().foreign_allowance_bytes(),
+            service.policy.foreign_bytes
+        );
         service.clear_program_cache();
         drop(scalar);
         drop(artifact);
@@ -277,16 +365,25 @@ mod tests {
     }
     #[tokio::test(flavor = "current_thread")]
     async fn scalar_family_flights_share_preparation_and_eviction_keeps_borrowed_leases() {
-        let (service, _cache) = super::super::tests::service_with_policy(256 << 20, super::super::MathPolicy::default());
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy::default(),
+        );
         let (preparation, _, _) = super::super::tests::component_fixture(&service);
         let request = preparation.compiled().artifacts[0].clone();
-        let (first, second) = tokio::join!(service.scalar_products(request.clone()), service.scalar_products(request.clone()));
+        let (first, second) = tokio::join!(
+            service.scalar_products(request.clone()),
+            service.scalar_products(request.clone())
+        );
         let first = first.unwrap();
         let second = second.unwrap();
         assert!(Arc::ptr_eq(&first, &second));
         assert!(!first.is_empty());
         let scalar_key = Key::Scalars(request.scalar_key());
-        assert!(matches!(service.entries.get(&scalar_key), Some(Value::Scalars(_))));
+        assert!(matches!(
+            service.entries.get(&scalar_key),
+            Some(Value::Scalars(_))
+        ));
         let artifact = service.artifact(request).await.unwrap();
         let worker = artifact.program.worker();
         let charged = service.live.load(Ordering::Acquire);
@@ -296,7 +393,10 @@ mod tests {
         drop(first);
         drop(second);
         drop(artifact);
-        assert!(service.live.load(Ordering::Acquire) > 0, "worker borrows both scalar and program charges");
+        assert!(
+            service.live.load(Ordering::Acquire) > 0,
+            "worker borrows both scalar and program charges"
+        );
         drop(worker);
         assert_eq!(service.live.load(Ordering::Acquire), 0);
     }

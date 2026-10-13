@@ -14,7 +14,9 @@ import pse
 
 
 @pytest.mark.unit
-def test_configured_local_runtime_refuses_replaced_mapped_extension(tmp_path: Path) -> None:
+def test_configured_local_runtime_refuses_replaced_mapped_extension(
+    tmp_path: Path,
+) -> None:
     """Replace only a child's copied pathname, without truncating its mapped inode."""
     package = Path(pse.__file__).resolve().parent
     imported = sys.modules["pse._native"].__file__
@@ -33,11 +35,14 @@ def test_configured_local_runtime_refuses_replaced_mapped_extension(tmp_path: Pa
     shutil.copyfile(extension, copied_extension, follow_symlinks=True)
     copied_stat = copied_extension.stat()
     source_stat = extension.stat()
-    assert (copied_stat.st_dev, copied_stat.st_ino) != (source_stat.st_dev, source_stat.st_ino)
+    assert (copied_stat.st_dev, copied_stat.st_ino) != (
+        source_stat.st_dev,
+        source_stat.st_ino,
+    )
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(isolated)
     environment.pop("PSE_SURREAL_STATE", None)
-    child = r'''
+    child = r"""
 import os
 import sys
 from pathlib import Path
@@ -83,7 +88,7 @@ else:
 assert not state.exists()
 runtime.close()
 print("refused replaced mapped artifact before store access")
-'''
+"""
     completed = subprocess.run(
         [sys.executable, "-c", child],
         cwd=isolated,

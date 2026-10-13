@@ -97,14 +97,18 @@ pub(crate) fn runtime_on_threads(
             .session_factory(pse_engine::session::native_engine_profile())
             .unwrap(),
     );
-    Runtime::from_shared_local(shared,sessions.bind_model(registry).unwrap()).unwrap()
+    Runtime::from_shared_local(shared, sessions.bind_model(registry).unwrap()).unwrap()
 }
 /// Genuine store-effect fixtures explicitly request durable source/run acknowledgement.
 #[cfg(feature = "canonical-tests")]
 pub(crate) fn durable_runtime() -> Runtime {
-    let local=runtime();
-    Runtime::from_shared(local.shared.clone(),local.model.clone(),canonical_deployment()).unwrap()
-
+    let local = runtime();
+    Runtime::from_shared(
+        local.shared.clone(),
+        local.model.clone(),
+        canonical_deployment(),
+    )
+    .unwrap()
 }
 fn shared_runtime_on(memory: usize, math: crate::math::MathPolicy) -> Arc<SharedRuntime> {
     shared_runtime_on_threads(memory, math, 2)
@@ -318,15 +322,33 @@ fn deployment_check_refuses_foreign_consumed_owners_and_width() {
 
 #[test]
 fn workflow_composition_binds_same_owner_factory_without_a_store() {
-    let runtime=runtime();let sessions=runtime.sessions().clone();
-    let checked=Runtime::from_shared_local(runtime.shared.clone(),sessions.bind_model(runtime.registry().clone()).unwrap()).unwrap();
-    assert!(Arc::ptr_eq(checked.sessions(),&sessions));assert!(Arc::ptr_eq(&checked.shared,&runtime.shared));
-    assert!(Arc::ptr_eq(&checked.validation_context(),&runtime.validation_context()));
-    assert!(matches!(checked.canonical(),Err(WorkflowError::RecordingUnavailable)));
-    assert!(matches!(checked.with_durability(DurabilitySelection::Durable {worker:"no-sink".into(),policy:LeasePolicy::default()}),Err(WorkflowError::RecordingUnavailable)));
+    let runtime = runtime();
+    let sessions = runtime.sessions().clone();
+    let checked = Runtime::from_shared_local(
+        runtime.shared.clone(),
+        sessions.bind_model(runtime.registry().clone()).unwrap(),
+    )
+    .unwrap();
+    assert!(Arc::ptr_eq(checked.sessions(), &sessions));
+    assert!(Arc::ptr_eq(&checked.shared, &runtime.shared));
+    assert!(Arc::ptr_eq(
+        &checked.validation_context(),
+        &runtime.validation_context()
+    ));
+    assert!(matches!(
+        checked.canonical(),
+        Err(WorkflowError::RecordingUnavailable)
+    ));
+    assert!(matches!(
+        checked.with_durability(DurabilitySelection::Durable {
+            worker: "no-sink".into(),
+            policy: LeasePolicy::default()
+        }),
+        Err(WorkflowError::RecordingUnavailable)
+    ));
 }
 
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 #[test]
 fn workflow_durability_selection_uses_this_deployment() {
     let runtime = durable_runtime();

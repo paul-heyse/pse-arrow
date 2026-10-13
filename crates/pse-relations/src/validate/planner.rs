@@ -116,5 +116,4 @@ impl ValidationPlanner for datafusion::execution::session_state::SessionState {
             scope.execution_props().query_execution_start_time;
         ValidationPlanner::prepare(&state, expression, schema)
     }
-
 }

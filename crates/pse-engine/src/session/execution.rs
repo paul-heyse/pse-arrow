@@ -58,10 +58,13 @@ impl NativeExecutionContext {
         cancel: &CancellationToken,
     ) -> Result<SessionState, EngineError> {
         let caches = session.invocation.clone().unwrap_or_default();
-        let validation = Arc::new(pse_relations::validate::ValidationContext::new(
-            session.registry(),
-            crate::validation::NativeValidation(state.clone()),
-        ).for_scope(caches.4.validation_scope.clone()));
+        let validation = Arc::new(
+            pse_relations::validate::ValidationContext::new(
+                session.registry(),
+                crate::validation::NativeValidation(state.clone()),
+            )
+            .for_scope(caches.4.validation_scope.clone()),
+        );
         let services = Arc::new(Self {
             validation,
             template: session.empty_selection()?,
@@ -261,7 +264,11 @@ impl NativeExecutionContext {
             .import_scope(source.ownership())
             .map_err(pse_columnar::external)?;
         let services = Arc::new(Self {
-            validation: Arc::new(source.validation.for_scope(caches.4.validation_scope.clone())),
+            validation: Arc::new(
+                source
+                    .validation
+                    .for_scope(caches.4.validation_scope.clone()),
+            ),
             caches,
             inherited: source.inherited,
             parent_admission: source.parent_admission.clone(),
@@ -369,8 +376,11 @@ impl NativeExecutionContext {
 
 fn install_scope_time(state: &mut SessionState) {
     if let Some(services) = state.config().get_extension::<NativeExecutionContext>() {
-        state.execution_props_mut().query_execution_start_time =
-            services.validation.admission_scope().execution_props().query_execution_start_time;
+        state.execution_props_mut().query_execution_start_time = services
+            .validation
+            .admission_scope()
+            .execution_props()
+            .query_execution_start_time;
     }
 }
 

@@ -178,8 +178,8 @@ pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 use std::sync::Arc;
 mod canonical;
 mod source_settlement;
-pub use source_settlement::{SourceAcknowledgement, SourceSettlement};
 pub use canonical::{CanonicalDeployment, OuterAttestation};
+pub use source_settlement::{SourceAcknowledgement, SourceSettlement};
 
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
 #[derive(Debug, thiserror::Error)]
@@ -368,7 +368,10 @@ impl Runtime {
             LeasePolicy::default(),
             shared.pool(),
         )));
-        let caller=Arc::new(RuntimeCaller::new(Some(canonical.store().clone()),model.validation_context()));
+        let caller = Arc::new(RuntimeCaller::new(
+            Some(canonical.store().clone()),
+            model.validation_context(),
+        ));
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
         shared.caches().register_component(&component);
@@ -376,9 +379,12 @@ impl Runtime {
             shared,
             model,
             caller,
-            outer_attestation:Some(canonical.attestation()),
+            outer_attestation: Some(canonical.attestation()),
             canonical: Some(canonical),
-            recording_operations: match &durability {Durability::Durable(operations)=>Some(operations.clone()),Durability::Ephemeral=>None},
+            recording_operations: match &durability {
+                Durability::Durable(operations) => Some(operations.clone()),
+                Durability::Ephemeral => None,
+            },
             durability,
             physical_cache,
         })
@@ -390,7 +396,7 @@ impl Runtime {
         model: BoundModel,
     ) -> Result<Self, WorkflowError> {
         Self::check_deployment(&shared, model.factory())?;
-        let caller=Arc::new(RuntimeCaller::new(None,model.validation_context()));
+        let caller = Arc::new(RuntimeCaller::new(None, model.validation_context()));
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
         shared.caches().register_component(&component);
@@ -399,41 +405,72 @@ impl Runtime {
             model,
             canonical: None,
             caller,
-            outer_attestation:None,
+            outer_attestation: None,
             durability: Durability::Ephemeral,
-            recording_operations:None,
+            recording_operations: None,
             physical_cache,
         })
     }
     /// Attach an explicitly opened import/recording boundary to this same caller.
     /// This creates no executor, model binding, budget or independent close authority.
     pub fn with_canonical(&self, canonical: CanonicalDeployment) -> Result<Self, WorkflowError> {
-        if self.canonical.is_some() {return Err(contract("runtime recording sink is already configured"));}
-        let canonical=canonical.independent_caller()?;
-        let mut state=self.caller.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let continuing=RUNTIME_CONTINUATION.try_with(|activity|Arc::ptr_eq(&activity.0.caller,&self.caller)).unwrap_or(false);
-        if state.closed && !continuing {canonical.store().close();return Err(WorkflowError::CallerClosed);}
-        let recording_operations=Some(Box::new(Operations::from_store(canonical.store().clone(),Operations::process_worker("runtime"),LeasePolicy::default(),self.shared.pool())));
+        if self.canonical.is_some() {
+            return Err(contract("runtime recording sink is already configured"));
+        }
+        let canonical = canonical.independent_caller()?;
+        let mut state = self
+            .caller
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let continuing = RUNTIME_CONTINUATION
+            .try_with(|activity| Arc::ptr_eq(&activity.0.caller, &self.caller))
+            .unwrap_or(false);
+        if state.closed && !continuing {
+            canonical.store().close();
+            return Err(WorkflowError::CallerClosed);
+        }
+        let recording_operations = Some(Box::new(Operations::from_store(
+            canonical.store().clone(),
+            Operations::process_worker("runtime"),
+            LeasePolicy::default(),
+            self.shared.pool(),
+        )));
         state.stores.push(canonical.store().clone());
-        Ok(Self {outer_attestation:self.outer_attestation.or(Some(canonical.attestation())),canonical:Some(canonical),recording_operations,..self.clone()})
+        Ok(Self {
+            outer_attestation: self.outer_attestation.or(Some(canonical.attestation())),
+            canonical: Some(canonical),
+            recording_operations,
+            ..self.clone()
+        })
     }
     /// Actual supplied outer provenance is separate from storage configuration and trust.
-    pub fn outer_attestation(&self) -> Option<OuterAttestation> { self.outer_attestation }
+    pub fn outer_attestation(&self) -> Option<OuterAttestation> {
+        self.outer_attestation
+    }
     /// Retain a composition root's actual observation, without granting executable reuse.
-    pub fn with_attestation(mut self, attestation: OuterAttestation) -> Self { self.outer_attestation=Some(attestation);self }
+    pub fn with_attestation(mut self, attestation: OuterAttestation) -> Self {
+        self.outer_attestation = Some(attestation);
+        self
+    }
     /// One admission scope shared by the active operation's children.
     pub fn admission_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
-        if let Ok(activity)=RUNTIME_CONTINUATION.try_with(Clone::clone)
-            && Arc::ptr_eq(&activity.0.caller,&self.caller) { return activity.0.validation.clone(); }
+        if let Ok(activity) = RUNTIME_CONTINUATION.try_with(Clone::clone)
+            && Arc::ptr_eq(&activity.0.caller, &self.caller)
+        {
+            return activity.0.validation.clone();
+        }
         Arc::new(self.model.admission_context())
     }
     /// Admit an integration before polling its first effect. Required asynchronous
     /// children retain this caller and admission scope until the future drains.
     /// # Errors
     /// The logical caller is closed, or the integration returns its typed failure.
-    pub async fn scope_activity<T,F>(&self,operation:F)->Result<T,WorkflowError>
-    where F:Future<Output=Result<T,WorkflowError>> {
-        let activity=self.admit_activity()?;
+    pub async fn scope_activity<T, F>(&self, operation: F) -> Result<T, WorkflowError>
+    where
+        F: Future<Output = Result<T, WorkflowError>>,
+    {
+        let activity = self.admit_activity()?;
         activity.scope(operation).await
     }
     /// Local caller admission is independent of recording-service liveness.
@@ -499,7 +536,9 @@ impl Runtime {
     }
     /// Actual configured recording/import boundary, when explicitly requested.
     pub fn canonical(&self) -> Result<&CanonicalDeployment, WorkflowError> {
-        self.canonical.as_ref().ok_or(WorkflowError::RecordingUnavailable)
+        self.canonical
+            .as_ref()
+            .ok_or(WorkflowError::RecordingUnavailable)
     }
     /// The same deployment under an explicit durability class (ADR-0114 Outcome 16).
     /// Packages and preparations made from the returned runtime run under it.
@@ -521,7 +560,9 @@ impl Runtime {
                 )))
             }
         };
-        if let Durability::Durable(operations)=&self.durability { self.recording_operations=Some(operations.clone()); }
+        if let Durability::Durable(operations) = &self.durability {
+            self.recording_operations = Some(operations.clone());
+        }
         Ok(self)
     }
     /// The durability class of this runtime's runs.
@@ -568,23 +609,51 @@ struct RuntimeCallerState {
     stores: Vec<pse_operations::canonical::CanonicalStore>,
 }
 impl RuntimeCaller {
-    fn new(store: Option<pse_operations::canonical::CanonicalStore>,validation:Arc<pse_relations::validate::ValidationContext>) -> Self {
-        Self { state: std::sync::Mutex::new(RuntimeCallerState { stores: store.into_iter().collect(), ..Default::default() }),validation }
+    fn new(
+        store: Option<pse_operations::canonical::CanonicalStore>,
+        validation: Arc<pse_relations::validate::ValidationContext>,
+    ) -> Self {
+        Self {
+            state: std::sync::Mutex::new(RuntimeCallerState {
+                stores: store.into_iter().collect(),
+                ..Default::default()
+            }),
+            validation,
+        }
     }
     fn admit(self: &Arc<Self>) -> Result<RuntimeActivity, WorkflowError> {
         if let Ok(activity) = RUNTIME_CONTINUATION.try_with(Clone::clone)
-            && Arc::ptr_eq(&activity.0.caller, self) {
+            && Arc::ptr_eq(&activity.0.caller, self)
+        {
             return Ok(activity);
         }
-        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if state.closed { return Err(WorkflowError::CallerClosed); }
-        state.active = state.active.checked_add(1).ok_or_else(|| contract("runtime activity extent"))?;
-        Ok(RuntimeActivity(Arc::new(RuntimeActivityOwner { caller: self.clone(),validation:Arc::new(self.validation.new_scope()) })))
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.closed {
+            return Err(WorkflowError::CallerClosed);
+        }
+        state.active = state
+            .active
+            .checked_add(1)
+            .ok_or_else(|| contract("runtime activity extent"))?;
+        Ok(RuntimeActivity(Arc::new(RuntimeActivityOwner {
+            caller: self.clone(),
+            validation: Arc::new(self.validation.new_scope()),
+        })))
     }
     fn close(&self) {
-        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.closed = true;
-        if state.active == 0 { for store in &state.stores { store.close(); } }
+        if state.active == 0 {
+            for store in &state.stores {
+                store.close();
+            }
+        }
     }
 }
 /// An admitted local continuation. Required children inherit it explicitly;
@@ -592,90 +661,156 @@ impl RuntimeCaller {
 #[derive(Clone, Debug)]
 pub(crate) struct RuntimeActivity(Arc<RuntimeActivityOwner>);
 #[derive(Debug)]
-struct RuntimeActivityOwner { caller: Arc<RuntimeCaller>,validation:Arc<pse_relations::validate::ValidationContext> }
+struct RuntimeActivityOwner {
+    caller: Arc<RuntimeCaller>,
+    validation: Arc<pse_relations::validate::ValidationContext>,
+}
 impl Drop for RuntimeActivityOwner {
     fn drop(&mut self) {
-        let mut state = self.caller.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut state = self
+            .caller
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.active -= 1;
-        if state.closed && state.active == 0 { for store in &state.stores { store.close(); } }
+        if state.closed && state.active == 0 {
+            for store in &state.stores {
+                store.close();
+            }
+        }
     }
 }
 tokio::task_local! { static RUNTIME_CONTINUATION: RuntimeActivity; }
 impl RuntimeActivity {
-    pub(crate) fn sync_scope<T>(&self,action:impl FnOnce()->T)->T { RUNTIME_CONTINUATION.sync_scope(self.clone(),action) }
+    pub(crate) fn sync_scope<T>(&self, action: impl FnOnce() -> T) -> T {
+        RUNTIME_CONTINUATION.sync_scope(self.clone(), action)
+    }
     pub(crate) fn scope<F: Future>(&self, future: F) -> impl Future<Output = F::Output> + use<F> {
         RUNTIME_CONTINUATION.scope(self.clone(), future)
     }
 }
 pub(crate) fn inherit_runtime_activity<F: Future>(future: F) -> impl Future<Output = F::Output> {
     let activity = RUNTIME_CONTINUATION.try_with(Clone::clone).ok();
-    let future=pse_operations::canonical::inherit_activity(future);
-    async move { match activity { Some(activity) => activity.scope(future).await, None => future.await } }
+    let future = pse_operations::canonical::inherit_activity(future);
+    async move {
+        match activity {
+            Some(activity) => activity.scope(future).await,
+            None => future.await,
+        }
+    }
 }
 #[cfg(test)]
 mod local_caller_tests {
     use super::*;
     #[tokio::test]
     async fn local_close_refuses_idle_alias_and_keeps_admitted_children() {
-        let runtime=tests::runtime();let alias=runtime.clone();
-        let activity=runtime.admit_activity().unwrap();
-        activity.scope(async {
-            let child=alias.clone();
-            let inherited=inherit_runtime_activity(async move {
-                let nested=child.admit_activity().unwrap();
-                nested.scope(async {assert!(child.canonical().is_err());}).await;
-            });
-            runtime.close();
-            tokio::spawn(inherited).await.unwrap();
-        }).await;
+        let runtime = tests::runtime();
+        let alias = runtime.clone();
+        let activity = runtime.admit_activity().unwrap();
+        activity
+            .scope(async {
+                let child = alias.clone();
+                let inherited = inherit_runtime_activity(async move {
+                    let nested = child.admit_activity().unwrap();
+                    nested
+                        .scope(async {
+                            assert!(child.canonical().is_err());
+                        })
+                        .await;
+                });
+                runtime.close();
+                tokio::spawn(inherited).await.unwrap();
+            })
+            .await;
         drop(activity);
-        assert!(matches!(alias.admit_activity(),Err(WorkflowError::CallerClosed)));
-        let called=Arc::new(std::sync::atomic::AtomicBool::new(false));let observed=called.clone();
-        let refused=runtime.scope_activity(async move {observed.store(true,std::sync::atomic::Ordering::Release);Ok(())}).await;
-        assert!(matches!(refused,Err(WorkflowError::CallerClosed)));assert!(!called.load(std::sync::atomic::Ordering::Acquire));
+        assert!(matches!(
+            alias.admit_activity(),
+            Err(WorkflowError::CallerClosed)
+        ));
+        let called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let observed = called.clone();
+        let refused = runtime
+            .scope_activity(async move {
+                observed.store(true, std::sync::atomic::Ordering::Release);
+                Ok(())
+            })
+            .await;
+        assert!(matches!(refused, Err(WorkflowError::CallerClosed)));
+        assert!(!called.load(std::sync::atomic::Ordering::Acquire));
     }
     #[tokio::test]
     async fn admitted_integration_keeps_one_continuation_across_acquisition_and_operation() {
-        let runtime=tests::runtime();
-        let (acquired,observed)=tokio::sync::oneshot::channel();
-        let (resume,released)=tokio::sync::oneshot::channel();
-        let executing=runtime.clone();
-        let task=tokio::spawn(async move {
-            executing.scope_activity(async {
-                // This barrier models an acquired integration before its actual operation.
-                let scope=executing.admission_context();
-                acquired.send(()).map_err(|_|contract("acquisition observer dropped"))?;
-                released.await.map_err(|_|contract("integration resume owner dropped"))?;
-                assert!(Arc::ptr_eq(&scope,&executing.admission_context()));
-                let declarations=pse_authoring::language::parse("package held {param a:Scalar=1;}",pse_ids::SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
-                // Real local source admission starts after close and inherits only
-                // this admitted continuation, never authority from an idle alias.
-                let package=executing.modeling_package(declarations.clone(),tests::physical()).await?;
-                assert_eq!(&*package.declarations().await?,declarations.as_slice());
-                Ok(package.revision_id().to_owned())
-            }).await
+        let runtime = tests::runtime();
+        let (acquired, observed) = tokio::sync::oneshot::channel();
+        let (resume, released) = tokio::sync::oneshot::channel();
+        let executing = runtime.clone();
+        let task = tokio::spawn(async move {
+            executing
+                .scope_activity(async {
+                    // This barrier models an acquired integration before its actual operation.
+                    let scope = executing.admission_context();
+                    acquired
+                        .send(())
+                        .map_err(|_| contract("acquisition observer dropped"))?;
+                    released
+                        .await
+                        .map_err(|_| contract("integration resume owner dropped"))?;
+                    assert!(Arc::ptr_eq(&scope, &executing.admission_context()));
+                    let declarations = pse_authoring::language::parse(
+                        "package held {param a:Scalar=1;}",
+                        pse_ids::SemanticId::NIL,
+                        pse_authoring::language::IdentityPolicy::Named,
+                        Default::default(),
+                    )
+                    .unwrap();
+                    // Real local source admission starts after close and inherits only
+                    // this admitted continuation, never authority from an idle alias.
+                    let package = executing
+                        .modeling_package(declarations.clone(), tests::physical())
+                        .await?;
+                    assert_eq!(&*package.declarations().await?, declarations.as_slice());
+                    Ok(package.revision_id().to_owned())
+                })
+                .await
         });
         observed.await.unwrap();
         runtime.close();
-        let polled=Arc::new(std::sync::atomic::AtomicBool::new(false));let fresh=polled.clone();
-        let refused=runtime.scope_activity(async move {
-            fresh.store(true,std::sync::atomic::Ordering::Release);Ok(())
-        }).await;
-        assert!(matches!(refused,Err(WorkflowError::CallerClosed)));
+        let polled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let fresh = polled.clone();
+        let refused = runtime
+            .scope_activity(async move {
+                fresh.store(true, std::sync::atomic::Ordering::Release);
+                Ok(())
+            })
+            .await;
+        assert!(matches!(refused, Err(WorkflowError::CallerClosed)));
         assert!(!polled.load(std::sync::atomic::Ordering::Acquire));
         resume.send(()).unwrap();
         assert!(!task.await.unwrap().unwrap().is_empty());
-        assert!(matches!(runtime.admit_activity(),Err(WorkflowError::CallerClosed)));
+        assert!(matches!(
+            runtime.admit_activity(),
+            Err(WorkflowError::CallerClosed)
+        ));
     }
     #[tokio::test]
     async fn local_admission_scope_is_shared_only_by_its_operation() {
-        let runtime=tests::runtime();
-        let activity=runtime.admit_activity().unwrap();
-        activity.scope(async {
-            let first=runtime.admission_context();let second=runtime.admission_context();
-            assert!(Arc::ptr_eq(&first,&second));
-            let nested=runtime.admit_activity().unwrap();nested.scope(async {assert!(Arc::ptr_eq(&first,&runtime.admission_context()));}).await;
-        }).await;
-        let next=runtime.admission_context();let other=runtime.admission_context();assert!(!Arc::ptr_eq(&next,&other));
+        let runtime = tests::runtime();
+        let activity = runtime.admit_activity().unwrap();
+        activity
+            .scope(async {
+                let first = runtime.admission_context();
+                let second = runtime.admission_context();
+                assert!(Arc::ptr_eq(&first, &second));
+                let nested = runtime.admit_activity().unwrap();
+                nested
+                    .scope(async {
+                        assert!(Arc::ptr_eq(&first, &runtime.admission_context()));
+                    })
+                    .await;
+            })
+            .await;
+        let next = runtime.admission_context();
+        let other = runtime.admission_context();
+        assert!(!Arc::ptr_eq(&next, &other));
     }
 }

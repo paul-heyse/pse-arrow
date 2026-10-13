@@ -537,7 +537,8 @@ mod tests {
         let mut retired = false;
         for _ in 0..32 {
             if runtime
-                .canonical_store().unwrap()
+                .canonical_store()
+                .unwrap()
                 .forget_run_results(run)
                 .await
                 .is_ok()
@@ -554,7 +555,8 @@ mod tests {
                 .await
                 .unwrap();
             let read = runtime
-                .canonical_store().unwrap()
+                .canonical_store()
+                .unwrap()
                 .read_artifact(&artifact.header().key, Duration::from_secs(10))
                 .await
                 .unwrap();

@@ -23,43 +23,103 @@ pub(crate) struct LocalSourceObject {
 }
 impl std::ops::Deref for LocalSourceObject {
     type Target = SourceObjectValue;
-    fn deref(&self) -> &Self::Target { &self.value }
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
 }
 impl PartialEq for LocalSourceObject {
-    fn eq(&self, other: &Self) -> bool { self.value == other.value }
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
 }
 impl Eq for LocalSourceObject {}
 impl Hash for LocalSourceObject {
-    fn hash<H: Hasher>(&self, state: &mut H) { self.value.hash(state); }
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
 }
 impl LocalSourceObject {
-    pub(crate) fn retained_bytes(&self) -> usize { self.lease.size() }
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.lease.size()
+    }
     fn from_edit(runtime: &Runtime, edit: ObjectEdit) -> Result<Option<Arc<Self>>, WorkflowError> {
-        let Some(version) = edit.version else { return Ok(None); };
-        let extent = edit.logical.capacity() + edit.scope.capacity() + edit.name.capacity()
-            + version.owned_bytes() + edit.references.iter().map(|(s,n)| s.capacity()+n.capacity()+128).sum::<usize>()
-            + size_of::<Self>() + 256;
-        let declaration_extent=if version.kind.starts_with("modeling:") && version.kind!=CONTEXT {version.payload.len().checked_mul(32).and_then(|n|n.checked_add(8192)).ok_or_else(||contract("owned declaration extent"))?}else{0};
-        let lease = runtime.shared.math().reserve("modeling:owned-source-object", extent.checked_add(declaration_extent).ok_or_else(||contract("owned source object extent"))?)?;
-        if version.logical != edit.logical || version.interpretation != pse_operations::generated::surreal::INTERPRETATION {
-            return Err(contract("owned source object interpretation or logical identity differs"));
+        let Some(version) = edit.version else {
+            return Ok(None);
+        };
+        let extent = edit.logical.capacity()
+            + edit.scope.capacity()
+            + edit.name.capacity()
+            + version.owned_bytes()
+            + edit
+                .references
+                .iter()
+                .map(|(s, n)| s.capacity() + n.capacity() + 128)
+                .sum::<usize>()
+            + size_of::<Self>()
+            + 256;
+        let declaration_extent = if version.kind.starts_with("modeling:") && version.kind != CONTEXT
+        {
+            version
+                .payload
+                .len()
+                .checked_mul(32)
+                .and_then(|n| n.checked_add(8192))
+                .ok_or_else(|| contract("owned declaration extent"))?
+        } else {
+            0
+        };
+        let lease = runtime.shared.math().reserve(
+            "modeling:owned-source-object",
+            extent
+                .checked_add(declaration_extent)
+                .ok_or_else(|| contract("owned source object extent"))?,
+        )?;
+        if version.logical != edit.logical
+            || version.interpretation != pse_operations::generated::surreal::INTERPRETATION
+        {
+            return Err(contract(
+                "owned source object interpretation or logical identity differs",
+            ));
         }
         let value = SourceObjectValue {
-            logical: edit.logical, scope: edit.scope, name: edit.name, version: version.key,
-            kind: version.kind, payload: version.payload.into_vec(), references: edit.references,
+            logical: edit.logical,
+            scope: edit.scope,
+            name: edit.name,
+            version: version.key,
+            kind: version.kind,
+            payload: version.payload.into_vec(),
+            references: edit.references,
         };
-        let declaration=if value.kind.starts_with("modeling:") && value.kind!=CONTEXT {Some(decode::<SourcePayload>(&value.payload)?)}else{None};
-        let parsed=declaration.as_ref().map(|(row,fields)|parsed_fields(runtime,row,fields.as_ref())).transpose()?;
-        Ok(Some(Arc::new(Self { value, lease, declaration, parsed })))
+        let declaration = if value.kind.starts_with("modeling:") && value.kind != CONTEXT {
+            Some(decode::<SourcePayload>(&value.payload)?)
+        } else {
+            None
+        };
+        let parsed = declaration
+            .as_ref()
+            .map(|(row, fields)| parsed_fields(runtime, row, fields.as_ref()))
+            .transpose()?;
+        Ok(Some(Arc::new(Self {
+            value,
+            lease,
+            declaration,
+            parsed,
+        })))
     }
     #[cfg(test)]
     pub(crate) fn edit(&self) -> ObjectEdit {
         ObjectEdit {
-            logical: self.logical.clone(), scope: self.scope.clone(), name: self.name.clone(),
+            logical: self.logical.clone(),
+            scope: self.scope.clone(),
+            name: self.name.clone(),
             version: Some(pse_model::generated::runtime::canonical_versions::Row {
-                key: self.version.clone(), logical: self.logical.clone(), kind: self.kind.clone(),
-                payload: self.payload.clone().into(), interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
-            }), references: self.references.clone(),
+                key: self.version.clone(),
+                logical: self.logical.clone(),
+                kind: self.kind.clone(),
+                payload: self.payload.clone().into(),
+                interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+            }),
+            references: self.references.clone(),
         }
     }
 }
@@ -72,7 +132,12 @@ pub(crate) struct SourceMember {
 }
 impl From<&LocalSourceObject> for SourceMember {
     fn from(object: &LocalSourceObject) -> Self {
-        Self { logical: object.logical.clone(), scope: object.scope.clone(), name: object.name.clone(), version: object.version.clone() }
+        Self {
+            logical: object.logical.clone(),
+            scope: object.scope.clone(),
+            name: object.name.clone(),
+            version: object.version.clone(),
+        }
     }
 }
 /// Complete immutable local source closure. Raw data bytes are owned here;
@@ -86,29 +151,56 @@ pub(crate) struct AdmittedModelRevision {
 }
 impl AdmittedModelRevision {
     pub(crate) fn retained_bytes(&self) -> usize {
-        self._metadata.size() + self.objects.values().map(|o| o.retained_bytes()).sum::<usize>()
+        self._metadata.size()
+            + self
+                .objects
+                .values()
+                .map(|o| o.retained_bytes())
+                .sum::<usize>()
     }
     pub(super) fn apply(
         runtime: &Runtime,
         previous: Option<&Self>,
         edits: &[ObjectEdit],
     ) -> Result<Arc<Self>, WorkflowError> {
-        let count = previous.map_or(0, |p| p.objects.len()).checked_add(edits.len())
+        let count = previous
+            .map_or(0, |p| p.objects.len())
+            .checked_add(edits.len())
             .ok_or_else(|| contract("owned source inventory extent"))?;
-        let metadata = runtime.shared.math().reserve("modeling:owned-source-inventory", count.saturating_mul(256).saturating_add(size_of::<Self>()+256))?;
+        let metadata = runtime.shared.math().reserve(
+            "modeling:owned-source-inventory",
+            count
+                .saturating_mul(256)
+                .saturating_add(size_of::<Self>() + 256),
+        )?;
         let mut objects = previous.map_or_else(BTreeMap::new, |p| p.objects.clone());
         for edit in edits {
             match &edit.version {
-                None => { objects.remove(&edit.logical); }
-                Some(version) if objects.get(&edit.logical).is_some_and(|old| {
-                    old.scope == edit.scope && old.name == edit.name && old.version == version.key
-                    && old.kind == version.kind && old.payload.as_slice() == version.payload.as_slice()
-                    && old.references == edit.references
-                }) => {}
-                Some(_) => { if let Some(object) = LocalSourceObject::from_edit(runtime, edit.clone())? { objects.insert(edit.logical.clone(), object); } }
+                None => {
+                    objects.remove(&edit.logical);
+                }
+                Some(version)
+                    if objects.get(&edit.logical).is_some_and(|old| {
+                        old.scope == edit.scope
+                            && old.name == edit.name
+                            && old.version == version.key
+                            && old.kind == version.kind
+                            && old.payload.as_slice() == version.payload.as_slice()
+                            && old.references == edit.references
+                    }) => {}
+                Some(_) => {
+                    if let Some(object) = LocalSourceObject::from_edit(runtime, edit.clone())? {
+                        objects.insert(edit.logical.clone(), object);
+                    }
+                }
             }
         }
-        Ok(Arc::new(Self { objects, _metadata: metadata, _validation_owner: runtime.model.clone(), _validation_context:runtime.admission_context() }))
+        Ok(Arc::new(Self {
+            objects,
+            _metadata: metadata,
+            _validation_owner: runtime.model.clone(),
+            _validation_context: runtime.admission_context(),
+        }))
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -122,9 +214,13 @@ impl LocalInventory {
     fn matches(&self, object: &LocalSourceObject) -> bool {
         match self {
             Self::Scope(scope) => &object.scope == scope,
-            Self::Kind(scope, kind) => &object.kind == kind && scope.as_ref().is_none_or(|scope| &object.scope == scope),
-            Self::Name(scope,name) => &object.scope == scope && &object.name == name,
-            Self::References(scope,name,kind) => &object.kind == kind && object.references.contains(&(scope.clone(),name.clone())),
+            Self::Kind(scope, kind) => {
+                &object.kind == kind && scope.as_ref().is_none_or(|scope| &object.scope == scope)
+            }
+            Self::Name(scope, name) => &object.scope == scope && &object.name == name,
+            Self::References(scope, name, kind) => {
+                &object.kind == kind && object.references.contains(&(scope.clone(), name.clone()))
+            }
         }
     }
 }
@@ -136,45 +232,89 @@ pub(crate) struct LocalSourcePremises {
     inventories: BTreeMap<LocalInventory, Vec<Arc<LocalSourceObject>>>,
 }
 impl PartialOrd for LocalInventory {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { Some(self.cmp(other)) }
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 impl Ord for LocalInventory {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        fn key(value: &LocalInventory) -> (u8,Option<&str>,&str,&str) { match value {
-            LocalInventory::Scope(s)=>(0,None,s,""), LocalInventory::Kind(s,k)=>(1,s.as_deref(),k,""),
-            LocalInventory::Name(s,n)=>(2,None,s,n), LocalInventory::References(s,n,k)=>(3,Some(k),s,n),
-        }}
+        fn key(value: &LocalInventory) -> (u8, Option<&str>, &str, &str) {
+            match value {
+                LocalInventory::Scope(s) => (0, None, s, ""),
+                LocalInventory::Kind(s, k) => (1, s.as_deref(), k, ""),
+                LocalInventory::Name(s, n) => (2, None, s, n),
+                LocalInventory::References(s, n, k) => (3, Some(k), s, n),
+            }
+        }
         key(self).cmp(&key(other))
     }
 }
 impl LocalSourcePremises {
     pub(crate) fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.logicals.keys().map(|k| k.capacity()+size_of::<Option<Arc<LocalSourceObject>>>()+128).sum::<usize>()
-            + self.inventories.iter().map(|(query,v)| {
-                let query_bytes = match query {
-                    LocalInventory::Scope(s) => s.capacity(),
-                    LocalInventory::Kind(s,k) => s.as_ref().map_or(0,String::capacity)+k.capacity(),
-                    LocalInventory::Name(s,n) => s.capacity()+n.capacity(),
-                    LocalInventory::References(s,n,k) => s.capacity()+n.capacity()+k.capacity(),
-                };
-                query_bytes+v.capacity()*size_of::<Arc<LocalSourceObject>>()+256
-            }).sum::<usize>()
+        size_of::<Self>()
+            + self
+                .logicals
+                .keys()
+                .map(|k| k.capacity() + size_of::<Option<Arc<LocalSourceObject>>>() + 128)
+                .sum::<usize>()
+            + self
+                .inventories
+                .iter()
+                .map(|(query, v)| {
+                    let query_bytes = match query {
+                        LocalInventory::Scope(s) => s.capacity(),
+                        LocalInventory::Kind(s, k) => {
+                            s.as_ref().map_or(0, String::capacity) + k.capacity()
+                        }
+                        LocalInventory::Name(s, n) => s.capacity() + n.capacity(),
+                        LocalInventory::References(s, n, k) => {
+                            s.capacity() + n.capacity() + k.capacity()
+                        }
+                    };
+                    query_bytes + v.capacity() * size_of::<Arc<LocalSourceObject>>() + 256
+                })
+                .sum::<usize>()
     }
     pub(crate) fn matches(&self, source: &AdmittedModelRevision) -> bool {
-        self.logicals.iter().all(|(logical,old)| source.objects.get(logical) == old.as_ref())
-            && self.inventories.iter().all(|(query,old)| {
-                let mut current=source.objects.values().filter(|object|query.matches(object));
-                old.iter().all(|old|current.next().is_some_and(|current|current==old)) && current.next().is_none()
+        self.logicals
+            .iter()
+            .all(|(logical, old)| source.objects.get(logical) == old.as_ref())
+            && self.inventories.iter().all(|(query, old)| {
+                let mut current = source
+                    .objects
+                    .values()
+                    .filter(|object| query.matches(object));
+                old.iter()
+                    .all(|old| current.next().is_some_and(|current| current == old))
+                    && current.next().is_none()
             })
     }
-    pub(super) fn logical(&mut self, source: &AdmittedModelRevision, key: &str) -> Option<Arc<LocalSourceObject>> {
-        let object = source.objects.get(key).cloned(); self.logicals.insert(key.into(),object.clone()); object
+    pub(super) fn logical(
+        &mut self,
+        source: &AdmittedModelRevision,
+        key: &str,
+    ) -> Option<Arc<LocalSourceObject>> {
+        let object = source.objects.get(key).cloned();
+        self.logicals.insert(key.into(), object.clone());
+        object
     }
-    pub(super) fn inventory(&mut self, source: &AdmittedModelRevision, query: LocalInventory) -> Vec<Arc<LocalSourceObject>> {
-        let objects = source.objects.values().filter(|object|query.matches(object)).cloned().collect::<Vec<_>>();
-        self.inventories.insert(query,objects.clone()); objects
+    pub(super) fn inventory(
+        &mut self,
+        source: &AdmittedModelRevision,
+        query: LocalInventory,
+    ) -> Vec<Arc<LocalSourceObject>> {
+        let objects = source
+            .objects
+            .values()
+            .filter(|object| query.matches(object))
+            .cloned()
+            .collect::<Vec<_>>();
+        self.inventories.insert(query, objects.clone());
+        objects
     }
-
 }
 #[derive(Debug)]
-pub(super) struct LocalHead { pub(super) revision: String, pub(super) generation: i64 }
+pub(super) struct LocalHead {
+    pub(super) revision: String,
+    pub(super) generation: i64,
+}

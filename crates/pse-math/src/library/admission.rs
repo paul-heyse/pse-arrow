@@ -209,41 +209,67 @@ struct ScalarProduct {
 }
 impl std::fmt::Debug for ScalarProducts {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ScalarProducts").field("entries", &self.len()).finish()
+        f.debug_struct("ScalarProducts")
+            .field("entries", &self.len())
+            .finish()
     }
 }
 impl ScalarProducts {
     /// Number of exact preparations, excluding derivative conversions and workers.
-    pub fn len(&self) -> usize { self.evaluators.len() }
+    pub fn len(&self) -> usize {
+        self.evaluators.len()
+    }
     /// Whether this bundle contains no scalar preparation.
-    pub fn is_empty(&self) -> bool { self.evaluators.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.evaluators.is_empty()
+    }
     /// Complete reachable scalar storage, including exact keys and descriptors.
     pub fn retained_bytes(&self) -> usize {
-        self.evaluators.values().fold(self.descriptor_bytes().saturating_add(self.foreign_bytes), |bytes, product| bytes.saturating_add(product.bytes))
+        self.evaluators.values().fold(
+            self.descriptor_bytes().saturating_add(self.foreign_bytes),
+            |bytes, product| bytes.saturating_add(product.bytes),
+        )
     }
     pub(crate) fn descriptor_bytes(&self) -> usize {
-        size_of::<Self>() + self.evaluators.capacity() * (size_of::<Arc<ScalarProductKey>>() + size_of::<Arc<ScalarProduct>>() + 1)
+        size_of::<Self>()
+            + self.evaluators.capacity()
+                * (size_of::<Arc<ScalarProductKey>>() + size_of::<Arc<ScalarProduct>>() + 1)
     }
     pub(crate) fn unowned_bytes(&self) -> usize {
-        self.evaluators.values().filter(|product| product.owner.get().is_none()).fold(0usize, |bytes, product| bytes.saturating_add(product.bytes))
+        self.evaluators
+            .values()
+            .filter(|product| product.owner.get().is_none())
+            .fold(0usize, |bytes, product| bytes.saturating_add(product.bytes))
     }
     /// Whether this bundle contains newly constructed entries needing an owner.
-    pub fn has_unowned(&self) -> bool { self.evaluators.values().any(|product| product.owner.get().is_none()) }
+    pub fn has_unowned(&self) -> bool {
+        self.evaluators
+            .values()
+            .any(|product| product.owner.get().is_none())
+    }
     /// Conservative foreign capacity retained from the original constructing jobs,
     /// counted once per constructor, not once per exact entry or borrower.
-    pub fn foreign_allowance_bytes(&self) -> usize { self.foreign_bytes }
+    pub fn foreign_allowance_bytes(&self) -> usize {
+        self.foreign_bytes
+    }
     /// Anchor only newly constructed entries. Inherited entries keep their original owner.
     pub fn with_owner(self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
         self.with_owner_and_foreign_allowance(owner, 0)
     }
     /// Transfer an already admitted conservative foreign allowance with newly built
     /// exact entries. It covers unknown arbitrary-precision/library heaps, not exact RSS.
-    pub fn with_owner_and_foreign_allowance(mut self, owner: Arc<dyn crate::AllocationOwner>, foreign_bytes: usize) -> Self {
+    pub fn with_owner_and_foreign_allowance(
+        mut self,
+        owner: Arc<dyn crate::AllocationOwner>,
+        foreign_bytes: usize,
+    ) -> Self {
         let mut attached = false;
         for product in self.evaluators.values() {
             attached |= product.owner.set(owner.clone()).is_ok();
         }
-        if attached { self.foreign_bytes = self.foreign_bytes.saturating_add(foreign_bytes); }
+        if attached {
+            self.foreign_bytes = self.foreign_bytes.saturating_add(foreign_bytes);
+        }
         self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
     }
@@ -259,22 +285,48 @@ pub(crate) struct ScalarCache {
 }
 impl ScalarCache {
     pub(crate) fn from_products(products: &ScalarProducts) -> Self {
-        Self { evaluators: products.evaluators.as_ref().clone(), builds: 0, foreign_bytes: products.foreign_bytes }
+        Self {
+            evaluators: products.evaluators.as_ref().clone(),
+            builds: 0,
+            foreign_bytes: products.foreign_bytes,
+        }
     }
     pub(crate) fn freeze(self) -> ScalarProducts {
-        ScalarProducts { evaluators: Arc::new(self.evaluators), owner: None, foreign_bytes: self.foreign_bytes }
+        ScalarProducts {
+            evaluators: Arc::new(self.evaluators),
+            owner: None,
+            foreign_bytes: self.foreign_bytes,
+        }
     }
     #[cfg(test)]
-    pub(crate) fn len(&self) -> usize { self.evaluators.len() }
+    pub(crate) fn len(&self) -> usize {
+        self.evaluators.len()
+    }
     #[cfg(test)]
-    pub(crate) fn builds(&self) -> usize { self.builds }
+    pub(crate) fn builds(&self) -> usize {
+        self.builds
+    }
 
-    pub(crate) fn admit_prepare(&mut self, expressions: &[Atom], parameters: &[Atom], options: Optimization, cancelled: &Arc<AtomicBool>, limits: EvaluationLimits) -> Result<(), MathError> {
-        if source_operations(expressions)? > limits.operations { return Err(MathError::Limit("scalar construction operations")); }
+    pub(crate) fn admit_prepare(
+        &mut self,
+        expressions: &[Atom],
+        parameters: &[Atom],
+        options: Optimization,
+        cancelled: &Arc<AtomicBool>,
+        limits: EvaluationLimits,
+    ) -> Result<(), MathError> {
+        if source_operations(expressions)? > limits.operations {
+            return Err(MathError::Limit("scalar construction operations"));
+        }
         let evaluator = self.prepare(expressions, parameters, options, cancelled)?;
-        if total(evaluator.count_operations())? > limits.operations { return Err(MathError::Limit("scalar evaluator operations")); }
+        if total(evaluator.count_operations())? > limits.operations {
+            return Err(MathError::Limit("scalar evaluator operations"));
+        }
         let export = evaluator.export_instructions();
-        limits.allocation(add(add(export.input_count, export.constants.len())?, export.temporary_count)?)
+        limits.allocation(add(
+            add(export.input_count, export.constants.len())?,
+            export.temporary_count,
+        )?)
     }
     pub(crate) fn prepare(
         &mut self,
@@ -288,21 +340,56 @@ impl ScalarCache {
         }
         let key = (expressions.to_vec(), parameters.to_vec(), options);
         if !self.evaluators.contains_key(&key) {
-            let initial = evaluator_construction(expressions, parameters.len(), 0, pse_kernels::DerivativeOrder::Value)?;
-            let atoms = expressions.iter().chain(parameters).try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
-            crate::construction::additional(add(mul(initial.entries, 2 * size_of::<Complex<Rational>>())?, add(initial.instructions, atoms)?)?)?;
+            let initial = evaluator_construction(
+                expressions,
+                parameters.len(),
+                0,
+                pse_kernels::DerivativeOrder::Value,
+            )?;
+            let atoms = expressions
+                .iter()
+                .chain(parameters)
+                .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
+            crate::construction::additional(add(
+                mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
+                add(initial.instructions, atoms)?,
+            )?)?;
             let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
             let export = evaluator.export_instructions();
             reserve_export(&export, initial)?;
-            let bytes = add(size_of::<ScalarProduct>(), add(atoms, add(
-                mul(add(add(export.input_count, export.constants.len())?, export.temporary_count)?, 2 * size_of::<Complex<Rational>>())?,
-                instruction_bytes(&export).ok_or(MathError::Limit("scalar instruction extent"))?,
-            )?)?)?;
-            if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
-            self.evaluators.insert(Arc::new(key.clone()), Arc::new(ScalarProduct { evaluator, bytes, owner: std::sync::OnceLock::new() }));
+            let bytes = add(
+                size_of::<ScalarProduct>(),
+                add(
+                    atoms,
+                    add(
+                        mul(
+                            add(
+                                add(export.input_count, export.constants.len())?,
+                                export.temporary_count,
+                            )?,
+                            2 * size_of::<Complex<Rational>>(),
+                        )?,
+                        instruction_bytes(&export)
+                            .ok_or(MathError::Limit("scalar instruction extent"))?,
+                    )?,
+                )?,
+            )?;
+            if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+                return Err(MathError::Cancelled);
+            }
+            self.evaluators.insert(
+                Arc::new(key.clone()),
+                Arc::new(ScalarProduct {
+                    evaluator,
+                    bytes,
+                    owner: std::sync::OnceLock::new(),
+                }),
+            );
             self.builds += 1;
         }
-        self.evaluators.get(&key).map(|product| &product.evaluator)
+        self.evaluators
+            .get(&key)
+            .map(|product| &product.evaluator)
             .ok_or_else(|| MathError::Contract("missing prepared scalar evaluator".into()))
     }
 }
@@ -441,9 +528,24 @@ pub(crate) fn bounded_evaluator(
         add(bound, mul(layout.width(), vectors)?)?,
     )?)?;
     let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(layout.shape.clone());
-    let evaluator = scoped_abort(cancelled, || evaluator.clone().vectorize(&symbolica::prelude::Dualizer::new(dual, zero_components.to_vec())))
-        .map_err(|error| if cancelled.load(std::sync::atomic::Ordering::Acquire) { MathError::Cancelled } else { MathError::Library(error) })?;
-    if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
+    let evaluator = scoped_abort(cancelled, || {
+        evaluator
+            .clone()
+            .vectorize(&symbolica::prelude::Dualizer::new(
+                dual,
+                zero_components.to_vec(),
+            ))
+    })
+    .map_err(|error| {
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            MathError::Cancelled
+        } else {
+            MathError::Library(error)
+        }
+    })?;
+    if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+        return Err(MathError::Cancelled);
+    }
     if total(evaluator.count_operations())? > bound {
         return Err(MathError::Contract(
             "library Taylor expansion exceeded admitted bound".into(),
@@ -531,23 +633,46 @@ mod tests {
     }
     #[test]
     fn large_rational_scalar_products_keep_one_foreign_allowance_per_constructor() {
-        #[derive(Debug)] struct Owner;
+        #[derive(Debug)]
+        struct Owner;
         crate::initialize().unwrap();
         let x = formal(0).unwrap();
         let huge = Rational::from(i64::MAX).pow(16);
         let expressions = vec![&x * Atom::num(huge) + 1];
         let cancel = Arc::new(AtomicBool::new(false));
         let mut cache = ScalarCache::default();
-        cache.admit_prepare(&expressions, std::slice::from_ref(&x), Optimization::default(), &cancel, EvaluationLimits::default()).unwrap();
-        assert!(cache.evaluators.values().any(|product| product.evaluator.export_instructions().constants.iter().any(|constant| constant.re.to_string().len() > 100)), "test requires an actual arbitrary-precision exact constant");
+        cache
+            .admit_prepare(
+                &expressions,
+                std::slice::from_ref(&x),
+                Optimization::default(),
+                &cancel,
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        assert!(
+            cache.evaluators.values().any(|product| product
+                .evaluator
+                .export_instructions()
+                .constants
+                .iter()
+                .any(|constant| constant.re.to_string().len() > 100)),
+            "test requires an actual arbitrary-precision exact constant"
+        );
         let owner = Arc::new(Owner);
         let weak = Arc::downgrade(&owner);
         let known = cache.freeze();
         let known_bytes = known.retained_bytes();
         let retained = known.with_owner_and_foreign_allowance(owner.clone(), 64 << 20);
         assert_eq!(retained.retained_bytes(), known_bytes + (64 << 20));
-        let borrowed = ScalarCache::from_products(&retained).freeze().with_owner_and_foreign_allowance(owner.clone(), 64 << 20);
-        assert_eq!(borrowed.foreign_allowance_bytes(), 64 << 20, "borrowing must not add another foreign population");
+        let borrowed = ScalarCache::from_products(&retained)
+            .freeze()
+            .with_owner_and_foreign_allowance(owner.clone(), 64 << 20);
+        assert_eq!(
+            borrowed.foreign_allowance_bytes(),
+            64 << 20,
+            "borrowing must not add another foreign population"
+        );
         drop(owner);
         drop(retained);
         assert!(weak.upgrade().is_some());

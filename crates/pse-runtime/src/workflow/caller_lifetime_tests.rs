@@ -35,7 +35,8 @@ async fn escaped_store_operations_and_runtime_aliases_close_but_independent_runt
     ));
     assert!(
         independent
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .revision("absent")
             .await
             .unwrap()
@@ -156,9 +157,11 @@ async fn prepared_native_request_is_idle_and_cannot_start_after_caller_close() {
         .await
         .unwrap();
     runtime.close();
-    assert!(matches!(
-        prepared.start(),
-        Err(WorkflowError::CallerClosed)
-    ));
-    runtime.canonical_store().unwrap().disconnect().await.unwrap();
+    assert!(matches!(prepared.start(), Err(WorkflowError::CallerClosed)));
+    runtime
+        .canonical_store()
+        .unwrap()
+        .disconnect()
+        .await
+        .unwrap();
 }

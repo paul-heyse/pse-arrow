@@ -93,52 +93,130 @@ fn data_documents(
 }
 
 impl ModelingPackage {
-    pub(in crate::workflow::modeling) async fn delta_parent(&self,cancel:&crate::CancelSource)->Result<Parent,WorkflowError> {
+    pub(in crate::workflow::modeling) async fn delta_parent(
+        &self,
+        cancel: &crate::CancelSource,
+    ) -> Result<Parent, WorkflowError> {
         checkpoint(cancel)?;
-        let (frame,frame_lease)=self.source_decode::<IngressFrame>(self.local_object(INGRESS_FRAME)?.as_ref())?;
-        let (mut physical,physical_lease)=self.source_decode::<PhysicalScope>(self.local_object(PHYSICAL_SCOPE_LOGICAL)?.as_ref())?;
-        let mut leases=vec![frame_lease,physical_lease];let mut members=BTreeMap::new();let mut documents=BTreeMap::new();let mut index=SourceIndex::default();
+        let (frame, frame_lease) =
+            self.source_decode::<IngressFrame>(self.local_object(INGRESS_FRAME)?.as_ref())?;
+        let (mut physical, physical_lease) = self
+            .source_decode::<PhysicalScope>(self.local_object(PHYSICAL_SCOPE_LOGICAL)?.as_ref())?;
+        let mut leases = vec![frame_lease, physical_lease];
+        let mut members = BTreeMap::new();
+        let mut documents = BTreeMap::new();
+        let mut index = SourceIndex::default();
         for object in self.revision.admitted.objects.values() {
             checkpoint(cancel)?;
-            if object.logical.starts_with("modeling:") && object.logical!=CONTEXT_LOGICAL && object.logical!=PHYSICAL_SCOPE_LOGICAL {
-                let source=object.declaration.as_ref().ok_or_else(||contract("owned typed declaration absent"))?.clone();
-                let lease=self.runtime.shared.math().reserve("modeling:delta-declaration-copy",source.0.owned_bytes().saturating_add(8192))?;
-                index.insert(source)?;leases.push(lease);
-            }else if object.kind=="document" {
-                let (row,lease)=self.source_decode::<document_wire::Row>(object)?;
-                if row.content.is_some(){return Err(contract("document metadata unexpectedly contains data bytes"));}
-                documents.insert(row.document_id,row);leases.push(lease);
-            }else if object.kind=="physical_scope_document" {
-                let (entry,lease)=self.source_decode::<PhysicalScope>(object)?;
-                if entry.package!=physical.package{return Err(contract("delta physical package differs"));}
-                physical.documents.as_mut().ok_or_else(||contract("scoped entry in global physical context"))?.extend(entry.documents.ok_or_else(||contract("global entry in scoped physical context"))?);leases.push(lease);
+            if object.logical.starts_with("modeling:")
+                && object.logical != CONTEXT_LOGICAL
+                && object.logical != PHYSICAL_SCOPE_LOGICAL
+            {
+                let source = object
+                    .declaration
+                    .as_ref()
+                    .ok_or_else(|| contract("owned typed declaration absent"))?
+                    .clone();
+                let lease = self.runtime.shared.math().reserve(
+                    "modeling:delta-declaration-copy",
+                    source.0.owned_bytes().saturating_add(8192),
+                )?;
+                index.insert(source)?;
+                leases.push(lease);
+            } else if object.kind == "document" {
+                let (row, lease) = self.source_decode::<document_wire::Row>(object)?;
+                if row.content.is_some() {
+                    return Err(contract(
+                        "document metadata unexpectedly contains data bytes",
+                    ));
+                }
+                documents.insert(row.document_id, row);
+                leases.push(lease);
+            } else if object.kind == "physical_scope_document" {
+                let (entry, lease) = self.source_decode::<PhysicalScope>(object)?;
+                if entry.package != physical.package {
+                    return Err(contract("delta physical package differs"));
+                }
+                physical
+                    .documents
+                    .as_mut()
+                    .ok_or_else(|| contract("scoped entry in global physical context"))?
+                    .extend(
+                        entry
+                            .documents
+                            .ok_or_else(|| contract("global entry in scoped physical context"))?,
+                    );
+                leases.push(lease);
             }
-            members.insert(object.logical.clone(),SourceMember::from(object.as_ref()));
+            members.insert(object.logical.clone(), SourceMember::from(object.as_ref()));
         }
-        let mut rows=Vec::with_capacity(frame.order.len());let mut unique=BTreeSet::new();
+        let mut rows = Vec::with_capacity(frame.order.len());
+        let mut unique = BTreeSet::new();
         for id in &frame.order {
-            if !unique.insert(*id){return Err(contract("ordered parent frame repeats a declaration"));}
-            rows.push(index.rows.remove(id).ok_or_else(||contract("ordered parent frame names absent declaration"))?);
+            if !unique.insert(*id) {
+                return Err(contract("ordered parent frame repeats a declaration"));
+            }
+            rows.push(
+                index
+                    .rows
+                    .remove(id)
+                    .ok_or_else(|| contract("ordered parent frame names absent declaration"))?,
+            );
         }
-        if !index.rows.is_empty(){return Err(contract("ordered parent frame omits declarations"));}
-        let names=selected_source::physical_bindings(&rows,&physical,&self.physical.quantities);
-        let identity=crate::math::modeling::source_revision_frame(&rows,frame.data.iter().map(|(id,hash)|(*id,*hash)),&self.physical.key,&names);
-        if identity!=self.revision.identity{return Err(contract("ordered parent metadata differs from semantic source identity"));}
-        Ok(Parent {rows,frame,physical,documents,members,fields:index.fields,_leases:leases})
+        if !index.rows.is_empty() {
+            return Err(contract("ordered parent frame omits declarations"));
+        }
+        let names = selected_source::physical_bindings(&rows, &physical, &self.physical.quantities);
+        let identity = crate::math::modeling::source_revision_frame(
+            &rows,
+            frame.data.iter().map(|(id, hash)| (*id, *hash)),
+            &self.physical.key,
+            &names,
+        );
+        if identity != self.revision.identity {
+            return Err(contract(
+                "ordered parent metadata differs from semantic source identity",
+            ));
+        }
+        Ok(Parent {
+            rows,
+            frame,
+            physical,
+            documents,
+            members,
+            fields: index.fields,
+            _leases: leases,
+        })
     }
     /// Stage an exact local parent edit; durable recording is a separate CAS effect.
-    pub async fn with_delta(&self,delta:SourceDelta,cancel:&crate::CancelSource)->Result<Self,WorkflowError> {
-        let activity=self.runtime.admit_activity()?;
-        activity.scope(async {
-            if delta.parent!=self.revision_id(){return Err(contract("source delta names a different local parent"));}
-            let deadline=super::super::preparation_deadline(cancel)?;let scoped=cancel.with_deadline(Some(deadline));
-            let parent=self.delta_parent(&scoped).await?;
-            self.apply_delta_parent(delta,parent,&scoped,None).await
-        }).await
+    pub async fn with_delta(
+        &self,
+        delta: SourceDelta,
+        cancel: &crate::CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        let activity = self.runtime.admit_activity()?;
+        activity
+            .scope(async {
+                if delta.parent != self.revision_id() {
+                    return Err(contract("source delta names a different local parent"));
+                }
+                let deadline = super::super::preparation_deadline(cancel)?;
+                let scoped = cancel.with_deadline(Some(deadline));
+                let parent = self.delta_parent(&scoped).await?;
+                self.apply_delta_parent(delta, parent, &scoped, None).await
+            })
+            .await
     }
 
-    pub(super) async fn apply_delta_parent(&self,delta:SourceDelta,parent:Parent,cancel:&crate::CancelSource,parsed:Option<reload::ParsedEdit>)->Result<Self,WorkflowError> {
-        self.apply_delta_parent_ordered(delta,parent,cancel,parsed,None).await
+    pub(super) async fn apply_delta_parent(
+        &self,
+        delta: SourceDelta,
+        parent: Parent,
+        cancel: &crate::CancelSource,
+        parsed: Option<reload::ParsedEdit>,
+    ) -> Result<Self, WorkflowError> {
+        self.apply_delta_parent_ordered(delta, parent, cancel, parsed, None)
+            .await
     }
     pub(in crate::workflow::modeling) async fn apply_delta_parent_ordered(
         &self,
@@ -779,8 +857,11 @@ mod tests {
             .unwrap()
     }
 
-    async fn parent_metadata(package:&ModelingPackage)->Parent {
-        package.delta_parent(&crate::CancelSource::new()).await.unwrap()
+    async fn parent_metadata(package: &ModelingPackage) -> Parent {
+        package
+            .delta_parent(&crate::CancelSource::new())
+            .await
+            .unwrap()
     }
 
     #[tokio::test]
@@ -828,10 +909,7 @@ mod tests {
             "spans cannot outlive their exact document text"
         );
         assert_eq!(changed.revision.identity, package.revision.identity);
-        assert_ne!(
-            changed.revision_id(),
-            package.revision_id()
-        );
+        assert_ne!(changed.revision_id(), package.revision_id());
         assert!(
             parent_metadata(&package).await.documents[&document_id]
                 .source_text
@@ -883,8 +961,8 @@ mod tests {
                 ..Default::default()
             },
         );
-        let receiver = Runtime::from_shared_local(small.shared.clone(),small.model.clone())
-        .unwrap();
+        let receiver =
+            Runtime::from_shared_local(small.shared.clone(), small.model.clone()).unwrap();
         let confined = ModelingPackage {
             runtime: receiver,
             ..package.clone()
@@ -992,10 +1070,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(
-            unchanged.revision_id(),
-            package.revision_id()
-        );
+        assert_eq!(unchanged.revision_id(), package.revision_id());
         let new_equation = fresh.iter().find(|row| row.name == "e").unwrap().clone();
         let changed = package
             .with_delta(
@@ -1008,10 +1083,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(
-            changed.revision.lineage_id(),
-            package.revision.lineage_id()
-        );
+        assert_eq!(changed.revision.lineage_id(), package.revision.lineage_id());
         let independent = runtime
             .modeling_package(fresh.clone(), physical)
             .await
@@ -1019,11 +1091,27 @@ mod tests {
         assert_eq!(changed.revision.identity, independent.revision.identity);
         assert_eq!(changed.full_source().await.unwrap().0, fresh);
         assert_eq!(package.full_source().await.unwrap().0, old);
-        let selected=changed.checked_selection(&[root],&cancel).await.unwrap();
-        let names=selected.admission.revision.declarations().iter().map(|row|row.name.as_str()).collect::<Vec<_>>();
-        assert!(names.contains(&"b"));assert!(!names.contains(&"a"));
-        let no_op=changed.with_delta(SourceDelta {parent:changed.revision_id().into(),..Default::default()},&cancel).await.unwrap();
-        assert_eq!(no_op.revision_id(),changed.revision_id());
+        let selected = changed.checked_selection(&[root], &cancel).await.unwrap();
+        let names = selected
+            .admission
+            .revision
+            .declarations()
+            .iter()
+            .map(|row| row.name.as_str())
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"b"));
+        assert!(!names.contains(&"a"));
+        let no_op = changed
+            .with_delta(
+                SourceDelta {
+                    parent: changed.revision_id().into(),
+                    ..Default::default()
+                },
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(no_op.revision_id(), changed.revision_id());
         assert!(
             changed
                 .with_delta(

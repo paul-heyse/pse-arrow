@@ -391,7 +391,6 @@ impl MathService {
             completions: effects.completions.load(Relaxed),
         }
     }
-
 }
 /// Compiler preparations and value rebinds this service performed (A6). Observation only:
 /// nothing decides on them.

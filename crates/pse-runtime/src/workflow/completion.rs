@@ -195,9 +195,12 @@ impl RunResult {
                     frame_start(&mut identity, native);
                     let mut actual_environment =
                         FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
-                    actual_environment
-                        .hash(&environment)
-                        .str(&self.runtime.outer_attestation().map_or_else(||"local-unattested".into(),|attestation|attestation.build.to_hex()));
+                    actual_environment.hash(&environment).str(
+                        &self.runtime.outer_attestation().map_or_else(
+                            || "local-unattested".into(),
+                            |attestation| attestation.build.to_hex(),
+                        ),
+                    );
                     if let Some(native) = native {
                         actual_environment.str(native.backend.as_str());
                         for (name, value) in &native.provenance {
@@ -268,9 +271,12 @@ impl RunResult {
                 });
                 let mut actual_environment =
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
-                actual_environment
-                    .hash(&environment)
-                    .str(&self.runtime.outer_attestation().map_or_else(||"local-unattested".into(),|attestation|attestation.build.to_hex()));
+                actual_environment.hash(&environment).str(
+                    &self.runtime.outer_attestation().map_or_else(
+                        || "local-unattested".into(),
+                        |attestation| attestation.build.to_hex(),
+                    ),
+                );
                 #[cfg(feature = "solver-diffsol")]
                 if trajectory.is_some() {
                     actual_environment.str(&pse_backend_native::dynamics::settings_identity(
@@ -367,7 +373,10 @@ impl RunResult {
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
-                    .str(&self.runtime.outer_attestation().map_or_else(||"local-unattested".into(),|attestation|attestation.build.to_hex()))
+                    .str(&self.runtime.outer_attestation().map_or_else(
+                        || "local-unattested".into(),
+                        |attestation| attestation.build.to_hex(),
+                    ))
                     .str(&pse_backend_native::dynamics::settings_identity(
                         p.simulation.profile(),
                     ));
@@ -459,9 +468,12 @@ impl RunResult {
                 product.computation = Some(row);
                 let mut actual_environment =
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
-                actual_environment
-                    .hash(&environment)
-                    .str(&self.runtime.outer_attestation().map_or_else(||"local-unattested".into(),|attestation|attestation.build.to_hex()));
+                actual_environment.hash(&environment).str(
+                    &self.runtime.outer_attestation().map_or_else(
+                        || "local-unattested".into(),
+                        |attestation| attestation.build.to_hex(),
+                    ),
+                );
                 if let Some(native) = native {
                     actual_environment.str(native.backend.as_str());
                     for (name, value) in &native.provenance {

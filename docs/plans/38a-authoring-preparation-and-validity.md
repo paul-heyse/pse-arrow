@@ -1,6 +1,6 @@
 ---
 title: Local authoring, preparation and validity
-status: in-progress
+status: done
 date: 2026-10-13
 adrs: [ADR-0183]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
@@ -16,7 +16,7 @@ This companion owns the scientific input consumed by [Plan 38](38-efficiency-and
 
 At `6c368c88acda548d421b44e8fc4f457c95bcec7e`, granular compiler queries, owned PreparedCase products, detached historical lanes, bound_case value rebinding and actual LocalPlanner/PreparedLocalContract validation already exist. `math/modeling.rs::CompilerLineage` and LaneStamp nevertheless carry issuing-store/canonical sequencing, while NativeRuntime construction opens canonical state even for Ephemeral. The target needs a real local semantic lineage and composition boundary, not just a removed connect call. `pse-admission` and generator capability splits already exist; 38f owns remaining compile/consumer acceptance rather than another extraction.
 
-Contracts/rationale currently live in blueprint §14.2–§14.4, §19.1, §22.2 and their named ADRs. RC01/02/08/09/11 are accepted target boundaries; their concrete governing amendments precede dependent implementation via G0. Source claims are **Interface-checked**; target and controls are **Proposed**, with no new product execution evidence.
+Contracts/rationale currently live in blueprint §14.2–§14.4, §19.1, §22.2 and their named ADRs. RC01/02/08/09/11 are accepted target boundaries; their concrete governing amendments precede dependent implementation via G0. The authoring baseline was **Interface-checked** and the target initially **Proposed**. The execution checkpoint and Outcome below own current implementation and targeted evidence; this baseline paragraph supplies no product acceptance.
 
 ## Packets and dependencies
 
@@ -87,6 +87,10 @@ Source/scenarios can settle ownership; discretionary probes settle decision-rele
 
 ## Execution checkpoint — 2026-10-13
 
+Functional A1–A5 and investigations I-A1–I-A4 are complete within this companion. Its
+implementation and targeted acceptance are closed; the coordinator and 38g retain assembled
+qualification and shared finding disposition.
+
 The maintainer authorized the detailed execution approach. Explicit local construction uses
 `Runtime(settings, ephemeral=True)` without a required substrate. Required durable calls
 remain fail-closed; unknown dispatched effects retain original-intent settlement. G0 installs
@@ -100,6 +104,139 @@ one admission scope per operation, preserves volatile rejection and refreshes St
 checks across scopes. I-A4 extends pinned scalar reuse and explicit demand compilation;
 existing ceiling-based callers keep their actually consumed orders. No pin or topology change.
 
-Runtime/source migration, evaluator retention and validation scope work have isolated owners.
-The coordinator owns shared interfaces, local compiler-lineage integration, preparation and
-engagement migration, Python declarations/generation, final consumer reconciliation and status.
+Runtime/source migration, evaluator retention and scoped validation are integrated in the main
+checkout. Python local construction, exact edit tokens, optional canonical origins and the
+original-source settlement API are generated from their native declarations. Pure preparation
+and engagement no longer acquire, renew or publish canonical selections. Scalar products and
+demanded checked result chunks extend the existing flight/cache/pressure owners; historical
+borrowers retain their original allocation owners.
+
+Independent implementation review found and prompted repairs for retained producer
+cancellation, arbitrary-precision scalar accounting, Stable execution/output clock association,
+cached replay backpressure, source acknowledgement recovery, actual mapped-extension identity,
+lazy acquisition/operation lifetime and the recording-versus-execution boundary. The generic
+canonical result reader retains its actual per-reader Stable validation scope across decoded
+batches.
+Current generated observation families require their compiler-issued complete expected contract
+and use immutable catalog predicates; they do not gain permission to accept custom Stable
+CHECKs from a registry fingerprint.
+
+Targeted controls are passing for the integrated local lineage, preparation, held lifetime,
+source settlement classification, operation clock and Python construction/import boundaries.
+Native/canonical test consumers are migrated; the generic reader control also passes. Final
+warning-free compilation is recorded in Verification below. Assembled durable/disconnect/native/scientific journeys, performance
+campaigns, hygiene and manual scope-end checks stay with 38g after the selected Plan 38
+functional scope. No shared finding or other active plan closes from these bounded controls.
+
+## Verification — bounded implementation acceptance, 2026-10-13
+
+All failure and warning baselines are zero. Actual Arrow-consuming correctness closures use
+explicit `force-validate`; this is not a performance or assembled scientific campaign. The
+legacy default test-resource registry refused execution before tests, so these runs used a
+fresh supported private metadata registry at `/tmp/pse38a-resources-rrcj933c`. The default
+registry, other owners' processes and canonical data were untouched. `just ready` passed
+when the Python temporary-directory prerequisite failed; it was not a product test.
+
+| Command / selected scope | Evidence and actual result |
+|---|---|
+| `just check-package pse-runtime -p pse-py -p pse-engine -p pse-math -p pse-compiler` | **Interface-checked:** affected default-feature libraries and test sources compiled, zero errors/warnings. |
+| `scripts/pse-env --native=solver,klu,isolation,uno,petsc -- just check-package pse-runtime -p pse-py --features pse-runtime/canonical-tests,pse-py/native-solvers` | **Interface-checked:** actual linked native and canonical test sources compiled, zero errors/warnings after caller migrations and removal of an unused replaced test hook. This executes no native or canonical journey. |
+| `just unit-package pse-runtime '<local/preparation/result/clock/refusal selection below>' -p pse-engine -p pse-relations -p pse-operations` | **Tested:** 52 passed, zero failed, 746 unselected; actual local source/lineage/preparation, held-owner/drain, cache replay, source receipt/refusal, study authority and Stable output/check controls. |
+| `just unit-package pse-runtime selected_reader_admits_decoded_stable_checks` | **Tested:** one passed, zero failed, 476 unselected; actual IPC decode and production reader admission owner, stale/independent/retained scopes, no forged protected read or server. |
+| `just unit-libraries '<scalar and validation selection below>' -p pse-math -p pse-runtime -p pse-relations -p pse-engine` | **Tested, partial invocation:** 15 passed, one failed, 2,270 unselected. Scalar demand, cancellation, foreign allowance and immutable/scoped controls passed. The Stable output declaration defect was repaired; its unchanged failing test then passed in the 52-test run above. This invocation itself is not reported as a pass. |
+| `just turn-end` | **Implemented:** ADR index and formatting completed successfully, zero failures. This is not hygiene or product qualification. |
+| `just codegen` | **Implemented:** native declarations produced SourceDelta documentation and SourceSettlement/SourceAcknowledgement contracts and schema; all generation stages succeeded. Generated paths were not hand edited. |
+| `just py-unit --basetemp /tmp/pse38a-pytest-qEyQbw -n 0 python/pse/tests/test_local_runtime.py python/pse/tests/test_local_runtime_artifact.py` | **Tested:** final-source linked `native-solvers,force-validate` extension rebuilt, actual API stubs generated, five tests passed, zero failed on CPython 3.14.7. The first collection attempt was blocked by root ownership of `/tmp/pytest-of-paul`; a fresh owned temporary root settled it without changing the shared directory. |
+
+The 52-test selection was:
+
+```text
+test(reuse_tests) | test(math::modeling::lane_tests) | test(workflow::modeling::canonical) | test(workflow::modeling::engagement) | test(local_close_refuses) | test(local_admission_scope) | test(admitted_integration_keeps) | test(retained_result_prefixes) | test(result_retention_pressure) | test(result_projection_identity) | test(scalar_family_flights) | test(source_settlement) | test(creation_authority_tests) | test(stable_output_and_stable_checks) | test(stable_time_fold) | test(scoped_logical_contract) | test(native_refusal_type)
+```
+
+The scalar/validation selection was:
+
+```text
+test(retained_scalar_products) | test(directional_compilation_constructs) | test(lazy_order_workers) | test(compact_directional) | test(retained_scalar_upgrades) | test(constructor_abort_binding) | test(large_rational_scalar) | test(admission_scopes) | test(scoped_preparation) | test(immutable_contracts_share) | test(scoped_logical_contract) | test(native_validation_uses_selected_admission_clock) | test(stable_output_and_stable_checks) | test(stable_time_fold)
+```
+
+**Not_run:** actual canonical acknowledgement-loss/disconnect/independent-writer journeys,
+configured-ephemeral recording/history and no-publication server controls, native scientific
+journeys, whole Python/component coverage, performance campaigns, hygiene and manual scope-end
+checks. Their genuine tests remain and their affected sources compile; 38g owns their execution
+after selected functional scope. No RSS, latency, throughput, heap-exact or whole-product
+qualification claim follows. Scalar foreign memory uses the original constructor's retained
+conservative admitted allowance; the large-rational controls establish ownership/accounting
+behavior, not a measured allocator bound.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** A1/A2 own exact local revision tokens, optional canonical origin, complete
+positive/absence/payload premises, bounded local compiler lanes and detached historical
+products. Rust and Python use the same admitted model/preparation path. SourceDelta names the
+exact local parent; canonical recording separately uses its actual parent CAS. Value bindings
+preserve structural products while body/role/shape changes take their actual invalidation.
+
+**Implemented:** A3/A4 retain exact scalar optimization products under the existing
+flight/cache/pressure owner, preserve original allocation leases across demand upgrades and
+hold source/preparation/result borrowers through eviction and drain. Retained scalar callbacks
+release completed producer cancellation and use fresh scoped controls for later construction.
+Pure preparation and engagement no longer acquire, renew or publish canonical selections;
+obsolete qualification/heartbeat/publication helpers and their replaced tests are removed.
+Native execution and imported-artifact trust remain separate from local content reuse.
+
+**Implemented:** A5 retains the actual bound engine/registry owner, shares immutable contracts
+and evidence, and scopes Stable checks and output execution to the actual operation. Stable
+re-preparation preserves its admitted output declaration. Generic canonical readers hold one
+selected scope across decoded batches. Demanded checked result chunks use existing global
+retention, exact projection identity and the same pull boundary as cold encoding; clearing
+fences late fills and leaves borrowed allocations alive.
+
+**Implemented:** required source effects preserve exact problem/operation identity and expose
+read-only original acknowledgement settlement. Missing receipts remain unproved. Python
+interruptions drain and retain actual acknowledged source identity. Deferred recording
+integration checks the actual mapped extension and retains one continuation across connection
+and operation. Explicit recording reads do not upgrade ephemeral scientific execution; study
+creation requiring canonical publication refuses before its first source effect.
+
+**Interface-checked:** I-A1 selects owned bounded local lanes and exact semantic/absence
+premises; I-A2 retains in-memory products and defers disk memo persistence to an actual
+cold-start/independent-worker consumer; I-A3 retains actual SQL ownership and invocation scopes;
+I-A4 uses supported pinned Symbolica scalar preparation/demand upgrades, preserving existing
+actually consumed ceilings. No dependency pin, storage topology, numerical method policy or
+native session-reuse program was changed. ADR-0183 remains proposed; its target amendment was
+independently reviewed before dependent implementation.
+
+**Tested:** the named controls and conditions above establish bounded implementation behavior.
+The coordinator retains shared finding dispositions. This companion does not close all of
+F01/F05/F06/F14, other companions, Plan 38 or another plan's scientific campaign.
+
+### A mistake made and corrected
+
+The first retained replay run passed 42 of 43 controls: replay constructed the next cold chunk
+before returning its cached predecessor. A shared explicit yield barrier repaired the actual
+pull boundary; the original construction-count assertion remains. Independent review also
+caught a retained producer cancellation flag, uncharged arbitrary-precision scalar populations,
+source recovery/loaded-image/lazy-lifetime gaps and a study creation regression after splitting
+recording from durability. Those repairs preserve the target instead of weakening controls.
+
+The first combined scalar/validation run passed 15 of 16 controls. Stable re-preparation had
+lost its admitted output declaration after native field derivation. Retaining that declaration
+under the existing actual registry owner repaired the defect; first/repeated/concurrent/group
+clock assertions remain unchanged and pass. Final consumer inspection found and repaired the
+separate generic result-reader scope gap.
+
+### Deviations from the plan, deliberate
+
+Existing ceiling-based evaluator callers keep the orders they actually consume; the explicit
+directional consumer constructs First only. Arbitrary-precision evaluator storage retains the
+original finite foreign allowance because the pinned public API does not expose exact heap
+extent. Optional disk persistence remains on its named consumer trigger. None of these choices
+claims an unmeasured speedup or invents a second allocator/cache/trust authority.
+
+Actual canonical/native/scientific and scope-end acceptance stays with 38g as planned. The
+standalone companion remains available to its dependent Plan 38 readers; existing-plan/index
+reconciliation and retirement remain deferred to series completion. All execution worktrees
+have been integrated and removed; their committed history remains in Git.

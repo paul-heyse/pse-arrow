@@ -161,7 +161,11 @@ thread_local! {
 }
 struct RestoreAbort(Option<Arc<std::sync::atomic::AtomicBool>>);
 impl Drop for RestoreAbort {
-    fn drop(&mut self) { CURRENT_ABORT.with(|current| { current.replace(self.0.take()); }); }
+    fn drop(&mut self) {
+        CURRENT_ABORT.with(|current| {
+            current.replace(self.0.take());
+        });
+    }
 }
 fn scoped_abort<T>(flag: &Arc<std::sync::atomic::AtomicBool>, work: impl FnOnce() -> T) -> T {
     let restore = RestoreAbort(CURRENT_ABORT.with(|current| current.replace(Some(flag.clone()))));
@@ -172,13 +176,33 @@ fn scoped_abort<T>(flag: &Arc<std::sync::atomic::AtomicBool>, work: impl FnOnce(
 struct AbortBinding(std::sync::Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>);
 impl AbortBinding {
     fn cancelled(&self) -> bool {
-        let producer = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
-        producer.map_or_else(|| CURRENT_ABORT.with(|current| current.borrow().as_ref().is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire))), |flag| flag.load(std::sync::atomic::Ordering::Acquire))
+        let producer = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        producer.map_or_else(
+            || {
+                CURRENT_ABORT.with(|current| {
+                    current
+                        .borrow()
+                        .as_ref()
+                        .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire))
+                })
+            },
+            |flag| flag.load(std::sync::atomic::Ordering::Acquire),
+        )
     }
 }
 struct DetachAbort(Arc<AbortBinding>);
 impl Drop for DetachAbort {
-    fn drop(&mut self) { self.0.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take(); }
+    fn drop(&mut self) {
+        self.0
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take();
+    }
 }
 fn exact_evaluator(
     expressions: &[Atom],
@@ -197,9 +221,7 @@ fn exact_evaluator(
     let abort = Arc::new(AbortBinding(std::sync::Mutex::new(Some(cancelled.clone()))));
     let detach = DetachAbort(abort.clone());
     let ev = Atom::evaluator_multiple(expressions, parameters)
-        .abort_check(Some(Box::new(move || {
-            abort.cancelled()
-        })))
+        .abort_check(Some(Box::new(move || abort.cancelled())))
         .cores(options.cores)
         .horner_iterations(options.horner_iterations)
         .cpe_iterations(Some(options.cpe_iterations))
@@ -304,7 +326,10 @@ mod abort_binding_tests {
         let binding = Arc::new(AbortBinding(std::sync::Mutex::new(Some(producer.clone()))));
         let detach = DetachAbort(binding.clone());
         producer.store(true, std::sync::atomic::Ordering::Release);
-        assert!(binding.cancelled(), "initial optimizer threads read the producer flag");
+        assert!(
+            binding.cancelled(),
+            "initial optimizer threads read the producer flag"
+        );
         drop(detach);
         assert_eq!(Arc::strong_count(&producer), 1);
         assert!(!binding.cancelled());
@@ -312,10 +337,12 @@ mod abort_binding_tests {
         scoped_abort(&current, || {
             assert!(binding.cancelled());
             let nested = Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scoped_abort(&nested, || {
-                assert!(!binding.cancelled());
-                panic!("test nested unwind");
-            })));
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                scoped_abort(&nested, || {
+                    assert!(!binding.cancelled());
+                    panic!("test nested unwind");
+                })
+            }));
             assert!(binding.cancelled());
             assert_eq!(Arc::strong_count(&nested), 1);
         });

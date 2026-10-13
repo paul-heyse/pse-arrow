@@ -72,7 +72,9 @@ pub(super) fn durable_runtime_on(runtime: Runtime) -> Runtime {
     let runtime = if runtime.canonical.is_some() {
         runtime
     } else {
-        runtime.with_canonical(tests::canonical_deployment()).unwrap()
+        runtime
+            .with_canonical(tests::canonical_deployment())
+            .unwrap()
     };
     runtime
         .with_durability(DurabilitySelection::Durable {
@@ -141,7 +143,8 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquis
     let mut retired = false;
     for _ in 0..32 {
         if runtime
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .forget_run_results(&run)
             .await
             .is_ok()
@@ -301,7 +304,8 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
     drop(package);
     runtime.clear_program_cache();
     runtime
-        .canonical().unwrap()
+        .canonical()
+        .unwrap()
         .store()
         .remove_isolated_fixture()
         .await
@@ -351,7 +355,8 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
     );
     assert!(
         runtime
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .canonical_run(&run)
             .await
             .unwrap()
@@ -363,7 +368,8 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
     drop(package);
     runtime.clear_program_cache();
     runtime
-        .canonical().unwrap()
+        .canonical()
+        .unwrap()
         .store()
         .remove_isolated_fixture()
         .await

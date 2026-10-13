@@ -45,14 +45,18 @@ impl ValidationPlanner for NativeValidation {
             scope.execution_props().query_execution_start_time;
         Self(state).prepare(expression, schema)
     }
-
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use datafusion::{arrow::{array::{Int64Array, RecordBatch}, datatypes::{DataType, Field, Schema}},
-        execution::context::SessionContext};
+    use datafusion::{
+        arrow::{
+            array::{Int64Array, RecordBatch},
+            datatypes::{DataType, Field, Schema},
+        },
+        execution::context::SessionContext,
+    };
     use pse_relations::validate::{AdmissionScope, ValidationContext};
     use std::collections::HashMap;
 
@@ -64,11 +68,21 @@ mod tests {
         let context = ValidationContext::new(&registry, NativeValidation(state.clone()));
         let schema = Arc::new(Schema::new_with_metadata(
             vec![Field::new("n", DataType::Int64, false)],
-            HashMap::from([(pse_schema::arrow::KEY_CHECKS.into(),
-                r#"{"clock":"to_timestamp_seconds(n) <= now()"}"#.into())]),
+            HashMap::from([(
+                pse_schema::arrow::KEY_CHECKS.into(),
+                r#"{"clock":"to_timestamp_seconds(n) <= now()"}"#.into(),
+            )]),
         ));
-        let now = context.admission_scope().execution_props().query_execution_start_time.unwrap();
-        let input = RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![now.timestamp()]))]).unwrap();
+        let now = context
+            .admission_scope()
+            .execution_props()
+            .query_execution_start_time
+            .unwrap();
+        let input = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int64Array::from(vec![now.timestamp()]))],
+        )
+        .unwrap();
         let cancel = pse_columnar::CancellationToken::new();
         let prepared = context.prepare(&registry, schema.clone()).unwrap();
         assert!(prepared.evaluate(&input, 8, &cancel).unwrap().is_valid());
@@ -78,7 +92,10 @@ mod tests {
         let earlier = earlier.prepare(&registry, schema).unwrap();
         assert!(!earlier.evaluate(&input, 8, &cancel).unwrap().is_valid());
         assert!(prepared.evaluate(&input, 8, &cancel).unwrap().is_valid());
-        assert_eq!(state.execution_props().query_execution_start_time, original_clock);
+        assert_eq!(
+            state.execution_props().query_execution_start_time,
+            original_clock
+        );
         assert_eq!(context.prepared_count().unwrap(), 1);
     }
 }

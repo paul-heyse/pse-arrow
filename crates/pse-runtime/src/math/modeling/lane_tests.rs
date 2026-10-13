@@ -297,7 +297,6 @@ async fn dynamic_snapshot_pressure_evicts_idle_lane_but_retains_historical_sourc
     assert_eq!(service.pool.reserved(), 0);
 }
 
-
 #[tokio::test]
 async fn local_package_reload_reuses_live_lane_and_keeps_historical_source_maps() {
     let runtime = crate::workflow::tests::runtime();

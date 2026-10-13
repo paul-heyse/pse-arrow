@@ -244,3 +244,22 @@ All eight documents are authored. All 27 rule recommendations were accepted as w
 Documentation-only validation checked eight new files, 39 distinct packet transfers, 27 accepted decision rows and 16 adopted current findings; metadata validation, book/search publication and scoped new-page offline links passed against zero errors. A preservation comparison confirms the old six bodies differ only by inactive/supersession metadata and notices, and excluded existing owners remain unchanged. Root turn-end formatting/indexing is separate from product qualification.
 
 The next executable scope is preparatory investigation/decision installation and the independently ready functional slices described above, subject to separate implementation authorization and plan-execution preparation. Conditional topology, native reset/method and sparse-tier choices have bounded investigations with actual dependents. Plan creation authorizes no product change, topology cutover, history disposal, existing campaign restart or ADR status change.
+
+
+## Execution checkpoint — Plan 38a, 2026-10-13
+
+The maintainer authorized execution of the authoring/preparation/validity companion. Proposed
+ADR-0183 and architecture revision 160 install its confirmed local-authority and actual-scope
+boundaries; the independent bounded target review accepted that amendment before dependent
+edits. ADR status remains proposed. [38a](38a-authoring-preparation-and-validity.md#execution-checkpoint--2026-10-13)
+owns its completed functional implementation, corrections, targeted acceptance and explicit
+qualification limits. A1–A5 and I-A1–I-A4 are complete within that companion; assembled
+qualification and shared findings remain open.
+
+Local source authority, bounded lineage reuse, pure preparation/engagement, retained scalar
+products, actual SQL admission scopes and demanded checked result retention are integrated.
+Rust and Python now permit explicit store-free ephemeral composition; required durable effects
+remain fail-closed with original-identity settlement. No storage topology, numerical method
+policy or native session reuse choice is selected here. Other companions, shared finding
+closure and assembled qualification remain open at their existing owners. Existing-plan,
+status/index and campaign reconciliation remains deferred until the series is implemented.

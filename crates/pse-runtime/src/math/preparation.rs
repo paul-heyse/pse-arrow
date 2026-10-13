@@ -5,6 +5,7 @@ use super::{
     MathRuntimeError, MathService, Workspace,
     modeling::{ModelingPreparation, ModelingRevision},
 };
+use crate::workflow::modeling::LocalSourcePremises;
 use pse_columnar::{
     AllocationLease,
     flight::{FlightCancellation, FlightError},
@@ -12,7 +13,6 @@ use pse_columnar::{
 use pse_compiler::workspace::{ModelingPreparationFrontier, PreparedModeling};
 use pse_model::lineage::Solved;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
-use crate::workflow::modeling::LocalSourcePremises;
 use std::{
     collections::BTreeMap,
     hash::{Hash, Hasher},
@@ -432,32 +432,32 @@ impl MathService {
         let service = self.clone();
         let generation = frontier.generation;
         let population = super::PopulationScope::capture();
-        let operation = self.basis_flights.load_owned(
-            (key.clone(), source_premises.clone()),
-            move |control| {
-                population.run(async move {
-                    if let Some(basis) = service.modeling_cache.basis(&key)
-                        && basis.source_premises == source_premises
-                    {
-                        return Ok(basis);
-                    }
-                    let model = service
-                        .complete_frontier_controlled(workspace, frontier, control, Some(deadline))
-                        .await?;
-                    let basis = Arc::new(PreparedBasis::new(
-                        &service,
-                        model,
-                        source_premises,
-                    )?);
-                    // Immutable local mathematics retains complete source premises. Durable
-                    // import/recording permissions remain with their actual adapters.
-                    service
-                        .modeling_cache
-                        .retain_basis(generation, key, basis.clone());
-                    Ok(basis)
-                })
-            },
-        );
+        let operation =
+            self.basis_flights
+                .load_owned((key.clone(), source_premises.clone()), move |control| {
+                    population.run(async move {
+                        if let Some(basis) = service.modeling_cache.basis(&key)
+                            && basis.source_premises == source_premises
+                        {
+                            return Ok(basis);
+                        }
+                        let model = service
+                            .complete_frontier_controlled(
+                                workspace,
+                                frontier,
+                                control,
+                                Some(deadline),
+                            )
+                            .await?;
+                        let basis = Arc::new(PreparedBasis::new(&service, model, source_premises)?);
+                        // Immutable local mathematics retains complete source premises. Durable
+                        // import/recording permissions remain with their actual adapters.
+                        service
+                            .modeling_cache
+                            .retain_basis(generation, key, basis.clone());
+                        Ok(basis)
+                    })
+                });
         tokio::pin!(operation);
         tokio::select! { result = &mut operation => result.map_err(flight_error), () = driver.cancelled() => Err(MathRuntimeError::Cancelled) }
     }

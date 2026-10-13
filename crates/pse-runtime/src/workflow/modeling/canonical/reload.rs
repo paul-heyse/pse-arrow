@@ -175,7 +175,12 @@ fn retain(
 ) -> Result<(), WorkflowError> {
     let math = package.runtime.shared.math();
     let generation = math.modeling_cache.generation();
-    let extent=package.revision_id().len().checked_mul(2).and_then(|n|n.checked_add(size_of::<RetainedIngress>()+1024)).ok_or_else(||contract("retained ingress handle extent"))?;
+    let extent = package
+        .revision_id()
+        .len()
+        .checked_mul(2)
+        .and_then(|n| n.checked_add(size_of::<RetainedIngress>() + 1024))
+        .ok_or_else(|| contract("retained ingress handle extent"))?;
     // Source bodies have their independent loader leases. Charge only the new handle.
     let lease = math.reserve("modeling:retained-ingress", extent)?;
     let value = Arc::new(RetainedIngress {
@@ -269,7 +274,7 @@ async fn cold_owner(
             text.as_bytes().to_vec()
         } else if let Some(hash) = parent.frame.data.get(&document.document_id) {
             let logical = format!("data:{}", document.document_id);
-            let value=package.local_object(&logical)?;
+            let value = package.local_object(&logical)?;
             if pse_ids::encoding_checksum(value.payload.as_slice()).content_hash() != *hash {
                 return Err(contract("cold loader data bytes differ from ingress frame"));
             }
@@ -539,18 +544,26 @@ impl ModelingPackage {
         sources: &[BTreeMap<String, Vec<u8>>],
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
-        let activity=self.runtime.admit_activity()?;
-        activity.scope(async {
-            let deadline=super::super::preparation_deadline(cancel)?;let scoped=cancel.with_deadline(Some(deadline));checkpoint(&scoped)?;
-            let (package,parsed)=self.reload_protected(sources,&scoped).await?;
-            let _=retain(&package,ParsedOwner::Reload(parsed.clone()),parsed.retained_bytes());
-            Ok(package)
-        }).await
+        let activity = self.runtime.admit_activity()?;
+        activity
+            .scope(async {
+                let deadline = super::super::preparation_deadline(cancel)?;
+                let scoped = cancel.with_deadline(Some(deadline));
+                checkpoint(&scoped)?;
+                let (package, parsed) = self.reload_protected(sources, &scoped).await?;
+                let _ = retain(
+                    &package,
+                    ParsedOwner::Reload(parsed.clone()),
+                    parsed.retained_bytes(),
+                );
+                Ok(package)
+            })
+            .await
     }
     async fn reload_protected(
         &self,
         sources: &[BTreeMap<String, Vec<u8>>],
-            cancel: &crate::CancelSource,
+        cancel: &crate::CancelSource,
     ) -> Result<(Self, Arc<ParsedReload>), WorkflowError> {
         let parent = self.delta_parent(cancel).await?;
         let (validation, registry) = owners(self);
@@ -559,12 +572,7 @@ impl ModelingPackage {
             .shared
             .math()
             .modeling_cache
-            .ingress(
-                self.revision_id(),
-                validation,
-                registry,
-                self.physical.key,
-            )
+            .ingress(self.revision_id(), validation, registry, self.physical.key)
             .filter(|owner| owner.revision == self.revision_id());
         let exact_texts = parent.documents.values().all(|document| {
             document.source_text.is_some() || parent.frame.data.contains_key(&document.document_id)
@@ -626,8 +634,11 @@ mod tests {
             ("models/bank.pse".into(), text.as_bytes().to_vec()),
         ])
     }
-    async fn parent(package:&ModelingPackage)->delta::Parent {
-        package.delta_parent(&crate::CancelSource::new()).await.unwrap()
+    async fn parent(package: &ModelingPackage) -> delta::Parent {
+        package
+            .delta_parent(&crate::CancelSource::new())
+            .await
+            .unwrap()
     }
     #[test]
     fn ir_fit_intent_invalidates_exact_document_origin_without_inferring_other_fits() {
@@ -747,8 +758,22 @@ mod tests {
             .await
             .unwrap();
         let selected = result.checked_selection(&[root], &cancel).await.unwrap();
-        assert!(selected.admission.revision.declarations().iter().any(|row| row.name == "b"));
-        assert!(!selected.admission.revision.declarations().iter().any(|row| row.name == "a"));
+        assert!(
+            selected
+                .admission
+                .revision
+                .declarations()
+                .iter()
+                .any(|row| row.name == "b")
+        );
+        assert!(
+            !selected
+                .admission
+                .revision
+                .declarations()
+                .iter()
+                .any(|row| row.name == "a")
+        );
         // Reference admission is selected, as on independent initial ingress.
         let unresolved =
             sources("package minimal_named {def Root {var x:Scalar; eq e:x==missing;}}");
@@ -764,7 +789,7 @@ mod tests {
         );
         // Malformed syntax must still refuse the reload atomically.
         let invalid = sources("package minimal_named {def Root {var x:Scalar; eq e:;}}");
-        let before=unresolved.revision.head.lock().unwrap().revision.clone();
+        let before = unresolved.revision.head.lock().unwrap().revision.clone();
         let error = unresolved
             .reload_from_parent(&[invalid], &cancel)
             .await
@@ -778,7 +803,7 @@ mod tests {
             ),
             "malformed reload refuses at the parser rather than parent CAS: {error}"
         );
-        assert_eq!(unresolved.revision.head.lock().unwrap().revision,before);
+        assert_eq!(unresolved.revision.head.lock().unwrap().revision, before);
         assert_eq!(
             parent(&result)
                 .await
@@ -831,8 +856,25 @@ mod tests {
             .unwrap();
         let mut frame = parent(&package).await.frame;
         frame.origins = None;
-        let revision=admit_revision(&runtime,Some(&package.revision),package.revision.identity,&[edit(INGRESS_FRAME.into(),"context".into(),"ingress_frame".into(),"ingress_frame".into(),payload(&frame).unwrap(),Vec::new())]).await.unwrap();
-        let older=ModelingPackage {revision,..package.clone()};
+        let revision = admit_revision(
+            &runtime,
+            Some(&package.revision),
+            package.revision.identity,
+            &[edit(
+                INGRESS_FRAME.into(),
+                "context".into(),
+                "ingress_frame".into(),
+                "ingress_frame".into(),
+                payload(&frame).unwrap(),
+                Vec::new(),
+            )],
+        )
+        .await
+        .unwrap();
+        let older = ModelingPackage {
+            revision,
+            ..package.clone()
+        };
         runtime.clear_program_cache();
         let loaded = older
             .reload_from_parent(&[original.clone()], &cancel)
@@ -915,8 +957,8 @@ mod tests {
                 ..Default::default()
             },
         );
-        let receiver = Runtime::from_shared_local(small.shared.clone(),small.model.clone())
-        .unwrap();
+        let receiver =
+            Runtime::from_shared_local(small.shared.clone(), small.model.clone()).unwrap();
         let confined = ModelingPackage {
             runtime: receiver,
             ..package.clone()

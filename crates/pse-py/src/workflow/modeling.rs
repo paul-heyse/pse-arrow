@@ -189,11 +189,15 @@ impl NativeModelingPackage {
     }
     #[getter]
     fn canonical_revision(&self) -> Option<String> {
-        self.inner.canonical_revision().map(|origin| origin.key.clone())
+        self.inner
+            .canonical_revision()
+            .map(|origin| origin.key.clone())
     }
     #[getter]
     fn canonical_problem(&self) -> Option<String> {
-        self.inner.canonical_revision().map(|origin| origin.problem.clone())
+        self.inner
+            .canonical_revision()
+            .map(|origin| origin.problem.clone())
     }
     fn with_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
         let edit: native::DeclarationEdit = documents::decode(

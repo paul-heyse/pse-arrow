@@ -118,11 +118,20 @@ async fn native_algorithms_keep_functions_configuration_scopes_and_resource_ceil
     let next = NativeExecutionContext::execution_state(&state, &cancel).unwrap();
     let next_services = NativeExecutionContext::from_session(&next).unwrap();
     assert!(!next_services.must_settle());
-    assert!(!services.validation_context().admission_scope().same_invocation(
-        next_services.validation_context().admission_scope()
-    ));
-    assert_eq!(next.execution_props().query_execution_start_time,
-        next_services.validation_context().admission_scope().execution_props().query_execution_start_time);
+    assert!(
+        !services
+            .validation_context()
+            .admission_scope()
+            .same_invocation(next_services.validation_context().admission_scope())
+    );
+    assert_eq!(
+        next.execution_props().query_execution_start_time,
+        next_services
+            .validation_context()
+            .admission_scope()
+            .execution_props()
+            .query_execution_start_time
+    );
     assert!(!Arc::ptr_eq(&services, &next_services));
     assert!(Arc::ptr_eq(services.pool(), next_services.pool()));
     assert_eq!(state.config_options().execution.batch_size.get(), 7);
@@ -146,9 +155,13 @@ async fn native_algorithms_keep_functions_configuration_scopes_and_resource_ceil
         .candidate_roles(&state, BTreeMap::from([("actual_child".into(), child)]))
         .unwrap();
     assert_eq!(nested.effective_policy().unwrap().max_bytes, Some(32 << 20));
-    assert!(nested.admission_context().unwrap().admission_scope().same_invocation(
-        services.validation_context().admission_scope()
-    ));
+    assert!(
+        nested
+            .admission_context()
+            .unwrap()
+            .admission_scope()
+            .same_invocation(services.validation_context().admission_scope())
+    );
     assert!(
         pse_columnar::MemoryConsumer::new("too-large-native-workspace")
             .register(services.pool())

@@ -360,13 +360,17 @@ fn stored_diagnostic(
 impl Runtime {
     /// Actual recording/read owner, independent of default scientific execution durability.
     pub(crate) fn operations(&self) -> Result<&Operations, WorkflowError> {
-        self.recording_operations.as_deref().ok_or(WorkflowError::RecordingUnavailable)
+        self.recording_operations
+            .as_deref()
+            .ok_or(WorkflowError::RecordingUnavailable)
     }
 
-    fn study_creation_operations(&self) -> Result<&Operations,WorkflowError> {
+    fn study_creation_operations(&self) -> Result<&Operations, WorkflowError> {
         match self.durability() {
-            super::Durability::Durable(operations)=>Ok(operations),
-            super::Durability::Ephemeral=>Err(contract("durable study creation requires explicit durable execution")),
+            super::Durability::Durable(operations) => Ok(operations),
+            super::Durability::Ephemeral => Err(contract(
+                "durable study creation requires explicit durable execution",
+            )),
         }
     }
     /// Admit authored ingress once and retain one canonical study before preparing ready occurrences.
@@ -2078,7 +2082,7 @@ impl super::ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let _revision=self.recorded_revision()?;
+                let _revision = self.recorded_revision()?;
                 let operations = Operations::from_store(
                     self.runtime.canonical_store()?.clone(),
                     Operations::process_worker("study-admission"),
@@ -2219,7 +2223,10 @@ mod creation_authority_tests {
 
     fn inputs() -> (StudyPlan, StudyDefinition) {
         let sources = BTreeMap::from([(
-            format!("unpublished-{}.pse", pse_operations::mint_id::<SemanticId>()),
+            format!(
+                "unpublished-{}.pse",
+                pse_operations::mint_id::<SemanticId>()
+            ),
             b"not parsed unless durable execution was selected".to_vec(),
         )]);
         let identity = pse_admission::authoring_driver::document::package_checksum(&sources);
@@ -2234,7 +2241,10 @@ mod creation_authority_tests {
         };
         let plan = StudyPlan {
             output: super::super::StudyOutputDemand::Full {},
-            sources: PackageSources { physical: sources, modeling: Vec::new() },
+            sources: PackageSources {
+                physical: sources,
+                modeling: Vec::new(),
+            },
             points: Vec::new(),
         };
         (plan, definition)
@@ -2247,7 +2257,11 @@ mod creation_authority_tests {
         let physical = plan.sources.physical.clone();
         let cancel = crate::CancelSource::new();
         refused_before_creation(runtime.start_study(plan, &cancel).await);
-        refused_before_creation(runtime.start_defined_study(physical, definition, &cancel).await);
+        refused_before_creation(
+            runtime
+                .start_defined_study(physical, definition, &cancel)
+                .await,
+        );
         assert!(runtime.canonical().is_err());
     }
 
@@ -2255,8 +2269,12 @@ mod creation_authority_tests {
     #[tokio::test]
     async fn recording_connection_does_not_authorize_study_source_publication() {
         let runtime = super::super::tests::runtime()
-            .with_canonical(super::super::tests::canonical_deployment()).unwrap();
-        assert!(matches!(runtime.durability(), super::super::Durability::Ephemeral));
+            .with_canonical(super::super::tests::canonical_deployment())
+            .unwrap();
+        assert!(matches!(
+            runtime.durability(),
+            super::super::Durability::Ephemeral
+        ));
         let (plan, definition) = inputs();
         let physical = plan.sources.physical.clone();
         let receipt = definition.physical.revision.clone();
@@ -2265,11 +2283,22 @@ mod creation_authority_tests {
         let before = store.study_page(None).await.unwrap();
         let cancel = crate::CancelSource::new();
         refused_before_creation(runtime.start_study(plan, &cancel).await);
-        refused_before_creation(runtime.start_defined_study(physical, definition, &cancel).await);
+        refused_before_creation(
+            runtime
+                .start_defined_study(physical, definition, &cancel)
+                .await,
+        );
         assert!(store.revision(&receipt).await.unwrap().is_none());
         assert_eq!(store.study_page(None).await.unwrap(), before);
         // Explicit recording reads retain their independent authority.
-        assert!(runtime.source_settlement("never-issued", &receipt).await.unwrap().acknowledgement.is_none());
+        assert!(
+            runtime
+                .source_settlement("never-issued", &receipt)
+                .await
+                .unwrap()
+                .acknowledgement
+                .is_none()
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
 }

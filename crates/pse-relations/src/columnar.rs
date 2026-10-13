@@ -791,10 +791,18 @@ impl FieldCheckedBatch {
             return Ok(self.clone());
         }
         let prepared = context.relation(registry, spec)?;
-        if self.admission.as_ref().is_some_and(|admission| admission.prepared.same_bindings(&prepared)) {
-            prepared.evaluate_missing_checks(self, &prepared.scope_checks(), cancel)?.require_valid()?;
+        if self
+            .admission
+            .as_ref()
+            .is_some_and(|admission| admission.prepared.same_bindings(&prepared))
+        {
+            prepared
+                .evaluate_missing_checks(self, &prepared.scope_checks(), cancel)?
+                .require_valid()?;
         } else {
-            prepared.evaluate_retained(self, 256, cancel)?.require_valid()?;
+            prepared
+                .evaluate_retained(self, 256, cancel)?
+                .require_valid()?;
         }
         cancel.checkpoint()?;
         Ok(self.clone().with_admission(Some(LocalFieldAdmission {
@@ -1199,8 +1207,14 @@ impl FieldCheckedBatch {
             .map(|(name, _)| format!("check:{name}"))
             .collect::<std::collections::BTreeSet<_>>();
         let prepared = context.relation(registry, spec)?;
-        let same_bindings = self.admission.as_ref().is_some_and(|admission| admission.prepared.same_bindings(&prepared));
-        let same_scope = self.admission.as_ref().is_some_and(|admission| admission.prepared.same_native_owner(&prepared));
+        let same_bindings = self
+            .admission
+            .as_ref()
+            .is_some_and(|admission| admission.prepared.same_bindings(&prepared));
+        let same_scope = self
+            .admission
+            .as_ref()
+            .is_some_and(|admission| admission.prepared.same_native_owner(&prepared));
         if same_bindings && !same_scope {
             missing.extend(prepared.scope_checks());
         }

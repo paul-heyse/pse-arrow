@@ -67,11 +67,19 @@ impl ResultAdmission {
         owned: pse_columnar::owned_buffer::OwnedRecordBatch,
         cancel: &CancellationToken,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let spec = runtime.registry().relation_by_id(relation)
+        let spec = runtime
+            .registry()
+            .relation_by_id(relation)
             .ok_or_else(|| contract("result relation unavailable"))?;
         pse_relations::columnar::FieldCheckedBatch::admit_owned(
-            runtime.registry(), spec, owned, &self.0, cancel,
-        ).map_err(pse_engine::EngineError::from).map_err(WorkflowError::from)
+            runtime.registry(),
+            spec,
+            owned,
+            &self.0,
+            cancel,
+        )
+        .map_err(pse_engine::EngineError::from)
+        .map_err(WorkflowError::from)
     }
 }
 
@@ -412,7 +420,9 @@ impl CanonicalResultReader {
             let owned = scope
                 .attach_borrowed_reserved(batch, owner.as_ref())
                 .map_err(pse_engine::EngineError::from)?;
-            let checked = self.admission.admit(&self.runtime, self.relation, owned, &self.cancel)?;
+            let checked =
+                self.admission
+                    .admit(&self.runtime, self.relation, owned, &self.cancel)?;
             let checked = if let Some(filter) = &self.output {
                 let indexes = self
                     .indexes
@@ -846,41 +856,104 @@ impl Runtime {
 mod result_admission_unit {
     use super::*;
     use datafusion::arrow::{array::Int64Array, datatypes::DataType};
-    use pse_schema::model::{Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass};
+    use pse_schema::model::{
+        Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass,
+    };
 
     #[tokio::test]
     async fn selected_reader_admits_decoded_stable_checks_in_one_actual_operation_scope() {
-        let base = super::super::tests::runtime_on(64 << 20, crate::math::MathPolicy {
-            artifact_bytes: 4 << 20, workspace_bytes: 4 << 20, foreign_bytes: 1 << 20,
-            worker_bytes: 4 << 20, ..Default::default()
-        });
+        let base = super::super::tests::runtime_on(
+            64 << 20,
+            crate::math::MathPolicy {
+                artifact_bytes: 4 << 20,
+                workspace_bytes: 4 << 20,
+                foreign_bytes: 1 << 20,
+                worker_bytes: 4 << 20,
+                ..Default::default()
+            },
+        );
         let mut declarations = pse_schema::RegistryBuilder::new();
-        declarations.declare_relation(RelationDecl::new(
-            Namespace::Normalized, "selected_clock", 1, Authority::Derived, SnapshotClass::Model,
-            "generic decoded results retain the selected reader's native clock",
-        ).granularity(DerivationGranularity::Rule).pk(&["ts"]).columns(vec![FieldContract::key(
-            "ts", FieldContract::native(DataType::Int64), "timestamp nanoseconds",
-        )]).checks(BTreeMap::from([("clock".into(), "ts = CAST(now() AS BIGINT)".into())])));
+        declarations.declare_relation(
+            RelationDecl::new(
+                Namespace::Normalized,
+                "selected_clock",
+                1,
+                Authority::Derived,
+                SnapshotClass::Model,
+                "generic decoded results retain the selected reader's native clock",
+            )
+            .granularity(DerivationGranularity::Rule)
+            .pk(&["ts"])
+            .columns(vec![FieldContract::key(
+                "ts",
+                FieldContract::native(DataType::Int64),
+                "timestamp nanoseconds",
+            )])
+            .checks(BTreeMap::from([(
+                "clock".into(),
+                "ts = CAST(now() AS BIGINT)".into(),
+            )])),
+        );
         let registry = Arc::new(declarations.build().unwrap());
-        let runtime = Runtime::from_shared_local(base.shared.clone(), base.model.factory().bind_model(registry.clone()).unwrap()).unwrap();
+        let runtime = Runtime::from_shared_local(
+            base.shared.clone(),
+            base.model.factory().bind_model(registry.clone()).unwrap(),
+        )
+        .unwrap();
         let spec = registry.relation("normalized.selected_clock").unwrap();
         let stale = runtime.validation_context();
         let stale_contract = stale.relation(&registry, spec).unwrap();
-        let first = runtime.scope_activity(async { Ok(ResultAdmission::new(&runtime)) }).await.unwrap();
-        let timestamp = first.0.admission_scope().execution_props().query_execution_start_time.unwrap().timestamp_nanos_opt().unwrap();
+        let first = runtime
+            .scope_activity(async { Ok(ResultAdmission::new(&runtime)) })
+            .await
+            .unwrap();
+        let timestamp = first
+            .0
+            .admission_scope()
+            .execution_props()
+            .query_execution_start_time
+            .unwrap()
+            .timestamp_nanos_opt()
+            .unwrap();
         let schema = pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap();
-        let raw = RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![timestamp]))]).unwrap();
+        let raw = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int64Array::from(vec![timestamp]))],
+        )
+        .unwrap();
         let bytes = result_blocks::encode_result_block(&raw).unwrap();
         let decoded = result_blocks::decode_result_block(&bytes, schema, 1).unwrap();
         let cancel = CancellationToken::new();
-        assert!(!stale_contract.evaluate(&decoded, 8, &cancel).unwrap().is_valid(),
-            "a pre-warmed runtime owner is not the selected read operation's clock");
-        let own = || pse_columnar::owned_buffer::copy_batch(&decoded, &runtime.shared.pool(), &cancel).unwrap();
+        assert!(
+            !stale_contract
+                .evaluate(&decoded, 8, &cancel)
+                .unwrap()
+                .is_valid(),
+            "a pre-warmed runtime owner is not the selected read operation's clock"
+        );
+        let own = || {
+            pse_columnar::owned_buffer::OwnedRecordBatch::copy(
+                &decoded,
+                &runtime.shared.pool(),
+                &cancel,
+            )
+            .unwrap()
+        };
         first.admit(&runtime, spec.id, own(), &cancel).unwrap();
-        let second = runtime.scope_activity(async { Ok(ResultAdmission::new(&runtime)) }).await.unwrap();
-        assert!(!first.0.admission_scope().same_invocation(second.0.admission_scope()));
-        assert!(second.admit(&runtime, spec.id, own(), &cancel).is_err(),
-            "an independent reader cannot reuse old Stable validity");
+        let second = runtime
+            .scope_activity(async { Ok(ResultAdmission::new(&runtime)) })
+            .await
+            .unwrap();
+        assert!(
+            !first
+                .0
+                .admission_scope()
+                .same_invocation(second.0.admission_scope())
+        );
+        assert!(
+            second.admit(&runtime, spec.id, own(), &cancel).is_err(),
+            "an independent reader cannot reuse old Stable validity"
+        );
         first.admit(&runtime, spec.id, own(), &cancel).unwrap();
     }
 }

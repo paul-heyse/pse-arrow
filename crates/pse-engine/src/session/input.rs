@@ -540,59 +540,115 @@ mod tests {
 
     #[tokio::test]
     async fn stable_output_and_stable_checks_share_first_repeated_concurrent_and_group_scope() {
-        use std::collections::BTreeMap;
         use datafusion::arrow::datatypes::DataType;
         use datafusion::execution::session_state::SessionStateBuilder;
-        use pse_schema::model::{Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass};
+        use pse_schema::model::{
+            Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass,
+        };
+        use std::collections::BTreeMap;
         let mut declarations = pse_schema::RegistryBuilder::new();
-        declarations.declare_relation(RelationDecl::new(
-            Namespace::Normalized, "operation_clock", 1, Authority::Derived, SnapshotClass::Model,
-            "stable output belongs to its exact invocation clock",
-        ).granularity(DerivationGranularity::Rule).columns(vec![FieldContract::key(
-            "ts", FieldContract::native(DataType::Int64), "native timestamp nanoseconds",
-        )]).pk(&["ts"]).checks(BTreeMap::from([("same_clock".into(), "ts = CAST(now() AS BIGINT)".into())])));
+        declarations.declare_relation(
+            RelationDecl::new(
+                Namespace::Normalized,
+                "operation_clock",
+                1,
+                Authority::Derived,
+                SnapshotClass::Model,
+                "stable output belongs to its exact invocation clock",
+            )
+            .granularity(DerivationGranularity::Rule)
+            .columns(vec![FieldContract::key(
+                "ts",
+                FieldContract::native(DataType::Int64),
+                "native timestamp nanoseconds",
+            )])
+            .pk(&["ts"])
+            .checks(BTreeMap::from([(
+                "same_clock".into(),
+                "ts = CAST(now() AS BIGINT)".into(),
+            )])),
+        );
         let registry = Arc::new(declarations.build().unwrap());
         let spec = registry.relation("normalized.operation_clock").unwrap();
         let context = datafusion::prelude::SessionContext::new();
         let factory = super::super::EngineFactory::from_builder(
-            context.runtime_env(), Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
-            "stable-output-scope-unit", SessionStateBuilder::from(context.state())
+            context.runtime_env(),
+            Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
+            "stable-output-scope-unit",
+            SessionStateBuilder::from(context.state())
                 .with_query_planner(Arc::new(super::super::planner::UnifiedPlanner::default())),
         );
         let cancel = pse_columnar::CancellationToken::new();
-        let session = factory.candidate(BTreeMap::new(), registry.clone(), &cancel).unwrap();
-        let sql = session.prepare_sql("SELECT CAST(now() AS BIGINT) AS ts", &cancel).await.unwrap();
-        let relation = RelationPlan::derived(spec.id, sql.original_plan().clone(), &registry).unwrap();
+        let session = factory
+            .candidate(BTreeMap::new(), registry.clone(), &cancel)
+            .unwrap();
+        let sql = session
+            .prepare_sql("SELECT CAST(now() AS BIGINT) AS ts", &cancel)
+            .await
+            .unwrap();
+        let relation =
+            RelationPlan::derived(spec.id, sql.original_plan().clone(), &registry).unwrap();
         // This is the bounded capture path that formerly admitted under a second clock.
-        let first = relation.execute_bounded(&session, 4, 1 << 20, &cancel).await.unwrap();
-        let second = relation.execute_bounded(&session, 4, 1 << 20, &cancel).await.unwrap();
-        assert_ne!(first.checked.batch().column(0), second.checked.batch().column(0));
+        let first = relation
+            .execute_bounded(&session, 4, 1 << 20, &cancel)
+            .await
+            .unwrap();
+        let second = relation
+            .execute_bounded(&session, 4, 1 << 20, &cancel)
+            .await
+            .unwrap();
+        assert_ne!(
+            first.checked.batch().column(0),
+            second.checked.batch().column(0)
+        );
 
-        let prepared = session.prepare_rule_plan(relation.plan().clone(), &cancel).unwrap();
+        let prepared = session
+            .prepare_rule_plan(relation.plan().clone(), &cancel)
+            .unwrap();
         let check = |completed: &super::super::CompletedComputation| {
-            completed.checked_relation(&registry, spec, &cancel).unwrap()
+            completed
+                .checked_relation(&registry, spec, &cancel)
+                .unwrap()
         };
         let first = prepared.clone().execute(&cancel).await.unwrap();
         check(&first);
-        assert_ne!(first.prepared().query_start_time(), prepared.query_start_time(),
-            "first execution refreshes pre-folded Stable values under its operation scope");
+        assert_ne!(
+            first.prepared().query_start_time(),
+            prepared.query_start_time(),
+            "first execution refreshes pre-folded Stable values under its operation scope"
+        );
         let second = prepared.clone().execute(&cancel).await.unwrap();
         check(&second);
-        assert_ne!(first.prepared().query_start_time(), second.prepared().query_start_time());
-        let (left, right) = tokio::join!(prepared.clone().execute(&cancel), prepared.clone().execute(&cancel));
+        assert_ne!(
+            first.prepared().query_start_time(),
+            second.prepared().query_start_time()
+        );
+        let (left, right) = tokio::join!(
+            prepared.clone().execute(&cancel),
+            prepared.clone().execute(&cancel)
+        );
         let left = left.unwrap();
         let right = right.unwrap();
         check(&left);
         check(&right);
-        assert_ne!(left.prepared().query_start_time(), right.prepared().query_start_time());
+        assert_ne!(
+            left.prepared().query_start_time(),
+            right.prepared().query_start_time()
+        );
 
         let group = super::super::PreparedComputation::execute_group(
-            [Ok(prepared.clone()), Ok(prepared)], &cancel,
-        ).await.unwrap();
+            [Ok(prepared.clone()), Ok(prepared)],
+            &cancel,
+        )
+        .await
+        .unwrap();
         check(&group[0]);
         check(&group[1]);
-        assert_eq!(group[0].batches()[0].column(0), group[1].batches()[0].column(0),
-            "sibling outputs deliberately share one operation timestamp");
+        assert_eq!(
+            group[0].batches()[0].column(0),
+            group[1].batches()[0].column(0),
+            "sibling outputs deliberately share one operation timestamp"
+        );
     }
 
     #[test]

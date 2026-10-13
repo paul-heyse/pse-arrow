@@ -871,7 +871,8 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
             drop(package);
             local.clear_program_cache();
             local
-                .canonical_store().unwrap()
+                .canonical_store()
+                .unwrap()
                 .remove_isolated_fixture()
                 .await
                 .unwrap();
@@ -917,7 +918,8 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
     drop(package);
     local.clear_program_cache();
     local
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -964,7 +966,8 @@ async fn worker_runs_authored_case_end_to_end() {
     drop(package);
     local.clear_program_cache();
     local
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -999,7 +1002,8 @@ async fn durable_worker_round_trips_a_package_with_a_data_document() {
     drop(package);
     local.clear_program_cache();
     local
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -1127,7 +1131,8 @@ async fn wait_study_assignment(
             let key = &key;
             async move {
                 let point = local
-                    .canonical_store().unwrap()
+                    .canonical_store()
+                    .unwrap()
                     .canonical_study_point(key)
                     .await
                     .unwrap()
@@ -1141,7 +1146,8 @@ async fn wait_study_assignment(
     )
     .await;
     let point = local
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .canonical_study_point(&key)
         .await
         .unwrap()
@@ -1149,7 +1155,8 @@ async fn wait_study_assignment(
     let attempt = point.attempt.unwrap();
     assert!(
         !local
-            .canonical_store().unwrap()
+            .canonical_store()
+            .unwrap()
             .canonical_attempt(&attempt)
             .await
             .unwrap()
@@ -1266,7 +1273,8 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
     // Retire that optional ownership before the store's authentic protection drain.
     local.clear_program_cache();
     local
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -1307,7 +1315,8 @@ async fn cross_process_cancel_stops_scip() {
     drop(handle);
     local.clear_program_cache();
     local
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -1428,7 +1437,8 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     drop(package);
     local.clear_program_cache();
     local
-        .canonical_store().unwrap()
+        .canonical_store()
+        .unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();

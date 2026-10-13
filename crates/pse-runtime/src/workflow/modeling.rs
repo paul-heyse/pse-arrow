@@ -20,8 +20,8 @@ fn preparation_deadline(cancel: &crate::CancelSource) -> Result<std::time::Insta
 }
 mod bound;
 mod canonical;
-pub(crate) use canonical::reload::RetainedIngress;
 pub(crate) use canonical::LocalSourcePremises;
+pub(crate) use canonical::reload::RetainedIngress;
 pub(super) mod cases;
 mod conformance;
 pub(super) mod declared;
@@ -99,7 +99,7 @@ pub(super) mod assessment;
 pub(super) mod documents;
 pub(super) mod results;
 mod views;
-use super::{PhysicalContext, Runtime, WorkflowError, SourceDelta, contract, relation};
+use super::{PhysicalContext, Runtime, SourceDelta, WorkflowError, contract, relation};
 use crate::math::{Workspace, modeling::ModelingPreparation};
 pub use analysis_tables::ModelingNativeAnalysis;
 pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
@@ -556,7 +556,7 @@ impl Runtime {
         activity
             .scope(async {
                 let source = canonical::SourceRevision::open(self, revision).await?;
-                let package=self.package_from_revision(source,physical,providers)?;
+                let package = self.package_from_revision(source, physical, providers)?;
                 package.delta_parent(&crate::CancelSource::new()).await?;
                 Ok(package)
             })
@@ -677,16 +677,24 @@ impl ModelingPackage {
             .await
     }
     /// Exact immutable canonical revision, independent of semantic compiler source hashes.
-    pub fn canonical_revision(&self) -> Option<&pse_model::generated::runtime::canonical_revisions::Row> {
+    pub fn canonical_revision(
+        &self,
+    ) -> Option<&pse_model::generated::runtime::canonical_revisions::Row> {
         self.revision.origin()
     }
     /// Opaque exact parent token, distinct from semantic content and durable origin.
-    pub fn revision_id(&self) -> &str { self.revision.revision_id() }
-    pub(crate) fn recorded_revision(&self) -> Result<&pse_model::generated::runtime::canonical_revisions::Row,WorkflowError> {
-        self.canonical_revision().ok_or(WorkflowError::RecordingUnavailable)
+    pub fn revision_id(&self) -> &str {
+        self.revision.revision_id()
+    }
+    pub(crate) fn recorded_revision(
+        &self,
+    ) -> Result<&pse_model::generated::runtime::canonical_revisions::Row, WorkflowError> {
+        self.canonical_revision()
+            .ok_or(WorkflowError::RecordingUnavailable)
     }
     pub(crate) fn source_attribution(&self) -> &str {
-        self.canonical_revision().map_or_else(||self.revision_id(),|origin|origin.key.as_str())
+        self.canonical_revision()
+            .map_or_else(|| self.revision_id(), |origin| origin.key.as_str())
     }
     /// Generate full source tables only for an explicit export/publication request.
     pub async fn source_tables(
@@ -884,7 +892,7 @@ impl ModelingPackage {
                     let revision = selected.admission.revision.clone();
                     Ok::<_, WorkflowError>((workspace, revision))
                 })();
-                let (workspace,revision)=prepared?;
+                let (workspace, revision) = prepared?;
                 let result = self
                     .runtime
                     .shared
@@ -899,7 +907,7 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await;
-                let model=result?;
+                let model = result?;
                 Ok(self
                     .runtime
                     .native()
@@ -915,20 +923,47 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let cancel=crate::CancelSource::new();
-                let parent=self.delta_parent(&cancel).await?;
-                let old=parent.rows.iter().map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
-                let new=rows.iter().map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
-                if new.len()!=rows.len(){return Err(contract("complete declarations repeat an identity"));}
-                let delta=SourceDelta {
-                    parent:self.revision_id().into(),
-                    additions:rows.iter().filter(|row|!old.contains_key(&row.declaration_id)).cloned().collect(),
-                    replacements:rows.iter().filter(|row|old.get(&row.declaration_id).is_some_and(|old|*old!=*row)).cloned().collect(),
-                    removals:old.keys().filter(|id|!new.contains_key(id)).copied().collect(),
+                let cancel = crate::CancelSource::new();
+                let parent = self.delta_parent(&cancel).await?;
+                let old = parent
+                    .rows
+                    .iter()
+                    .map(|row| (row.declaration_id, row))
+                    .collect::<BTreeMap<_, _>>();
+                let new = rows
+                    .iter()
+                    .map(|row| (row.declaration_id, row))
+                    .collect::<BTreeMap<_, _>>();
+                if new.len() != rows.len() {
+                    return Err(contract("complete declarations repeat an identity"));
+                }
+                let delta = SourceDelta {
+                    parent: self.revision_id().into(),
+                    additions: rows
+                        .iter()
+                        .filter(|row| !old.contains_key(&row.declaration_id))
+                        .cloned()
+                        .collect(),
+                    replacements: rows
+                        .iter()
+                        .filter(|row| old.get(&row.declaration_id).is_some_and(|old| *old != *row))
+                        .cloned()
+                        .collect(),
+                    removals: old
+                        .keys()
+                        .filter(|id| !new.contains_key(id))
+                        .copied()
+                        .collect(),
                     ..Default::default()
                 };
-                self.apply_delta_parent_ordered(delta,parent,&cancel,None,Some(rows.iter().map(|row|row.declaration_id).collect())).await
-
+                self.apply_delta_parent_ordered(
+                    delta,
+                    parent,
+                    &cancel,
+                    None,
+                    Some(rows.iter().map(|row| row.declaration_id).collect()),
+                )
+                .await
             })
             .await
     }

@@ -1223,7 +1223,10 @@ pub(crate) struct LaneStamp {
 }
 impl LaneStamp {
     pub(crate) fn new(generation: i64, revision_id: &str) -> Self {
-        Self { sequence: generation, revision: revision_id.into() }
+        Self {
+            sequence: generation,
+            revision: revision_id.into(),
+        }
     }
     fn precedes(&self, head: &Self) -> bool {
         self.sequence < head.sequence

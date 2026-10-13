@@ -126,12 +126,8 @@ impl EngineSession {
                 .registry
                 .relation_by_key(key)
                 .ok_or_else(|| invalid("workspace declaration is absent"))?;
-            let input = input.readmit_context(
-                &result.registry,
-                spec,
-                validation.as_ref(),
-                cancel,
-            )?;
+            let input =
+                input.readmit_context(&result.registry, spec, validation.as_ref(), cancel)?;
             let input = input.retained(&result.pool, cancel)?;
             let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));
             result
@@ -171,12 +167,8 @@ impl EngineSession {
                 .registry
                 .relation_by_id(input.relation_id())
                 .ok_or_else(|| invalid("role input declaration is absent"))?;
-            let input = input.readmit_context(
-                &result.registry,
-                spec,
-                validation.as_ref(),
-                cancel,
-            )?;
+            let input =
+                input.readmit_context(&result.registry, spec, validation.as_ref(), cancel)?;
             let key = spec.key;
             let input = input.retained(&result.pool, cancel)?;
             let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));

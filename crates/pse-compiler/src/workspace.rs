@@ -407,17 +407,33 @@ impl ArtifactRequest {
         self.key
     }
     /// Exact scalar-family identity, independent of requested Taylor order/action.
-    pub fn scalar_key(&self) -> ContentHash { self.scalar_key }
+    pub fn scalar_key(&self) -> ContentHash {
+        self.scalar_key
+    }
     /// Prepare original demanded scalar blocks without constructing derivative templates.
-    pub fn build_scalars(&self, cancel: &Arc<AtomicBool>) -> std::result::Result<pse_math::library::ScalarProducts, MathError> {
-        self.support.prepare_scalars(self.optimization, self.evaluation, cancel)
+    pub fn build_scalars(
+        &self,
+        cancel: &Arc<AtomicBool>,
+    ) -> std::result::Result<pse_math::library::ScalarProducts, MathError> {
+        self.support
+            .prepare_scalars(self.optimization, self.evaluation, cancel)
     }
     /// Build the actual requested product from retained exact scalar preparations.
-    pub fn build_reusing(&self, cancel: &Arc<AtomicBool>, scalars: &pse_math::library::ScalarProducts) -> std::result::Result<CompiledBody, MathError> {
+    pub fn build_reusing(
+        &self,
+        cancel: &Arc<AtomicBool>,
+        scalars: &pse_math::library::ScalarProducts,
+    ) -> std::result::Result<CompiledBody, MathError> {
         let compiled = if self.demand.directional {
-            self.support.compile_directional_reusing(self.optimization, self.evaluation, cancel, scalars)
+            self.support.compile_directional_reusing(
+                self.optimization,
+                self.evaluation,
+                cancel,
+                scalars,
+            )
         } else {
-            self.support.compile_reusing(self.optimization, self.evaluation, cancel, scalars)
+            self.support
+                .compile_reusing(self.optimization, self.evaluation, cancel, scalars)
         };
         compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
     }

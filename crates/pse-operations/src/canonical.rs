@@ -160,7 +160,9 @@ pub enum CanonicalError {
 impl CanonicalError {
     /// Whether the source-effect owner established refusal in its actual
     /// transaction phase, rather than merely observing no receipt.
-    pub fn proves_source_refusal(&self) -> bool { matches!(self,Self::SourceEditRefused {..}) }
+    pub fn proves_source_refusal(&self) -> bool {
+        matches!(self, Self::SourceEditRefused { .. })
+    }
     // Used only at the exact source transaction response, before interpreting a
     // later receipt read. The same error types at that later read prove nothing.
     pub(crate) fn source_transaction_refused(&self) -> bool {
@@ -4697,17 +4699,30 @@ mod source_refusal_tests {
     use super::*;
     #[test]
     fn native_refusal_type_is_not_proof_without_the_source_effect_phase() {
-        let raw=CanonicalError::Driver(surrealdb::Error::thrown("explicit transaction refusal".into()));
+        let raw = CanonicalError::Driver(surrealdb::Error::thrown(
+            "explicit transaction refusal".into(),
+        ));
         assert!(raw.source_transaction_refused());
-        assert!(!raw.proves_source_refusal(),"an arbitrary receipt-read failure cannot prove source refusal");
-        let proved=CanonicalError::SourceEditRefused {problem:"original".into(),operation:"same-operation".into(),source:Box::new(raw)};
+        assert!(
+            !raw.proves_source_refusal(),
+            "an arbitrary receipt-read failure cannot prove source refusal"
+        );
+        let proved = CanonicalError::SourceEditRefused {
+            problem: "original".into(),
+            operation: "same-operation".into(),
+            source: Box::new(raw),
+        };
         assert!(proved.proves_source_refusal());
         for raw in [
             CanonicalError::Timeout,
             CanonicalError::IncompleteResponse,
-            CanonicalError::Driver(surrealdb::Error::connection("lost acknowledgement".into(),surrealdb::types::ConnectionError::ConnectionFailed)),
+            CanonicalError::Driver(surrealdb::Error::connection(
+                "lost acknowledgement".into(),
+                surrealdb::types::ConnectionError::ConnectionFailed,
+            )),
         ] {
-            assert!(!raw.source_transaction_refused());assert!(!raw.proves_source_refusal());
+            assert!(!raw.source_transaction_refused());
+            assert!(!raw.proves_source_refusal());
         }
     }
 }

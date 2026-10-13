@@ -213,7 +213,9 @@ impl EngineSession {
     /// The returned view is shared by all batches and child checks of this call.
     /// # Errors
     /// Actual selected native configuration cannot be composed.
-    pub fn admission_context(&self) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
+    pub fn admission_context(
+        &self,
+    ) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
         let owner = self.validation_context()?;
         Ok(Arc::new(match &self.invocation {
             Some(invocation) => owner.for_scope(invocation.4.validation_scope.clone()),

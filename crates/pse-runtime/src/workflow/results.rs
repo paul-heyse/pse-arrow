@@ -15,11 +15,28 @@ use pse_relations::{
 use std::{collections::BTreeMap, sync::Arc};
 impl RunResult {
     /// One actual validation scope retained by this immutable completed result.
-    pub(super) fn result_validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
+    pub(super) fn result_validation_context(
+        &self,
+    ) -> Arc<pse_relations::validate::ValidationContext> {
         self.result_validation.clone()
     }
-    fn projection_retention(&self, id: SemanticId, rows: usize, order: super::ResultOrder, range: std::ops::Range<usize>) -> Option<super::result_export::ProjectionRetention> {
-        self.projection_owner.clone().map(|owner| super::result_export::ProjectionRetention::new(&self.runtime, owner, id, rows, order, range))
+    fn projection_retention(
+        &self,
+        id: SemanticId,
+        rows: usize,
+        order: super::ResultOrder,
+        range: std::ops::Range<usize>,
+    ) -> Option<super::result_export::ProjectionRetention> {
+        self.projection_owner.clone().map(|owner| {
+            super::result_export::ProjectionRetention::new(
+                &self.runtime,
+                owner,
+                id,
+                rows,
+                order,
+                range,
+            )
+        })
     }
     /// Advertised relations are completion metadata; discovery does not encode payloads.
     pub fn table_ids(&self) -> Vec<SemanticId> {
@@ -170,16 +187,25 @@ impl RunResult {
     }
     fn table_by_id(&self, id: SemanticId) -> Result<FieldCheckedBatch, Arc<WorkflowError>> {
         // Check membership/intrinsic failure even on a cache hit.
-        if !self.table_ids().contains(&id) { return Err(Arc::new(contract("relation is not part of this run"))); }
-        if let Some(error) = self.encodings.failure(id) { return Err(error); }
-        let retention = self.projection_retention(id, 1024, super::ResultOrder::Public, 0..usize::MAX);
-        if let Some(batch) = retention.as_ref().and_then(|retention| retention.whole()) { return Ok(batch); }
+        if !self.table_ids().contains(&id) {
+            return Err(Arc::new(contract("relation is not part of this run")));
+        }
+        if let Some(error) = self.encodings.failure(id) {
+            return Err(error);
+        }
+        let retention =
+            self.projection_retention(id, 1024, super::ResultOrder::Public, 0..usize::MAX);
+        if let Some(batch) = retention.as_ref().and_then(|retention| retention.whole()) {
+            return Ok(batch);
+        }
         let batch = super::result_export::collect(
             self.cursor_by_id(id, 1024, super::ResultOrder::Public)?,
             &self.runtime,
             id,
         )?;
-        if let Some(retention) = retention { retention.retain_whole(batch.clone()); }
+        if let Some(retention) = retention {
+            retention.retain_whole(batch.clone());
+        }
         Ok(batch)
     }
     /// Independent bounded traversal of one advertised relation.
@@ -221,7 +247,8 @@ impl RunResult {
             .ok_or_else(|| Arc::new(contract("result declaration absent")))?;
         let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
             .map_err(|e| Arc::new(relation(e.into())))?;
-        let retention = self.projection_retention(id, rows, super::ResultOrder::Public, 0..usize::MAX);
+        let retention =
+            self.projection_retention(id, rows, super::ResultOrder::Public, 0..usize::MAX);
         let producer_retention = retention.clone();
         super::ResultCursor::new(
             schema,
@@ -230,7 +257,9 @@ impl RunResult {
             super::ResultOrder::Public,
             |mut projection| async move {
                 if let Some(retention) = producer_retention {
-                    let Some(range) = retention.replay(&projection).await? else { return Ok(()); };
+                    let Some(range) = retention.replay(&projection).await? else {
+                        return Ok(());
+                    };
                     projection.range = range;
                 }
                 self.encode(&projection)
@@ -317,7 +346,9 @@ impl RunResult {
             cancel,
             |mut projection| async move {
                 if let Some(retention) = producer_retention {
-                    let Some(range) = retention.replay(&projection).await? else { return Ok(()); };
+                    let Some(range) = retention.replay(&projection).await? else {
+                        return Ok(());
+                    };
                     projection.range = range;
                 }
                 self.encode(&projection)

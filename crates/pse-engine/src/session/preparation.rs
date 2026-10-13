@@ -604,11 +604,17 @@ impl PreparedComputation {
         // Every actual operation owns one scope, including its optimizer and
         // output admission. A Stable expression may already be a literal in the
         // inspection preparation, so the first execution must refresh it too.
-        let caches = caches.or_else(|| self.0.session.invocation.clone()).unwrap_or_default();
-        let effectful = self.0.effects.iter().any(|effect| matches!(effect,
-            pse_schema::model::provider::OperationEffect::Write
-                | pse_schema::model::provider::OperationEffect::Namespace
-                | pse_schema::model::provider::OperationEffect::Publish));
+        let caches = caches
+            .or_else(|| self.0.session.invocation.clone())
+            .unwrap_or_default();
+        let effectful = self.0.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                pse_schema::model::provider::OperationEffect::Write
+                    | pse_schema::model::provider::OperationEffect::Namespace
+                    | pse_schema::model::provider::OperationEffect::Publish
+            )
+        });
         if effectful && self.0.started.load(std::sync::atomic::Ordering::Acquire) {
             operation.finish(TerminalStatus::Failed);
             return Err(EngineError::Admission {
@@ -623,24 +629,36 @@ impl PreparedComputation {
             session.invocation = Some(caches.clone());
             let original = match self.0.output_relation {
                 Some(id) => {
-                    let spec = session.registry.relation_by_id(id).ok_or_else(|| EngineError::Internal {
-                        message: "admitted output declaration absent from retained registry".into(),
+                    let spec = session.registry.relation_by_id(id).ok_or_else(|| {
+                        EngineError::Internal {
+                            message: "admitted output declaration absent from retained registry"
+                                .into(),
+                        }
                     })?;
                     // Verify/redeclare the actual target before derivation can
                     // erase metadata again; do not relabel executed output later.
-                    super::output::declare_relation_output(self.0.original.clone(), &session.registry, spec)
-                        .map_err(|error| session.execution_error(error, self.0.origin))?
+                    super::output::declare_relation_output(
+                        self.0.original.clone(),
+                        &session.registry,
+                        spec,
+                    )
+                    .map_err(|error| session.execution_error(error, self.0.origin))?
                 }
                 None => self.0.original.clone(),
             };
-            let mut prepared = session.prepare_scoped(
-                original, cancel, self.0.origin, None, self.0.terminal,
-            ).inspect_err(|_| {
-                operation.finish(if cancel.is_cancelled() { TerminalStatus::Cancelled } else { TerminalStatus::Failed });
-            })?;
-            let preparation = Arc::get_mut(&mut prepared.0).ok_or_else(|| EngineError::Internal {
-                message: "new operation preparation unexpectedly shared".into(),
-            })?;
+            let mut prepared = session
+                .prepare_scoped(original, cancel, self.0.origin, None, self.0.terminal)
+                .inspect_err(|_| {
+                    operation.finish(if cancel.is_cancelled() {
+                        TerminalStatus::Cancelled
+                    } else {
+                        TerminalStatus::Failed
+                    });
+                })?;
+            let preparation =
+                Arc::get_mut(&mut prepared.0).ok_or_else(|| EngineError::Internal {
+                    message: "new operation preparation unexpectedly shared".into(),
+                })?;
             // Re-preparation cannot mint another permission to dispatch effects,
             // or turn a top-level preparation into a permanently nested invocation.
             preparation.started = started;
@@ -1133,8 +1151,11 @@ impl OwnedComputationStream {
     /// optimize Stable expressions and execute this stream.
     /// # Errors
     /// The actual execution state has no installed native services.
-    pub fn validation_context(&self) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
-        let services = super::execution::NativeExecutionContext::from_session(&self.state).map_err(engine)?;
+    pub fn validation_context(
+        &self,
+    ) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
+        let services =
+            super::execution::NativeExecutionContext::from_session(&self.state).map_err(engine)?;
         Ok(Arc::new(services.validation_context().clone()))
     }
     /// Whether the actual physical source promises a finite result.

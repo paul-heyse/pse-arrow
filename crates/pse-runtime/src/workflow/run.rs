@@ -196,7 +196,8 @@ impl RunResult {
         report: Result<RunReport, Arc<WorkflowError>>,
     ) -> Self {
         let result_validation = Arc::new(runtime.validation_context().new_scope());
-        let projection_owner = super::result_export::ProjectionOwner::new(&runtime, result_validation.clone());
+        let projection_owner =
+            super::result_export::ProjectionOwner::new(&runtime, result_validation.clone());
         Self {
             result_validation,
             projection_owner,
@@ -222,7 +223,10 @@ impl RunResult {
     }
     fn reset_result_projection(&mut self) {
         self.result_validation = Arc::new(self.runtime.validation_context().new_scope());
-        self.projection_owner = super::result_export::ProjectionOwner::new(&self.runtime, self.result_validation.clone());
+        self.projection_owner = super::result_export::ProjectionOwner::new(
+            &self.runtime,
+            self.result_validation.clone(),
+        );
     }
     /// Final completion-owned scientific assessments; exporting tables cannot change them.
     pub fn assessments(&self) -> &[pse_relations::generated::runtime::candidate_assessments::Row] {
