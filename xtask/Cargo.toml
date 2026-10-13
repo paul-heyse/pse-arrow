@@ -36,6 +36,7 @@ default = []
 native-abi = ["dep:bindgen"]
 full-codegen = ["package-fixtures", "native-abi"]
 canonical-tools = [
+  "dep:pse-model",
   "dep:pse-operations",
   "pse-operations/canonical-maintenance",
 ]
