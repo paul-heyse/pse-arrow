@@ -218,8 +218,11 @@ pub trait FixedPointOracle: std::fmt::Debug {
     fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize>;
     /// Compute the complete causal map, including admitted library-owned unit solves.
     fn map(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError>;
-    /// Whether the scientific producer supplies physical tear coordinates and row budgets.
-    /// Opaque maps remain submitted-oracle coordinates unless their owner establishes this.
+    /// Scientific producer's actual frozen context; opaque maps may leave it unavailable.
+    fn inner_context(&self) -> RawMapInnerContext {
+        RawMapInnerContext::default()
+    }
+    /// Whether the producer supplies physical tear coordinates and row budgets.
     fn physical_tear_coordinates(&self) -> bool {
         false
     }
@@ -1481,7 +1484,7 @@ impl Session {
                 controls.history,
                 oracle.physical_tear_coordinates(),
                 &tolerances.rows,
-            )?),
+            )?.with_inner_context(oracle.inner_context())),
             _ => None,
         };
         self.callback.setup_calls = 0;
@@ -2752,7 +2755,11 @@ mod tests {
         fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
             self.inner.matrix.symbolic()
         }
-        fn physical_tear_coordinates(&self) -> bool {
+        /// Scientific producer's actual frozen context; opaque maps may leave it unavailable.
+    fn inner_context(&self) -> RawMapInnerContext {
+        RawMapInnerContext::default()
+    }
+    fn physical_tear_coordinates(&self) -> bool {
             true
         }
         fn map(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {

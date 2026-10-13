@@ -498,12 +498,37 @@ impl PreparedRecycle {
             )?)
         })
     }
+    /// Frozen actual authored unit starts and effective inner accuracy. Inputs are
+    /// rebound per sweep; solved roots are never promoted to future starts.
+    pub fn inner_context(&self) -> Result<native::solve::RawMapInnerContext, native::ProblemError> {
+        let mut starts = FramedHasher::new(pse_ids::Frame::CausalMapV2);
+        let mut accuracy = FramedHasher::new(pse_ids::Frame::CausalMapV2);
+        let mut branches = FramedHasher::new(pse_ids::Frame::CausalMapV2);
+        branches.hash(&self.original.assembly.structure().key());
+        for program in &self.programs {
+            let authored = pse_ids::document::of(pse_ids::Frame::CausalMapV2, &program.values.scalars)
+                .map_err(|error| native::ProblemError::Internal(error.to_string()))?;
+            starts.id(&program.declaration.node).hash(&authored);
+            branches.id(&program.declaration.node).hash(&authored);
+            if let Some(inner) = &program.conditional {
+                accuracy.hash(&inner.inner_accuracy_identity());
+                branches.hash(&inner.view.boundary.id.0);
+            }
+        }
+        Ok(native::solve::RawMapInnerContext {
+            tolerance: None, // Multiple physical inner row/variable budgets have no scalar summary.
+            start: Some(starts.finish_hash()),
+            branch: Some(branches.finish_hash()),
+            accuracy: Some(accuracy.finish_hash()),
+        })
+    }
     fn function(
         self,
         execution: Execution,
         budget: Arc<crate::math::WorkerBudget>,
         observed: Arc<std::sync::Mutex<Option<CaseValues>>>,
     ) -> Result<kinsol::Function, native::ProblemError> {
+        let inner_context = self.inner_context()?;
         let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
         for program in self.programs {
             let unit = UnitWorker::new(
@@ -541,6 +566,7 @@ impl PreparedRecycle {
             self.fixed,
             execution,
         )?
+        .with_inner_context(inner_context)
         .with_original_observer(Box::new(move |overlay, execution| {
             let mut candidate = original.clone();
             candidate

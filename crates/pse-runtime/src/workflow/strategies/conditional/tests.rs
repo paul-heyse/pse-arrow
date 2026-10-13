@@ -1105,6 +1105,11 @@ async fn conditional_retention_control(ambiguous: bool) {
             .unwrap()
             .foreign_bytes
     );
+    let context = prepared.inner_context().unwrap();
+    assert!(context.start.is_some());
+    assert!(context.branch.is_some());
+    assert!(context.accuracy.is_some());
+    assert_eq!(context.tolerance, None); // Heterogeneous physical budgets are not one number.
     let program = prepared.programs[0].clone();
     let original = program.values.identity();
     assert_eq!(prepared.request().units[0].inputs, request.units[0].inputs);
@@ -1201,7 +1206,18 @@ async fn conditional_retention_control(ambiguous: bool) {
         .unwrap();
     assert!((independent_output[&outlet] - if ambiguous { -8.0 } else { 18.0 }).abs() < 1e-7);
     assert!(!independent.conditional.as_ref().unwrap().last_reused);
-    assert_eq!(unit.conditional.as_ref().unwrap().calls, 3);
+    // A different lane history must not turn an authored branch into continuation.
+    let same_input = BTreeMap::from([(inlet, 4.0), (auxiliary, 2.0)]);
+    let first = unit.evaluate(&same_input, &execution).unwrap();
+    let second = independent.evaluate(&same_input, &execution).unwrap();
+    for port in [outlet, auxiliary_outlet] {
+        assert!((first[&port] - second[&port]).abs() < 1e-7);
+    }
+    let after = prepared.inner_context().unwrap();
+    assert_eq!(context.start, after.start);
+    assert_eq!(context.branch, after.branch);
+    assert_eq!(context.accuracy, after.accuracy);
+    assert_eq!(unit.conditional.as_ref().unwrap().calls, 4);
     drop(independent);
     assert_eq!(independent_budget.used(), 0);
     assert!(unit.evaluate(&BTreeMap::new(), &execution).is_err());

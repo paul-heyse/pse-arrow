@@ -47,6 +47,7 @@ pub struct CausalMap {
     execution: Execution,
     _graph: Arc<FlowGraph>,
     original_observer: Option<OriginalObserverWrapper>,
+    inner_context: crate::solve::RawMapInnerContext,
 }
 impl std::fmt::Debug for OriginalObserverWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -132,6 +133,11 @@ impl CausalMap {
     }
     /// Assess complete original reconstruction only at independent final tear
     /// validation. An unsuccessful sweep never publishes a partial local state.
+    /// Bind the context actually used by the scientific unit owners.
+    pub fn with_inner_context(mut self, context: crate::solve::RawMapInnerContext) -> Self {
+        self.inner_context = context;
+        self
+    }
     pub fn with_original_observer(mut self, observer: OriginalObserver) -> Self {
         self.original_observer = Some(OriginalObserverWrapper(observer));
         self
@@ -298,6 +304,7 @@ impl CausalMap {
             execution,
             _graph: graph,
             original_observer: None,
+            inner_context: crate::solve::RawMapInnerContext::default(),
         })
     }
     fn sweep(
@@ -366,6 +373,9 @@ impl CausalMap {
     }
 }
 impl FixedPointOracle for CausalMap {
+    fn inner_context(&self) -> crate::solve::RawMapInnerContext {
+        self.inner_context
+    }
     fn physical_tear_coordinates(&self) -> bool {
         true
     }

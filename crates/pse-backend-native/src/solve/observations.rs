@@ -265,6 +265,21 @@ pub struct RawMapSample {
     pub inner_start: Option<ContentHash>,
     /// Observed inner branch identity, when supplied by the scientific producer.
     pub inner_branch: Option<ContentHash>,
+    /// Exact inner accuracy identity, including compound heterogeneous budgets.
+    pub inner_accuracy: Option<ContentHash>,
+}
+/// Actual scientific inner context supplied by a composed map owner. Identities
+/// describe frozen authored permission/settings, not a uniqueness proof or achieved branch.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RawMapInnerContext {
+    /// A scalar inner tolerance only when the producer has exactly one such budget.
+    pub tolerance: Option<f64>,
+    /// Frozen authored inner starts, independent of previous solved roots.
+    pub start: Option<ContentHash>,
+    /// Frozen authored branch/start permission and model identity.
+    pub branch: Option<ContentHash>,
+    /// Exact composite inner effective accuracy/settings identity.
+    pub accuracy: Option<ContentHash>,
 }
 /// Shared bounded history, independent of lossy progress events.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
@@ -309,6 +324,7 @@ pub(crate) struct RawMapCapture {
     ordinal: u64,
     coordinates: ObservationCoordinates,
     tolerances: Vec<f64>,
+    inner: RawMapInnerContext,
 }
 #[cfg(any(feature = "kinsol", test))]
 impl RawMapCapture {
@@ -333,6 +349,7 @@ impl RawMapCapture {
                 last_successful: None,
                 last_evaluation: None,
             },
+            inner: RawMapInnerContext::default(),
             limit: history,
             ordinal: 0,
             coordinates: if physical {
@@ -346,6 +363,10 @@ impl RawMapCapture {
                 .take(SAMPLE_COORDINATES)
                 .collect(),
         })
+    }
+    pub(crate) fn with_inner_context(mut self, inner: RawMapInnerContext) -> Self {
+        self.inner = inner;
+        self
     }
     pub(crate) fn record(
         &mut self,
@@ -402,9 +423,10 @@ impl RawMapCapture {
             total_coordinates: x.len(),
             partial: length < x.len(),
             failure,
-            inner_tolerance: None,
-            inner_start: None,
-            inner_branch: None,
+            inner_tolerance: self.inner.tolerance,
+            inner_start: self.inner.start,
+            inner_branch: self.inner.branch,
+            inner_accuracy: self.inner.accuracy,
         });
         if successful_map {
             self.history.last_successful = Some(sample.clone());
@@ -422,6 +444,31 @@ impl RawMapCapture {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn raw_map_context_survives_truncation_and_failed_latest_sample() {
+        let contract = crate::solver_tests::contract();
+        let context = RawMapInnerContext {
+            tolerance: None,
+            start: Some(ContentHash::from_bytes([31; 32])),
+            branch: Some(ContentHash::from_bytes([32; 32])),
+            accuracy: Some(ContentHash::from_bytes([33; 32])),
+        };
+        let mut capture = RawMapCapture::new(&contract, contract.identity, 0, true, &[0.25])
+            .unwrap().with_inner_context(context);
+        capture.record(&contract, &[1.0], Some(&[2.0]), RawMapRole::FixedPointEvaluation, None);
+        capture.record(&contract, &[3.0], None, RawMapRole::FixedPointEvaluation, Some(RawMapFailure::Trial));
+        let history = capture.finish();
+        assert_eq!(history.omitted, 2);
+        for sample in [&history.last_successful, &history.last_evaluation] {
+            let sample = sample.as_ref().unwrap();
+            assert_eq!(sample.inner_start, context.start);
+            assert_eq!(sample.inner_branch, context.branch);
+            assert_eq!(sample.inner_accuracy, context.accuracy);
+            assert_eq!(sample.inner_tolerance, None);
+        }
+        assert_eq!(history.last_successful.as_ref().unwrap().values[0].input, 1.0);
+        assert_eq!(history.last_evaluation.as_ref().unwrap().values[0].input, 3.0);
+    }
     #[test]
     fn raw_map_capture_retains_physical_residuals_and_failed_last_point_with_bounded_history() {
         let contract = crate::solver_tests::contract();

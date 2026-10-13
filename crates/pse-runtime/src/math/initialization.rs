@@ -324,6 +324,9 @@ pub(crate) struct PreparedConditionalUnit {
 
 #[cfg(feature = "solver-kinsol")]
 impl PreparedConditionalUnit {
+    pub(crate) fn inner_accuracy_identity(&self) -> pse_ids::ContentHash {
+        self.profile_key
+    }
     pub(crate) const fn backend(&self) -> Backend {
         self.backend
     }
