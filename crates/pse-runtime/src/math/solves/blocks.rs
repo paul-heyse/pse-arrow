@@ -257,7 +257,9 @@ impl MathService {
         let backend = original
             .backend()
             .ok_or_else(|| ProblemError::Unsupported("blocks require native equations".into()))?;
-        original.profile.validate_block_ids(products.iter().map(|block| block.boundary.id))?;
+        let mut requested_profile = original.profile.clone();
+        requested_profile.controls.hessian = original.requested_hessian;
+        requested_profile.validate_block_ids(products.iter().map(|block| block.boundary.id))?;
         let workers = original.profile.block_workers.min(products.len());
         let mut backends = Vec::new();
         let mut steps = Vec::with_capacity(products.len());
@@ -316,7 +318,7 @@ impl MathService {
                 lease,
                 Arc::new(std::sync::OnceLock::from(executable.clone())),
             )?;
-            let mut profile = original.profile.block_profile(block.boundary.id)?;
+            let mut profile = requested_profile.block_profile(block.boundary.id)?;
             profile.presolve = native::presolve::Policy::Off;
             profile.intent = SolveIntent::Initialize;
             profile.controls.reuse = ReusePolicy::Fresh;

@@ -224,6 +224,11 @@ pub(super) fn conditional_route(
     solver: &SolverProfile,
     numerics: &pse_model::numerics::ResolvedNumericalPolicy,
 ) -> Result<native::routing::Route, native::ProblemError> {
+                // Permission checks use the caller's request controls before this
+                // realization resolves Auto against this actual block capability.
+                let mut effective = solver.clone();
+                effective.resolve_curvature(view.plan.available_order());
+                let solver = &effective;
                 let c = native::assembled::contract(&executable.assembly);
                 let mut facts = native::routing::oracle_facts(&c, false, true);
                 facts.derivatives = view.plan.available_order();

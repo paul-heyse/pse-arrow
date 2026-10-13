@@ -1935,6 +1935,23 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
     assert_eq!(actual.values.scalars.len(), expected.values.scalars.len());
     for (id, expected) in &expected.values.scalars { assert!((actual.values.scalars[id] - expected).abs() < 1e-8); }
     assert!(actual.attempts.iter().all(|attempt| attempt.committed));
+    #[cfg(feature = "solver-ipopt")]
+    {
+        let mut auto = analysis.clone();
+        auto.solver.controls.hessian = HessianMode::Auto;
+        auto.solver.block_overrides.insert(stable[0], crate::math::settings::BlockSolveOverride {
+            backend: Some(Backend::Ipopt), settings: None,
+            controls: Some(auto.solver.controls.clone()),
+        });
+        // Generic original preparation validates the dormant override even if its
+        // direct KINSOL route is selected. Auto belongs to the request, not Ipopt.
+        package.prepare_analysis(&auto, &cancel).await.unwrap();
+        auto.solver.controls.hessian = HessianMode::Exact;
+        auto.solver.block_overrides.get_mut(&stable[0]).unwrap().controls = Some(auto.solver.controls.clone());
+        package.prepare_analysis(&auto, &cancel).await.unwrap();
+        auto.solver.block_overrides.get_mut(&stable[0]).unwrap().controls.as_mut().unwrap().hessian = HessianMode::LimitedMemory;
+        assert!(package.prepare_analysis(&auto, &cancel).await.is_err(), "explicit curvature override cannot change original request permission");
+    }
     analysis.solver.block_overrides.insert(pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([93; 32])), crate::math::settings::BlockSolveOverride { backend: None, settings: None, controls: None });
     assert!(package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.is_err());
     analysis.solver.selection = SolverSelection::Explicit(Backend::Kinsol);
