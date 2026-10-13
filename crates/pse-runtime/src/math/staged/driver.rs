@@ -1200,7 +1200,10 @@ impl<D: Dispatch> StepDriver<'_, D> {
                             let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.original().controls(),enclosing.clone()).map_err(Arc::new)?;
                             execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
                             execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.original().controls()));
-                            let outcome=service.blocks_step(&prepared,execution,retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("complete original block start absent".into())))?)?;
+                            let mut records=math::strategy::NativeComponentCapture::new(&service,prepared.block_count()).map_err(|error|Arc::new(error.into_problem()))?;
+                            let outcome=service.blocks_step(&prepared,execution,retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("complete original block start absent".into())))?,|report|records.capture(&service,report));
+                            actual_products.borrow_mut()[index].native_components=Some(records.finish());
+                            let outcome=outcome?;
                             let observed=math::strategy::work(&outcome);let observation=math::strategy::observe(&outcome);
                             (RungOutcome::Original(Box::new((outcome,Some(enclosing.clone())))),observation,observed)
                         },
@@ -1209,7 +1212,10 @@ impl<D: Dispatch> StepDriver<'_, D> {
                             let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.original().controls(),enclosing.clone()).map_err(Arc::new)?;
                             execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
                             execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.original().controls()));
-                            let outcome=service.causal_step(&prepared,execution,retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("complete original causal start absent".into())))?)?;
+                            let mut records=math::strategy::NativeComponentCapture::new(&service,1).map_err(|error|Arc::new(error.into_problem()))?;
+                            let outcome=service.causal_step(&prepared,execution,retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("complete original causal start absent".into())))?,|report|records.capture(&service,report));
+                            actual_products.borrow_mut()[index].native_components=Some(records.finish());
+                            let outcome=outcome?;
                             let observed=math::strategy::work(&outcome);let observation=math::strategy::observe(&outcome);
                             (RungOutcome::Original(Box::new((outcome,Some(enclosing.clone())))),observation,observed)
                         },

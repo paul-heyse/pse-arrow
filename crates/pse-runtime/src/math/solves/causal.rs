@@ -35,6 +35,7 @@ pub(crate) trait CausalExecution: std::fmt::Debug + Send + Sync {
         execution: Execution,
         budget: &Arc<WorkerBudget>,
         original_start: &[f64],
+        capture_component: &mut dyn FnMut(&SolveReport) -> Result<(), MathRuntimeError>,
     ) -> Result<CausalResult, MathRuntimeError>;
 }
 
@@ -103,6 +104,7 @@ impl MathService {
         retained: &mut Retained,
         budget: &Arc<WorkerBudget>,
         original_start: &[f64],
+        mut capture_component: impl FnMut(&SolveReport) -> Result<(), MathRuntimeError>,
     ) -> Result<Outcome, super::super::strategy::EffectFailure> {
         // The native map is a component, never a report over original coordinates.
         let mut work = WorkEvidence::default();
@@ -150,7 +152,7 @@ impl MathService {
                 inclusive_work,
             } = prepared
                 .realization
-                .execute(self, execution.clone(), budget, original_start)?;
+                .execute(self, execution.clone(), budget, original_start, &mut capture_component)?;
             work = inclusive_work;
             if !crate::workflow::numerics::native_use(&report, &prepared.original.numerics.policy)
                 .permits_use()

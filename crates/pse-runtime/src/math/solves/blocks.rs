@@ -310,6 +310,7 @@ impl MathService {
         retained: &mut Retained,
         budget: &Arc<WorkerBudget>,
         original_start: &[f64],
+        mut capture_component: impl FnMut(&SolveReport) -> Result<(), MathRuntimeError>,
     ) -> Result<Outcome, super::super::strategy::EffectFailure> {
         let mut work = match &prepared.original.representation {
             Representation::Algebraic(source) if !source.providers.is_empty() => {
@@ -406,6 +407,7 @@ impl MathService {
                     });
                 };
                 work = sum_work(work, report.evidence.work);
+                capture_component(&report)?;
                 if let Err(cause) = super::super::initialization::commit_block(
                     &mut values,
                     &block.boundary,

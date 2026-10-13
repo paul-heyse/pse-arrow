@@ -2934,6 +2934,7 @@ async fn repeated_completed_blocks_fit_short_pool_and_extracted_components_hold_
                         &mut Retained::default(),
                         &budget,
                         &[0., 0., 0.],
+                        |_| Ok(()),
                     )
                     .unwrap_or_else(|failure| panic!("{}", failure.cause))
                 else {
@@ -3001,6 +3002,7 @@ async fn completed_blocks_refuse_excess_capacity_and_keep_unknown_extensions_bou
                     &mut Retained::default(),
                     &budget,
                     &[0., 0.],
+                        |_| Ok(()),
                 )
                 .unwrap_or_else(|failure| panic!("{}", failure.cause))
             else {
@@ -3068,6 +3070,7 @@ async fn failed_blocks_release_construction_allowance_and_preserve_original_caus
                         &mut Retained::default(),
                         &budget,
                         &[0., 0.],
+                        |_| Ok(()),
                     )
                     .unwrap_err();
                 Ok::<_, ProblemError>(failure)
@@ -3137,6 +3140,7 @@ async fn automatic_blocks_execute_complete_nonport_coupled_original_and_keep_act
                     &mut Retained::default(),
                     &budget,
                     &[0., 0., 0.],
+                        |_| Ok(()),
                 )
                 .unwrap_or_else(|failure| panic!("{}", failure.cause));
             let Outcome::Constant(report) = outcome else {
@@ -3917,4 +3921,41 @@ async fn automatic_authored_supplier_actions_match_complete_original_equations()
         assert_eq!(native.applied_action().unwrap().0, original_point);
         Ok::<_, MathRuntimeError>(())
     }).unwrap();
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn native_component_records_survive_success_and_failed_block_before_report_drop() {
+    for (text, succeeds) in [
+        ("package p {def Root {var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(1); eq first:x==1; eq second:y==x+1;}}", true),
+        ("package p {def Root {var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(1); eq first:x==1; eq second:y*y==-1;}}", false),
+    ] {
+        let (runtime, original) = original(text).await;
+        let service = runtime.native();
+        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + std::time::Duration::from_secs(30)));
+        let prepared = service.prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new()).await.unwrap();
+        let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+        let mut records = super::super::strategy::NativeComponentCapture::new(service, prepared.block_count()).unwrap();
+        let outcome = execution::scoped(&[execution::adapter(Backend::Kinsol)], 1, service.policy.stack_bytes, || {
+            let execution = Execution::within(flag, original.controls(), scope).unwrap();
+            Ok::<_, ProblemError>(service.blocks_step(&prepared, execution, &mut Retained::default(), &budget,
+                &[0., 1.], |report| records.capture(service, report)))
+        }).unwrap();
+        assert_eq!(outcome.is_ok(), succeeds);
+        let records = records.finish();
+        assert_eq!(records.len(), prepared.block_count());
+        assert!(matches!(records[0].termination.category, native::solve::Termination::Success | native::solve::Termination::Acceptable));
+        if succeeds {
+            assert!(records.iter().all(|record| matches!(record.termination.category, native::solve::Termination::Success | native::solve::Termination::Acceptable)));
+        } else {
+            assert!(!matches!(records.last().unwrap().termination.category, native::solve::Termination::Success | native::solve::Termination::Acceptable));
+        }
+        let status = records.last().unwrap().termination.code;
+        let names = records.last().unwrap().variables.clone();
+        drop(outcome); // the failed component has already been dropped by its producer
+        drop(prepared);
+        assert_eq!(records.last().unwrap().termination.code, status);
+        assert_eq!(records.last().unwrap().variables, names);
+    }
 }

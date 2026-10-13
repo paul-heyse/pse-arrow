@@ -329,7 +329,7 @@ impl ScientificReplay {
     /// Explicit finite export allocation. Caller receives either the complete closure or refusal.
     pub fn document_with_limit(&self, bytes: usize) -> Result<ReplayDocument, WorkflowError> {
         if bytes == 0 || bytes > 256 * 1024 * 1024 { return Err(contract("replay export requires a finite allocation up to 256 MiB")); }
-        let native_extent = self.native_attempts().try_fold(0usize, |bytes, (_, _, native)| {
+        let native_extent = self.native_attempts().try_fold(0usize, |bytes, (_, _, _, native)| {
             bytes.checked_add(encoded_extent(native.as_ref(), EXPORT_MAX)?.saturating_mul(8).saturating_add(256)).ok_or_else(|| contract("replay native extent overflow"))
         })?;
         let extent = self.sources().try_fold(self.constructor_extent()?.saturating_add(self.decision_extent()?).saturating_add(native_extent), |total, source| {
@@ -397,7 +397,7 @@ impl ScientificReplay {
             #[cfg(feature = "solver-diffsol")]
             shooting_constructor,
             contexts, horizon,
-            decisions: self.decision_rows(), native_attempts: self.native_attempts().map(|(step, mechanism, native)| ReplayNativeAttempt { step, mechanism, record: native.clone() }).collect(), native_record_coverage: match &self.result.request {
+            decisions: self.decision_rows(), native_attempts: self.native_attempts().map(|(step, mechanism, component, native)| ReplayNativeAttempt { step, mechanism, component, record: native.clone() }).collect(), native_record_coverage: match &self.result.request {
                 RunRequest::Simulation(_) | RunRequest::Horizon(_) => ReplayNativeRecordCoverage::IntegrationReportOnly,
                 _ => ReplayNativeRecordCoverage::StrategyAttempts,
             }, coverage: self.coverage.clone(), native_continuation: false, _owner: owner };
@@ -478,9 +478,11 @@ impl RunResult {
         Box::new(retained.chain(failed))
     }
     /// Borrow retained compact native facts without cloning a request or constructing replay.
-    pub(super) fn native_attempt_records(&self) -> impl Iterator<Item = (usize, usize, &Arc<pse_backend_native::solve::AttemptRecord>)> {
+    pub(super) fn native_attempt_records(&self) -> impl Iterator<Item = (usize, usize, Option<usize>, &Arc<pse_backend_native::solve::AttemptRecord>)> {
         self.replay_traces().flat_map(|(step, trace)| trace.products.iter().enumerate()
-            .filter_map(move |(mechanism, product)| product.native_attempt.as_ref().map(|record| (step, mechanism, record))))
+            .flat_map(move |(mechanism, product)| product.native_attempt.iter().map(move |record| (step, mechanism, None, record))
+                .chain(product.native_components.iter().flat_map(|components| components.iter().enumerate())
+                    .map(move |(component, record)| (step, mechanism, Some(component), record)))))
     }
     /// Retain the complete immutable input/decision closure, without numerical work or history lookup.
     pub fn replay(self: &Arc<Self>) -> ScientificReplay {
@@ -1070,8 +1072,8 @@ mod tests {
         malformed.prepared_graph.as_mut().unwrap().root = usize::MAX;
         assert!(malformed.reconstruct(&package, &crate::CancelSource::new()).await.is_err());
         let mut missing = constructor.clone();
-        let graph = missing.prepared_graph.as_mut().unwrap();
-        graph.nodes[graph.root].rungs[0].required_producer = Some(ReplayProducerPremise::Derived);
+        let missing_graph = missing.prepared_graph.as_mut().unwrap();
+        missing_graph.nodes[missing_graph.root].rungs[0].required_producer = Some(ReplayProducerPremise::Derived);
         assert!(missing.reconstruct(&package, &crate::CancelSource::new()).await.is_err());
         drop(held);
         let sources = replay.reconstruct_sources(&runtime).unwrap();
@@ -1628,11 +1630,13 @@ pub struct ReplayNativeAttempt {
     pub step: usize,
     /// Actual operation ordinal in the retained governing declaration.
     pub mechanism: usize,
+    /// Actual ordered block/causal component ordinal; absent for a whole-problem native report.
+    pub component: Option<usize>,
     /// Full actual native options, termination, counters, start receipt and raw evidence.
     pub record: Arc<pse_backend_native::solve::AttemptRecord>,
 }
 impl ScientificReplay {
-    pub(super) fn native_attempts(&self) -> impl Iterator<Item = (usize, usize, &Arc<pse_backend_native::solve::AttemptRecord>)> {
+    pub(super) fn native_attempts(&self) -> impl Iterator<Item = (usize, usize, Option<usize>, &Arc<pse_backend_native::solve::AttemptRecord>)> {
         self.result.native_attempt_records()
     }
 }

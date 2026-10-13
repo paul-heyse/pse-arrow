@@ -848,6 +848,7 @@ pub struct Trace {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RungProducts {
     pub(crate) native_attempt: Option<Arc<pse_backend_native::solve::AttemptRecord>>,
+    pub(crate) native_components: Option<pse_math::SharedAllocation<Vec<Arc<pse_backend_native::solve::AttemptRecord>>>>,
     pub(crate) provider: Option<ProviderEvidence>,
     pub(crate) statistical: Option<Arc<crate::math::surrogate::SurrogateProposal>>,
     pub(crate) derived: Option<ContentHash>,
@@ -865,6 +866,34 @@ pub(crate) fn retain_native_attempt(service: &crate::math::MathService,
     let bytes = pse_backend_native::solve::AttemptRecord::retained_extent(report)?;
     let owner = service.reserve("math:native-attempt-record", bytes).map_err(crate::math::MathRuntimeError::into_problem)?;
     pse_backend_native::solve::AttemptRecord::capture(report, owner)
+}
+/// Bounded component collector admitted before a producer can execute native work.
+#[cfg(feature = "solver-kinsol")]
+pub(crate) struct NativeComponentCapture {
+    records: Vec<Arc<pse_backend_native::solve::AttemptRecord>>,
+    owner: Arc<pse_columnar::AllocationLease>,
+    capacity: usize,
+}
+#[cfg(feature = "solver-kinsol")]
+impl NativeComponentCapture {
+    pub(crate) fn new(service: &crate::math::MathService, capacity: usize) -> Result<Self, crate::math::MathRuntimeError> {
+        let bytes = capacity.checked_mul(size_of::<Arc<pse_backend_native::solve::AttemptRecord>>())
+            .and_then(|bytes| bytes.checked_add(size_of::<Self>() + 128))
+            .ok_or_else(|| ProblemError::memory("native component record table extent"))?;
+        let owner = service.reserve("math:native-component-record-table", bytes)?;
+        Ok(Self { records: Vec::with_capacity(capacity), owner, capacity })
+    }
+    pub(crate) fn capture(&mut self, service: &crate::math::MathService,
+        report: &pse_backend_native::solve::SolveReport) -> Result<(), crate::math::MathRuntimeError> {
+        if self.records.len() >= self.capacity {
+            return Err(ProblemError::Contract("native component producer exceeded its admitted record capacity".into()).into());
+        }
+        self.records.push(retain_native_attempt(service, report)?);
+        Ok(())
+    }
+    pub(crate) fn finish(self) -> pse_math::SharedAllocation<Vec<Arc<pse_backend_native::solve::AttemptRecord>>> {
+        pse_math::SharedAllocation::from(Arc::new(self.records)).with_owner(self.owner)
+    }
 }
 /// The actual library phase has no native adapter; its retained options/task key is
 /// separate from the original corrector's native profile.
