@@ -417,11 +417,39 @@ impl ScientificReplay {
     pub async fn rerun_with_cancel(&self, cancel: &crate::CancelSource) -> Result<RunHandle, WorkflowError> {
         if cancel.token().is_cancelled() { return Err(crate::math::MathRuntimeError::Cancelled.into()); }
         match &self.result.request {
-            RunRequest::Modeling(steps) => self.result.runtime.start_modeling(steps.clone(), self.result.modeling_continue_independent, cancel).await,
+            RunRequest::Modeling(steps) => {
+                let mut fresh = Vec::with_capacity(steps.len());
+                for step in steps {
+                    let mut source = step.source.clone();
+                    source.held_preparation = None;
+                    let mut prepared = step.original_inputs.reconstruct_in_process(&source, cancel).await?;
+                    // Postconstructor declarations are scientific input. Original-only graphs
+                    // can detach recursively; scoped opaque products require their producer.
+                    if step.solve.replay_declaration() != prepared.solve.replay_declaration() {
+                        prepared.solve = step.solve.fresh_replay_copy().map_err(crate::math::MathRuntimeError::from)?;
+                    }
+                    if step.solve.requested_screened_start().is_some() {
+                        return Err(contract("replay of a requested screened start requires producer re-screening under the fresh task; historical screening does not grant new permission"));
+                    }
+                    if let Some(start) = step.solve.requested_start() {
+                        prepared = prepared.with_start(start.clone())?;
+                    }
+                    fresh.push(prepared);
+                }
+                self.result.runtime.start_modeling(fresh, self.result.modeling_continue_independent, cancel).await
+            },
             RunRequest::Simulation(simulation) => simulation.start(),
             RunRequest::Fit(fit) => fit.start(),
             #[cfg(feature = "solver-diffsol")]
-            RunRequest::Horizon(request) => self.result.runtime.start_horizon(request.original.as_ref().clone(), cancel).await,
+            RunRequest::Horizon(request) => {
+                let mut horizon = request.original.as_ref().clone();
+                // The old engagement has drained. A new execution may retain immutable
+                // science, but must establish its own preparation lane.
+                horizon.plant.source.held_preparation = None;
+                if let Some(estimator) = &mut horizon.estimator { estimator.package.held_preparation = None; }
+                if let Some(controller) = &mut horizon.controller { controller.package.held_preparation = None; }
+                self.result.runtime.start_horizon(horizon, cancel).await
+            },
             #[cfg(not(feature = "solver-diffsol"))]
             RunRequest::Horizon(_) => Err(contract("horizon replay requires the original linked dynamic supervisor")),
             #[cfg(feature = "solver-diffsol")]
@@ -509,6 +537,13 @@ impl OriginalCaseInputs {
         let owner = source.runtime.shared.math().reserve("replay:original-case-constructor", bytes)?;
         Ok(Arc::new(Self { specialization: model.original.clone(), case: case.clone(), order, compiler,
             solver: solver.clone(), numerical: numerical.clone(), overrides: overrides.clone(), _owner: owner }))
+    }
+    async fn reconstruct_in_process(&self, source: &ModelingPackage, cancel: &crate::CancelSource)
+        -> Result<super::ModelingSolvePreparation, WorkflowError> {
+        let original = self.specialization.as_ref().ok_or_else(|| contract("original specialization constructor was not retained"))?;
+        source.prepare_solve_seed(original.root, original.instance, original.bindings.clone(), original.limits,
+            self.case.clone(), self.order, self.compiler, self.solver.clone(), self.numerical.clone(),
+            self.overrides.clone(), cancel).await
     }
     fn document(&self, source: usize) -> Result<ReplayCaseConstructor, WorkflowError> {
         let original = self.specialization.as_ref().ok_or_else(|| contract("original specialization constructor was not retained"))?;
@@ -670,8 +705,10 @@ mod tests {
         let reconstructed = restored.reconstruct(&runtime, physical, BTreeMap::new()).unwrap();
         assert_eq!(&*reconstructed.declarations().await.unwrap(), rows.as_slice());
         assert_ne!(reconstructed.revision_id(), package.revision_id());
+        let mut bindings = pse_modeling::Bindings::default();
+        bindings.demand.push("a".into());
         let model = reconstructed.prepare(root, pse_modeling::specialize::root_instance(root),
-            Default::default(), Default::default(), &crate::CancelSource::new()).await.unwrap();
+            bindings, Default::default(), &crate::CancelSource::new()).await.unwrap();
         assert_eq!(model.solved().model(), root);
         assert!(model.original.is_some());
     }
@@ -686,6 +723,13 @@ mod tests {
         assert!(document.reconstruct(&runtime, physical.clone(), BTreeMap::new()).is_err());
         let mut document = original.clone();
         document.objects[0].payload.push(0);
+        assert!(document.reconstruct(&runtime, physical.clone(), BTreeMap::new()).is_err());
+        let mut document = original.clone();
+        let edge_owner = document.objects.iter_mut().find(|object| !object.references.is_empty()).unwrap();
+        edge_owner.references.push(edge_owner.references[0].clone());
+        assert!(document.reconstruct(&runtime, physical.clone(), BTreeMap::new()).is_err());
+        let mut document = original.clone();
+        document.physical_sources.clear();
         assert!(document.reconstruct(&runtime, physical.clone(), BTreeMap::new()).is_err());
         let mut document = original;
         let referenced = document.objects.iter().find_map(|object| object.references.first()).unwrap().clone();
@@ -739,7 +783,9 @@ impl OriginalSimulationInputs {
         provisional_quadratures: &BTreeSet<SemanticId>) -> Result<Arc<Self>, WorkflowError> {
         let bytes = size_of::<Self>().saturating_add(1024).saturating_add(crate::math::modeling::bindings_bytes(bindings))
             .saturating_add(encoded_extent(profile, EXPORT_MAX)?.saturating_mul(8))
-            .saturating_add((case.values.len() + case.members.len() + case.variables.len()).saturating_mul(512));
+            .saturating_add((case.values.len() + case.members.len() + case.variables.len()).saturating_mul(512))
+            .saturating_add(case.values.keys().chain(case.variables.keys()).map(String::len).sum::<usize>())
+            .saturating_add((exact_parameters.len() + provisional_quadratures.len()).saturating_mul(128));
         let owner = package.runtime.shared.math().reserve("replay:original-simulation-constructor", bytes)?;
         Ok(Arc::new(Self { document: ReplaySimulationConstructor { source: 0, root, instance,
             bindings: bindings.clone(), preparation: super::PreparationSettings { compiler, limits },
@@ -987,7 +1033,7 @@ pub struct ReplayHorizonConstructor {
     pub controller: Option<ReplayHorizonController>,
 }
 impl ReplayHorizonConstructor {
-    fn new(horizon: &super::Horizon) -> Result<Self, WorkflowError> {
+    pub(in crate::workflow) fn new(horizon: &super::Horizon) -> Result<Self, WorkflowError> {
         let mut next = 1;
         let estimator = if let Some(estimator) = &horizon.estimator {
             let analysis = ReplayCaseConstructor::from_analysis(next, &estimator.analysis)?; next += 1;

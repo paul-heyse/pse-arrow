@@ -2383,6 +2383,9 @@ impl Runtime {
             if !logicals.insert(object.logical.clone()) || !names.insert((object.scope.clone(), object.name.clone())) {
                 return Err(contract("replay source contains duplicate logical or lexical identity"));
             }
+            if object.references.iter().collect::<BTreeSet<_>>().len() != object.references.len() {
+                return Err(contract("replay source contains duplicate immutable reference edges"));
+            }
             let edited = edit(object.logical.clone(), object.scope.clone(), object.name.clone(),
                 object.kind.clone(), object.payload.clone(), object.references.clone());
             if edited.version.as_ref().is_none_or(|version| version.key != object.version) {

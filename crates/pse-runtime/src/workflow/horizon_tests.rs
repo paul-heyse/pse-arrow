@@ -2285,3 +2285,44 @@ async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
     }
     admitted.close_sources().await.unwrap();
 }
+
+#[tokio::test]
+async fn plan38b_replay_horizon_reconstructs_stages_and_reruns_after_cancelled_prefix() {
+    let runtime = horizon_runtime();
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, output) = plant(&package, whole, 0.0, 3).await;
+    let original = Horizon {
+        output: StudyOutputDemand::Full {}, plant, period: PERIOD, steps: 3,
+        inputs: vec![HorizonInput { parameter: actuator, initial: 0.5 }],
+        estimator: None, controller: Some(controller(&package, root, output, vec![0.8, 1.0, 0.6])),
+    };
+    // Use the production horizon constructor owner before any worker; a retained
+    // interrupted original input still carries every control/stage mapping.
+    let constructor = super::replay::ReplayHorizonConstructor::new(&original).unwrap();
+    let sources = vec![package.clone(), package.clone()];
+    let restored = constructor.reconstruct(&sources, &crate::CancelSource::new()).await.unwrap();
+    assert_eq!(restored.steps, original.steps);
+    assert_eq!(restored.period.to_bits(), original.period.to_bits());
+    assert_eq!(restored.controller.as_ref().unwrap().moves, original.controller.as_ref().unwrap().moves);
+    assert_eq!(restored.controller.as_ref().unwrap().bindings, original.controller.as_ref().unwrap().bindings);
+    assert_eq!(restored.controller.as_ref().unwrap().analysis.bindings, original.controller.as_ref().unwrap().analysis.bindings);
+
+    // Keep the supervisor control small: an open-loop plant uses two periods.
+    let mut open = restored;
+    open.controller = None;
+    open.steps = 2;
+    let handle = runtime.start_horizon(open, &crate::CancelSource::new()).await.unwrap();
+    handle.cancel();
+    let stopped = handle.wait().await.unwrap();
+    let replay = stopped.replay();
+    let document = replay.document_with_limit(128 << 20).unwrap();
+    assert_eq!(document.coverage.requested, 2);
+    assert!(document.coverage.observed <= 2);
+    assert!(!document.native_continuation);
+    assert!(replay.native_continuation().is_err());
+    let next = replay.rerun().await.unwrap();
+    assert_ne!(next.run_id(), stopped.run_id);
+    let rerun = next.wait().await.unwrap();
+    assert!(rerun.report().is_ok(), "{:?}", rerun.report());
+    assert_eq!(rerun.horizon().unwrap().completed_steps, 2);
+}
