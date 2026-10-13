@@ -1380,6 +1380,38 @@ impl PreparedSolve {
                     .ok_or_else(|| ProblemError::memory("replay scalar/provider metadata extent"))?;
                 bytes = bytes.checked_add(entries.checked_mul(1024).ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?)
                     .ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?;
+                for provider in case.providers.values() {
+                    let spec = provider.spec();
+                    let ports = spec.inputs.len().checked_add(spec.outputs.len())
+                        .and_then(|count| count.checked_mul(size_of::<pse_kernels::Port>()))
+                        .ok_or_else(|| ProblemError::memory("replay provider port extent"))?;
+                    bytes = bytes.checked_add(ports).ok_or_else(|| ProblemError::memory("replay provider port extent"))?;
+                    for shape in spec.shapes.inputs.iter().chain(&spec.shapes.outputs) {
+                        let cells = shape.coordinates.iter().try_fold(shape.axes.len().checked_add(shape.cells.len())
+                            .ok_or_else(|| ProblemError::memory("replay provider shape extent"))?, |count, coordinate| {
+                            count.checked_add(coordinate.len()).ok_or_else(|| ProblemError::memory("replay provider coordinate extent"))
+                        })?;
+                        let shape_bytes = cells.checked_mul(size_of::<pse_ids::SemanticId>())
+                            .and_then(|bytes| bytes.checked_add(shape.coordinates.len().checked_mul(size_of::<Vec<pse_ids::SemanticId>>())?))
+                            .and_then(|bytes| bytes.checked_add(size_of::<pse_kernels::ProviderShape>()))
+                            .ok_or_else(|| ProblemError::memory("replay provider shape extent"))?;
+                        bytes = bytes.checked_add(shape_bytes).ok_or_else(|| ProblemError::memory("replay provider shape extent"))?;
+                    }
+                }
+                if let Some(sensitivity) = &case.sensitivity {
+                    let copied = match sensitivity {
+                        ParametricPreparation::Available(value) => value.normalization.variables.len()
+                            .checked_add(value.normalization.rows.len()).and_then(|cells| cells.checked_mul(size_of::<f64>()))
+                            .and_then(|bytes| bytes.checked_add(value.parameters.len().checked_mul(size_of::<(pse_ids::SemanticId, f64)>())?))
+                            .ok_or_else(|| ProblemError::memory("replay sensitivity metadata extent"))?,
+                        ParametricPreparation::Unavailable(native::square_response::Withheld::Infeasible(value)
+                            | native::square_response::Withheld::Structural(value)
+                            | native::square_response::Withheld::Neighborhood(value)
+                            | native::square_response::Withheld::Numerical(value)) => value.len(),
+                        ParametricPreparation::Unavailable(_) => 0,
+                    };
+                    bytes = bytes.checked_add(copied).ok_or_else(|| ProblemError::memory("replay sensitivity metadata extent"))?;
+                }
             }
             for product in input.automatic_products.iter().chain(input.replay_rungs().unwrap_or_default()) {
                 let PreparedRung::Original(child) = product else {
