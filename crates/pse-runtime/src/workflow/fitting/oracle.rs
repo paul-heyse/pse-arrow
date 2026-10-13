@@ -1383,7 +1383,7 @@ mod tests {
                 backend: native::execution::BackendSettings::Default,
                 sensitivity: None,
                 composition: Default::default(),
-            block_overrides: std::collections::BTreeMap::new(),
+            block_overrides: Default::default(),
             block_workers: 1,
                 reconstruction: None,
             },
@@ -2258,7 +2258,7 @@ mod tests {
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
             composition: Default::default(),
-            block_overrides: std::collections::BTreeMap::new(),
+            block_overrides: Default::default(),
             block_workers: 1,
             reconstruction: None,
         };

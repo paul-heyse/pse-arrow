@@ -141,6 +141,8 @@ async fn prepared_native_request_is_idle_and_cannot_start_after_caller_close() {
         objective_constant: 3.0,
     };
     let profile = SolverProfile {
+        block_overrides: Default::default(),
+        block_workers: 1,
         intent: SolveIntent::Optimize,
         selection: SolverSelection::Auto,
         controls: Controls::default(),

@@ -242,6 +242,10 @@ fn serialize_bindings<S: serde::Serializer>(
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplaySolverSettings {
+    /// Stable original structural block overrides, including their complete controls.
+    pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, crate::math::settings::BlockSolveOverride>,
+    /// Original explicitly admitted independent block width.
+    pub block_workers: usize,
     /// Original scientific analysis goal.
     pub intent: SolveIntent,
     /// Explicit native selection; absent means Auto.
@@ -279,6 +283,8 @@ impl ReplaySolverSettings {
             }
         };
         Self {
+            block_overrides: profile.block_overrides.clone(),
+            block_workers: profile.block_workers,
             intent: profile.intent,
             backend: match profile.selection {
                 SolverSelection::Auto => None,
@@ -857,7 +863,7 @@ impl RunResult {
             RunRequest::Simulation(simulation) => match &self.report {
                 Ok(RunReport::Simulation(trajectory)) => (
                     simulation.profile().samples.len(),
-                    trajectory.report().samples.len(),
+                    trajectory.report().coverage.produced(),
                     Some(Observation::number(trajectory.report().completed_time)),
                 ),
                 _ => (simulation.profile().samples.len(), 0, None),
@@ -1816,6 +1822,8 @@ impl ReplaySolverSettings {
         let mut presolve_options = self.presolve_options.clone();
         let certificate_tolerance = presolve_options.remove("certify_tol");
         let mut profile = crate::math::settings::SolveSettings {
+            block_overrides: self.block_overrides.clone(),
+            block_workers: self.block_workers,
             version: pse_model::document::Version,
             composition: self.composition.clone(),
             reconstruction: self.reconstruction,

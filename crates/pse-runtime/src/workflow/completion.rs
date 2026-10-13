@@ -359,7 +359,7 @@ impl RunResult {
                 row.completed_time = trajectory
                     .map(|r| r.completed_time)
                     .filter(|t| t.is_finite());
-                row.completed_samples = trajectory.map(|r| r.samples.len() as i64);
+                row.completed_samples = trajectory.map(|r| r.coverage.produced() as i64);
                 row.validation_error = native
                     .and_then(|r| r.validation_failure().map(ToString::to_string))
                     .or_else(|| {
@@ -551,12 +551,12 @@ pub(super) fn simulation_header(
         pse_backend_native::dynamics::Method::Idas => NativeBackend::Idas,
         _ => NativeBackend::Diffsol,
     });
-    row.candidate_available = !report.samples.is_empty();
+    row.candidate_available = report.endpoint.is_some();
     row.completed_time = report
         .completed_time
         .is_finite()
         .then_some(report.completed_time);
-    row.completed_samples = Some(report.samples.len() as i64);
+    row.completed_samples = Some(report.coverage.produced() as i64);
     row.feasible = checks
         .complete
         .then_some(checks.rows.iter().all(|c| c.satisfied));

@@ -449,7 +449,7 @@ pub(crate) fn physical() -> PhysicalContext {
 }
 pub(crate) fn profile() -> SolverProfile {
     SolverProfile {
-        block_overrides: std::collections::BTreeMap::new(),
+        block_overrides: Default::default(),
         block_workers: 1,
         presolve: Default::default(),
         numerics: Default::default(),

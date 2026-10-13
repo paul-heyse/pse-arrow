@@ -1905,7 +1905,7 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
     analysis.solver.block_workers = 2;
     analysis.solver.block_overrides.insert(stable[0], crate::math::settings::BlockSolveOverride {
         backend: Some(Backend::Kinsol),
-        settings: Some(native::execution::BackendSettings::Kinsol(kinsol::Method { linear: kinsol::Linear::Dense, ..Default::default() })),
+        settings: Some(native::execution::BackendSettings::Kinsol(kinsol::Method { linear: kinsol::Linear::Dense { limit: pse_model::scalars::PositiveCount::try_new(8).unwrap() }, ..Default::default() })),
         controls: None,
     });
     let ready = package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.unwrap();

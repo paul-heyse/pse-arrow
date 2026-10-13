@@ -7,7 +7,7 @@
 use super::assessment::Obligations;
 use super::cases::CaseOverrides;
 use super::*;
-use crate::math::solves::{NumericalInputs, SolverProfile, Outcome};
+use crate::math::solves::{NumericalInputs, SolverProfile};
 use crate::workflow::staged::{Overlay, Staged, Start, bounded};
 use pse_compiler::workspace::{ModelingCaseBindings, Profile};
 use pse_kernels::DerivativeOrder;
@@ -750,7 +750,7 @@ impl Initializer<'_> {
                     let effort = self.report.attempts.last()
                         .and_then(|attempt| attempt.result.as_ref().ok())
                         .and_then(|result| match &result.outcome {
-                            Outcome::Native(report) => crate::math::strategy::path_control::EffortObservation::from_report(report),
+                            crate::math::solves::Outcome::Native(report) => crate::math::strategy::path_control::EffortObservation::from_report(report),
                             _ => None,
                         });
                     if !initial && let Err(error) = steps.accepted_effort(1. - progress, false, effort) {

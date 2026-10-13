@@ -119,7 +119,7 @@ impl SolverProfile {
         Ok(profile)
     }
     pub(crate) fn validate_block_ids(&self, blocks: impl Iterator<Item = pse_structural::incidence::BlockId>) -> Result<(), ProblemError> {
-        let actual: BTreeSet<_> = blocks.collect();
+        let actual: std::collections::BTreeSet<_> = blocks.collect();
         if self.block_workers == 0 || self.block_workers > 4096 || self.block_overrides.len() > 4096 {
             return Err(ProblemError::Contract("finite block execution extent".into()));
         }

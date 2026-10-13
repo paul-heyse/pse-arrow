@@ -5,6 +5,7 @@
 use super::{ModelingSimulation, RunResult, Runtime, WorkflowError, contract, relation};
 use pse_backend_native::{ProblemError, dynamics::{Sample, SampleRetention}};
 use pse_model::generated::identities::RunId;
+use pse_model::HeapUsage;
 use pse_relations::columnar::{Collection, FieldCheckedBatch};
 use std::{sync::Arc, time::{Duration, Instant}};
 
@@ -39,7 +40,7 @@ pub enum LiveSimulationEvent {
     /// Completed provisional sample; no durable ACK or final scientific claim.
     Sample(LiveSampleBatch),
     /// Actual native attempt completion and original-check summary.
-    AttemptFinished(super::SimulationSampleAttempt),
+    AttemptFinished(Arc<LiveSampleAttempt>),
     /// Accuracy producer has selected this attempt; joined completion is still separate.
     Selected { accuracy_attempt: u64 },
     /// Actual append ACK covers this many original live-relation rows.
@@ -50,6 +51,18 @@ pub enum LiveSimulationEvent {
     RecordingClosed,
     /// Joined result includes native drain, scientific completion and recording outcome.
     Joined(Arc<RunResult>),
+}
+
+/// A retained attempt summary carries its own charge after the native owner returns.
+#[derive(Debug)]
+pub struct LiveSampleAttempt {
+    /// Actual attempt/check/coverage facts; no append or scientific acceptance is inferred.
+    pub summary: super::SimulationSampleAttempt,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+impl std::ops::Deref for LiveSampleAttempt {
+    type Target = super::SimulationSampleAttempt;
+    fn deref(&self) -> &Self::Target { &self.summary }
 }
 
 /// One subscription. Dropping it releases only its queue and escaped-buffer ownership.
@@ -156,7 +169,12 @@ impl super::SimulationSampleObserver for Observer {
             canonical_attempt: self.canonical_attempt.clone(), accuracy_attempt, ordinal, table, _owner: owner }), execution)
     }
     fn attempt_finished(&mut self, summary: &super::SimulationSampleAttempt, execution: &pse_backend_native::solve::Execution) -> Result<(), ProblemError> {
-        self.send(LiveSimulationEvent::AttemptFinished(summary.clone()), execution)
+        let bytes = summary.coverage.points.len().checked_mul(size_of::<(f64, usize)>())
+            .and_then(|bytes| bytes.checked_add(size_of::<LiveSampleAttempt>() + 64))
+            .ok_or_else(|| ProblemError::memory("live coverage summary extent"))?;
+        let owner = self.prepared.runtime.native().reserve("simulation:live-coverage-summary", bytes)
+            .map_err(crate::math::MathRuntimeError::into_problem)?;
+        self.send(LiveSimulationEvent::AttemptFinished(Arc::new(LiveSampleAttempt { summary: summary.clone(), _owner: owner })), execution)
     }
     fn finished(&mut self, selected_attempt: u64, execution: &pse_backend_native::solve::Execution) -> Result<(), ProblemError> {
         self.send(LiveSimulationEvent::Selected { accuracy_attempt: selected_attempt }, execution)
@@ -189,5 +207,99 @@ fn native_failure(error: WorkflowError) -> ProblemError {
             let retained = size_of::<pse_model::diagnostic::BoundaryDiagnostic>() + diagnostic.heap_bytes();
             ProblemError::Math(pse_math::MathError::Typed { retained, cause: pse_model::diagnostic::DiagnosticCause::new(diagnostic) })
         }
+    }
+}
+
+#[cfg(all(test, feature = "solver-diffsol"))]
+mod tests {
+    use super::*;
+    use pse_backend_native::dynamics::Method;
+
+    async fn prepared() -> ModelingSimulation {
+        let rows = pse_authoring::language::parse(
+            "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; annotation check positive(x[1{s}] > 0{s}); } }",
+            pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
+            .modeling_package(rows, crate::workflow::tests::physical()).await.unwrap();
+        package.prepare_simulation(root, pse_modeling::specialize::root_instance(root),
+            Default::default(), Default::default(), Default::default(),
+            crate::workflow::tests::compiler_profile(),
+            pse_backend_native::dynamics::Profile {
+                method: Method::Diffsol, end: 1., samples: vec![0., 0.25, 0.5, 0.75, 1.],
+                atol: vec![1e-7], rtol: 1e-7, ..Default::default()
+            }, pse_kernels::DerivativeOrder::First, &crate::CancelSource::new(),
+        ).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn live_samples_compact_and_full_keep_original_ordinals_checks_and_escaped_buffers() {
+        let prepared = prepared().await;
+        let mut endpoints = Vec::new();
+        for retention in [SampleRetention::Full, SampleRetention::Compact] {
+            let (handle, cursor) = prepared.start_live(LiveSimulationOptions { capacity: 1, retention }).unwrap();
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            assert!(handle.result().is_none(), "bounded unread output must apply backpressure");
+            let mut ordinal = 0;
+            let mut escaped = Vec::new();
+            let mut original_checked = false;
+            loop {
+                let event = tokio::time::timeout(Duration::from_secs(10), cursor.next()).await.unwrap().unwrap();
+                match event {
+                    LiveSimulationEvent::Sample(batch) => {
+                        assert_eq!(batch.run_id, handle.run_id());
+                        assert_eq!(batch.accuracy_attempt, 0);
+                        assert_eq!(batch.ordinal, ordinal);
+                        assert!(batch.canonical_attempt.is_none());
+                        assert!(batch.table.batch().num_rows() > 0);
+                        escaped.push(batch.table);
+                        ordinal += 1;
+                    }
+                    LiveSimulationEvent::AttemptFinished(summary) => {
+                        assert_eq!(summary.coverage.produced(), 5);
+                        assert!(summary.checks_complete && summary.checks_satisfied);
+                        assert!(summary.original_checks > 0);
+                        original_checked = true;
+                    }
+                    LiveSimulationEvent::Selected { accuracy_attempt } => assert_eq!(accuracy_attempt, 0),
+                    LiveSimulationEvent::Joined(result) => {
+                        let crate::workflow::RunReport::Simulation(trajectory) = result.report().unwrap() else { panic!("simulation report missing") };
+                        assert!(trajectory.checks_complete());
+                        assert_eq!(trajectory.report().coverage.produced(), 5);
+                        assert_eq!(trajectory.report().samples.len(), if retention == SampleRetention::Full { 5 } else { 0 });
+                        endpoints.push(trajectory.report().endpoint.as_ref().unwrap().point.state.clone());
+                        break;
+                    }
+                    _ => panic!("ephemeral run cannot manufacture recording acknowledgement"),
+                }
+            }
+            assert!(original_checked);
+            assert_eq!(ordinal, 5);
+            cursor.close();
+            drop(cursor);
+            drop(handle);
+            assert_eq!(escaped.len(), 5);
+            assert!(escaped.iter().all(|batch| batch.batch().num_rows() > 0));
+        }
+        assert_eq!(endpoints[0], endpoints[1]);
+    }
+
+    #[tokio::test]
+    async fn live_subscription_close_detaches_and_backpressure_cancel_joins_native_owner() {
+        let prepared = prepared().await;
+        let options = LiveSimulationOptions { capacity: 1, retention: SampleRetention::Compact };
+        let (handle, cursor) = prepared.start_live(options).unwrap();
+        cursor.close();
+        assert!(cursor.next().await.is_none());
+        let result = tokio::time::timeout(Duration::from_secs(10), handle.wait()).await.unwrap().unwrap();
+        assert!(result.report().is_ok(), "detachment cannot cancel science");
+        let (handle, cursor) = prepared.start_live(options).unwrap();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        handle.cancel();
+        let _ = tokio::time::timeout(Duration::from_secs(10), handle.wait()).await.unwrap().unwrap();
+        cursor.close();
+        assert!(handle.result().is_some(), "cancelled native owner joined before publication");
     }
 }

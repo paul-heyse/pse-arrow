@@ -1339,7 +1339,7 @@ impl NativeModelingTrajectory {
     }
     #[getter]
     fn samples(&self) -> usize {
-        self.inner.report().samples.len()
+        self.inner.report().coverage.produced()
     }
     fn failure(&self) -> Option<inspection::DiagnosticReport> {
         self.inner
