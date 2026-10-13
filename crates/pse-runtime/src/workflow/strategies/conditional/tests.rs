@@ -2030,7 +2030,7 @@ async fn small_block_override_validation_fits_without_all_block_construction() {
     let pool = runtime.shared.pool();
     let capacity = match pool.memory_limit() {
         datafusion::execution::memory_pool::MemoryLimit::Finite(limit) => limit,
-        other => panic!("pressure control requires a finite actual pool, got {other:?}"),
+        _ => panic!("pressure control requires a finite actual pool"),
     };
     let policy = &runtime.shared.budget().math;
     let fixed = policy.stack_bytes + policy.foreign_bytes + policy.inner_session_bytes;

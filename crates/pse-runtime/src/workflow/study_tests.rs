@@ -430,7 +430,7 @@ async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
             StudyPlan {
                 output: StudyOutputDemand::Full {},
                 sources,
-                inputs: crate::workflow::StudyInputs::Explicit(authored.unwrap()),
+                inputs: StudyInputs::Explicit(authored.unwrap()),
             },
             &crate::CancelSource::new(),
         )
