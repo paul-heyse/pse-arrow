@@ -606,6 +606,7 @@ impl PreparedComputation {
                 | pse_schema::model::provider::OperationEffect::Namespace
                 | pse_schema::model::provider::OperationEffect::Publish));
         if effectful && self.0.started.load(std::sync::atomic::Ordering::Acquire) {
+            operation.finish(TerminalStatus::Failed);
             return Err(EngineError::Admission {
                 path: "operation.attempt".into(),
                 reason: "an effectful preparation can execute only once".into(),
