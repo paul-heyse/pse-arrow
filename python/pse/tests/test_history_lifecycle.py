@@ -2,19 +2,21 @@
 # Copyright (c) 2026 Paul Heyse
 """Typed history adapter controls; canonical ownership is tested on its native store."""
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import msgspec
 import pytest
 
 import pse
 from pse import codec
-from pse._build import _NativeRuntime
 from pse.contracts.documents import (
     HistoryObligation,
     HistoryOwner,
     HistoryReclamationPage,
 )
+
+if TYPE_CHECKING:
+    from pse._build import _NativeRuntime
 
 
 class HistoryBoundary:

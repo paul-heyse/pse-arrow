@@ -356,14 +356,14 @@ def publish(
             )
             load(candidate)
             if previous is None:
-                os.rename(candidate, folder)
+                candidate.rename(folder)
             else:
                 # Existing immutable bytes are never opened for writing.
                 shutil.copytree(owned, folder / "rollouts" / identity)
                 shutil.copyfile(manifest, folder / "rollouts" / manifest.name)
                 for name in head_files:
-                    os.replace(candidate / name, folder / name)
-                os.replace(candidate / REGISTER, folder / REGISTER)
+                    (candidate / name).replace(folder / name)
+                (candidate / REGISTER).replace(folder / REGISTER)
             load(folder)
             return metadata
 
@@ -380,11 +380,11 @@ def main() -> int:
         elif args.binary:
             result = publish(args.binary, args.folder, *declaration())
         else:
-            raise ProducerError(
+            raise ProducerError(  # noqa: TRY301 -- selection shares CLI error reporting
                 "Select the exact verified beta executable with --binary"
             )
         print(json.dumps(result, indent=2))
-        return 0
+        return 0  # noqa: TRY300 -- output errors share CLI error reporting
     except (
         ProducerError,
         surrealkit.ToolError,

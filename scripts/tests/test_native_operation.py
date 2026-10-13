@@ -1690,11 +1690,9 @@ class NativeOperationTests(unittest.TestCase):
     def test_selected_workload_wrapper_exit_does_not_prove_child_scope_drain(
         self,
     ) -> None:
-        from scripts import host_admission as host  # noqa: PLC0415 -- control owner
-
-        allocation = MagicMock(spec=host.Allocation)
+        allocation = MagicMock(spec=host_admission.Allocation)
         allocation.nonce = "c" * 32
-        allocation.profile = host.select("light")
+        allocation.profile = host_admission.select("light")
         selected = {
             "unit": "pse-native-" + "a" * 32 + ".scope",
             "group": "/child",
@@ -1715,9 +1713,9 @@ class NativeOperationTests(unittest.TestCase):
             return 0
 
         with (
-            patch.object(host, "inherit", return_value=allocation),
+            patch.object(host_admission, "inherit", return_value=allocation),
             patch.object(
-                host, "acquire", side_effect=AssertionError("second allocation")
+                host_admission, "acquire", side_effect=AssertionError("second allocation")
             ),
             patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
             patch.object(
@@ -1838,6 +1836,8 @@ class NativeOperationTests(unittest.TestCase):
                         _environment: dict[str, str],
                         *,
                         on_reaped: Callable[[], None],
+                        cancellation: float | None = cancellation,
+                        observation: dict[str, object] = observation,
                         **_options: object,
                     ) -> int:
                         observation["child_status"] = 0
@@ -1846,7 +1846,11 @@ class NativeOperationTests(unittest.TestCase):
                         on_reaped()
                         return 0
 
-                    def advance(delay: float) -> None:
+                    def advance(
+                        delay: float,
+                        *,
+                        elapsed: list[float] = elapsed,
+                    ) -> None:
                         elapsed[0] += delay
 
                     with (
@@ -1875,7 +1879,7 @@ class NativeOperationTests(unittest.TestCase):
                         patch.object(
                             operation.time,
                             "monotonic",
-                            side_effect=lambda: elapsed[0],
+                            side_effect=lambda elapsed=elapsed: elapsed[0],
                         ),
                         patch.object(operation.time, "sleep", side_effect=advance),
                         self.assertRaises(operation.DeadlineExpiredError),
@@ -1900,10 +1904,6 @@ class NativeOperationTests(unittest.TestCase):
     def test_selected_scope_cleanup_joins_physical_reaping_with_late_signals(
         self,
     ) -> None:
-        from scripts import (
-            host_admission as host,
-        )
-
         for order in ("before-reap", "during-cleanup", "first-signal-during-drain"):
             for signum in (signal.SIGINT, signal.SIGTERM):
                 with (
@@ -1928,7 +1928,12 @@ class NativeOperationTests(unittest.TestCase):
                     previous = signal.getsignal(signum)
                     escaped: list[int] = []
 
-                    def outer_interrupt(received: int, _frame: object) -> None:
+                    def outer_interrupt(
+                        received: int,
+                        _frame: object,
+                        *,
+                        escaped: list[int] = escaped,
+                    ) -> None:
                         escaped.append(received)
                         raise KeyboardInterrupt
 
@@ -1941,15 +1946,22 @@ class NativeOperationTests(unittest.TestCase):
                             "group": "/controlled-child",
                             "invocation": "b" * 32,
                         }
-                        allocation = MagicMock(spec=host.Allocation)
+                        allocation = MagicMock(spec=host_admission.Allocation)
                         allocation.nonce = "c" * 32
-                        allocation.profile = host.select("light")
+                        allocation.profile = host_admission.select("light")
                         observation: dict[str, object] = {}
                         records = 0
                         wrapper_released = False
                         observations: list[tuple[float | None, bool]] = []
 
-                        def wait(*, timeout: float) -> int:
+                        def wait(
+                            *,
+                            timeout: float,
+                            order: str = order,
+                            signum: int = signum,
+                            wrapper: subprocess.Popen[bytes] = wrapper,
+                            wrapper_wait: Callable[..., int] = wrapper_wait,
+                        ) -> int:
                             nonlocal wrapper_released
                             if not wrapper_released:
                                 wrapper_released = True
@@ -1960,7 +1972,15 @@ class NativeOperationTests(unittest.TestCase):
                                 wrapper.stdin.flush()
                             return wrapper_wait(timeout=timeout)
 
-                        def record(_path: Path) -> dict:
+                        def record(
+                            _path: Path,
+                            *,
+                            order: str = order,
+                            original: float = original,
+                            selected: dict[str, str] = selected,
+                            signum: int = signum,
+                            wrapper: subprocess.Popen[bytes] = wrapper,
+                        ) -> dict:
                             nonlocal records
                             records += 1
                             if records == 1 and order == "during-cleanup":
@@ -1971,7 +1991,15 @@ class NativeOperationTests(unittest.TestCase):
                             return {"scope": selected, "cancel_deadline": original}
 
                         def physical_drain(
-                            _record: Mapping[str, object], *, deadline: float | None
+                            _record: Mapping[str, object],
+                            *,
+                            deadline: float | None,
+                            observations: list[tuple[float | None, bool]] = observations,
+                            opaque: subprocess.Popen[bytes] = opaque,
+                            order: str = order,
+                            original: float = original,
+                            selected: dict[str, str] = selected,
+                            signum: int = signum,
                         ) -> operation.DrainObservation:
                             if (
                                 order == "first-signal-during-drain"
@@ -2009,7 +2037,7 @@ class NativeOperationTests(unittest.TestCase):
                             )
 
                         with (
-                            patch.object(host, "inherit", return_value=allocation),
+                            patch.object(host_admission, "inherit", return_value=allocation),
                             patch.object(
                                 operation,
                                 "scope_owner",
@@ -2064,10 +2092,6 @@ class NativeOperationTests(unittest.TestCase):
     def test_selected_scope_join_preserves_original_expiry_and_refuses_unknown_owner(
         self,
     ) -> None:
-        from scripts import (
-            host_admission as host,
-        )
-
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
         for phase in (
             operation.DrainPhase.POPULATED,
@@ -2077,9 +2101,9 @@ class NativeOperationTests(unittest.TestCase):
             with self.subTest(phase=phase):
                 elapsed = [100.0]
                 original = 100.025
-                allocation = MagicMock(spec=host.Allocation)
+                allocation = MagicMock(spec=host_admission.Allocation)
                 allocation.nonce = "c" * 32
-                allocation.profile = host.select("light")
+                allocation.profile = host_admission.select("light")
                 observation: dict[str, object] = {}
 
                 def completed(
@@ -2087,17 +2111,23 @@ class NativeOperationTests(unittest.TestCase):
                     _environment: dict[str, str],
                     *,
                     on_reaped: Callable[[], None],
+                    observation: dict[str, object] = observation,
+                    original: float = original,
                     **_options: object,
                 ) -> int:
                     observation.update(child_status=0, cancellation_deadline=original)
                     on_reaped()
                     return 0
 
-                def advance(delay: float) -> None:
+                def advance(
+                    delay: float,
+                    *,
+                    elapsed: list[float] = elapsed,
+                ) -> None:
                     elapsed[0] += delay
 
                 with (
-                    patch.object(host, "inherit", return_value=allocation),
+                    patch.object(host_admission, "inherit", return_value=allocation),
                     patch.object(
                         operation, "scope_owner", return_value={"unit": "parent"}
                     ),
@@ -2118,7 +2148,7 @@ class NativeOperationTests(unittest.TestCase):
                         ),
                     ) as drain,
                     patch.object(
-                        operation.time, "monotonic", side_effect=lambda: elapsed[0]
+                        operation.time, "monotonic", side_effect=lambda elapsed=elapsed: elapsed[0]
                     ),
                     patch.object(operation.time, "sleep", side_effect=advance) as pause,
                     self.assertRaises(
@@ -2212,16 +2242,12 @@ class NativeOperationTests(unittest.TestCase):
         self.assertEqual({name: signal.getsignal(name) for name in before}, before)
 
     def test_late_clock_does_not_retry_unknown_selected_scope_authority(self) -> None:
-        from scripts import (
-            host_admission as host,
-        )
-
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
         for phase in (operation.DrainPhase.MISMATCH, operation.DrainPhase.UNAVAILABLE):
             with self.subTest(phase=phase):
-                allocation = MagicMock(spec=host.Allocation)
+                allocation = MagicMock(spec=host_admission.Allocation)
                 allocation.nonce = "c" * 32
-                allocation.profile = host.select("light")
+                allocation.profile = host_admission.select("light")
                 observation: dict[str, object] = {}
                 original = time.monotonic() + 1
 
@@ -2236,7 +2262,12 @@ class NativeOperationTests(unittest.TestCase):
                     return 0
 
                 def unknown(
-                    _record: Mapping[str, object], *, deadline: float | None
+                    _record: Mapping[str, object],
+                    *,
+                    deadline: float | None,
+                    observation: dict[str, object] = observation,
+                    original: float = original,
+                    phase: operation.DrainPhase = phase,
                 ) -> operation.DrainObservation:
                     self.assertIsNotNone(deadline)
                     self.assertGreater(deadline, original)
@@ -2246,7 +2277,7 @@ class NativeOperationTests(unittest.TestCase):
                     )
 
                 with (
-                    patch.object(host, "inherit", return_value=allocation),
+                    patch.object(host_admission, "inherit", return_value=allocation),
                     patch.object(
                         operation, "scope_owner", return_value={"unit": "parent"}
                     ),
@@ -2520,7 +2551,9 @@ class NativeOperationTests(unittest.TestCase):
                 self.assertLess(time.monotonic() - started, 0.2)
                 self.assertEqual(signals, [signal.SIGTERM])
                 self.assertEqual(
-                    operation.composer_registrations(operation._record(parent.path)),
+                    operation.composer_registrations(
+                        operation._record(parent.path)  # noqa: SLF001 -- exact internal handoff control
+                    ),
                     {},
                 )
                 with host_admission.allocation_metadata(allocation.directory) as ledger:

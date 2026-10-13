@@ -139,7 +139,7 @@ class Runtime:
         return TableStream(self._handle.result_manifest(attempt))
 
     def recover_artifact_intent(self, intent: bytes) -> ArtifactSettlement:
-        """Recover exact error/interrupt bytes for release/collection; never replay creation."""
+        """Recover exact error/interrupt bytes for settlement; never replay creation."""
         return ArtifactSettlement(self._handle.recover_artifact_intent(intent))
 
     def scientific_artifact(self, key: str) -> ScientificArtifact:
@@ -187,7 +187,7 @@ class Runtime:
         self._handle.retain_history_obligation(codec.encode_json(obligation))
 
     def release_history_obligation(self, obligation: HistoryObligation) -> None:
-        """Release only this exact attributed obligation; other owners still protect it."""
+        """Release this exact attributed obligation; other owners still protect it."""
         self._handle.release_history_obligation(codec.encode_json(obligation))
 
     def release_history(self, owner: HistoryOwner) -> None:

@@ -56,9 +56,9 @@ class NamespaceTests(unittest.TestCase):
             ),
             patch.object(server, "close_context_admission") as close,
             patch.object(server, "start") as start,
+            self.assertRaisesRegex(server.SupervisorError, "operation settlement"),
         ):
-            with self.assertRaisesRegex(server.SupervisorError, "operation settlement"):
-                server.qualify_recovery(self.state)
+            server.qualify_recovery(self.state)
         close.assert_not_called()
         start.assert_not_called()
 
@@ -203,9 +203,11 @@ class NamespaceTests(unittest.TestCase):
     def test_long_borrow_releases_with_a_fresh_metadata_clock(self) -> None:
         resource = self.register()
         clock = resources.resource_store.clock
-        with patch.object(resources.resource_store, "clock", wraps=clock) as observed:
-            with resources.borrow(resource):
-                self.assertTrue(resources.resource_status(resource)["borrows"])
+        with (
+            patch.object(resources.resource_store, "clock", wraps=clock) as observed,
+            resources.borrow(resource),
+        ):
+            self.assertTrue(resources.resource_status(resource)["borrows"])
         self.assertFalse(resources.resource_status(resource)["borrows"])
         # Admission and release independently request the ordinary clock when no
         # caller-wide cancellation clock was supplied.
@@ -247,16 +249,16 @@ class NamespaceTests(unittest.TestCase):
                 side_effect=server.SupervisorError("closed owner"),
             ),
             patch.object(tool.native_operation, "run_child_scope") as child,
+            self.assertRaisesRegex(server.SupervisorError, "closed owner"),
         ):
-            with self.assertRaisesRegex(server.SupervisorError, "closed owner"):
-                tool.execute(Path("binary"), "resource", self.root, "sync")
+            tool.execute(Path("binary"), "resource", self.root, "sync")
         child.assert_not_called()
 
     def test_failed_cli_keeps_unknown_server_activity_protected(self) -> None:
         resource = self.register()
         resources.record_drain(resource)
 
-        def failed(*args: object, **kwargs: object) -> int:
+        def failed(*_args: object, **kwargs: object) -> int:
             kwargs["observation"].update(owned_drain="complete")
             return 1
 

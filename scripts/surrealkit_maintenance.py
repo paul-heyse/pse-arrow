@@ -411,7 +411,7 @@ def execute(
             )
             if "previous_marker" not in value and mode not in {"status", "repair"}:
                 if continuing:
-                    raise MaintenanceError(
+                    raise MaintenanceError(  # noqa: TRY301 -- exact pending/CLI refusal boundary
                         "Original predecessor marker unavailable; activation refused"
                     )
                 value["previous_marker"] = predecessor_marker(state, config)
@@ -867,7 +867,7 @@ def canonical_tool(
             or result.get("reason") != "exited"
             or observation.get("owned_drain") != "complete"
         ):
-            raise MaintenanceError(
+            raise MaintenanceError(  # noqa: TRY301 -- exact pending/CLI refusal boundary
                 "Canonical operation lacks acknowledged success and owned drain; pending retained"
             )
         witness = json.loads((attempt / "stdout").read_text())
@@ -879,7 +879,7 @@ def canonical_tool(
             )
             or witness.get("initializer_nonce") != owner["nonce"]
         ):
-            raise MaintenanceError(
+            raise MaintenanceError(  # noqa: TRY301 -- exact pending/CLI refusal boundary
                 "Canonical witness differs from selected maintenance authority"
             )
         if not activate and (
@@ -893,11 +893,11 @@ def canonical_tool(
                 )
             ]
         ):
-            raise MaintenanceError(
+            raise MaintenanceError(  # noqa: TRY301 -- exact pending/CLI refusal boundary
                 "Canonical witness differs from exact definition inputs"
             )
         record["phase"] = "acknowledged"
-        return witness
+        return witness  # noqa: TRY300 -- interruptions during ACK bookkeeping retain unknown phase
     except BaseException:
         record.update(phase="unknown", child=observation)
         raise
@@ -1150,7 +1150,7 @@ def main() -> int:
     try:
         if args.mode in {"_child", "_canonical-child"}:
             if args.attempt is None or args.child_mode is None:
-                raise MaintenanceError("Internal child identity missing")
+                raise MaintenanceError("Internal child identity missing")  # noqa: TRY301 -- exact pending/CLI refusal boundary
             return owned_child(
                 args.binary,
                 args.state,
@@ -1162,7 +1162,7 @@ def main() -> int:
             )
         if args.mode == "settle":
             if args.pending_nonce is None:
-                raise MaintenanceError("Settlement requires the exact pending nonce")
+                raise MaintenanceError("Settlement requires the exact pending nonce")  # noqa: TRY301 -- exact pending/CLI refusal boundary
             print(
                 json.dumps(
                     settle_generated(
@@ -1174,7 +1174,7 @@ def main() -> int:
             return 0
         if args.mode == "activate":
             if args.pending_nonce is None:
-                raise MaintenanceError("Activation requires the exact pending nonce")
+                raise MaintenanceError("Activation requires the exact pending nonce")  # noqa: TRY301 -- exact pending/CLI refusal boundary
             print(
                 json.dumps(
                     activate(args.state, args.pending_nonce, args.binary), indent=2

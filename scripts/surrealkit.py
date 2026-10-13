@@ -67,7 +67,7 @@ def release_sources(declared: Mapping[str, str]) -> dict[str, object]:
     ) as response:
         target = json.load(response)["object"]
     while target["type"] == "tag":
-        with urllib.request.urlopen(target["url"], timeout=30) as response:
+        with urllib.request.urlopen(target["url"], timeout=30) as response:  # noqa: S310 -- official GitHub tag metadata
             target = json.load(response)["object"]
     if target["type"] != "commit" or len(target["sha"]) != 40:
         raise ToolError("Exact release source commit unavailable")
@@ -79,7 +79,7 @@ def release_sources(declared: Mapping[str, str]) -> dict[str, object]:
         ".github/workflows/release-binaries.yml",
         "crates/surrealkit/src/scaffold.rs",
     ):
-        with urllib.request.urlopen(base + name, timeout=30) as response:
+        with urllib.request.urlopen(base + name, timeout=30) as response:  # noqa: S310 -- fixed HTTPS source origin
             sources[name] = response.read()
     packages = tomllib.loads(sources["Cargo.lock"].decode())["package"]
     sdk = [package["version"] for package in packages if package["name"] == "surrealdb"]
@@ -158,7 +158,7 @@ def acquire(tool_root: Path) -> Path:
             or not str(asset.get("browser_download_url", "")).startswith(origin)
         ):
             raise ToolError("Official checksum or origin unavailable")
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # noqa: S310 -- exact HTTPS release origin checked above
             str(asset["browser_download_url"]), timeout=60
         ) as response:
             raw = response.read()
@@ -353,6 +353,7 @@ def validate_input(
     mode: str = "",
     release: Mapping[str, object] | None = None,
 ) -> None:
+    del mode  # The shared command interface validates all modes against one inventory.
     root = Path(str(record["directory"])).resolve(strict=True)
     if folder.is_symlink() or root not in folder.resolve(strict=True).parents:
         raise ToolError("Tool input must belong to this registered namespace")
@@ -492,7 +493,7 @@ def activity(
 
 def execute(binary: Path, resource: str, folder: Path, mode: str) -> int:
     release = verify(binary)
-    record, config, credentials = fixture(resource)
+    record, _, _ = fixture(resource)
     validate_input(folder, record, mode, release)
     commands = {
         "sync": ["sync", "--no-prune"],

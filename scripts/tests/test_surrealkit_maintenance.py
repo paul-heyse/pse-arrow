@@ -16,11 +16,15 @@ import time
 import tomllib
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import surreal_server as server
 from scripts import surrealkit_maintenance as tool
 from scripts.tests import surrealkit_rollout_fixture_check as probe
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class MaintenanceTests(unittest.TestCase):
@@ -103,7 +107,7 @@ class MaintenanceTests(unittest.TestCase):
             self.addCleanup(replacement.stop)
 
     @contextlib.contextmanager
-    def reservation(self, state: Path):
+    def reservation(self, _state: Path) -> Iterator[None]:
         self.calls.append("reserve")
         yield
         self.calls.append("release")
@@ -113,7 +117,7 @@ class MaintenanceTests(unittest.TestCase):
         (state / ".maintenance-listener.json").write_text("{}")
         return "http://127.0.0.1:19000"
 
-    def require_owner(self, state: Path, config: dict[str, object]) -> None:
+    def require_owner(self, _state: Path, config: dict[str, object]) -> None:
         self.calls.append("authority")
         self.assertFalse(config["accepting_writes"])
 
@@ -129,6 +133,7 @@ class MaintenanceTests(unittest.TestCase):
         cwd: Path,
         observation: dict[str, object],
     ) -> int:
+        del cwd  # The child callback is deliberately independent of working directory.
         self.calls.append("child")
         attempt = Path(command[command.index("--attempt") + 1])
         snapshot = Path(command[command.index("--folder") + 1])
@@ -495,7 +500,7 @@ class MaintenanceTests(unittest.TestCase):
         value = self.run_tool()
         for proof in [True, {**self.evidence(value), "input_sha256": "wrong"}]:
             with self.assertRaisesRegex(tool.MaintenanceError, "structured operation"):
-                tool.settle(self.state, str(value["nonce"]), lambda *_: proof)
+                tool.settle(self.state, str(value["nonce"]), lambda *_, proof=proof: proof)
             self.assertEqual(self.current()["nonce"], value["nonce"])
         self.assertFalse((self.state / ".maintenance-listener.json").exists())
 
@@ -603,7 +608,9 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual(self.current()["sql_outcome"], "unknown")
         self.assertNotIn("settlement", self.current())
 
-    def generated_fixture(self, status="completed", *, acknowledged=True):
+    def generated_fixture(
+        self, status: str = "completed", *, acknowledged: bool = True
+    ) -> tuple[dict[str, object], dict[str, object], dict[str, object], dict[str, object]]:
         value = self.run_tool()
         step = {
             "id": "definition",
@@ -647,7 +654,7 @@ class MaintenanceTests(unittest.TestCase):
         }
         return value, item, row, witness
 
-    def test_generated_settlement_joins_exact_ack_and_canonical_postconditions(self):
+    def test_generated_settlement_joins_exact_ack_and_canonical_postconditions(self) -> None:
         value, item, row, witness = self.generated_fixture()
         with (
             patch.object(tool, "publication", return_value={"rollouts": [item]}),
@@ -662,7 +669,7 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual(result["settlement"]["canonical"], witness)
         self.assertEqual(canonical.call_args.kwargs["expected_schemas"], ())
 
-    def test_whole_chain_settlement_cannot_omit_initial_baseline(self):
+    def test_whole_chain_settlement_cannot_omit_initial_baseline(self) -> None:
         value, item, row, witness = self.generated_fixture()
         baseline = {**item, "id": "initial-baseline"}
         with (
@@ -697,7 +704,7 @@ class MaintenanceTests(unittest.TestCase):
 
     def test_generated_unknown_sql_reconciles_but_metadata_must_complete_before_activation(
         self,
-    ):
+    ) -> None:
         value, item, row, witness = self.generated_fixture(
             "running_complete", acknowledged=False
         )
@@ -735,7 +742,7 @@ class MaintenanceTests(unittest.TestCase):
 
     def test_generated_settlement_refuses_wrong_step_or_data_sql_before_canonical_tool(
         self,
-    ):
+    ) -> None:
         value, item, row, witness = self.generated_fixture()
         for change in ("checksum", "data"):
             with self.subTest(change=change):
@@ -765,12 +772,19 @@ class MaintenanceTests(unittest.TestCase):
 
     def test_canonical_child_wrong_authority_witness_keeps_pending_and_child_drain(
         self,
-    ):
+    ) -> None:
         value = self.run_tool()
         value["initializer"] = self.owner
         tool.update(self.state, value)
 
-        def wrong_witness(command, env, *, cwd, observation):
+        def wrong_witness(
+            command: list[str],
+            _env: dict[str, str],
+            *,
+            cwd: Path,
+            observation: dict[str, object],
+        ) -> int:
+            del cwd
             attempt = Path(command[command.index("--attempt") + 1])
             server.write_json(attempt / "child.json", {"reason": "exited"})
             server.write_json(
@@ -848,7 +862,13 @@ class MaintenanceTests(unittest.TestCase):
         proof = {**self.evidence(value), "canonical": {"scope": "generated-target"}}
         tool.settle(self.state, value["nonce"], lambda *_: proof)
 
-        def activation(state, endpoint, pending, binary, **options):
+        def activation(
+            state: Path,
+            _endpoint: str,
+            pending: dict[str, object],
+            _binary: Path,
+            **options: object,
+        ) -> dict[str, object]:
             self.assertEqual(pending["initializer"], self.owner)
             self.assertEqual(pending["settlement"], proof)
             self.assertTrue(options["activate"])
@@ -1002,17 +1022,30 @@ class OwnedChildTests(unittest.TestCase):
                 binary.chmod(0o700)
                 real_spawn = subprocess.Popen
 
-                def replace() -> None:
+                def replace(
+                    *,
+                    root: Path = root,
+                    successor: dict[str, object] = successor,
+                ) -> None:
                     server.write_json(root / "lifecycle-owner.json", successor)
                     server.write_json(
                         root / ".maintenance-listener.json", {"owner": successor}
                     )
 
-                def spawn(*args: object, **kwargs: object) -> subprocess.Popen[bytes]:
+                def spawn(
+                    *args: object,
+                    real_spawn: type[subprocess.Popen[bytes]] = real_spawn,
+                    concurrent_exit: bool = concurrent_exit,
+                    **kwargs: object,
+                ) -> subprocess.Popen[bytes]:
                     child = real_spawn(*args, **kwargs)
                     real_wait = child.wait
 
-                    def wait(*args: object, **kwargs: object) -> int:
+                    def wait(
+                        *args: object,
+                        concurrent_exit: bool = concurrent_exit,
+                        **kwargs: object,
+                    ) -> int:
                         if not concurrent_exit:
                             replace()
                         result = real_wait(*args, **kwargs)
@@ -1155,7 +1188,7 @@ class RevocationPreparationTests(unittest.TestCase):
             }
 
             @contextlib.contextmanager
-            def update(_resource: str):
+            def update(_resource: str) -> Iterator[dict[str, object]]:
                 yield record
 
             with (

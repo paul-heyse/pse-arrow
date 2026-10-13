@@ -57,7 +57,7 @@ class ScientificArtifact:
 
 @attrs.frozen
 class ArtifactSettlement:
-    """Exact original recovery intent; grants release/collection, never content access."""
+    """Exact recovery intent for release/collection, never content access."""
 
     _handle: _NativeArtifactSettlement
 
@@ -71,5 +71,5 @@ class ArtifactSettlement:
         self._handle.release(kind, owner)
 
     def collect(self) -> bool:
-        """Settle one page; false leaves the original finite creation/read windows pending."""
+        """Settle one page; false leaves original creation/read windows pending."""
         return self._handle.collect()

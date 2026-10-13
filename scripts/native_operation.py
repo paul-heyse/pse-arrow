@@ -1731,7 +1731,7 @@ def run_child_scope(
     No allocation is acquired or released here.
     """
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
-    from scripts.pse_env import (
+    from scripts.pse_env import (  # noqa: PLC0415 -- reciprocal ownership
         current_memory_ceiling,
     )
 

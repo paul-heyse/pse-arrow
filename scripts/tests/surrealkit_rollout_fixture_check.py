@@ -199,7 +199,7 @@ def sql(resource: str, database: str, query: str) -> list[object]:
             .replace("ws://", "http://", 1)
             .replace("wss://", "https://", 1)
         )
-        request = urllib.request.Request(
+        request = urllib.request.Request(  # noqa: S310 -- authenticated selected loopback fixture
             endpoint + "/signin",
             data=json.dumps(
                 {
@@ -210,13 +210,13 @@ def sql(resource: str, database: str, query: str) -> list[object]:
             ).encode(),
             headers={"Accept": "application/json", "Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with urllib.request.urlopen(request, timeout=15) as response:  # noqa: S310 -- authenticated selected loopback fixture
             authentication = json.load(response)
         if not isinstance(authentication, dict) or not isinstance(
             authentication.get("token"), str
         ):
             raise tool.ToolError("Private namespace sign-in was not acknowledged")
-        request = urllib.request.Request(
+        request = urllib.request.Request(  # noqa: S310 -- authenticated selected loopback fixture
             endpoint + "/sql",
             data=query.encode(),
             headers={
@@ -227,7 +227,7 @@ def sql(resource: str, database: str, query: str) -> list[object]:
             },
         )
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 -- authenticated selected loopback fixture
                 values = json.load(response)
         except urllib.error.HTTPError as error:
             body = error.read().decode()
@@ -342,9 +342,8 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
                     "forward",
                     "RETURN (SELECT VALUE value FROM ONLY plan37_rollout_probe:kept); UPDATE plan37_rollout_probe:kept SET extra='expanded'; RETURN (SELECT `value`,extra FROM ONLY plan37_rollout_probe:kept);",
                 )
-                assert proof["forward_data"][0] == "preserved" and proof[
-                    "forward_data"
-                ][-1] == {"value": "preserved", "extra": "expanded"}
+                assert proof['forward_data'][0] == 'preserved'
+                assert proof['forward_data'][-1] == {'value': 'preserved', 'extra': 'expanded'}
         proof["offline_controls"] = offline_controls(binary, resource, folder)
         proof["commands"].append(
             beta(
@@ -358,10 +357,8 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         catalogs = sql(
             resource, "catchup", "INFO FOR DB; INFO FOR TABLE plan37_rollout_probe;"
         )
-        assert (
-            "canonical_runs" in catalogs[0]["tables"]
-            and "canonical_interpretations" in catalogs[0]["tables"]
-        )
+        assert 'canonical_runs' in catalogs[0]['tables']
+        assert 'canonical_interpretations' in catalogs[0]['tables']
         assert {"value", "extra"} <= catalogs[1]["fields"].keys()
         proof["catchup_data"] = sql(
             resource,
@@ -584,7 +581,7 @@ def owner_revocation(
                                     proof["revoked_owner"] = dict(revoked)
                                     return
                     time.sleep(0.05)
-                raise tool.ToolError(
+                raise tool.ToolError(  # noqa: TRY301 -- observer reports failures to joining owner
                     "Actual running barrier and live beta TTL were not observed"
                 )
             except BaseException as error:

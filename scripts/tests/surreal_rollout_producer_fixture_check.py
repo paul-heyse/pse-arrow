@@ -33,8 +33,10 @@ def check(binary: Path, scratch: Path) -> None:
     codec = producer.publish(binary, folder, final_schema, "fixture.v2", "4" * 64)
     actual = producer.inventory(folder)
     assert all(actual[name] == digest for name, digest in frozen.items())
-    assert second["predecessor"] == first["id"] and third["predecessor"] == second["id"]
-    assert codec["predecessor"] == third["id"] and codec["steps"] == []
+    assert second['predecessor'] == first['id']
+    assert third['predecessor'] == second['id']
+    assert codec['predecessor'] == third['id']
+    assert codec['steps'] == []
     assert [
         step["phase"] for step in third["steps"] if step["phase"] != "rollback"
     ] == ["start", "complete"]

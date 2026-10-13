@@ -23,8 +23,8 @@ import signal
 import subprocess
 import sys
 import time
-from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import host_admission, native_operation
@@ -32,6 +32,9 @@ from scripts import surreal_rollout_producer as producer
 from scripts import surreal_server as server
 from scripts import surrealkit_maintenance as maintenance
 from scripts import test_resources as resources
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 ROOT = Path(__file__).resolve().parents[2]
 BARRIER = "SLEEP 20s; RETURN 'actual-caller-death-barrier';"
@@ -343,7 +346,7 @@ class Fixture:
         )
         self.query(
             state,
-            removal
+            removal  # noqa: S608 -- generated fixture SQL and JSON literal
             + " UPDATE ONLY canonical_interpretations:current SET schema_digest="
             + json.dumps(old_digest)
             + " RETURN NONE; LET $value=true;",
@@ -391,7 +394,7 @@ class Fixture:
         self.checked(
             self.query(
                 state,
-                "LET $value=(SELECT VALUE incarnation FROM ONLY canonical_guards:`retention:fixture`)="
+                "LET $value=(SELECT VALUE incarnation FROM ONLY canonical_guards:`retention:fixture`)="  # noqa: S608 -- fixed selector and JSON literal
                 + json.dumps(guard)
                 + ";",
             )

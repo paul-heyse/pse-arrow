@@ -3406,15 +3406,14 @@ def verify_observer(state: Path, config: dict[str, object], pid: int) -> None:
                 inspected += 1
                 try:
                     actual = os.sched_getaffinity(int(thread.name))
-                    if not actual or not actual <= set(cpus):
-                        if len(mismatches) < 16:
-                            mismatches.append(
-                                {
-                                    "tid": int(thread.name),
-                                    "comm": (thread / "comm").read_text().strip()[:64],
-                                    "cpus": sorted(actual),
-                                }
-                            )
+                    if (not actual or not actual <= set(cpus)) and len(mismatches) < 16:
+                        mismatches.append(
+                            {
+                                "tid": int(thread.name),
+                                "comm": (thread / "comm").read_text().strip()[:64],
+                                "cpus": sorted(actual),
+                            }
+                        )
                 except OSError as error:
                     if len(mismatches) < 16:
                         mismatches.append(
@@ -6334,11 +6333,10 @@ def recover_maintenance(state: Path, initializer: list[str]) -> dict[str, object
             raise SupervisorError(
                 "Maintenance source/target identity differs; admission remains closed"
             )
-        if kind == "rebuild":
-            if phase in {"accounts", "initializing"} and not initializer:
-                raise SupervisorError(
-                    "Interrupted initializer requires explicit current initializer command"
-                )
+        if kind == "rebuild" and phase in {"accounts", "initializing"} and not initializer:
+            raise SupervisorError(
+                "Interrupted initializer requires explicit current initializer command"
+            )
         credentials, rotated = recover_credentials(state, config)
         require_private_catalog(state, config, credentials)
         if kind == "rebuild" and phase in {"accounts", "initializing"}:
