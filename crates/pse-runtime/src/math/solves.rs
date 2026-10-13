@@ -3169,6 +3169,15 @@ impl MathService {
         implicit: BTreeMap<pse_kernels::ProviderKey, pse_math::factorable::ImplicitDefinition>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
+        // Block declarations are conditional on the governing mechanism, but their
+        // identities/settings must belong to this actual compiler scope even when a
+        // direct native leaf is selected. Never silently admit an unknown override.
+        if !profile.block_overrides.is_empty() {
+            #[cfg(feature = "solver-kinsol")]
+            self.validate_prepared_block_overrides(&prepared, &profile, &numerics).await?;
+            #[cfg(not(feature = "solver-kinsol"))]
+            return Err(ProblemError::Unsupported("block override structural admission unavailable in this build".into()).into());
+        }
         let requested_hessian = profile.controls.hessian;
         profile.resolve_curvature(prepared.prepared.plan.available_order());
         profile
@@ -4833,6 +4842,11 @@ impl MathService {
             compatibility,
             ..
         } = step;
+        // The enclosing preparation already authenticated block-only declarations.
+        // A direct native leaf reports only the settings that this leaf acts on.
+        let mut profile = profile;
+        profile.block_overrides.clear();
+        profile.block_workers = 1;
         // Only a modeling solve prepares the parametric program a sensitivity request
         // differentiates; any other caller is refused rather than silently ignored.
         if profile.sensitivity.is_some()

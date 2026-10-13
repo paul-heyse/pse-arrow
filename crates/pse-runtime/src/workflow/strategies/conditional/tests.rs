@@ -1937,4 +1937,8 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
     assert!(actual.attempts.iter().all(|attempt| attempt.committed));
     analysis.solver.block_overrides.insert(pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([93; 32])), crate::math::settings::BlockSolveOverride { backend: None, settings: None, controls: None });
     assert!(package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.is_err());
+    analysis.solver.selection = SolverSelection::Explicit(Backend::Kinsol);
+    analysis.solver.composition.policy = pse_model::strategy::CompositionPolicy::Declared;
+    let direct_error = package.prepare_analysis(&analysis, &cancel).await.unwrap_err();
+    assert!(direct_error.to_string().contains("unknown compiler block identity"), "{direct_error}");
 }

@@ -169,6 +169,35 @@ impl PreparedSolve {
     }
 }
 impl MathService {
+    pub(super) async fn validate_prepared_block_overrides(
+        self: &Arc<Self>, prepared: &Preparation, profile: &SolverProfile,
+        numerics: &ResolvedNumericalPolicy,
+    ) -> Result<(), MathRuntimeError> {
+        let source = prepared.prepared.clone();
+        let construction = super::super::jobs::ConstructionEstimate::from_bound(
+            source.initialization_allocation_bound()?, self.policy.workspace_bytes,
+        );
+        let (blocks, _lease) = self.job_retained_construction(1, construction, FlightCancellation::default(), None, move |flag| {
+            let pse_compiler::workspace::Alternative::Available(blocks) = source.automatic_blocks(&flag)? else {
+                return Err(ProblemError::Unsupported("explicit block overrides require complete compiler block inventory".into()).into());
+            };
+            let bytes = pse_compiler::workspace::PreparedBlock::retained_group_bytes(&blocks)
+                .ok_or(MathRuntimeError::Limit("block override inventory extent"))?;
+            Ok((blocks, bytes))
+        }).await?;
+        profile.validate_block_ids(blocks.iter().map(|block| block.boundary.id))?;
+        let snapshot = execution::Snapshot::observe(&execution::LINKED);
+        for block in blocks.iter().filter(|block| profile.block_overrides.contains_key(&block.boundary.id)) {
+            let executable = self.assemble_functions(pse_compiler::workspace::PreparedFunctions {
+                plan: block.plan.clone(), artifacts: block.artifacts.clone(),
+            }, self.reserve("math:block-override-functions", block.plan.owner_wrapper_bytes() + 1024)?, &crate::CancelSource::new()).await?;
+            let mut effective = profile.block_profile(block.boundary.id)?;
+            effective.intent = SolveIntent::Initialize;
+            effective.presolve = native::presolve::Policy::Off;
+            super::super::initialization::conditional_route(&snapshot, block, &executable, &effective, numerics)?;
+        }
+        Ok(())
+    }
     pub(crate) async fn prepare_blocks(
         self: &Arc<Self>,
         mut original: PreparedSolve,

@@ -22,6 +22,8 @@ use std::collections::{BTreeMap, BTreeSet};
 #[serde(deny_unknown_fields)]
 pub struct SolveSettings {
     /// Compiler stable block identities and admitted native realization overrides.
+    /// Validated against the actual compiler scope even when direct execution wins;
+    /// applied only if the governing policy selects the block mechanism.
     #[serde(default)]
     pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, BlockSolveOverride>,
     /// Maximum independent ready blocks; actual capacity is admitted by the existing owner.
