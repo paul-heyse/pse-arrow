@@ -123,6 +123,54 @@ pub enum NativeCounters {
         jacobian_products: Option<u64>,
     },
 }
+/// Native integration state at an actual solver return, separate from work counters.
+/// These observations describe method configuration and mesh, never output accuracy.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum NativeStepObservation {
+    /// IDAS 7.1.1 optional outputs from the live forward session.
+    Idas {
+        /// Order used by the last accepted internal step; absent before any step.
+        last_order: Option<u32>,
+        /// Current order configured for the next internal attempt, not the last order.
+        current_order: Option<u32>,
+        /// Last accepted internal step size; never IDACalcIC's artificial step.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
+        last_step: Option<f64>,
+        /// Step size configured for the next internal attempt.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
+        current_step: Option<f64>,
+        /// Native internal mesh time, which may be beyond an interpolated/root return.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
+        internal_time: Option<f64>,
+        /// Successful IDASolve/IDASolveF returned time; absent before a solve or on error.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
+        returned_time: Option<f64>,
+    },
+    /// Diffsol 0.16.2 method/state getters captured before any event rewind or reset.
+    Diffsol {
+        /// Current method order; BDF may already have changed it for the next attempt.
+        /// Fixed-order RK schemes report their tableau order. No last-order getter exists.
+        current_order: Option<u32>,
+        /// StateRef.h: proposed next step after success, current configuration on error.
+        /// It is not the step just accepted; no last-step getter is exposed here.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
+        current_step: Option<f64>,
+        /// Solver mesh time before state_mut_back, independent of requested samples.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
+        internal_time: Option<f64>,
+        /// Actual successful step return time, including an interpolated root time.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
+        returned_time: Option<f64>,
+    },
+}
 /// Exact profile and problem witness for native facts; unknown counters remain absent.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -471,6 +519,28 @@ mod tests {
             value["samples"][0]["values"][0]["physical_error_ratio"]["kind"],
             "nonfinite"
         );
+    }
+    #[test]
+    fn native_step_observation_preserves_absence_and_nonfinite_mesh_without_last_step_invention() {
+        let idas = NativeStepObservation::Idas {
+            last_order: None, current_order: Some(1), last_step: None,
+            current_step: Some(0.01), internal_time: Some(f64::NAN), returned_time: None,
+        };
+        let value = serde_json::to_value(idas).unwrap();
+        assert_eq!(value["kind"], "idas");
+        assert!(value["last_order"].is_null() && value["last_step"].is_null());
+        assert!(value["returned_time"].is_null());
+        assert_eq!(value["internal_time"]["kind"], "nonfinite");
+        let diffsol = NativeStepObservation::Diffsol {
+            current_order: Some(3), current_step: Some(0.2),
+            internal_time: Some(0.5), returned_time: Some(0.4),
+        };
+        let value = serde_json::to_value(diffsol).unwrap();
+        assert_eq!(value["internal_time"]["value"], 0.5);
+        assert_eq!(value["returned_time"]["value"], 0.4);
+        assert!(value.get("last_order").is_none() && value.get("last_step").is_none());
+        let schema = serde_json::to_value(schemars::schema_for!(NativeStepObservation)).unwrap();
+        assert!(schema.to_string().contains("DiagnosticNonfiniteObservation"));
     }
     #[test]
     fn native_observations_encode_nonfinite_coordinates_and_times_with_matching_schema() {

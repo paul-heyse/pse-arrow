@@ -20,7 +20,7 @@ use crate::{
 };
 use std::{
     collections::HashMap,
-    ffi::{c_long, c_void},
+    ffi::{c_int, c_long, c_void},
     marker::PhantomData,
     rc::Rc,
     time::Instant,
@@ -2169,7 +2169,7 @@ impl<'a> Session<'a> {
         Ok(flag)
     }
     /// Native counters of the current segment; IDAS resets them at each reinitialization.
-    fn statistics(&self, flag: i32, p: &Profile) -> serde_json::Value {
+    fn statistics(&self, flag: i32, p: &Profile, returned_time: Option<f64>) -> serde_json::Value {
         let mut value = serde_json::json!({
             "backend": "idas",
             "native_version": crate::sundials_version(),
@@ -2198,6 +2198,33 @@ impl<'a> Session<'a> {
             IDAGetNumPrecEvals => "preconditioner_evaluations",
             IDAGetNumJtimesEvals => "jacobian_products",
         );
+        // IDAGetLastStep may expose IDACalcIC's artificial step before integration.
+        // Only a positive actual step count establishes last accepted-step meaning.
+        let mut steps: c_long = 0;
+        // SAFETY: this live session owns IDAS memory; the getter writes one local scalar.
+        let advanced = unsafe { ffi::IDAGetNumSteps(self.mem, &raw mut steps) } == 0 && steps > 0;
+        macro_rules! output {
+            ($get:ident, $type:ty) => {{
+                let mut result: $type = 0 as $type;
+                // SAFETY: the live session owns IDAS memory; the getter writes a local
+                // scalar of the exact native output type and retains no pointer.
+                (unsafe { ffi::$get(self.mem, &raw mut result) } == 0).then_some(result)
+            }};
+        }
+        let observation = crate::solve::NativeStepObservation::Idas {
+            last_order: advanced.then(|| output!(IDAGetLastOrder, c_int))
+                .flatten().and_then(|order| u32::try_from(order).ok()).filter(|order| *order > 0),
+            current_order: output!(IDAGetCurrentOrder, c_int)
+                .and_then(|order| u32::try_from(order).ok()).filter(|order| *order > 0),
+            last_step: advanced.then(|| output!(IDAGetLastStep, f64)).flatten(),
+            current_step: output!(IDAGetCurrentStep, f64).filter(|step| *step != 0.0),
+            internal_time: output!(IDAGetCurrentTime, f64),
+            returned_time,
+        };
+        // The derived observation has only scalar fields and lossless number encoding.
+        if let Ok(observation) = serde_json::to_value(observation) {
+            value["native_step"] = observation;
+        }
         value
     }
     /// Integrate one segment toward `stop`, sampling every requested time before it.
@@ -2212,7 +2239,7 @@ impl<'a> Session<'a> {
         budget: c_long,
     ) -> Result<(Option<usize>, c_long), ProblemError> {
         let mut steps: c_long = 0;
-        r.statistics.push(self.statistics(0, p));
+        r.statistics.push(self.statistics(0, p, None));
         loop {
             let target = p
                 .samples
@@ -2233,7 +2260,7 @@ impl<'a> Session<'a> {
             let flag = self.solve(target, &mut time)?;
             native!(ffi::IDAGetNumSteps(self.mem, &raw mut steps), "step count")?;
             if let Some(last) = r.statistics.last_mut() {
-                *last = self.statistics(flag, p);
+                *last = self.statistics(flag, p, (flag >= 0).then_some(time));
             }
             if flag == ffi::IDA_TOO_MUCH_WORK {
                 r.termination = Termination::StepLimit;

@@ -191,6 +191,16 @@ fn sdirk_matches_bdf_on_vessel() {
                 r.statistics[0]["diffsol"]["method"],
                 serde_json::to_value(method).unwrap()
             );
+            // The current order is the actual library/tableau order, not an inference
+            // from requested tolerances or an accepted output-grid interval.
+            let expected_order = match method {
+                DiffsolMethod::TrBdf2 => 2,
+                DiffsolMethod::Esdirk34 => 3,
+                DiffsolMethod::Tsit45 => 5,
+                DiffsolMethod::Bdf => unreachable!(),
+            };
+            assert_eq!(r.statistics[0]["native_step"]["current_order"], expected_order);
+            assert_eq!(r.statistics[0]["native_step"]["kind"], "diffsol");
         }
     }
 }

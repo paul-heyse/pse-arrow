@@ -817,10 +817,13 @@ impl<'o> Shared<'o> {
 fn segment_statistics(
     statistics: &diffsol::ode_solver::OdeSolverStatistics,
     settings: &DiffsolSettings,
+    observation: &crate::solve::NativeStepObservation,
 ) -> Result<serde_json::Value, ProblemError> {
     let mut value = serde_json::to_value(statistics)
         .map_err(|e| ProblemError::internal(format!("Diffsol statistics: {e}")))?;
     if let Some(fields) = value.as_object_mut() {
+        fields.insert("native_step".into(), serde_json::to_value(observation)
+            .map_err(|e| ProblemError::internal(format!("Diffsol native step: {e}")))?);
         fields.insert(
             "diffsol".into(),
             serde_json::to_value(settings)
@@ -828,6 +831,19 @@ fn segment_statistics(
         );
     }
     Ok(value)
+}
+/// Capture before event rewind: method order/h can already describe the next attempt.
+fn step_observation<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
+    solver: &S,
+    returned_time: Option<f64>,
+) -> crate::solve::NativeStepObservation {
+    let state = solver.state();
+    crate::solve::NativeStepObservation::Diffsol {
+        current_order: u32::try_from(solver.order()).ok().filter(|order| *order > 0),
+        current_step: Some(state.h),
+        internal_time: Some(state.t),
+        returned_time,
+    }
 }
 /// One segment's problem from `time`, whose operators hold the segment's column map.
 fn build_problem<'o>(
@@ -910,6 +926,7 @@ fn run<LS: LinearSolver<M>>(
         macro_rules! segment {
             ($solver:expr, sensitivities) => {{
                 let mut solver = $solver.map_err(native)?;
+                let mut observation = step_observation(&solver, None);
                 record_start(&shared, &solver, p, r, time)?;
                 if time >= p.end && boundaries.get(segment) != Some(&time) {
                     capture_endpoint(&shared, r, time, solver.state().y.as_slice(), None)?;
@@ -920,10 +937,10 @@ fn run<LS: LinearSolver<M>>(
                     if stop == time {
                         return Ok((None, solver.state().y.as_slice().to_vec()));
                     }
-                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps)
+                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps, &mut observation)
                 }));
                 r.statistics
-                    .push(segment_statistics(solver.get_statistics(), &p.diffsol)?);
+                    .push(segment_statistics(solver.get_statistics(), &p.diffsol, &observation)?);
                 if let Some(statistics) = r
                     .statistics
                     .last_mut()
@@ -947,6 +964,7 @@ fn run<LS: LinearSolver<M>>(
             }};
             ($solver:expr) => {{
                 let mut solver = $solver.map_err(native)?;
+                let mut observation = step_observation(&solver, None);
                 record_start(&shared, &solver, p, r, time)?;
                 if time >= p.end && boundaries.get(segment) != Some(&time) {
                     capture_endpoint(&shared, r, time, solver.state().y.as_slice(), None)?;
@@ -957,10 +975,10 @@ fn run<LS: LinearSolver<M>>(
                     if stop == time {
                         return Ok((None, solver.state().y.as_slice().to_vec()));
                     }
-                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps)
+                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps, &mut observation)
                 }));
                 r.statistics
-                    .push(segment_statistics(solver.get_statistics(), &p.diffsol)?);
+                    .push(segment_statistics(solver.get_statistics(), &p.diffsol, &observation)?);
                 match attempt {
                     Ok(result) => result?,
                     Err(payload) => resume_unwind(payload),
@@ -1224,6 +1242,7 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     r: &mut Report,
     (stop, boundaries): (f64, &[f64]),
     steps: &mut usize,
+    observation: &mut crate::solve::NativeStepObservation,
 ) -> Result<(Option<usize>, Vec<f64>), ProblemError> {
     s.set_stop_time(stop).map_err(native)?;
     loop {
@@ -1233,7 +1252,14 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             return Ok((None, s.state().y.as_slice().to_vec()));
         }
         *steps += 1;
-        let reason = s.step().map_err(native)?;
+        let result = s.step();
+        let returned_time = match &result {
+            Ok(OdeSolverStopReason::RootFound(time, _)) => Some(*time),
+            Ok(_) => Some(s.state().t),
+            Err(_) => None,
+        };
+        *observation = step_observation(s, returned_time);
+        let reason = result.map_err(native)?;
         let (time, root) = match reason {
             OdeSolverStopReason::RootFound(t, i) => (t, Some(i)),
             _ => (s.state().t, None),

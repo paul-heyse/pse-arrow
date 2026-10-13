@@ -222,6 +222,44 @@ fn cancellation_and_step_budget_are_distinct() {
     assert_eq!(r.termination, Termination::StepLimit);
 }
 #[test]
+fn native_step_observations_preserve_segment_restart_and_terminal_mesh_time() {
+    for method in [Method::Diffsol, Method::Idas] {
+        if method == Method::Idas && !cfg!(feature = "idas") { continue; }
+        let mut p = profile(false);
+        p.method = method;
+        p.schedule = vec![ScheduledInput { parameter: 0, times: vec![0.5] }];
+        let report = integrate(&mut Toy::new(false, false), &p, &[2.0, 1.0], Arc::default()).unwrap();
+        assert_eq!(report.termination, Termination::Completed, "{:?}", report.error);
+        assert_eq!(report.statistics.len(), 2);
+        for (segment, expected_time) in report.statistics.iter().zip([0.5, 1.0]) {
+            let observation = &segment["native_step"];
+            assert_eq!(observation["kind"], if method == Method::Idas { "idas" } else { "diffsol" });
+            assert_eq!(observation["returned_time"]["value"].as_f64(), Some(expected_time));
+            assert!(observation["internal_time"]["value"].as_f64().unwrap() >= expected_time);
+            assert!(observation["current_order"].as_u64().is_some_and(|order| order > 0 && order <= 5));
+            assert!(observation["current_step"]["value"].as_f64().is_some_and(|step| step > 0.0));
+            if method == Method::Idas {
+                assert!(observation["last_order"].as_u64().is_some_and(|order| order > 0));
+                assert!(observation["last_step"]["value"].as_f64().is_some_and(|step| step > 0.0));
+            } else {
+                assert!(observation.get("last_order").is_none());
+                assert!(observation.get("last_step").is_none());
+            }
+        }
+        let mut oracle = Toy::new(false, true);
+        oracle.c.events[0][0].terminal = true;
+        p.schedule.clear();
+        let report = integrate(&mut oracle, &p, &[2.0], Arc::default()).unwrap();
+        assert_eq!(report.termination, Termination::Event, "{:?}", report.error);
+        let observation = &report.statistics.last().unwrap()["native_step"];
+        let returned = observation["returned_time"]["value"].as_f64().unwrap();
+        let mesh = observation["internal_time"]["value"].as_f64().unwrap();
+        assert!((returned - 2.0f64.ln()/2.0).abs() < 1e-6);
+        assert_eq!(returned, report.completed_time);
+        assert!(mesh > returned, "{method:?}: root return is interpolated inside accepted mesh step: {observation}");
+    }
+}
+#[test]
 fn unsupported_recovery_and_invalid_native_controls_are_refused() {
     let t = Toy::new(false, true);
     let mut p = profile(false);
