@@ -247,7 +247,10 @@ async fn source_case(
     expected: f64,
     case: &str,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    source_case_on(crate::workflow::tests::runtime_with_workspace(32 << 20), mixed, expected, case).await
+}
+async fn source_case_on(runtime: crate::workflow::Runtime, mixed: bool, expected: f64, case: &str)
+    -> (crate::workflow::ModelingPackage, FitProfile) {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -2408,4 +2411,33 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
     // The actual enclosing operation must also report its original cancellation
     // after all actor threads and native states have joined.
     assert!(matches!(outcome, Err(crate::math::MathRuntimeError::Cancelled)));
+}
+
+/// Existing profile chains admit their nested experiment footprint once. Both causal
+/// chains run together without acquiring a second team behind the held parent permit.
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
+    let runtime = crate::workflow::tests::runtime_on_threads(4 << 30,
+        crate::math::MathPolicy { worker_bytes: 1 << 30, workspace_bytes: 1 << 30,
+            foreign_bytes: 1 << 20, ..Default::default() }, 4);
+    let (package, mut profile) = source_case_on(runtime, true, 73., "Dynamic").await;
+    profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
+    profile.uncertainty = Some(FitUncertainty {
+        level: pse_model::scalar!(Fraction(0.9)),
+        profile: Some(ProfileControls { points: pse_model::scalar!(PositiveCount(20)),
+            workers: Some(pse_model::scalar!(PositiveCount(2))), ..Default::default() }),
+        predictions: false,
+    });
+    let prepared = package.prepare_fit(id(73).into(), profile, compiler_profile(),
+        Default::default(), &crate::CancelSource::new()).await.unwrap();
+    assert_eq!(prepared.problem.profile_workers(4), 2);
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    let report = super::super::regression::report(&result);
+    let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
+    assert_eq!(chains.len(), 2);
+    assert!(chains.iter().all(|chain| chain.actual_parallelism == 2
+        && chain.worker_failure.is_none() && chain.scheduling_failures.is_empty()));
+    assert!(chains.iter().all(|chain| chain.bound.outcome ==
+        pse_model::generated::enums::IntervalOutcome::Threshold));
 }

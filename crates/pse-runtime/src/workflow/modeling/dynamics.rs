@@ -53,8 +53,9 @@ pub struct SimulationSampleAttempt {
 /// Bound before launch to the existing run owner. Subscriber release and recording ACK
 /// have their own meaning; sample and attempt events remain provisional science.
 pub trait SimulationSampleObserver: Send {
-    /// Borrow one completed sample. The owner lends active compute while this may wait;
-    /// the sink checks the supplied original execution while applying backpressure.
+    /// Borrow one completed sample under active admission. The sink uses
+    /// [`with_simulation_sample_wait`] only for actual output backpressure and checks
+    /// the supplied original execution throughout that wait.
     fn sample(&mut self, accuracy_attempt: u64, ordinal: usize, sample: &native::Sample,
         execution: &pse_backend_native::solve::Execution) -> Result<(), ProblemError>;
     /// Native work and original checks for one actual accuracy attempt have joined.
@@ -86,11 +87,22 @@ impl native::SampleObserver for LiveSampleAdapter<'_> {
             }
             if self.diagnostic_times.contains(&sample.time) { self.diagnostics.push(sample.clone()); }
         }
-        pse_backend_native::execution::pause_compute();
-        let delivered = self.observer.sample(self.attempt, ordinal, sample, self.execution);
-        let resumed = pse_backend_native::execution::resume_compute(self.execution);
-        delivered.and(resumed)
+        self.observer.sample(self.attempt, ordinal, sample, self.execution)
     }
+}
+/// Lend active compute only while the owner-affine producer waits for output capacity.
+/// The sink calls this after an admitted immediate send discovers a full queue. Payload
+/// projection/encoding happens outside this helper; resident native state remains charged.
+/// # Errors
+/// The original cancellation/deadline, the sink failure, or a contained wait panic.
+pub fn with_simulation_sample_wait<T>(execution: &pse_backend_native::solve::Execution,
+    wait: impl FnOnce() -> Result<T, ProblemError>) -> Result<T, ProblemError> {
+    execution.check()?;
+    pse_backend_native::execution::pause_compute();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait))
+        .unwrap_or_else(|_| Err(ProblemError::internal("panic while waiting for live sample output")));
+    let resumed = pse_backend_native::execution::resume_compute(execution);
+    result.and_then(|value| { resumed?; Ok(value) })
 }
 #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
 fn original_check_failure(error: WorkflowError) -> ProblemError {
@@ -854,10 +866,10 @@ impl ModelingSimulation {
             checks_complete: checks.complete && checks.error.is_none(),
             checks_satisfied: checks.error.is_none() && checks.rows.iter().all(|c| c.satisfied),
             original_checks: checks.rows.len() };
-        pse_backend_native::execution::pause_compute();
-        let delivered = adapter.observer.attempt_finished(&summary, &execution);
-        let resumed = pse_backend_native::execution::resume_compute(&execution);
-        if let Err(error) = delivered.and(resumed) {
+        let delivered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
+            adapter.observer.attempt_finished(&summary, &execution)))
+            .unwrap_or_else(|_| Err(ProblemError::internal("live sample attempt observer panicked")));
+        if let Err(error) = delivered {
             report.termination = match execution.stopped() {
                 Some(pse_backend_native::solve::Termination::Cancelled) => native::Termination::Cancelled,
                 Some(pse_backend_native::solve::Termination::TimeLimit) => native::Termination::TimeLimit,
@@ -930,10 +942,10 @@ impl ModelingSimulation {
                     },
                 )?;
                 if let Some(observer) = observer.as_deref_mut() {
-                    pse_backend_native::execution::pause_compute();
-                    let delivered = observer.finished(selected_attempt, &sample_execution);
-                    let resumed = pse_backend_native::execution::resume_compute(&sample_execution);
-                    if let Err(error) = delivered.and(resumed) {
+                    let delivered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
+                        observer.finished(selected_attempt, &sample_execution)))
+                        .unwrap_or_else(|_| Err(ProblemError::internal("live sample selection observer panicked")));
+                    if let Err(error) = delivered {
                         if report.error.is_none() { report.error = Some(error); }
                         checks.complete = false;
                     }
@@ -3116,6 +3128,21 @@ mod tests {
             &physical.preconditions,
         );
         physical
+    }
+    #[test]
+    fn sample_output_wait_contains_panic_and_preserves_original_stop() {
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let execution = pse_backend_native::solve::Execution::new(cancel.clone(), &Default::default());
+        assert_eq!(with_simulation_sample_wait(&execution, || Ok(7)).unwrap(), 7);
+        assert!(matches!(with_simulation_sample_wait::<()>(&execution, || panic!("injected wait panic")),
+            Err(ProblemError::Internal(_))));
+        let resumed = with_simulation_sample_wait(&execution, || {
+            cancel.store(true, std::sync::atomic::Ordering::Release);
+            Ok(())
+        });
+        assert!(matches!(resumed, Err(ProblemError::Cancelled)));
+        assert!(matches!(with_simulation_sample_wait::<()>(&execution, || panic!("stopped wait ran")),
+            Err(ProblemError::Cancelled)));
     }
     #[tokio::test]
     async fn goal_accuracy_dynamic_shares_one_real_comparator_for_samples_endpoint_and_integral() {
