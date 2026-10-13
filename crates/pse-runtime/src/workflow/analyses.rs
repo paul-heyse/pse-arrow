@@ -671,13 +671,13 @@ mod canonical_analyses_server_unit {
             .dependency_analysis(&controls, CancellationToken::new())
             .await
             .unwrap();
-        let receipt = runtime.canonical_store()?.analysis(pre.key()).await.unwrap();
+        let receipt = runtime.canonical_store().unwrap().analysis(pre.key()).await.unwrap();
         assert!(receipt.active);
         assert_eq!(
             receipt.method,
             "original-incidence-execution-reachability:v1"
         );
-        assert_eq!(receipt.revision, package.canonical_revision().key);
+        assert_eq!(receipt.revision, package.canonical_revision().unwrap().key);
         let nodes = canonical_analysis_nodes::Row::rows(&pre.nodes(None).await.unwrap()).unwrap();
         assert!(
             nodes
@@ -699,7 +699,7 @@ mod canonical_analyses_server_unit {
             .unwrap();
         assert_ne!(replay.key(), pre.key());
         let replay_receipt = runtime
-            .canonical_store()?
+            .canonical_store().unwrap()
             .analysis(replay.key())
             .await
             .unwrap();
@@ -746,7 +746,7 @@ mod canonical_analyses_server_unit {
             .await
             .unwrap();
         let sources = runtime
-            .canonical_store()?
+            .canonical_store().unwrap()
             .analysis_run_sources(run)
             .await
             .unwrap();
@@ -789,7 +789,7 @@ mod canonical_analyses_server_unit {
         let mut retired = false;
         for _ in 0..32 {
             if runtime
-                .canonical_store()?
+                .canonical_store().unwrap()
                 .forget_run_results(run)
                 .await
                 .is_ok()
@@ -804,7 +804,7 @@ mod canonical_analyses_server_unit {
             "independent graph evidence does not retain the producer run"
         );
         let final_read = runtime
-            .canonical_store()?
+            .canonical_store().unwrap()
             .read_artifact(&final_state.header().key, Duration::from_secs(10))
             .await
             .unwrap();
@@ -871,7 +871,7 @@ mod canonical_analyses_server_unit {
         assert_ne!(changed.key(), pre.key());
         assert_eq!(
             runtime
-                .canonical_store()?
+                .canonical_store().unwrap()
                 .analysis(pre.key())
                 .await
                 .unwrap()
@@ -880,12 +880,12 @@ mod canonical_analyses_server_unit {
         );
         assert_eq!(
             runtime
-                .canonical_store()?
+                .canonical_store().unwrap()
                 .analysis(changed.key())
                 .await
                 .unwrap()
                 .revision,
-            revised.canonical_revision().key
+            revised.canonical_revision().unwrap().key
         );
         for _ in 0..5 {
             if runtime.forget_analysis_results(post.key()).await.unwrap() {
@@ -896,7 +896,7 @@ mod canonical_analyses_server_unit {
         let mut retired = false;
         for _ in 0..32 {
             if runtime
-                .canonical_store()?
+                .canonical_store().unwrap()
                 .forget_run_results(run)
                 .await
                 .is_ok()

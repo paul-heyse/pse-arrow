@@ -69,6 +69,11 @@ pub(super) fn durable_runtime() -> Runtime {
 
 /// Attach durable operations to an existing worker runtime without changing its budget.
 pub(super) fn durable_runtime_on(runtime: Runtime) -> Runtime {
+    let runtime = if runtime.canonical.is_some() {
+        runtime
+    } else {
+        runtime.with_canonical(tests::canonical_deployment()).unwrap()
+    };
     runtime
         .with_durability(DurabilitySelection::Durable {
             worker: "native-fixture".into(),
@@ -319,7 +324,7 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
     // Refuse registration on the actual installed store, without bypassing composition.
     pse_operations::testing::invalidate_prepared_revision(
         runtime.canonical_store().unwrap(),
-        package.canonical_revision(),
+        package.canonical_revision().unwrap(),
     )
     .await
     .unwrap();

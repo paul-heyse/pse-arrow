@@ -794,7 +794,7 @@ async fn assert_value(local: &Runtime, run: &str, attempt: &str, wanted: f64) {
 async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
     let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = runtime();
-    managed.bind_database(local.canonical_store().database());
+    managed.bind_database(local.canonical_store().unwrap().database());
     let (local, operations) =
         bind_operations(&shared, local, "replay-enqueuer", LeasePolicy::default());
     let expect_miss = std::env::var_os("PSE_WORKER_REPLAY_EXPECT_MISS").is_some();
@@ -871,7 +871,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
             drop(package);
             local.clear_program_cache();
             local
-                .canonical_store()
+                .canonical_store().unwrap()
                 .remove_isolated_fixture()
                 .await
                 .unwrap();
@@ -917,7 +917,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
     drop(package);
     local.clear_program_cache();
     local
-        .canonical_store()
+        .canonical_store().unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -927,7 +927,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
 async fn worker_runs_authored_case_end_to_end() {
     let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = runtime();
-    managed.bind_database(local.canonical_store().database());
+    managed.bind_database(local.canonical_store().unwrap().database());
     let (local, operations) = bind_operations(&shared, local, "enqueuer", LeasePolicy::default());
     let (physical, modeling) = sources();
     let (package, case, handle) =
@@ -964,7 +964,7 @@ async fn worker_runs_authored_case_end_to_end() {
     drop(package);
     local.clear_program_cache();
     local
-        .canonical_store()
+        .canonical_store().unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -974,7 +974,7 @@ async fn worker_runs_authored_case_end_to_end() {
 async fn durable_worker_round_trips_a_package_with_a_data_document() {
     let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = runtime();
-    managed.bind_database(local.canonical_store().database());
+    managed.bind_database(local.canonical_store().unwrap().database());
     let (local, operations) =
         bind_operations(&shared, local, "data-enqueuer", LeasePolicy::default());
     let (physical, mut modeling) = sources_of(DATA_SQUARE);
@@ -984,7 +984,7 @@ async fn durable_worker_round_trips_a_package_with_a_data_document() {
     assert!(
         operations
             .store()
-            .revision(&package.canonical_revision().key)
+            .revision(&package.canonical_revision().unwrap().key)
             .await
             .unwrap()
             .is_some()
@@ -999,7 +999,7 @@ async fn durable_worker_round_trips_a_package_with_a_data_document() {
     drop(package);
     local.clear_program_cache();
     local
-        .canonical_store()
+        .canonical_store().unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -1127,7 +1127,7 @@ async fn wait_study_assignment(
             let key = &key;
             async move {
                 let point = local
-                    .canonical_store()
+                    .canonical_store().unwrap()
                     .canonical_study_point(key)
                     .await
                     .unwrap()
@@ -1141,7 +1141,7 @@ async fn wait_study_assignment(
     )
     .await;
     let point = local
-        .canonical_store()
+        .canonical_store().unwrap()
         .canonical_study_point(&key)
         .await
         .unwrap()
@@ -1149,7 +1149,7 @@ async fn wait_study_assignment(
     let attempt = point.attempt.unwrap();
     assert!(
         !local
-            .canonical_store()
+            .canonical_store().unwrap()
             .canonical_attempt(&attempt)
             .await
             .unwrap()
@@ -1195,7 +1195,7 @@ fn assignment_watchdog_retains_observed_native_fence_after_worker_exit() {
 async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authored_policy() {
     let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = scip_runtime();
-    managed.bind_database(local.canonical_store().database());
+    managed.bind_database(local.canonical_store().unwrap().database());
     let policy = LeasePolicy {
         lease: Duration::from_secs(2),
         heartbeat: Duration::from_millis(200),
@@ -1266,7 +1266,7 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
     // Retire that optional ownership before the store's authentic protection drain.
     local.clear_program_cache();
     local
-        .canonical_store()
+        .canonical_store().unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -1276,7 +1276,7 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
 async fn cross_process_cancel_stops_scip() {
     let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = scip_runtime();
-    managed.bind_database(local.canonical_store().database());
+    managed.bind_database(local.canonical_store().unwrap().database());
     let (local, operations) =
         bind_operations(&shared, local, "cancel-enqueuer", LeasePolicy::default());
     let handle = long_scip_study(&shared, &local, Duration::from_secs(120), 1).await;
@@ -1307,7 +1307,7 @@ async fn cross_process_cancel_stops_scip() {
     drop(handle);
     local.clear_program_cache();
     local
-        .canonical_store()
+        .canonical_store().unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();
@@ -1428,7 +1428,7 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     drop(package);
     local.clear_program_cache();
     local
-        .canonical_store()
+        .canonical_store().unwrap()
         .remove_isolated_fixture()
         .await
         .unwrap();

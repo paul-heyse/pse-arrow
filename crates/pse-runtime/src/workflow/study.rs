@@ -363,6 +363,12 @@ impl Runtime {
         self.recording_operations.as_deref().ok_or(WorkflowError::RecordingUnavailable)
     }
 
+    fn study_creation_operations(&self) -> Result<&Operations,WorkflowError> {
+        match self.durability() {
+            super::Durability::Durable(operations)=>Ok(operations),
+            super::Durability::Ephemeral=>Err(contract("durable study creation requires explicit durable execution")),
+        }
+    }
     /// Admit authored ingress once and retain one canonical study before preparing ready occurrences.
     pub async fn start_study(
         &self,
@@ -372,7 +378,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
-                let operations = self.operations()?;
+                let operations = self.study_creation_operations()?;
                 let physical =
                     creation_effect(cancel, operations.put_sources(&plan.sources.physical)).await?;
                 let context =
@@ -404,12 +410,7 @@ impl Runtime {
         activity
             .scope(async {
                 creation_checkpoint(cancel)?;
-                let operations = self.operations()?;
-                let physical =
-                    creation_effect(cancel, operations.put_sources(&physical_sources)).await?;
-                if physical != definition.physical {
-                    return Err(contract("study physical source identity differs"));
-                }
+                let operations = self.study_creation_operations()?;
                 definition.validate_roles()?;
                 if definition.points.is_empty() || definition.points.len() > MAXIMUM_STUDY_POINTS {
                     return Err(contract("bounded admitted study extent"));
@@ -421,6 +422,11 @@ impl Runtime {
                 )
                 .await?
                 .ok_or_else(|| contract("canonical study revision absent"))?;
+                let physical =
+                    creation_effect(cancel, operations.put_sources(&physical_sources)).await?;
+                if physical != definition.physical {
+                    return Err(contract("study physical source identity differs"));
+                }
                 let context =
                     creation_effect(cancel, self.physical_source(&physical, cancel)).await?;
                 let package = creation_effect(
@@ -2072,6 +2078,7 @@ impl super::ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _revision=self.recorded_revision()?;
                 let operations = Operations::from_store(
                     self.runtime.canonical_store()?.clone(),
                     Operations::process_worker("study-admission"),
@@ -2198,5 +2205,71 @@ impl StudyCandidateLane {
         self.preparation.close().await?;
         self.source = None;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod creation_authority_tests {
+    use super::*;
+
+    fn refused_before_creation<T>(result: Result<T, WorkflowError>) {
+        assert!(matches!(result, Err(WorkflowError::Input(message))
+            if message == "durable study creation requires explicit durable execution"));
+    }
+
+    fn inputs() -> (StudyPlan, StudyDefinition) {
+        let sources = BTreeMap::from([(
+            format!("unpublished-{}.pse", pse_operations::mint_id()),
+            b"not parsed unless durable execution was selected".to_vec(),
+        )]);
+        let identity = pse_admission::authoring_driver::document::package_checksum(&sources);
+        let definition = StudyDefinition {
+            version: Version,
+            physical: super::super::PhysicalSource {
+                revision: format!("physical:{identity}:package"),
+                identity,
+            },
+            modeling_revision: "unpublished-local-revision".into(),
+            points: Vec::new(),
+        };
+        let plan = StudyPlan {
+            output: super::super::StudyOutputDemand::Full {},
+            sources: PackageSources { physical: sources, modeling: Vec::new() },
+            points: Vec::new(),
+        };
+        (plan, definition)
+    }
+
+    #[tokio::test]
+    async fn local_study_creation_requires_explicit_durable_execution() {
+        let runtime = super::super::tests::runtime();
+        let (plan, definition) = inputs();
+        let physical = plan.sources.physical.clone();
+        let cancel = crate::CancelSource::new();
+        refused_before_creation(runtime.start_study(plan, &cancel).await);
+        refused_before_creation(runtime.start_defined_study(physical, definition, &cancel).await);
+        assert!(runtime.canonical().is_err());
+    }
+
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn recording_connection_does_not_authorize_study_source_publication() {
+        let runtime = super::super::tests::runtime()
+            .with_canonical(super::super::tests::canonical_deployment()).unwrap();
+        assert!(matches!(runtime.durability(), super::super::Durability::Ephemeral));
+        let (plan, definition) = inputs();
+        let physical = plan.sources.physical.clone();
+        let receipt = definition.physical.revision.clone();
+        let store = runtime.canonical_store().unwrap();
+        assert!(store.revision(&receipt).await.unwrap().is_none());
+        let before = store.study_page(None).await.unwrap();
+        let cancel = crate::CancelSource::new();
+        refused_before_creation(runtime.start_study(plan, &cancel).await);
+        refused_before_creation(runtime.start_defined_study(physical, definition, &cancel).await);
+        assert!(store.revision(&receipt).await.unwrap().is_none());
+        assert_eq!(store.study_page(None).await.unwrap(), before);
+        // Explicit recording reads retain their independent authority.
+        assert!(runtime.source_settlement("never-issued", &receipt).await.unwrap().acknowledgement.is_none());
+        store.remove_isolated_fixture().await.unwrap();
     }
 }

@@ -16,7 +16,7 @@ async fn escaped_store_operations_and_runtime_aliases_close_but_independent_runt
     let independent = Runtime::from_shared(
         runtime.shared.clone(),
         runtime.model.clone(),
-        runtime.canonical.clone(),
+        runtime.canonical().unwrap().clone(),
     )
     .unwrap();
     runtime.close();
@@ -45,7 +45,7 @@ async fn escaped_store_operations_and_runtime_aliases_close_but_independent_runt
 
 #[tokio::test]
 async fn abandoned_native_waiter_keeps_activity_until_worker_thread_is_joined() {
-    let runtime = tests::runtime();
+    let runtime = durable_tests::durable_runtime();
     let activity = runtime.canonical_store().unwrap().admit_activity().unwrap();
     let (started, start) = tokio::sync::oneshot::channel();
     let (release, gate) = std::sync::mpsc::channel();
@@ -115,7 +115,7 @@ async fn prepared_native_request_is_idle_and_cannot_start_after_caller_close() {
         execution::BackendSettings,
         solve::{Controls, SolveIntent, SolverSelection},
     };
-    let runtime = tests::runtime();
+    let runtime = durable_tests::durable_runtime();
     let physical = tests::physical();
     let quantity = physical.quantities.neutral_dimensionless().unwrap();
     let unit = physical
@@ -158,7 +158,7 @@ async fn prepared_native_request_is_idle_and_cannot_start_after_caller_close() {
     runtime.close();
     assert!(matches!(
         prepared.start(),
-        Err(WorkflowError::Canonical(CanonicalError::CallerClosed))
+        Err(WorkflowError::CallerClosed)
     ));
     runtime.canonical_store().unwrap().disconnect().await.unwrap();
 }

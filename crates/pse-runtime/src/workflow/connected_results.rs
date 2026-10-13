@@ -846,8 +846,8 @@ mod canonical_connected_results_server_unit {
     #[tokio::test]
     async fn canonical_empty_demand_has_registry_schema_without_ipc_or_absent_membership() {
         use super::super::durable::{StoredCompletion, TerminationCause, TerminationDetail};
-        let runtime = super::super::tests::runtime();
-        let store = runtime.canonical_store()?.clone();
+        let runtime = super::super::durable_tests::durable_runtime();
+        let store = runtime.canonical_store().unwrap().clone();
         let pool = runtime.shared.pool();
         let source = store
             .edit("empty-demand", None, "source", &[])
@@ -998,8 +998,8 @@ mod canonical_connected_results_server_unit {
     }
     #[tokio::test]
     async fn canonical_decoded_arrow_survives_reader_drop_and_result_reclamation() {
-        let runtime = super::super::tests::runtime();
-        let store = runtime.canonical_store()?.clone();
+        let runtime = super::super::durable_tests::durable_runtime();
+        let store = runtime.canonical_store().unwrap().clone();
         let pool = runtime.shared.pool();
         let source = store
             .edit("decoded-owner", None, "source", &[])
@@ -1160,8 +1160,8 @@ mod canonical_connected_results_server_unit {
     #[tokio::test]
     async fn canonical_output_indexes_read_original_rows_and_skip_unrelated_blocks() {
         use pse_relations::generated::runtime::{fit_parameters, simulation_samples};
-        let runtime = super::super::tests::runtime();
-        let store = runtime.canonical_store()?;
+        let runtime = super::super::durable_tests::durable_runtime();
+        let store = runtime.canonical_store().unwrap();
         let source = store.edit("projection", None, "source", &[]).await.unwrap();
         store
             .begin_run(&RunRequest {
@@ -1501,8 +1501,8 @@ mod canonical_connected_results_server_unit {
     }
     #[tokio::test]
     async fn canonical_connected_results_reopens_declared_arrow_exact_range_and_cancellation() {
-        let runtime = super::super::tests::runtime();
-        let store = runtime.canonical_store()?;
+        let runtime = super::super::durable_tests::durable_runtime();
+        let store = runtime.canonical_store().unwrap();
         let source = store.edit("problem", None, "source", &[]).await.unwrap();
         store
             .begin_run(&RunRequest {

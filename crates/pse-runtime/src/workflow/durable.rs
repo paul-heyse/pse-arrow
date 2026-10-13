@@ -4033,11 +4033,6 @@ mod canonical_durable_codec {
         drop(result);
         drop(handle);
         drop(package);
-        runtime
-            .canonical_store()?
-            .remove_isolated_fixture()
-            .await
-            .unwrap();
     }
     #[tokio::test]
     async fn canonical_cancelled_prefix_and_late_heartbeat_reopen_acknowledged_unavailable_science()
@@ -4927,11 +4922,6 @@ mod canonical_durable_codec {
         drop(result);
         drop(handle);
         drop(package);
-        runtime
-            .canonical_store()?
-            .remove_isolated_fixture()
-            .await
-            .unwrap();
     }
 
     #[tokio::test]
