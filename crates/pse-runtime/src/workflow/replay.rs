@@ -291,20 +291,7 @@ impl ScientificReplay {
     /// Full immutable production inputs with actual physical/provider/compiled owners.
     pub fn inputs(&self) -> &RunRequest { &self.result.request }
     fn traces(&self) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
-        let retained: Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> = match &self.result.request {
-            RunRequest::Modeling(steps) => Box::new((0..steps.len()).filter_map(|index| {
-                self.result.modeling_result(index)?.strategy.as_ref().map(|trace| (index, trace))
-            })),
-            _ => match &self.result.report {
-                Ok(RunReport::Fit(report)) => Box::new(report.strategy.iter().map(|trace| (0, trace))),
-                #[cfg(feature = "solver-diffsol")]
-                Ok(RunReport::Shooting(report)) => Box::new(report.strategy.iter().map(|trace| (0, trace))),
-                _ => Box::new(std::iter::empty()),
-            },
-        };
-        let failed = self.result.report.as_ref().err().and_then(|error| error.strategy_trace())
-            .map(|trace| (self.coverage.observed, trace));
-        Box::new(retained.chain(failed))
+        self.result.replay_traces()
     }
     fn decision_extent(&self) -> Result<usize, WorkflowError> {
         self.traces().try_fold(512usize, |bytes, (_, trace)| {
@@ -472,6 +459,27 @@ impl ScientificReplay {
     }
 }
 impl RunResult {
+    fn replay_traces(&self) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
+        let retained: Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> = match &self.request {
+            RunRequest::Modeling(steps) => Box::new((0..steps.len()).filter_map(|index| {
+                self.modeling_result(index)?.strategy.as_ref().map(|trace| (index, trace))
+            })),
+            _ => match &self.report {
+                Ok(RunReport::Fit(report)) => Box::new(report.strategy.iter().map(|trace| (0, trace))),
+                #[cfg(feature = "solver-diffsol")]
+                Ok(RunReport::Shooting(report)) => Box::new(report.strategy.iter().map(|trace| (0, trace))),
+                _ => Box::new(std::iter::empty()),
+            },
+        };
+        let failed = self.report.as_ref().err().and_then(|error| error.strategy_trace())
+            .map(|trace| (self.modeling_failure.as_ref().and_then(|failure| failure.step).unwrap_or(0), trace));
+        Box::new(retained.chain(failed))
+    }
+    /// Borrow retained compact native facts without cloning a request or constructing replay.
+    pub(super) fn native_attempt_records(&self) -> impl Iterator<Item = (usize, usize, &Arc<pse_backend_native::solve::AttemptRecord>)> {
+        self.replay_traces().flat_map(|(step, trace)| trace.products.iter().enumerate()
+            .filter_map(move |(mechanism, product)| product.native_attempt.as_ref().map(|record| (step, mechanism, record))))
+    }
     /// Retain the complete immutable input/decision closure, without numerical work or history lookup.
     pub fn replay(self: &Arc<Self>) -> ScientificReplay {
         let (requested, observed, completed_time) = match &self.request {
@@ -1368,8 +1376,7 @@ pub struct ReplayNativeAttempt {
     pub record: Arc<pse_backend_native::solve::AttemptRecord>,
 }
 impl ScientificReplay {
-    fn native_attempts(&self) -> impl Iterator<Item = (usize, usize, &Arc<pse_backend_native::solve::AttemptRecord>)> {
-        self.traces().flat_map(|(step, trace)| trace.products.iter().enumerate()
-            .filter_map(move |(mechanism, product)| product.native_attempt.as_ref().map(|record| (step, mechanism, record))))
+    pub(super) fn native_attempts(&self) -> impl Iterator<Item = (usize, usize, &Arc<pse_backend_native::solve::AttemptRecord>)> {
+        self.result.native_attempt_records()
     }
 }
