@@ -746,6 +746,8 @@ async fn exact_terminal_summary_and_point_creators_retirement_both_orders() {
                     seed_solution: None,
                     policy: vec![1].into(),
                     descriptor: vec![2].into(),
+                    // This fixture already owns its exact run/source; no lazy input admission has occurred.
+                    admission: None,
                     facts: vec![3].into(),
                     outcome: None,
                     run: "target".into(),
@@ -879,6 +881,7 @@ fn point(
         seed_solution: None,
         policy: vec![1].into(),
         descriptor: vec![2].into(),
+        admission: None,
         facts: vec![3].into(),
         outcome: None,
         run: run.into(),

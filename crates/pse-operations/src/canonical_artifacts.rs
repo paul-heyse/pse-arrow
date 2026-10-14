@@ -499,7 +499,6 @@ mod canonical_artifact_tests {
             crate::canonical_execution::result_payload_digest(&copied.payload)
         );
         read.release().await.unwrap();
-        drop(read);
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
