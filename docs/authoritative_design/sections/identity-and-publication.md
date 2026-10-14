@@ -206,6 +206,23 @@ refuse eligibility. Identity/receipt versions are admitted before their current 
 historical keys retain their original meaning. Incomplete deployment evidence permits normal
 admission and persistence but refuses cross-build scientific replay.
 
+Proposed ADR-0189 separates scientific caller-code identity from macro external-I/O
+assurance. An explicitly reviewed tokens-only contract may omit whole-caller I/O grants
+only for the exact guarded owner and complete selected helper/feature/compiler closure.
+Paste rejects environment selectors at the actual shared parser; Pest accepts inline
+grammar only and disables generator file inclusion. py_literal retains one inline grammar
+authority. Generated invocations meet the same owner checks. Stock effectful and unknown
+owners retain conservative caller/grammar requirements; a package name or metadata flag
+alone grants nothing. Relevant caller code still enters scientific identity.
+
+Deployment preparation owns startup observation before store effects, native join before
+scratch release, and only escaped observation data afterward. Strict captures preserve
+raw unit associations, consumed volatile inputs and selected artifacts in a sealed historical
+view before another role refreshes mutable Cargo paths. Historical reconstruction never
+grants current deployment freshness. Python strict preparation captures Maturin's actual
+Cargo child and protects that raw realization before installation; independent import and
+full-byte admitted transformation checks still establish the installed association.
+
 Ordinary preparation can instead use a distinct versioned deployment-local admission:
 exact independently observed receiving role/artifact, interpreter, supported loaded ELF
 closure and effective reconstruction configuration. It requires no source/compiler receipt

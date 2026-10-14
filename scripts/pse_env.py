@@ -891,130 +891,127 @@ def native(
         )
 
 
-def describe(
-    name: str, env: Mapping[str, str], caller: Mapping[str, str], local: set[str]
-) -> str:
-    if name in local:
-        return (
-            "<set: .envrc.local>"
-            if name not in caller
-            else "<set: caller, overrides .envrc.local>"
+def build_intent(command: Sequence[str]) -> dict[str, object]:
+    """Expose explicit selectors, without pretending to execute a tool's parser."""
+    def selected(flags: tuple[str, ...]) -> list[str | None]:
+        values = []
+        for index, argument in enumerate(command):
+            name, separator, value = argument.partition("=")
+            if name in flags:
+                values.append(value if separator else command[index + 1] if index + 1 < len(command) else None)
+        return values
+
+    result: dict[str, object] = {}
+    for label, flags in (
+        ("package", ("--package", "-p")), ("profile", ("--profile",)),
+        ("features", ("--features", "-F")), ("target", ("--target",)),
+        ("manifest", ("--manifest-path", "--cdylib-manifest", "-m")),
+        ("binary", ("--bin",)),
+    ):
+        values = selected(flags)
+        result[label] = {"values": values, "source": "explicit argv" if values else "tool default or configuration; not resolved"}
+    result["role"] = "python" if command and Path(command[0]).name == "maturin" else {"pse-py": "python", "pse-runtime": "runtime", "xtask": "worker if pse-worker is selected"}.get(next(iter(selected(("--package", "-p"))), "") or "", "not selected")
+    result["interpretation"] = "intent only; actual installer child evidence is separate"
+    return result
+
+
+def operation_description(
+    root: Path,
+    caller: Mapping[str, str],
+    requested: list[str] | None,
+    *,
+    local: Mapping[str, str] | None = None,
+    command: Sequence[str] = (),
+    docs: bool = False,
+    resource_class: str | None = None,
+    recipe_default_class: str | None = None,
+) -> dict[str, object]:
+    """Describe selection only: never evaluate local shell code or admit a workload.
+
+    An execution owner can supply its already evaluated local mapping. Without it,
+    defaults are provisional wherever .envrc.local could supply an absent value.
+    The real execution path and this view both use compose's compiler selection.
+    """
+    local_pending = local is None and (root / LOCAL).is_file()
+    selected_local = {} if local is None else local
+    env = compose(root, caller, selected_local)
+    if docs:
+        env = documentation_environment(root, env)
+
+    def choice(name: str, default: str | None = None) -> dict[str, object]:
+        value = env.get(name, default)
+        source = (
+            "caller" if name in caller else "local" if name in selected_local else "default"
         )
-    value = env.get(name)
-    if value is None:
-        return "<unset>"
-    return value if caller.get(name) != value else f"{value} (caller)"
+        if name in CONFIGURED and {**selected_local, **caller}.get(name) != value:
+            source = "compiler selection"
+        return {
+            "value": value,
+            "source": source,
+            "local_unresolved": local_pending and name not in caller,
+        }
 
-
-def native_choices(
-    root: Path, chosen: Mapping[str, str], requested: list[str]
-) -> list[str]:
-    """Thread budgets and solver runtime keys a native command would get, and refusals."""
-    from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
-
-    runtime = (
-        cache.runtime_env(root / "docker/solvers/Dockerfile")
-        if {"solver", "uno", "petsc"} & set(requested)
-        else {}
+    names = (
+        "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "PSE_NATIVE_COMPILER_CACHE",
+        "PSE_SCCACHE_BINARY", "SCCACHE_DIR", "PSE_LLVM_PREFIX", "CLANG_PATH",
+        "LLVM_CONFIG_PATH", "LIBCLANG_PATH", "BINDGEN_EXTRA_CLANG_ARGS",
+        "PYO3_CONFIG_FILE", "PYO3_PYTHON", "PYO3_BUILD_EXTENSION_MODULE",
+        "PYO3_ENVIRONMENT_SIGNATURE", "PYTHON_SYS_EXECUTABLE", "CARGO_BUILD_TARGET",
     )
-    off = {name for name in chosen.get(operation.OFF_MARKER, "").split(",") if name}
-    lines = []
-    for name in operation.OVERRIDABLE:
-        value = chosen.get(name)
-        default = "1" if name in operation.THREAD_VARIABLES else runtime.get(name)
-        if value == "off" or (value is None and name in off):
-            lines.append(f"  {name:22} off (removed)")
-        elif value is not None:
-            lines.append(f"  {name:22} {value} (chosen; default {default or 'unset'})")
-        elif default is not None:
-            lines.append(f"  {name:22} {default} (default)")
-    for name, reason in operation.AUTHORITATIVE.items():
-        if name in runtime and chosen.get(name) not in (None, "", runtime[name]):
-            lines.append(
-                f"pse-env: refused {name}={chosen[name]}: {reason}; using {runtime[name]}"
-            )
-    return lines
-
-
-def explain(root: Path, caller: Mapping[str, str], requested: list[str] | None) -> str:
-    local = local_keys(root)
-    env = compose(root, caller, local)
-    python = venv(root, env) / "bin/python"
-    lines = [
-        f"checkout          {root}",
-        f"interpreter       {python}{'' if python.exists() else '  (missing: just bootstrap-venv)'}",
-        f"rust wrapper      {env.get('RUSTC_WRAPPER') or 'disabled'}",
-        f"target directory  {env.get('CARGO_TARGET_DIR', str(root / 'target'))}",
-        f"sccache           {env.get('SCCACHE_DIR', '<default>')}",
-    ]
-    try:
-        from scripts import doctor  # noqa: PLC0415 -- optional observation
-
-        check = doctor.check_extension()
-        lines.append(f"extension         {check.detail} (observed, not admitted)")
-    except Exception as error:
-        lines.append(f"extension         unobserved: {error}")
-    if requested is None:
-        lines.append("native            none requested (use --native[=caps])")
-    else:
-        lines.append(
-            "native            "
-            + (",".join(requested) or "operation without capabilities")
-            + " (prepared lazily when a command runs)"
-        )
-        lines.extend(native_choices(root, {**local, **caller}, requested))
-    owner = operation.scope_owner()
-    selected = slice_name(env)
-    if owner is not None:
-        lines.append(f"placement         inside {owner['unit']} (kept)")
-    elif not manager_available():
-        lines.append("placement         refused (systemd user manager required)")
-    else:
-        lines.append(
-            f"placement         new scope in {selected or 'the caller slice'};"
-            f" PSE_MEMORY_MAX={env.get('PSE_MEMORY_MAX', 'declared capacity profile')}"
-        )
-    try:
-        profile = host.select(
-            env.get("PSE_RESOURCE_CLASS", "functional"), env.get("PSE_MEMORY_MAX")
-        )
-        lines.append(
-            f"capacity class    {profile.name}; {profile.memory // host.GIB} GiB; physical cores {','.join(map(str, profile.cores))}; aggregate {host.aggregate(profile) // host.GIB} GiB"
-        )
-        with host.allocation_metadata(host.root_path(env)) as ledger:
-            owners = list(ledger["owners"].values())
-        lines.append(
-            "current owners    "
-            + (
-                ", ".join(
-                    f"{item['class']} pid={item['pid']} units={len(item['units'])}"
-                    for item in owners
-                )
-                or "none"
-            )
-        )
-        lines.append(
-            f"host pressure     MemAvailable={host.memory_info()['MemAvailable'] // host.GIB} GiB; startup guard={host.policy()['pressure_guard_gib']} GiB (ceilings are not reservations)"
-        )
-    except (ValueError, OSError) as error:
-        lines.append(f"capacity          refused: {error}")
-    bounds = limits(selected)
-    lines.append(
-        "aggregate limits  "
-        + (", ".join(f"{group} MemoryMax={value}" for group, value in bounds) or "none")
+    tools = {
+        name: shutil.which(name, path=env.get("PATH"))
+        for name in ("python", "cargo", "rustc", "maturin", "clang", "patchelf")
+    }
+    providers = {}
+    for capability in requested or []:
+        providers[capability] = {
+            "inputs": {name: choice(name) for name in operation.CAPABILITY_PATHS[capability]},
+            "reuse": "unknown until actual preparation/admission",
+            "effect": "validate explicit provider or select/build a managed generation",
+        }
+    selected_class = (
+        resource_class or env.get("PSE_RESOURCE_CLASS") or recipe_default_class
+        or host.classify(command, requested is not None)
     )
-    lines.append(
-        "local values      "
-        + (
-            ", ".join(
-                f"{name}={describe(name, env, caller, set(local))}"
-                for name in sorted(local)
-            )
-            or "none"
-        )
-    )
-    lines.extend(refusals({**local, **caller}, env))
-    return "\n".join(lines) + "\n"
+    runtime = operation.runtime_selection(requested, env, root=root) if requested is not None else env
+    return {
+        "version": 1,
+        "kind": "operation-selection",
+        "checkout": str(root),
+        "interpreter": str(venv(root, env) / "bin/python"),
+        "python_package": str(root / "python/pse"),
+        "path": env.get("PATH", "").split(os.pathsep),
+        "tools": tools,
+        "compiler": {name: choice(name) for name in names},
+        "target_directory": env.get("CARGO_TARGET_DIR", str(root / "target")),
+        "native_capabilities": requested,
+        "providers": providers,
+        "native_runtime_choices": {
+            name: {
+                "value": runtime.get(name),
+                "source": "native selection" if runtime.get(name) != env.get(name) else choice(name)["source"],
+                "local_unresolved": local_pending and name not in caller,
+            }
+            for name in (*operation.OVERRIDABLE, *operation.AUTHORITATIVE)
+        } if requested is not None else {},
+        "placement": {
+            "slice": slice_name(env),
+            "resource_class": selected_class,
+            "memory_request": env.get("PSE_MEMORY_MAX"),
+            "admission": "not observed or acquired",
+        },
+        "command": list(command),
+        "build_context": build_intent(command),
+        "local_configuration": "unresolved: not executed" if local_pending else "supplied" if local is not None else "absent",
+        "refusals": refusals({**selected_local, **caller}, env),
+    }
+
+
+def explain(description: Mapping[str, object]) -> str:
+    return "\n".join(
+        f"{name:22} {json.dumps(value, ensure_ascii=False)}"
+        for name, value in description.items()
+    ) + "\n"
 
 
 def required_allocation(
@@ -1035,6 +1032,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pse-env", description=__doc__)
     parser.add_argument("--print", action="store_true", dest="print_exports")
     parser.add_argument("--explain", action="store_true")
+    parser.add_argument("--json", action="store_true", help="structured selection with --explain")
     parser.add_argument(
         "--docs",
         action="store_true",
@@ -1061,6 +1059,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.docs and args.native is not None:
         parser.error("--docs and --native select different environments")
+    if args.json and not args.explain:
+        parser.error("--json requires --explain")
+    if args.print_exports and args.explain:
+        parser.error("--print and --explain select different operations")
     caller = dict(os.environ)
     requested: list[str] | None = None
     if args.native is not None:
@@ -1085,12 +1087,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(note, file=sys.stderr)
             return 0
         if args.explain:
-            chosen = (
-                documentation_environment(ROOT, compose(ROOT, caller))
-                if args.docs
-                else caller
+            description = operation_description(
+                ROOT, caller, requested, command=command, docs=args.docs,
+                resource_class=args.resource_class,
+                recipe_default_class=args.recipe_default_class,
             )
-            sys.stdout.write(explain(ROOT, chosen, requested))
+            sys.stdout.write(json.dumps(description, indent=2) + "\n" if args.json else explain(description))
             return 0
         if not command:
             parser.error("give a command after --, or use --print/--explain")

@@ -38,6 +38,10 @@ pub(crate) struct BuildScriptInputs {
     /// None grants no caller-specific exclusion; this is evidence, not a key input.
     #[serde(default)]
     pub(crate) reviewed_callers: Option<Vec<String>>,
+    /// Explicit source-qualified invocation-channel review. Unknown contracts
+    /// grant nothing; this never substitutes for owner/helper closure review.
+    #[serde(default)]
+    pub(crate) invocation_contract: Option<String>,
     #[serde(default)]
     pub(crate) files: Vec<PathBuf>,
     #[serde(default)]
@@ -76,6 +80,8 @@ struct OwnerReview {
     /// the macro implementation. Such reviews bind actual caller compilation inputs.
     #[serde(default)]
     reviewed_callers: Option<Vec<String>>,
+    #[serde(default)]
+    invocation_contract: Option<String>,
     rationale: String,
     /// Reviews may deliberately exclude executable branches outside the supported
     /// deployment. A newly enabled feature must obtain its own complete I/O review.
@@ -1490,6 +1496,7 @@ fn expand_reviews(
             reviewed_source: Some(review.reviewed_source.clone()),
             reviewed_closures: review.reviewed_closures.clone(),
             reviewed_callers: review.reviewed_callers.clone(),
+            invocation_contract: review.invocation_contract.clone(),
             ..Default::default()
         };
         for (base, paths) in [
@@ -2768,8 +2775,23 @@ fn capture(
                 .proc_macros
                 .get(&unit.pkg_id)
                 .or_else(|| options.declarations.proc_macros.get(&package_id));
-            let requires_callers = matches!(package.name.as_str(), "paste" | "pest_derive")
-                || declaration.is_some_and(|declaration| declaration.reviewed_callers.is_some());
+            let tokens_only = declaration.is_some_and(|declaration| {
+                declaration.invocation_contract.as_deref() == Some("tokens-only.v1")
+                    && declaration.files.is_empty()
+                    && declaration.environment.is_empty()
+                    && declaration.absent_environment.is_empty()
+                    && declaration.absent_files.is_empty()
+                    && declaration.namespaces.is_empty()
+                    && declaration.pest_grammars.is_empty()
+                    && declaration.reviewed_callers.is_none()
+                    && review_matches(declaration, &reviewed_owner_sources[&package_id])
+                    && closure.as_ref().is_some_and(|basis| declaration.reviewed_closures.contains(basis))
+            });
+            if declaration.is_some_and(|value| value.invocation_contract.is_some()) && !tokens_only {
+                reasons.insert(format!("{package_id}: invocation-channel contract lacks a current pure owner/helper review"));
+            }
+            let requires_callers = !tokens_only && (matches!(package.name.as_str(), "paste" | "pest_derive")
+                || declaration.is_some_and(|declaration| declaration.reviewed_callers.is_some()));
             let caller_basis = if requires_callers {
                 macro_caller_input_basis(
                     graph,
@@ -2803,7 +2825,7 @@ fn capture(
                     "{package_id}: dynamic macro I/O lacks a current actual caller-input review"
                 ));
             }
-            let grammar_matches = if package.name.as_str() == "pest_derive" {
+            let grammar_matches = if package.name.as_str() == "pest_derive" && !tokens_only {
                 if let Some(declaration) =
                     declaration.filter(|declaration| !declaration.pest_grammars.is_empty())
                 {
@@ -6011,6 +6033,56 @@ mod tests {
             extern_crate_name: "cycle".into(),
         });
         assert!(unit_keys(&cycle, root).is_err());
+    }
+
+    #[test]
+    fn producer_tokens_only_review_preserves_code_identity_and_owner_context() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("macro/src")).unwrap();
+        fs::write(root.join("Cargo.toml"), format!("{FINITE_FIXTURE_MANIFEST}\n[dependencies]\npaste={{path='macro'}}\n")).unwrap();
+        fs::write(root.join("macro/Cargo.toml"), "[package]\nname='paste'\nversion='0.0.1'\nedition='2024'\n[features]\ncontext=[]\n[lib]\nproc-macro=true\n").unwrap();
+        fs::write(root.join("macro/src/lib.rs"), "extern crate proc_macro; #[proc_macro] pub fn supplied(input:proc_macro::TokenStream)->proc_macro::TokenStream {input}\n").unwrap();
+        fs::write(root.join("src/lib.rs"), "paste::supplied!{pub fn value()->u32 {7}}\n").unwrap();
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        fs::copy(repository.join("rust-toolchain.toml"), root.join("rust-toolchain.toml")).unwrap();
+        cargo_output(root, &["generate-lockfile".into(), "--offline".into()]).unwrap();
+        let mut options = ProducerOptions {
+            workspace_root: root.into(), package: "producer-fixture".into(), profile: "dev".into(),
+            target: None, production_target: ProducerTarget::Library, features: Vec::new(),
+            no_default_features: false, dep_info: Vec::new(), declared_inputs: Vec::new(),
+            native_inputs: Vec::new(), declared_environment: BTreeMap::new(),
+            declarations: InputDeclarations {capture_actual_build:true, ..Default::default()},
+        };
+        let first = run(&options).unwrap();
+        let unit = first.units.iter().find(|unit| unit.target_kind == ["proc-macro"]).unwrap();
+        let owner = &unit.package_id;
+        let closure = format!("executable-closure:{owner}:{}", unit.key);
+        let catalog = directory.path().with_extension("pure-review.json");
+        let review = serde_json::json!({"proc_macros": {owner: {
+            "reviewed_source": first.reviewed_owner_sources[owner],
+            "reviewed_closures": [first.reviewed_owner_sources[&closure]],
+            "invocation_contract": "tokens-only.v1",
+            "rationale": "Exact finite fixture returns the supplied compiler tokens without external I/O."
+        }}});
+        fs::write(&catalog, serde_json::to_vec(&review).unwrap()).unwrap();
+        options.declarations.review_catalogs.push(catalog.clone());
+        let admitted = run(&options).unwrap();
+        let has_macro_refusal = |value: &ProducerIdentity| value.reasons.iter().any(|reason| reason.contains("macro I/O") || reason.contains("procedural macro arbitrary I/O") || reason.contains("invocation-channel"));
+        assert!(!has_macro_refusal(&admitted));
+        assert!(!admitted.reviewed_owner_sources.keys().any(|key| key.starts_with("macro-caller-inputs:")));
+        assert!(!admitted.persistent_reuse_eligible, "unqualified native/tool context cannot acquire eligibility from a pure macro review");
+        fs::write(root.join("src/lib.rs"), "paste::supplied!{pub fn value()->u32 {8}}\n").unwrap();
+        let changed_caller = run(&options).unwrap();
+        assert_ne!(admitted.identity, changed_caller.identity);
+        assert!(!has_macro_refusal(&changed_caller));
+        options.features.push("paste/context".into());
+        assert!(has_macro_refusal(&run(&options).unwrap()));
+        options.features.clear();
+        fs::write(root.join("macro/src/lib.rs"), "extern crate proc_macro; #[proc_macro] pub fn supplied(input:proc_macro::TokenStream)->proc_macro::TokenStream {let _ = std::env::var(\"NEW_CHANNEL\"); input}\n").unwrap();
+        assert!(has_macro_refusal(&run(&options).unwrap()));
+        fs::remove_file(catalog).unwrap();
     }
 
     #[test]

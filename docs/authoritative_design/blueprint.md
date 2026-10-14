@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 167
+revision: 168
 date: 2026-10-14
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 168 | 2026-10-14 | Proposed ADR-0189 / Plan39 RC01–RC02: guarded pure macro channels separate caller code identity from external-I/O grants; owned startup and sealed role evidence; strict Python installation consumes its actual Cargo realization (§5.3/§14.3). | Maintainer-authorized execution and explicit guarded-owner choice; PSE_DESIGN_EDIT=1; independent bounded target review Accept at Proposed strength; selected implementation and Plan39d assembled acceptance remain distinct. |
 | 167 | 2026-10-14 | Proposed ADR-0188 / Plan38f G0: remove the unconsumed hashing setting and its accidental Python Runtime incompatibility; retain consumed resource identity and original strong ticket/prepaid late-response ownership (§14.3/§18.8/§21). | Maintainer-authorized execution and explicit identity choice; visible `.design-edit`; independent bounded target review Accept at Proposed strength; focused acceptance remains separate from Plan38g. |
 | 166 | 2026-10-13 | Proposed ADR-0187 / Plan38e implementation refinement: current restore preserves admitted analyses and independent artifact/file obligations while rotating new-creation authority; historical retirement retains an exact terminal receipt without advancing a new authority floor (§20.4/§20.6). | Maintainer-authorized E5 execution; PSE_DESIGN_EDIT=1; targeted source and lifecycle controls remain separate from assembled qualification. |
 | 165 | 2026-10-13 | Proposed ADR-0187 / Plan38e G0: SurrealDB arbitration with sealed IPC/opaque payload files, exact file/catalog ACK, nonexpiring future-chunk tickets, independent borrowers/irreversible collection and complete offline backup/fresh-root restore (§19/§20/§21). | Maintainer-authorized execution and explicit topology/crash-boundary choices; PSE_DESIGN_EDIT=1; focused target review Accept at Proposed strength; implementation and assembled qualification remain distinct. |
