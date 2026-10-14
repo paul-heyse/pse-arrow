@@ -1,0 +1,24 @@
+id = "20261014040753__canonical_ddd85e3dc83e728b"
+name = "canonical_ddd85e3dc83e728b"
+source_schema_hash = "b580cfd8b558476afbf08bd1ac27851e1b88324041c160b19fa1707980c7370d"
+target_schema_hash = "f7a630b47f817fdb1dcfacbb0c6f2047ffcc0e9c12562b76639851569b3c4533"
+compatibility = "phased"
+renames = []
+
+[[steps]]
+id = "apply_expand_schema"
+phase = "start"
+kind = "apply_files"
+
+[[steps.files]]
+path = "schema/canonical.surql"
+hash = "e20ec7d8576be15a24ec993968ed7588e59673bc58ef1235b9850927bb327568"
+
+[[steps]]
+id = "rollback_modified_schema"
+phase = "rollback"
+kind = "restore_definitions"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::append_many"
