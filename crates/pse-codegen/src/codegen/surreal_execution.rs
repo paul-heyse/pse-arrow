@@ -334,7 +334,7 @@ DEFINE FUNCTION fn::pse_execution_v1::append_many($rpc_expiry: int, $run: string
         LET $saved=fn::pse_execution_v1::append($rpc_expiry,$run,$attempt,$generation,$item.operation,$item.request,$item.set,$item.batch,$item.block,$item.row_indexes,$item.outputs);
         IF $saved.pse_writer!=NONE { THROW 'execution append group admission changed'; };
     };
-    LET $receipts=$items.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,request:$item.request});
+    LET $receipts=$items.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,file_binding:$item.batch.file_binding,request:$item.request});
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN {acknowledgments:$receipts};
 };
