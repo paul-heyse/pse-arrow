@@ -163,7 +163,7 @@ impl Operations {
             .scope(async {
                 let read = self
                     .store
-                    .read_results(run, attempt, Duration::from_secs(60))
+                    .read_results(run, attempt)
                     .await?;
                 let completion = self
                     .decode_completion(CompletionSelection::Full(&read))
@@ -171,7 +171,7 @@ impl Operations {
                 let mut solutions = Vec::new();
                 let mut after = None;
                 loop {
-                    read.renew(Duration::from_secs(60)).await?;
+
                     let page = self.store.result_seed_page(attempt, after).await?;
                     if page.is_empty() {
                         break;
@@ -223,7 +223,7 @@ impl Operations {
             .scope(async {
                 let read = self
                     .store
-                    .read_completion(run, attempt, Duration::from_secs(60))
+                    .read_completion(run, attempt)
                     .await?;
                 self.decode_completion(CompletionSelection::Slim(&read))
                     .await
@@ -2031,7 +2031,8 @@ fn progress_memory(
     pool: &Arc<dyn MemoryPool>,
     capacity: usize,
 ) -> Option<Arc<pse_columnar::AllocationLease>> {
-    let extent = (2 * capacity + 1) * PROGRESS_EVENT_BYTES + 8 * RESULT_BATCH_BYTES;
+    let extent = (2 * capacity + 1) * PROGRESS_EVENT_BYTES
+        + 8 * capacity.saturating_mul(PROGRESS_EVENT_BYTES).min(RESULT_BATCH_BYTES);
     let reservation = MemoryConsumer::new("canonical:ordinary-progress").register(pool);
     reservation
         .try_grow(extent)
@@ -2227,7 +2228,7 @@ impl Streamer {
                     };
                     output
                         .bytes
-                        .try_reserve_exact(RESULT_BATCH_BYTES)
+                        .try_reserve_exact(capacity.saturating_mul(PROGRESS_EVENT_BYTES).min(RESULT_BATCH_BYTES))
                         .map_err(|_| super::ProgressWriteStage::Allocation {})?;
                     match serde_json::to_writer(&mut output, &events[start..end]) {
                         Ok(()) => {
@@ -2495,12 +2496,12 @@ async fn read_chunks_selection(
     for ordinal in 0..count {
         let payload = match read {
             CompletionSelection::Full(full) => {
-                full.renew(Duration::from_secs(60)).await?;
+
                 let set = result_set_key(&full.attempt().key, name);
                 store.result_payload(full, &set, first + ordinal).await?
             }
             CompletionSelection::Slim(slim) => {
-                slim.renew(Duration::from_secs(60)).await?;
+
                 store.completion_payload(slim, first + ordinal).await?
             }
         };
@@ -2901,7 +2902,7 @@ impl Operations {
         }
         let read = self
             .store
-            .read_results(&row.run, &row.attempt, Duration::from_secs(60))
+            .read_results(&row.run, &row.attempt)
             .await?;
         if read.attempt().seed_manifest.as_deref() != Some(read.manifest().key.as_str())
             || row.attempt_generation != read.attempt().generation
@@ -3044,7 +3045,7 @@ impl Operations {
             .scope(async {
                 let read = self
                     .store
-                    .read_artifact(artifact, Duration::from_secs(60))
+                    .read_artifact(artifact)
                     .await?;
                 if read.header().kind != "seed" || read.header().block_count != 1 {
                     return Err(contract("artifact is not a seed capsule"));
@@ -3351,7 +3352,8 @@ fn reserve(
 ) -> Result<Arc<pse_columnar::AllocationLease>, WorkflowError> {
     let extent = bytes
         .checked_mul(16)
-        .and_then(|n| n.checked_add(2 * RESULT_BATCH_BYTES))
+        .and_then(|n| n.checked_add(2 * bytes.min(RESULT_BATCH_BYTES)))
+        .and_then(|n| n.checked_add(1024))
         .ok_or_else(|| contract("scientific decode allocation extent overflow"))?;
     let reservation = MemoryConsumer::new("canonical:scientific-decode").register(pool);
     reservation
@@ -3898,7 +3900,7 @@ mod canonical_durable_codec {
                 assert_eq!((prefix.batch_count, prefix.row_count), (1, 1));
                 let selection = operations
                     .store
-                    .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+                    .read_results(fence.run(), fence.attempt())
                     .await
                     .unwrap();
                 let payload = operations
@@ -4518,7 +4520,7 @@ mod canonical_durable_codec {
         .unwrap();
         operations
             .store
-            .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+            .read_results(fence.run(), fence.attempt())
             .await
             .unwrap()
     }
@@ -4555,7 +4557,7 @@ mod canonical_durable_codec {
         assert!(
             operations
                 .store
-                .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+                .read_results(fence.run(), fence.attempt())
                 .await
                 .is_err()
         );
@@ -4661,7 +4663,7 @@ mod canonical_durable_codec {
         assert!(
             operations
                 .store
-                .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+                .read_results(fence.run(), fence.attempt())
                 .await
                 .is_err()
         );
@@ -4761,7 +4763,7 @@ mod canonical_durable_codec {
         assert!(
             operations
                 .store
-                .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+                .read_results(fence.run(), fence.attempt())
                 .await
                 .is_err()
         );

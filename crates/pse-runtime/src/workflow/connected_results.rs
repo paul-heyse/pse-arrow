@@ -17,10 +17,10 @@ use std::{
     collections::{BTreeMap, VecDeque},
     io::{BufWriter, Write},
     sync::Arc,
-    time::Duration,
 };
 
-const READ_LIFETIME: Duration = Duration::from_secs(60);
+#[cfg(all(test, feature = "canonical-tests"))]
+use std::time::Duration;
 // One checked RPC is limited to 4 MiB, plus its native-value/typed-row copies,
 // the verifier's 32 MiB apparent metadata bound, decoder scratch and decoded
 // block. No trajectory is
@@ -290,7 +290,7 @@ impl CanonicalResultReader {
                 let owner = response_owner(&self.runtime, "canonical:result-metadata")?;
                 let page =
                     pse_operations::canonical::response_ownership_scope(owner.clone(), async {
-                        self.read.renew(READ_LIFETIME).await?;
+
                         let page = if let Some(filter) = &self.output {
                             let page = self
                                 .runtime
@@ -588,7 +588,7 @@ impl Runtime {
                             .await?
                             .ok_or_else(|| contract("canonical attempt absent"))?;
                         store
-                            .read_results(&selected.run, attempt, READ_LIFETIME)
+                            .read_results(&selected.run, attempt)
                             .await
                             .map_err(WorkflowError::from)
                     })
@@ -625,7 +625,7 @@ impl Runtime {
                 let read = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
                     self.canonical_store()?
-                        .latest_results(problem, classes, READ_LIFETIME),
+                        .latest_results(problem, classes),
                 )
                 .await?;
                 self.result_selection(read, relation, start, end, cancel, &extent).await
@@ -655,7 +655,7 @@ impl Runtime {
                 let read = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
                     self.canonical_store()?
-                        .read_results(run, attempt, READ_LIFETIME),
+                        .read_results(run, attempt),
                 )
                 .await?;
                 self.result_selection(read, relation, start, end, cancel, &extent).await
@@ -1391,7 +1391,7 @@ mod canonical_connected_results_server_unit {
         .await
         .unwrap();
         let read = store
-            .read_results("projection", fence.attempt(), Duration::from_secs(60))
+            .read_results("projection", fence.attempt())
             .await
             .unwrap();
         let set = result_set_key(fence.attempt(), &fit_parameters::RELATION_ID.to_string());
@@ -1683,13 +1683,15 @@ mod canonical_connected_results_server_unit {
             payload_digest: result_payload_digest(&payload),
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
+        let intent = store.reserve_result_file(&fence, "fixture-file", &result_payload_digest(&payload)).await.unwrap();
+        let file = store.seal_file(&intent, &payload, pse_operations::canonical_files::ARROW_IPC_FILE, 1, &name).await.unwrap();
         store
             .append_result_block(
                 &fence,
                 "write",
                 &name,
                 0,
-                pse_operations::canonical_execution::ResultPayload::new(payload.clone()).unwrap(),
+                pse_operations::canonical_execution::ResultPayload::from_sealed(file, 0).unwrap(),
                 4,
                 &metadata,
             )
@@ -1950,13 +1952,15 @@ mod canonical_connected_results_server_unit {
                 payload_digest: result_payload_digest(&bytes),
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
+            let intent = store.reserve_result_file(&broken, &format!("malformed-file-{ordinal}"), &result_payload_digest(&bytes)).await.unwrap();
+            let file = store.seal_file(&intent, &bytes, pse_operations::canonical_files::ARROW_IPC_FILE, 1, &name).await.unwrap();
             store
                 .append_result_block(
                     &broken,
                     &format!("malformed-write-{ordinal}"),
                     &name,
                     ordinal,
-                    pse_operations::canonical_execution::ResultPayload::new(bytes).unwrap(),
+                    pse_operations::canonical_execution::ResultPayload::from_sealed(file, 0).unwrap(),
                     end - start,
                     &block,
                 )

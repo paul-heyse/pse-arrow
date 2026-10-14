@@ -1774,7 +1774,7 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
                 .operations()
                 .unwrap()
                 .store()
-                .read_results(&run, &attempt, std::time::Duration::from_secs(60))
+                .read_results(&run, &attempt)
                 .await
                 .is_err()
         );
@@ -1865,7 +1865,7 @@ async fn compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_me
         .operations()
         .unwrap()
         .store()
-        .read_results(&run, &attempt, std::time::Duration::from_secs(60))
+        .read_results(&run, &attempt)
         .await
         .unwrap();
     drop(admitted_read);

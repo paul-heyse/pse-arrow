@@ -3351,7 +3351,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             .await
             .unwrap();
         let artifact_read = store
-            .read_artifact(&artifact.key, Duration::from_secs(90))
+            .read_artifact(&artifact.key)
             .await
             .unwrap();
         drop(producer_inputs);
@@ -3517,7 +3517,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
                 )
         );
         let independent = store
-            .read_artifact(&artifact.key, Duration::from_secs(10))
+            .read_artifact(&artifact.key)
             .await
             .unwrap();
         for ordinal in 0..2 {

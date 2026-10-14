@@ -2178,7 +2178,7 @@ impl StudyHandle {
                     return Err(contract("terminal study changed during occurrence read"));
                 }
                 store
-                    .read_results(&study.run, &attempt, Duration::from_secs(60))
+                    .read_results(&study.run, &attempt)
                     .await?;
                 Ok(Some(TerminalStudyInventory {
                     status: StudyStatus {

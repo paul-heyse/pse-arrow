@@ -258,7 +258,7 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
     );
     let selection = operations
         .store()
-        .read_results(&run, &attempt, Duration::from_secs(60))
+        .read_results(&run, &attempt)
         .await
         .unwrap();
     let tables = result.tables().unwrap();

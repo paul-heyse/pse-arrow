@@ -4,6 +4,8 @@
 //! Persisted incidence and retained result-evidence graphs. Reachability is
 //! structural; quantitative meaning stays in the original scientific Arrow rows.
 
+#[cfg(all(test, feature = "canonical-tests"))]
+use std::time::Duration;
 use super::{Durability, ModelingSolvePreparation, Runtime, WorkflowError, contract, relation};
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -16,7 +18,6 @@ use pse_operations::canonical_analyses::{
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{Arc, atomic::AtomicBool},
-    time::Duration,
 };
 
 /// Direction in the graph's explicit source-to-dependent scientific edges.
@@ -407,7 +408,7 @@ impl Runtime {
             .map_err(pse_engine::EngineError::from)?;
         let input = self
             .canonical_store()?
-            .read_results(run, attempt, Duration::from_secs(600))
+            .read_results(run, attempt)
             .await?;
         let sources = self.canonical_store()?.analysis_run_sources(run).await?;
         let revision = sources
@@ -443,7 +444,7 @@ impl Runtime {
             }
         };
         let transfer_error=|source:WorkflowError,analysis:Option<String>,read:Option<String>|WorkflowError::ArtifactTransferUnsettled {analysis,artifact:Box::new(artifact.header().clone()),owner_kind:"audit".into(),owner:staging_owner.clone(),read,source:Box::new(source)};
-        let artifact_read=self.canonical_store()?.read_artifact(&artifact.header().key,Duration::from_secs(600)).await.map_err(|source|transfer_error(source.into(),None,None))?;
+        let artifact_read=self.canonical_store()?.read_artifact(&artifact.header().key).await.map_err(|source|transfer_error(source.into(),None,None))?;
         let read_key=artifact_read.read_key().to_owned();
         let graph_result:Result<AnalysisHandle,WorkflowError>=async {
         for ordinal in 0..artifact.header().block_count {
@@ -814,7 +815,7 @@ mod canonical_analyses_server_unit {
         let final_read = runtime
             .canonical_store()
             .unwrap()
-            .read_artifact(&final_state.header().key, Duration::from_secs(10))
+            .read_artifact(&final_state.header().key)
             .await
             .unwrap();
         let mut preserved_variables = false;

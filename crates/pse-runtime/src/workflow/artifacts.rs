@@ -6,6 +6,7 @@ use super::{Runtime, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer};
 use pse_operations::canonical_artifacts::{Artifact, ArtifactLocator};
 use pse_relations::columnar::RelationRow;
+#[cfg(all(test, feature = "canonical-tests"))]
 use std::time::Duration;
 
 /// A bounded original recovery document is a settlement capability, never a reader.
@@ -141,7 +142,7 @@ impl ScientificArtifact {
         let read = self
             .runtime
             .canonical_store()?
-            .read_artifact(&self.header.key, Duration::from_secs(60))
+            .read_artifact(&self.header.key)
             .await?;
         let block = read.block(ordinal).await?;
         let spec = self
@@ -375,7 +376,7 @@ impl Runtime {
         activity.scope(async {
             let memory=MemoryConsumer::new("canonical:scientific-artifact-promotion").register(&self.shared.pool());
             memory.try_grow(128*1024*1024).map_err(pse_engine::EngineError::from)?;
-            let input=self.canonical_store()?.read_results(run,attempt,Duration::from_secs(600)).await?;
+            let input=self.canonical_store()?.read_results(run,attempt).await?;
             let mut names=vec!["runtime.scientific_contexts","runtime.candidate_assessments","runtime.run_lineage","runtime.resolved_numerics","runtime.modeling_checks","runtime.modeling_reports","runtime.modeling_findings"];
             match kind {
                 ScientificArtifactKind::FinalState=>names.extend(["runtime.trajectory_endpoints","runtime.computation_runs","runtime.solve_variables","runtime.solve_runs"]),
@@ -400,7 +401,7 @@ impl Runtime {
                 }
                 for ordinal in 0..set.batch_count {
                     cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                    input.renew(Duration::from_secs(600)).await?;
+
                     let payload=self.canonical_store()?.result_payload(&input,&set.key,ordinal).await?;
                     let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
                     let decoded=super::result_files::decode_result_file_batch(payload.batch.payload.as_slice(),schema,usize::try_from(payload.batch.file_batch_index).map_err(|_|contract("scientific artifact batch index"))?,usize::try_from(payload.batch.row_count).map_err(|_|contract("scientific artifact row extent"))?)?;
@@ -559,7 +560,7 @@ mod tests {
             let read = runtime
                 .canonical_store()
                 .unwrap()
-                .read_artifact(&artifact.header().key, Duration::from_secs(10))
+                .read_artifact(&artifact.header().key)
                 .await
                 .unwrap();
             let mut seen = false;
