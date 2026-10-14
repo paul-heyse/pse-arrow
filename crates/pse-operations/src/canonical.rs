@@ -1802,9 +1802,22 @@ impl CanonicalStore {
         .await?;
         Ok(())
     }
+    /// Final fixture ownership may join terminal SDK callbacks after their reply
+    /// woke the caller. Seal new admission before waiting for actual activity;
+    /// this path grants no cancellation or early close of escaped protected reads.
+    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    pub(crate) async fn drain_fixture_connection(&self) -> Result<(), CanonicalError> {
+        let deadline = original_deadline(REQUEST_TIMEOUT);
+        within_clock(deadline, async {
+            self.result_read_drain.drain().await?;
+            self.db.access.physical.seal_and_wait_for_idle(deadline).await?;
+            self.disconnect().await
+        }).await
+    }
     /// Drain a registered fixture locally; runner disposition owns disposal.
     #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
+        let deadline = original_deadline(REQUEST_TIMEOUT);
         if !self.database.starts_with("canonical_test_") {
             return Err(CanonicalError::Configuration(
                 "fixture removal requires an isolated test database".into(),
@@ -1819,7 +1832,7 @@ impl CanonicalStore {
         if removed.as_deref().is_some_and(|removed| *removed) {
             return Ok(());
         }
-        self.result_read_drain.drain().await?;
+        within_clock(deadline, self.result_read_drain.drain()).await?;
         #[cfg(any(test, feature = "test-support"))]
         if self
             .fixture_lifetime
@@ -1829,7 +1842,7 @@ impl CanonicalStore {
             // Remaining borrowers own the eventual Drop/drain publication.
             return Ok(());
         }
-        self.disconnect().await?;
+        within_clock(deadline, self.drain_fixture_connection()).await?;
         #[cfg(any(test, feature = "test-support"))]
         if let Some(lifetime) = &self.fixture_lifetime {
             lifetime.drain_connections().await?;

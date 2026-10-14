@@ -48,20 +48,17 @@ impl FixtureLifetime {
         })
     }
     pub(crate) async fn drain_connections(&self) -> Result<(), crate::canonical::CanonicalError> {
-        self.store.disconnect().await?;
-        let peers = self
-            .peers
-            .lock()
-            .map_err(|_| {
-                crate::canonical::CanonicalError::Configuration(
-                    "fixture peer owner poisoned".into(),
-                )
-            })?
-            .clone();
-        for peer in peers {
-            peer.disconnect().await?;
-        }
-        Ok(())
+        let deadline=crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
+        crate::canonical::transport::within_clock(deadline,async {
+            self.store.drain_fixture_connection().await?;
+            let peers = self.peers.lock().map_err(|_| {
+                crate::canonical::CanonicalError::Configuration("fixture peer owner poisoned".into())
+            })?.clone();
+            for peer in peers {
+                peer.drain_fixture_connection().await?;
+            }
+            Ok(())
+        }).await
     }
     pub(crate) fn retain_peer(
         &self,
@@ -92,21 +89,7 @@ impl Drop for FixtureLifetime {
         let result = std::thread::scope(|scope| {
             scope
                 .spawn(|| {
-                    self.executor
-                        .block_on(self.store.result_read_drain.drain())?;
-                    self.executor.block_on(self.store.disconnect())?;
-                    for peer in self
-                        .peers
-                        .get_mut()
-                        .map_err(|_| {
-                            crate::canonical::CanonicalError::Configuration(
-                                "fixture peer owner poisoned".into(),
-                            )
-                        })?
-                        .iter()
-                    {
-                        self.executor.block_on(peer.disconnect())?;
-                    }
+                    self.executor.block_on(self.drain_connections())?;
                     resource_bridge(
                         "drain",
                         &serde_json::json!({

@@ -33,6 +33,7 @@ struct State {
 #[derive(Debug)]
 pub(crate) struct PhysicalLifetime {
     state: Mutex<State>,
+    idle: tokio::sync::Notify,
 }
 impl Default for PhysicalLifetime {
     fn default() -> Self {
@@ -45,6 +46,7 @@ impl Default for PhysicalLifetime {
                 running: false,
                 round: None,
             }),
+            idle: tokio::sync::Notify::new(),
         }
     }
 }
@@ -72,6 +74,9 @@ impl Drop for ActivityOwner {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.activities -= 1;
+        if state.activities == 0 {
+            self.physical.idle.notify_waiters();
+        }
     }
 }
 impl ConnectionActivity {
@@ -201,6 +206,32 @@ impl PhysicalLifetime {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(outcome.map_err(Arc::new));
         round.changed.notify_waiters();
+    }
+    /// Fixture ownership has established its final borrower and joined protected
+    /// releases. Seal all new caller admission before joining actual SDK terminal
+    /// work; admitted continuations retain their original authority while draining.
+    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    pub(crate) async fn seal_and_wait_for_idle(
+        &self,
+        deadline: tokio::time::Instant,
+    ) -> Result<(), CanonicalError> {
+        {
+            let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            if state.phase == Phase::Open {
+                state.phase = Phase::Closing;
+            }
+        }
+        tokio::time::timeout_at(deadline, async {
+            loop {
+                let idle = self.idle.notified();
+                tokio::pin!(idle);
+                idle.as_mut().enable();
+                if self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).activities == 0 {
+                    return;
+                }
+                idle.await;
+            }
+        }).await.map_err(|_| CanonicalError::Timeout)
     }
     /// Refusal changes no admission state. Once Closing is published, an owned
     /// task drains both clients even when the submitting waiter disappears.
