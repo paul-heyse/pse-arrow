@@ -1187,7 +1187,9 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
-        let snapshot = reader.snapshot();
+        let query_reader = runtime.results("decoded-owner", fence.attempt(), "runtime.solve_metrics", 0, 3, CancellationToken::new()).await.unwrap();
+        let snapshot = query_reader.snapshot();
+        drop(query_reader);
         let state = snapshot.session_state();
         assert!(state.scalar_functions().contains_key("pse_checked_value"), "query retains registry-bound native functions");
         let context = datafusion::execution::context::SessionContext::new_with_state(state);
@@ -1197,6 +1199,8 @@ mod canonical_connected_results_server_unit {
         let task = context.task_ctx();
         drop(snapshot);
         drop(context);
+        let cleanup = store.independent_caller().unwrap();
+        runtime.close();
         let batch = reader.next_batch().await.unwrap().unwrap();
         {
             let view = solve_metrics::View::try_from_batch_with_registry(
@@ -1213,9 +1217,9 @@ mod canonical_connected_results_server_unit {
             );
         }
         let escaped = batch.column_by_name("real").unwrap().clone();
-        assert!(store.forget_run_results("decoded-owner").await.is_err());
+        assert!(cleanup.forget_run_results("decoded-owner").await.is_err());
         drop(reader);
-        assert!(store.forget_run_results("decoded-owner").await.is_err(), "unexecuted native plan retains future unread files");
+        assert!(cleanup.forget_run_results("decoded-owner").await.is_err(), "unexecuted native plan retains future unread files");
         let queried = datafusion::physical_plan::collect(plan.clone(), task).await.unwrap();
         assert_eq!(queried.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
         let values = queried[0].column(0).as_any().downcast_ref::<datafusion::arrow::array::Float64Array>().unwrap();
@@ -1228,7 +1232,7 @@ mod canonical_connected_results_server_unit {
         // protection release can settle while these accounted arrays remain live.
         let mut retired = false;
         for _ in 0..32 {
-            if store.forget_run_results("decoded-owner").await.is_ok() {
+            if cleanup.forget_run_results("decoded-owner").await.is_ok() {
                 retired = true;
                 break;
             }
@@ -1238,7 +1242,7 @@ mod canonical_connected_results_server_unit {
         let mut reclaimed = 0;
         let mut complete = false;
         for _ in 0..8 {
-            let page = store.reclaim_result_page("decoded-owner").await.unwrap();
+            let page = cleanup.reclaim_result_page("decoded-owner").await.unwrap();
             reclaimed += page.batches;
             if page.complete {
                 complete = true;
@@ -1260,7 +1264,8 @@ mod canonical_connected_results_server_unit {
                 .await
                 .is_err()
         );
-        store.remove_isolated_fixture().await.unwrap();
+        cleanup.remove_isolated_fixture().await.unwrap();
+        drop(cleanup);
         drop(store);
         drop(runtime);
         let values = escaped.as_any().downcast_ref::<Float64Array>().unwrap();
