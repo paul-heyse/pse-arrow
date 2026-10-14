@@ -5847,6 +5847,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
+            patch.object(server, "cleanup_retired_payloads"),
             patch.object(server, "rotate_database_accounts", side_effect=rotate),
             patch.object(
                 server,

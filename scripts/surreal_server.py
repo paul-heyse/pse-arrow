@@ -5522,6 +5522,9 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
         selected["payload_frozen"] = True
         write_json(context / "config.json", selected)
     config.update(config_for(state))
+    # A stopped listener cannot be started underneath undrained managed scopes.
+    # This preflight does not capture a catalog or authorize any file effects.
+    all_contexts_drained(state)
     # Start a closed validation listener when the operator previously stopped it.
     start(state, config, validation=True)
     for context in contexts:
@@ -6299,6 +6302,34 @@ def current_marker(
         raise SupervisorError("Current interpretation was not acknowledged")
 
 
+def retire_partial_payload_target(state: Path, config: dict[str, object], credentials: dict[str, object]) -> None:
+    """Failed initializer catalogs cannot be discarded underneath surviving file owners."""
+    tables = object_mapping(maintenance_catalog(state, config, credentials, "DB")["tables"])
+    tier = {"canonical_file_admission", "canonical_file_owners", "canonical_file_instances"}
+    present = tier.intersection(tables)
+    if present and present != tier:
+        raise SupervisorError("Partial file catalog has unknown ownership; recovery remains closed")
+    directory = payload_files.root(state, config)
+    if not present:
+        if directory.exists() and any(directory.rglob("*")):
+            raise SupervisorError("Payload bytes without an owner catalog cannot be discarded")
+        return
+    inventory = freeze_payloads(state, config)
+    owners = [{key: value for key, value in row.items() if key != "id"}
+        for page in payload_pages(state, config, "canonical_file_owners") for row in page]
+    if any(owner.get("drained") is not True for owner in owners):
+        raise SupervisorError("Partial target file owners remain undrained")
+    pending = object_mapping(config["derived_rebuild_pending"])
+    retired = pending.setdefault("retired_payloads", [])
+    if not isinstance(retired, list):
+        raise SupervisorError("Invalid retired file-tier recovery inventory")
+    retirement = {"payload_incarnation": config["payload_incarnation"], "database": config["database"], "inventory": inventory, "owners": owners}
+    if retirement not in retired:
+        retired.append(retirement)
+    config["derived_rebuild_pending"] = pending
+    write_json(state / "config.json", config)
+
+
 def cleanup_retired_payloads(state: Path, config: dict[str, object], credentials: dict[str, object]) -> None:
     """Retire only inventoried placement after exact old-owner drain; unknown bytes survive."""
     pending = object_mapping(config["derived_rebuild_pending"])
@@ -6324,13 +6355,21 @@ def cleanup_retired_payloads(state: Path, config: dict[str, object], credentials
     if not isinstance(inventory, list):
         raise SupervisorError("Missing retired payload inventory")
     placements = [{"payload_incarnation": old_incarnation, "database": pending["database"]}, *pending.get("payload_targets", [])]
+    work = [(placement, inventory) for placement in placements]
+    for raw in pending.get("retired_payloads", []):
+        retired = object_mapping(raw)
+        owners = retired.get("owners")
+        retired_inventory = retired.get("inventory")
+        if not isinstance(owners, list) or any(object_mapping(owner).get("drained") is not True for owner in owners) or not isinstance(retired_inventory, list):
+            raise SupervisorError("Retired payload target lost its authenticated drain inventory")
+        work.append((retired, retired_inventory))
     selected_root = payload_files.root(state, config)
-    for placement in placements:
+    for placement, placement_inventory in work:
         directory = payload_files.root(state, object_mapping(placement))
         if directory == selected_root or not directory.exists():
             continue
         expected: set[Path] = set()
-        for raw in inventory:
+        for raw in placement_inventory:
             entry = object_mapping(raw)
             row = object_mapping(entry["instance"])
             sealed, staging = payload_files.instance_paths(state, object_mapping(placement), row["key"])
@@ -6781,6 +6820,8 @@ def recover_maintenance(state: Path, initializer: list[str], verifier: Path | No
         require_private_catalog(state, config, credentials)
         if kind == "rebuild" and phase in {"accounts", "initializing"}:
             if database_present(state, config, credentials):
+                retire_partial_payload_target(state, config, credentials)
+                pending = object_mapping(config["derived_rebuild_pending"])
                 discard_database(state, config, config, credentials)
             drain_maintenance_listener(state)
             config.update(config_for(state))

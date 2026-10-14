@@ -101,7 +101,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertFalse(destination.exists())
         self.assertFalse(server.config_for(self.state)["accepting_writes"])
         self.assertTrue(any("freeze" in event for event in self.events))
-        self.assertLess(next(i for i, event in enumerate(self.events) if "freeze" in event), self.events.index("managed-drain"))
+        self.assertLess(next(i for i, event in enumerate(self.events) if "freeze" in event), max(i for i, event in enumerate(self.events) if event == "managed-drain"))
 
     def test_dead_owner_is_exactly_drained_and_backup_preserves_sealed_and_staging(self) -> None:
         self.owner["boot"] = str(uuid.uuid4())
@@ -277,6 +277,36 @@ class PayloadLifecycleTests(unittest.TestCase):
         ):
             server.recover_file_owners(self.state)
         query.assert_not_called()
+
+    def test_partial_initializer_target_cannot_retire_live_file_owner(self) -> None:
+        self.config["derived_rebuild_pending"] = {"kind": "rebuild", "phase": "initializing"}
+        server.write_json(self.state / "config.json", self.config)
+        with (
+            patch.object(server, "maintenance_catalog", return_value={"tables": {name: {} for name in ("canonical_file_admission", "canonical_file_owners", "canonical_file_instances")}}),
+            patch.object(server, "payload_query", side_effect=self.query),
+            patch.object(server, "start"),
+            patch.object(server, "all_contexts_drained"),
+            self.assertRaisesRegex(server.SupervisorError, "live independent"),
+        ):
+            server.retire_partial_payload_target(self.state, self.config, {})
+        self.assertNotIn("retired_payloads", self.config["derived_rebuild_pending"])
+        self.assertTrue(self.final.is_file())
+
+    def test_partial_initializer_retirement_retains_exact_drained_inventory(self) -> None:
+        self.owner["boot"] = str(uuid.uuid4())
+        self.config["derived_rebuild_pending"] = {"kind": "rebuild", "phase": "initializing"}
+        server.write_json(self.state / "config.json", self.config)
+        with (
+            patch.object(server, "maintenance_catalog", return_value={"tables": {name: {} for name in ("canonical_file_admission", "canonical_file_owners", "canonical_file_instances")}}),
+            patch.object(server, "payload_query", side_effect=self.query),
+            patch.object(server, "start"),
+            patch.object(server, "all_contexts_drained"),
+        ):
+            server.retire_partial_payload_target(self.state, self.config, {})
+        retired = server.config_for(self.state)["derived_rebuild_pending"]["retired_payloads"][0]
+        self.assertEqual(retired["owners"], [self.owner])
+        self.assertEqual(retired["inventory"][0]["instance"], self.instance)
+        self.assertTrue(self.final.is_file())
 
     def test_replaced_pid_is_death_but_exact_live_pid_is_not(self) -> None:
         self.assertFalse(payload_files.owner_dead(self.owner))
