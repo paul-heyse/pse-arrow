@@ -405,6 +405,15 @@ class PseEnvTests(unittest.TestCase):
         self.assertEqual(lines[1].split(":")[0], str(self.root / ".venv-docs/bin"))
 
     def setUp(self) -> None:
+        self.cpu_ceiling = pse_env.cpu_ceiling
+        for owner, attribute, value in (
+            (pse_env, "cpu_ceiling", 16),
+            (pse_env.os, "sched_getaffinity", set(range(256))),
+            (pse_env.operation, "process_group", "/test-allocation"),
+        ):
+            mocked = patch.object(owner, attribute, return_value=value)
+            mocked.start()
+            self.addCleanup(mocked.stop)
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
@@ -526,6 +535,53 @@ class PseEnvTests(unittest.TestCase):
             env["CARGO_BUILD_JOBS"] = "9"
             pse_env.admitted_cargo_jobs(env, owner)
             self.assertEqual(env["CARGO_BUILD_JOBS"], "9")
+
+    def test_width_intersects_affinity_and_ancestor_quota(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.profile = MagicMock(cores=(2, 4, 6, 8))
+        for affinity, quota, expected in (
+            ({2, 4, 6, 8, 10, 12, 14, 16}, 4, 4),
+            ({2, 10}, 4, 2),
+            ({2, 4, 6, 8}, 2.5, 2),
+            ({2, 4}, 0.5, 1),
+        ):
+            with (
+                self.subTest(affinity=affinity, quota=quota),
+                patch.object(pse_env.host, "cpu_set", return_value=(2, 4, 6, 8, 10, 12, 14, 16)),
+                patch.object(pse_env.os, "sched_getaffinity", return_value=affinity),
+                patch.object(pse_env, "cpu_ceiling", return_value=quota),
+            ):
+                env = {"CARGO_BUILD_JOBS": "16", pse_env.CARGO_DEFAULT_JOBS: "16"}
+                pse_env.admitted_cargo_jobs(env, owner)
+                self.assertEqual(env["CARGO_BUILD_JOBS"], str(expected))
+                self.assertEqual(env["NEXTEST_TEST_THREADS"], str(expected))
+                env.update(CARGO_BUILD_JOBS="24", NEXTEST_TEST_THREADS="7")
+                pse_env.admitted_cargo_jobs(env, owner)
+                self.assertEqual(env["CARGO_BUILD_JOBS"], "24")
+                self.assertEqual(env["NEXTEST_TEST_THREADS"], "7")
+
+    def test_width_refuses_unknown_quota_and_empty_usable_affinity(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.profile = MagicMock(cores=(2, 4))
+        for quota, affinity in ((None, {2, 4}), (float("inf"), {2, 4}), (0, {2, 4}), (2, {9})):
+            with (
+                self.subTest(quota=quota, affinity=affinity),
+                patch.object(pse_env.host, "cpu_set", return_value=(2, 4)),
+                patch.object(pse_env.os, "sched_getaffinity", return_value=affinity),
+                patch.object(pse_env, "cpu_ceiling", return_value=quota),
+                self.assertRaises(pse_env.BoundaryError),
+            ):
+                pse_env.runner_width(owner)
+
+    def test_cpu_ceiling_reads_narrowest_finite_ancestor(self) -> None:
+        # Bypass the fixture's injected kernel observation for this filesystem control.
+        root = self.root / "cgroup"
+        child = root / "allocation" / "observer"
+        child.mkdir(parents=True)
+        (root / "cpu.max").write_text("max 100000")
+        (child.parent / "cpu.max").write_text("250000 100000")
+        (child / "cpu.max").write_text("400000 100000")
+        self.assertEqual(self.cpu_ceiling(child, root=root), 2.5)
 
     def test_placement_bounds_jobs_after_acquisition(self) -> None:
         owner = MagicMock(spec=pse_env.host.Allocation)

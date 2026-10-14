@@ -529,6 +529,8 @@ def run_rust(
         "json",
     ]
     if inventory is None:
+        if "--binaries-metadata" in command or "--cargo-metadata" in command:
+            raise ValueError("Retained Rust metadata requires its prepared inventory")
         response = subprocess.run(
             listing,
             cwd=ROOT,
@@ -542,6 +544,12 @@ def run_rust(
             print(response.stderr)
             return response.returncode
         inventory = validation_receipts.native_inventory(response.stdout)
+    else:
+        from scripts.native_tests import prepared_rust_inventory  # noqa: PLC0415
+
+        inventory = prepared_rust_inventory(
+            list(command[position + 1 :]), environment, inventory=inventory
+        )
     selected = rust_selected(inventory)
     if inherited:
         path = Path(inherited)
@@ -603,7 +611,9 @@ def rust_report_command(path: Path, run: list[str]) -> tuple[list[str], Path]:
         config += f"\n[profile.{profile}.junit]\npath = {json.dumps(str(report))}\nstore-failure-output = true\n"
     config_path = path.with_suffix(".toml")
     config_path.write_text(config)
-    return [*run, "--config-file", str(config_path)], report
+    position = run.index("--") if "--" in run else len(run)
+    run[position:position] = ["--config-file", str(config_path)]
+    return run, report
 
 
 def observer_rust(

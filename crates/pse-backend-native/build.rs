@@ -111,6 +111,13 @@ fn kinsol_profile(out: &Path, workspace: &toml::Value) -> Result<(), Box<dyn Err
         source.push('\n');
     }
     build_receipt::write_if_changed(&out.join("kinsol-source.txt"), source.as_bytes())?;
+    let output = out.join("kinsol-klu-provider.json");
+    if env::var_os("CARGO_FEATURE_KINSOL").is_none() {
+        // The declaration is provenance in every profile; provider observations
+        // are inputs only when this profile consumes KINSOL.
+        build_receipt::write_if_changed(&output, b"")?;
+        return Ok(());
+    }
     for key in [
         "SUITESPARSE_INCLUDE_DIR",
         "SUITESPARSE_LIBRARY_DIR",
@@ -150,10 +157,7 @@ fn kinsol_profile(out: &Path, workspace: &toml::Value) -> Result<(), Box<dyn Err
                 .zip(receipt.canonicalize().ok())
                 .is_some_and(|(admitted, actual)| admitted == actual)
         });
-    let output = out.join("kinsol-klu-provider.json");
-    if env::var_os("CARGO_FEATURE_KINSOL").is_some()
-        && let Some(receipt) = receipt
-    {
+    if let Some(receipt) = receipt {
         println!("cargo:rerun-if-changed={}", receipt.display());
         if receipt.is_file() {
             build_receipt::materialize(&receipt, &output)?;
@@ -178,6 +182,16 @@ fn root_isolation() -> Result<(), Box<dyn Error>> {
     build_receipt::materialize(&manifest, &out.join("root-isolation-manifest.json"))?;
     let pc = prefix.join("share/pkgconfig/ibex.pc");
     println!("cargo:rerun-if-changed={}", pc.display());
+    // The transport consumes installed headers and these static providers. A
+    // receipt path alone cannot notice relevant bytes replaced at the same prefix.
+    for input in [
+        "include",
+        "lib/libibex.a",
+        "lib/ibex/3rd/libprim.a",
+        "lib/ibex/3rd/libsoplex.a",
+    ] {
+        println!("cargo:rerun-if-changed={}", prefix.join(input).display());
+    }
     println!("cargo:rerun-if-changed=native/root_isolation.cpp");
     let output = Command::new("pkg-config")
         .arg("--cflags")

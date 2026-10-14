@@ -295,6 +295,9 @@ def with_features(command: Sequence[str], features: Sequence[str]) -> list[str]:
 class Resolution(msgspec.Struct):
     command: list[str]
     packages: list[str]
+    graph: Graph
+    metadata: bytes
+    unit_graph: bytes
 
 
 def resolve(
@@ -303,8 +306,7 @@ def resolve(
     run: Callable[[Sequence[str]], bytes] = capture,
 ) -> Resolution:
     graph_args = graph_command(command)
-    metadata = msgspec.json.decode(
-        run(
+    metadata_bytes = run(
             [
                 "cargo",
                 "metadata",
@@ -314,11 +316,11 @@ def resolve(
                 "--all-features",
                 *manifest_options(graph_args),
             ]
-        ),
-        type=Metadata,
     )
+    metadata = msgspec.json.decode(metadata_bytes, type=Metadata)
     packages = {package.id: package for package in metadata.packages}
-    original = msgspec.json.decode(run(graph_args), type=Graph)
+    original_bytes = run(graph_args)
+    original = msgspec.json.decode(original_bytes, type=Graph)
     if original.version != 1:
         raise ValidationError("unsupported Cargo unit-graph version")
     features: set[str] = set()
@@ -335,8 +337,10 @@ def resolve(
         features.add(f"{package.name}/{opt_in}")
     result = with_features(command, sorted(features))
     validated = original
+    validated_bytes = original_bytes
     if features:
-        validated = msgspec.json.decode(run(graph_command(result)), type=Graph)
+        validated_bytes = run(graph_command(result))
+        validated = msgspec.json.decode(validated_bytes, type=Graph)
     if validated.version != 1:
         raise ValidationError("unsupported Cargo unit-graph version")
     before = {root_identity(original.units[index]) for index in original.roots}
@@ -358,7 +362,7 @@ def resolve(
     names = sorted(
         {packages[original.units[index].pkg_id].name for index in original.roots}
     )
-    return Resolution(result, names)
+    return Resolution(result, names, validated, metadata_bytes, validated_bytes)
 
 
 def compose(

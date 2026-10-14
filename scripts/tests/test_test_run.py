@@ -25,6 +25,14 @@ if TYPE_CHECKING:
 
 
 class TerminalComposerTests(unittest.TestCase):
+    def test_rust_report_configuration_precedes_libtest_separator(self) -> None:
+        command, report = test_run.rust_report_command(
+            self.path, ["cargo", "nextest", "run", "--", "chosen", "--exact"]
+        )
+        self.assertLess(command.index("--config-file"), command.index("--"))
+        self.assertEqual(command[-3:], ["--", "chosen", "--exact"])
+        self.assertEqual(report, self.path.with_suffix(".xml"))
+
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

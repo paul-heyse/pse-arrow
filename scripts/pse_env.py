@@ -24,6 +24,7 @@ import argparse
 import contextlib
 import functools
 import json
+import math
 import os
 import re
 import shlex
@@ -448,18 +449,65 @@ def manager_available() -> bool:
     return probe.returncode == 0
 
 
-def admitted_cargo_jobs(env: dict[str, str], allocation: host.Allocation) -> None:
+def cpu_ceiling(group: Path, *, root: Path = Path("/sys/fs/cgroup")) -> float | None:
+    """Smallest enforced quota in the actual cgroup ancestry."""
+    ceilings = []
+    while group.is_relative_to(root):
+        path = group / "cpu.max"
+        if path.is_file():
+            quota, period = path.read_text().split()
+            if int(period) <= 0 or (quota != "max" and int(quota) <= 0):
+                raise BoundaryError("Invalid enclosing CPU quota")
+            if quota != "max":
+                ceilings.append(int(quota) / int(period))
+        if group == root:
+            break
+        group = group.parent
+    return min(ceilings) if ceilings else None
+
+
+def runner_width(allocation: host.Allocation, *, pending: bool = False) -> int:
+    """Intersect admitted lanes with usable affinity and enforced finite quota."""
+    cpus = set(host.cpu_set(allocation.profile.cores))
+    if pending:
+        # Before launch, observe the enforced destination, not the coordinator's
+        # unrelated lane. The child binds and re-observes its actual affinity.
+        selected = host.allocation_slice(allocation)
+        if selected is None:
+            raise BoundaryError("Cannot observe admitted CPU placement")
+        group = slice_group(selected)
+    else:
+        cpus.intersection_update(os.sched_getaffinity(0))
+        membership = operation.process_group(os.getpid())
+        if not membership:
+            raise BoundaryError("Cannot observe actual enclosing CPU placement")
+        group = Path("/sys/fs/cgroup") / membership.lstrip("/")
+    quota = cpu_ceiling(group)
+    if quota is None or not math.isfinite(quota) or quota <= 0:
+        raise BoundaryError("Admitted CPU allocation has no enforced finite quota")
+    width = min(len(allocation.profile.cores), len(cpus), max(1, math.floor(quota)))
+    if width < 1:
+        raise BoundaryError("Admitted CPU allocation has no usable lane")
+    return width
+
+
+def default_test_width(environment: Mapping[str, str]) -> int:
+    allocation = host.inherit(environment)
+    if allocation is None:
+        raise BoundaryError("Default test width requires an admitted enclosing owner")
+    return runner_width(allocation)
+
+
+def admitted_cargo_jobs(
+    env: dict[str, str], allocation: host.Allocation, *, pending: bool = False
+) -> None:
     """Derive defaults from physical lanes, logical affinity and enforced quota.
 
     The allocation enforces one CPU of quota per declared physical lane. SMT
     siblings provide affinity, not extra CPU quota. Explicit runner/compiler
     overrides remain inside that same enforced enclosing allocation.
     """
-    physical = len(allocation.profile.cores)
-    logical = len(host.cpu_set(allocation.profile.cores))
-    width = min(physical, logical)
-    if width < 1:
-        raise BoundaryError("Admitted CPU allocation has no usable lane")
+    width = runner_width(allocation, pending=pending)
     previous = env.get(NEXTEST_DEFAULT_THREADS)
     if "NEXTEST_TEST_THREADS" not in env or env["NEXTEST_TEST_THREADS"] == previous:
         env["NEXTEST_TEST_THREADS"] = str(width)
@@ -529,7 +577,7 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
     try:
         host.enforce_parent(profile, env)
         host.enforce_allocation(allocation, env)
-        admitted_cargo_jobs(env, allocation)
+        admitted_cargo_jobs(env, allocation, pending=True)
     except Exception:
         allocation.release()
         raise

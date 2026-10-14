@@ -30,11 +30,25 @@ class Plan30RoutingTests(unittest.TestCase):
     def setUp(self) -> None:
         composition = patch.object(
             native_tests,
-            "correctness_command",
-            side_effect=lambda command, _environment: command,
+            "correctness_resolution",
+            side_effect=lambda command, _environment: native_tests.arrow_validation.Resolution(
+                command, ["pse-runtime"], native_tests.arrow_validation.Graph(1, [], []),
+                b'{"workspace_root": "/checkout"}',
+                b'{"version": 1, "units": [], "roots": []}',
+            ),
         )
         composition.start()
         self.addCleanup(composition.stop)
+        for name, value in (("rust_source_identity", {"source": "current"}), ("prepared_rust_inventory", None)):
+            mocked = patch.object(native_tests, name, **(
+                {"return_value": value} if value is not None else
+                {"side_effect": lambda _args, _env, *, inventory: inventory}
+            ))
+            mocked.start()
+            self.addCleanup(mocked.stop)
+        width = patch.object(native_tests.pse_env, "default_test_width", return_value=4)
+        width.start()
+        self.addCleanup(width.stop)
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
@@ -72,7 +86,6 @@ class Plan30RoutingTests(unittest.TestCase):
     def capture(self, extra: list[str]) -> tuple[list[str], list[list[str]]]:
         results = [
             subprocess.CompletedProcess([], 0, '{"rust-binaries": {}}'),
-            subprocess.CompletedProcess([], 0, '{"workspace_root": "/checkout"}'),
             subprocess.CompletedProcess([], 0, json.dumps(self.inventory)),
         ]
 
@@ -166,11 +179,11 @@ class Plan30RoutingTests(unittest.TestCase):
             "--no-fail-fast",
         ]
         execution, commands = self.capture(extra)
-        build, metadata, inventory = commands
+        build, inventory = commands
         self.assertIn("--cargo-profile=producer", build)
         self.assertIn("pse-runtime", build)
-        self.assertIn("caller-feature", metadata[metadata.index("--features") + 1])
-        self.assertNotIn(native_tests.MANAGED_FEATURES, metadata)
+        self.assertIn("caller-feature", build[build.index("--features") + 1])
+        self.assertNotIn(native_tests.MANAGED_FEATURES, build)
         self.assertIn("--binaries-metadata", inventory)
         self.assertIn("--cargo-metadata", inventory)
         self.assertNotIn("--success-output", inventory)
@@ -248,7 +261,6 @@ class Plan30RoutingTests(unittest.TestCase):
     def test_native_local_capture_owns_exact_binaries_without_worker(self) -> None:
         results = [
             subprocess.CompletedProcess([], 0, '{"rust-binaries": {}}'),
-            subprocess.CompletedProcess([], 0, '{"workspace_root": "/checkout"}'),
             subprocess.CompletedProcess([], 0, json.dumps(self.inventory)),
         ]
         with (

@@ -34,6 +34,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class NativePythonImportIdentity(unittest.TestCase):
     def setUp(self) -> None:
+        width = patch.object(native_tests.pse_env, "default_test_width", return_value=4)
+        width.start()
+        self.addCleanup(width.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.output = Path(self.directory.name)
@@ -162,6 +165,22 @@ class NativePythonImportIdentity(unittest.TestCase):
 
 class ExecutionContracts(unittest.TestCase):
     def setUp(self) -> None:
+        width = patch.object(native_tests.pse_env, "default_test_width", return_value=4)
+        width.start()
+        self.addCleanup(width.stop)
+        resolution = patch.object(
+            native_tests, "correctness_resolution",
+            side_effect=lambda command, _env: native_tests.arrow_validation.Resolution(
+                command, ["pse-runtime"], native_tests.arrow_validation.Graph(1, [], []),
+                b'{"workspace_root": "/checkout"}',
+                b'{"version": 1, "units": [], "roots": []}',
+            ),
+        )
+        resolution.start()
+        self.addCleanup(resolution.stop)
+        source = patch.object(native_tests, "rust_source_identity", return_value={"source": "current"})
+        source.start()
+        self.addCleanup(source.stop)
         composition = patch.object(
             native_tests,
             "correctness_command",
@@ -275,14 +294,13 @@ class ExecutionContracts(unittest.TestCase):
                 "run",
                 side_effect=[
                     subprocess.CompletedProcess([], 0, stdout="{}"),
-                    subprocess.CompletedProcess([], 0, stdout="{}"),
                     subprocess.CompletedProcess([], 0, stdout=json.dumps(inventory)),
                 ],
             ) as listing,
             patch.object(test_run, "run_rust", return_value=0) as run,
         ):
             self.assertEqual(native_tests.main(), 0)
-        self.assertEqual(listing.call_count, 3)
+        self.assertEqual(listing.call_count, 2)
         commands = [call.args[0] for call in listing.call_args_list]
         self.assertEqual(sum("binaries-only" in command for command in commands), 1)
         self.assertIn("--binaries-metadata", commands[-1])
@@ -358,7 +376,6 @@ class ExecutionContracts(unittest.TestCase):
                 "run",
                 side_effect=[
                     subprocess.CompletedProcess([], 0, stdout=json.dumps(artifact)),
-                    subprocess.CompletedProcess([], 0, stdout="{}"),
                     subprocess.CompletedProcess([], 0, stdout="{}"),
                     subprocess.CompletedProcess([], 0, stdout=json.dumps(inventory)),
                 ],

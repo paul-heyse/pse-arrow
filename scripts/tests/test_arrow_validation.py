@@ -64,6 +64,13 @@ class Cargo:
 
 
 class ScopedValidationTests(unittest.TestCase):
+    def test_resolution_retains_full_cargo_profile_and_target_payload(self) -> None:
+        selected = graph([unit("pure")])
+        selected["units"][0]["profile"] = {"opt_level": "3", "panic": "unwind", "debug_assertions": False}
+        selected["units"][0]["target"]["crate_types"] = ["rlib"]
+        result = resolve(["cargo", "test", "-p", "pure"], run=Cargo([package("pure")], selected))
+        self.assertEqual(msgspec.json.decode(result.unit_graph), selected)
+
     def test_pure_normal_build_and_selected_dev_units_need_no_opt_in(self) -> None:
         cargo = Cargo(
             [package("modeling"), package("macro"), package("testkit")],
@@ -153,6 +160,9 @@ class ScopedValidationTests(unittest.TestCase):
             result.command[-1], "owner/force-validate,second/force-validate"
         )
         self.assertEqual(result.command.count("-p"), 2)
+        self.assertEqual(msgspec.json.decode(msgspec.json.encode(result.graph)), after)
+        self.assertEqual(msgspec.json.decode(result.metadata), {"packages": packages})
+        self.assertEqual(msgspec.json.decode(result.unit_graph), after)
 
     def test_unknown_consuming_root_refuses(self) -> None:
         cargo = Cargo(

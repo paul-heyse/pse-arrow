@@ -17,6 +17,9 @@ from scripts import python_tests, surreal_server
 
 class PythonProcessRoutingTests(unittest.TestCase):
     def setUp(self) -> None:
+        width = patch.object(python_tests.native_tests.pse_env, "default_test_width", return_value=3)
+        width.start()
+        self.addCleanup(width.stop)
         capture = patch.object(
             python_tests.python_extension,
             "capture",
@@ -44,7 +47,7 @@ class PythonProcessRoutingTests(unittest.TestCase):
         self.composer = composer.start()
         self.addCleanup(composer.stop)
 
-    def test_ordinary_defaults_keep_four_workers_and_original_categories(
+    def test_ordinary_defaults_use_admitted_width_and_original_categories(
         self,
     ) -> None:
         with (
@@ -54,7 +57,7 @@ class PythonProcessRoutingTests(unittest.TestCase):
             self.assertEqual(python_tests.main(), 0)
         command = run.call_args.args[0]
         self.assertIn(
-            ["-n", "4"],
+            ["-n", "3"],
             [command[index : index + 2] for index in range(len(command) - 1)],
         )
         self.assertEqual(
