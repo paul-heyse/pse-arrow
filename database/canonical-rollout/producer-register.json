@@ -16,11 +16,25 @@
         "rollouts/20261012224925__canonical_6064918f02d7895f/target-schema-snapshot.json": "76c8fed7e6e51ce00abf1346a4b26e2411f3a75a428921bada9d3ab5063e8fe2",
         "rollouts/20261012224925__canonical_6064918f02d7895f/target-schema.surql": "9f3135d86cf2c712a9f6798c62a66cc357603997769f6c279846052dfbef11a2"
       }
+    },
+    {
+      "id": "20261014034937__canonical_c82f2351c988e5b2",
+      "files": {
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2.toml": "4440b619c5c0545cdf524217c6f4242aaf5c032352efe6874a1182ec535f0bb9",
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2/producer.json": "2b9e48b7c3f13d9aa5431a72b263e19600a4d282f316b57f2621426ec88e9e79",
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2/schema/canonical.surql": "5f05eb5806ae22e5e122ccd3a76450b80e703b87366d1493d3d17b7d563d0e67",
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2/snapshots/catalog_snapshot.json": "c7b27b3454ab10e993953a6ed3fe51c1e696112cf2f6b8f3282cc08ae5963f8e",
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2/snapshots/schema_snapshot.json": "76c8fed7e6e51ce00abf1346a4b26e2411f3a75a428921bada9d3ab5063e8fe2",
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2/source-schema.surql": "9f3135d86cf2c712a9f6798c62a66cc357603997769f6c279846052dfbef11a2",
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2/target-catalog-snapshot.json": "0fea52e0811333377ef3b1e67050802db25ca2a7bcf7bffe5e4d29aee10d18c6",
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2/target-schema-snapshot.json": "4a9dc3ac760ae60d58960c491af196cbb786a1aee5a76ea64ad4d435f969973f",
+        "rollouts/20261014034937__canonical_c82f2351c988e5b2/target-schema.surql": "5f05eb5806ae22e5e122ccd3a76450b80e703b87366d1493d3d17b7d563d0e67"
+      }
     }
   ],
   "head_files": {
-    "schema/canonical.surql": "9f3135d86cf2c712a9f6798c62a66cc357603997769f6c279846052dfbef11a2",
-    "snapshots/catalog_snapshot.json": "c7b27b3454ab10e993953a6ed3fe51c1e696112cf2f6b8f3282cc08ae5963f8e",
-    "snapshots/schema_snapshot.json": "76c8fed7e6e51ce00abf1346a4b26e2411f3a75a428921bada9d3ab5063e8fe2"
+    "schema/canonical.surql": "5f05eb5806ae22e5e122ccd3a76450b80e703b87366d1493d3d17b7d563d0e67",
+    "snapshots/catalog_snapshot.json": "0fea52e0811333377ef3b1e67050802db25ca2a7bcf7bffe5e4d29aee10d18c6",
+    "snapshots/schema_snapshot.json": "4a9dc3ac760ae60d58960c491af196cbb786a1aee5a76ea64ad4d435f969973f"
   }
 }
