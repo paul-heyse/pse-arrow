@@ -250,6 +250,10 @@ class ProducerDeploymentTests(unittest.TestCase):
         commands = [
             call.args[0] for call in run.call_args_list if call.args[0][0] == "just"
         ]
+        all_commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(all_commands[0], ["uv", "sync", "--locked", "--no-install-project"])
+        self.assertIn("producer-preparation-begin", all_commands[1])
+        self.assertTrue((self.output / "preparation/COMPLETE").is_file())
         self.assertEqual(len(commands), 2)  # Python is selected by Maturin's child.
         options = deployment.read_object(self.output / "python-installer-cargo.json")[
             "capture_options"
@@ -732,6 +736,27 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.assertEqual(run.call_count, 3)
         self.assertIn("source changed", (self.output / "runtime.log").read_text())
         self.assertTrue((self.output / "preparation/FAILED").is_file())
+
+    def test_competing_strict_operation_refuses_before_dependency_effects(self) -> None:
+        import fcntl
+
+        active = self.root / "active"
+        active.mkdir(mode=0o700)
+        with deployment.own_preparation(self.root, active) as guard:
+            guard.seek(0)
+            original = guard.read()
+            with (
+                patch.object(deployment.subprocess, "run") as child,
+                self.assertRaises(BlockingIOError),
+            ):
+                deployment.capture(self.root, self.output, self.environment)
+            child.assert_not_called()
+            guard.seek(0)
+            self.assertEqual(guard.read(), original)
+            # A failure by a competing owner never unlocks the active lifetime.
+            with (self.root / "target/.producer-preparation.lock").open("r+b") as other:
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def test_actual_elf_installation_accepts_only_reviewed_rpath_replay(self) -> None:
         installed = self.root / "python/pse/_native.so"

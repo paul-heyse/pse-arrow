@@ -516,11 +516,8 @@ def require_capture_success(name: str, returncode: int) -> None:
         )
 
 
-def begin_preparation(
-    root: Path, output: Path, environment: Mapping[str, str],
-    inputs: dict[str, tuple[Path, list[Path]]],
-) -> BinaryIO:
-    """Own one target-local strict operation; this does not exclude bare Cargo."""
+def own_preparation(root: Path, output: Path) -> BinaryIO:
+    """Exclude other strict operations before dependency setup, without host locking."""
     directory = output / "preparation"
     directory.mkdir(mode=0o700)
     (root / "target").mkdir(exist_ok=True)
@@ -537,33 +534,44 @@ def begin_preparation(
             "owner_start": owner_start}).encode())
         guard.flush()
         os.fsync(guard.fileno())
-        selections = []
-        for role, package, _, _, target_args in ROLES:
-            declaration, files = inputs[role]
-            target: str | dict[str, str] = "Library"
-            if role == "worker":
-                target = {"Binary": target_args[1]}
-            elif role == "python":
-                target = {"Cdylib": target_args[1]}
-            selections.append({"workspace_root": str(root), "package": package,
-                "profile": "producer", "target": None, "production_target": target,
-                "features": ["native-solvers", "force-validate" if role == "python" else "pse-relations/force-validate"],
-                "no_default_features": False, "dep_info": [], "declared_inputs": [],
-                "native_inputs": [str(path) for path in files], "declared_environment": {},
-                "declarations": read_object(declaration)})
-        selection = directory / "selection.json"
-        producer_cargo.write_new(selection, selections)
-        with (directory / "preparation.log").open("xb") as log:
-            result = subprocess.run([str(root / "target/debug/xtask"),
-                "producer-preparation-begin", "--selection", str(selection),
-                "--directory", str(directory), "--owner-pid", str(owner_pid),
-                "--owner-start", owner_start], cwd=root, env=dict(environment),
-                stdout=log, stderr=subprocess.STDOUT, check=False)
-        require_capture_success("preparation", result.returncode)
         return guard
     except BaseException:
         guard.close()
         raise
+
+
+def begin_preparation(
+    root: Path, output: Path, environment: Mapping[str, str],
+    inputs: dict[str, tuple[Path, list[Path]]], guard: BinaryIO,
+) -> None:
+    """Establish the selected family baseline only after dependency setup."""
+    directory = output / "preparation"
+    guard.seek(0)
+    owner = json.load(guard)
+    owner_pid, owner_start = owner["owner_pid"], owner["owner_start"]
+    selections = []
+    for role, package, _, _, target_args in ROLES:
+        declaration, files = inputs[role]
+        target: str | dict[str, str] = "Library"
+        if role == "worker":
+            target = {"Binary": target_args[1]}
+        elif role == "python":
+            target = {"Cdylib": target_args[1]}
+        selections.append({"workspace_root": str(root), "package": package,
+            "profile": "producer", "target": None, "production_target": target,
+            "features": ["native-solvers", "force-validate" if role == "python" else "pse-relations/force-validate"],
+            "no_default_features": False, "dep_info": [], "declared_inputs": [],
+            "native_inputs": [str(path) for path in files], "declared_environment": {},
+            "declarations": read_object(declaration)})
+    selection = directory / "selection.json"
+    producer_cargo.write_new(selection, selections)
+    with (directory / "preparation.log").open("xb") as log:
+        result = subprocess.run([str(root / "target/debug/xtask"),
+            "producer-preparation-begin", "--selection", str(selection),
+            "--directory", str(directory), "--owner-pid", str(owner_pid),
+            "--owner-start", owner_start], cwd=root, env=dict(environment),
+            stdout=log, stderr=subprocess.STDOUT, check=False)
+    require_capture_success("preparation", result.returncode)
 
 
 def capture(
@@ -582,6 +590,7 @@ def capture(
         producer_cargo.cargo_executable(
             env
         )  # Refuse unsupported installer selection before role builds.
+        guard = own_preparation(root, output)
         # Dependency installation is an effect before the shared source/native
         # baseline; it must not invalidate an already captured Rust role.
         with (output / "dependency-setup.log").open("xb") as log:
@@ -589,7 +598,7 @@ def capture(
                 cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
         require_capture_success("dependency setup", result.returncode)
         inputs = reviewed_inputs(root, env)
-        guard = begin_preparation(root, output, env, inputs)
+        begin_preparation(root, output, env, inputs, guard)
         for role in ROLES:
             name, package, _, _, target_args = role
             role_env = dict(env)

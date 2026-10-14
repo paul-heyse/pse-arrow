@@ -191,6 +191,10 @@ impl Capture {
         ensure!(guard["directory"] == directory.to_string_lossy().as_ref()
             && guard["owner_pid"] == state.owner_pid && guard["owner_start"] == state.owner_start,
             "preparation target guard changed");
+        write_new(&directory.join("in-progress.json"), &serde_json::json!({"pid":std::process::id(),
+            "package":options.package,"evidence":options.declarations.actual_build_evidence}))?;
+        let capture = Self { directory, state, pending:BTreeMap::new(), _lock:lock, done:false };
+        let state = &capture.state;
         ensure!(state.profile == options.profile && state.target == options.target,
             "actual child selects another preparation target/profile");
         ensure!(configuration_state(root)? == state.configuration
@@ -202,9 +206,7 @@ impl Capture {
         for (id, source) in selected_source_state(graph, packages)? {
             ensure!(state.sources.get(&id) == Some(&source), "actual child source is outside preparation baseline");
         }
-        write_new(&directory.join("in-progress.json"), &serde_json::json!({"pid":std::process::id(),
-            "package":options.package,"evidence":options.declarations.actual_build_evidence}))?;
-        Ok(Some(Self { directory, state, pending:BTreeMap::new(), _lock:lock, done:false }))
+        Ok(Some(capture))
     }
 
     pub(super) fn validate(&mut self, options: &ProducerOptions, root: &Path, graph: &UnitGraph,
@@ -301,5 +303,109 @@ impl Capture {
 impl Drop for Capture {
     fn drop(&mut self) {
         if !self.done { let _ = write_new(&self.directory.join("FAILED"), &serde_json::json!({"terminal":"incomplete capture"})); }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Fixture {
+        _scratch: tempfile::TempDir,
+        root: PathBuf,
+        directory: PathBuf,
+        evidence: PathBuf,
+        options: ProducerOptions,
+        _guard: File,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let scratch = tempfile::tempdir().unwrap();
+            let root = scratch.path().join("model");
+            let evidence = scratch.path().join("evidence");
+            fs::create_dir_all(root.join("src/bin")).unwrap();
+            fs::create_dir(&evidence).unwrap();
+            fs::write(root.join("Cargo.toml"), "[package]\nname='cohort-fixture'\nversion='0.1.0'\nedition='2024'\n[features]\nalternate=[]\n").unwrap();
+            fs::write(root.join("build.rs"), "fn main(){let p=std::path::PathBuf::from(std::env::var_os(\"OUT_DIR\").unwrap());std::fs::write(p.join(\"generated.rs\"),\"pub fn value()->u32{1}\").unwrap();println!(\"cargo:rerun-if-changed=build.rs\");}").unwrap();
+            fs::write(root.join("src/lib.rs"), "include!(concat!(env!(\"OUT_DIR\"),\"/generated.rs\"));").unwrap();
+            fs::write(root.join("src/bin/worker.rs"), "fn main(){assert_eq!(cohort_fixture::value(),1);}").unwrap();
+            let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+            fs::copy(repository.join("rust-toolchain.toml"),root.join("rust-toolchain.toml")).unwrap();
+            cargo_output(&root, &["generate-lockfile".into(),"--offline".into()]).unwrap();
+            let directory = root.join("target/cohort");
+            fs::create_dir_all(&directory).unwrap();
+            let guard = OpenOptions::new().read(true).write(true).create_new(true).open(guard_path(&root)).unwrap();
+            guard.try_lock().unwrap();
+            let pid = std::process::id();
+            let start = process(pid).unwrap().1;
+            serde_json::to_writer(&guard,&serde_json::json!({"directory":directory,"owner_pid":pid,"owner_start":start})).unwrap();
+            let options = ProducerOptions { workspace_root:root.clone(), package:"cohort-fixture".into(),
+                profile:"dev".into(), target:None, production_target:ProducerTarget::Library,
+                features:Vec::new(), no_default_features:false, dep_info:Vec::new(),declared_inputs:Vec::new(),
+                native_inputs:Vec::new(),declared_environment:BTreeMap::new(),declarations:InputDeclarations {
+                    capture_actual_build:true,refresh_executors:true,..Default::default() } };
+            begin(&root,&directory,vec![options.clone()],pid,&start).unwrap();
+            Self { _scratch:scratch,root,directory,evidence,options,_guard:guard }
+        }
+
+        fn selection(&self,name: &str) -> ProducerOptions {
+            let mut options=self.options.clone();
+            options.declarations.preparation=Some(self.directory.clone());
+            options.declarations.actual_build_evidence=Some(self.evidence.join(format!("{name}.json")));
+            options
+        }
+    }
+
+    #[test]
+    fn producer_preparation_overlapping_roles_keep_current_inputs_and_history() {
+        let fixture=Fixture::new();
+        let first=run(&fixture.selection("library")).unwrap();
+        let mut second=fixture.selection("worker");
+        second.production_target=ProducerTarget::Binary("worker".into());
+        run(&second).unwrap();
+        let association=first.deployment.unwrap();
+        association.verify_current(&association.artifact.path).unwrap();
+        let context:serde_json::Value=serde_json::from_slice(&fs::read(fixture.evidence.join("worker.json")).unwrap()).unwrap();
+        assert!(!context["preparation"]["preceding_compilations"].as_object().unwrap().is_empty());
+        assert!(context["preparation"]["first_compiled_contexts"].as_array().unwrap().is_empty());
+        verify_historical_evidence(&fixture.evidence.join("library.json.closure")).unwrap();
+        verify_historical_evidence(&fixture.evidence.join("worker.json.closure")).unwrap();
+    }
+
+    #[test]
+    fn producer_preparation_distinct_feature_context_needs_its_own_compilation() {
+        let fixture=Fixture::new();
+        run(&fixture.selection("plain")).unwrap();
+        let mut alternate=fixture.selection("alternate");
+        alternate.features=vec!["alternate".into()];
+        run(&alternate).unwrap();
+        let state:State=serde_json::from_slice(&fs::read(fixture.directory.join("state.json")).unwrap()).unwrap();
+        assert_eq!(state.compiled.len(),2);
+    }
+
+    #[test]
+    fn producer_preparation_prior_operation_fresh_and_failed_retry_refuse() {
+        let fixture=Fixture::new();
+        run(&fixture.selection("first")).unwrap();
+        // Simulate a marker with no preceding admitted compilation. Cargo's old
+        // Fresh output cannot manufacture this operation's missing proof.
+        let path=fixture.directory.join("state.json");
+        let mut state:State=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        state.compiled.clear();
+        fs::write(&path,serde_json::to_vec(&state).unwrap()).unwrap();
+        assert!(run(&fixture.selection("unproved")).unwrap_err().to_string().contains("preceding compilation"));
+        assert!(fixture.directory.join("FAILED").is_file());
+        assert!(run(&fixture.selection("retry")).unwrap_err().to_string().contains("terminal"));
+    }
+
+    #[test]
+    fn producer_preparation_source_mutation_is_terminal_before_build() {
+        let fixture=Fixture::new();
+        run(&fixture.selection("first")).unwrap();
+        fs::write(fixture.root.join("src/lib.rs"),"pub fn value()->u32{2}").unwrap();
+        assert!(run(&fixture.selection("changed")).unwrap_err().to_string().contains("source is outside"));
+        assert!(fixture.directory.join("FAILED").is_file());
+        assert!(!fixture.evidence.join("changed.json").exists());
     }
 }
