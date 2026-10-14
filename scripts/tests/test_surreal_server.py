@@ -6557,6 +6557,13 @@ class SurrealSupervisorTests(unittest.TestCase):
         self, kind: str, phase: str
     ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
         old = self.initialized()
+        source_backup = None
+        if kind == "current-restore":
+            old.update(interpretation=server.SUBSTRATE_INTERPRETATION, schema_interpretation=server.SUBSTRATE_INTERPRETATION)
+            server.write_json(self.state / "config.json", old)
+            source_backup = self.root / "maintenance-backup"
+            with patch.object(server, "freeze_payloads", return_value=[]):
+                server.backup(self.state, old, source_backup)
         before = server.read_json(self.state / "credentials.json")
         after = server.fresh_credentials()
         config = server.fresh_database_identity(old)
@@ -6574,6 +6581,8 @@ class SurrealSupervisorTests(unittest.TestCase):
             "previous_username": before["username"],
             "next_username": after["username"],
         }
+        if source_backup is not None:
+            pending.update(backup=str(source_backup), backup_digest=server.file_digest(source_backup / "backup.json"), payload_incarnation=old["payload_incarnation"])
         config["derived_rebuild_pending"] = pending
         server.write_json(self.state / "config.json", config)
         server.write_json(
