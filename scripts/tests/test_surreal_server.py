@@ -3987,7 +3987,10 @@ class SurrealSupervisorTests(unittest.TestCase):
         )
         server.write_json(self.state / "config.json", config)
         destination = self.root / "backup"
-        with patch.object(server, "active", return_value=False):
+        with (
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "freeze_payloads", return_value=[]),
+        ):
             server.backup(self.state, config, destination)
         return destination
 
@@ -5709,7 +5712,8 @@ class SurrealSupervisorTests(unittest.TestCase):
         )
         server.write_json(self.state / "config.json", config)
         backup = self.root / "backup"
-        server.backup(self.state, config, backup)
+        with patch.object(server, "freeze_payloads", return_value=[]):
+            server.backup(self.state, config, backup)
         with self.assertRaisesRegex(server.SupervisorError, "explicit rebuild"):
             server.restore(backup, self.root / "restored", "pse.substrate.old")
         self.assertFalse((self.root / "restored").exists())
@@ -5833,6 +5837,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             events.append("dispose")
 
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -5856,7 +5861,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         ):
             server.rebuild(self.state, ["current-initializer"])
         self.assertEqual(
-            events, ["accounts", "start", "initialize", "validate", "stop", "dispose"]
+            events, ["stop", "accounts", "start", "initialize", "validate", "stop", "dispose"]
         )
         config = server.config_for(self.state)
         self.assertFalse(config["accepting_writes"])
@@ -5876,6 +5881,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         (source / "input").write_text("external authority")
 
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -5896,7 +5902,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertRaisesRegex(server.SupervisorError, "current marker differs"),
         ):
             server.rebuild(self.state, ["initializer"])
-        stop.assert_called_once()
+        self.assertEqual(stop.call_count, 2)
         discard.assert_not_called()
         config = server.config_for(self.state)
         self.assertTrue(config["derived_rebuild_pending"])
@@ -5922,6 +5928,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         source.mkdir()
         (source / "input").write_text("external authority")
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -6468,6 +6475,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         restored = self.root / "restored"
         with (
             self.native_maintenance(),
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "remove_analysis_state"),
             patch.object(
@@ -6505,6 +6513,7 @@ class SurrealSupervisorTests(unittest.TestCase):
 
         with (
             self.native_maintenance(),
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "remove_analysis_state", side_effect=refuse),
             patch.object(server, "discard_database") as discard,
@@ -6572,6 +6581,7 @@ class SurrealSupervisorTests(unittest.TestCase):
     ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -6686,6 +6696,7 @@ class SurrealSupervisorTests(unittest.TestCase):
     def test_maintenance_failed_drain_preserves_owner_phase_and_listener(self) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -6711,6 +6722,7 @@ class SurrealSupervisorTests(unittest.TestCase):
     def test_maintenance_owner_refuses_changed_live_authority_and_profile(self) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -6746,6 +6758,7 @@ class SurrealSupervisorTests(unittest.TestCase):
     ) -> None:
         config, before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -6825,6 +6838,7 @@ class SurrealSupervisorTests(unittest.TestCase):
     def test_maintenance_replacement_invocation_is_preserved_without_stop(self) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -7028,6 +7042,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             "disposing",
         )
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "require_private_catalog"),
             patch.object(server, "recover_credentials", return_value=(after, True)),
@@ -7049,6 +7064,7 @@ class SurrealSupervisorTests(unittest.TestCase):
     ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "initializing")
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "recover_credentials") as credentials,
             self.assertRaisesRegex(
@@ -7060,6 +7076,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         server.object_mapping(config["derived_rebuild_pending"])["phase"] = "unknown"
         server.write_json(self.state / "config.json", config)
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             self.assertRaisesRegex(server.SupervisorError, "Unknown maintenance phase"),
         ):
@@ -7098,6 +7115,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.maintenance_phase(state, selected, "validated")
 
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -7137,6 +7155,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             events.append("copy")
 
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -7177,6 +7196,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             "current-restore", "accounts"
         )
         with (
+            patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "require_private_catalog"),
             patch.object(server, "recover_credentials", return_value=(after, True)),
