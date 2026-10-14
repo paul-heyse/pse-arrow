@@ -921,6 +921,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         self,
     ) -> None:
         config = self.initialized()
+        server.close_context_admission(self.state)
+        config.update(server.config_for(self.state))
+        self.assertFalse(config["accepting_writes"])
         with (
             patch.object(
                 server,
@@ -942,6 +945,33 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(observed.call_count, 4)
         pause.assert_called_once()
         self.assertEqual(server.config_for(self.state)["admission"], "open")
+        self.assertEqual(config, server.config_for(self.state))
+        self.assertTrue(config["accepting_writes"])
+
+    def test_validation_launch_keeps_published_admission_closed(self) -> None:
+        config = self.initialized()
+        server.close_context_admission(self.state, admission="validation_required")
+        config.update(server.config_for(self.state))
+        with (
+            patch.object(
+                server,
+                "service_readiness",
+                side_effect=[
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.STARTING),
+                ],
+            ),
+            patch.object(server, "service_allocation", return_value=self.allocation),
+            patch.object(server, "materialize_service"),
+            patch.object(server, "establish_protocol_readiness"),
+            patch.object(server, "open_context_admission") as opened,
+        ):
+            server.start(self.state, config, validation=True)
+        opened.assert_not_called()
+        self.assertEqual(config["admission"], "validation_required")
+        self.assertFalse(config["accepting_writes"])
+        self.assertEqual(config, server.config_for(self.state))
 
     def test_unknown_launched_lifetime_expiry_does_not_stop_or_release_its_allocation(
         self,

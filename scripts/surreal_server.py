@@ -4956,6 +4956,7 @@ def _start(
                     establish_protocol_readiness(state, config, deadline)
                 if not validation:
                     open_context_admission(state)
+                    config.update(config_for(state))
                 resumed = True
                 return None
             if observed.phase is Readiness.ACTIONABLE_ABSENT:
