@@ -1372,3 +1372,67 @@ async fn canonical_closed_file_caller_cannot_start_publication_or_collection(){
     assert!(!path.exists());assert!(received.try_recv().is_err());
     store.db.disconnect().await.unwrap();tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();assert!(received.try_recv().is_err());
 }
+
+// The peer commits registration but withholds its first acknowledgement. Public
+// collection cannot proceed past owner registration until an exact replay ACK.
+async fn file_owner_registration_peer() -> (
+    crate::canonical::CanonicalStore,
+    String,
+    mpsc::UnboundedReceiver<Object>,
+    tokio::sync::oneshot::Sender<()>,
+    tokio::task::JoinHandle<()>,
+) {
+    let listener=tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();let address=listener.local_addr().unwrap();
+    let files=Arc::new(crate::canonical_files::FileSession::wire_control().unwrap());let incarnation=files.incarnation.clone();let instance=uuid::Uuid::new_v4().to_string();let selected=instance.clone();
+    let (sent,received)=mpsc::unbounded_channel();let (release,released)=tokio::sync::oneshot::channel();
+    let server=tokio::spawn(async move {
+        let (stream,_)=listener.accept().await.unwrap();let mut socket=accept_hdr_async(stream,native_protocol).await.unwrap();let mut released=Some(released);let mut original:Option<Object>=None;let mut drained=false;
+        while let Some(Ok(Message::Binary(bytes)))=socket.next().await {
+            let Value::Object(request)=surrealdb::types::decode(&bytes).unwrap() else{continue;};if request.get("id").is_none_or(|id|matches!(id,Value::None)){continue;}
+            let method=request.get("method").and_then(Value::as_string).unwrap();
+            let result=if method=="query" {
+                let params=request.get("params").and_then(Value::as_array).unwrap();let query=params[0].as_string().unwrap();let variables=params[1].as_object().unwrap();
+                let (value,transaction)=if query.contains("register_owner(") {
+                    let row=variables.get("row").unwrap().as_object().unwrap().clone();assert!(!drained);
+                    let first=original.is_none();if let Some(expected)=&original{assert_eq!(&row,expected,"retry must settle the exact original registration");}else{original=Some(row.clone());}
+                    sent.send(row.clone()).unwrap();if first{released.take().unwrap().await.unwrap();}
+                    (Value::Object(row),true)
+                }else if query.contains("drain_owner(") {
+                    let expected=variables.get("expected").unwrap().as_object().unwrap();assert_eq!(Some(expected),original.as_ref());drained=true;sent.send(expected.clone()).unwrap();(Value::Bool(true),true)
+                }else if query.contains("SELECT key,state,storage_incarnation") {
+                    let mut row=Object::new();row.insert("key",selected.clone());row.insert("state","attached");row.insert("storage_incarnation",incarnation.clone());(Value::Object(row),false)
+                }else if query.contains("fn::pse_files_v1::collect(") {
+                    assert!(original.is_some()&&!drained);let mut row=Object::new();row.insert("state","collected");(Value::Object(row),true)
+                }else{panic!("unexpected file-owner query: {query}");};
+                let statement=|value|{let mut row=Object::new();row.insert("status","OK");row.insert("time","0ns");row.insert("result",value);Value::Object(row)};
+                let statements=if transaction{vec![statement(Value::None),statement(value),statement(Value::None)]}else{vec![statement(value)]};Value::Array(statements.into())
+            }else if method=="version"{Value::String("3.3.0".into())}else{Value::None};
+            let mut reply=Object::new();reply.insert("id",request.get("id").unwrap().clone());reply.insert("session",request.get("session").unwrap().clone());reply.insert("result",result);
+            socket.send(Message::Binary(surrealdb::types::encode(&Value::Object(reply)).unwrap().into())).await.unwrap();
+        }
+        assert!(drained,"physical disconnect must drain the retained original registration");
+    });
+    let options=crate::canonical::CanonicalOptions{endpoint:format!("ws://{address}"),namespace:"namespace".into(),database:"database".into(),username:"owner".into(),password:"test".into(),selection_username:"viewer".into(),selection_password:"test".into(),state_path:std::path::PathBuf::new(),initializer_nonce:None};
+    let sdk=Surreal::new::<Ws>((address,Config::new().bounded_requests())).await.unwrap();let client=Arc::new(super::CanonicalClient::new(sdk,Duration::from_secs(2),&options));
+    let issuing_store=Arc::new(std::sync::OnceLock::new());issuing_store.set(uuid::Uuid::new_v4().to_string()).unwrap();
+    let store=crate::canonical::CanonicalStore{db:client.clone(),activation_db:client,problem_turns:Arc::default(),fixture_lifetime:None,issuing_store,files,result_read_drain:Arc::default(),connection_options:options.clone(),state_path:options.state_path.clone(),database:options.database,namespace:options.namespace};
+    (store,instance,received,release,server)
+}
+
+async fn original_file_owner_survives_abandoned_ack(cancelled:bool,retry:bool){
+    let (store,instance,mut requests,release,server)=file_owner_registration_peer().await;let caller=store.clone();let selected=instance.clone();
+    let submitted=tokio::spawn(async move{super::within_clock(tokio::time::Instant::now()+Duration::from_millis(300),caller.collect_file(&selected)).await});
+    let original=tokio::time::timeout(Duration::from_secs(2),requests.recv()).await.unwrap().unwrap();
+    if cancelled{submitted.abort();assert!(submitted.await.unwrap_err().is_cancelled());}else{assert!(submitted.await.unwrap().is_err());}
+    assert_eq!(store.files.registered_owner().await,Some(original.clone()),"unknown ACK retains the original row for retry and teardown");
+    release.send(()).unwrap();
+    if retry{store.collect_file(&instance).await.unwrap();assert_eq!(requests.recv().await.unwrap(),original);}
+    tokio::time::timeout(Duration::from_secs(2),async{loop{match store.disconnect().await{Ok(())=>break,Err(crate::canonical::CanonicalError::ConnectionBusy{..})=>tokio::task::yield_now().await,Err(error)=>panic!("pending original drain failed: {error}")}}}).await.unwrap();
+    assert_eq!(requests.recv().await.unwrap(),original);assert!(requests.try_recv().is_err());
+    tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();
+    let path=store.files.path(&instance).unwrap();let root=path.parent().unwrap().parent().unwrap();if root.exists(){std::fs::remove_dir_all(root).unwrap();}
+}
+#[tokio::test]
+async fn canonical_file_owner_lost_ack_retries_exact_original_then_disconnects(){original_file_owner_survives_abandoned_ack(false,true).await;}
+#[tokio::test]
+async fn canonical_file_owner_cancelled_ack_disconnects_pending_original(){original_file_owner_survives_abandoned_ack(true,false).await;}

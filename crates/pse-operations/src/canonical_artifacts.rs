@@ -407,6 +407,7 @@ mod canonical_artifact_tests {
         reason = "isolated owned artifact fixtures require valid native setup and assertions"
     )]
     use super::*;
+    use surrealdb::types::Value;
     async fn fixture() -> (CanonicalStore, Revision) {
         let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
         let mut options =
@@ -841,7 +842,7 @@ mod canonical_artifact_tests {
         bounded_query(store.db.query(crate::canonical::ACQUIRE_PROTECTION).bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone())).bind(("key",grant.clone())).bind(("lifetime",1_000_000i64))).await.unwrap();
         bounded_query(store.db.query("BEGIN; RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection); COMMIT;").bind(("key",intent.key.clone())).bind(("protection",grant.clone()))).await.unwrap();
         bounded_query(store.db.query(crate::canonical::RELEASE_PROTECTION).bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone())).bind(("sequence",codec::encode_uint(revision.sequence).unwrap())).bind(("protection",grant.clone()))).await.unwrap();
-        loop {let mut clock=bounded_query(store.db.query("RETURN time::micros();")).await.unwrap();if codec::decode_int(clock.take(0).unwrap()).unwrap()>=deadline{break;}tokio::time::sleep(std::time::Duration::from_millis(10)).await;}
+        loop {let mut clock=bounded_query(store.db.query("RETURN time::micros();")).await.unwrap();if codec::decode_int(clock.take(0).unwrap()).unwrap()>=deadline{break;}tokio::time::sleep(Duration::from_millis(10)).await;}
         assert!(store.settle_protection_grant(&revision.problem,&grant).await.unwrap());
         let mut absent=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_protections',$key);").bind(("key",grant.clone()))).await.unwrap();assert!(absent.take::<Option<Object>>(0).unwrap().is_none());
         bounded_query(store.db.query("UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET incarnation=$authority,protection_closed_through=31dec;").bind(("problem",revision.problem.clone())).bind(("authority",uuid::Uuid::new_v4().to_string()))).await.unwrap();

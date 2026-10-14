@@ -163,7 +163,12 @@ pub(crate) struct FileSession {
     pub(crate) incarnation:String,
     root:PathBuf,
     process:ProcessIdentity,
-    owner:tokio::sync::Mutex<Option<Object>>,
+    owner:tokio::sync::Mutex<Option<OwnerRegistration>>,
+}
+#[derive(Debug)]
+struct OwnerRegistration {
+    row:Object,
+    acknowledged:bool,
 }
 impl FileSession {
     pub(crate) fn from_state(state:&Path,database:&str)->Result<Self,CanonicalError>{
@@ -176,7 +181,9 @@ impl FileSession {
     #[cfg(test)]
     pub(crate) fn wire_control()->Result<Self,CanonicalError>{Ok(Self{incarnation:uuid::Uuid::new_v4().to_string(),root:std::env::temp_dir().join(format!("pse-wire-control-no-file-effects-{}",uuid::Uuid::new_v4())),process:ProcessIdentity::current()?,owner:tokio::sync::Mutex::new(None)})}
     pub(crate) fn require_current(&self)->Result<(),CanonicalError>{self.process.require_current()}
-    pub(crate) async fn registered_owner(&self)->Option<Object>{self.owner.lock().await.clone()}
+    // Pending original rows also belong to physical teardown. An absent server
+    // row must become a drained tombstone before any delayed registration lands.
+    pub(crate) async fn registered_owner(&self)->Option<Object>{self.owner.lock().await.as_ref().map(|owner|owner.row.clone())}
     pub(crate) fn path(&self,instance:&str)->Result<PathBuf,CanonicalError>{uuid::Uuid::parse_str(instance).map_err(configuration)?;Ok(self.root.join("instances").join(format!("{instance}.sealed")))}
 }
 fn configuration(error:impl std::fmt::Display)->CanonicalError{CanonicalError::Configuration(error.to_string())}
@@ -187,15 +194,25 @@ impl CanonicalStore {
     pub(crate) async fn registered_file_owner(&self)->Result<String,CanonicalError>{
         self.files.require_current()?;
         let mut owner=self.files.owner.lock().await;
-        if let Some(owner)=owner.as_ref(){return Ok(codec::decode_string(owner.get("key").cloned().ok_or(CanonicalError::IncompleteResponse)?)?);}
-        // Capture managed scope at actual registration, after any connection
-        // setup. Subsequent IO uses only the immutable process PID fence.
-        let process=ProcessIdentity::current()?;
-        let key=uuid::Uuid::new_v4().to_string(); let mut row=Object::new();
-        row.insert("key",key.clone());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("boot",process.boot.clone());row.insert("pid_namespace",process.pid_namespace.clone());row.insert("pid",codec::encode_uint(u64::from(process.pid))?);row.insert("start",process.start.clone());row.insert("drained",false);if let Some(invocation)=&process.invocation{row.insert("invocation",invocation.clone());}
-        if let Some(unit)=&process.unit{row.insert("unit",unit.clone());}if let Some(group)=&process.group{row.insert("group",group.clone());}if let Some(inode)=process.group_inode{row.insert("group_inode",codec::encode_uint(inode)?);}
-        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",row.clone()))).await?;
-        let mut saved=last_object(&mut response)?;saved.remove("id");if saved!=row{return Err(CanonicalError::OperationReused);} *owner=Some(row);Ok(key)
+        if owner.is_none(){
+            // Retain the exact original row before first dispatch. Cancellation
+            // drops only this mutex guard; retry and physical drain keep the row.
+            let process=ProcessIdentity::current()?;
+            let mut row=Object::new();
+            row.insert("key",uuid::Uuid::new_v4().to_string());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("boot",process.boot.clone());row.insert("pid_namespace",process.pid_namespace.clone());row.insert("pid",codec::encode_uint(u64::from(process.pid))?);row.insert("start",process.start.clone());row.insert("drained",false);if let Some(invocation)=&process.invocation{row.insert("invocation",invocation.clone());}
+            if let Some(unit)=&process.unit{row.insert("unit",unit.clone());}if let Some(group)=&process.group{row.insert("group",group.clone());}if let Some(inode)=process.group_inode{row.insert("group_inode",codec::encode_uint(inode)?);}
+            *owner=Some(OwnerRegistration{row,acknowledged:false});
+        }
+        let pending=owner.as_mut().ok_or(CanonicalError::IncompleteResponse)?;
+        let key=codec::decode_string(pending.row.get("key").cloned().ok_or(CanonicalError::IncompleteResponse)?)?;
+        if !pending.acknowledged {
+            #[cfg(all(test,feature="canonical-tests"))]
+            effect_pause("register").await;
+            let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",pending.row.clone()))).await?;
+            let mut saved=last_object(&mut response)?;saved.remove("id");if saved!=pending.row{return Err(CanonicalError::OperationReused);}
+            pending.acknowledged=true;
+        }
+        Ok(key)
     }
     /// Reserve original result publication before file creation. Repeating the
     /// same intent selects its original physical instance without new science.
@@ -510,6 +527,23 @@ mod catalog_controls {
         let peer=CanonicalStore::connect(&{let mut options=CanonicalOptions::from_state(store.deployment_state()).unwrap();options.database=store.database().to_owned();options}).await.unwrap();peer.open().await.unwrap();assert!(peer.read_results(fence.run(),fence.attempt()).await.unwrap_err().to_string().contains("retired"));peer.disconnect().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
+    #[tokio::test]
+    async fn canonical_pending_owner_cancel_before_dispatch_disconnect_fences_late_registration(){
+        let (store,revision)=fixture().await;let fence=run(&store,revision).await;
+        let pause=EffectPause{kind:"register",ready:Arc::new(tokio::sync::Notify::new()),resume:Arc::new(tokio::sync::Notify::new())};let caller=store.clone();let gate=pause.clone();
+        let pending=tokio::spawn(FILE_EFFECT_PAUSE.scope(gate,async move{caller.reserve_result_file(&fence,"cancel-before-owner-dispatch",&crate::canonical_execution::result_payload_digest(b"[1]")).await}));
+        tokio::time::timeout(std::time::Duration::from_secs(30),pause.ready.notified()).await.unwrap();pending.abort();assert!(pending.await.unwrap_err().is_cancelled());
+        let original=store.files.registered_owner().await.unwrap();let key=codec::decode_string(original.get("key").cloned().unwrap()).unwrap();assert!(!store.files.owner.lock().await.as_ref().unwrap().acknowledged);
+        let mut options=CanonicalOptions::from_state(store.deployment_state()).unwrap();options.database=store.database().to_owned();let peer=CanonicalStore::connect(&options).await.unwrap();peer.open().await.unwrap();
+        let mut before=bounded_query(peer.db.query("RETURN SELECT * FROM ONLY type::record('canonical_file_owners',$key);").bind(("key",key.clone()))).await.unwrap();assert!(before.take::<Option<Object>>(0).unwrap().is_none());
+        bounded_query(peer.db.query("BEGIN; RETURN fn::pse_files_v1::freeze($pse_rpc_expires_at,$incarnation); COMMIT;").bind(("incarnation",store.files.incarnation.clone()))).await.unwrap();
+        store.disconnect().await.unwrap();
+        let mut after=bounded_query(peer.db.query("RETURN SELECT * FROM ONLY type::record('canonical_file_owners',$key); RETURN SELECT key FROM canonical_file_owners; RETURN SELECT key FROM canonical_file_instances;").bind(("key",key.clone()))).await.unwrap();let mut receipt=after.take::<Option<Object>>(0).unwrap().unwrap();assert_eq!(receipt.get("drained"),Some(&Value::Bool(true)));receipt.remove("id");receipt.insert("drained",false);assert_eq!(receipt,original);assert_eq!(after.take::<Vec<Object>>(1).unwrap().len(),1);assert!(after.take::<Vec<Object>>(2).unwrap().is_empty());
+        bounded_query(peer.db.query("BEGIN; RETURN fn::pse_files_v1::thaw($pse_rpc_expires_at,$incarnation); COMMIT;").bind(("incarnation",store.files.incarnation.clone()))).await.unwrap();
+        assert!(bounded_query(peer.db.query("BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",original))).await.is_err());
+        peer.disconnect().await.unwrap();store.remove_isolated_fixture().await.unwrap();
+    }
+
     #[tokio::test]
     async fn canonical_files_unknown_collection_and_forged_intent_leave_no_physical_residue(){
         let (store,_revision)=fixture().await;assert!(!store.files.root.exists());

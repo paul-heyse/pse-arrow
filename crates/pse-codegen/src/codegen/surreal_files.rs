@@ -176,8 +176,17 @@ DEFINE FUNCTION fn::pse_files_v1::thaw($expiry:int,$incarnation:string) -> bool 
 };
 DEFINE FUNCTION fn::pse_files_v1::drain_owner($expiry:int,$expected:object) -> bool {
     LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$expected.key) FOR UPDATE;
-    IF $owner=NONE OR object::remove($owner,['id','drained'])!=object::remove($expected,'drained') { THROW 'file owner drain exact identity differs'; };
-    UPDATE ONLY type::record('canonical_file_owners',$expected.key) SET drained=true;
+    IF $owner=NONE {
+        // Local cancellation can precede registration dispatch. Fence that
+        // original key permanently before any delayed create can acquire it.
+        LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
+        LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
+        IF $gate=NONE OR $marker=NONE OR $expected.storage_incarnation!=$gate.storage_incarnation OR $expected.storage_incarnation!=$marker.payload_incarnation OR $expected.issuing_store!=$marker.issuing_store OR $expected.drained OR $expected.pid=0dec OR string::len($expected.key)!=36 OR string::len($expected.boot)=0 OR string::len($expected.start)=0 OR string::len($expected.pid_namespace)=0 { THROW 'file pending owner drain original identity unavailable'; };
+        CREATE ONLY type::record('canonical_file_owners',$expected.key) CONTENT object::extend($expected,{drained:true});
+    } ELSE {
+        IF object::remove($owner,['id','drained'])!=object::remove($expected,['id','drained']) { THROW 'file owner drain exact identity differs'; };
+        UPDATE ONLY type::record('canonical_file_owners',$expected.key) SET drained=true;
+    };
     fn::pse_execution_v1::deadline($expiry); RETURN true;
 };
 "#);
