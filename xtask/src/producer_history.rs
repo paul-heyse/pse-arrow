@@ -447,7 +447,15 @@ pub(crate) fn verify_historical_evidence(directory: &Path) -> Result<serde_json:
     let expected = fs::read_to_string(directory.join("COMPLETE")).context("historical evidence is incomplete")?;
     ensure!(file_digest(&directory.join("index.json"))? == expected, "historical index seal differs");
     let index = validate(directory)?;
+    // Production captures retain this exact context as an owned raw member.
+    // Consumers no longer reopen the original mutable build-evidence JSON.
+    let actual_build_evidence = index.legacy_evidence.as_ref().map(|path| {
+        let member = index.members.get(path).context("historical actual build context missing")?;
+        Ok::<serde_json::Value, anyhow::Error>(serde_json::from_slice(&protected_bytes(directory, member)?)?)
+    }).transpose()?;
     Ok(serde_json::json!({"version": index.version, "historical_only": true,
+        "actual_build_evidence": actual_build_evidence, "context": index.context,
+        "unit_graph": index.graph,
         "producer_identity": index.receipt.identity, "selected_root": index.receipt.selected_root,
         "unit_associations": index.associations.len(), "protected_members": index.members.len(),
         "namespace_raw_coverage": "inventory-only except separately retained consumed members",
@@ -580,9 +588,13 @@ mod tests {
         assert!(generated.iter().any(|path| !path.exists()), "second role context must replace first role generated inputs");
         assert!(worker.deployment.as_ref().unwrap().built_artifact.verify().is_err());
         assert_eq!(verify_historical_evidence(&evidence).unwrap()["historical_only"], true);
+        let retained_context = verify_historical_evidence(&evidence).unwrap()["actual_build_evidence"].clone();
+        assert_eq!(retained_context, serde_json::from_slice::<serde_json::Value>(&fs::read(&worker_evidence).unwrap()).unwrap());
         fs::remove_file(&worker_evidence).unwrap();
         fs::remove_dir_all(&root).unwrap();
-        verify_historical_evidence(&evidence).unwrap();
+        let historical = verify_historical_evidence(&evidence).unwrap();
+        assert_eq!(historical["actual_build_evidence"], retained_context);
+        assert_eq!(historical["context"]["package"], "p39-history-fixture");
         let context_member = &worker_index.members[&worker_evidence].protected;
         fs::write(evidence.join(context_member), b"substituted installer/compiler context").unwrap();
         assert!(verify_historical_evidence(&evidence).is_err());
