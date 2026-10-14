@@ -442,8 +442,9 @@ never substitutes success for a requested failed result or orders by wall clock.
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). The implemented canonical substrate replaces the PostgreSQL/Delta publication composition. The decision remains proposed; implementation and focused controls do not establish comprehensive qualification or decision acceptance.
 
 One authenticated loopback SurrealDB database holds canonical source revisions, compilation
-products, execution receipts, original scientific results and analysis lineage. RocksDB is the
-supported native backend. The registry declares their contracts; `pse-operations` supplies
+products, execution receipts, scientific result descriptors and analysis lineage. Bulk
+result/artifact/seed payloads reside in sealed private files; RocksDB is the supported
+native catalog backend. The registry declares their contracts; `pse-operations` supplies
 typed operations and generated native structural functions. Scientific computation and bulk
 payload staging stay outside short guarded admission transactions. Ordinary execution
 retains the actual scientific outcome automatically. Explicit ephemeral execution keeps its
@@ -684,8 +685,20 @@ operation, lineage or retirement list. All guard writers preserve it. Missing gu
 a reset/restore cannot reuse the same addressable authority incarnation with a cleared floor.
 A fresh valid occurrence remains creatable, including identical scientific content. An absent
 header alone cannot establish settlement of an unknown original grant. After full settlement
-there is no analysis-owned header, graph, input, root, protection, guard, admission, cleanup,
-retirement or audit payload. Partial cleanup is restartable from its retiring header.
+under the same source-authority incarnation there is no analysis-owned header, graph,
+input, root, protection, guard, admission, cleanup, retirement or audit payload. Partial
+cleanup is restartable from its retiring header.
+
+**Restored historical settlement (ADR-0187, proposed).** Restore fences the old creation
+authority while preserving admitted analyses and artifacts. Cleanup validates the exact
+existing immutable header; it never grants fresh creation permission or advances the new
+authority's unrelated expiry floor. A drained historical header remains a terminal retiring
+receipt for exact lost-response settlement. It admits neither reads, activation nor new
+borrowers, and retains no graph, input, root, block or file obligation. An absent unknown
+old header is not proof of settlement. Historical protection cleanup likewise requires
+its exact persisted grant or admitted read/header association and no live strong ticket.
+It retains a released terminal grant receipt for retry without advancing the replacement
+authority floor; new acquisition and renewal still require current authority.
 
 **Plan38e file lifetime target (ADR-0187, proposed).** Artifact occurrences, independent analysis obligations, historical runs, unresolved publication intents and exact read tickets retain their sufficient file closure independently. Occurrence retirement, history-detail release and physical collection are separate transitions. Original creation/replay floors fence late acquisition; collection never infers authority from age, size or content equality. Native DataFusion providers consume exact frozen file lists under these tickets and the existing SQL/function/resource context; a directory listing is not a snapshot.
 
@@ -760,9 +773,11 @@ catalog owners or an unvalidated initializer leave admission closed. Disposal fo
 acknowledged current initialization and targets the exact replaced database.
 
 A same-interpretation restore also cannot expose copied creation authority at an old
-address. Before readmission, its isolated maintenance owner removes copied analysis state,
-preserves the source closure floor while rotating source incarnations, and removes the old
-copied database after establishing the fresh database identity. Existing authenticated
+address. Before readmission, its isolated maintenance owner preserves admitted analysis
+headers, graphs, roots and independent artifact/file obligations while rotating source
+incarnations and retaining closure floors. Unissued old creation requests remain fenced;
+historical reads and exact cleanup retain their admitted meaning. The owner removes the
+old copied database after establishing the fresh database identity. Existing authenticated
 clients must not retain access to a copied old namespace/database. A changed local supervisor
 instance identifier alone does not fence database requests.
 

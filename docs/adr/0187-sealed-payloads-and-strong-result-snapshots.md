@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, DP-09, PS-09, PS-10]
 blueprint: [§19, §20.1, §20.2, §20.4, §20.6, §21]
 review: docs/design_review/reviews/design_review_sealed-payloads-and-strong-result-snapshots_2026-10-13.md
-evidence: Proposed
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A required cross-host client, network filesystem, power-loss durability guarantee, or measured IPC representation limitation changes the selected premises.
@@ -41,7 +41,7 @@ Reserve the original publication intent and unique physical instance before file
 
 An admitted read owns a nonexpiring exact manifest ticket covering future unread files. Plans, partition streams, read-ahead and release work hold it until actual drain. Finite grant deadlines remain permission controls, not reader death proofs. Register each file owner against store incarnation, Linux boot/PID namespace/PID/start identity; managed workers also bind their invocation. Children register independently before file work. Reaping requires exact death/drain; unknown remains protected. Collection admission and new borrower admission arbitrate transactionally, and a collecting instance never revives.
 
-Backup closes admission and excludes GC before freezing its catalog; authenticated owners drain before offline copying. Include all required sealed files and unresolved intent state, including acknowledged unpublished output. Legitimately absent/unsealed staging remains unresolved. Publish completion only after inventory/digest closure. Restore uses fresh root/incarnation/credentials and validates closure before activation. Old-root cleanup still needs authenticated drain. Disposable design-phase data regenerates directly; no compatibility production backend is retained.
+Backup closes admission and excludes GC before freezing its catalog; authenticated owners drain before offline copying. Include all required sealed files and unresolved intent state, including acknowledged unpublished output. Legitimately absent/unsealed staging remains unresolved. Publish completion only after inventory/digest closure. Restore uses fresh root/incarnation/credentials and validates closure before activation. Restore preserves admitted analyses, graph/source roots and independent artifact/file obligations while rotating new-creation authority. Exact historical retirement keeps a terminal receipt without advancing the new authority floor; it cannot admit reads or reacquisition. Old-root cleanup still needs authenticated drain. Disposable design-phase data regenerates directly; no compatibility production backend is retained.
 
 ### Consequences
 
@@ -53,7 +53,7 @@ Use existing permissions, original-intent receipts and replay floors; retain fil
 
 ### Confirmation
 
-The focused target review supplies architectural evidence before dependent code. Plan 38e owns implementation and named targeted controls; Plan 38g owns assembled qualification. No measured throughput or power-loss claim follows from this decision.
+The focused target review supplies architectural evidence before dependent code. Plan 38e records implemented scope and named targeted controls, including the 2026-10-14 native crash/reopen/offline backup/fresh-root restore journey and protected semantic validation; Plan 38g owns assembled qualification. No measured throughput or power-loss claim follows from this decision.
 
 ## Pros and cons
 
@@ -66,3 +66,5 @@ Native IPC access and bulk-byte locality remove a database payload crossing whil
 ## Status history
 
 - 2026-10-13 — proposed following maintainer-selected topology/crash boundary and authorized full Plan 38e execution; review and implementation evidence remain distinct.
+
+- 2026-10-14 — implemented with bounded targeted acceptance recorded in Plan 38e; proposed decision status and separately owed assembled qualification remain unchanged.

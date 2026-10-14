@@ -6,8 +6,8 @@ progress. The current architecture and its supported scope live in the
 
 [Plan 38: Efficiency and the common solver target](38-efficiency-and-solver-target.md)
 owns the current reconciled efficiency/solver scope and supersedes remaining Plan36 work.
-Its [current handoff](38-efficiency-and-solver-target.md#execution-checkpoint--plan-38d-2026-10-13)
-routes the scientific workflow implementation, open companion work and separately owed assembled
+Its [current handoff](38-efficiency-and-solver-target.md#execution-checkpoint--plan-38e-2026-10-14)
+routes the scientific workflow and durable-result implementation, open companion work and separately owed assembled
 qualification. The owning companions retain their exact outcomes and limits. Plan37 supplies
 completed lifecycle prerequisites; this handoff does not resume or qualify a stopped campaign.
 

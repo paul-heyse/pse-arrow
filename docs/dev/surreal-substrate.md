@@ -1,9 +1,9 @@
 # Local SurrealDB substrate
 
 The [current-work index](../plans/README.md) routes to transport, lifecycle and
-qualification owners. [Plan 37](../plans/37-surrealdb-lifecycle-and-integration.md) owns
-the lifecycle transition and its affected acceptance; earlier plans retain their separately
-scoped qualification. Blueprint §20.5–§20.6 and ADR-0164 own the substrate contracts.
+qualification owners. [Plan 38e](../plans/38e-durable-records-results-and-analytics.md) owns
+the sealed-payload transition and its affected acceptance; Plan 37 and earlier plans retain
+their separately scoped qualification. Blueprint §20.5–§20.6 and ADR-0164 own the substrate contracts.
 This page describes the local server operator surface implemented by
 `scripts/surreal_server.py`; its bounded controls do not qualify all scientific operations,
 remote deployment, returned physical disk space or physical power-loss survival.
@@ -14,7 +14,7 @@ Use `just surreal <command>` and the focused test recipes in `just --list`.
 The underlying tool commands are:
 
 ```bash
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v5
+.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v6
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
 ```
@@ -26,9 +26,9 @@ through symlinks. Repeated setup of an owned compatible state preserves its chos
 release, credentials and allocation; it is not a reconfiguration or upgrade command.
 No legacy import, cleanup or deletion of other application state occurs.
 
-The current generated interpretation is `pse.substrate.v5`, including independent
+The current generated interpretation is `pse.substrate.v6`, including independent
 scientific artifacts, copied study inputs and releasable detail history with permanent
-identity fences. Fresh stores and evidence replace earlier design-phase data. These commands
+identity fences, sealed payload descriptors and nonexpiring exact manifest tickets. Fresh stores and evidence replace earlier design-phase data. These commands
 do not authorize activation, migration or deletion of an existing deployment;
 an existing interpretation mismatch still refuses ordinary startup/admission.
 
@@ -45,7 +45,8 @@ The owned state contains:
 |---|---|
 | `config.json` | Endpoint, namespace/database, interpretation, admission state, server receipt and finite resource allocation |
 | `credentials.json` | Owner and read-only selection credentials; mode 0600 |
-| `database/` | RocksDB files, including recovery logs and committed state |
+| `database/` | RocksDB catalog files, including recovery logs and committed state |
+| `payloads/<payload_incarnation>/<database>/` | Private sealed IPC/opaque files, unresolved staging and persistent per-instance locks |
 | `tmp/` | Server temporary-file location; not included in an offline backup |
 | `server.log`, `.log.1`, `.log.2` | Private supervisor-captured server logs, at most 8 MiB each |
 | `server-process.json` | Current child PID/start identity, instance and host allocation; readiness verifies its listener and cgroup ownership |
@@ -179,7 +180,7 @@ Timing uses a dedicated state and endpoint. With an already built linked worker:
 ```bash
 timing_state="${XDG_STATE_HOME:-$HOME/.local/state}/pse-arrow/surreal-timing-v2"
 scripts/pse-env --resource-class timing -- just surreal setup --state "$timing_state" \
-  --port 18242 --interpretation pse.substrate.v5 --execution-profile timing \
+  --port 18242 --interpretation pse.substrate.v6 --execution-profile timing \
   --worker-executable "$PWD/target/debug/pse-worker"
 scripts/pse-env --resource-class timing -- just surreal start --state "$timing_state"
 ```
@@ -282,15 +283,53 @@ For the initial supported backup route, quiesce and drain, then:
 .venv/bin/python scripts/surreal_server.py backup --drained --destination /path/to/new-backup
 ```
 
-Backup leaves the server stopped and admission closed. It copies the entire offline
-database together with configuration, credentials, interpretation, admitted immutable
-generation closures and isolated context descriptors, then writes a
-SHA256 inventory in `backup.json`. Keep this private backup as carefully as live
+Backup freezes new file admission and collection before capturing the catalog, proves
+authenticated file owners and managed work drained, and leaves the server stopped and
+admission closed. It copies the entire offline database together with configuration,
+credentials, interpretation, admitted immutable generation closures, isolated context
+descriptors and the exact required sealed/staging file closure. The v3 `backup.json`
+manifest records this inventory and publishes completion last. Missing required sealed
+files refuse backup; unresolved intents and collecting tombstones retain their status.
+Collecting bytes with the exact unsealed zero/empty descriptor remain unresolved copied
+bytes under SHA256 inventory; they acquire no seal acknowledgment or scientific validity.
+An already unlinked collecting file is a valid unresolved deletion, never an invitation
+to recreate its path. Known private empty instance locks are operational synchronization
+state, validated separately and omitted from the scientific inventory; unknown files or
+held locks refuse offline capture. After authenticated freeze and drain, backup can
+settle the exact two-link crash alias left between no-replace publication and pending-name
+removal under its existing instance lock. It removes only the redundant pending name,
+keeps catalog uncertainty unchanged and refuses unknown aliases. Keep this private backup as carefully as live
 credentials. A destination must be new or empty, outside the live state tree. No online
 file copy or independent WAL/data-file copy is supported. The separately owned restore
 maintenance phase uses native export/import to establish its fresh database identity;
 that phase is not an alternate backup format.
 An interrupted incomplete copy lacks a valid complete manifest and is not a ready backup.
+
+## Sealed files and owner recovery
+
+Result files are complete uncompressed IPC files, packed within one attempt, relation,
+schema and interpretation. Packing targets 16 MiB with a 32 MiB hard bound and flushes
+at demanded acknowledgment/live-prefix boundaries. Opaque JSON seed/progress payloads
+retain their encoding. Catalog acknowledgments bind the exact file instance, digest,
+batch ordinal, codec and schema; a directory listing is never a result snapshot.
+
+Admitted manifest tickets retain future unread files without lease expiry. Closing the
+logical caller prevents new admission while existing read continuations remain protected;
+physical disconnect waits for file effects and read drain. Copied Arrow buffers retain
+allocation owners after snapshot release. Creation deadlines remain finite permission
+controls and do not shorten admitted-reader lifetime.
+
+Backup and restore require an explicitly built native verifier selected by
+`--payload-verifier /absolute/path/to/pse-canonical-recovery`. Its executable digest is
+recorded and rechecked; these operations never compile an implicit replacement. The
+verifier owns canonical framed payload digests; the backup's SHA256 copy inventory is a
+separate integrity layer. A changed verifier requires explicit reselection.
+
+`recover-file-owners --state PATH` reconciles only authenticated dead owners in the
+already active selected catalog. It neither initializes nor starts a service and does
+not freeze, stop or override another owner. Live or unprovable ownership remains
+protective. Collection serializes with publication/recovery through persistent instance
+locks and rechecks catalog state before touching bytes. Collected instances cannot revive.
 
 ## Restore and validation
 
@@ -298,9 +337,9 @@ Restore into a new or empty owned target, never over an existing application:
 
 ```bash
 .venv/bin/python scripts/surreal_server.py restore --state /path/to/restored-state \
-  --source /path/to/new-backup --interpretation pse.substrate.v5
+  --source /path/to/new-backup --interpretation pse.substrate.v6
 .venv/bin/python scripts/surreal_server.py validate --state /path/to/restored-state \
-  --interpretation pse.substrate.v5 --check-command <typed-semantic-validator> <arguments>
+  --interpretation pse.substrate.v6 --check-command <typed-semantic-validator> <arguments>
 .venv/bin/python scripts/surreal_server.py start --state /path/to/restored-state
 ```
 
@@ -311,10 +350,12 @@ directory permissions may narrow while retaining owner access, but may not widen
 modes remain checked. Intermediate-directory and manifest symlinks refuse. Managed generation/context paths are rerooted into the
 new state; restored serving does not depend on the original state directory. Live
 process and admission receipts are not restored. Restore reserves the destination and publishes
-a fresh closed namespace/database before copying backup bytes. It removes copied analysis
-products, rotates source-authority incarnations while retaining their closure floors, copies
-the current database into the fresh identity, rotates root credentials and removes the exact
-old copied database. Unrelated catalog owners refuse maintenance. Non-analysis operation
+a fresh closed namespace/database before copying backup bytes. It preserves admitted
+analyses, graph details, source roots and independent artifact/file obligations, rotates
+source-authority incarnations while retaining their closure floors, copies the current
+database into the fresh identity, rotates root credentials and removes the exact old copied
+database. Physical payload placement is rehomed under a fresh incarnation; scientific
+descriptors remain stable. Unrelated catalog owners refuse maintenance. Operation
 identities remain current; old authenticated clients cannot write the copied old database.
 The target records `validation_required` with `accepting_writes=false`; ordinary start refuses it.
 Credential rotation may materialize this fresh installation's systemd unit under maintenance
@@ -323,8 +364,12 @@ recovery compares complete schema metadata and exact float/binary bits while dis
 metadata map order and transport chunk boundaries.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
-`canonical_interpretations:current.interpretation` to match `pse.substrate.v5`. It then
+`canonical_interpretations:current.interpretation` to match `pse.substrate.v6`. It then
 runs the supplied semantic validator with `PSE_SURREAL_STATE` selecting the restore.
+Under the exact restored incarnation, validation atomically admits protected file readers
+while keeping GC frozen and application writes closed. Every exit refreezes file admission
+and authenticates managed descendants and registered file owners before stopping or
+publishing success; unknown ownership or an unacknowledged closure keeps validation required.
 The validator owns exact selected values, operation identities and schema/codec checks;
 it must use the read path permitted during validation, not normal write admission.
 Its output is suppressed to avoid accidental credential disclosure. Failure/timeout
@@ -392,7 +437,7 @@ ledger observation showing no live/restored service references. A remaining refe
 unavailable observation retains the fixture and prevents positive evidence publication.
 
 The directory must be new. This control checks untouched external authored file hashes, current
-schema initialization, full analysis removal, fresh database/account authority, closed
+schema initialization, explicit reconstruction, fresh database/account authority, closed
 validation and interrupted-initializer recovery. Its final report includes actual drain
 errors; it does not compile the preserved authored model or establish scientific parity.
 Catalog observations use top-level `INFO` statements with exact catalog/nonce acknowledgments;
@@ -488,8 +533,15 @@ The `up`, `start`, `complete`, `status` and `repair` commands use `--binary` for
 beta executable. `settle` and `activate` use it for the compiled `canonical-tools` xtask;
 all commands require the exact `--state` and `--folder`, and continuation/recovery requires
 `--pending-nonce`. Production publication is append-only through its producer; normal
-code generation does not rewrite frozen steps. The production v5 publication and current
-generated schema remain separate from beta's manifest and step checksums. Plan37 owns the
+code generation does not rewrite frozen steps. The production v6 publication and current
+generated schema remain separate from beta's manifest and step checksums. The explicit
+producer `--design-phase-v6-cutover` route freezes a single native schema-only release
+from the immutable v5 predecessor to the exact generated v6 target. Native beta snapshots,
+hashes, actions and lint own the publication; older frozen releases stay unchanged. This
+route requires an uninitialized, row-empty application target before any native SQL
+submission (only beta's exact bookkeeping tables are exempt). An initialized v5 database
+refuses even if its application rows are empty. It provides no backfill or preserved-data
+upgrade; explicit design-phase reconstruction remains the ordinary cutover route. Plan37 owns the
 current acceptance disposition and any remaining assembled scientific qualification.
 
 The bounded actual persistent journey is
@@ -558,11 +610,12 @@ claim neither capability absence nor representative performance.
   unknown-write settlement and physical drain. Use an independently owned fixture;
   buffering every streamed row is not evidence of reduced memory.
 
-- **I4 — Payload, history and physical recovery.** Retain native bytes in bounded
-  owned blocks, explicit scientific/audit history and engine VERSION disabled.
-  Experimental files/buckets, external payload storage and routine per-run
-  compaction are not selected. A new file consumer must first own its publication,
-  backup and collection boundary. Revisit physical recovery if capacity admission
+- **I4 — Payload, history and physical recovery.** Plan 38e supersedes the earlier
+  database-block choice for bulk results, artifacts and opaque seed/progress payloads:
+  private sealed files now own publication, strong read tickets, backup and collection.
+  Source-ingestion blocks, small control receipts, explicit scientific/audit history and
+  engine VERSION disabled remain. Experimental server files/buckets and routine per-run
+  compaction are not selected. Revisit physical recovery if capacity admission
   needs a reclaimed-byte promise: measure exact owned logical REMOVE acknowledgement,
   queued engine reclamation and later RocksDB file-space return separately.
   Logical disposal does not establish returned disk space; TTLs, timers and

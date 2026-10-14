@@ -328,3 +328,27 @@ All worker changes are integrated on main and the three owned worktrees removed.
 private test store is stopped/drained; the quiesced primary profile, shared temporary storage
 and other owners' work were preserved. No selected task remains in 38d. Substantive updates
 to other active plans and historical campaigns remain deferred until series completion.
+
+
+## Execution checkpoint — Plan 38e, 2026-10-14
+
+[38e's Outcome](38e-durable-records-results-and-analytics.md#outcome-recorded-after-implementation)
+records complete E1–E5 and I-E1/I-E2 within the selected same-host Linux process-crash target.
+Its [Verification](38e-durable-records-results-and-analytics.md#verification--bounded-implementation-acceptance-2026-10-14)
+owns actual commands, repaired failures and exclusions. SurrealDB retains shared arbitration;
+sealed private IPC/opaque files, exact physical ACKs, strong future-file tickets, guarded native
+query snapshots, independent scientific borrowers, irreversible collection and complete offline
+backup/fresh-root restore are integrated. The actual native crash/reopen/backup/restore journey,
+protected validation and stale-authority/fresh-creation controls passed. Proposed ADR-0187 and
+architecture revisions 165–166 own the enduring selected contracts; formal ADR status is unchanged.
+
+All worker changes are integrated on main and the three owned worktrees removed. Owned private
+services are stopped/drained; failed-attempt evidence, the quiesced primary and other owners are
+preserved. The explicitly approved stale allocation was archived/removed with its original
+terminal outcome unproved. No selected 38e task remains.
+
+[38f](38f-boundaries-build-test-and-development.md) functional boundary/development scope and
+[38g](38g-qualification-and-cutover.md) assembled/scientific/Python/performance/hygiene qualification
+remain open. General DataFusion file caches remain truthfully inactive; no throughput or power-loss
+claim follows from 38e. Shared findings close only through G4's combined evidence. Substantive
+updates to other active plans and historical campaigns remain deferred until series completion.

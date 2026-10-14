@@ -1,7 +1,7 @@
 ---
 title: Durable records, results and analytics
-status: draft
-date: 2026-10-13
+status: done
+date: 2026-10-14
 adrs: [ADR-0187]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
 doc_owner: docs/plans/38-efficiency-and-solver-target.md
@@ -22,11 +22,11 @@ Current result cursors support bounded projection and C-stream buffer sharing; p
 
 | Packet | Consumes | Delivery/retirement | State |
 |---|---|---|---|
-| <a id="e1"></a>E1 | I-E1 public consumer/writer premise; accepted fences | Concrete chosen topology, operation/visibility/reader/backup contract and required decision routes | Planned |
-| <a id="e2"></a>E2 | A admitted products/receipts; existing effects; E1 for changed topology | Edit/attempt acknowledgements, immutable occurrences and exact retry/claim settlement; remove only obsolete protocol effects | Planned |
-| <a id="e3"></a>E3 | Exact demand/row/completion contract; E2 ack; E1 for representation cutover | Bounded bulk chunks and complete authoritative manifests/close, migrated writers/readers | Planned |
-| <a id="e4"></a>E4 | A5 checked batches/B3 records; E3 exact snapshots for changed storage | Demand-shaped result/analytics/replay access and equally strong protected readers, no eager all-family encoding | Planned |
-| <a id="e5"></a>E5 | E2/E3/E4 borrower/ack/read closure | Artifact/history/analysis retention, settled GC, backup/restore and direct ownership cutover | Planned |
+| <a id="e1"></a>E1 | I-E1 public consumer/writer premise; accepted fences | Concrete chosen topology, operation/visibility/reader/backup contract and required decision routes | Implemented; selected topology and I-E1/I-E2 decisions settled |
+| <a id="e2"></a>E2 | A admitted products/receipts; existing effects; E1 for changed topology | Edit/attempt acknowledgements, immutable occurrences and exact retry/claim settlement; remove only obsolete protocol effects | Implemented; exact file/receipt ACK, original-intent settlement and owner controls passed |
+| <a id="e3"></a>E3 | Exact demand/row/completion contract; E2 ack; E1 for representation cutover | Bounded bulk chunks and complete authoritative manifests/close, migrated writers/readers | Implemented; packed file publication, complete manifests and connected result controls passed |
+| <a id="e4"></a>E4 | A5 checked batches/B3 records; E3 exact snapshots for changed storage | Demand-shaped result/analytics/replay access and equally strong protected readers, no eager all-family encoding | Implemented; guarded native query/read lifetime and exact byte-charge controls passed |
+| <a id="e5"></a>E5 | E2/E3/E4 borrower/ack/read closure | Artifact/history/analysis retention, settled GC, backup/restore and direct ownership cutover | Implemented; independent borrowers, collection, actual crash/backup/restore and fresh creation passed |
 
 E2 acknowledgement/receipt simplification and E4 batch reuse can improve current storage before E1 selects replacement. Topology-specific implementation cannot precede E1's real requirements/decision. D1 owns scientific frontier and eligible seeds; E owns claims/effects/borrowers they consume. C/F own shared capacity/transport. No document-wide barrier is implied.
 
@@ -97,4 +97,134 @@ Targeted compile/unit controls accompany changed declarations/effects and actual
 
 ## Execution checkpoint — 2026-10-13
 
-The maintainer selected SurrealDB coordination plus immutable files and the existing process-crash/restart guarantee, then authorized all E1–E5 execution. ADR-0187 and architecture revision 165 install the concrete target; the focused target review accepts the proposed design, separately from implementation. Same-host independent writers, automatic recording and strong admitted reads are preserved. IPC files replace result transport fragmentation; JSON seeds stay JSON. Operations owns file/catalog lifecycle and strong tickets, Runtime owns scientific codecs/snapshot consumers, supervisor tooling owns offline inventory/drain/restore. All functional packets remain in progress until actual integration and targeted controls pass; 38f and assembled 38g qualification remain open. Existing disposable data may regenerate after authentic drain; the quiesced primary profile and other owners are preserved.
+The maintainer selected SurrealDB coordination plus immutable files and the existing process-crash/restart guarantee, then authorized all E1–E5 execution. ADR-0187 and architecture revision 165 install the concrete target; the focused target review accepts the proposed design, separately from implementation. Same-host independent writers, automatic recording and strong admitted reads are preserved. IPC files replace result transport fragmentation; JSON seeds stay JSON. Operations owns file/catalog lifecycle and strong tickets, Runtime owns scientific codecs/snapshot consumers, supervisor tooling owns offline inventory/drain/restore. The v6 descriptor cutover, strong read tickets, packed IPC writer/native query snapshots, independent scientific borrowers, irreversible collection, exact owner recovery and complete offline file backup/restore are implemented. Restore preserves admitted analyses while fencing new creation; historical cleanup keeps exact terminal settlement receipts. Independent implementation review corrections include full file-effect drain, caller-close continuations, persistent instance exclusion, original staging alias recovery, collecting tombstones and owner-registration acknowledgment uncertainty. Pure protocol/codec/tooling controls, actual v6 initialization, exact live/dead child recovery and the nonempty native analysis/artifact seed have passed; the combined store-backed lifecycle/read/restore checks and current rollout publication remain in progress. All functional packets remain open until these scoped acceptance controls pass; 38f and assembled 38g qualification remain open. Existing disposable data may regenerate after authentic drain; the quiesced primary profile and other owners are preserved.
+
+## Investigation decisions — 2026-10-14
+
+**Implemented** target choices, separately from the verification below:
+
+| Question | Selected realization and retained limit |
+|---|---|
+| I-E1 deployment/topology | Shared SurrealDB catalog/arbitration with private immutable files; same-host independent clients and supervised workers. SQLite, runner-owned journals and per-writer discovery logs add no required capability for the selected premises and were not selected. Cross-host clients or a changed durability requirement reopen the decision. |
+| I-E2 reads/collection/recovery | Exact nonexpiring manifest tickets cover future unread files, backed by authenticated Linux process/managed-owner drain. Collection is irreversible under a persistent per-instance lock. Offline backup freezes admission and GC before inventory; fresh-incarnation restore preserves scientific borrowers and fences creation. No network-filesystem, online-backup or power-loss guarantee. |
+| Representation and coalescing | Complete uncompressed IPC files pack one attempt/relation/schema/interpretation, targeting 16 MiB with a 32 MiB hard bound and demanded ACK/live-prefix flushes. Opaque JSON seeds remain JSON. Binary seeds or another codec need a concrete representation/encoding limitation; no speculative conversion. |
+| Analytics and discovery | SurrealDB owns exact manifest discovery. Rust snapshots expose native DataFusion `StreamingTable` over guarded readers using the model's native session/resources/functions. Built-in projection, filtering, sorting, limits and spill remain library-owned; no custom execution plan or new Python SQL product. |
+| Cache qualification | General DataFusion file caches remain truthfully inactive. The private footer cache has its own byte charge. Qualified cache activation and remaining shared-boundary work stay with 38f; no cache or throughput benefit is claimed here. |
+
+The guarded reader retains prepaid footer validation and exact file/read ownership that the
+pinned Arrow file source cannot carry. This is a bounded integration choice, not a second
+query engine. The old result stream codec, bulk catalog payload fields and renewing result/
+artifact read protections are replaced; source-ingestion stream encoding remains a distinct
+consumer. Disposable v5 stores regenerate through the explicit fresh-target v6 cutover;
+initialized v5 targets refuse rather than silently migrating retained data.
+
+
+## Verification — bounded implementation acceptance, 2026-10-14
+
+Baseline: zero permitted failures. **Tested** below means the named selected controls, not
+whole-product or scientific qualification. Commands used `scripts/pse-env --`, the private
+`PSE_TEST_RESOURCE_STATE=/tmp/pse38e-resources-5aLWFeeA`, and disposable selected services;
+the primary profile and shared registry migration fence were preserved. Rust commands used
+`python -m scripts.arrow_validation nextest run --no-fail-fast`, `--locked`, and the
+wrapper's explicit selected-root `force-validate` closure. Store-backed tests selected
+`PSE_SURREAL_STATE=/tmp/pse38e-native-3jxbq57v`, with `--native=` and functional admission.
+The released server was SurrealDB 3.3.0 on same-host Linux.
+
+| Evidence | Actual command/selection after the shared Rust prefix, or named command | Result and scope |
+|---|---|---|
+| **Tested** | `-p pse-operations --lib --features canonical-tests --locked -E 'test(canonical_files::tests)'` | 10/10 passed: private file identity, publication, staging and collection controls. |
+| **Tested** | `-p pse-operations --lib --features canonical-tests --locked -E 'test(canonical::transport::lifetime_tests) \| test(canonical_closed_file_caller)'` | 6/6 passed: transport/file activity ownership and closed-caller behavior. |
+| **Tested** | `-p pse-runtime --lib --locked -E 'test(result_files_unit) \| test(source_stream_unit)'` | 7/7 passed: complete IPC/metadata/IEEE/footer limits and distinct retained source encoding. |
+| **Tested** | `-p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools --locked -E 'test(payload_) \| test(recovery_creation_)'` | 4/4 passed: native inventory verification and creation controls. |
+| **Tested** | `-p pse-operations --lib --features canonical-tests --locked --test-threads 2 -E 'test(canonical_files) \| test(canonical_artifact) \| test(canonical_analys) \| test(historical_protection) \| test(canonical_file_owner) \| test(final_fixture_teardown)'` | 38/38 passed: actual catalog/file, artifact/analysis, historical cleanup and owner lifecycle controls. |
+| **Tested** | `-p pse-operations --lib --features canonical-tests --locked --test-threads 2 -E 'test(canonical_files::catalog_controls) \| test(canonical_file_owner) \| test(final_fixture)'` | Final delta 9/9 passed: exact ACK/lost-registration-ACK settlement and atomic final-fixture mint/drain. This overlaps the preceding selection. |
+| **Tested** | `-p pse-runtime --lib --features canonical-tests --locked --test-threads 1 -E 'test(canonical_connected_results_server_unit)'` | Final 4/4 passed: packed nonempty/empty demanded reads, original rows, escaped arrays, retained native query plans/functions and exact memory ownership. |
+| **Tested** | `python -m unittest scripts.tests.test_payload_files scripts.tests.test_surreal_server scripts.tests.test_surreal_rollout_producer scripts.tests.test_surrealkit_maintenance scripts.tests.test_host_admission` | 341/341 passed: file backup/inventory, strong owner drain, gated validation, fresh-unit maintenance, CLI module authority, frozen cutover and host absence proofs. After the final deadline-output refinement, the affected `test_payload_files` and `test_surreal_server` modules passed 243/243. |
+| **Tested** | `python -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery --directory /tmp/pse38e-recovery-20261014-complete` | Passed one complete native journey: SIGKILL/reopen, lower/original server caps, exact protected source/product bits, large staged payload, admitted analysis/artifact JSON, offline backup v3, fresh-root restore, old credentials/creation refusal, gated protected reads, fresh creation and terminal cleanup. Numeric profile: 1 GiB server plus one 512 MiB native worker; no `--scientific`. |
+| **Tested** | `python -m scripts.surreal_server recover-maintenance --state /tmp/pse38e-recovery-20261014-final/restored`; `validate --state /tmp/pse38e-recovery-20261014-accepted/restored --interpretation pse.substrate.v6 --check-command /home/paul/pse-arrow/target/debug/pse-canonical-recovery /tmp/pse38e-recovery-20261014-accepted/restored` | Retained failed attempts recovered through their ordinary exact owners; protected semantic validation passed and left its target stopped/quiesced. Earlier failed journeys keep their original result. |
+| **Tested** | `/tmp/pse38e-owner-recovery-probe.py`, run under the private environment; `python -m scripts.surreal_server recover-file-owners` on its selected fixture | Actual live child remained protected; after exact SIGKILL/reap the dead owner drained; repeated recovery was idle. This is process/catalog evidence, not a solver or power-loss claim. |
+| **Implemented** | `python -m scripts.arrow_validation build -p xtask --bin xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools --locked`; `just codegen` | Current canonical tools built without warnings; all five generation targets completed. The native verifier was selected by exact artifact digest. Full scope-end codegen drift/hygiene remains with 38g. |
+| **Implemented; Interface-checked** | Frozen rollout producer using surrealkit `1.0.0-beta.6`; explicit first `--design-phase-v6-cutover`, then ordinary forward publication | Current frozen head is `20261014040753__canonical_ddd85e3dc83e728b`. Native single/chain checks passed; initialized v5 targets refuse. No preserved-data migration was claimed. |
+| **Interface-checked** | Independent target and implementation reviews, including file ownership/registration, ACK shape, shared memory ownership, validation gate and terminal maintenance deltas through `b1f215025`; final SQL-output corrections inspected by the coordinator and exercised by the actual journey | Target accepted at Proposed strength; scoped final implementation reviews found no remaining material findings. Reviewers ran no builds/services/tests. |
+
+Earlier invocations were not promoted into passes. The affected Operations selection first
+reported 31/35 passing and four failures (three fixture callback-drain races and one artificial
+expiry). Connected-result invocations reported 1/4 and then 3/4 passing; missing physical ACK
+binding, duplicate metadata charging and a catalog-assumption fixture were corrected. A later
+closed-store setup invocation reported 0/4 passing before explicit normal activation; the final
+4/4 selection above used an open store. The tooling aggregate initially reported 280/283
+passing (two errors and one failure in the new ACK mock); the first host module reported
+52/53 passing because its old profile fixture lacked the v6 incarnation. Corrected selections
+are listed above. Initial complete-recovery invocations each failed one journey, first at fresh
+maintenance startup and then at validator ACK framing; retained recovery and the final fresh
+journey exercised their repairs. All counts use the zero-failure baseline and the named commands.
+
+`just turn-end` completed with exit 0: ADR indexing and formatting passed. Its
+safe-fix Ruff stage uses `--exit-zero` and emitted 49 findings before formatting
+(E501 2, PT018 2, PLC0415 1, PTH115 3, S101 2, S608 7, TRY301 3, B023 17,
+PT009 12), against the zero-finding target. This is not a clean lint qualification;
+38g owns repair and the actual scope-end check. Formatting changed no Python AST;
+Rust changes at this final step were rustfmt output, with no new functional edits.
+
+**Not run:** compiled Python consumer journeys, linked solver/reference scientific recovery,
+managed scientific worker reconstruction, full-series integration/component/performance,
+`just hygiene` and manual governance/docs/native/powerset campaigns. These remain 38g after
+38f functional scope. No latency, throughput, RSS benefit, numerical method superiority,
+cross-host, network-filesystem, online-backup or power-loss claim is **Measured** here.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** E1–E5 and I-E1/I-E2 deliver the selected SurrealDB arbitration plus sealed
+private files target. Native complete IPC packing, exact committed file-binding ACKs,
+original-intent uncertainty settlement, nonexpiring future-file tickets and authenticated
+owner recovery replace catalog bulk bytes and renewable result/artifact read ownership.
+Result snapshots reuse native DataFusion execution and model resources/functions; decoded
+arrays retain real charges after readers close. Independent analyses/artifacts retain future
+borrower obligations through producer retirement and fresh-incarnation restore. Collection
+is irreversible, per-instance physical exclusion persists, and backup v3 includes the exact
+sealed/unresolved payload closure before publishing completion. Old result codecs, payload
+fields and replaced renewal machinery are removed; no compatibility production backend remains.
+
+**Tested:** the selected controls and actual complete recovery journey in Verification pass
+within their stated conditions. **Interface-checked:** independent implementation challenge
+found and corrected drain, lock, alias, tombstone, registration, receipt and charging gaps;
+its final focused reviews found no material issue. Enduring contracts live in blueprint
+§19/§20/§21, proposed ADR-0187 and the substrate guide. ADR status remains proposed pending
+its decision-PR route. Whole-series finding closure and assembled qualification remain with G.
+
+### A mistake made and corrected
+
+The first grouped ACK omitted `file_binding`, so the writer correctly refused successful
+nonempty publication instead of weakening exact equality. Actual empty-snapshot checks also
+exposed a real duplicate charge for shared selection metadata; the snapshot now owns that
+charge once. Fixture shutdown initially mistook response wakeup for final callback drain and
+allowed independent caller minting to race its last-owner check; both now join under the
+physical admission owner.
+
+Actual recovery exposed assumptions that pure mocks missed: `reset-failed` can refuse a
+fresh/collected unit, intermediate UPDATEs return records, and deadline functions return
+booleans. Maintenance now proves exact fresh terminal absence, and SQL suppresses/binds
+intermediate output while retaining the strict single ACK and original deadline. CLI and
+reciprocal imports share one lifecycle authority. Validation opens protected file reads with
+GC still frozen and writes closed, then refreezes and authenticates owner/descendant drain on
+every exit. These were production/protocol corrections, not relaxed acceptance.
+
+### Deviations from the plan, deliberate
+
+The selected topology keeps SurrealDB rather than replacing shared arbitration. Complete
+uncompressed IPC and guarded native `StreamingTable` readers fit the actual owner/footer
+contracts; binary seeds, a new journal, general cache activation and a Python SQL product
+were not selected. The explicit v6 fresh-target publication route replaces an ambiguous
+beta migration diff; it refuses initialized v5 targets instead of backfilling disposable data.
+A private test registry respected the shared migration fence. Only the maintainer-approved
+stale allocation `dfb3005f1a24473191d59f4fcedec927` was archived/removed; its original terminal
+outcome remains unproved. Other retained data/evidence were not deletion-authorized.
+
+All owned worker changes are integrated on main. The three owned worktrees are removed at
+handoff; private services are stopped/drained and failed-attempt evidence retained. This
+companion is complete within the selected target and bounded acceptance. 38f/38g, shared
+coordinator finding dispositions and later reconciliation of other active plans stay open.
+The companion remains available to its active qualification readers rather than being retired
+prematurely.
