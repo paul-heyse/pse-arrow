@@ -385,6 +385,7 @@ impl Runtime {
             }
             let sources=self.canonical_store()?.analysis_run_sources(run).await?;
             let revision=sources.iter().find(|source|source.key==input.run().revision).ok_or_else(||contract("artifact primary source unavailable"))?;
+            let members=MemoryConsumer::new("canonical:scientific-artifact-member-files").register(&self.shared.pool());
             let mut copied=Vec::new();
             let mut contexts=Vec::new();
             let mut endpoints=Vec::new();
@@ -397,20 +398,28 @@ impl Runtime {
                 if set.batch_count==0 {
                     let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
                     let payload=super::result_files::encode_result_file(&datafusion::arrow::record_batch::RecordBatch::new_empty(schema))?;
+                    members.try_grow(payload.capacity()).map_err(pse_engine::EngineError::from)?;
                     copied.push((name,payload,0,set.batches_digest.clone()));
                 }
-                for ordinal in 0..set.batch_count {
-                    cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-
-                    let payload=self.canonical_store()?.result_payload(&input,&set.key,ordinal).await?;
+                if set.batch_count != 0 {
                     let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
-                    let decoded=super::result_files::decode_result_file_batch(payload.batch.payload.as_slice(),schema,usize::try_from(payload.batch.file_batch_index).map_err(|_|contract("scientific artifact batch index"))?,usize::try_from(payload.batch.row_count).map_err(|_|contract("scientific artifact row extent"))?)?;
-                    let checked=pse_relations::columnar::FieldCheckedBatch::admit(self.registry(),spec,decoded,&self.validation_context(),&cancel).map_err(pse_engine::EngineError::from)?;
-                    if name=="runtime.scientific_contexts" {contexts.extend(pse_relations::generated::runtime::scientific_contexts::Row::rows(&checked).map_err(super::relation)?);}
-                    if name=="runtime.trajectory_endpoints" {endpoints.extend(pse_relations::generated::runtime::trajectory_endpoints::Row::rows(&checked).map_err(super::relation)?);}
-                    let member=super::result_files::encode_result_file(checked.batch())?;
-                    let digest=pse_operations::canonical_execution::result_payload_digest(&member);
-                    copied.push((name,member,payload.batch.row_count,digest));
+                    let snapshot=super::ResultSnapshot::capture(self,std::sync::Arc::new(input.clone()),spec.id,&set.key,schema,0,u64::MAX).await?;
+                    for block in snapshot.blocks() {
+                        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                        let checked=snapshot.read_block(block,&cancel).await?;
+                        // Encoding scratch is local to this demanded logical batch;
+                        // the packed producer file is read through the snapshot cache.
+                        let scratch=MemoryConsumer::new("canonical:scientific-artifact-member-encoding").register(&self.shared.pool());
+                        scratch.try_grow(3*super::result_files::MAX_FILE_BYTES).map_err(pse_engine::EngineError::from)?;
+                        let member=super::result_files::encode_result_file(checked.batch())?;
+                        members.try_grow(member.capacity()).map_err(pse_engine::EngineError::from)?;
+                        if name=="runtime.scientific_contexts" || name=="runtime.trajectory_endpoints" {
+                            memory.try_grow(member.len().saturating_mul(4)).map_err(pse_engine::EngineError::from)?;
+                        }
+                        if name=="runtime.scientific_contexts" {contexts.extend(pse_relations::generated::runtime::scientific_contexts::Row::rows(&checked).map_err(super::relation)?);}
+                        if name=="runtime.trajectory_endpoints" {endpoints.extend(pse_relations::generated::runtime::trajectory_endpoints::Row::rows(&checked).map_err(super::relation)?);}
+                        copied.push((name,member,block.rows,block.payload_digest.clone()));
+                    }
                 }
             }
             if contexts.is_empty() || !selected.iter().any(|(name,rows,_)|*name=="runtime.candidate_assessments" && *rows>0) || !selected.iter().any(|(name,rows,_)|*name=="runtime.run_lineage" && *rows>0) { return Err(contract("scientific artifact lacks original interpretation/assessment/lineage")); }
@@ -436,7 +445,10 @@ impl Runtime {
             let provenance=serde_json::to_vec(&(1u8,run,attempt,&input.run().revision,input.run().sequence,input.attempt().generation,&input.attempt().outcome,input.manifest(),&selected)).map_err(|error|contract(error.to_string()))?;
             let bytes=copied.iter().map(|(_,payload,_,_)|payload.len() as u64).sum();
             let mut header=self.canonical_store()?.new_artifact(revision,kind.name(),provenance,copied.len() as u64,bytes).await?;
-            let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))|pse_operations::canonical_artifacts::artifact_block(&header.key,ordinal as u64,name,payload,&digest,rows)).collect::<Vec<_>>();
+            let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))| {
+                let spec=self.registry().relation(name).ok_or_else(||contract("artifact member relation unavailable"))?;
+                Ok::<_,WorkflowError>(pse_operations::canonical_artifacts::artifact_block(&header.key,ordinal as u64,name,payload,&digest,rows).native_file(&spec.id.to_string())?)
+            }).collect::<Result<Vec<_>,_>>()?;
             pse_operations::canonical_artifacts::seal_artifact_request(&mut header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner);
             self.canonical_store()?.persist_artifact(&header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner).await?;
             Ok(ScientificArtifact {runtime:self.clone(),header})
