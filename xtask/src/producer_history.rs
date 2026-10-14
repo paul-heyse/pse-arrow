@@ -13,6 +13,7 @@ use std::io::{Read, Write};
 struct Member {
     original: deployment_identity::FileObservation,
     original_file_identity: Option<(u64, u64)>,
+    original_link: Option<PathBuf>,
     protected: PathBuf,
     extent: u64,
 }
@@ -22,8 +23,24 @@ struct Member {
 struct Namespace {
     identity: String,
     entries: BTreeMap<String, serde_json::Value>,
-    aliases: Vec<BTreeSet<PathBuf>>,
+    aliases: Vec<((u64, u64), BTreeSet<PathBuf>)>,
     raw_coverage: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct PackageSource {
+    root: PathBuf,
+    paths: Vec<PathBuf>,
+    identity: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct Presence { entry: bool, target: bool }
+
+fn presence(path: &Path) -> Result<Presence> {
+    Ok(Presence { entry: path_entry_exists(path)?, target: path.try_exists()? })
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -37,11 +54,12 @@ struct Index {
     receipt: ProducerIdentity,
     declarations: InputDeclarations,
     pest_grammars: BTreeMap<String, Vec<PestGrammarInput>>,
+    package_sources: BTreeMap<String, PackageSource>,
     associations: BTreeMap<usize, Vec<PathBuf>>,
     artifact_aliases: BTreeMap<PathBuf, Vec<PathBuf>>,
     members: BTreeMap<PathBuf, Member>,
     namespaces: BTreeMap<PathBuf, Namespace>,
-    absences: BTreeMap<PathBuf, bool>,
+    absences: BTreeMap<PathBuf, Presence>,
     streams: BTreeMap<String, String>,
 }
 
@@ -75,6 +93,7 @@ fn retain(directory: &Path, path: &Path, members: &mut BTreeMap<PathBuf, Member>
     };
     #[cfg(not(unix))]
     let original_file_identity = None;
+    let original_link = if fs::symlink_metadata(path)?.is_symlink() { Some(fs::read_link(path)?) } else { None };
     let protected = PathBuf::from("members").join(&original.sha256);
     let destination = directory.join(&protected);
     if !destination.try_exists()? {
@@ -88,7 +107,7 @@ fn retain(directory: &Path, path: &Path, members: &mut BTreeMap<PathBuf, Member>
     }
     ensure!(deployment_identity::FileObservation::capture(path)? == original,
         "consumed evidence changed before protection completed: {}", path.display());
-    members.insert(path.to_path_buf(), Member { original, original_file_identity, protected, extent: metadata.len() });
+    members.insert(path.to_path_buf(), Member { original, original_file_identity, original_link, protected, extent: metadata.len() });
     Ok(())
 }
 
@@ -105,6 +124,7 @@ pub(super) fn prepare(
     let mut members = BTreeMap::new();
     let mut associations = BTreeMap::new();
     let mut artifact_aliases = BTreeMap::new();
+    let mut package_sources = BTreeMap::new();
     for index in selected_indices(graph)? {
         let unit = &graph.units[index];
         if let Some(paths) = artifact_dep_info(unit, graph, messages, root)? {
@@ -120,8 +140,12 @@ pub(super) fn prepare(
         // source. Retain that selected source, never the entire Cargo cache.
         let package = packages.get(&unit.pkg_id).context("historical unit package")?;
         let package_root = package.manifest_path.as_std_path().parent().context("package root")?;
-        for source in package_files(package_root)? {
-            retain(directory, &source, &mut members)?;
+        if !package_sources.contains_key(&unit.pkg_id) {
+            let paths = package_files(package_root)?;
+            for source in &paths { retain(directory, source, &mut members)?; }
+            package_sources.insert(unit.pkg_id.clone(), PackageSource {
+                root: package_root.to_path_buf(), paths, identity: reviewed_source_identity(package_root)?,
+            });
         }
         for message in messages.iter().filter(|message| artifact_matches(unit, message)) {
             for file in message["filenames"].as_array().into_iter().flatten().filter_map(serde_json::Value::as_str) {
@@ -162,12 +186,12 @@ pub(super) fn prepare(
         namespace_paths.extend(declaration.namespaces.iter().map(|path| absolute(root, path)));
         for path in &declaration.absent_files {
             let path = absolute(root, path);
-            absences.insert(path.clone(), path.try_exists()?);
+            absences.insert(path.clone(), presence(&path)?);
         }
         for grammar in &declaration.pest_grammars {
             for path in [&grammar.preferred, &grammar.fallback] {
                 let present = path.try_exists()?;
-                absences.insert(path.clone(), present);
+                absences.insert(path.clone(), presence(path)?);
                 if present { retain(directory, path, &mut members)?; }
             }
         }
@@ -175,13 +199,13 @@ pub(super) fn prepare(
     }
     for path in options.declarations.native_absent_files.iter().chain(options.declarations.configuration_executors.iter().flat_map(|executor| executor.absent_files.iter())) {
         let path = absolute(root, path);
-        absences.insert(path.clone(), path.try_exists()?);
+        absences.insert(path.clone(), presence(&path)?);
     }
     let namespaces = namespace_paths.into_iter().map(|path| {
         let observation = namespace_observation(&path, 262_144)?;
         Ok((path, Namespace {
             identity: observation.identity, entries: observation.entries,
-            aliases: observation.aliases.into_values().collect(),
+            aliases: observation.aliases.into_iter().collect(),
             raw_coverage: "inventory-only; selected consumed raw files separately retained".into(),
         }))
     }).collect::<Result<_>>()?;
@@ -199,7 +223,7 @@ pub(super) fn prepare(
             "caller_environment": native_caller_environment(options)?}),
         graph: graph.clone(), receipt: receipt.clone(), declarations: options.declarations.clone(),
         pest_grammars: options.declarations.proc_macros.iter().map(|(key, value)| (key.clone(), value.pest_grammars.clone())).collect(),
-        associations, artifact_aliases, members, namespaces, absences, streams,
+        package_sources, associations, artifact_aliases, members, namespaces, absences, streams,
     };
     let mut file = fs::OpenOptions::new().write(true).create_new(true).open(directory.join("index.json"))?;
     serde_json::to_writer(&mut file, &index)?;
@@ -211,12 +235,19 @@ pub(super) fn seal(directory: &Path) -> Result<()> {
     // Seal only after every original premise still agrees and Cargo actually
     // succeeded. A partial directory never becomes a historical product.
     let index = validate(directory)?;
-    for member in index.members.values() { member.original.verify()?; }
+    for member in index.members.values() {
+        member.original.verify()?;
+        let actual_link = if fs::symlink_metadata(&member.original.path)?.is_symlink() { Some(fs::read_link(&member.original.path)?) } else { None };
+        ensure!(actual_link == member.original_link, "consumed link changed before historical seal");
+    }
+    for source in index.package_sources.values() {
+        ensure!(package_files(&source.root)? == source.paths, "package source membership changed before historical seal");
+    }
     for (path, namespace) in &index.namespaces {
         ensure!(namespace_identity(path)? == namespace.identity, "namespace changed before historical seal");
     }
     for (path, present) in &index.absences {
-        ensure!(path.try_exists()? == *present, "absence premise changed before historical seal");
+        ensure!(presence(path)? == *present, "absence premise changed before historical seal");
     }
     let digest = file_digest(&directory.join("index.json"))?;
     let mut seal = fs::OpenOptions::new().write(true).create_new(true).open(directory.join("COMPLETE"))?;
@@ -230,6 +261,21 @@ fn protected_bytes(directory: &Path, member: &Member) -> Result<Vec<u8>> {
     let bytes = fs::read(directory.join(&member.protected))?;
     ensure!(bytes.len() as u64 == member.extent && bytes_digest(&bytes) == member.original.sha256, "historical raw member missing or changed");
     Ok(bytes)
+}
+
+fn historical_native_namespaces(index: &Index) -> Result<BTreeMap<String, String>> {
+    let mut state = BTreeMap::new();
+    let mut aliases = BTreeMap::<(u64, u64), BTreeSet<PathBuf>>::new();
+    for root in &index.declarations.native_namespaces {
+        let path = absolute(&index.workspace_root, root);
+        let namespace = index.namespaces.get(&path).context("historical native namespace missing")?;
+        state.insert(path.to_string_lossy().into_owned(), namespace.identity.clone());
+        for (identity, paths) in &namespace.aliases {
+            aliases.entry(*identity).or_default().extend(paths.iter().cloned());
+        }
+    }
+    state.insert("file-identity-aliases".into(), namespace_alias_identity(&aliases)?);
+    Ok(state)
 }
 
 fn validate(directory: &Path) -> Result<Index> {
@@ -296,10 +342,41 @@ fn validate(directory: &Path) -> Result<Index> {
             };
             entries.insert(label.clone(), digest);
         }
-        let mut aliases: Vec<_> = namespace.aliases.iter().filter(|paths| paths.len() > 1).collect();
+        let mut aliases: Vec<_> = namespace.aliases.iter().map(|(_, paths)| paths).filter(|paths| paths.len() > 1).collect();
         aliases.sort();
         let alias_identity = hash_parts(&[b"native-file-alias-equivalence.v1", &serde_json::to_vec(&aliases)?]);
         ensure!(hash_parts(&[b"native-namespace.v1", &serde_json::to_vec(&entries)?, alias_identity.as_bytes()]) == namespace.identity, "historical namespace framing differs");
+    }
+    let native_state = historical_native_namespaces(&index)?;
+    for input in index.receipt.consumed_inputs.get("native-namespaces").into_iter().flatten() {
+        ensure!(native_state.get(&input.path) == Some(&input.identity), "historical cross-namespace identity differs");
+    }
+    let mut sources = BTreeMap::new();
+    for (package, source) in &index.package_sources {
+        let mut hash = FramedHasher::new(Frame::ProducerV1);
+        hash.str("reviewed-executable-source");
+        let mut previous = None;
+        for path in &source.paths {
+            ensure!(previous.as_ref().is_none_or(|previous| previous < path), "historical package member order differs");
+            previous = Some(path.clone());
+            let member = index.members.get(path).context("historical package source missing")?;
+            hash.str(&path.strip_prefix(&source.root)?.to_string_lossy()).part(&protected_bytes(directory, member)?);
+        }
+        let observed = hash.finish_hash().to_hex();
+        ensure!(observed == source.identity, "historical executable source basis differs");
+        sources.insert(package.clone(), observed);
+    }
+    for number in &selected {
+        let unit = &index.graph.units[*number];
+        if unit.mode != "run-custom-build" && !unit.target.kind.iter().any(|kind| kind == "proc-macro") { continue; }
+        let package_id = logical_package(&unit.pkg_id, root);
+        if let Some(expected) = index.receipt.reviewed_owner_sources.get(&package_id) {
+            ensure!(sources.get(&unit.pkg_id) == Some(expected), "historical owner source basis differs");
+        }
+        let name = format!("executable-closure:{package_id}:{}", keys[number]);
+        if let Some(expected) = index.receipt.reviewed_owner_sources.get(&name) {
+            ensure!(executable_closure_basis(&index.graph, *number, &sources, &keys)? == *expected, "historical executable helper closure differs");
+        }
     }
     let actual_associated = index.associations.keys().copied().collect::<BTreeSet<_>>();
     for number in &selected {
@@ -317,7 +394,7 @@ fn validate(directory: &Path) -> Result<Index> {
             let basis = macro_caller_input_basis_with_reader(&index.graph, *number, &keys,
                 &index.associations, &actual_associated, root, declaration.as_ref(), |path| {
                     if let Some(member) = index.members.get(path) { Ok(Some(protected_bytes(directory, member)?)) }
-                    else if index.absences.get(path) == Some(&false) { Ok(None) }
+                    else if index.absences.get(path).is_some_and(|presence| !presence.target) { Ok(None) }
                     else { anyhow::bail!("historical caller premise missing: {}", path.display()) }
                 })?;
             ensure!(basis.as_ref() == Some(expected), "historical macro caller basis differs");
@@ -401,15 +478,54 @@ mod tests {
         let namespace = namespace_observation(&original, 64).unwrap();
         let index = Index {
             version: 1, purpose: "historical fixture only".into(), workspace_root: original.clone(), context: serde_json::json!({}),
-            graph, receipt, declarations: InputDeclarations::default(), pest_grammars: BTreeMap::new(),
+            graph, receipt, declarations: InputDeclarations::default(), pest_grammars: BTreeMap::new(), package_sources: BTreeMap::new(),
             associations: BTreeMap::from([(0, vec![dep_info])]), artifact_aliases: BTreeMap::new(), members,
             namespaces: BTreeMap::from([(original.clone(), Namespace { identity: namespace.identity, entries: namespace.entries,
-                aliases: namespace.aliases.into_values().collect(), raw_coverage: "inventory-only".into() })]),
-            absences: BTreeMap::from([(original.join("absent"), false)]),
+                aliases: namespace.aliases.into_iter().collect(), raw_coverage: "inventory-only".into() })]),
+            absences: BTreeMap::from([(original.join("absent"), Presence { entry: false, target: false })]),
             streams: ["build.stdout", "build.stderr", "build.status.json"].into_iter().map(|name| (name.into(), file_digest(&evidence.join(name)).unwrap())).collect(),
         };
         fs::write(evidence.join("index.json"), serde_json::to_vec(&index).unwrap()).unwrap();
         (original, evidence)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn producer_historical_evidence_reconstructs_cross_root_aliases_and_dangling_presence() {
+        let directory = tempfile::tempdir().unwrap();
+        let (_, evidence) = fixture(directory.path());
+        let mut index: Index = serde_json::from_slice(&fs::read(evidence.join("index.json")).unwrap()).unwrap();
+        let left = directory.path().join("include-left");
+        let right = directory.path().join("include-right");
+        fs::create_dir(&left).unwrap();
+        fs::create_dir(&right).unwrap();
+        fs::write(left.join("shared.h"), b"identical bytes").unwrap();
+        fs::hard_link(left.join("shared.h"), right.join("shared.h")).unwrap();
+        index.declarations.native_namespaces = vec![left.clone(), right.clone()];
+        let observe = |root: &Path| {
+            let observed = namespace_observation(root, 64).unwrap();
+            Namespace { identity: observed.identity, entries: observed.entries, aliases: observed.aliases.into_iter().collect(), raw_coverage: "inventory-only".into() }
+        };
+        index.namespaces.insert(left.clone(), observe(&left));
+        index.namespaces.insert(right.clone(), observe(&right));
+        let linked = historical_native_namespaces(&index).unwrap();
+        let options = ProducerOptions {
+            workspace_root: index.workspace_root.clone(), package: "fixture".into(), profile: "dev".into(), target: None,
+            production_target: ProducerTarget::Library, features: Vec::new(), no_default_features: false,
+            dep_info: Vec::new(), declared_inputs: Vec::new(), native_inputs: Vec::new(), declared_environment: BTreeMap::new(), declarations: index.declarations.clone(),
+        };
+        assert_eq!(linked, native_namespace_state(&options, &index.workspace_root).unwrap());
+        fs::remove_file(right.join("shared.h")).unwrap();
+        fs::write(right.join("shared.h"), b"identical bytes").unwrap();
+        index.namespaces.insert(left.clone(), observe(&left));
+        index.namespaces.insert(right.clone(), observe(&right));
+        let copied = historical_native_namespaces(&index).unwrap();
+        assert_eq!(linked[&left.to_string_lossy().into_owned()], copied[&left.to_string_lossy().into_owned()]);
+        assert_eq!(linked[&right.to_string_lossy().into_owned()], copied[&right.to_string_lossy().into_owned()]);
+        assert_ne!(linked["file-identity-aliases"], copied["file-identity-aliases"]);
+        let dangling = directory.path().join("dangling");
+        std::os::unix::fs::symlink("absent-target", &dangling).unwrap();
+        assert_eq!(presence(&dangling).unwrap(), Presence { entry: true, target: false });
     }
 
     #[test]
