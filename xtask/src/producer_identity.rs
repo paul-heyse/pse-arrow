@@ -4466,6 +4466,31 @@ mod tests {
     }
 
     #[test]
+    fn producer_observed_installer_arguments_preserve_actual_context_and_refuse_unknowns() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(directory.path().join("Cargo.toml"), "[package]\nname='fixture'\nversion='0.1.0'\n").unwrap();
+        let options = ProducerOptions {
+            workspace_root: directory.path().to_path_buf(), package: "fixture".into(), profile: "producer".into(), target: None,
+            production_target: ProducerTarget::Cdylib(PathBuf::from("Cargo.toml")), features: vec!["native-solvers".into(), "force-validate".into()],
+            no_default_features: false, dep_info: Vec::new(), declared_inputs: Vec::new(), native_inputs: Vec::new(),
+            declared_environment: BTreeMap::new(), declarations: InputDeclarations::default(),
+        };
+        let arguments = vec!["rustc".into(), "--lib".into(), "--crate-type".into(), "cdylib".into(), "--message-format=json-render-diagnostics".into(),
+            "--manifest-path".into(), directory.path().join("Cargo.toml").to_string_lossy().into_owned(), "--profile".into(), "producer".into(),
+            "--features".into(), "force-validate,native-solvers".into(), "--locked".into(), "--color=always".into()];
+        validate_observed_arguments(&options, &arguments).unwrap();
+        let graph = observed_graph_arguments(&arguments);
+        assert!(graph.contains(&"--unit-graph".into()));
+        assert!(graph.contains(&"cdylib".into()));
+        assert!(!graph.iter().any(|argument| argument.starts_with("--message-format") || argument.starts_with("--color")));
+        for extra in [vec!["--profile", "other"], vec!["--target", "other"], vec!["--", "--cfg", "different"], vec!["--jobs", "4"], vec!["--no-default-features"]] {
+            let mut changed = arguments.clone();
+            changed.extend(extra.into_iter().map(str::to_owned));
+            assert!(validate_observed_arguments(&options, &changed).is_err());
+        }
+    }
+
+    #[test]
     fn producer_reviewed_disabled_executor_refuses_present_or_unknown_selector() {
         let review: OwnerReview = serde_json::from_value(serde_json::json!({
             "reviewed_source": "actual-reviewed-source", "rationale": "The reviewed debug branch launches rustfmt only when its selector is present.",

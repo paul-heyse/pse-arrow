@@ -47,7 +47,7 @@ struct Index {
 
 fn bytes_digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
-    format!("{:x}", Sha256::digest(bytes))
+    Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn file_digest(path: &Path) -> Result<String> {
@@ -60,7 +60,7 @@ fn file_digest(path: &Path) -> Result<String> {
         if count == 0 { break; }
         digest.update(&buffer[..count]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
 fn retain(directory: &Path, path: &Path, members: &mut BTreeMap<PathBuf, Member>) -> Result<()> {
@@ -343,4 +343,121 @@ pub(crate) fn verify_historical_evidence(directory: &Path) -> Result<serde_json:
         "unit_associations": index.associations.len(), "protected_members": index.members.len(),
         "namespace_raw_coverage": "inventory-only except separately retained consumed members",
         "reviewed_owner_sources": index.receipt.reviewed_owner_sources}))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fixture(directory: &Path) -> (PathBuf, PathBuf) {
+        let original = directory.join("original");
+        let evidence = directory.join("capture.closure");
+        fs::create_dir_all(&original).unwrap();
+        fs::create_dir_all(evidence.join("members")).unwrap();
+        let source = original.join("lib.rs");
+        let generated = directory.join("outside-generated.rs");
+        let artifact = original.join("libselected-123.rlib");
+        let dep_info = original.join("selected-123.d");
+        fs::write(&source, b"include!(\"../outside-generated.rs\");").unwrap();
+        fs::write(&generated, b"pub fn value() -> u32 { 7 }").unwrap();
+        fs::write(&artifact, b"independently supplied artifact fixture bytes").unwrap();
+        fs::write(&dep_info, format!("{} {}: {} {}\n# env-dep:SELECTED=actual\n", artifact.display(), dep_info.display(), source.display(), generated.display())).unwrap();
+        let unit = Unit {
+            pkg_id: "selected#0.1.0".into(), target: CargoTarget {
+                kind: vec!["lib".into()], crate_types: vec!["lib".into()], name: "selected".into(),
+                src_path: source.clone(), edition: "2024".into(),
+            }, profile: serde_json::json!({"name":"dev","opt_level":"0","debuginfo":0,"debug_assertions":true,"overflow_checks":true}),
+            platform: None, mode: "build".into(), features: Vec::new(), dependencies: Vec::new(), is_std: false,
+        };
+        let mut profile = unit.profile.clone();
+        profile["test"] = serde_json::json!(false);
+        let message = serde_json::json!({"reason":"compiler-artifact","package_id":unit.pkg_id,
+            "target": {"kind":["lib"],"crate_types":["lib"],"name":"selected","src_path":source,"edition":"2024"},
+            "profile":profile,"features":[],"filenames":[artifact]});
+        fs::write(evidence.join("build.stdout"), format!("{}\n{{\"reason\":\"build-finished\",\"success\":true}}\n", message)).unwrap();
+        fs::write(evidence.join("build.stderr"), b"selected child diagnostic\n").unwrap();
+        fs::write(evidence.join("build.status.json"), br#"{"success":true,"code":0,"stream_errors":[]}"#).unwrap();
+        let graph = UnitGraph { version: 1, units: vec![unit], roots: vec![0] };
+        let selected_root = unit_keys(&graph, &original).unwrap()[&0].clone();
+        let artifact_observation = deployment_identity::FileObservation::capture(&artifact).unwrap();
+        let source_observation = deployment_identity::FileObservation::capture(&source).unwrap();
+        let mut receipt = ProducerIdentity {
+            receipt_version: deployment_identity::DEPLOYMENT_RECEIPT_VERSION,
+            deployment: Some(deployment_identity::DeploymentAssociation {
+                producer_identity: String::new(), selected_root: selected_root.clone(), workspace_root: original.clone(),
+                built_artifact: artifact_observation.clone(), artifact: artifact_observation,
+                files: vec![source_observation], absent_files: vec![original.join("absent")],
+                namespaces: BTreeMap::new(), native_environment: BTreeMap::new(), native_absent_environment_prefixes: Vec::new(),
+            }), native_provider: None, frame: Frame::ProducerV1.as_str().into(), package: "selected".into(),
+            selected_root: Some(selected_root), identity: String::new(), persistent_reuse_eligible: false,
+            reasons: vec!["fixture only; no executor/native qualification".into()], units: Vec::new(), selected_lock_records: Vec::new(),
+            consumed_inputs: BTreeMap::new(), declared_environment: BTreeMap::new(), native_abi: None, reviewed_owner_sources: BTreeMap::new(),
+        };
+        receipt.identity = deployment_identity::scientific_producer_identity(&receipt.package, &receipt.units,
+            &receipt.selected_lock_records, &receipt.consumed_inputs, &receipt.declared_environment, &receipt.native_abi).unwrap().to_hex();
+        receipt.deployment.as_mut().unwrap().producer_identity = receipt.identity.clone();
+        let mut members = BTreeMap::new();
+        for path in [&source, &generated, &artifact, &dep_info] { retain(&evidence, path, &mut members).unwrap(); }
+        let namespace = namespace_observation(&original, 64).unwrap();
+        let index = Index {
+            version: 1, purpose: "historical fixture only".into(), workspace_root: original.clone(), context: serde_json::json!({}),
+            graph, receipt, declarations: InputDeclarations::default(), pest_grammars: BTreeMap::new(),
+            associations: BTreeMap::from([(0, vec![dep_info])]), artifact_aliases: BTreeMap::new(), members,
+            namespaces: BTreeMap::from([(original.clone(), Namespace { identity: namespace.identity, entries: namespace.entries,
+                aliases: namespace.aliases.into_values().collect(), raw_coverage: "inventory-only".into() })]),
+            absences: BTreeMap::from([(original.join("absent"), false)]),
+            streams: ["build.stdout", "build.stderr", "build.status.json"].into_iter().map(|name| (name.into(), file_digest(&evidence.join(name)).unwrap())).collect(),
+        };
+        fs::write(evidence.join("index.json"), serde_json::to_vec(&index).unwrap()).unwrap();
+        (original, evidence)
+    }
+
+    #[test]
+    fn producer_historical_evidence_survives_refresh_of_original_paths() {
+        let directory = tempfile::tempdir().unwrap();
+        let (original, evidence) = fixture(directory.path());
+        seal(&evidence).unwrap();
+        fs::remove_dir_all(&original).unwrap();
+        fs::remove_file(directory.path().join("outside-generated.rs")).unwrap();
+        let observed = verify_historical_evidence(&evidence).unwrap();
+        assert_eq!(observed["historical_only"], true);
+        assert_eq!(observed["unit_associations"], 1);
+        assert_eq!(observed["protected_members"], 4);
+        assert!(!original.exists());
+    }
+
+    #[test]
+    fn producer_historical_evidence_refuses_missing_changed_and_unsealed_members() {
+        for mutation in ["unsealed", "raw", "missing", "index"] {
+            let directory = tempfile::tempdir().unwrap();
+            let (_, evidence) = fixture(directory.path());
+            if mutation != "unsealed" { seal(&evidence).unwrap(); }
+            let index: Index = serde_json::from_slice(&fs::read(evidence.join("index.json")).unwrap()).unwrap();
+            let member = &index.members.values().next().unwrap().protected;
+            match mutation {
+                "raw" => fs::write(evidence.join(member), b"tampered").unwrap(),
+                "missing" => fs::remove_file(evidence.join(member)).unwrap(),
+                "index" => fs::write(evidence.join("index.json"), b"{}").unwrap(),
+                _ => (),
+            }
+            assert!(verify_historical_evidence(&evidence).is_err(), "{mutation}");
+        }
+    }
+
+    #[test]
+    fn producer_historical_evidence_refuses_substituted_association_and_changed_absence() {
+        let directory = tempfile::tempdir().unwrap();
+        let (_original, evidence) = fixture(directory.path());
+        let mut index: Index = serde_json::from_slice(&fs::read(evidence.join("index.json")).unwrap()).unwrap();
+        index.graph.units[0].features.push("different-compilation".into());
+        fs::write(evidence.join("index.json"), serde_json::to_vec(&index).unwrap()).unwrap();
+        assert!(seal(&evidence).unwrap_err().to_string().contains("Cargo unit/artifact linkage"));
+        assert!(!evidence.join("COMPLETE").exists());
+        let directory = tempfile::tempdir().unwrap();
+        let (original, evidence) = fixture(directory.path());
+        fs::write(original.join("absent"), b"new shadow").unwrap();
+        assert!(seal(&evidence).is_err());
+        assert!(!evidence.join("COMPLETE").exists());
+        let _ = original;
+    }
 }
