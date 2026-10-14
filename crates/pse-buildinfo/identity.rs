@@ -6,7 +6,8 @@ use std::{fs, path::Path};
 /// Full synchronous observation envelope, including simultaneously live inventories,
 /// bounded proc/configuration buffers, traversal frames and streamed encoding scratch.
 /// Runtime jobs reserve this allowance before entering the observation owner.
-pub const OBSERVATION_WORK_BYTES: usize = 2 * SOURCE_METADATA_BYTES + (4 << 20);
+pub const OBSERVATION_WORK_BYTES: usize =
+    2 * SOURCE_METADATA_BYTES + (4 << 20) + 2 * MAPPING_BYTES;
 // Complete imported native trees are source inputs too. Reconfirmation temporarily
 // retains two inventories; each has this independently enforced finite allowance.
 const SOURCE_METADATA_BYTES: usize = 16 << 20;
@@ -14,7 +15,10 @@ const SOURCE_METADATA_BYTES: usize = 16 << 20;
 pub const MAX_CONFIGURATION_BYTES: usize = 64 << 10;
 const METADATA_BYTES: usize = 1 << 20;
 const PATH_BYTES: usize = 4096;
-const PROC_BYTES: usize = 128 << 10;
+// Scientific Python imports many file-backed extensions before composing a runtime.
+// Two mapping buffers can coexist while resolving and verifying the actual module;
+// reserve both above, independently of the small kernel/environment input limits.
+const MAPPING_BYTES: usize = 1 << 20;
 const ENVIRONMENT_BYTES: usize = 64 << 10;
 const SOURCE_DEPTH: usize = 64;
 
@@ -85,7 +89,7 @@ fn bounded_read(
 fn bounded_maps(checkpoint: &dyn Fn() -> std::io::Result<()>) -> std::io::Result<String> {
     String::from_utf8(bounded_read(
         Path::new("/proc/self/maps"),
-        PROC_BYTES,
+        MAPPING_BYTES,
         checkpoint,
     )?)
     .map_err(std::io::Error::other)
@@ -1342,7 +1346,7 @@ unsafe fn current_environment(
 fn executable_mapping_files(
     maps: &str,
 ) -> std::io::Result<std::collections::BTreeSet<std::path::PathBuf>> {
-    if maps.len() > PROC_BYTES {
+    if maps.len() > MAPPING_BYTES {
         return Err(std::io::Error::other("mapping observation byte limit"));
     }
     let mut files = std::collections::BTreeSet::new();
@@ -1605,6 +1609,30 @@ mod foundation_unit {
             );
             assert_eq!(framed.finish_hash(), original);
         }
+    }
+    #[test]
+    fn scientific_process_mapping_extent_preserves_code_checks_and_finite_limit() {
+        // Many non-executable segments must not hide the actual extension, even
+        // when their aggregate exceeds the small kernel-input buffer allowance.
+        let segment = "1000-2000 r--p 00000000 08:01 42 /lib/scientific.so\n";
+        let mut maps = segment.repeat((192 << 10) / segment.len());
+        assert!(maps.len() > 128 << 10);
+        maps.push_str("2000-3000 r-xp 00000000 08:01 43 /lib/actual.so\n");
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("maps");
+        fs::write(&path, &maps).unwrap();
+        let read = super::bounded_read(&path, super::MAPPING_BYTES, &|| Ok(())).unwrap();
+        assert_eq!(read, maps.as_bytes());
+        let files = super::executable_mapping_files(std::str::from_utf8(&read).unwrap())
+            .unwrap();
+        assert_eq!(files, [std::path::PathBuf::from("/lib/actual.so")].into());
+
+        maps.push_str("3000-4000 rwxp 00000000 08:01 44 /lib/writable.so\n");
+        assert!(super::executable_mapping_files(&maps).is_err());
+        maps = segment.repeat(super::MAPPING_BYTES / segment.len() + 1);
+        assert!(super::executable_mapping_files(&maps).is_err());
+        fs::write(&path, maps).unwrap();
+        assert!(super::bounded_read(&path, super::MAPPING_BYTES, &|| Ok(())).is_err());
     }
     #[test]
     fn observation_metadata_and_input_limits_refuse_before_retained_growth() {
