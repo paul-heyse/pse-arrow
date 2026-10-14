@@ -48,8 +48,9 @@ DEFINE FUNCTION fn::pse_files_v1::reserve($expiry:int,$row:object,$run:option<st
 DEFINE FUNCTION fn::pse_files_v1::recover_intent($expiry:int,$expected:object,$new_owner:string,$incarnation:string) -> object {
     fn::pse_files_v1::owner($expiry,$new_owner,$incarnation);
     LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$expected.instance) FOR UPDATE;
-    IF $file=NONE OR $file.intent!=$expected.intent OR $file.request_digest!=$expected.request_digest OR $file.storage_incarnation!=$incarnation OR $file.owner!=$expected.owner OR $file.state IN ['abandoned','collecting','collected'] { THROW 'original file recovery intent differs or settled'; };
+    IF $file=NONE OR $file.intent!=$expected.intent OR $file.request_digest!=$expected.request_digest OR $file.storage_incarnation!=$incarnation OR $file.state IN ['abandoned','collecting','collected'] { THROW 'original file recovery intent differs or settled'; };
     IF $file.owner=$new_owner { RETURN $file; };
+    IF $file.owner!=$expected.owner { THROW 'original file recovery custody differs'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_file_owners',$file.owner) FOR UPDATE;
     IF $old=NONE OR !$old.drained { THROW 'original file owner has no authenticated drain; run recover-file-owners --state PATH'; };
     RETURN UPDATE ONLY type::record('canonical_file_instances',$file.key) SET owner=$new_owner;

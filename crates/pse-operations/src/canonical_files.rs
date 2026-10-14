@@ -9,6 +9,14 @@ use pse_ids::{Frame, FramedHasher};
 use std::{fs::{File, OpenOptions}, io::{Read, Seek, SeekFrom, Write}, path::{Path, PathBuf}, sync::Arc};
 use surrealdb::types::{Object, Value};
 
+#[cfg(all(test,feature="canonical-tests"))]
+#[derive(Clone)]
+struct EffectPause { kind:&'static str, ready:Arc<tokio::sync::Notify>, resume:Arc<tokio::sync::Notify> }
+#[cfg(all(test,feature="canonical-tests"))]
+tokio::task_local! { static FILE_EFFECT_PAUSE: EffectPause; }
+#[cfg(all(test,feature="canonical-tests"))]
+async fn effect_pause(kind:&str){if let Ok(pause)=FILE_EFFECT_PAUSE.try_with(Clone::clone){if pause.kind==kind{pause.ready.notify_one();pause.resume.notified().await;}}}
+
 /// Completed file packing target, independent of RPC metadata limits.
 pub const FILE_TARGET_BYTES: usize = pse_schema::catalog::substrate::RESULT_FILE_TARGET_BYTES;
 /// Maximum physical file size, including native format metadata.
@@ -166,7 +174,7 @@ impl FileSession {
         Ok(Self{root:state.join("payloads").join(&placement.payload_incarnation).join(database),incarnation:placement.payload_incarnation,process:ProcessIdentity::current()?,owner:tokio::sync::Mutex::new(None)})
     }
     #[cfg(test)]
-    pub(crate) fn wire_control()->Result<Self,CanonicalError>{Ok(Self{incarnation:uuid::Uuid::new_v4().to_string(),root:std::env::temp_dir().join("pse-wire-control-no-file-effects"),process:ProcessIdentity::current()?,owner:tokio::sync::Mutex::new(None)})}
+    pub(crate) fn wire_control()->Result<Self,CanonicalError>{Ok(Self{incarnation:uuid::Uuid::new_v4().to_string(),root:std::env::temp_dir().join(format!("pse-wire-control-no-file-effects-{}",uuid::Uuid::new_v4())),process:ProcessIdentity::current()?,owner:tokio::sync::Mutex::new(None)})}
     pub(crate) fn require_current(&self)->Result<(),CanonicalError>{self.process.require_current()}
     pub(crate) async fn registered_owner(&self)->Option<Object>{self.owner.lock().await.clone()}
     pub(crate) fn path(&self,instance:&str)->Result<PathBuf,CanonicalError>{uuid::Uuid::parse_str(instance).map_err(configuration)?;Ok(self.root.join("instances").join(format!("{instance}.sealed")))}
@@ -195,7 +203,7 @@ impl CanonicalStore {
     pub(crate) async fn reserve_artifact_file(&self,artifact:&str,operation:&str,request_digest:&str)->Result<FilePublicationIntent,CanonicalError>{self.reserve_file("artifact",artifact,operation,request_digest,None).await}
     async fn reserve_file(&self,kind:&str,selection:&str,operation:&str,request_digest:&str,fence:Option<&AttemptFence>)->Result<FilePublicationIntent,CanonicalError>{
         let activity=self.admit_activity()?;
-        activity.scope(async {
+        activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
         self.ensure_writes()?;let owner=self.registered_file_owner().await?;
         if operation.is_empty()||operation.len()>4096||request_digest.len()!=64{return Err(configuration("file original intent malformed"));}
         let mut row=Object::new();row.insert("key",uuid::Uuid::new_v4().to_string());row.insert("intent",operation.to_owned());row.insert("request_digest",request_digest.to_owned());row.insert("owner",owner.clone());row.insert("owner_kind",kind.to_owned());row.insert("selection",selection.to_owned());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("digest",String::new());row.insert("payload_bytes",codec::encode_uint(0)?);row.insert("encoding",String::new());row.insert("batch_count",codec::encode_uint(0)?);row.insert("schema",String::new());row.insert("interpretation",crate::generated::surreal::INTERPRETATION);row.insert("state","pending");
@@ -203,71 +211,81 @@ impl CanonicalStore {
         let mut saved=last_object(&mut response)?;
         let original=FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner:text(&mut saved,"owner")?,storage_incarnation:text(&mut saved,"storage_incarnation")?};
         if original.owner!=owner {self.recover_file_intent(&original).await}else{Ok(original)}
-        }).await
+        })).await
     }
     /// Recover only custody of the original file effect after authenticated old
     /// owner drain. Original writer/creation permission is never renewed.
     pub async fn recover_file_intent(&self,original:&FilePublicationIntent)->Result<FilePublicationIntent,CanonicalError>{
         let activity=self.admit_activity()?;
-        activity.scope(async {
+        activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
         self.files.require_current()?;let owner=self.registered_file_owner().await?;
         let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::recover_intent($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected)).bind(("owner",owner.clone())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let mut saved=last_object(&mut response)?;
-        Ok(FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner,storage_incarnation:self.files.incarnation.clone()})
-        }).await
+        let recovered=FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner,storage_incarnation:self.files.incarnation.clone()};
+        let lock=lock_instance(&self.files.root,&recovered.instance).await?;
+        settle_published_alias(&self.files.root,&recovered.instance,&lock)?;
+        Ok(recovered)
+        })).await
     }
     /// Complete an opaque bounded native file after original intent reservation.
     /// Runtime validates native IPC/schema before this boundary; Operations
     /// verifies storage bytes, flush and no-replace publication before sealing.
     pub async fn seal_file(&self,intent:&FilePublicationIntent,bytes:&[u8],encoding:&str,batch_count:u64,schema:&str)->Result<SealedFile,CanonicalError>{
         let activity=self.admit_activity()?;
-        activity.scope(async {
+        activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
         self.files.require_current()?; self.ensure_writes()?;
         if intent.storage_incarnation!=self.files.incarnation || intent.owner!=self.registered_file_owner().await?{return Err(configuration("file intent actual owner differs"));}
         let descriptor=FileDescriptor{instance:intent.instance.clone(),digest:crate::canonical_execution::result_payload_digest(bytes),bytes:bytes.len() as u64,encoding:encoding.into(),batch_count,schema:schema.into(),interpretation:crate::generated::surreal::INTERPRETATION.into()};descriptor.validate()?;
         if encoding==OPAQUE_JSON {let _:serde_json::Value=serde_json::from_slice(bytes).map_err(configuration)?;}
-        publish(&self.files.root,&descriptor,bytes)?;
+        let lock=lock_instance(&self.files.root,&descriptor.instance).await?;
+        publish_locked(&self.files.root,&descriptor,bytes,&lock)?;
+        #[cfg(all(test,feature="canonical-tests"))]
+        effect_pause("seal").await;
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::seal($pse_rpc_expires_at,$key,$owner,$incarnation,$descriptor); COMMIT;").bind(("key",intent.instance.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())).bind(("descriptor",descriptor.encode()?))).await?;
         let saved=last_object(&mut response)?;
         if saved.get("digest")!=Some(&Value::String(descriptor.digest.clone())){return Err(CanonicalError::OperationReused);}
         Ok(SealedFile{descriptor,intent:intent.clone()})
-        }).await
+        })).await
     }
     pub(crate) fn open_physical_file(&self,descriptor:FileDescriptor,owner:Arc<dyn std::fmt::Debug+Send+Sync>)->Result<ProtectedFile,CanonicalError>{
         self.files.require_current()?; descriptor.validate()?;
-        let mut file=open_regular(&self.files.path(&descriptor.instance)?)?;validate_file(&mut file,&descriptor)?;
+        let mut file=open_regular(&self.files.path(&descriptor.instance)?)?;require_single_link(&file)?;validate_file(&mut file,&descriptor)?;
         Ok(ProtectedFile{file,descriptor,_owner:owner,process:self.files.process.clone()})
     }
     /// Settle only this original unpublished storage intent after actual owner
     /// drain and original writer/creation closure. Unknown remains protected.
     pub async fn settle_file_intent(&self,original:&FilePublicationIntent)->Result<bool,CanonicalError>{
         let activity=self.admit_activity()?;
-        activity.scope(async {
+        activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
         self.files.require_current()?;
         let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::settle_intent($pse_rpc_expires_at,$expected,$incarnation); COMMIT;").bind(("expected",expected)).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let index=response.num_statements().saturating_sub(2);response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)
-        }).await
+        })).await
     }
     /// Resume an exact admitted collection. Physical unlink follows irreversible
     /// catalog collecting state; a lost final reply cannot permit ABA reuse.
     pub async fn collect_file(&self,instance:&str)->Result<(),CanonicalError>{
         let activity=self.admit_activity()?;
-        activity.scope(async {
+        activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
         self.files.require_current()?;self.registered_file_owner().await?;let path=self.files.path(instance)?;
+        let _lock=lock_instance(&self.files.root,instance).await?;
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let row=last_object(&mut response)?;if row.get("state")==Some(&Value::String("collected".into())){return Ok(());}
+        #[cfg(all(test,feature="canonical-tests"))]
+        effect_pause("collect").await;
         match std::fs::remove_file(&path){Ok(())=>File::open(path.parent().ok_or_else(||configuration("file parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
         let pending=self.files.root.join(".pending").join(format!("{instance}.pending"));
         match std::fs::remove_file(&pending){Ok(())=>File::open(pending.parent().ok_or_else(||configuration("staging parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
         bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collected($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;Ok(())
-        }).await
+        })).await
     }
 }
 /// Verify one offline inventory member without database access or effects.
 /// The selected path must name a regular file directly; symlinks are refused.
-pub fn verify_payload_file(path:&Path,descriptor:&FileDescriptor)->Result<(),CanonicalError>{descriptor.validate()?;let mut file=open_regular(path)?;validate_file(&mut file,descriptor)}
+pub fn verify_payload_file(path:&Path,descriptor:&FileDescriptor)->Result<(),CanonicalError>{descriptor.validate()?;let mut file=open_regular(path)?;require_single_link(&file)?;validate_file(&mut file,descriptor)}
+fn require_single_link(file:&File)->Result<(),CanonicalError>{use std::os::unix::fs::MetadataExt;if file.metadata().map_err(configuration)?.nlink()!=1{return Err(configuration("sealed instance retains unknown physical alias"));}Ok(())}
 fn open_regular(path:&Path)->Result<File,CanonicalError>{
     use std::os::unix::fs::OpenOptionsExt;
     let file=OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(path).map_err(configuration)?;
@@ -279,8 +297,43 @@ fn validate_file(file:&mut File,descriptor:&FileDescriptor)->Result<(),Canonical
     if hash.finish_hash().to_hex()!=descriptor.digest{return Err(configuration("sealed file integrity differs"));}
     file.seek(SeekFrom::Start(0)).map_err(configuration)?;Ok(())
 }
-fn publish(root:&Path,descriptor:&FileDescriptor,bytes:&[u8])->Result<(),CanonicalError>{
+// This unique lock path survives collection. Deleting it would let a late
+// waiter and a new opener lock different inodes for one physical instance.
+struct InstanceLock { _file:File, instance:String }
+fn instance_lock_file(root:&Path,instance:&str)->Result<File,CanonicalError>{
+    uuid::Uuid::parse_str(instance).map_err(configuration)?;
+    let directory=root.join(".locks");std::fs::create_dir_all(&directory).map_err(configuration)?;
+    use std::os::unix::fs::OpenOptionsExt;
+    let file=OpenOptions::new().read(true).write(true).create(true).truncate(false).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(directory.join(format!("{instance}.lock"))).map_err(configuration)?;
+    if !file.metadata().map_err(configuration)?.is_file(){return Err(configuration("physical instance lock is not a regular file"));}
+    require_single_link(&file)?;file.sync_all().map_err(configuration)?;File::open(directory).and_then(|file|file.sync_all()).map_err(configuration)?;Ok(file)
+}
+async fn lock_instance(root:&Path,instance:&str)->Result<InstanceLock,CanonicalError>{
+    let file=instance_lock_file(root,instance)?;
+    let deadline=crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
+    loop {match file.try_lock(){Ok(())=>return Ok(InstanceLock{_file:file,instance:instance.into()}),Err(std::fs::TryLockError::WouldBlock)=>{if tokio::time::Instant::now()>=deadline{return Err(CanonicalError::Timeout);}tokio::time::sleep(std::time::Duration::from_millis(5)).await;},Err(std::fs::TryLockError::Error(error))=>return Err(configuration(error))}}
+}
+#[cfg(test)]
+fn publish(root:&Path,descriptor:&FileDescriptor,bytes:&[u8])->Result<(),CanonicalError>{let file=instance_lock_file(root,&descriptor.instance)?;file.lock().map_err(configuration)?;let lock=InstanceLock{_file:file,instance:descriptor.instance.clone()};publish_locked(root,descriptor,bytes,&lock)}
+fn settle_published_alias(root:&Path,instance:&str,lock:&InstanceLock)->Result<(),CanonicalError>{
+    if lock.instance!=instance{return Err(configuration("physical instance exclusion differs"));}
+    uuid::Uuid::parse_str(instance).map_err(configuration)?;
+    let sealed=root.join("instances").join(format!("{instance}.sealed"));
+    if !sealed.try_exists().map_err(configuration)?{return Ok(());}
+    let final_file=open_regular(&sealed)?;
+    let leftover=root.join(".pending").join(format!("{instance}.pending"));
+    match std::fs::symlink_metadata(&leftover){Ok(metadata)=>{
+        use std::os::unix::fs::MetadataExt;
+        let original=final_file.metadata().map_err(configuration)?;
+        if !metadata.is_file()||metadata.dev()!=original.dev()||metadata.ino()!=original.ino(){return Err(configuration("original staging inode differs from sealed publication"));}
+        std::fs::remove_file(&leftover).map_err(configuration)?;File::open(leftover.parent().ok_or_else(||configuration("staging parent absent"))?).and_then(|file|file.sync_all()).map_err(configuration)?;
+    },Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
+    use std::os::unix::fs::MetadataExt;
+    if final_file.metadata().map_err(configuration)?.nlink()!=1{return Err(configuration("sealed instance retains unknown physical alias"));}Ok(())
+}
+fn publish_locked(root:&Path,descriptor:&FileDescriptor,bytes:&[u8],lock:&InstanceLock)->Result<(),CanonicalError>{
     descriptor.validate()?;
+    if lock.instance!=descriptor.instance{return Err(configuration("physical instance exclusion differs"));}
     let pending=root.join(".pending");let sealed=root.join("instances");
     std::fs::create_dir_all(&pending).map_err(configuration)?;std::fs::create_dir_all(&sealed).map_err(configuration)?;
     let final_path=sealed.join(format!("{}.sealed",descriptor.instance));
@@ -288,13 +341,7 @@ fn publish(root:&Path,descriptor:&FileDescriptor,bytes:&[u8])->Result<(),Canonic
         let mut file=open_regular(&final_path)?;validate_file(&mut file,descriptor)?;
         let mut scratch=[0u8;65536];let mut checked=0usize;
         while checked<bytes.len(){let width=(bytes.len()-checked).min(scratch.len());file.read_exact(&mut scratch[..width]).map_err(configuration)?;if scratch[..width]!=bytes[checked..checked+width]{return Err(CanonicalError::OperationReused);}checked+=width;}
-        let leftover=pending.join(format!("{}.pending",descriptor.instance));
-        match std::fs::symlink_metadata(&leftover){Ok(metadata)=>{
-            use std::os::unix::fs::MetadataExt;
-            let original=file.metadata().map_err(configuration)?;
-            if !metadata.is_file()||metadata.dev()!=original.dev()||metadata.ino()!=original.ino(){return Err(configuration("original staging inode differs from sealed publication"));}
-            std::fs::remove_file(leftover).map_err(configuration)?;File::open(&pending).and_then(|file|file.sync_all()).map_err(configuration)?;
-        },Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
+        settle_published_alias(root,&descriptor.instance,lock)?;
         return Ok(());
     }
     let staging=pending.join(format!("{}.pending",descriptor.instance));
@@ -308,7 +355,7 @@ fn publish(root:&Path,descriptor:&FileDescriptor,bytes:&[u8])->Result<(),Canonic
     // hard_link is an atomic no-replace publication on the supported local Linux filesystem.
     std::fs::hard_link(&staging,&final_path).map_err(configuration)?;
     File::open(&sealed).and_then(|f|f.sync_all()).map_err(configuration)?;
-    std::fs::remove_file(staging).map_err(configuration)?;File::open(pending).and_then(|f|f.sync_all()).map_err(configuration)?;Ok(())
+    std::fs::remove_file(staging).map_err(configuration)?;File::open(pending).and_then(|f|f.sync_all()).map_err(configuration)?;require_single_link(&file)?;Ok(())
 }
 
 #[cfg(test)]
@@ -354,6 +401,40 @@ mod tests {
         let child=unsafe{libc::fork()};assert!(child>=0);
         if child==0 {let mut byte=[0u8;1];let refused=file.read(&mut byte).is_err();unsafe{libc::_exit(if refused{0}else{1})};}
         let mut status=0;assert_eq!(unsafe{libc::waitpid(child,&mut status,0)},child);assert_eq!(status,0);drop(file);std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn link_before_unlink_crash_settles_only_exact_original_alias(){
+        use std::os::unix::fs::MetadataExt;
+        let root=std::env::temp_dir().join(format!("pse-link-crash-control-{}",uuid::Uuid::new_v4()));let bytes=b"[1,2]";let file=descriptor(bytes);
+        let pending=root.join(".pending");let sealed=root.join("instances");std::fs::create_dir_all(&pending).unwrap();std::fs::create_dir_all(&sealed).unwrap();
+        let source=pending.join(format!("{}.pending",file.instance));let target=sealed.join(format!("{}.sealed",file.instance));std::fs::write(&source,bytes).unwrap();File::open(&source).unwrap().sync_all().unwrap();std::fs::hard_link(&source,&target).unwrap();assert_eq!(std::fs::metadata(&target).unwrap().nlink(),2);assert!(verify_payload_file(&target,&file).is_err());
+        publish(&root,&file,bytes).unwrap();assert!(!source.exists());assert_eq!(std::fs::metadata(&target).unwrap().nlink(),1);verify_payload_file(&target,&file).unwrap();
+        std::fs::write(&source,bytes).unwrap();let locked=instance_lock_file(&root,&file.instance).unwrap();locked.lock().unwrap();let lock=InstanceLock{_file:locked,instance:file.instance.clone()};assert!(settle_published_alias(&root,&file.instance,&lock).is_err());drop(lock);assert!(source.exists());std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn concurrent_original_file_replays_serialize_equal_and_different_content(){
+        for equal in [true,false] {
+            let root=std::env::temp_dir().join(format!("pse-concurrent-file-{}",uuid::Uuid::new_v4()));
+            let first=Arc::new(vec![b'1';2*1024*1024]);let second=Arc::new(if equal{first.as_ref().clone()}else{vec![b'9';first.len()]});
+            let mut original=descriptor(first.as_slice());original.encoding=OPAQUE_BYTES.into();let mut changed=original.clone();changed.digest=crate::canonical_execution::result_payload_digest(second.as_slice());
+            let start=Arc::new(std::sync::Barrier::new(3));let left_root=root.clone();let left_start=start.clone();let left_descriptor=original.clone();let left_bytes=first.clone();
+            let left=std::thread::spawn(move||{left_start.wait();publish(&left_root,&left_descriptor,left_bytes.as_slice())});
+            let right_root=root.clone();let right_start=start.clone();let right_descriptor=changed.clone();let right_bytes=second.clone();let right=std::thread::spawn(move||{right_start.wait();publish(&right_root,&right_descriptor,right_bytes.as_slice())});
+            start.wait();let left=left.join().unwrap();let right=right.join().unwrap();
+            let path=root.join("instances").join(format!("{}.sealed",original.instance));
+            if equal{assert!(left.is_ok()&&right.is_ok());verify_payload_file(&path,&original).unwrap();}else{assert_ne!(left.is_ok(),right.is_ok());let expected=if left.is_ok(){&original}else{&changed};verify_payload_file(&path,expected).unwrap();}
+            let observed=std::fs::read(path).unwrap();assert!(observed==*first||observed==*second);assert!(root.join(".locks").join(format!("{}.lock",original.instance)).exists());std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+    #[test]
+    fn second_creator_cannot_open_writable_staging_during_original_seal(){
+        let root=std::env::temp_dir().join(format!("pse-exclusive-stage-{}",uuid::Uuid::new_v4()));let bytes=b"[1,2,3]";let original=descriptor(bytes);let file=instance_lock_file(&root,&original.instance).unwrap();file.lock().unwrap();let lock=InstanceLock{_file:file,instance:original.instance.clone()};
+        std::fs::create_dir_all(root.join(".pending")).unwrap();std::fs::write(root.join(".pending").join(format!("{}.pending",original.instance)),[]).unwrap();
+        let competing=instance_lock_file(&root,&original.instance).unwrap();assert!(matches!(competing.try_lock(),Err(std::fs::TryLockError::WouldBlock)));
+        let mut other=original.clone();other.digest=crate::canonical_execution::result_payload_digest(b"[9,8,7]");let worker_root=root.clone();let worker=std::thread::spawn(move||publish(&worker_root,&other,b"[9,8,7]"));
+        publish_locked(&root,&original,bytes,&lock).unwrap();drop(lock);assert!(worker.join().unwrap().is_err());verify_payload_file(&root.join("instances").join(format!("{}.sealed",original.instance)),&original).unwrap();std::fs::remove_dir_all(root).unwrap();
     }
 
 }

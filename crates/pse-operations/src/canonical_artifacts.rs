@@ -212,7 +212,7 @@ impl ArtifactRead {
     }
     /// Read one bounded member under the exact artifact acquisition.
     pub async fn block(&self, ordinal: u64) -> Result<ArtifactBlock, CanonicalError> {
-        let activity = self.store.admit_activity()?;
+        let activity = self.store.selection_activity(&self.selection)?;
         activity.scope(async {
             let value=codec::encode_uint(ordinal)?;
             let mut response=protected_query("canonical_artifacts::read",||Ok(self.store.db.query("BEGIN; RETURN fn::pse_artifact_v1::read($pse_rpc_expires_at,$key,$protection,$ordinal); COMMIT;")

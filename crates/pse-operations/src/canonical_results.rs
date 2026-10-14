@@ -1072,6 +1072,8 @@ impl CanonicalStore {
     /// Fetch only an explicitly demanded bounded set of exact logical members.
     /// Callers prepay each page before accumulating frozen snapshot metadata.
     pub async fn result_file_batch_descriptors(&self,read:&ResultRead,set_key:&str,ordinals:&[u64])->Result<Vec<ResultBatch>,CanonicalError>{
+        let activity=self.selection_activity(&read.owner.selection)?;
+        activity.scope(async {
         self.files.require_current()?;
         if !read.belongs_to(self){return Err(invalid("result read belongs to another store"));}
         let set=read.set(set_key)?;
@@ -1083,13 +1085,17 @@ impl CanonicalStore {
         let index=response.num_statements().saturating_sub(2);let page:Vec<Object>=response.take(index)?;
         if page.len()!=ordinals.len(){return Err(invalid("frozen demanded file inventory is incomplete"));}
         page.into_iter().zip(ordinals).map(|(row,ordinal)|{let batch=wire::decode_canonical_result_batches(row)?;crate::canonical_execution::validate_result_batch(&batch)?;if batch.ordinal!=*ordinal||batch.attempt!=read.attempt.key||batch.result_set!=set_key{return Err(invalid("frozen demanded file coordinate differs"));}Ok(batch)}).collect()
+        }).await
     }
     /// Authenticate an exact frozen logical member before exposing its native file.
     pub async fn open_result_file(&self,read:&ResultRead,batch:&ResultBatch)->Result<crate::canonical_files::ProtectedFile,CanonicalError>{
+        let activity=self.selection_activity(&read.owner.selection)?;
+        activity.scope(async {
         self.files.require_current()?;
         if !read.belongs_to(self)||batch.attempt!=read.attempt.key||batch.ordinal>=read.set(&batch.result_set)?.batch_count{return Err(invalid("file batch outside admitted manifest"));}
         let original=self.result_batch_descriptor(&read.owner,&read.run,batch).await?;if &original!=batch{return Err(invalid("file batch descriptor differs from admitted catalog"));}
         let descriptor=self.file_descriptor(batch).await?;self.open_physical_file(descriptor,read.owner.clone())
+        }).await
     }
     async fn result_batch_descriptor(&self,owner:&Arc<ReadOwner>,run:&Run,batch:&ResultBatch)->Result<ResultBatch,CanonicalError>{
         let mut response=self.protected_query(&run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptor",||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM ONLY type::record('canonical_result_batches',$batch); COMMIT;"))
