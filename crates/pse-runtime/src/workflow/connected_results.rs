@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Exact canonical result selections streamed one independently decoded blob at
-//! a time. Row coordinates select recorded coverage; missing ranges stay missing.
+//! Exact canonical result selections over protected native files. Original row
+//! coordinates select recorded coverage; missing ranges stay missing.
 
 use super::{Runtime, WorkflowError, contract, result_blocks};
 #[cfg(test)]
@@ -21,10 +21,8 @@ use std::{
 
 #[cfg(all(test, feature = "canonical-tests"))]
 use std::time::Duration;
-// One checked RPC is limited to 4 MiB, plus its native-value/typed-row copies,
-// the verifier's 32 MiB apparent metadata bound, decoder scratch and decoded
-// block. No trajectory is
-// materialized here; returned arrays keep their independent actual reservation.
+// Metadata RPC responses have their own prepaid scope. Actual native file
+// footer/body allocations use file-shaped grants in ResultSnapshot.
 const READ_BYTES: usize = 3 * super::result_files::MAX_FILE_BYTES;
 
 fn response_owner(
@@ -238,7 +236,7 @@ impl CanonicalResultReader {
         Ok(())
     }
 
-    /// Decode one admitted member only after successful checked RPC completion.
+    /// Decode one admitted member from its exact protected native file.
     /// A late failure is surfaced to the stream; it cannot become normal exhaustion.
     pub async fn next_batch(&mut self) -> Result<Option<RecordBatch>, WorkflowError> {
         self.next_relation_batch()
@@ -252,8 +250,8 @@ impl CanonicalResultReader {
             .transpose()
     }
     /// Return one admitted registry relation batch for native columnar algorithms.
-    /// The reader holds renewable protection for further database reads; copied
-    /// decoded buffers retain their allocation owners independently of the reader.
+    /// Shared snapshots retain exact protection for future file reads. Copied
+    /// decoded buffers retain allocation owners independently of the reader.
     pub async fn next_relation_batch(
         &mut self,
     ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
