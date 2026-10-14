@@ -1,0 +1,299 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+
+//! Completed native IPC files. Physical integrity and registry admission have
+//! separate owners; this codec checks representation before Arrow allocates.
+
+use super::result_blocks::{self, ResultBlockError};
+use datafusion::arrow::{
+    buffer::Buffer,
+    datatypes::SchemaRef,
+    ipc::{self, reader::FileReaderBuilder, writer::FileWriter},
+    record_batch::RecordBatch,
+};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+
+/// Default packing target; acknowledgement boundaries can seal smaller files.
+pub const TARGET_FILE_BYTES: usize = 16 * 1024 * 1024;
+/// Every complete file, including its footer, fits this bound.
+pub const MAX_FILE_BYTES: usize = 32 * 1024 * 1024;
+const MAX_TABLES: usize = 128 * 1024;
+const MAX_BATCHES: usize = 32 * 1024;
+
+struct LimitedWriter(Vec<u8>);
+impl Write for LimitedWriter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if self.0.len().saturating_add(bytes.len()) > MAX_FILE_BYTES {
+            return Err(std::io::Error::other("sealed result file limit"));
+        }
+        self.0.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+}
+
+/// Pack compatible logical batches into one uncompressed, finished native file.
+/// Callers reserve writer scratch and output before calling, and seal before ACK.
+pub fn encode_file_batches(batches: &[RecordBatch]) -> Result<Vec<u8>, ResultBlockError> {
+    let first = batches.first().ok_or(ResultBlockError::Invalid("empty file inventory"))?;
+    if batches.len() > MAX_BATCHES {
+        return Err(ResultBlockError::Invalid("file batch count bound"));
+    }
+    result_blocks::expected_shape(first.schema().as_ref())?;
+    let mut visible = 0usize;
+    for batch in batches {
+        if batch.schema() != first.schema() {
+            return Err(ResultBlockError::Invalid("incompatible packed schemas"));
+        }
+        for array in batch.columns() {
+            // The counter is local to this array: the physical byte/file bound
+            // controls packing, independently of old RPC row fragmentation.
+            visible = visible.checked_add(result_blocks::visible_size(&array.to_data(), &mut 0)?)
+                .ok_or(ResultBlockError::Invalid("file body size overflow"))?;
+        }
+    }
+    if visible > MAX_FILE_BYTES {
+        return Err(ResultBlockError::Invalid("file body exceeds bound"));
+    }
+    let mut writer = FileWriter::try_new(LimitedWriter(Vec::new()), first.schema().as_ref())?;
+    for batch in batches { writer.write(batch)?; }
+    writer.finish()?;
+    Ok(writer.into_inner()?.0)
+}
+
+/// One complete file, useful for independent artifact members and fixtures.
+pub fn encode_result_file(batch: &RecordBatch) -> Result<Vec<u8>, ResultBlockError> {
+    encode_file_batches(std::slice::from_ref(batch))
+}
+
+/// Select a contiguous useful prefix by actual complete-file size. A single
+/// large row may exceed the target, but never the hard bound.
+pub(super) fn encode_result_prefix(
+    batch: &RecordBatch, start: usize, count: usize,
+) -> Result<(Vec<u8>, usize), ResultBlockError> {
+    if count == 0 || start.checked_add(count).is_none_or(|end| end > batch.num_rows()) {
+        return Err(ResultBlockError::Invalid("invalid file prefix"));
+    }
+    let mut rows = count;
+    loop {
+        match encode_result_file(&batch.slice(start, rows)) {
+            Ok(bytes) if bytes.len() <= TARGET_FILE_BYTES || rows == 1 => return Ok((bytes, rows)),
+            Ok(_) => rows = rows.div_ceil(2),
+            Err(error) if rows > 1 && splittable(&error) => rows = rows.div_ceil(2),
+            Err(error) => return Err(error),
+        }
+    }
+}
+fn splittable(error: &ResultBlockError) -> bool {
+    matches!(error, ResultBlockError::Invalid("file body exceeds bound" | "field value bound"))
+        || matches!(error, ResultBlockError::Arrow(datafusion::arrow::error::ArrowError::IoError(message, _)) if message == "sealed result file limit")
+}
+
+fn invalid(message: &'static str) -> ResultBlockError { ResultBlockError::Invalid(message) }
+fn read_range<R: Read + Seek>(reader: &mut R, start: u64, bytes: usize) -> Result<Vec<u8>, ResultBlockError> {
+    reader.seek(SeekFrom::Start(start)).map_err(datafusion::arrow::error::ArrowError::from)?;
+    let mut buffer = vec![0; bytes];
+    reader.read_exact(&mut buffer).map_err(datafusion::arrow::error::ArrowError::from)?;
+    Ok(buffer)
+}
+fn options() -> flatbuffers::VerifierOptions {
+    flatbuffers::VerifierOptions {
+        max_depth: 256, max_tables: MAX_TABLES, max_apparent_size: MAX_FILE_BYTES,
+        ..Default::default()
+    }
+}
+
+/// Check actual file/footer/record extents before FileReader's allocations.
+/// In particular a corrupt final footer-length word cannot allocate gigabytes.
+fn preflight<R: Read + Seek>(reader: &mut R, expected: &SchemaRef) -> Result<usize, ResultBlockError> {
+    let bytes = reader.seek(SeekFrom::End(0)).map_err(datafusion::arrow::error::ArrowError::from)?;
+    if !(18..=MAX_FILE_BYTES as u64).contains(&bytes) { return Err(invalid("file byte bound")); }
+    if read_range(reader, 0, 8)?.as_slice() != b"ARROW1\0\0" { return Err(invalid("file header")); }
+    let tail = read_range(reader, bytes - 10, 10)?;
+    if &tail[4..] != b"ARROW1" { return Err(invalid("file footer magic")); }
+    let length = i32::from_le_bytes(tail[..4].try_into().map_err(|_| invalid("footer length"))?);
+    let length = usize::try_from(length).map_err(|_| invalid("negative footer length"))?;
+    if length > bytes as usize - 18 { return Err(invalid("footer outside actual file")); }
+    let footer_start = bytes - 10 - length as u64;
+    let footer_bytes = read_range(reader, footer_start, length)?;
+    let footer = ipc::root_as_footer_with_opts(&options(), &footer_bytes)
+        .map_err(|_| invalid("invalid file footer"))?;
+    if footer.version() != ipc::MetadataVersion::V5
+        || footer.dictionaries().is_some_and(|entries| !entries.is_empty()) {
+        return Err(invalid("file version/dictionaries"));
+    }
+    let schema = footer.schema().ok_or_else(|| invalid("file schema absent"))?;
+    let shape = result_blocks::expected_shape(expected.as_ref())?;
+    let fields = schema.fields().ok_or_else(|| invalid("file schema fields absent"))?;
+    if schema.endianness() != ipc::Endianness::Little || fields.len() != expected.fields().len() {
+        return Err(invalid("file schema shape/endianness"));
+    }
+    let mut count = 0;
+    for field in fields { result_blocks::schema_field(field, 0, &mut count, shape)?; }
+    if count != shape || ipc::convert::fb_to_schema(schema) != **expected {
+        return Err(invalid("registry schema mismatch"));
+    }
+    let blocks = footer.recordBatches().ok_or_else(|| invalid("file batch inventory absent"))?;
+    if blocks.is_empty() || blocks.len() > MAX_BATCHES { return Err(invalid("file batch count bound")); }
+    let mut last_end = 8u64;
+    for block in blocks {
+        let offset = u64::try_from(block.offset()).map_err(|_| invalid("negative file block offset"))?;
+        let metadata = usize::try_from(block.metaDataLength()).map_err(|_| invalid("negative file metadata length"))?;
+        let body = u64::try_from(block.bodyLength()).map_err(|_| invalid("negative file body length"))?;
+        let end = offset.checked_add(metadata as u64).and_then(|end| end.checked_add(body))
+            .ok_or_else(|| invalid("file block overflow"))?;
+        if offset < last_end || metadata < 8 || end > footer_start || metadata % 8 != 0 || body % 8 != 0 {
+            return Err(invalid("file block span/overlap"));
+        }
+        last_end = end;
+        let metadata_bytes = read_range(reader, offset, metadata)?;
+        if metadata_bytes[..4] != [255; 4] { return Err(invalid("file block continuation")); }
+        let message_length = i32::from_le_bytes(metadata_bytes[4..8].try_into().map_err(|_| invalid("file metadata length"))?);
+        if usize::try_from(message_length).ok() != Some(metadata - 8) { return Err(invalid("file metadata extent")); }
+        let message = ipc::root_as_message_with_opts(&options(), &metadata_bytes[8..])
+            .map_err(|_| invalid("invalid file record metadata"))?;
+        if message.version() != ipc::MetadataVersion::V5 || u64::try_from(message.bodyLength()).ok() != Some(body) {
+            return Err(invalid("file record version/body"));
+        }
+        let batch = message.header_as_record_batch().ok_or_else(|| invalid("file record required"))?;
+        if batch.compression().is_some() || batch.variadicBufferCounts().is_some() { return Err(invalid("compression/variadic buffers refused")); }
+        let rows = usize::try_from(batch.length()).map_err(|_| invalid("negative file row count"))?;
+        let nodes = batch.nodes().ok_or_else(|| invalid("file field nodes absent"))?;
+        let buffers = batch.buffers().ok_or_else(|| invalid("file buffers absent"))?;
+        if nodes.len() != shape || buffers.len() > shape * 3 { return Err(invalid("file node/buffer shape")); }
+        let mut values = 0usize;
+        for node in nodes {
+            let n = usize::try_from(node.length()).map_err(|_| invalid("negative file field length"))?;
+            let nulls = usize::try_from(node.null_count()).map_err(|_| invalid("negative file null count"))?;
+            values = values.checked_add(n).ok_or_else(|| invalid("file field size overflow"))?;
+            if values > MAX_FILE_BYTES || nulls > n { return Err(invalid("file field value bound")); }
+        }
+        let mut previous = 0;
+        for buffer in buffers {
+            let start = u64::try_from(buffer.offset()).map_err(|_| invalid("negative file buffer offset"))?;
+            let length = u64::try_from(buffer.length()).map_err(|_| invalid("negative file buffer length"))?;
+            let end = start.checked_add(length).ok_or_else(|| invalid("file buffer overflow"))?;
+            if start < previous || end > body { return Err(invalid("file buffer span/overlap")); }
+            previous = end;
+        }
+        let nodes = nodes.iter().collect::<Vec<_>>();
+        let buffers = buffers.iter().collect::<Vec<_>>();
+        let (mut node, mut buffer) = (0, 0);
+        for field in expected.fields() {
+            result_blocks::layout(field.data_type(), &nodes, &buffers, &mut node, &mut buffer, Some(rows))?;
+        }
+        if node != nodes.len() || buffer != buffers.len() { return Err(invalid("extra file layout nodes/buffers")); }
+    }
+    Ok(blocks.len())
+}
+
+/// Read exactly one declared file batch through Arrow's native random access.
+/// Registry admission and allocation attachment follow in the scientific owner.
+pub(super) fn read_file_batch<R: Read + Seek>(
+    mut reader: R, expected: SchemaRef, index: usize, rows: usize,
+) -> Result<RecordBatch, ResultBlockError> {
+    let count = preflight(&mut reader, &expected)?;
+    if index >= count { return Err(invalid("file batch index outside inventory")); }
+    let mut reader = FileReaderBuilder::new().with_max_footer_fb_tables(MAX_TABLES)
+        .with_max_footer_fb_depth(256).build(reader)?;
+    reader.set_index(index)?;
+    let batch = reader.next().transpose()?.ok_or_else(|| invalid("file batch absent"))?;
+    if batch.num_rows() != rows || batch.schema() != expected { return Err(invalid("file batch rows/schema differ")); }
+    Ok(batch)
+}
+
+/// Decode a completed standalone file member with the exact declared schema.
+pub fn decode_result_file(bytes: &[u8], expected: SchemaRef, rows: usize) -> Result<RecordBatch, ResultBlockError> {
+    read_file_batch(Cursor::new(bytes), expected, 0, rows)
+}
+pub(super) fn decode_owned_result_file(bytes: Buffer, expected: SchemaRef, index: usize, rows: usize) -> Result<RecordBatch, ResultBlockError> {
+    read_file_batch(Cursor::new(bytes), expected, index, rows)
+}
+
+#[cfg(test)]
+mod result_files_unit {
+    use super::*;
+    use datafusion::arrow::{
+        array::{Array, Float64Array, ListArray, types::Float64Type},
+        datatypes::{DataType, Field, Schema},
+    };
+    use std::{collections::HashMap, sync::Arc};
+
+    fn batch(bits: &[u64]) -> RecordBatch {
+        let schema = Arc::new(Schema::new_with_metadata(
+            vec![Field::new("value", DataType::Float64, false)
+                .with_metadata(HashMap::from([("units".into(), "m".into())]))],
+            HashMap::from([("interpretation".into(), "exact".into())]),
+        ));
+        RecordBatch::try_new(schema, vec![Arc::new(Float64Array::from_iter_values(
+            bits.iter().copied().map(f64::from_bits),
+        ))]).unwrap()
+    }
+
+    #[test]
+    fn completed_native_file_packs_batches_and_random_access_preserves_ieee_metadata() {
+        let first = batch(&[0, 1 << 63, 0x7ff8_0000_0000_0042]);
+        let second = batch(&[0x7ff0_0000_0000_0000, 0xfff0_0000_0000_0000]);
+        let bytes = encode_file_batches(&[first.clone(), second.clone()]).unwrap();
+        assert_eq!(&bytes[..6], b"ARROW1");
+        assert_eq!(&bytes[bytes.len()-6..], b"ARROW1");
+        for (index, expected) in [first, second].iter().enumerate() {
+            let actual = read_file_batch(Cursor::new(&bytes), expected.schema(), index, expected.num_rows()).unwrap();
+            assert_eq!(actual.schema(), expected.schema());
+            let actual = actual.column(0).as_any().downcast_ref::<Float64Array>().unwrap();
+            let expected = expected.column(0).as_any().downcast_ref::<Float64Array>().unwrap();
+            assert_eq!(actual.values().iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                expected.values().iter().map(|v| v.to_bits()).collect::<Vec<_>>());
+        }
+        assert!(read_file_batch(Cursor::new(&bytes), batch(&[]).schema(), 2, 0).is_err());
+    }
+
+    #[test]
+    fn file_has_no_obsolete_rpc_row_limit_and_preserves_nested_nulls() {
+        let source = batch(&vec![42; 65_537]);
+        let bytes = encode_result_file(&source).unwrap();
+        assert_eq!(decode_result_file(&bytes, source.schema(), 65_537).unwrap().num_rows(), 65_537);
+        let list = ListArray::from_iter_primitive::<Float64Type, _, _>([
+            Some(vec![Some(-0.0), None]), None, Some(vec![]), Some(vec![Some(f64::from_bits(0x7ff8_0000_0000_0042))]),
+        ]);
+        let schema = Arc::new(Schema::new(vec![Field::new("nested", list.data_type().clone(), true)]));
+        let source = RecordBatch::try_new(schema, vec![Arc::new(list)]).unwrap();
+        let bytes = encode_result_file(&source).unwrap();
+        let actual = decode_result_file(&bytes, source.schema(), 4).unwrap();
+        assert_eq!(actual.column(0).to_data(), source.column(0).to_data());
+    }
+
+    #[test]
+    fn corrupt_footer_length_is_refused_before_an_advertised_allocation_or_read() {
+        struct Observed(Cursor<Vec<u8>>, usize);
+        impl Read for Observed {
+            fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+                self.1 = self.1.max(out.len());
+                assert!(out.len() <= MAX_FILE_BYTES);
+                self.0.read(out)
+            }
+        }
+        impl Seek for Observed {
+            fn seek(&mut self, position: SeekFrom) -> std::io::Result<u64> { self.0.seek(position) }
+        }
+        let source = batch(&[1, 2]);
+        let mut bytes = encode_result_file(&source).unwrap();
+        let length = bytes.len();
+        bytes[length-10..length-6].copy_from_slice(&i32::MAX.to_le_bytes());
+        let mut reader = Observed(Cursor::new(bytes), 0);
+        assert!(matches!(preflight(&mut reader, &source.schema()), Err(ResultBlockError::Invalid("footer outside actual file"))));
+        assert_eq!(reader.1, 10);
+    }
+
+    #[test]
+    fn missing_footer_wrong_schema_rows_and_incompatible_packing_fail() {
+        let source = batch(&[1, 2]);
+        let bytes = encode_result_file(&source).unwrap();
+        assert!(decode_result_file(&bytes[..bytes.len()-1], source.schema(), 2).is_err());
+        assert!(decode_result_file(&bytes, source.schema(), 3).is_err());
+        let wrong = Arc::new(Schema::new(vec![Field::new("other", DataType::Float64, false)]));
+        assert!(decode_result_file(&bytes, wrong.clone(), 2).is_err());
+        let second = RecordBatch::try_new(wrong, source.columns().to_vec()).unwrap();
+        assert!(encode_file_batches(&[source, second]).is_err());
+    }
+}

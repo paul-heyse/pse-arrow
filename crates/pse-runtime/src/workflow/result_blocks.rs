@@ -18,7 +18,7 @@ pub const RESULT_BLOCK_BYTES: usize = pse_operations::generated::surreal::RESULT
 const MAX_FIELDS: usize = 16 * 1024;
 const MAX_DEPTH: usize = 64;
 const MAX_ROWS: usize = 32 * 1024;
-const MAX_VALUES: usize = RESULT_BLOCK_BYTES;
+const MAX_VALUES: usize = 32 * 1024 * 1024;
 const MAX_IPC_TABLES: usize = 128 * 1024;
 
 // Source objects belong to canonical revision ingestion, whose declared object
@@ -287,7 +287,7 @@ where
     Ok(())
 }
 
-fn visible_size(data: &ArrayData, values: &mut usize) -> Result<usize, ResultBlockError> {
+pub(super) fn visible_size(data: &ArrayData, values: &mut usize) -> Result<usize, ResultBlockError> {
     *values = values
         .checked_add(data.len())
         .ok_or(ResultBlockError::Invalid("field size overflow"))?;
@@ -516,7 +516,7 @@ fn frame<'a>(
     Ok(Some((message, body)))
 }
 
-fn schema_field(
+pub(super) fn schema_field(
     field: ipc::Field<'_>,
     depth: usize,
     count: &mut usize,
@@ -628,7 +628,7 @@ fn time_unit(unit: ipc::TimeUnit) -> bool {
 // Validate bitmap and data minima before decoder constructors (some Arrow
 // constructors assert their buffer lengths). The nested node traversal is exactly
 // the declared schema traversal; buffers cannot be borrowed from another field.
-fn layout(
+pub(super) fn layout(
     ty: &DataType,
     nodes: &[&ipc::FieldNode],
     buffers: &[&ipc::Buffer],
@@ -737,7 +737,7 @@ fn preflight_block(
     preflight_prepared(bytes, expected, expected_shape(expected)?, rows, purpose)
 }
 
-fn expected_shape(expected: &Schema) -> Result<usize, ResultBlockError> {
+pub(super) fn expected_shape(expected: &Schema) -> Result<usize, ResultBlockError> {
     let mut fields = 0;
     for field in expected.fields() {
         trusted_shape(field.data_type(), 0, &mut fields)?;
