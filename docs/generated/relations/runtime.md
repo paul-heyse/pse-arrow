@@ -349,6 +349,75 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `minimal` | `Boolean` | false | `payload` | — | — |
 | `disposition` | `Utf8` | false | `payload` | — | — |
 
+## `canonical_file_admission`
+
+Selected file placement incarnation and jointly locked admission/collection freeze; ordinary opening never provisions missing placement.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `storage_incarnation` | `Utf8` | false | `payload` | — | — |
+| `frozen` | `Boolean` | false | `payload` | — | — |
+| `gc_frozen` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_file_borrowers`
+
+Independent exact physical-file borrower and permanent released attribution; logical result/artifact lifetimes arbitrate with collection under the instance guard.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `instance` | `Utf8` | false | `payload` | — | — |
+| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+| `released` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_file_instances`
+
+Never-reused physical file instance reserved before file work. Original unresolved intent protects pending/sealed publication; collecting and collected are irreversible.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `intent` | `Utf8` | false | `payload` | — | — |
+| `request_digest` | `Utf8` | false | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `selection` | `Utf8` | false | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `storage_incarnation` | `Utf8` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `payload_bytes` | `UInt64` | false | `payload` | — | — |
+| `encoding` | `Utf8` | false | `payload` | — | — |
+| `batch_count` | `UInt64` | false | `payload` | — | — |
+| `schema` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `state` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_file_owners`
+
+Authenticated actual Linux process owner; boot, PID namespace, PID and start bind every file capability. Silence and finite deadlines never prove drain.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `storage_incarnation` | `Utf8` | false | `payload` | — | — |
+| `boot` | `Utf8` | false | `payload` | — | — |
+| `pid_namespace` | `Utf8` | false | `payload` | — | — |
+| `pid` | `UInt64` | false | `payload` | — | — |
+| `start` | `Utf8` | false | `payload` | — | — |
+| `invocation` | `Utf8` | true | `payload` | — | — |
+| `drained` | `Boolean` | false | `payload` | — | — |
+
 ## `canonical_guards`
 
 Named conflict register; generation is separate from semantic eligibility.
@@ -447,6 +516,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `schema_digest` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `payload_incarnation` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_maintenance_activations`
 
@@ -462,6 +532,24 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `schema_digest` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_manifest_tickets`
+
+Nonexpiring exact immutable selection read ticket covering future unread files; only actual authenticated owner death or completed reader drain releases it.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `selection` | `Utf8` | false | `payload` | — | — |
+| `run` | `Utf8` | true | `payload` | — | — |
+| `attempt` | `Utf8` | true | `payload` | — | — |
+| `manifest` | `Utf8` | true | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+| `storage_incarnation` | `Utf8` | false | `payload` | — | — |
+| `released` | `Boolean` | false | `payload` | — | — |
 
 ## `canonical_memberships`
 

@@ -161,6 +161,20 @@ pub enum FactBatch {
     r#RuntimeCanonicalExecutionOperations(
         Vec<super::r#runtime::r#canonical_execution_operations::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalFileAdmission)]
+    r#RuntimeCanonicalFileAdmission(
+        Vec<super::r#runtime::r#canonical_file_admission::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalFileBorrowers)]
+    r#RuntimeCanonicalFileBorrowers(
+        Vec<super::r#runtime::r#canonical_file_borrowers::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalFileInstances)]
+    r#RuntimeCanonicalFileInstances(
+        Vec<super::r#runtime::r#canonical_file_instances::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalFileOwners)]
+    r#RuntimeCanonicalFileOwners(Vec<super::r#runtime::r#canonical_file_owners::Row>),
     #[doc = stringify!(r#RuntimeCanonicalGuards)]
     r#RuntimeCanonicalGuards(Vec<super::r#runtime::r#canonical_guards::Row>),
     #[doc = stringify!(r#RuntimeCanonicalHistoryIdentities)]
@@ -190,6 +204,10 @@ pub enum FactBatch {
     #[doc = stringify!(r#RuntimeCanonicalMaintenanceActivations)]
     r#RuntimeCanonicalMaintenanceActivations(
         Vec<super::r#runtime::r#canonical_maintenance_activations::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalManifestTickets)]
+    r#RuntimeCanonicalManifestTickets(
+        Vec<super::r#runtime::r#canonical_manifest_tickets::Row>,
     ),
     #[doc = stringify!(r#RuntimeCanonicalMemberships)]
     r#RuntimeCanonicalMemberships(Vec<super::r#runtime::r#canonical_memberships::Row>),
@@ -798,6 +816,30 @@ impl FactBatch {
                     230u8, 101u8, 243u8, 224u8, 178u8,
                 ])
             }
+            Self::r#RuntimeCanonicalFileAdmission(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    31u8, 118u8, 84u8, 172u8, 21u8, 31u8, 64u8, 121u8, 138u8, 240u8,
+                    40u8, 189u8, 126u8, 128u8, 235u8, 23u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalFileBorrowers(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    122u8, 198u8, 209u8, 81u8, 113u8, 24u8, 133u8, 146u8, 255u8, 171u8,
+                    141u8, 17u8, 79u8, 234u8, 224u8, 54u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalFileInstances(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    240u8, 156u8, 233u8, 185u8, 33u8, 205u8, 226u8, 40u8, 175u8, 191u8,
+                    182u8, 149u8, 166u8, 152u8, 72u8, 51u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalFileOwners(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    219u8, 213u8, 228u8, 4u8, 178u8, 57u8, 186u8, 250u8, 71u8, 221u8,
+                    165u8, 117u8, 146u8, 40u8, 203u8, 244u8,
+                ])
+            }
             Self::r#RuntimeCanonicalGuards(_) => {
                 pse_ids::SemanticId::from_bytes([
                     123u8, 142u8, 134u8, 27u8, 36u8, 94u8, 215u8, 100u8, 85u8, 186u8,
@@ -844,6 +886,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     51u8, 116u8, 220u8, 119u8, 253u8, 190u8, 229u8, 122u8, 51u8, 28u8,
                     110u8, 97u8, 145u8, 159u8, 101u8, 141u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalManifestTickets(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    104u8, 64u8, 106u8, 112u8, 166u8, 93u8, 48u8, 120u8, 245u8, 96u8,
+                    30u8, 251u8, 55u8, 102u8, 199u8, 175u8,
                 ])
             }
             Self::r#RuntimeCanonicalMemberships(_) => {
@@ -1446,6 +1494,10 @@ impl FactBatch {
             Self::r#RuntimeCanonicalBodyContents(rows) => rows.len(),
             Self::r#RuntimeCanonicalEdges(rows) => rows.len(),
             Self::r#RuntimeCanonicalExecutionOperations(rows) => rows.len(),
+            Self::r#RuntimeCanonicalFileAdmission(rows) => rows.len(),
+            Self::r#RuntimeCanonicalFileBorrowers(rows) => rows.len(),
+            Self::r#RuntimeCanonicalFileInstances(rows) => rows.len(),
+            Self::r#RuntimeCanonicalFileOwners(rows) => rows.len(),
             Self::r#RuntimeCanonicalGuards(rows) => rows.len(),
             Self::r#RuntimeCanonicalHistoryIdentities(rows) => rows.len(),
             Self::r#RuntimeCanonicalHistoryLocators(rows) => rows.len(),
@@ -1454,6 +1506,7 @@ impl FactBatch {
             Self::r#RuntimeCanonicalHistoryRetirements(rows) => rows.len(),
             Self::r#RuntimeCanonicalInterpretations(rows) => rows.len(),
             Self::r#RuntimeCanonicalMaintenanceActivations(rows) => rows.len(),
+            Self::r#RuntimeCanonicalManifestTickets(rows) => rows.len(),
             Self::r#RuntimeCanonicalMemberships(rows) => rows.len(),
             Self::r#RuntimeCanonicalPayloadBlocks(rows) => rows.len(),
             Self::r#RuntimeCanonicalProblemRuns(rows) => rows.len(),
@@ -1860,6 +1913,26 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeCanonicalFileAdmission(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalFileBorrowers(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalFileInstances(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalFileOwners(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeCanonicalGuards(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1896,6 +1969,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalManifestTickets(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2599,6 +2677,22 @@ impl FactBatch {
                         vec![row.clone()],
                     ))
             }
+            Self::r#RuntimeCanonicalFileAdmission(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalFileAdmission(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalFileBorrowers(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalFileBorrowers(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalFileInstances(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalFileInstances(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalFileOwners(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalFileOwners(vec![row.clone()]))
+            }
             Self::r#RuntimeCanonicalGuards(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalGuards(vec![row.clone()]))
@@ -2642,6 +2736,12 @@ impl FactBatch {
             Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalMaintenanceActivations(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalManifestTickets(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalManifestTickets(
                         vec![row.clone()],
                     ))
             }
@@ -3669,6 +3769,50 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeCanonicalFileAdmission(left),
+                Self::r#RuntimeCanonicalFileAdmission(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalFileBorrowers(left),
+                Self::r#RuntimeCanonicalFileBorrowers(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalFileInstances(left),
+                Self::r#RuntimeCanonicalFileInstances(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalFileOwners(left),
+                Self::r#RuntimeCanonicalFileOwners(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeCanonicalGuards(left),
                 Self::r#RuntimeCanonicalGuards(right),
             ) => {
@@ -3748,6 +3892,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalMaintenanceActivations(left),
                 Self::r#RuntimeCanonicalMaintenanceActivations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalManifestTickets(left),
+                Self::r#RuntimeCanonicalManifestTickets(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5135,6 +5290,34 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeCanonicalFileAdmission(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalFileBorrowers(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalFileInstances(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalFileOwners(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeCanonicalGuards(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -5185,6 +5368,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalManifestTickets(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -6584,6 +6774,50 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeCanonicalFileAdmission(left),
+                Self::r#RuntimeCanonicalFileAdmission(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalFileBorrowers(left),
+                Self::r#RuntimeCanonicalFileBorrowers(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalFileInstances(left),
+                Self::r#RuntimeCanonicalFileInstances(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalFileOwners(left),
+                Self::r#RuntimeCanonicalFileOwners(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeCanonicalGuards(left),
                 Self::r#RuntimeCanonicalGuards(right),
             ) => {
@@ -6663,6 +6897,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalMaintenanceActivations(left),
                 Self::r#RuntimeCanonicalMaintenanceActivations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalManifestTickets(left),
+                Self::r#RuntimeCanonicalManifestTickets(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -8234,6 +8479,22 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalFileAdmission(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalFileBorrowers(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalFileInstances(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalFileOwners(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalGuards(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -8263,6 +8524,10 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
             Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalManifestTickets(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
@@ -9121,6 +9386,34 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCanonicalFileAdmission(left),
+                Self::r#RuntimeCanonicalFileAdmission(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalFileBorrowers(left),
+                Self::r#RuntimeCanonicalFileBorrowers(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalFileInstances(left),
+                Self::r#RuntimeCanonicalFileInstances(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalFileOwners(left),
+                Self::r#RuntimeCanonicalFileOwners(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeCanonicalGuards(left),
                 Self::r#RuntimeCanonicalGuards(mut right),
             ) => {
@@ -9172,6 +9465,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalMaintenanceActivations(left),
                 Self::r#RuntimeCanonicalMaintenanceActivations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalManifestTickets(left),
+                Self::r#RuntimeCanonicalManifestTickets(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -9904,6 +10204,18 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeCanonicalExecutionOperations(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeCanonicalFileAdmission(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalFileBorrowers(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalFileInstances(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalFileOwners(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeCanonicalGuards(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeCanonicalHistoryIdentities(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
@@ -9924,6 +10236,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalManifestTickets(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalMemberships(rows) => {

@@ -152,6 +152,51 @@ DEFINE FIELD minimal ON canonical_execution_operations TYPE bool;
 DEFINE FIELD disposition ON canonical_execution_operations TYPE string;
 DEFINE INDEX canonical_execution_operations_key ON canonical_execution_operations FIELDS key UNIQUE;
 
+DEFINE TABLE canonical_file_admission SCHEMAFULL;
+DEFINE FIELD key ON canonical_file_admission TYPE string;
+DEFINE FIELD storage_incarnation ON canonical_file_admission TYPE string;
+DEFINE FIELD frozen ON canonical_file_admission TYPE bool;
+DEFINE FIELD gc_frozen ON canonical_file_admission TYPE bool;
+DEFINE INDEX canonical_file_admission_key ON canonical_file_admission FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_file_borrowers SCHEMAFULL;
+DEFINE FIELD key ON canonical_file_borrowers TYPE string;
+DEFINE FIELD instance ON canonical_file_borrowers TYPE string;
+DEFINE FIELD owner_kind ON canonical_file_borrowers TYPE string;
+DEFINE FIELD owner ON canonical_file_borrowers TYPE string;
+DEFINE FIELD released ON canonical_file_borrowers TYPE bool;
+DEFINE INDEX canonical_file_borrowers_key ON canonical_file_borrowers FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_file_instances SCHEMAFULL;
+DEFINE FIELD key ON canonical_file_instances TYPE string;
+DEFINE FIELD intent ON canonical_file_instances TYPE string;
+DEFINE FIELD request_digest ON canonical_file_instances TYPE string;
+DEFINE FIELD owner ON canonical_file_instances TYPE string;
+DEFINE FIELD owner_kind ON canonical_file_instances TYPE string;
+DEFINE FIELD selection ON canonical_file_instances TYPE string;
+DEFINE FIELD issuing_store ON canonical_file_instances TYPE string;
+DEFINE FIELD storage_incarnation ON canonical_file_instances TYPE string;
+DEFINE FIELD digest ON canonical_file_instances TYPE string;
+DEFINE FIELD payload_bytes ON canonical_file_instances TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD encoding ON canonical_file_instances TYPE string;
+DEFINE FIELD batch_count ON canonical_file_instances TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD schema ON canonical_file_instances TYPE string;
+DEFINE FIELD interpretation ON canonical_file_instances TYPE string;
+DEFINE FIELD state ON canonical_file_instances TYPE string;
+DEFINE INDEX canonical_file_instances_key ON canonical_file_instances FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_file_owners SCHEMAFULL;
+DEFINE FIELD key ON canonical_file_owners TYPE string;
+DEFINE FIELD issuing_store ON canonical_file_owners TYPE string;
+DEFINE FIELD storage_incarnation ON canonical_file_owners TYPE string;
+DEFINE FIELD boot ON canonical_file_owners TYPE string;
+DEFINE FIELD pid_namespace ON canonical_file_owners TYPE string;
+DEFINE FIELD pid ON canonical_file_owners TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD start ON canonical_file_owners TYPE string;
+DEFINE FIELD invocation ON canonical_file_owners TYPE option<string>;
+DEFINE FIELD drained ON canonical_file_owners TYPE bool;
+DEFINE INDEX canonical_file_owners_key ON canonical_file_owners FIELDS key UNIQUE;
+
 DEFINE TABLE canonical_guards SCHEMAFULL;
 DEFINE FIELD key ON canonical_guards TYPE string;
 DEFINE FIELD generation ON canonical_guards TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
@@ -207,6 +252,7 @@ DEFINE FIELD key ON canonical_interpretations TYPE string;
 DEFINE FIELD interpretation ON canonical_interpretations TYPE string;
 DEFINE FIELD schema_digest ON canonical_interpretations TYPE string;
 DEFINE FIELD issuing_store ON canonical_interpretations TYPE string;
+DEFINE FIELD payload_incarnation ON canonical_interpretations TYPE string;
 DEFINE INDEX canonical_interpretations_key ON canonical_interpretations FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_maintenance_activations SCHEMAFULL;
@@ -217,6 +263,18 @@ DEFINE FIELD interpretation ON canonical_maintenance_activations TYPE string;
 DEFINE FIELD schema_digest ON canonical_maintenance_activations TYPE string;
 DEFINE FIELD issuing_store ON canonical_maintenance_activations TYPE string;
 DEFINE INDEX canonical_maintenance_activations_key ON canonical_maintenance_activations FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_manifest_tickets SCHEMAFULL;
+DEFINE FIELD key ON canonical_manifest_tickets TYPE string;
+DEFINE FIELD kind ON canonical_manifest_tickets TYPE string;
+DEFINE FIELD selection ON canonical_manifest_tickets TYPE string;
+DEFINE FIELD run ON canonical_manifest_tickets TYPE option<string>;
+DEFINE FIELD attempt ON canonical_manifest_tickets TYPE option<string>;
+DEFINE FIELD manifest ON canonical_manifest_tickets TYPE option<string>;
+DEFINE FIELD owner ON canonical_manifest_tickets TYPE string;
+DEFINE FIELD storage_incarnation ON canonical_manifest_tickets TYPE string;
+DEFINE FIELD released ON canonical_manifest_tickets TYPE bool;
+DEFINE INDEX canonical_manifest_tickets_key ON canonical_manifest_tickets FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_memberships TYPE RELATION IN canonical_problems OUT canonical_version_manifests ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_memberships TYPE string;
@@ -613,6 +671,13 @@ DEFINE FIELD payload ON canonical_versions TYPE bytes;
 DEFINE FIELD interpretation ON canonical_versions TYPE string;
 DEFINE INDEX canonical_versions_key ON canonical_versions FIELDS key UNIQUE;
 
+DEFINE INDEX file_intent ON canonical_file_instances FIELDS intent UNIQUE;
+DEFINE INDEX file_instance_owner ON canonical_file_instances FIELDS owner, state, key;
+DEFINE INDEX file_borrower_instance ON canonical_file_borrowers FIELDS instance, released, key;
+DEFINE INDEX file_borrower_owner ON canonical_file_borrowers FIELDS owner_kind, owner, key;
+DEFINE INDEX file_owner_active ON canonical_file_owners FIELDS drained, key;
+DEFINE INDEX manifest_ticket_selection ON canonical_manifest_tickets FIELDS kind, selection, released, key;
+DEFINE INDEX manifest_ticket_owner ON canonical_manifest_tickets FIELDS owner, released, key;
 DEFINE INDEX guard_incarnation ON canonical_guards FIELDS incarnation UNIQUE;
 DEFINE INDEX membership_selection ON canonical_memberships FIELDS problem, scope, name, from_sequence;
 DEFINE INDEX membership_active ON canonical_memberships FIELDS problem, to_sequence;
@@ -840,7 +905,7 @@ DEFINE FUNCTION fn::pse_execution_v1::fence($rpc_expiry: int, $run: string, $att
 
 DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>, $admission: option<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    IF $row.interpretation!='pse.substrate.v5' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v5' { THROW 'stale execution publication interpretation'; };
+    IF $row.interpretation!='pse.substrate.v6' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v6' { THROW 'stale execution publication interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $row.key);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:' + $row.key);
     LET $old = SELECT * FROM ONLY type::record('canonical_runs', $row.key);
@@ -888,14 +953,14 @@ DEFINE FUNCTION fn::pse_execution_v1::current_writer($rpc_expiry:int,$run:string
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
     LET $row=SELECT * FROM ONLY type::record('canonical_runs',$run);
-    IF $marker=NONE OR $marker.interpretation!='pse.substrate.v5' OR $row=NONE OR $row.interpretation!='pse.substrate.v5' { THROW 'historical execution is read-only'; };
+    IF $marker=NONE OR $marker.interpretation!='pse.substrate.v6' OR $row=NONE OR $row.interpretation!='pse.substrate.v6' { THROW 'historical execution is read-only'; };
     RETURN true;
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int, $interpretation: string, $finalization_study: option<string>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $interpretation!='pse.substrate.v5' { THROW 'stale execution claim interpretation'; };
+    IF $interpretation!='pse.substrate.v6' { THROW 'stale execution claim interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'claim', $request);
     IF $op != NONE { LET $rpc_result = SELECT * FROM ONLY type::record('canonical_attempts', $op.attempt); fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
@@ -933,7 +998,7 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
 DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $block: option<object>, $row_indexes: array<object>, $outputs: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $set.interpretation!='pse.substrate.v5' OR ($block!=NONE AND $block.interpretation!='pse.substrate.v5') OR array::len($row_indexes[WHERE interpretation!='pse.substrate.v5'])!=0 OR array::len($outputs[WHERE interpretation!='pse.substrate.v5'])!=0 { THROW 'stale execution append interpretation'; };
+    IF $set.interpretation!='pse.substrate.v6' OR ($block!=NONE AND $block.interpretation!='pse.substrate.v6') OR array::len($row_indexes[WHERE interpretation!='pse.substrate.v6'])!=0 OR array::len($outputs[WHERE interpretation!='pse.substrate.v6'])!=0 { THROW 'stale execution append interpretation'; };
     IF array::len($row_indexes) > 18724 OR array::len($outputs) > 18724 OR bytes::len(encoding::cbor::encode({block:$block,row_indexes:$row_indexes,outputs:$outputs})) > 131072 { THROW 'execution index metadata extent exceeded'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'append', $request);
@@ -1017,7 +1082,7 @@ DEFINE FUNCTION fn::pse_execution_v1::empty($rpc_expiry: int, $run: string, $att
     LET $writer=IF $op=NONE { fn::pse_execution_v1::writer($rpc_expiry,$run,$attempt,$generation,$operation,'empty') } ELSE { NONE };
     IF $writer!=NONE AND $writer.pse_writer != 'admitted' { RETURN $writer; };
     IF $op=NONE AND ($writer.attempt.closed OR $writer.attempt.ingestion_open=false) { THROW 'execution empty declaration ingestion closed'; };
-    IF $set.attempt != $attempt OR $set.interpretation != 'pse.substrate.v5' OR $set.next_ordinal != 0dec OR $set.row_count != 0dec { THROW 'execution empty declaration mismatch'; };
+    IF $set.attempt != $attempt OR $set.interpretation != 'pse.substrate.v6' OR $set.next_ordinal != 0dec OR $set.row_count != 0dec { THROW 'execution empty declaration mismatch'; };
     LET $old = SELECT * FROM ONLY type::record('canonical_result_sets',$set.key);
     IF $old != NONE {
         IF object::remove($old,'id') != $set { THROW 'execution demanded empty set changed'; };
@@ -1045,12 +1110,12 @@ DEFINE FUNCTION fn::pse_execution_v1::verify_acknowledged($rpc_expiry: int, $run
     FOR $s IN $sets {
         LET $matching=$proofs.filter(|$p| $p.set=$s.key);
         IF array::len($matching)=0 {
-            IF $progress_queued=NONE OR $s.name!='__progress' OR $s.attempt!=$attempt OR $s.interpretation!='pse.substrate.v5' OR $s.row_count>$progress_queued { THROW 'execution unacknowledged set membership differs'; };
+            IF $progress_queued=NONE OR $s.name!='__progress' OR $s.attempt!=$attempt OR $s.interpretation!='pse.substrate.v6' OR $s.row_count>$progress_queued { THROW 'execution unacknowledged set membership differs'; };
         } ELSE {
         IF array::len($matching)!=1 { THROW 'execution advertised set ambiguous'; };
         LET $p=$matching[0];
         LET $uncertain=$s.name='__progress' AND $progress_queued!=NONE;
-        IF $s.attempt != $attempt OR $s.name != $p.name OR $s.interpretation != 'pse.substrate.v5' OR (!$uncertain AND ($s.next_ordinal != $p.count OR $s.row_count != $p.row_count)) OR ($uncertain AND ($s.next_ordinal<$p.count OR $s.row_count<$p.row_count OR $s.row_count>$progress_queued)) { THROW 'execution acknowledged set coverage differs'; };
+        IF $s.attempt != $attempt OR $s.name != $p.name OR $s.interpretation != 'pse.substrate.v6' OR (!$uncertain AND ($s.next_ordinal != $p.count OR $s.row_count != $p.row_count)) OR ($uncertain AND ($s.next_ordinal<$p.count OR $s.row_count<$p.row_count OR $s.row_count>$progress_queued)) { THROW 'execution acknowledged set coverage differs'; };
         LET $receipt=SELECT * FROM ONLY type::record('canonical_execution_operations',$p.operation);
         IF $receipt=NONE OR $receipt.run != $run OR $receipt.attempt != $attempt OR $receipt.kind != $p.kind OR $receipt.request != $p.request OR $receipt.result != $p.request { THROW 'execution actual final receipt differs'; };
         IF $p.count=0dec {
@@ -1273,7 +1338,7 @@ DEFINE FUNCTION fn::pse_execution_v1::seed_eligible($seed: object) -> bool {
     IF $a = NONE OR $a.terminal = false OR $a.closed = false OR $a.ingestion_open OR $a.seed_manifest = NONE OR $a.seed_manifest != $a.closed_manifest OR $a.run != $seed.run OR $a.generation != $seed.attempt_generation { RETURN false; };
     LET $r = SELECT sequence,interpretation FROM ONLY type::record('canonical_runs', $seed.run);
     LET $installed=SELECT interpretation FROM ONLY canonical_interpretations:current;
-    IF $r=NONE OR $r.interpretation!='pse.substrate.v5' OR $installed=NONE OR $installed.interpretation!='pse.substrate.v5' { RETURN false; };
+    IF $r=NONE OR $r.interpretation!='pse.substrate.v6' OR $installed=NONE OR $installed.interpretation!='pse.substrate.v6' { RETURN false; };
     LET $m = SELECT attempt,generation FROM ONLY type::record('canonical_result_manifests', $a.seed_manifest);
     RETURN $r != NONE AND $r.sequence = $seed.run_sequence AND $m != NONE AND $m.attempt = $seed.attempt AND $m.generation = $seed.attempt_generation;
 };
@@ -1303,6 +1368,140 @@ DEFINE FUNCTION fn::pse_execution_v1::seed($rpc_expiry: int, $run: string, $atte
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::lease($rpc_expiry, $a.expires_at);
     RETURN $rpc_result;
+};
+
+DEFINE FUNCTION fn::pse_files_v1::admission($expiry:int,$incarnation:string,$collecting:bool) -> object {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
+    IF $gate=NONE OR $gate.storage_incarnation!=$incarnation OR ($collecting AND $gate.gc_frozen) OR (!$collecting AND $gate.frozen) { THROW 'file admission closed or incarnation differs'; };
+    RETURN $gate;
+};
+DEFINE FUNCTION fn::pse_files_v1::owner($expiry:int,$key:string,$incarnation:string) -> object {
+    fn::pse_files_v1::admission($expiry,$incarnation,false);
+    LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$key) FOR UPDATE;
+    IF $owner=NONE OR $owner.drained OR $owner.storage_incarnation!=$incarnation OR $owner.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'file actual owner unavailable'; };
+    RETURN $owner;
+};
+DEFINE FUNCTION fn::pse_files_v1::register_owner($expiry:int,$row:object) -> object {
+    fn::pse_files_v1::admission($expiry,$row.storage_incarnation,false);
+    IF $row.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $row.drained OR $row.pid=0dec OR string::len($row.boot)=0 OR string::len($row.start)=0 OR string::len($row.pid_namespace)=0 { THROW 'file process identity incomplete'; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_file_owners',$row.key) FOR UPDATE;
+    IF $old!=NONE { IF object::remove($old,'id')!=$row { THROW 'file owner identity reused'; }; RETURN $old; };
+    RETURN CREATE ONLY type::record('canonical_file_owners',$row.key) CONTENT $row;
+};
+DEFINE FUNCTION fn::pse_files_v1::reserve($expiry:int,$row:object,$run:option<string>,$attempt:option<string>,$generation:option<decimal>) -> object {
+    fn::pse_files_v1::owner($expiry,$row.owner,$row.storage_incarnation);
+    LET $same=SELECT * FROM canonical_file_instances WHERE intent=$row.intent LIMIT 1;
+    IF array::len($same)!=0 {
+        LET $old=SELECT * FROM ONLY type::record('canonical_file_instances',$same[0].key) FOR UPDATE;
+        IF $old.request_digest!=$row.request_digest OR $old.owner_kind!=$row.owner_kind OR $old.selection!=$row.selection OR $old.storage_incarnation!=$row.storage_incarnation OR $old.state IN ['collecting','collected','abandoned'] { THROW 'original file intent differs or settled'; };
+        RETURN $old;
+    };
+    IF $row.owner_kind='result' {
+        IF $run=NONE OR $attempt=NONE OR $generation=NONE OR $row.selection!=$attempt { THROW 'result file original fence missing'; };
+        LET $writer=fn::pse_execution_v1::writer($expiry,$run,$attempt,$generation,$row.intent,'append');
+        IF $writer.pse_writer!='admitted' OR !$writer.attempt.ingestion_open OR $writer.attempt.closed { THROW 'result file writer refused'; };
+    } ELSE IF $row.owner_kind='artifact' {
+        LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.selection) FOR UPDATE;
+        IF $artifact=NONE OR $artifact.retiring OR $artifact.active OR $artifact.creation_expires_at<=time::micros() { THROW 'artifact file original creation unavailable'; };
+    } ELSE { THROW 'file intent owner kind'; };
+    IF $row.state!='pending' OR $row.digest!='' OR $row.payload_bytes!=0dec OR $row.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'file original intent malformed'; };
+    RETURN CREATE ONLY type::record('canonical_file_instances',$row.key) CONTENT $row;
+};
+DEFINE FUNCTION fn::pse_files_v1::seal($expiry:int,$key:string,$owner:string,$incarnation:string,$descriptor:object) -> object {
+    fn::pse_files_v1::owner($expiry,$owner,$incarnation);
+    LET $row=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE;
+    IF $row=NONE OR $row.owner!=$owner OR $row.storage_incarnation!=$incarnation OR $descriptor.instance!=$key OR $row.state NOT IN ['pending','sealed','attached'] { THROW 'file sealing original intent unavailable'; };
+    IF string::len($descriptor.digest)!=64 OR $descriptor.bytes=0dec OR $descriptor.bytes>33554432dec OR $descriptor.encoding NOT IN ['arrow-ipc-file','opaque-json','opaque-bytes'] OR ($descriptor.encoding='arrow-ipc-file' AND $descriptor.batch_count=0dec) OR ($descriptor.encoding!='arrow-ipc-file' AND $descriptor.batch_count!=0dec) { THROW 'sealed file extent or encoding invalid'; };
+    IF $row.state!='pending' {
+        IF $row.digest!=$descriptor.digest OR $row.payload_bytes!=$descriptor.bytes OR $row.encoding!=$descriptor.encoding OR $row.batch_count!=$descriptor.batch_count OR $row.schema!=$descriptor.schema OR $row.interpretation!=$descriptor.interpretation { THROW 'sealed file immutable descriptor differs'; };
+        RETURN $row;
+    };
+    RETURN UPDATE ONLY type::record('canonical_file_instances',$key) SET digest=$descriptor.digest,payload_bytes=$descriptor.bytes,encoding=$descriptor.encoding,batch_count=$descriptor.batch_count,schema=$descriptor.schema,interpretation=$descriptor.interpretation,state='sealed';
+};
+DEFINE FUNCTION fn::pse_files_v1::attach($expiry:int,$batch:object,$kind:string,$selection:string,$borrower:string) -> bool {
+    LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$batch.file_instance) FOR UPDATE;
+    IF $file=NONE { THROW 'sealed file instance unavailable'; };
+    fn::pse_files_v1::admission($expiry,$file.storage_incarnation,false);
+    IF $file.state NOT IN ['sealed','attached'] OR $file.digest!=$batch.file_digest OR $file.payload_bytes!=$batch.payload_bytes OR $file.encoding!=$batch.encoding OR $file.schema!=$batch.schema OR ($file.encoding='arrow-ipc-file' AND $batch.file_batch_index>=$file.batch_count) OR ($file.encoding!='arrow-ipc-file' AND $batch.file_batch_index!=0dec) { THROW 'logical batch sealed file binding differs'; };
+    IF $file.owner_kind!=$kind OR $file.selection!=$selection { THROW 'file original intent selected another owner'; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_file_borrowers',$borrower) FOR UPDATE;
+    IF $old!=NONE AND ($old.released OR $old.instance!=$file.key OR $old.owner_kind!=$kind OR $old.owner!=$selection) { THROW 'file borrower identity released or reused'; };
+    IF $old=NONE { CREATE ONLY type::record('canonical_file_borrowers',$borrower) SET key=$borrower,instance=$file.key,owner_kind=$kind,owner=$selection,released=false; };
+    UPDATE ONLY type::record('canonical_file_instances',$file.key) SET state='attached';
+    RETURN true;
+};
+DEFINE FUNCTION fn::pse_files_v1::release_borrower($expiry:int,$key:string) -> bool {
+    LET $borrower=SELECT * FROM ONLY type::record('canonical_file_borrowers',$key) FOR UPDATE;
+    IF $borrower=NONE { THROW 'original file borrower unavailable'; };
+    SELECT * FROM ONLY type::record('canonical_file_instances',$borrower.instance) FOR UPDATE;
+    UPDATE ONLY type::record('canonical_file_borrowers',$key) SET released=true;
+    fn::pse_execution_v1::deadline($expiry); RETURN true;
+};
+DEFINE FUNCTION fn::pse_files_v1::ticket($expiry:int,$row:object) -> object {
+    fn::pse_files_v1::owner($expiry,$row.owner,$row.storage_incarnation);
+    LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$row.key) FOR UPDATE;
+    IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $row.released { THROW 'read ticket original admission unavailable'; };
+    IF $row.kind='result' {
+        fn::pse_execution_v1::result_creator($expiry,$row.run);
+        LET $selection=SELECT * FROM ONLY type::record('canonical_result_protections',$row.key) FOR UPDATE;
+        IF $selection=NONE OR $selection.run!=$row.run OR $selection.attempt!=$row.attempt OR $selection.manifest!=$row.manifest OR $row.selection!=$row.manifest { THROW 'read ticket exact manifest differs'; };
+    } ELSE IF $row.kind='artifact' {
+        LET $artifact=fn::pse_artifact_v1::available($expiry,$row.selection);
+        LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$row.key) FOR UPDATE;
+        IF $read=NONE OR $read.artifact!=$row.selection OR $artifact.revision!=$pin.revision { THROW 'artifact ticket selection differs'; };
+    } ELSE { THROW 'read ticket kind'; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_manifest_tickets',$row.key) FOR UPDATE;
+    IF $old!=NONE { IF object::remove($old,'id')!=$row { THROW 'read ticket identity reused'; }; RETURN $old; };
+    RETURN CREATE ONLY type::record('canonical_manifest_tickets',$row.key) CONTENT $row;
+};
+DEFINE FUNCTION fn::pse_files_v1::ticket_open($expiry:int,$key:string) -> bool {
+    LET $ticket=SELECT * FROM ONLY type::record('canonical_manifest_tickets',$key) FOR UPDATE;
+    IF $ticket=NONE OR $ticket.released { RETURN false; };
+    LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$ticket.owner) FOR UPDATE;
+    LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
+    IF $owner=NONE OR $owner.drained OR $gate=NONE OR $ticket.storage_incarnation!=$gate.storage_incarnation OR $owner.storage_incarnation!=$gate.storage_incarnation { THROW 'read ticket actual process owner unavailable'; };
+    fn::pse_execution_v1::deadline($expiry); RETURN true;
+};
+DEFINE FUNCTION fn::pse_files_v1::release_ticket($expiry:int,$key:string) -> bool {
+    LET $ticket=SELECT * FROM ONLY type::record('canonical_manifest_tickets',$key) FOR UPDATE;
+    IF $ticket!=NONE { UPDATE ONLY type::record('canonical_manifest_tickets',$key) SET released=true; };
+    fn::pse_execution_v1::deadline($expiry); RETURN true;
+};
+DEFINE FUNCTION fn::pse_files_v1::collect($expiry:int,$key:string,$incarnation:string) -> object {
+    fn::pse_files_v1::admission($expiry,$incarnation,true);
+    LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE;
+    IF $file=NONE OR $file.storage_incarnation!=$incarnation { THROW 'file collection exact placement unavailable'; };
+    IF $file.state='collected' { RETURN $file; };
+    IF $file.state IN ['pending','sealed'] { THROW 'file publication remains unresolved'; };
+    LET $borrowers=SELECT key FROM canonical_file_borrowers WHERE instance=$key AND released=false LIMIT 1;
+    IF array::len($borrowers)!=0 { THROW 'file still has independent borrowers'; };
+    RETURN UPDATE ONLY type::record('canonical_file_instances',$key) SET state='collecting';
+};
+DEFINE FUNCTION fn::pse_files_v1::collected($expiry:int,$key:string,$incarnation:string) -> bool {
+    fn::pse_files_v1::admission($expiry,$incarnation,true);
+    LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE;
+    IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state NOT IN ['collecting','collected'] { THROW 'file collection original intent unavailable'; };
+    UPDATE ONLY type::record('canonical_file_instances',$key) SET state='collected';
+    RETURN true;
+};
+DEFINE FUNCTION fn::pse_files_v1::freeze($expiry:int,$incarnation:string) -> bool {
+    LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
+    IF $gate=NONE OR $gate.storage_incarnation!=$incarnation { THROW 'file freeze incarnation differs'; };
+    UPDATE ONLY canonical_file_admission:current SET frozen=true,gc_frozen=true;
+    fn::pse_execution_v1::deadline($expiry); RETURN true;
+};
+DEFINE FUNCTION fn::pse_files_v1::thaw($expiry:int,$incarnation:string) -> bool {
+    LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
+    IF $gate=NONE OR $gate.storage_incarnation!=$incarnation { THROW 'file thaw incarnation differs'; };
+    UPDATE ONLY canonical_file_admission:current SET frozen=false,gc_frozen=false;
+    fn::pse_execution_v1::deadline($expiry); RETURN true;
+};
+DEFINE FUNCTION fn::pse_files_v1::drain_owner($expiry:int,$expected:object) -> bool {
+    LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$expected.key) FOR UPDATE;
+    IF $owner=NONE OR object::remove($owner,'id')!=$expected { THROW 'file owner drain exact identity differs'; };
+    UPDATE ONLY type::record('canonical_file_owners',$expected.key) SET drained=true;
+    fn::pse_execution_v1::deadline($expiry); RETURN true;
 };
 
 // Every point writer queues its own derivation and outgoing propagation in the

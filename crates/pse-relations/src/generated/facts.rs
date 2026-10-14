@@ -743,6 +743,54 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            31u8, 118u8, 84u8, 172u8, 21u8, 31u8, 64u8, 121u8, 138u8, 240u8, 40u8, 189u8,
+            126u8, 128u8, 235u8, 23u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalFileAdmission(
+                super::r#runtime::r#canonical_file_admission::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            122u8, 198u8, 209u8, 81u8, 113u8, 24u8, 133u8, 146u8, 255u8, 171u8, 141u8,
+            17u8, 79u8, 234u8, 224u8, 54u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalFileBorrowers(
+                super::r#runtime::r#canonical_file_borrowers::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            240u8, 156u8, 233u8, 185u8, 33u8, 205u8, 226u8, 40u8, 175u8, 191u8, 182u8,
+            149u8, 166u8, 152u8, 72u8, 51u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalFileInstances(
+                super::r#runtime::r#canonical_file_instances::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            219u8, 213u8, 228u8, 4u8, 178u8, 57u8, 186u8, 250u8, 71u8, 221u8, 165u8,
+            117u8, 146u8, 40u8, 203u8, 244u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalFileOwners(
+                super::r#runtime::r#canonical_file_owners::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             123u8, 142u8, 134u8, 27u8, 36u8, 94u8, 215u8, 100u8, 85u8, 186u8, 151u8,
             114u8, 128u8, 251u8, 204u8, 105u8,
         ])
@@ -836,6 +884,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalMaintenanceActivations(
                 super::r#runtime::r#canonical_maintenance_activations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            104u8, 64u8, 106u8, 112u8, 166u8, 93u8, 48u8, 120u8, 245u8, 96u8, 30u8,
+            251u8, 55u8, 102u8, 199u8, 175u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalManifestTickets(
+                super::r#runtime::r#canonical_manifest_tickets::Row::rows(batch)?,
             ),
         );
     }
@@ -2105,6 +2165,18 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalExecutionOperations(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalFileAdmission(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalFileBorrowers(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalFileInstances(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalFileOwners(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalGuards(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
@@ -2127,6 +2199,9 @@ pub fn encode(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalMaintenanceActivations(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalManifestTickets(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalMemberships(rows) => {

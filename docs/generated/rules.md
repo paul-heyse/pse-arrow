@@ -116,6 +116,10 @@
 | `runtime.canonical_body_contents` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_body_contents" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_execution_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_execution_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_file_admission` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_file_admission" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_file_borrowers` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_file_borrowers" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_file_instances` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_file_instances" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_file_owners` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_file_owners" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_guards` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_guards" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_history_identities` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_identities" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_history_locators` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_locators" s GROUP BY s."key" HAVING COUNT(*) > 1` |
@@ -124,6 +128,7 @@
 | `runtime.canonical_history_retirements` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_retirements" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_interpretations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_interpretations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_maintenance_activations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_maintenance_activations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_manifest_tickets` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_manifest_tickets" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_memberships` | `foreign_key:problem` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."problem" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_problems" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_memberships` | `foreign_key:version` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."version" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_version_manifests" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_memberships` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_memberships" s GROUP BY s."key" HAVING COUNT(*) > 1` |

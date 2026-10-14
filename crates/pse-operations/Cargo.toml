@@ -27,6 +27,7 @@ canonical-tests = []
 canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
 
 [dependencies]
+libc.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 pse-diagnostics.workspace = true

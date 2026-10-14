@@ -359,6 +359,75 @@ class RuntimeCanonicalExecutionOperationsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeCanonicalFileAdmissionRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    storage_incarnation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    frozen: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    gc_frozen: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.storage_incarnation), v.scalar_key(self.frozen), v.scalar_key(self.gc_frozen),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalFileBorrowersRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    instance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    released: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.instance), v.scalar_key(self.owner_kind), v.scalar_key(self.owner), v.scalar_key(self.released),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalFileInstancesRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    intent: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    request_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    selection: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    storage_incarnation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    payload_bytes: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    encoding: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    batch_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    schema: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    state: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.intent), v.scalar_key(self.request_digest), v.scalar_key(self.owner), v.scalar_key(self.owner_kind), v.scalar_key(self.selection), v.scalar_key(self.issuing_store), v.scalar_key(self.storage_incarnation), v.scalar_key(self.digest), v.scalar_key(self.payload_bytes), v.scalar_key(self.encoding), v.scalar_key(self.batch_count), v.scalar_key(self.schema), v.scalar_key(self.interpretation), v.scalar_key(self.state),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalFileOwnersRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    storage_incarnation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    boot: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    pid_namespace: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    pid: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    start: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    invocation: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    drained: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.issuing_store), v.scalar_key(self.storage_incarnation), v.scalar_key(self.boot), v.scalar_key(self.pid_namespace), v.scalar_key(self.pid), v.scalar_key(self.start), v.optional_key(v.scalar_key)(self.invocation), v.scalar_key(self.drained),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeCanonicalGuardsRow:
     """Declared relation row or nested value."""
 
@@ -452,9 +521,10 @@ class RuntimeCanonicalInterpretationsRow:
     interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     schema_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    payload_incarnation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.issuing_store),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.issuing_store), v.scalar_key(self.payload_incarnation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -470,6 +540,24 @@ class RuntimeCanonicalMaintenanceActivationsRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.key), v.scalar_key(self.input_sha256), v.scalar_key(self.predecessor), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.issuing_store),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalManifestTicketsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    selection: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    run: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    attempt: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    manifest: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    storage_incarnation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    released: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.selection), v.optional_key(v.scalar_key)(self.run), v.optional_key(v.scalar_key)(self.attempt), v.optional_key(v.scalar_key)(self.manifest), v.scalar_key(self.owner), v.scalar_key(self.storage_incarnation), v.scalar_key(self.released),))
 
 
 @attrs.frozen(kw_only=True)

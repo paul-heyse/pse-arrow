@@ -6362,6 +6362,7 @@ version = "0.0.1"
 dependencies = [
  "arrow-schema",
  "futures-util",
+ "libc",
  "miette",
  "pse-codegen",
  "pse-columnar",

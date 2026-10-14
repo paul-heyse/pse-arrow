@@ -39,6 +39,14 @@ pub mod r#canonical_edges;
 ///Generated relation contract.
 pub mod r#canonical_execution_operations;
 ///Generated relation contract.
+pub mod r#canonical_file_admission;
+///Generated relation contract.
+pub mod r#canonical_file_borrowers;
+///Generated relation contract.
+pub mod r#canonical_file_instances;
+///Generated relation contract.
+pub mod r#canonical_file_owners;
+///Generated relation contract.
 pub mod r#canonical_guards;
 ///Generated relation contract.
 pub mod r#canonical_history_identities;
@@ -54,6 +62,8 @@ pub mod r#canonical_history_retirements;
 pub mod r#canonical_interpretations;
 ///Generated relation contract.
 pub mod r#canonical_maintenance_activations;
+///Generated relation contract.
+pub mod r#canonical_manifest_tickets;
 ///Generated relation contract.
 pub mod r#canonical_memberships;
 ///Generated relation contract.
