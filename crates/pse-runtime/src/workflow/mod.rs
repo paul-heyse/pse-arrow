@@ -27,6 +27,8 @@ pub use replay::{
 mod connected_results;
 pub mod result_blocks;
 pub mod result_files;
+mod result_snapshot;
+pub use result_snapshot::ResultSnapshot;
 pub(crate) mod result_export;
 mod result_projection;
 pub use connected_results::CanonicalResultReader;

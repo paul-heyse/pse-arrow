@@ -452,7 +452,7 @@ impl Runtime {
             if !["runtime.parametric_sensitivities","runtime.response_sensitivities"].contains(&relation_name) {continue;}
             let spec=self.registry().relation(relation_name).ok_or_else(||contract("analysis copied relation unavailable"))?;
             let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
-            let decoded=super::result_blocks::decode_result_block(block.payload.as_slice(),schema,usize::try_from(block.rows).map_err(|_|contract("analysis row extent"))?)?;
+            let decoded=super::result_files::decode_result_file(block.payload.as_slice(),schema,usize::try_from(block.rows).map_err(|_|contract("analysis row extent"))?)?;
             let batch=pse_relations::columnar::FieldCheckedBatch::admit(self.registry(),spec,decoded,&self.validation_context(),&cancel).map_err(pse_engine::EngineError::from)?;
             let locator=|row,field:Option<&str>|Some(ArtifactLocator {artifact:artifact.header().key.clone(),block:ordinal,row:Some(row),field:field.map(str::to_owned)});
             if relation_name=="runtime.parametric_sensitivities" {

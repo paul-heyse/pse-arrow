@@ -6,9 +6,8 @@
 
 use super::result_blocks::{self, ResultBlockError};
 use datafusion::arrow::{
-    buffer::Buffer,
     datatypes::SchemaRef,
-    ipc::{self, reader::FileReaderBuilder, writer::FileWriter},
+    ipc::{self, reader::{FileReader, FileReaderBuilder}, writer::FileWriter},
     record_batch::RecordBatch,
 };
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
@@ -84,6 +83,32 @@ pub(super) fn encode_result_prefix(
         }
     }
 }
+
+/// Plan a useful contiguous slice without encoding an intermediate file. The
+/// final packer enforces its complete physical bound with LimitedWriter.
+pub(super) fn result_prefix_rows(batch: &RecordBatch, start: usize, count: usize) -> Result<usize, ResultBlockError> {
+    if count == 0 || start.checked_add(count).is_none_or(|end| end > batch.num_rows()) {
+        return Err(invalid("invalid file prefix"));
+    }
+    let mut rows = count;
+    loop {
+        let slice = batch.slice(start, rows);
+        match batch_extent(&slice) {
+            Ok(bytes) if bytes <= TARGET_FILE_BYTES || rows == 1 && bytes <= MAX_FILE_BYTES => return Ok(rows),
+            Ok(_) if rows > 1 => rows = rows.div_ceil(2),
+            Ok(_) => return Err(invalid("file body exceeds bound")),
+            Err(error) if rows > 1 && splittable(&error) => rows = rows.div_ceil(2),
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+pub(super) fn batch_extent(batch: &RecordBatch) -> Result<usize, ResultBlockError> {
+    batch.columns().iter().try_fold(4096usize + batch.num_columns() * 256, |bytes, array| {
+        bytes.checked_add(result_blocks::visible_size(&array.to_data(), &mut 0)?)
+            .ok_or_else(|| invalid("file body size overflow"))
+    })
+}
 fn splittable(error: &ResultBlockError) -> bool {
     matches!(error, ResultBlockError::Invalid("file body exceeds bound" | "field value bound"))
         || matches!(error, ResultBlockError::Arrow(datafusion::arrow::error::ArrowError::IoError(message, _)) if message == "sealed result file limit")
@@ -118,6 +143,13 @@ fn preflight<R: Read + Seek>(reader: &mut R, expected: &SchemaRef) -> Result<usi
     let footer_bytes = read_range(reader, footer_start, length)?;
     let footer = ipc::root_as_footer_with_opts(&options(), &footer_bytes)
         .map_err(|_| invalid("invalid file footer"))?;
+    if let Some(metadata) = footer.custom_metadata() {
+        for item in metadata {
+            if item.key().is_none() || item.value().is_none() {
+                return Err(invalid("incomplete file custom metadata"));
+            }
+        }
+    }
     if footer.version() != ipc::MetadataVersion::V5
         || footer.dictionaries().is_some_and(|entries| !entries.is_empty()) {
         return Err(invalid("file version/dictionaries"));
@@ -192,22 +224,43 @@ fn preflight<R: Read + Seek>(reader: &mut R, expected: &SchemaRef) -> Result<usi
 pub(super) fn read_file_batch<R: Read + Seek>(
     mut reader: R, expected: SchemaRef, index: usize, rows: usize,
 ) -> Result<RecordBatch, ResultBlockError> {
-    let count = preflight(&mut reader, &expected)?;
-    if index >= count { return Err(invalid("file batch index outside inventory")); }
-    let mut reader = FileReaderBuilder::new().with_max_footer_fb_tables(MAX_TABLES)
-        .with_max_footer_fb_depth(256).build(reader)?;
+    let mut reader = open_file_reader(&mut reader, &expected, None)?;
     reader.set_index(index)?;
     let batch = reader.next().transpose()?.ok_or_else(|| invalid("file batch absent"))?;
     if batch.num_rows() != rows || batch.schema() != expected { return Err(invalid("file batch rows/schema differ")); }
     Ok(batch)
 }
 
+pub(super) fn open_file_reader<R: Read + Seek>(mut reader: R, expected: &SchemaRef, count: Option<usize>) -> Result<FileReader<R>, ResultBlockError> {
+    let actual = preflight(&mut reader, expected)?;
+    if count.is_some_and(|count| count != actual) { return Err(invalid("sealed file batch count differs")); }
+    Ok(FileReaderBuilder::new().with_max_footer_fb_tables(MAX_TABLES)
+        .with_max_footer_fb_depth(256).build(reader)?)
+}
+
 /// Decode a completed standalone file member with the exact declared schema.
 pub fn decode_result_file(bytes: &[u8], expected: SchemaRef, rows: usize) -> Result<RecordBatch, ResultBlockError> {
+    let mut cursor = Cursor::new(bytes);
+    if preflight(&mut cursor, &expected)? != 1 { return Err(invalid("standalone file has extra batches")); }
     read_file_batch(Cursor::new(bytes), expected, 0, rows)
 }
-pub(super) fn decode_owned_result_file(bytes: Buffer, expected: SchemaRef, index: usize, rows: usize) -> Result<RecordBatch, ResultBlockError> {
-    read_file_batch(Cursor::new(bytes.as_slice()), expected, index, rows)
+/// Decode an exact logical member of one completed packed file.
+pub fn decode_result_file_batch(bytes: &[u8], expected: SchemaRef, index: usize, rows: usize) -> Result<RecordBatch, ResultBlockError> {
+    read_file_batch(Cursor::new(bytes), expected, index, rows)
+}
+
+/// Backpressured file ingestion. Every visitor receives a completed native file;
+/// no unsealed prefix or unrelated future producer is needed for its ACK.
+pub async fn visit_result_files_async<F, Fut, E>(batch: &RecordBatch, mut visitor: F) -> Result<(), E>
+where F: FnMut(usize, usize, Vec<u8>) -> Fut, Fut: Future<Output = Result<(), E>>, E: From<ResultBlockError> {
+    if batch.num_rows() == 0 { return visitor(0, 0, encode_result_file(batch)?).await; }
+    let mut start = 0;
+    while start < batch.num_rows() {
+        let (bytes, rows) = encode_result_prefix(batch, start, batch.num_rows()-start)?;
+        visitor(start, rows, bytes).await?;
+        start += rows;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

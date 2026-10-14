@@ -4,7 +4,7 @@
 //! Native scalar indexes are derived from declared scientific fields. The
 //! original admitted Arrow row remains the scientific result authority.
 
-use super::{WorkflowError, contract, relation, result_blocks};
+use super::{WorkflowError, contract, relation, result_files};
 use pse_columnar::{MemoryConsumer, MemoryPool};
 use pse_ids::SemanticId;
 use pse_model::generated::runtime::{
@@ -235,7 +235,7 @@ pub(super) fn scalar_predicate(
         .column_by_name(field)
         .and_then(|column| column.as_any().downcast_ref::<Float64Array>())
         .ok_or_else(|| contract("declared scientific scalar column absent"))?;
-    let kernel = |error| WorkflowError::from(result_blocks::ResultBlockError::from(error));
+    let kernel = |error| WorkflowError::from(super::result_blocks::ResultBlockError::from(error));
     if missing == Some(true) {
         return is_null(values).map_err(kernel);
     }
@@ -301,7 +301,8 @@ pub(super) struct ResultAppendQueue<'a> {
     fence: &'a AttemptFence,
     pool: &'a Arc<dyn MemoryPool>,
     acknowledgments: &'a super::durable::PublicationAcks,
-    items: Vec<ResultBlockAppend>,
+    items: Vec<PendingBatch>,
+    file_extent: usize,
     extent: usize,
     deadline: Option<std::time::Instant>,
     complete: Vec<String>,
@@ -310,6 +311,15 @@ pub(super) struct ResultAppendQueue<'a> {
     requests: usize,
     #[cfg(test)]
     projection_retries: usize,
+}
+struct PendingBatch {
+    name: String,
+    ordinal: u64,
+    batch: datafusion::arrow::record_batch::RecordBatch,
+    block: Block,
+    rows: Vec<RowLocator>,
+    outputs: Vec<Output>,
+    owner: Arc<pse_columnar::AllocationLease>,
 }
 impl<'a> ResultAppendQueue<'a> {
     pub(super) fn new(
@@ -333,6 +343,7 @@ impl<'a> ResultAppendQueue<'a> {
             pool,
             acknowledgments,
             items: Vec::new(),
+            file_extent: 0,
             extent: 4096,
             deadline: None,
             complete: Vec::new(),
@@ -344,156 +355,76 @@ impl<'a> ResultAppendQueue<'a> {
         }
     }
     async fn push(
-        &mut self,
-        name: &str,
-        ordinal: u64,
-        payload: ResultPayload,
-        block: &Block,
-        rows: &[RowLocator],
-        outputs: &[Output],
+        &mut self, name: &str, ordinal: u64,
+        batch: datafusion::arrow::record_batch::RecordBatch,
+        block: &Block, rows: &[RowLocator], outputs: &[Output],
     ) -> Result<(), WorkflowError> {
         let offered = std::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
-        if self._owner.is_none() {
-            return self
-                .append_individual(name, ordinal, payload, block, rows, outputs, offered)
-                .await;
-        }
-        let metadata =
-            rows.iter()
-                .try_fold(4096usize, |bytes, row| -> Result<_, WorkflowError> {
-                    bytes
-                        .checked_add(
-                            pse_operations::canonical_execution::result_row_metadata_extent(row)?,
-                        )
-                        .ok_or_else(|| contract("append queue metadata extent"))
-                })?;
-        let metadata =
-            outputs
-                .iter()
-                .try_fold(metadata, |bytes, output| -> Result<_, WorkflowError> {
-                    bytes
-                        .checked_add(
-                            pse_operations::canonical_execution::result_output_metadata_extent(
-                                output,
-                            )?,
-                        )
-                        .ok_or_else(|| contract("append queue metadata extent"))
-                })?;
-        let extent = payload
-            .as_slice()
-            .len()
-            .checked_add(metadata)
-            .and_then(|bytes| bytes.checked_mul(16))
-            .and_then(|bytes| bytes.checked_add(4096))
-            .ok_or_else(|| contract("append queue copy extent"))?;
-        let reservation = MemoryConsumer::new("canonical:owned-append-item").register(self.pool);
-        if reservation.try_grow(extent).is_err() {
+        let metadata = rows.iter().try_fold(4096usize, |bytes, row| -> Result<_, WorkflowError> {
+            bytes.checked_add(pse_operations::canonical_execution::result_row_metadata_extent(row)?)
+                .ok_or_else(|| contract("append metadata extent"))
+        })?;
+        let metadata = outputs.iter().try_fold(metadata, |bytes, output| -> Result<_, WorkflowError> {
+            bytes.checked_add(pse_operations::canonical_execution::result_output_metadata_extent(output)?)
+                .ok_or_else(|| contract("append metadata extent"))
+        })?;
+        let file_extent = result_files::batch_extent(&batch)?;
+        let encoded_extent = metadata.checked_mul(16).and_then(|bytes| bytes.checked_add(4096))
+            .ok_or_else(|| contract("append metadata copy extent"))?;
+        if !self.items.is_empty() && (self.items.last().is_some_and(|item| item.name != name)
+            || self.file_extent.saturating_add(file_extent) > result_files::TARGET_FILE_BYTES
+            || self.extent.saturating_add(encoded_extent) > pse_operations::canonical::PAYLOAD_BYTES
+            || self.items.len() == pse_operations::generated::surreal::RESULT_INDEX_RECORDS) {
             self.flush().await?;
-            if reservation.try_grow(extent).is_err() {
-                // Batching is optional. The producer's existing encoder/metadata
-                // grant still owns this synchronous individual append and drain.
-                return self
-                    .append_individual(name, ordinal, payload, block, rows, outputs, offered)
-                    .await;
-            }
+        }
+        let reservation = MemoryConsumer::new("canonical:owned-file-batch-metadata").register(self.pool);
+        if reservation.try_grow(encoded_extent).is_err() {
+            self.flush().await?;
+            reservation.try_grow(encoded_extent).map_err(pse_engine::EngineError::from)?;
         }
         let owner = pse_columnar::AllocationLease::new(reservation);
-        let item = ResultBlockAppend::new(
-            self.fence,
-            &format!("table:{}:{}", self.fence.attempt(), block.key),
-            name,
-            ordinal,
-            payload,
-            block.rows,
-            block,
-            rows,
-            outputs,
-            owner,
-        )?;
-        if self
-            .extent
-            .checked_add(item.encoded_extent())
-            .is_none_or(|bytes| bytes > pse_operations::canonical::PAYLOAD_BYTES)
-            || self.items.len() == pse_operations::generated::surreal::RESULT_INDEX_RECORDS
-        {
-            self.flush().await?;
-        }
-        self.extent = self
-            .extent
-            .checked_add(item.encoded_extent())
-            .ok_or_else(|| contract("append group extent"))?;
-        if self.extent > pse_operations::canonical::PAYLOAD_BYTES {
-            return Err(contract("one append exceeds group envelope"));
-        }
-        if self.items.is_empty() {
-            self.deadline = Some(offered);
-        }
-        self.items.push(item);
+        if self.items.is_empty() { self.deadline = Some(offered); }
+        self.extent = self.extent.checked_add(encoded_extent).ok_or_else(|| contract("append group extent"))?;
+        self.file_extent = self.file_extent.checked_add(file_extent).ok_or_else(|| contract("file packing extent"))?;
+        self.items.push(PendingBatch { name: name.into(), ordinal, batch, block: block.clone(),
+            rows: rows.to_vec(), outputs: outputs.to_vec(), owner });
+        if self._owner.is_none() { self.flush().await?; }
         Ok(())
     }
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "one exact append carries its independent table position, payload, block indexes, outputs and original deadline"
-    )]
-    async fn append_individual(
-        &mut self,
-        name: &str,
-        ordinal: u64,
-        payload: ResultPayload,
-        block: &Block,
-        rows: &[RowLocator],
-        outputs: &[Output],
-        deadline: std::time::Instant,
-    ) -> Result<(), WorkflowError> {
-        let ack = pse_operations::canonical::operation_scope(
-            deadline,
-            self.store.append_result_block_indexes(
-                self.fence,
-                &format!("table:{}:{}", self.fence.attempt(), block.key),
-                name,
-                ordinal,
-                payload,
-                block.rows,
-                block,
-                rows,
-                outputs,
-            ),
-        )
-        .await?;
-        #[cfg(test)]
-        {
-            self.requests += 1;
-        }
-        self.acknowledgments.append(self.fence, ack)
-    }
     pub(super) async fn flush(&mut self) -> Result<(), WorkflowError> {
-        // Producer exhaustion belongs to this drained group. If append or ACK
-        // validation fails, a later cleanup flush must not complete these sets
-        // without their receipts and replace the original refusal.
         let complete = std::mem::take(&mut self.complete);
         if !self.items.is_empty() {
             let items = std::mem::take(&mut self.items);
-            let deadline = self
-                .deadline
-                .take()
-                .ok_or_else(|| contract("append group original clock absent"))?;
-            let acks = pse_operations::canonical::operation_scope(
-                deadline,
-                self.store.append_result_blocks(self.fence, items),
-            )
-            .await?;
-            #[cfg(test)]
-            {
-                self.requests += 1;
-            }
-            for ack in acks {
-                self.acknowledgments.append(self.fence, ack)?;
-            }
+            let deadline = self.deadline.take().ok_or_else(|| contract("file group original clock absent"))?;
+            let reservation = MemoryConsumer::new("canonical:result-file-encoding").register(self.pool);
+            reservation.try_grow(3 * result_files::MAX_FILE_BYTES).map_err(pse_engine::EngineError::from)?;
+            let owner = pse_columnar::AllocationLease::new(reservation);
+            let batches = items.iter().map(|item| item.batch.clone()).collect::<Vec<_>>();
+            let bytes = result_files::encode_file_batches(&batches)?;
+            let digest = pse_operations::canonical_execution::result_payload_digest(&bytes);
+            let operation = format!("file:{}:{}:{}", self.fence.attempt(), items[0].block.key, items[items.len()-1].ordinal);
+            let schema = items[0].block.output.clone();
+            let acks = pse_operations::canonical::operation_scope(deadline, async {
+                let intent = self.store.reserve_result_file(self.fence, &operation, &digest).await?;
+                let file = self.store.seal_file(&intent, &bytes,
+                    pse_operations::canonical_files::ARROW_IPC_FILE, batches.len() as u64, &schema).await?;
+                let mut appends = Vec::with_capacity(items.len());
+                for (index, mut item) in items.into_iter().enumerate() {
+                    let payload = ResultPayload::from_sealed_owned(file.clone(), index as u64, owner.clone())?;
+                    item.block.payload_bytes = payload.byte_len();
+                    item.block.payload_digest = payload.digest().to_owned();
+                    appends.push(ResultBlockAppend::new(self.fence,
+                        &format!("table:{}:{}", self.fence.attempt(), item.block.key), &item.name,
+                        item.ordinal, payload, item.block.rows, &item.block, &item.rows, &item.outputs, item.owner)?);
+                }
+                self.store.append_result_blocks(self.fence, appends).await
+            }).await?;
+            #[cfg(test)] { self.requests += 1; }
+            for ack in acks { self.acknowledgments.append(self.fence, ack)?; }
             self.extent = 4096;
+            self.file_extent = 0;
         }
-        for name in complete {
-            self.acknowledgments.complete(self.fence, &name)?;
-        }
+        for name in complete { self.acknowledgments.complete(self.fence, &name)?; }
         Ok(())
     }
     pub(super) async fn yield_optional(&mut self) -> Result<(), WorkflowError> {
@@ -542,6 +473,7 @@ impl<'a> ResultAppendQueue<'a> {
                 return Err(contract("append queue completed set extent"));
             }
             self.complete.push(name);
+            self.flush().await?;
         }
         Ok(())
     }
@@ -881,14 +813,14 @@ async fn store_result_chunk(
     let scratch = window * indexed * (size_of::<RowLocator>() + 1024)
         + window * size_of::<usize>()
         + 16 * pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
-        + 4 * result_blocks::RESULT_BLOCK_BYTES;
+;
     if reservation.try_grow(scratch).is_err() {
         queue.yield_optional().await?;
         reservation
             .try_grow(scratch)
             .map_err(pse_engine::EngineError::from)?;
     }
-    let encoder_owner = pse_columnar::AllocationLease::new(reservation);
+    let _encoder_owner = pse_columnar::AllocationLease::new(reservation);
     for base in (0..table.batch().num_rows()).step_by(window) {
         let count = window.min(table.batch().num_rows() - base);
         let initial_key = result_batch_key(fence.attempt(), &set, *ordinal);
@@ -913,9 +845,8 @@ async fn store_result_chunk(
             // Descriptor envelope allowance includes maximum encoded actual
             // identity lengths below. Row extents are prepared once per window.
             let rows = metadata_prefix(&extents[offset..])?;
-            let (payload, rows) =
-                result_blocks::encode_result_prefix(table.batch(), base + offset, rows)?;
-            let payload = ResultPayload::new_owned(payload, encoder_owner.clone())?;
+            let rows = result_files::result_prefix_rows(table.batch(), base + offset, rows)?;
+            let payload = table.batch().slice(base + offset, rows);
             let start = origin
                 .checked_add((base + offset) as u64)
                 .ok_or_else(|| contract("result global row overflow"))?;
@@ -943,8 +874,8 @@ async fn store_result_chunk(
                 columns: table.batch().num_columns() as u64,
                 coordinate_min: None,
                 coordinate_max: None,
-                payload_bytes: payload.as_slice().len() as u64,
-                payload_digest: payload.digest().to_owned(),
+                payload_bytes: 0,
+                payload_digest: String::new(),
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
             queue
@@ -1045,14 +976,14 @@ async fn store_trajectory(
     let owner = MemoryConsumer::new("canonical:trajectory-output-index").register(pool);
     // Bounded output descriptors and their encoded metadata coexist with the
     // original checked chunk, writer scratch and one self-contained IPC payload.
-    let scratch = 4 * result_blocks::RESULT_BLOCK_BYTES + 1024 * (size_of::<Output>() + 1024);
+    let scratch = 1024 * (size_of::<Output>() + 1024);
     if owner.try_grow(scratch).is_err() {
         queue.yield_optional().await?;
         owner
             .try_grow(scratch)
             .map_err(pse_engine::EngineError::from)?;
     }
-    let encoder_owner = pse_columnar::AllocationLease::new(owner);
+    let _encoder_owner = pse_columnar::AllocationLease::new(owner);
     let mut base = 0;
     while base < table.batch().num_rows() {
         let key = result_batch_key(fence.attempt(), &set, *ordinal);
@@ -1079,8 +1010,8 @@ async fn store_trajectory(
                 "single trajectory output exceeds metadata admission",
             ));
         }
-        let (payload, rows) = result_blocks::encode_result_prefix(table.batch(), base, count)?;
-        let payload = ResultPayload::new_owned(payload, encoder_owner.clone())?;
+        let rows = result_files::result_prefix_rows(table.batch(), base, count)?;
+        let payload = table.batch().slice(base, rows);
         let outputs = trajectory_outputs(table, &key, &set, origin, base, rows)?;
         let start = origin
             .checked_add(base as u64)
@@ -1101,8 +1032,8 @@ async fn store_trajectory(
             columns: table.batch().num_columns() as u64,
             coordinate_min: None,
             coordinate_max: None,
-            payload_bytes: payload.as_slice().len() as u64,
-            payload_digest: payload.digest().to_owned(),
+            payload_bytes: 0,
+            payload_digest: String::new(),
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         queue
@@ -1786,8 +1717,9 @@ mod result_projection_unit {
         let name = id.to_string();
         let set = result_set_key(fence.attempt(), &name);
         let key = result_batch_key(fence.attempt(), &set, 0);
-        let (payload, rows) = result_blocks::encode_result_prefix(table.batch(), 0, 1).unwrap();
-        let payload = ResultPayload::new(payload).unwrap();
+        let (payload, rows) = result_files::encode_result_prefix(table.batch(), 0, 1).unwrap();
+        let _encoded = payload;
+        let payload = table.batch().clone();
         let locators = scalar_rows_at(&table, fence.attempt(), &set, &key, 0, rows, 0).unwrap();
         let block = Block {
             key: key.clone(),
@@ -1802,8 +1734,8 @@ mod result_projection_unit {
             columns: table.batch().num_columns() as u64,
             coordinate_min: None,
             coordinate_max: None,
-            payload_bytes: payload.as_slice().len() as u64,
-            payload_digest: payload.digest().into(),
+            payload_bytes: 0,
+            payload_digest: String::new(),
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         acks.expect(&fence, &name).unwrap();
@@ -2040,7 +1972,7 @@ mod result_projection_unit {
         assert!(outputs.iter().all(|output| output.batch == "block"
             && output.coordinate_min == Some(0.0)
             && output.coordinate_max == Some(2.0)));
-        let (payload, count) = result_blocks::encode_result_prefix(table.batch(), 0, 6).unwrap();
+        let (payload, count) = result_files::encode_result_prefix(table.batch(), 0, 6).unwrap();
         assert_eq!(count, 6);
         assert!(!payload.is_empty());
         let partial = trajectory_outputs(&table, "next", "set", 100, 2, 3).unwrap();

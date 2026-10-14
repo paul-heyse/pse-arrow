@@ -136,7 +136,7 @@ impl ScientificArtifact {
         let owner = MemoryConsumer::new("canonical:scientific-artifact-read")
             .register(&self.runtime.shared.pool());
         owner
-            .try_grow(48 * 1024 * 1024)
+            .try_grow(4 * super::result_files::MAX_FILE_BYTES)
             .map_err(pse_engine::EngineError::from)?;
         let read = self
             .runtime
@@ -151,7 +151,7 @@ impl ScientificArtifact {
             .ok_or_else(|| contract("artifact member relation unavailable"))?;
         let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
             .map_err(|error| contract(error.to_string()))?;
-        let batch = super::result_blocks::decode_result_block(
+        let batch = super::result_files::decode_result_file(
             block.payload.as_slice(),
             schema,
             usize::try_from(block.rows).map_err(|_| contract("artifact row extent"))?,
@@ -395,7 +395,7 @@ impl Runtime {
                 selected.push((name,set.row_count,set.batches_digest.clone()));
                 if set.batch_count==0 {
                     let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
-                    let payload=super::result_blocks::encode_result_block(&datafusion::arrow::record_batch::RecordBatch::new_empty(schema))?;
+                    let payload=super::result_files::encode_result_file(&datafusion::arrow::record_batch::RecordBatch::new_empty(schema))?;
                     copied.push((name,payload,0,set.batches_digest.clone()));
                 }
                 for ordinal in 0..set.batch_count {
@@ -403,11 +403,13 @@ impl Runtime {
                     input.renew(Duration::from_secs(600)).await?;
                     let payload=self.canonical_store()?.result_payload(&input,&set.key,ordinal).await?;
                     let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
-                    let decoded=super::result_blocks::decode_result_block(payload.batch.payload.as_slice(),schema,usize::try_from(payload.batch.row_count).map_err(|_|contract("scientific artifact row extent"))?)?;
+                    let decoded=super::result_files::decode_result_file_batch(payload.batch.payload.as_slice(),schema,usize::try_from(payload.batch.file_batch_index).map_err(|_|contract("scientific artifact batch index"))?,usize::try_from(payload.batch.row_count).map_err(|_|contract("scientific artifact row extent"))?)?;
                     let checked=pse_relations::columnar::FieldCheckedBatch::admit(self.registry(),spec,decoded,&self.validation_context(),&cancel).map_err(pse_engine::EngineError::from)?;
                     if name=="runtime.scientific_contexts" {contexts.extend(pse_relations::generated::runtime::scientific_contexts::Row::rows(&checked).map_err(super::relation)?);}
                     if name=="runtime.trajectory_endpoints" {endpoints.extend(pse_relations::generated::runtime::trajectory_endpoints::Row::rows(&checked).map_err(super::relation)?);}
-                    copied.push((name,payload.batch.payload.to_vec(),payload.batch.row_count,payload.batch.digest));
+                    let member=super::result_files::encode_result_file(checked.batch())?;
+                    let digest=pse_operations::canonical_execution::result_payload_digest(&member);
+                    copied.push((name,member,payload.batch.row_count,digest));
                 }
             }
             if contexts.is_empty() || !selected.iter().any(|(name,rows,_)|*name=="runtime.candidate_assessments" && *rows>0) || !selected.iter().any(|(name,rows,_)|*name=="runtime.run_lineage" && *rows>0) { return Err(contract("scientific artifact lacks original interpretation/assessment/lineage")); }

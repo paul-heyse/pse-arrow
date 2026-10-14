@@ -33,13 +33,13 @@ struct Request {
     demand: Demand,
     experiments: Vec<(usize, Option<Arc<native::dynamics::Report>>)>,
     reply: SyncSender<(usize, Result<ExperimentProducts, ProblemError>)>,
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-diffsol"))]
     gate: Option<Arc<std::sync::Barrier>>,
 }
 struct Lane {
     request: Option<SyncSender<Request>>,
     joined: Option<JoinHandle<()>>,
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-diffsol"))]
     constructions: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl Drop for Lane {
@@ -58,7 +58,7 @@ pub(super) struct ExperimentTeam {
     lanes: Vec<Lane>,
     borrowed: Option<usize>,
     _owner: Arc<pse_columnar::AllocationLease>,
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-diffsol"))]
     wave_gate: Option<Arc<std::sync::Barrier>>,
 }
 impl std::fmt::Debug for ExperimentTeam {
@@ -111,9 +111,9 @@ impl ExperimentTeam {
                 let execution = execution.clone();
                 let runtime = runtime.clone();
                 let constructor = constructor.clone();
-                #[cfg(test)]
+                #[cfg(all(test, feature = "solver-diffsol"))]
                 let constructions = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-                #[cfg(test)]
+                #[cfg(all(test, feature = "solver-diffsol"))]
                 let observed_constructions = constructions.clone();
                 let joined = std::thread::Builder::new()
                     .name(format!("pse-fit-{lane}"))
@@ -127,12 +127,12 @@ impl ExperimentTeam {
                             Option<crate::workflow::dynamics::DynamicWorker>,
                         > = (0..problem.experiments.len()).map(|_| None).collect();
                         while let Ok(request) = rx.recv() {
-                            #[cfg(test)]
+                            #[cfg(all(test, feature = "solver-diffsol"))]
                             if let Some(gate) = &request.gate {
                                 let _ = gate.wait();
                             }
                             for (ei, previous) in request.experiments {
-                                #[cfg(test)]
+                                #[cfg(all(test, feature = "solver-diffsol"))]
                                 let constructing = match &problem.experiments[ei] {
                                     Experiment::Steady(_) => steady[ei].is_none(),
                                     #[cfg(feature = "solver-diffsol")]
@@ -166,7 +166,7 @@ impl ExperimentTeam {
                                 .unwrap_or_else(|_| {
                                     Err(ProblemError::internal("fit experiment lane panicked"))
                                 });
-                                #[cfg(test)]
+                                #[cfg(all(test, feature = "solver-diffsol"))]
                                 if constructing && result.is_ok() {
                                     observed_constructions
                                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -192,7 +192,7 @@ impl ExperimentTeam {
                 lanes.push(Lane {
                     request: Some(tx),
                     joined: Some(joined),
-                    #[cfg(test)]
+                    #[cfg(all(test, feature = "solver-diffsol"))]
                     constructions,
                 });
             }
@@ -210,15 +210,15 @@ impl ExperimentTeam {
             lanes,
             borrowed,
             _owner: owner,
-            #[cfg(test)]
+            #[cfg(all(test, feature = "solver-diffsol"))]
             wave_gate: None,
         }))
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-diffsol"))]
     pub(super) fn require_concurrent_test_wave(&mut self) {
         self.wave_gate = Some(Arc::new(std::sync::Barrier::new(self.lanes.len())));
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-diffsol"))]
     pub(super) fn test_constructions(&self) -> Vec<usize> {
         self.lanes
             .iter()
@@ -259,7 +259,7 @@ impl ExperimentTeam {
                     demand,
                     experiments,
                     reply: reply.clone(),
-                    #[cfg(test)]
+                    #[cfg(all(test, feature = "solver-diffsol"))]
                     gate: self.wave_gate.clone(),
                 };
                 if owner

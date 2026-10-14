@@ -4,10 +4,10 @@
 //! Exact canonical result selections streamed one independently decoded blob at
 //! a time. Row coordinates select recorded coverage; missing ranges stay missing.
 
-use super::{Runtime, WorkflowError, contract, result_blocks};
-use datafusion::arrow::{buffer::Buffer, datatypes::SchemaRef, record_batch::RecordBatch};
+use super::{Runtime, WorkflowError, contract, result_blocks, result_files};
+use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{
-    CancellationToken, MemoryConsumer, MemoryReservation, owned_buffer::AllocationScope,
+    CancellationToken, MemoryConsumer, MemoryReservation,
 };
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
 use pse_operations::canonical_results::ResultRead;
@@ -23,7 +23,7 @@ const READ_LIFETIME: Duration = Duration::from_secs(60);
 // the verifier's 32 MiB apparent metadata bound, decoder scratch and decoded
 // block. No trajectory is
 // materialized here; returned arrays keep their independent actual reservation.
-const READ_BYTES: usize = 48 * 1024 * 1024;
+const READ_BYTES: usize = 3 * super::result_files::MAX_FILE_BYTES;
 
 fn response_owner(
     runtime: &Runtime,
@@ -55,7 +55,9 @@ enum OutputRows {
 /// Invocation-relative scientific admission for one selected reader. Transport
 /// verification and protected read permission remain independent obligations.
 #[derive(Debug)]
+#[cfg(test)]
 struct ResultAdmission(Arc<pse_relations::validate::ValidationContext>);
+#[cfg(test)]
 impl ResultAdmission {
     fn new(runtime: &Runtime) -> Self {
         Self(runtime.admission_context())
@@ -87,11 +89,11 @@ impl ResultAdmission {
 #[derive(Debug)]
 pub struct CanonicalResultReader {
     runtime: Runtime,
-    admission: ResultAdmission,
-    read: ResultRead,
+    snapshot: super::ResultSnapshot,
+    read: Arc<ResultRead>,
     relation: pse_ids::SemanticId,
     set: String,
-    schema: result_blocks::PreparedIpcSchema,
+    schema: SchemaRef,
     start: u64,
     end: u64,
     after: Option<u64>,
@@ -109,13 +111,15 @@ pub struct CanonicalResultReader {
 impl CanonicalResultReader {
     /// Exact registry schema of the selected scientific relation.
     pub fn schema(&self) -> SchemaRef {
-        self.schema.schema().clone()
+        self.schema.clone()
     }
     /// Actual recorded terminal attempt, including failure/partiality class.
     pub fn selection(&self) -> &ResultRead {
         &self.read
     }
-    /// Cancellation shared with the Arrow boundary and its consumer.
+    /// Frozen relation and row-range inventory shared with native query plans.
+    pub fn snapshot(&self) -> super::ResultSnapshot { self.snapshot.clone() }
+    /// Cancellation shared with this typed consumer.
     pub fn cancellation_token(&self) -> CancellationToken {
         self.cancel.clone()
     }
@@ -147,7 +151,7 @@ impl CanonicalResultReader {
             .create_new(true)
             .open(&staging)
             .map_err(io)?;
-        let mut metadata = self.schema.schema().metadata().clone();
+        let mut metadata = self.schema.metadata().clone();
         metadata.insert(
             "pse.canonical.problem".into(),
             self.read.run().problem.clone(),
@@ -201,7 +205,6 @@ impl CanonicalResultReader {
         }
         let schema = Arc::new(
             self.schema
-                .schema()
                 .as_ref()
                 .clone()
                 .with_metadata(metadata),
@@ -369,64 +372,26 @@ impl CanonicalResultReader {
             self.cancel
                 .checkpoint()
                 .map_err(pse_engine::EngineError::from)?;
-            let owner = response_owner(&self.runtime, "canonical:result-block")?;
-            let block = pse_operations::canonical::response_ownership_scope(
-                owner.clone(),
-                self.runtime
-                    .canonical_store()?
-                    .result_block(&self.read, metadata),
-            )
-            .await?;
-            if block.metadata.columns != self.schema.schema().fields().len() as u64
-                || self.output.is_none()
-                    && self.last_end.is_some_and(|end| block.metadata.start < end)
-            {
-                return Err(contract(
-                    "recorded result block shape/order/coverage overlaps",
-                ));
+            if metadata.columns != self.schema.fields().len() as u64
+                || self.output.is_none() && self.last_end.is_some_and(|end| metadata.start < end) {
+                return Err(contract("recorded result block shape/order/coverage overlaps"));
             }
-            self.last_end = Some(block.metadata.end);
-            let rows = usize::try_from(block.metadata.rows)
-                .map_err(|_| contract("result row extent exceeds platform"))?;
-            // The verified store payload already owns its native Vec. Transfer
-            // it before decode; both zero-copy arrays and realigned allocations
-            // are accounted under one producer scope, without charging aliases.
-            let backing = Buffer::from_vec(block.batch.payload.into_vec());
-            let capacity = backing.capacity();
-            if capacity > owner.size() {
-                return Err(contract(
-                    "result transport exceeds admitted backing capacity",
-                ));
-            }
-            let scope = AllocationScope::default();
-            let backing = scope
-                .attach_buffer(backing, owner.split(capacity))
-                .map_err(pse_engine::EngineError::from)?;
-            let batch = result_blocks::decode_owned_result_block(backing, &self.schema, rows)?;
-            let lower = self.start.max(block.metadata.start);
-            let upper = self.end.min(block.metadata.end);
-            if lower >= upper {
-                continue;
-            }
-            let offset = usize::try_from(lower - block.metadata.start)
+            self.last_end = Some(metadata.end);
+            let checked = self.snapshot.read_block(&metadata, &self.cancel).await?;
+            let lower = self.start.max(metadata.start);
+            let upper = self.end.min(metadata.end);
+            if lower >= upper { continue; }
+            let offset = usize::try_from(lower - metadata.start)
                 .map_err(|_| contract("result coordinate exceeds platform"))?;
             let length = usize::try_from(upper - lower)
                 .map_err(|_| contract("result coordinate exceeds platform"))?;
-            let batch = if self.output.is_some() {
-                batch
-            } else {
-                batch.slice(offset, length)
+            let checked = if self.output.is_some() { checked } else {
+                checked.slice(offset, length).map_err(super::relation)?
             };
-            let owned = scope
-                .attach_borrowed_reserved(batch, owner.as_ref())
-                .map_err(pse_engine::EngineError::from)?;
-            let checked =
-                self.admission
-                    .admit(&self.runtime, self.relation, owned, &self.cancel)?;
             let checked = if let Some(filter) = &self.output {
                 let indexes = self
                     .indexes
-                    .remove(&block.batch.key)
+                    .remove(&metadata.batch)
                     .ok_or_else(|| contract("selected output block lacks index"))?;
                 let indices = match indexes {
                     OutputRows::Scalar(locators) => {
@@ -443,8 +408,8 @@ impl CanonicalResultReader {
                                 locator,
                                 &self.read.attempt().key,
                                 &self.set,
-                                &block.batch.key,
-                                block.metadata.start,
+                                &metadata.batch,
+                                metadata.start,
                             )?;
                         }
                         let mask = super::result_projection::scalar_predicate(
@@ -462,7 +427,7 @@ impl CanonicalResultReader {
                                 mask.is_valid(offset) && mask.value(offset)
                             })
                             .map(|locator| {
-                                u32::try_from(locator.row - block.metadata.start)
+                                u32::try_from(locator.row - metadata.start)
                                     .map_err(|_| contract("selected row exceeds Arrow take extent"))
                             })
                             .collect::<Result<Vec<_>, _>>()?
@@ -471,14 +436,14 @@ impl CanonicalResultReader {
                         let view=pse_relations::generated::runtime::simulation_samples::View::from_checked(&checked).map_err(super::relation)?;
                         let first = output
                             .start
-                            .checked_sub(block.metadata.start)
+                            .checked_sub(metadata.start)
                             .and_then(|n| usize::try_from(n).ok())
                             .ok_or_else(|| {
                                 contract("dense output starts outside original block")
                             })?;
                         let last = output
                             .end
-                            .checked_sub(block.metadata.start)
+                            .checked_sub(metadata.start)
                             .and_then(|n| usize::try_from(n).ok())
                             .filter(|last| first < *last && *last <= view.len())
                             .ok_or_else(|| contract("dense output ends outside original block"))?;
@@ -509,7 +474,7 @@ impl CanonicalResultReader {
                             }
                             min = min.min(value.time);
                             max = max.max(value.time);
-                            let coordinate = block.metadata.start + row as u64;
+                            let coordinate = metadata.start + row as u64;
                             if coordinate >= self.start
                                 && coordinate < self.end
                                 && filter.minimum.is_none_or(|lower| value.time >= lower)
@@ -661,7 +626,7 @@ impl Runtime {
                         .latest_results(problem, classes, READ_LIFETIME),
                 )
                 .await?;
-                self.result_selection(read, relation, start, end, cancel, &extent)
+                self.result_selection(read, relation, start, end, cancel, &extent).await
             })
             .await
     }
@@ -691,11 +656,11 @@ impl Runtime {
                         .read_results(run, attempt, READ_LIFETIME),
                 )
                 .await?;
-                self.result_selection(read, relation, start, end, cancel, &extent)
+                self.result_selection(read, relation, start, end, cancel, &extent).await
             })
             .await
     }
-    fn result_selection(
+    async fn result_selection(
         &self,
         read: ResultRead,
         relation: &str,
@@ -732,13 +697,15 @@ impl Runtime {
             ));
         }
         let selection_owner = extent.split(retained);
+        let read = Arc::new(read);
+        let snapshot = super::ResultSnapshot::capture(self, read.clone(), spec.id, &set, schema.clone(), start, end).await?;
         Ok(CanonicalResultReader {
             runtime: self.clone(),
-            admission: ResultAdmission::new(self),
+            snapshot,
             read,
             relation: spec.id,
             set,
-            schema: result_blocks::PreparedIpcSchema::result(schema)?,
+            schema,
             start,
             end,
             after: None,
@@ -921,8 +888,8 @@ mod result_admission_unit {
             vec![Arc::new(Int64Array::from(vec![timestamp]))],
         )
         .unwrap();
-        let bytes = result_blocks::encode_result_block(&raw).unwrap();
-        let decoded = result_blocks::decode_result_block(&bytes, schema, 1).unwrap();
+        let bytes = result_files::encode_result_file(&raw).unwrap();
+        let decoded = result_files::decode_result_file(&bytes, schema, 1).unwrap();
         let cancel = CancellationToken::new();
         assert!(
             !stale_contract
@@ -1218,6 +1185,14 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
+        let snapshot = reader.snapshot();
+        let context = datafusion::execution::context::SessionContext::new_with_state(snapshot.session_state());
+        context.register_table("frozen", snapshot.table_provider()).unwrap();
+        let dataframe = context.sql("SELECT real, step FROM frozen WHERE real > 0 ORDER BY step LIMIT 1").await.unwrap();
+        let plan = dataframe.create_physical_plan().await.unwrap();
+        let task = context.task_ctx();
+        drop(snapshot);
+        drop(context);
         let batch = reader.next_batch().await.unwrap().unwrap();
         {
             let view = solve_metrics::View::try_from_batch_with_registry(
@@ -1236,6 +1211,13 @@ mod canonical_connected_results_server_unit {
         let escaped = batch.column_by_name("real").unwrap().clone();
         assert!(store.forget_run_results("decoded-owner").await.is_err());
         drop(reader);
+        assert!(store.forget_run_results("decoded-owner").await.is_err(), "unexecuted native plan retains future unread files");
+        let queried = datafusion::physical_plan::collect(plan.clone(), task).await.unwrap();
+        assert_eq!(queried.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
+        let values = queried[0].column(0).as_any().downcast_ref::<datafusion::arrow::array::Float64Array>().unwrap();
+        assert_eq!(values.value(0).to_bits(), 273.15f64.to_bits());
+        drop(queried);
+        drop(plan);
         drop(batch);
         assert!(pool.reserved() > baseline);
         // Fully decoded buffers require no storage access. The reader's final
@@ -1678,7 +1660,7 @@ mod canonical_connected_results_server_unit {
                 .unwrap();
         }
         let checked = builder.finish().unwrap();
-        let payload = result_blocks::encode_result_block(checked.batch()).unwrap();
+        let payload = result_files::encode_result_file(checked.batch()).unwrap();
         let name = solve_metrics::RELATION_ID.to_string();
         let set = result_set_key(fence.attempt(), &name);
         let key = result_batch_key(fence.attempt(), &set, 0);

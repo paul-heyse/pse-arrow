@@ -2487,6 +2487,11 @@ async fn read_chunks_selection(
     bytes
         .try_reserve_exact(extent)
         .map_err(|_| contract("stored chunk allocation refused"))?;
+    // Hydrated opaque file access allocates one extra chunk concurrently with
+    // the accumulated JSON document; reserve before any physical file read.
+    let staging = MemoryConsumer::new("canonical:opaque-file-read").register(pool);
+    staging.try_grow(extent.min(RESULT_BATCH_BYTES).saturating_mul(2).saturating_add(64 * 1024))
+        .map_err(pse_engine::EngineError::from)?;
     for ordinal in 0..count {
         let payload = match read {
             CompletionSelection::Full(full) => {

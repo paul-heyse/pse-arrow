@@ -1669,18 +1669,21 @@ impl Runtime {
                     let columns = batch.batch().num_columns() as u64;
                     let base = offset;
                     offset += batch.batch().num_rows() as u64;
-                    super::result_blocks::visit_result_blocks_async(
+                    super::result_files::visit_result_files_async(
                         batch.batch(),
                         |start, rows, payload| {
                             let current = ordinal;
                             ordinal += 1;
                             let start = base + start as u64;
-                            let payload =
-                                pse_operations::canonical_execution::ResultPayload::new(payload);
+
                             let set = set.clone();
                             let fence = &fence;
                             async move {
-                                let payload = payload?;
+                                let operation = format!("study-summary:{}:{current}", fence.attempt());
+                                let digest = pse_operations::canonical_execution::result_payload_digest(&payload);
+                                let intent = store.reserve_result_file(fence, &operation, &digest).await?;
+                                let sealed = store.seal_file(&intent, &payload, pse_operations::canonical_files::ARROW_IPC_FILE, 1, &relation.to_string()).await?;
+                                let payload = pse_operations::canonical_execution::ResultPayload::from_sealed(sealed, 0)?;
                                 let block =
                                     pse_model::generated::runtime::canonical_result_blocks::Row {
                                         key: result_batch_key(fence.attempt(), &set, current),
@@ -1695,7 +1698,7 @@ impl Runtime {
                                         columns,
                                         coordinate_min: None,
                                         coordinate_max: None,
-                                        payload_bytes: payload.as_slice().len() as u64,
+                                        payload_bytes: payload.byte_len(),
                                         payload_digest: payload.digest().to_owned(),
                                         interpretation:
                                             pse_operations::generated::surreal::INTERPRETATION
