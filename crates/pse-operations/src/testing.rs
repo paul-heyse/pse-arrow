@@ -48,17 +48,25 @@ impl FixtureLifetime {
         })
     }
     pub(crate) async fn drain_connections(&self) -> Result<(), crate::canonical::CanonicalError> {
-        let deadline=crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
-        crate::canonical::transport::within_clock(deadline,async {
+        let deadline =
+            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
+        crate::canonical::transport::within_clock(deadline, async {
             self.store.drain_fixture_connection().await?;
-            let peers = self.peers.lock().map_err(|_| {
-                crate::canonical::CanonicalError::Configuration("fixture peer owner poisoned".into())
-            })?.clone();
+            let peers = self
+                .peers
+                .lock()
+                .map_err(|_| {
+                    crate::canonical::CanonicalError::Configuration(
+                        "fixture peer owner poisoned".into(),
+                    )
+                })?
+                .clone();
             for peer in peers {
                 peer.drain_fixture_connection().await?;
             }
             Ok(())
-        }).await
+        })
+        .await
     }
     pub(crate) fn retain_peer(
         &self,
@@ -389,7 +397,7 @@ pub fn canonical_fixture_peer(
 ) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
     // Pin the complete fixture membership while the owner's admission is open,
     // before connection setup can race the final resource-drain decision.
-    let borrowed_owner=owner.independent_caller()?;
+    let borrowed_owner = owner.independent_caller()?;
     let lifetime = borrowed_owner.fixture_lifetime.as_ref().ok_or_else(|| {
         crate::canonical::CanonicalError::Configuration(
             "fixture peer requires registered owner".into(),

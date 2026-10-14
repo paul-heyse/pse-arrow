@@ -1111,10 +1111,7 @@ async fn exact_dispatched_result_renewal_and_expired_reader_retirement_both_orde
     for renewal_first in [false, true] {
         let (store, options, revision) = fixture().await;
         let attempt = finish(&store, &revision, "target").await;
-        let read = store
-            .read_results("target", &attempt)
-            .await
-            .unwrap();
+        let read = store.read_results("target", &attempt).await.unwrap();
         let pin = read.protected_selection();
         let renewal = held(&options).await;
         renewal
@@ -1155,7 +1152,12 @@ async fn exact_dispatched_result_renewal_and_expired_reader_retirement_both_orde
         } else {
             retirement.commit().await.unwrap();
             conflict(renewal.commit().await.unwrap_err());
-            assert!(store.result_file_batch_descriptors(&read,&read.sets()[0].key,&[0]).await.is_err());
+            assert!(
+                store
+                    .result_file_batch_descriptors(&read, &read.sets()[0].key, &[0])
+                    .await
+                    .is_err()
+            );
         }
         drop(read);
         store.remove_isolated_fixture().await.unwrap();
@@ -1332,19 +1334,76 @@ async fn exact_released_tombstone_survives_original_window_then_collects_without
 
 #[tokio::test]
 async fn historical_source_grant_settlement_keeps_exact_receipt_and_fences_unknown_grants() {
-    let (store,_,revision)=fixture().await;
-    let selection=store.protect(revision.clone(),Duration::from_secs(60)).await.unwrap();
-    let key=selection.grant_key().to_owned();selection.finish().await.unwrap();
-    let next_authority=uuid::Uuid::new_v4().to_string();
+    let (store, _, revision) = fixture().await;
+    let selection = store
+        .protect(revision.clone(), Duration::from_secs(60))
+        .await
+        .unwrap();
+    let key = selection.grant_key().to_owned();
+    selection.finish().await.unwrap();
+    let next_authority = uuid::Uuid::new_v4().to_string();
     bounded_query(store.db.query("UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET incarnation=$authority,protection_closed_through=29dec;").bind(("problem",revision.problem.clone())).bind(("authority",next_authority))).await.unwrap();
-    assert!(store.settle_protection_grant(&revision.problem,&key).await.unwrap());
-    assert!(store.settle_protection_grant(&revision.problem,&key).await.unwrap());
-    assert_eq!(floor(&store,&revision.problem).await,29);
-    let mut receipt=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_protections',$key);").bind(("key",key.clone()))).await.unwrap();
-    assert_eq!(receipt.take::<Option<Object>>(0).unwrap().unwrap().get("released"),Some(&Value::Bool(true)));
-    let parts=key.split(':').collect::<Vec<_>>();let unknown=format!("pse.protection.v2:{}:{}:{}",parts[1],uuid::Uuid::new_v4(),parts[3]);
-    assert!(store.settle_protection_grant(&revision.problem,&unknown).await.is_err());
-    assert!(store.settle_protection_grant("other-problem",&key).await.is_err());
-    assert!(bounded_query(store.db.query(ACQUIRE_PROTECTION).bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone())).bind(("key",key.clone())).bind(("lifetime",60_000_000i64))).await.is_err());
-    assert_eq!(floor(&store,&revision.problem).await,29);store.remove_isolated_fixture().await.unwrap();
+    assert!(
+        store
+            .settle_protection_grant(&revision.problem, &key)
+            .await
+            .unwrap()
+    );
+    assert!(
+        store
+            .settle_protection_grant(&revision.problem, &key)
+            .await
+            .unwrap()
+    );
+    assert_eq!(floor(&store, &revision.problem).await, 29);
+    let mut receipt = bounded_query(
+        store
+            .db
+            .query("RETURN SELECT * FROM ONLY type::record('canonical_protections',$key);")
+            .bind(("key", key.clone())),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        receipt
+            .take::<Option<Object>>(0)
+            .unwrap()
+            .unwrap()
+            .get("released"),
+        Some(&Value::Bool(true))
+    );
+    let parts = key.split(':').collect::<Vec<_>>();
+    let unknown = format!(
+        "pse.protection.v2:{}:{}:{}",
+        parts[1],
+        uuid::Uuid::new_v4(),
+        parts[3]
+    );
+    assert!(
+        store
+            .settle_protection_grant(&revision.problem, &unknown)
+            .await
+            .is_err()
+    );
+    assert!(
+        store
+            .settle_protection_grant("other-problem", &key)
+            .await
+            .is_err()
+    );
+    assert!(
+        bounded_query(
+            store
+                .db
+                .query(ACQUIRE_PROTECTION)
+                .bind(("problem", revision.problem.clone()))
+                .bind(("revision", revision.key.clone()))
+                .bind(("key", key.clone()))
+                .bind(("lifetime", 60_000_000i64))
+        )
+        .await
+        .is_err()
+    );
+    assert_eq!(floor(&store, &revision.problem).await, 29);
+    store.remove_isolated_fixture().await.unwrap();
 }

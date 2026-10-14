@@ -109,47 +109,94 @@ class MaintenanceTests(unittest.TestCase):
 
     def cutover_publication(self) -> dict[str, object]:
         (self.folder / tool.surreal_rollout_producer.REGISTER).write_text("{}")
-        return {"rollouts": [{"id": "one", "cutover": tool.surreal_rollout_producer.CUTOVER}]}
+        return {
+            "rollouts": [
+                {"id": "one", "cutover": tool.surreal_rollout_producer.CUTOVER}
+            ]
+        }
 
-    def test_design_cutover_requires_empty_application_rows_and_exact_bookkeeping(self) -> None:
+    def test_design_cutover_requires_empty_application_rows_and_exact_bookkeeping(
+        self,
+    ) -> None:
         publication = self.cutover_publication()
         with (
-            patch.object(tool.surreal_rollout_producer, "load", return_value=publication),
-            patch.object(server, "maintenance_catalog", return_value={"tables": {"__entity": "", "__rollout": "", "sample": ""}}),
-            patch.object(server, "maintenance_query", return_value={"rows": []}) as query,
+            patch.object(
+                tool.surreal_rollout_producer, "load", return_value=publication
+            ),
+            patch.object(
+                server,
+                "maintenance_catalog",
+                return_value={
+                    "tables": {"__entity": "", "__rollout": "", "sample": ""}
+                },
+            ),
+            patch.object(
+                server, "maintenance_query", return_value={"rows": []}
+            ) as query,
         ):
-            tool.require_empty_cutover_target(self.state, self.config, self.folder, ["one"], None)
+            tool.require_empty_cutover_target(
+                self.state, self.config, self.folder, ["one"], None
+            )
             self.assertEqual(query.call_count, 1)
             self.assertIn("FROM `sample` LIMIT 1", query.call_args.args[-1])
             for rows in ([{"id": "sample:retained"}], None):
                 query.return_value = {"rows": rows}
-                with self.subTest(rows=rows), self.assertRaisesRegex(tool.MaintenanceError, "retained or unknown"):
-                    tool.require_empty_cutover_target(self.state, self.config, self.folder, ["one"], None)
+                with (
+                    self.subTest(rows=rows),
+                    self.assertRaisesRegex(
+                        tool.MaintenanceError, "retained or unknown"
+                    ),
+                ):
+                    tool.require_empty_cutover_target(
+                        self.state, self.config, self.folder, ["one"], None
+                    )
 
-    def test_design_cutover_refuses_initialized_v5_before_native_submission(self) -> None:
+    def test_design_cutover_refuses_initialized_v5_before_native_submission(
+        self,
+    ) -> None:
         publication = self.cutover_publication()
-        marker = {"interpretation": "pse.substrate.v5", "schema_digest": "old", "issuing_store": "old"}
+        marker = {
+            "interpretation": "pse.substrate.v5",
+            "schema_digest": "old",
+            "issuing_store": "old",
+        }
         with (
-            patch.object(tool.surreal_rollout_producer, "load", return_value=publication),
+            patch.object(
+                tool.surreal_rollout_producer, "load", return_value=publication
+            ),
             patch.object(tool, "predecessor_marker", return_value=marker),
             patch.object(tool.native_operation, "run_child_scope") as child,
-            self.assertRaisesRegex(tool.MaintenanceError, "retained-data upgrade refused"),
+            self.assertRaisesRegex(
+                tool.MaintenanceError, "retained-data upgrade refused"
+            ),
         ):
-            tool.execute(self.binary, self.state, self.folder, "start", rollout_id="one")
+            tool.execute(
+                self.binary, self.state, self.folder, "start", rollout_id="one"
+            )
         child.assert_not_called()
-        value = cast("dict[str, object]", server.read_json(self.state / "config.json")[tool.PENDING])
+        value = cast(
+            "dict[str, object]",
+            server.read_json(self.state / "config.json")[tool.PENDING],
+        )
         self.assertEqual(value["sql_outcome"], "not_submitted")
         self.assertEqual(value["attempts"][0]["listener_drain"], "complete")
 
     def test_design_cutover_rechecks_current_marker_on_completion(self) -> None:
         publication = self.cutover_publication()
         with (
-            patch.object(tool.surreal_rollout_producer, "load", return_value=publication),
-            patch.object(tool, "predecessor_marker", return_value={"interpretation": "pse.substrate.v6"}),
+            patch.object(
+                tool.surreal_rollout_producer, "load", return_value=publication
+            ),
+            patch.object(
+                tool,
+                "predecessor_marker",
+                return_value={"interpretation": "pse.substrate.v6"},
+            ),
             self.assertRaisesRegex(tool.MaintenanceError, "fresh empty uninitialized"),
         ):
-            tool.require_empty_cutover_target(self.state, self.config, self.folder, ["one"], None)
-
+            tool.require_empty_cutover_target(
+                self.state, self.config, self.folder, ["one"], None
+            )
 
     @contextlib.contextmanager
     def reservation(self, _state: Path) -> Generator[None]:

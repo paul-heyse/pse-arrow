@@ -254,19 +254,28 @@ def empty_snapshots(folder: Path) -> None:
     (folder / "schema").mkdir(parents=True)
     (folder / "snapshots").mkdir()
     write_json(folder / "snapshots/schema_snapshot.json", {"version": 1, "files": []})
-    write_json(folder / "snapshots/catalog_snapshot.json", {"version": 2, "entities": []})
+    write_json(
+        folder / "snapshots/catalog_snapshot.json", {"version": 2, "entities": []}
+    )
 
 
 def cutover_steps(
     native: dict[str, object], source: dict[str, object], target: dict[str, object]
 ) -> list[dict[str, object]]:
     """Explicit schema actions from native catalogs; no data transformation."""
-    def entities(catalog: dict[str, object]) -> dict[tuple[str, str, str], dict[str, object]]:
+
+    def entities(
+        catalog: dict[str, object],
+    ) -> dict[tuple[str, str, str], dict[str, object]]:
         if catalog.get("version") != 2:
             raise ProducerError("Design-phase cutover requires beta.6 native catalogs")
         result: dict[tuple[str, str, str], dict[str, object]] = {}
         for entity in cast("list[dict[str, object]]", catalog["entities"]):
-            key = (str(entity["kind"]), str(entity.get("scope", "")), str(entity["name"]))
+            key = (
+                str(entity["kind"]),
+                str(entity.get("scope", "")),
+                str(entity["name"]),
+            )
             if key in result:
                 raise ProducerError("Duplicate native catalog entity")
             result[key] = entity
@@ -279,45 +288,85 @@ def cutover_steps(
         raise ProducerError("Native bootstrap did not freeze exactly one target schema")
     steps = [apply[0]]
     groups = (
-        ("rollback_expand_schema", "rollback", "remove_entities", sorted(new.keys() - old.keys())),
-        ("rollback_modified_schema", "rollback", "restore_definitions", [
-            key for key in sorted(old.keys() & new.keys())
-            if old[key]["statement_hash"] != new[key]["statement_hash"]
-            and key[0] not in {"sequence", "user", "access", "model"}
-        ]),
-        ("remove_legacy_entities", "complete", "remove_entities", sorted(old.keys() - new.keys())),
+        (
+            "rollback_expand_schema",
+            "rollback",
+            "remove_entities",
+            sorted(new.keys() - old.keys()),
+        ),
+        (
+            "rollback_modified_schema",
+            "rollback",
+            "restore_definitions",
+            [
+                key
+                for key in sorted(old.keys() & new.keys())
+                if old[key]["statement_hash"] != new[key]["statement_hash"]
+                and key[0] not in {"sequence", "user", "access", "model"}
+            ],
+        ),
+        (
+            "remove_legacy_entities",
+            "complete",
+            "remove_entities",
+            sorted(old.keys() - new.keys()),
+        ),
     )
     for identity, phase, kind, keys in groups:
         if keys:
-            steps.append({"id": identity, "phase": phase, "kind": kind, "entities": [
-                {name: (old.get(key) or new[key])[name] for name in ("kind", "scope", "name")
-                 if name in (old.get(key) or new[key])}
-                for key in keys
-            ]})
+            steps.append(
+                {
+                    "id": identity,
+                    "phase": phase,
+                    "kind": kind,
+                    "entities": [
+                        {
+                            name: (old.get(key) or new[key])[name]
+                            for name in ("kind", "scope", "name")
+                            if name in (old.get(key) or new[key])
+                        }
+                        for key in keys
+                    ],
+                }
+            )
     return steps
 
 
 def manual_manifest(spec: dict[str, object]) -> str:
     """Render only beta.6's supported frozen schema-action manifest format."""
-    lines = [f"{key} = {json.dumps(spec[key], ensure_ascii=False)}" for key in (
-        "id", "name", "source_schema_hash", "target_schema_hash", "compatibility"
-    )]
+    lines = [
+        f"{key} = {json.dumps(spec[key], ensure_ascii=False)}"
+        for key in (
+            "id",
+            "name",
+            "source_schema_hash",
+            "target_schema_hash",
+            "compatibility",
+        )
+    ]
     if "module" in spec:
         lines.append("module = " + json.dumps(spec["module"]))
     lines.append("renames = []")
     for step in cast("list[dict[str, object]]", spec["steps"]):
         beta6_step_checksum(step)  # Refuse arbitrary data actions before publication.
         lines.extend(["", "[[steps]]"])
-        lines.extend(f"{key} = {json.dumps(step[key])}" for key in ("id", "phase", "kind"))
+        lines.extend(
+            f"{key} = {json.dumps(step[key])}" for key in ("id", "phase", "kind")
+        )
         field = "files" if step["kind"] == "apply_files" else "entities"
         for item in cast("list[dict[str, object]]", step[field]):
             lines.extend(["", "[[steps." + field + "]]"])
-            lines.extend(f"{key} = {json.dumps(value, ensure_ascii=False)}"
-                         for key, value in item.items() if value is not None)
+            lines.extend(
+                f"{key} = {json.dumps(value, ensure_ascii=False)}"
+                for key, value in item.items()
+                if value is not None
+            )
     return "\n".join(lines) + "\n"
 
 
-def plan_design_cutover(binary: Path, candidate: Path, schema_digest: str, head: dict[str, object]) -> Path:
+def plan_design_cutover(
+    binary: Path, candidate: Path, schema_digest: str, head: dict[str, object]
+) -> Path:
     """Native bootstrap owns target bytes/hashes; manual actions own explicit drops.
 
     beta.6 rollout.rs::validate_autoplan refuses same-scope add/drop as an
@@ -326,8 +375,17 @@ def plan_design_cutover(binary: Path, candidate: Path, schema_digest: str, head:
     """
     bootstrap = candidate.parent / "native-bootstrap"
     empty_snapshots(bootstrap)
-    shutil.copyfile(candidate / "schema/canonical.surql", bootstrap / "schema/canonical.surql")
-    beta(binary, bootstrap, "plan", "--name", "canonical_" + schema_digest[:16], "--allow-modified")
+    shutil.copyfile(
+        candidate / "schema/canonical.surql", bootstrap / "schema/canonical.surql"
+    )
+    beta(
+        binary,
+        bootstrap,
+        "plan",
+        "--name",
+        "canonical_" + schema_digest[:16],
+        "--allow-modified",
+    )
     manifests = list((bootstrap / "rollouts").glob("*.toml"))
     if len(manifests) != 1:
         raise ProducerError("Native bootstrap did not produce exactly one rollout")
@@ -340,11 +398,15 @@ def plan_design_cutover(binary: Path, candidate: Path, schema_digest: str, head:
     source = json.loads((candidate / "snapshots/catalog_snapshot.json").read_text())
     target = json.loads((bootstrap / "snapshots/catalog_snapshot.json").read_text())
     spec["steps"] = cutover_steps(spec, source, target)
-    if spec["steps"][0]["files"] != [{
-        "path": "schema/canonical.surql",
-        "hash": sha((candidate / "schema/canonical.surql").read_bytes()),
-    }]:
-        raise ProducerError("Native bootstrap target differs from exact generated schema")
+    if spec["steps"][0]["files"] != [
+        {
+            "path": "schema/canonical.surql",
+            "hash": sha((candidate / "schema/canonical.surql").read_bytes()),
+        }
+    ]:
+        raise ProducerError(
+            "Native bootstrap target differs from exact generated schema"
+        )
     spec["source_schema_hash"] = head["target_schema_hash"]
     for step in spec["steps"]:
         if step["kind"] == "apply_files":
@@ -368,8 +430,13 @@ def plan_design_cutover(binary: Path, candidate: Path, schema_digest: str, head:
 
 
 def publish(
-    binary: Path, folder: Path, schema: bytes, interpretation: str, schema_digest: str,
-    *, design_phase_v6_cutover: bool = False,
+    binary: Path,
+    folder: Path,
+    schema: bytes,
+    interpretation: str,
+    schema_digest: str,
+    *,
+    design_phase_v6_cutover: bool = False,
 ) -> dict[str, object]:
     """Plan offline and append one publication; never repair prior publications."""
     release = surrealkit.verify(binary)
@@ -385,7 +452,9 @@ def publish(
         (schema, interpretation, schema_digest) != declaration()
         or interpretation != CUTOVER["target_interpretation"]
     ):
-        raise ProducerError("Design-phase cutover requires the exact generated v6 declaration")
+        raise ProducerError(
+            "Design-phase cutover requires the exact generated v6 declaration"
+        )
     folder.parent.mkdir(parents=True, exist_ok=True)
     # The lock is outside the publication. Incomplete publication stays refused,
     # never silently pruned or adopted after an interrupted publisher.
@@ -400,12 +469,18 @@ def publish(
                 head["schema_digest"],
             ):
                 if design_phase_v6_cutover and head.get("cutover") != CUTOVER:
-                    raise ProducerError("Existing publication is not the explicit v6 cutover")
+                    raise ProducerError(
+                        "Existing publication is not the explicit v6 cutover"
+                    )
                 return head
         else:
             previous, head = None, None
-        if design_phase_v6_cutover and (head is None or head["interpretation"] != CUTOVER["source_interpretation"]):
-            raise ProducerError("Design-phase cutover requires the immutable v5 predecessor")
+        if design_phase_v6_cutover and (
+            head is None or head["interpretation"] != CUTOVER["source_interpretation"]
+        ):
+            raise ProducerError(
+                "Design-phase cutover requires the immutable v5 predecessor"
+            )
         with tempfile.TemporaryDirectory(
             prefix=".canonical-plan-", dir=folder.parent
         ) as temporary:
@@ -420,10 +495,19 @@ def publish(
                 manifest = plan_design_cutover(binary, candidate, schema_digest, head)
             else:
                 before = set((candidate / "rollouts").glob("*.toml"))
-                beta(binary, candidate, "plan", "--name", "canonical_" + schema_digest[:16], "--allow-modified")
+                beta(
+                    binary,
+                    candidate,
+                    "plan",
+                    "--name",
+                    "canonical_" + schema_digest[:16],
+                    "--allow-modified",
+                )
                 created = set((candidate / "rollouts").glob("*.toml")) - before
                 if len(created) != 1:
-                    raise ProducerError("Beta did not produce exactly one forward rollout")
+                    raise ProducerError(
+                        "Beta did not produce exactly one forward rollout"
+                    )
                 manifest = created.pop()
             spec = tomllib.loads(manifest.read_text())
             identity = spec["id"]
@@ -518,13 +602,22 @@ def main() -> int:
     parser.add_argument("command", choices=("publish", "validate"))
     parser.add_argument("--folder", type=Path, default=FOLDER)
     parser.add_argument("--binary", type=Path)
-    parser.add_argument("--design-phase-v6-cutover", action="store_true", help="Explicit v5 to generated v6 schema-only publication; requires empty uninitialized target regeneration")
+    parser.add_argument(
+        "--design-phase-v6-cutover",
+        action="store_true",
+        help="Explicit v5 to generated v6 schema-only publication; requires empty uninitialized target regeneration",
+    )
     args = parser.parse_args()
     try:
         if args.command == "validate":
             result = load(args.folder, current=True)
         elif args.binary:
-            result = publish(args.binary, args.folder, *declaration(), design_phase_v6_cutover=args.design_phase_v6_cutover)
+            result = publish(
+                args.binary,
+                args.folder,
+                *declaration(),
+                design_phase_v6_cutover=args.design_phase_v6_cutover,
+            )
         else:
             raise ProducerError(  # noqa: TRY301 -- selection shares CLI error reporting
                 "Select the exact verified beta executable with --binary"

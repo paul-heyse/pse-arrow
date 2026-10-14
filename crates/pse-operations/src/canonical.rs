@@ -770,7 +770,9 @@ impl CanonicalStore {
     /// Construct independent caller authority over this still-open connection pair.
     /// Ordinary cloning preserves the existing caller instead.
     pub fn independent_caller(&self) -> Result<Self, CanonicalError> {
-        self.db.access.independent_with(|access|self.with_access(access))
+        self.db
+            .access
+            .independent_with(|access| self.with_access(access))
     }
 
     /// Admit a real operation before its first native or canonical effect.
@@ -836,13 +838,18 @@ impl CanonicalStore {
         let readers = self.result_read_drain.clone();
         let ordinary = self.db.clone();
         let activation = self.activation_db.clone();
-        let files=self.files.clone();
+        let files = self.files.clone();
         self.db
             .access
             .physical
             .close(
                 move || async move { readers.close_and_drain().await },
-                move || async move { if let Some(owner)=files.registered_owner().await {ordinary.drain_file_owner(owner).await?;} ordinary.disconnect().await.map_err(Into::into) },
+                move || async move {
+                    if let Some(owner) = files.registered_owner().await {
+                        ordinary.drain_file_owner(owner).await?;
+                    }
+                    ordinary.disconnect().await.map_err(Into::into)
+                },
                 move || async move { activation.disconnect().await.map_err(Into::into) },
             )
             .await
@@ -1001,7 +1008,10 @@ impl CanonicalStore {
             activation_db,
             connection_options: options.clone(),
             state_path: options.state_path.clone(),
-            files: Arc::new(crate::canonical_files::FileSession::from_state(&options.state_path, &options.database)?),
+            files: Arc::new(crate::canonical_files::FileSession::from_state(
+                &options.state_path,
+                &options.database,
+            )?),
             database: options.database.clone(),
             namespace: options.namespace.clone(),
             issuing_store: Arc::default(),
@@ -1810,15 +1820,26 @@ impl CanonicalStore {
         let deadline = original_deadline(REQUEST_TIMEOUT);
         within_clock(deadline, async {
             self.result_read_drain.drain().await?;
-            self.db.access.physical.seal_and_wait_for_idle(deadline).await?;
+            self.db
+                .access
+                .physical
+                .seal_and_wait_for_idle(deadline)
+                .await?;
             self.disconnect().await
-        }).await
+        })
+        .await
     }
     #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
-    fn seal_final_fixture_owner(&self)->bool {
+    fn seal_final_fixture_owner(&self) -> bool {
         self.db.access.physical.seal_if_final_fixture(|| {
             #[cfg(any(test, feature = "test-support"))]
-            if self.fixture_lifetime.as_ref().is_some_and(|lifetime|Arc::strong_count(lifetime)>1){return false;}
+            if self
+                .fixture_lifetime
+                .as_ref()
+                .is_some_and(|lifetime| Arc::strong_count(lifetime) > 1)
+            {
+                return false;
+            }
             true
         })
     }

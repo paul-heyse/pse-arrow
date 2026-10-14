@@ -670,8 +670,11 @@ def group_identity(group: str) -> int | None:
 
 
 def unadmitted_service_launch_drained(
-    state: Path, unit: str, launch: dict[str, object],
-    *, deadline: float | None = None,
+    state: Path,
+    unit: str,
+    launch: dict[str, object],
+    *,
+    deadline: float | None = None,
 ) -> bool:
     """Authenticate a materialized initial launch that never admitted a process."""
     from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
@@ -698,14 +701,17 @@ def unadmitted_service_launch_drained(
         or readiness.unit != unit
         or readiness.instance_id != launch.get("generation")
         or readiness.listener_owned
-        or any(readiness.manager.get(key) != observed.get(key) for key in (
-            "ActiveState", "ControlGroup", "InvocationID"
-        ))
+        or any(
+            readiness.manager.get(key) != observed.get(key)
+            for key in ("ActiveState", "ControlGroup", "InvocationID")
+        )
         or surreal_server.config_for(state, deadline=deadline) != config
-        or surreal_server.read_json(state / "service-launch.json", deadline=deadline) != launch
+        or surreal_server.read_json(state / "service-launch.json", deadline=deadline)
+        != launch
         or operation.unit_observation(
             unit, **({"deadline": deadline} if deadline is not None else {})
-        ) != observed
+        )
+        != observed
     ):
         return False
     # A concurrent admission or unexpected receipt must keep the allocation held.
@@ -852,7 +858,11 @@ def service_processes_drained(
             # Registration precedes the launch. No bound lifetime can use this
             # missing-process proof; a materialized initial unit needs exact
             # selection and repeated terminal/absence observations as well.
-            if units[unit] or not isinstance(units[unit], dict) or (launch is not None and "binding" in launch):
+            if (
+                units[unit]
+                or not isinstance(units[unit], dict)
+                or (launch is not None and "binding" in launch)
+            ):
                 return False
             try:
                 (state / "server-process.json").read_text()
@@ -870,8 +880,12 @@ def service_processes_drained(
                     ):
                         continue
                 except (
-                    OSError, ValueError, TypeError, KeyError,
-                    subprocess.SubprocessError, surreal_server.SupervisorError,
+                    OSError,
+                    ValueError,
+                    TypeError,
+                    KeyError,
+                    subprocess.SubprocessError,
+                    surreal_server.SupervisorError,
                 ):
                     pass
             except OSError:

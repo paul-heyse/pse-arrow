@@ -3350,10 +3350,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             )
             .await
             .unwrap();
-        let artifact_read = store
-            .read_artifact(&artifact.key)
-            .await
-            .unwrap();
+        let artifact_read = store.read_artifact(&artifact.key).await.unwrap();
         drop(producer_inputs);
         let mut analysis = store
             .new_analysis(
@@ -3516,10 +3513,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
                         && edge.evidence_field.as_deref() == Some("real")
                 )
         );
-        let independent = store
-            .read_artifact(&artifact.key)
-            .await
-            .unwrap();
+        let independent = store.read_artifact(&artifact.key).await.unwrap();
         for ordinal in 0..2 {
             let copied = independent.block(ordinal).await.unwrap();
             assert_eq!(

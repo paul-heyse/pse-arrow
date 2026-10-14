@@ -243,7 +243,6 @@ impl CompletionRead {
             .as_ref()
             .map(|set| (set.next_ordinal, set.row_count))
     }
-
 }
 
 /// An exact terminal attempt and its closed membership, pinned before paging.
@@ -339,7 +338,12 @@ pub struct HydratedResultBatch {
     pub payload: pse_model::Bytes,
     _allocation: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
 }
-impl std::ops::Deref for HydratedResultBatch { type Target=ResultBatch;fn deref(&self)->&ResultBatch{&self.descriptor} }
+impl std::ops::Deref for HydratedResultBatch {
+    type Target = ResultBatch;
+    fn deref(&self) -> &ResultBatch {
+        &self.descriptor
+    }
+}
 
 /// One exact admitted block with verified file bytes and continuing read ownership.
 #[derive(Clone, Debug)]
@@ -1071,8 +1075,13 @@ impl CanonicalStore {
 
     /// Fetch only an explicitly demanded bounded set of exact logical members.
     /// Callers prepay each page before accumulating frozen snapshot metadata.
-    pub async fn result_file_batch_descriptors(&self,read:&ResultRead,set_key:&str,ordinals:&[u64])->Result<Vec<ResultBatch>,CanonicalError>{
-        let activity=self.selection_activity(&read.owner.selection)?;
+    pub async fn result_file_batch_descriptors(
+        &self,
+        read: &ResultRead,
+        set_key: &str,
+        ordinals: &[u64],
+    ) -> Result<Vec<ResultBatch>, CanonicalError> {
+        let activity = self.selection_activity(&read.owner.selection)?;
         activity.scope(async {
         self.files.require_current()?;
         if !read.belongs_to(self){return Err(invalid("result read belongs to another store"));}
@@ -1088,25 +1097,65 @@ impl CanonicalStore {
         }).await
     }
     /// Authenticate an exact frozen logical member before exposing its native file.
-    pub async fn open_result_file(&self,read:&ResultRead,batch:&ResultBatch)->Result<crate::canonical_files::ProtectedFile,CanonicalError>{
-        let activity=self.selection_activity(&read.owner.selection)?;
-        activity.scope(async {
-        self.files.require_current()?;
-        if !read.belongs_to(self)||batch.attempt!=read.attempt.key||batch.ordinal>=read.set(&batch.result_set)?.batch_count{return Err(invalid("file batch outside admitted manifest"));}
-        let original=self.result_batch_descriptor(&read.owner,&read.run,batch).await?;if &original!=batch{return Err(invalid("file batch descriptor differs from admitted catalog"));}
-        let descriptor=self.file_descriptor(batch).await?;self.open_physical_file(descriptor,read.owner.clone())
-        }).await
+    pub async fn open_result_file(
+        &self,
+        read: &ResultRead,
+        batch: &ResultBatch,
+    ) -> Result<crate::canonical_files::ProtectedFile, CanonicalError> {
+        let activity = self.selection_activity(&read.owner.selection)?;
+        activity
+            .scope(async {
+                self.files.require_current()?;
+                if !read.belongs_to(self)
+                    || batch.attempt != read.attempt.key
+                    || batch.ordinal >= read.set(&batch.result_set)?.batch_count
+                {
+                    return Err(invalid("file batch outside admitted manifest"));
+                }
+                let original = self
+                    .result_batch_descriptor(&read.owner, &read.run, batch)
+                    .await?;
+                if &original != batch {
+                    return Err(invalid(
+                        "file batch descriptor differs from admitted catalog",
+                    ));
+                }
+                let descriptor = self.file_descriptor(batch).await?;
+                self.open_physical_file(descriptor, read.owner.clone())
+            })
+            .await
     }
-    async fn result_batch_descriptor(&self,owner:&Arc<ReadOwner>,run:&Run,batch:&ResultBatch)->Result<ResultBatch,CanonicalError>{
+    async fn result_batch_descriptor(
+        &self,
+        owner: &Arc<ReadOwner>,
+        run: &Run,
+        batch: &ResultBatch,
+    ) -> Result<ResultBatch, CanonicalError> {
         let mut response=self.protected_query(&run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptor",||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM ONLY type::record('canonical_result_batches',$batch); COMMIT;"))
         .bind(("problem",run.problem.clone())).bind(("revision",run.revision.clone())).bind(("sequence",canonical_codec::encode_uint(owner.selection.revision().sequence)?)).bind(("protection",owner.selection.key().to_owned())).bind(("batch",batch.key.clone())))).await?;
-        let index=response.num_statements().saturating_sub(2);Ok(wire::decode_canonical_result_batches(response.take::<Option<Object>>(index)?.ok_or_else(||invalid("file batch unavailable"))?)?)
+        let index = response.num_statements().saturating_sub(2);
+        Ok(wire::decode_canonical_result_batches(
+            response
+                .take::<Option<Object>>(index)?
+                .ok_or_else(|| invalid("file batch unavailable"))?,
+        )?)
     }
-    async fn hydrate_result_batch(&self,batch:ResultBatch,owner:Arc<ReadOwner>)->Result<HydratedResultBatch,CanonicalError>{
+    async fn hydrate_result_batch(
+        &self,
+        batch: ResultBatch,
+        owner: Arc<ReadOwner>,
+    ) -> Result<HydratedResultBatch, CanonicalError> {
         use std::io::Read;
-        let descriptor=self.file_descriptor(&batch).await?;let mut file=self.open_physical_file(descriptor,owner)?;
-        let mut bytes=Vec::with_capacity(batch.payload_bytes as usize);file.read_to_end(&mut bytes).map_err(|e|invalid(&e.to_string()))?;
-        Ok(HydratedResultBatch{descriptor:batch,payload:bytes.into(),_allocation:crate::canonical::transport::current_response_owner()})
+        let descriptor = self.file_descriptor(&batch).await?;
+        let mut file = self.open_physical_file(descriptor, owner)?;
+        let mut bytes = Vec::with_capacity(batch.payload_bytes as usize);
+        file.read_to_end(&mut bytes)
+            .map_err(|e| invalid(&e.to_string()))?;
+        Ok(HydratedResultBatch {
+            descriptor: batch,
+            payload: bytes.into(),
+            _allocation: crate::canonical::transport::current_response_owner(),
+        })
     }
     async fn read_payload(
         &self,
@@ -1142,8 +1191,11 @@ impl CanonicalStore {
             return Err(invalid("payload admitted coordinate mismatch"));
         }
         crate::canonical_execution::validate_result_batch(&batch)?;
-        let batch=self.hydrate_result_batch(batch,owner.clone()).await?;
-        Ok(ResultPayload { batch, owner: owner.clone() })
+        let batch = self.hydrate_result_batch(batch, owner.clone()).await?;
+        Ok(ResultPayload {
+            batch,
+            owner: owner.clone(),
+        })
     }
 
     /// Fetch one named admitted blob. Successful checked RPC completion precedes
@@ -1558,12 +1610,7 @@ mod canonical_results_server_unit {
                 .is_err(),
             "immutable batch replay cannot replace a scalar typed key"
         );
-        assert!(
-            store
-                .read_results("run", first.attempt())
-                .await
-                .is_err()
-        );
+        assert!(store.read_results("run", first.attempt()).await.is_err());
         let closed = store
             .close_result_ingestion(&first, "close-1")
             .await
@@ -1581,10 +1628,7 @@ mod canonical_results_server_unit {
         }
         .await
         .unwrap();
-        let read = store
-            .read_results("run", first.attempt())
-            .await
-            .unwrap();
+        let read = store.read_results("run", first.attempt()).await.unwrap();
         let values = store
             .result_output_page(
                 &read, &set, &output, "0", 0, 1, None, false, None, None, None,
@@ -1660,10 +1704,7 @@ mod canonical_results_server_unit {
         }
         .await
         .unwrap();
-        let historical = store
-            .read_results("run", first.attempt())
-            .await
-            .unwrap();
+        let historical = store.read_results("run", first.attempt()).await.unwrap();
         assert_eq!(
             store
                 .result_output_page(
@@ -1685,30 +1726,20 @@ mod canonical_results_server_unit {
                 .len(),
             1
         );
-        let failed = store
-            .read_results("run", second.attempt())
-            .await
-            .unwrap();
+        let failed = store.read_results("run", second.attempt()).await.unwrap();
         assert!(failed.sets().is_empty());
         assert_eq!(failed.attempt().outcome.as_deref(), Some("failed"));
-        let latest = store
-            .latest_results("problem", &[])
-            .await
-            .unwrap();
+        let latest = store.latest_results("problem", &[]).await.unwrap();
         assert_eq!(latest.attempt().key, second.attempt());
         assert!(
             store
-                .latest_results(
-                    "problem",
-                    &[TerminalClass::Succeeded])
+                .latest_results("problem", &[TerminalClass::Succeeded])
                 .await
                 .is_err()
         );
         assert!(
             store
-                .latest_results(
-                    "problem",
-                    &[TerminalClass::Partial])
+                .latest_results("problem", &[TerminalClass::Partial])
                 .await
                 .is_err()
         );
@@ -1800,10 +1831,7 @@ mod canonical_results_server_unit {
         }
         .await
         .unwrap();
-        let read = store
-            .read_results("run", fence.attempt())
-            .await
-            .unwrap();
+        let read = store.read_results("run", fence.attempt()).await.unwrap();
         let page = store
             .result_block_page(&read, &set, "temperature", "time", 10, 20, None)
             .await
@@ -1892,9 +1920,13 @@ mod canonical_results_server_unit {
         assert!(store.result_block(&read, changed).await.is_err());
         // Corrupt the isolated original file while leaving its catalog digest
         // and admitted logical locators unchanged. Fresh native IO must refuse.
-        let descriptor=store.result_file_batch_descriptors(&read,&set,&[page[0].ordinal]).await.unwrap().remove(0);
-        let path=store.files.path(&descriptor.file_instance).unwrap();
-        std::fs::write(&path,[2u8;32]).unwrap();
+        let descriptor = store
+            .result_file_batch_descriptors(&read, &set, &[page[0].ordinal])
+            .await
+            .unwrap()
+            .remove(0);
+        let path = store.files.path(&descriptor.file_instance).unwrap();
+        std::fs::write(&path, [2u8; 32]).unwrap();
         assert!(store.result_block(&read, page[0].clone()).await.is_err());
         assert_eq!(blob.batch.payload.as_slice(), [1u8; 32]);
         drop(read);

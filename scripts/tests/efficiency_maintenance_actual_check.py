@@ -231,7 +231,10 @@ def main() -> int:
             "LET $value={nodes:$nodes,roots:$roots,analysis_guard:$guard};"
         )
         retained_analysis_rows = query(source, retained_analysis_query)
-        checked(isinstance(retained_analysis_rows, dict), "exact typed analysis rows captured before backup")
+        checked(
+            isinstance(retained_analysis_rows, dict),
+            "exact typed analysis rows captured before backup",
+        )
         server.backup(source, server.config_for(source), backup)
         backup_hashes = {
             str(path.relative_to(backup)): server.file_digest(path)

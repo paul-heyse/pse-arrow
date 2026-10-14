@@ -355,76 +355,164 @@ impl<'a> ResultAppendQueue<'a> {
         }
     }
     async fn push(
-        &mut self, name: &str, ordinal: u64,
+        &mut self,
+        name: &str,
+        ordinal: u64,
         batch: datafusion::arrow::record_batch::RecordBatch,
-        block: &Block, rows: &[RowLocator], outputs: &[Output],
+        block: &Block,
+        rows: &[RowLocator],
+        outputs: &[Output],
     ) -> Result<(), WorkflowError> {
         let offered = std::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
-        let metadata = rows.iter().try_fold(4096usize, |bytes, row| -> Result<_, WorkflowError> {
-            bytes.checked_add(pse_operations::canonical_execution::result_row_metadata_extent(row)?)
-                .ok_or_else(|| contract("append metadata extent"))
-        })?;
-        let metadata = outputs.iter().try_fold(metadata, |bytes, output| -> Result<_, WorkflowError> {
-            bytes.checked_add(pse_operations::canonical_execution::result_output_metadata_extent(output)?)
-                .ok_or_else(|| contract("append metadata extent"))
-        })?;
+        let metadata =
+            rows.iter()
+                .try_fold(4096usize, |bytes, row| -> Result<_, WorkflowError> {
+                    bytes
+                        .checked_add(
+                            pse_operations::canonical_execution::result_row_metadata_extent(row)?,
+                        )
+                        .ok_or_else(|| contract("append metadata extent"))
+                })?;
+        let metadata =
+            outputs
+                .iter()
+                .try_fold(metadata, |bytes, output| -> Result<_, WorkflowError> {
+                    bytes
+                        .checked_add(
+                            pse_operations::canonical_execution::result_output_metadata_extent(
+                                output,
+                            )?,
+                        )
+                        .ok_or_else(|| contract("append metadata extent"))
+                })?;
         let file_extent = result_files::batch_extent(&batch)?;
-        let encoded_extent = metadata.checked_mul(16).and_then(|bytes| bytes.checked_add(4096))
+        let encoded_extent = metadata
+            .checked_mul(16)
+            .and_then(|bytes| bytes.checked_add(4096))
             .ok_or_else(|| contract("append metadata copy extent"))?;
-        if !self.items.is_empty() && (self.items.last().is_some_and(|item| item.name != name)
-            || self.file_extent.saturating_add(file_extent) > result_files::TARGET_FILE_BYTES
-            || self.extent.saturating_add(encoded_extent) > pse_operations::canonical::PAYLOAD_BYTES
-            || self.items.len() == pse_operations::generated::surreal::RESULT_INDEX_RECORDS) {
+        if !self.items.is_empty()
+            && (self.items.last().is_some_and(|item| item.name != name)
+                || self.file_extent.saturating_add(file_extent) > result_files::TARGET_FILE_BYTES
+                || self.extent.saturating_add(encoded_extent)
+                    > pse_operations::canonical::PAYLOAD_BYTES
+                || self.items.len() == pse_operations::generated::surreal::RESULT_INDEX_RECORDS)
+        {
             self.flush().await?;
         }
-        let reservation = MemoryConsumer::new("canonical:owned-file-batch-metadata").register(self.pool);
+        let reservation =
+            MemoryConsumer::new("canonical:owned-file-batch-metadata").register(self.pool);
         if reservation.try_grow(encoded_extent).is_err() {
             self.flush().await?;
-            reservation.try_grow(encoded_extent).map_err(pse_engine::EngineError::from)?;
+            reservation
+                .try_grow(encoded_extent)
+                .map_err(pse_engine::EngineError::from)?;
         }
         let owner = pse_columnar::AllocationLease::new(reservation);
-        if self.items.is_empty() { self.deadline = Some(offered); }
-        self.extent = self.extent.checked_add(encoded_extent).ok_or_else(|| contract("append group extent"))?;
-        self.file_extent = self.file_extent.checked_add(file_extent).ok_or_else(|| contract("file packing extent"))?;
-        self.items.push(PendingBatch { name: name.into(), ordinal, batch, block: block.clone(),
-            rows: rows.to_vec(), outputs: outputs.to_vec(), owner });
-        if self._owner.is_none() { self.flush().await?; }
+        if self.items.is_empty() {
+            self.deadline = Some(offered);
+        }
+        self.extent = self
+            .extent
+            .checked_add(encoded_extent)
+            .ok_or_else(|| contract("append group extent"))?;
+        self.file_extent = self
+            .file_extent
+            .checked_add(file_extent)
+            .ok_or_else(|| contract("file packing extent"))?;
+        self.items.push(PendingBatch {
+            name: name.into(),
+            ordinal,
+            batch,
+            block: block.clone(),
+            rows: rows.to_vec(),
+            outputs: outputs.to_vec(),
+            owner,
+        });
+        if self._owner.is_none() {
+            self.flush().await?;
+        }
         Ok(())
     }
     pub(super) async fn flush(&mut self) -> Result<(), WorkflowError> {
         let complete = std::mem::take(&mut self.complete);
         if !self.items.is_empty() {
             let items = std::mem::take(&mut self.items);
-            let deadline = self.deadline.take().ok_or_else(|| contract("file group original clock absent"))?;
-            let reservation = MemoryConsumer::new("canonical:result-file-encoding").register(self.pool);
-            reservation.try_grow(3 * result_files::MAX_FILE_BYTES).map_err(pse_engine::EngineError::from)?;
+            let deadline = self
+                .deadline
+                .take()
+                .ok_or_else(|| contract("file group original clock absent"))?;
+            let reservation =
+                MemoryConsumer::new("canonical:result-file-encoding").register(self.pool);
+            reservation
+                .try_grow(3 * result_files::MAX_FILE_BYTES)
+                .map_err(pse_engine::EngineError::from)?;
             let owner = pse_columnar::AllocationLease::new(reservation);
-            let batches = items.iter().map(|item| item.batch.clone()).collect::<Vec<_>>();
+            let batches = items
+                .iter()
+                .map(|item| item.batch.clone())
+                .collect::<Vec<_>>();
             let bytes = result_files::encode_file_batches(&batches)?;
             let digest = pse_operations::canonical_execution::result_payload_digest(&bytes);
-            let operation = format!("file:{}:{}:{}", self.fence.attempt(), items[0].block.key, items[items.len()-1].ordinal);
+            let operation = format!(
+                "file:{}:{}:{}",
+                self.fence.attempt(),
+                items[0].block.key,
+                items[items.len() - 1].ordinal
+            );
             let schema = items[0].block.output.clone();
             let acks = pse_operations::canonical::operation_scope(deadline, async {
-                let intent = self.store.reserve_result_file(self.fence, &operation, &digest).await?;
-                let file = self.store.seal_file(&intent, &bytes,
-                    pse_operations::canonical_files::ARROW_IPC_FILE, batches.len() as u64, &schema).await?;
+                let intent = self
+                    .store
+                    .reserve_result_file(self.fence, &operation, &digest)
+                    .await?;
+                let file = self
+                    .store
+                    .seal_file(
+                        &intent,
+                        &bytes,
+                        pse_operations::canonical_files::ARROW_IPC_FILE,
+                        batches.len() as u64,
+                        &schema,
+                    )
+                    .await?;
                 let mut appends = Vec::with_capacity(items.len());
                 for (index, mut item) in items.into_iter().enumerate() {
-                    let payload = ResultPayload::from_sealed_owned(file.clone(), index as u64, owner.clone())?;
+                    let payload = ResultPayload::from_sealed_owned(
+                        file.clone(),
+                        index as u64,
+                        owner.clone(),
+                    )?;
                     item.block.payload_bytes = payload.byte_len();
                     item.block.payload_digest = payload.digest().to_owned();
-                    appends.push(ResultBlockAppend::new(self.fence,
-                        &format!("table:{}:{}", self.fence.attempt(), item.block.key), &item.name,
-                        item.ordinal, payload, item.block.rows, &item.block, &item.rows, &item.outputs, item.owner)?);
+                    appends.push(ResultBlockAppend::new(
+                        self.fence,
+                        &format!("table:{}:{}", self.fence.attempt(), item.block.key),
+                        &item.name,
+                        item.ordinal,
+                        payload,
+                        item.block.rows,
+                        &item.block,
+                        &item.rows,
+                        &item.outputs,
+                        item.owner,
+                    )?);
                 }
                 self.store.append_result_blocks(self.fence, appends).await
-            }).await?;
-            #[cfg(test)] { self.requests += 1; }
-            for ack in acks { self.acknowledgments.append(self.fence, ack)?; }
+            })
+            .await?;
+            #[cfg(test)]
+            {
+                self.requests += 1;
+            }
+            for ack in acks {
+                self.acknowledgments.append(self.fence, ack)?;
+            }
             self.extent = 4096;
             self.file_extent = 0;
         }
-        for name in complete { self.acknowledgments.complete(self.fence, &name)?; }
+        for name in complete {
+            self.acknowledgments.complete(self.fence, &name)?;
+        }
         Ok(())
     }
     pub(super) async fn yield_optional(&mut self) -> Result<(), WorkflowError> {
@@ -812,8 +900,7 @@ async fn store_result_chunk(
     };
     let scratch = window * indexed * (size_of::<RowLocator>() + 1024)
         + window * size_of::<usize>()
-        + 16 * pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
-;
+        + 16 * pse_operations::canonical_execution::EXECUTION_METADATA_BYTES;
     if reservation.try_grow(scratch).is_err() {
         queue.yield_optional().await?;
         reservation

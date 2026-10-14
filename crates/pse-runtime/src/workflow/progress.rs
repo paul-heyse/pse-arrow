@@ -34,10 +34,7 @@ impl Runtime {
         activity
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let read = self
-                    .canonical_store()?
-                    .read_results(run, attempt)
-                    .await?;
+                let read = self.canonical_store()?.read_results(run, attempt).await?;
                 let operations = super::Operations::from_store(
                     self.canonical_store()?.clone(),
                     "progress-reader",
@@ -121,10 +118,19 @@ impl ProgressStream {
             .set
             .as_deref()
             .ok_or_else(|| super::contract("progress descriptor absent"))?;
-        let descriptors = self.runtime.canonical_store()?.result_file_batch_descriptors(read, set, &[self.ordinal]).await?;
-        let descriptor = descriptors.first().ok_or_else(|| super::contract("progress file descriptor absent"))?;
-        let bytes = usize::try_from(descriptor.payload_bytes).map_err(|_| super::contract("progress file extent"))?;
-        owner.try_grow(bytes.saturating_mul(8)).map_err(pse_engine::EngineError::from)?;
+        let descriptors = self
+            .runtime
+            .canonical_store()?
+            .result_file_batch_descriptors(read, set, &[self.ordinal])
+            .await?;
+        let descriptor = descriptors
+            .first()
+            .ok_or_else(|| super::contract("progress file descriptor absent"))?;
+        let bytes = usize::try_from(descriptor.payload_bytes)
+            .map_err(|_| super::contract("progress file extent"))?;
+        owner
+            .try_grow(bytes.saturating_mul(8))
+            .map_err(pse_engine::EngineError::from)?;
         let payload = self
             .runtime
             .canonical_store()?

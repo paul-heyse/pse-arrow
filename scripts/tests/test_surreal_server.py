@@ -4024,7 +4024,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         return {field: {} for field in fields[scope]}
 
     @contextlib.contextmanager
-    def native_maintenance(self, *, retained_science: dict[str, list[dict[str, object]]] | None = None) -> Generator[list[tuple[str, str, str]], None, None]:
+    def native_maintenance(
+        self, *, retained_science: dict[str, list[dict[str, object]]] | None = None
+    ) -> Generator[list[tuple[str, str, str]], None, None]:
         """Model native acknowledgments and science preserved by native export/import."""
         calls: list[tuple[str, str, str]] = []
         inventory: dict[Path, dict[str, set[str]]] = {}
@@ -4044,7 +4046,16 @@ class SurrealSupervisorTests(unittest.TestCase):
                         str(pending.get("database", current["database"]))
                     }
                 }
-                science[(state, str(pending.get("namespace", current["namespace"])), str(pending.get("database", current["database"])))] = {table: [dict(row) for row in rows] for table, rows in (retained_science or {}).items()}
+                science[
+                    (
+                        state,
+                        str(pending.get("namespace", current["namespace"])),
+                        str(pending.get("database", current["database"])),
+                    )
+                ] = {
+                    table: [dict(row) for row in rows]
+                    for table, rows in (retained_science or {}).items()
+                }
             return inventory[state]
 
         def query(
@@ -4056,7 +4067,9 @@ class SurrealSupervisorTests(unittest.TestCase):
             calls.append((str(config["namespace"]), str(config["database"]), body))
             self.assertFalse(server.config_for(state)["accepting_writes"])
             known_databases(state)
-            selected_science = science.get((state, str(config["namespace"]), str(config["database"])), {})
+            selected_science = science.get(
+                (state, str(config["namespace"]), str(config["database"])), {}
+            )
             for table in selected_science:
                 if "DELETE $rows.id" in body and "FROM " + table + " " in body:
                     selected_science[table] = []
@@ -4111,17 +4124,44 @@ class SurrealSupervisorTests(unittest.TestCase):
         ) -> subprocess.CompletedProcess[str]:
             nonlocal exported_science
             if arguments[1] == "--verify-payload-inventory":
-                entries = [json.loads(line) for line in Path(arguments[2]).read_text().splitlines()]
+                entries = [
+                    json.loads(line)
+                    for line in Path(arguments[2]).read_text().splitlines()
+                ]
                 for entry in entries:
-                    self.assertEqual(set(entry), {"instance", "digest", "bytes", "encoding", "batch_count", "schema", "interpretation", "path"})
-                    self.assertEqual(Path(entry["path"]).stat().st_size, int(entry["bytes"]))
-                return subprocess.CompletedProcess(arguments, 0, json.dumps({"verified_payload_files": len(entries)}), "")
+                    self.assertEqual(
+                        set(entry),
+                        {
+                            "instance",
+                            "digest",
+                            "bytes",
+                            "encoding",
+                            "batch_count",
+                            "schema",
+                            "interpretation",
+                            "path",
+                        },
+                    )
+                    self.assertEqual(
+                        Path(entry["path"]).stat().st_size, int(entry["bytes"])
+                    )
+                return subprocess.CompletedProcess(
+                    arguments,
+                    0,
+                    json.dumps({"verified_payload_files": len(entries)}),
+                    "",
+                )
             self.assertIn(arguments[1], {"export", "import"})
             calls.append((arguments[6], arguments[8], arguments[1]))
             if arguments[1] == "export":
                 state = Path(str(options["cwd"]))
                 known_databases(state)
-                exported_science = {table: [dict(row) for row in rows] for table, rows in science.get((state, arguments[6], arguments[8]), {}).items()}
+                exported_science = {
+                    table: [dict(row) for row in rows]
+                    for table, rows in science.get(
+                        (state, arguments[6], arguments[8]), {}
+                    ).items()
+                }
                 Path(arguments[-1]).write_text(
                     "current authored records and retained admitted analyses"
                 )
@@ -4129,7 +4169,10 @@ class SurrealSupervisorTests(unittest.TestCase):
                 self.assertTrue(Path(arguments[-1]).is_file())
                 state = Path(str(options["cwd"]))
                 known_databases(state).setdefault(arguments[6], set()).add(arguments[8])
-                science[(state, arguments[6], arguments[8])] = {table: [dict(row) for row in rows] for table, rows in exported_science.items()}
+                science[(state, arguments[6], arguments[8])] = {
+                    table: [dict(row) for row in rows]
+                    for table, rows in exported_science.items()
+                }
             return subprocess.CompletedProcess(arguments, 0, "", "")
 
         with (
@@ -5365,7 +5408,14 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
 """
         for route in ("module", "direct-script"):
             with self.subTest(route=route):
-                result = subprocess.run([sys.executable, "-c", program, route, str(server.SCRIPT)], cwd=server.SCRIPT.parents[1], capture_output=True, text=True, timeout=15, check=False)
+                result = subprocess.run(
+                    [sys.executable, "-c", program, route, str(server.SCRIPT)],
+                    cwd=server.SCRIPT.parents[1],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    check=False,
+                )
                 self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_cli_surfaces_safe_cleanup_notes_preserving_primary_error(self) -> None:
@@ -5745,7 +5795,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             patch.object(server, "stop"),
             patch.object(server, "payload_query", return_value=True),
             patch.object(server, "all_contexts_drained"),
-            patch.object(server, "reap_payload_owners", return_value={"recovered": 0, "live": 0, "unknown": 0}),
+            patch.object(
+                server,
+                "reap_payload_owners",
+                return_value={"recovered": 0, "live": 0, "unknown": 0},
+            ),
             patch.object(
                 server,
                 "validate_interpretation",
@@ -5919,7 +5973,8 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         ):
             server.rebuild(self.state, ["current-initializer"])
         self.assertEqual(
-            events, ["stop", "accounts", "start", "initialize", "validate", "stop", "dispose"]
+            events,
+            ["stop", "accounts", "start", "initialize", "validate", "stop", "dispose"],
         )
         config = server.config_for(self.state)
         self.assertFalse(config["accepting_writes"])
@@ -6011,7 +6066,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertFalse(config["accepting_writes"])
         self.assertEqual((source / "input").read_text(), "external authority")
 
-    def test_bounded_authority_rotation_preserves_admitted_analyses_and_borrowers(self) -> None:
+    def test_bounded_authority_rotation_preserves_admitted_analyses_and_borrowers(
+        self,
+    ) -> None:
         config = self.initialized()
         bodies: list[str] = []
         rotation = 0
@@ -6026,7 +6083,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             bodies.append(body)
             if "LET $value={count:" in body:
                 rotation += 1
-                return {"value": {"count": 1, "after": "retention:source"} if rotation == 1 else {"count": 0, "after": ""}}
+                return {
+                    "value": {"count": 1, "after": "retention:source"}
+                    if rotation == 1
+                    else {"count": 0, "after": ""}
+                }
             return {"value": True}
 
         with patch.object(server, "maintenance_query", side_effect=query):
@@ -6037,7 +6098,20 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertIn("generation=generation+1dec", bodies[-2])
         self.assertNotIn("analysis_creation_closed_through", " ".join(bodies))
         self.assertFalse(any("DELETE" in body for body in bodies))
-        self.assertFalse(any(table in body for body in bodies for table in ("canonical_analyses", "canonical_analysis_nodes", "canonical_analysis_edges", "canonical_analysis_inputs", "canonical_roots", "canonical_file_borrowers")))
+        self.assertFalse(
+            any(
+                table in body
+                for body in bodies
+                for table in (
+                    "canonical_analyses",
+                    "canonical_analysis_nodes",
+                    "canonical_analysis_edges",
+                    "canonical_analysis_inputs",
+                    "canonical_roots",
+                    "canonical_file_borrowers",
+                )
+            )
+        )
 
     def test_authority_rotation_refuses_live_protection_and_invalid_page_acknowledgment(
         self,
@@ -6059,45 +6133,93 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 patch.object(
                     server,
                     "maintenance_query",
-                    side_effect=[{"value": True}, {"value": {"count": count, "after": "retention:source"}}],
+                    side_effect=[
+                        {"value": True},
+                        {"value": {"count": count, "after": "retention:source"}},
+                    ],
                 ),
-                self.assertRaisesRegex(server.SupervisorError, "rotation acknowledgment"),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "rotation acknowledgment"
+                ),
             ):
                 server.rotate_source_authorities(self.state, config, {})
 
-    def test_payload_rehome_mutations_keep_sole_acknowledgment_across_same_intent_retry(self) -> None:
+    def test_payload_rehome_mutations_keep_sole_acknowledgment_across_same_intent_retry(
+        self,
+    ) -> None:
         backup = self.backup_fixture()
         original = server.config_for(self.state)
         selected = server.fresh_database_identity(original)
         selected["derived_rebuild_pending"] = {
-            "backup": str(backup), "backup_digest": server.file_digest(backup / "backup.json"),
-            "kind": "current-restore", "phase": "copy",
+            "backup": str(backup),
+            "backup_digest": server.file_digest(backup / "backup.json"),
+            "kind": "current-restore",
+            "phase": "copy",
         }
         server.write_json(self.state / "config.json", selected)
         bodies: list[str] = []
         page = 0
         key = "11111111-1111-4111-8111-111111111111"
-        def sql(_state: Path, _config: dict[str, object], _credentials: dict[str, object], body: str) -> tuple[str, subprocess.CompletedProcess[str]]:
+
+        def sql(
+            _state: Path,
+            _config: dict[str, object],
+            _credentials: dict[str, object],
+            body: str,
+        ) -> tuple[str, subprocess.CompletedProcess[str]]:
             nonlocal page
             bodies.append(body)
             value: object = True
             if "LET $value={count:" in body:
-                value = {"count": 1, "after": key} if page % 2 == 0 else {"count": 0, "after": ""}
+                value = (
+                    {"count": 1, "after": key}
+                    if page % 2 == 0
+                    else {"count": 0, "after": ""}
+                )
                 page += 1
             # Pinned UPDATE defaults RETURN AFTER. Intermediate mutation rows
             # would violate the unchanged strict one-ACK production decoder.
-            extra = [{"id": "unexpected-mutation-result"} for statement in body.split(";")
-                     if "UPDATE ONLY" in statement and "RETURN NONE" not in statement]
+            extra = [
+                {"id": "unexpected-mutation-result"}
+                for statement in body.split(";")
+                if "UPDATE ONLY" in statement and "RETURN NONE" not in statement
+            ]
             nonce = "exact-maintenance-output-contract"
-            return nonce, subprocess.CompletedProcess([], 0, json.dumps([None, *extra, {"maintenance": nonce, "value": value}, None]), "")
+            return nonce, subprocess.CompletedProcess(
+                [],
+                0,
+                json.dumps(
+                    [None, *extra, {"maintenance": nonce, "value": value}, None]
+                ),
+                "",
+            )
+
         with patch.object(server, "maintenance_sql", side_effect=sql):
             for _retry in range(2):
                 server.rehome_restored_payloads(self.state, selected, {})
-        self.assertTrue(any("UPDATE ONLY canonical_interpretations:current" in body for body in bodies))
-        self.assertTrue(any("UPDATE ONLY canonical_file_admission:current" in body for body in bodies))
+        self.assertTrue(
+            any(
+                "UPDATE ONLY canonical_interpretations:current" in body
+                for body in bodies
+            )
+        )
+        self.assertTrue(
+            any(
+                "UPDATE ONLY canonical_file_admission:current" in body
+                for body in bodies
+            )
+        )
         self.assertTrue(any("UPDATE ONLY $row.id" in body for body in bodies))
-        self.assertEqual(server.object_mapping(server.config_for(self.state)["derived_rebuild_pending"])["phase"], "copy")
-        self.assertEqual(server.config_for(self.state)["payload_incarnation"], selected["payload_incarnation"])
+        self.assertEqual(
+            server.object_mapping(
+                server.config_for(self.state)["derived_rebuild_pending"]
+            )["phase"],
+            "copy",
+        )
+        self.assertEqual(
+            server.config_for(self.state)["payload_incarnation"],
+            selected["payload_incarnation"],
+        )
         self.assertTrue(server.config_for(self.state)["payload_frozen"])
 
     def test_maintenance_query_requires_exact_ack_and_keeps_secrets_out_of_arguments(
@@ -6470,16 +6592,60 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                     self.assertEqual(retained.read(25), b"unknown retained producer")
             slot.unlink()
 
-    def test_current_restore_retains_readable_active_analysis_and_future_artifact_borrowers(self) -> None:
+    def test_current_restore_retains_readable_active_analysis_and_future_artifact_borrowers(
+        self,
+    ) -> None:
         backup = self.backup_fixture()
         restored = self.root / "restored"
         retained = {
-            "canonical_analyses": [{"key": "admitted-analysis", "active": True, "retiring": False, "primary_authority": "original-source-authority", "configuration_hex": "00ff01"}],
-            "canonical_analysis_nodes": [{"key": "analysis-node", "analysis": "admitted-analysis", "payload_hex": "8000000000000000"}],
-            "canonical_analysis_edges": [{"key": "analysis-edge", "analysis": "admitted-analysis", "source": "analysis-node", "target": "analysis-node"}],
-            "canonical_analysis_inputs": [{"key": "future-input", "analysis": "admitted-analysis", "artifact": "independent-artifact"}],
-            "canonical_roots": [{"key": "analysis-root", "owner_kind": "analysis", "owner": "admitted-analysis", "problem": "original-problem"}],
-            "canonical_file_borrowers": [{"key": "future-file-borrow", "owner_kind": "analysis", "owner": "admitted-analysis", "instance": "independent-artifact-file", "released": False}],
+            "canonical_analyses": [
+                {
+                    "key": "admitted-analysis",
+                    "active": True,
+                    "retiring": False,
+                    "primary_authority": "original-source-authority",
+                    "configuration_hex": "00ff01",
+                }
+            ],
+            "canonical_analysis_nodes": [
+                {
+                    "key": "analysis-node",
+                    "analysis": "admitted-analysis",
+                    "payload_hex": "8000000000000000",
+                }
+            ],
+            "canonical_analysis_edges": [
+                {
+                    "key": "analysis-edge",
+                    "analysis": "admitted-analysis",
+                    "source": "analysis-node",
+                    "target": "analysis-node",
+                }
+            ],
+            "canonical_analysis_inputs": [
+                {
+                    "key": "future-input",
+                    "analysis": "admitted-analysis",
+                    "artifact": "independent-artifact",
+                }
+            ],
+            "canonical_roots": [
+                {
+                    "key": "analysis-root",
+                    "owner_kind": "analysis",
+                    "owner": "admitted-analysis",
+                    "problem": "original-problem",
+                }
+            ],
+            "canonical_file_borrowers": [
+                {
+                    "key": "future-file-borrow",
+                    "owner_kind": "analysis",
+                    "owner": "admitted-analysis",
+                    "instance": "independent-artifact-file",
+                    "released": False,
+                }
+            ],
         }
         with self.native_maintenance(retained_science=retained):
             server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
@@ -6487,7 +6653,12 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             credentials = server.read_json(restored / "credentials.json")
             for table, rows in retained.items():
                 with self.subTest(table=table):
-                    read = server.maintenance_query(restored, selected, credentials, "LET $value=SELECT * FROM " + table + ";")
+                    read = server.maintenance_query(
+                        restored,
+                        selected,
+                        credentials,
+                        "LET $value=SELECT * FROM " + table + ";",
+                    )
                     self.assertEqual(read["value"], rows)
             self.assertEqual(selected["admission"], "validation_required")
             self.assertFalse(selected["accepting_writes"])
@@ -6577,7 +6748,10 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         old = self.initialized()
         source_backup = None
         if kind == "current-restore":
-            old.update(interpretation=server.SUBSTRATE_INTERPRETATION, schema_interpretation=server.SUBSTRATE_INTERPRETATION)
+            old.update(
+                interpretation=server.SUBSTRATE_INTERPRETATION,
+                schema_interpretation=server.SUBSTRATE_INTERPRETATION,
+            )
             server.write_json(self.state / "config.json", old)
             source_backup = self.root / "maintenance-backup"
             with patch.object(server, "freeze_payloads", return_value=[]):
@@ -6600,7 +6774,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             "next_username": after["username"],
         }
         if source_backup is not None:
-            pending.update(backup=str(source_backup), backup_digest=server.file_digest(source_backup / "backup.json"), payload_incarnation=old["payload_incarnation"])
+            pending.update(
+                backup=str(source_backup),
+                backup_digest=server.file_digest(source_backup / "backup.json"),
+                payload_incarnation=old["payload_incarnation"],
+            )
         config["derived_rebuild_pending"] = pending
         server.write_json(self.state / "config.json", config)
         server.write_json(
@@ -6787,72 +6965,137 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 server.require_maintenance_owner(self.state, selected)
 
     def bind_maintenance_listener(self, config: dict[str, object]) -> None:
-        server.write_json(self.state / ".maintenance-listener.json", {
-            "owner": server.read_json(self.state / "lifecycle-owner.json"),
-            "instance_id": config["instance_id"], "server": config["server"],
-            "resources": config["resources"], "supervisor": config["service_supervisor"],
-            "credentials_sha256": server.file_digest(self.state / "credentials.json"),
-        })
+        server.write_json(
+            self.state / ".maintenance-listener.json",
+            {
+                "owner": server.read_json(self.state / "lifecycle-owner.json"),
+                "instance_id": config["instance_id"],
+                "server": config["server"],
+                "resources": config["resources"],
+                "supervisor": config["service_supervisor"],
+                "credentials_sha256": server.file_digest(
+                    self.state / "credentials.json"
+                ),
+            },
+        )
 
-    def test_exact_terminal_maintenance_launch_resets_only_its_owned_failure_window(self) -> None:
+    def test_exact_terminal_maintenance_launch_resets_only_its_owned_failure_window(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         absent = readiness_fixture(server.Readiness.ACTIONABLE_ABSENT)
-        ready = server.ServiceObservation(server.Readiness.MAINTENANCE, self.state, config["instance_id"], server.unit_name(self.state), "owned maintenance ready", listener_owned=True)
+        ready = server.ServiceObservation(
+            server.Readiness.MAINTENANCE,
+            self.state,
+            config["instance_id"],
+            server.unit_name(self.state),
+            "owned maintenance ready",
+            listener_owned=True,
+        )
         with (
             server.lifecycle_reservation(self.state),
-            patch.object(server, "service_readiness", side_effect=[absent, absent, ready]),
+            patch.object(
+                server, "service_readiness", side_effect=[absent, absent, ready]
+            ),
             patch.object(server, "all_contexts_drained"),
             patch.object(server, "service_allocation", return_value=self.allocation),
             patch.object(server, "materialize_service"),
-            patch.object(server, "systemctl", return_value=subprocess.CompletedProcess([], 0, "", "")) as manager,
+            patch.object(
+                server,
+                "systemctl",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as manager,
         ):
             self.bind_maintenance_listener(config)
-            server._start(self.state, config, validation=True, deadline=time.monotonic() + 30)  # noqa: SLF001 -- exercise the reserved exact launch branch
+            server._start(
+                self.state, config, validation=True, deadline=time.monotonic() + 30
+            )  # noqa: SLF001 -- exercise the reserved exact launch branch
         reset = call("reset-failed", server.unit_name(self.state), check=False)
         start = call("start", server.unit_name(self.state), check=False)
         self.assertEqual(manager.call_args_list.count(reset), 1)
-        self.assertLess(manager.call_args_list.index(reset), manager.call_args_list.index(start))
+        self.assertLess(
+            manager.call_args_list.index(reset), manager.call_args_list.index(start)
+        )
 
     def test_ordinary_new_launch_retains_its_crash_failure_window(self) -> None:
         config = self.initialized()
         with (
             server.lifecycle_reservation(self.state),
-            patch.object(server, "service_readiness", side_effect=[readiness_fixture(server.Readiness.ACTIONABLE_ABSENT), readiness_fixture(server.Readiness.READY)]),
+            patch.object(
+                server,
+                "service_readiness",
+                side_effect=[
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.READY),
+                ],
+            ),
             patch.object(server, "service_allocation", return_value=self.allocation),
             patch.object(server, "materialize_service"),
             patch.object(server, "establish_protocol_readiness"),
-            patch.object(server, "systemctl", return_value=subprocess.CompletedProcess([], 0, "", "")) as manager,
+            patch.object(
+                server,
+                "systemctl",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as manager,
         ):
-            server._start(self.state, config, validation=False, deadline=time.monotonic() + 30)  # noqa: SLF001 -- ordinary launches must preserve the crash policy
-        self.assertFalse(any(arguments.args[0] == "reset-failed" for arguments in manager.call_args_list))
+            server._start(
+                self.state, config, validation=False, deadline=time.monotonic() + 30
+            )  # noqa: SLF001 -- ordinary launches must preserve the crash policy
+        self.assertFalse(
+            any(
+                arguments.args[0] == "reset-failed"
+                for arguments in manager.call_args_list
+            )
+        )
 
-    def test_maintenance_reset_refuses_nonowned_nondrained_and_nonterminal_service(self) -> None:
+    def test_maintenance_reset_refuses_nonowned_nondrained_and_nonterminal_service(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with server.lifecycle_reservation(self.state):
             self.bind_maintenance_listener(config)
             marker = server.read_json(self.state / ".maintenance-listener.json")
-            server.write_json(self.state / ".maintenance-listener.json", {**marker, "instance_id": "another-owner"})
+            server.write_json(
+                self.state / ".maintenance-listener.json",
+                {**marker, "instance_id": "another-owner"},
+            )
             with (
                 patch.object(server, "systemctl") as manager,
-                self.assertRaisesRegex(server.SupervisorError, "exact live closed owner"),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "exact live closed owner"
+                ),
             ):
-                server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
+                server.reset_maintenance_failure_window(
+                    self.state, config, time.monotonic() + 30
+                )
             manager.assert_not_called()
             server.write_json(self.state / ".maintenance-listener.json", marker)
             with (
-                patch.object(server, "all_contexts_drained", side_effect=server.SupervisorError("managed descendants remain")),
+                patch.object(
+                    server,
+                    "all_contexts_drained",
+                    side_effect=server.SupervisorError("managed descendants remain"),
+                ),
                 patch.object(server, "systemctl") as manager,
                 self.assertRaisesRegex(server.SupervisorError, "descendants"),
             ):
-                server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
+                server.reset_maintenance_failure_window(
+                    self.state, config, time.monotonic() + 30
+                )
             manager.assert_not_called()
             with (
                 patch.object(server, "all_contexts_drained"),
-                patch.object(server, "service_readiness", return_value=readiness_fixture(server.Readiness.STOPPING)),
+                patch.object(
+                    server,
+                    "service_readiness",
+                    return_value=readiness_fixture(server.Readiness.STOPPING),
+                ),
                 patch.object(server, "systemctl") as manager,
                 self.assertRaisesRegex(server.SupervisorError, "drained terminal"),
             ):
-                server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
+                server.reset_maintenance_failure_window(
+                    self.state, config, time.monotonic() + 30
+                )
             manager.assert_not_called()
 
     def test_maintenance_reset_manager_refusal_never_launches_service(self) -> None:
@@ -6860,34 +7103,108 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with (
             server.lifecycle_reservation(self.state),
             patch.object(server, "all_contexts_drained"),
-            patch.object(server, "service_readiness", return_value=readiness_fixture(server.Readiness.ACTIONABLE_ABSENT)),
-            patch.object(server, "systemctl", return_value=subprocess.CompletedProcess([], 1, "", "")) as manager,
+            patch.object(
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+            ),
+            patch.object(
+                server,
+                "systemctl",
+                return_value=subprocess.CompletedProcess([], 1, "", ""),
+            ) as manager,
             self.assertRaisesRegex(server.SupervisorError, "reset was refused"),
         ):
             self.bind_maintenance_listener(config)
-            server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
-        self.assertEqual(manager.call_args_list[0], call("reset-failed", server.unit_name(self.state), check=False))
-        self.assertFalse(any(arguments.args[0] == "start" for arguments in manager.call_args_list))
+            server.reset_maintenance_failure_window(
+                self.state, config, time.monotonic() + 30
+            )
+        self.assertEqual(
+            manager.call_args_list[0],
+            call("reset-failed", server.unit_name(self.state), check=False),
+        )
+        self.assertFalse(
+            any(arguments.args[0] == "start" for arguments in manager.call_args_list)
+        )
 
-    def test_collected_initial_maintenance_reset_refusal_reauthenticates_exact_absence(self) -> None:
+    def test_collected_initial_maintenance_reset_refusal_reauthenticates_exact_absence(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
-        fields = {"LoadState": "loaded", "ActiveState": "inactive", "ControlGroup": "", "InvocationID": ""}
-        absent = server.ServiceObservation(server.Readiness.ACTIONABLE_ABSENT, self.state, config["instance_id"], server.unit_name(self.state), "never-started unit", manager=fields)
-        def manager(*arguments: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
-            return subprocess.CompletedProcess([], 1 if arguments[0] == "reset-failed" else 0, "\n".join(key + "=" + value for key, value in fields.items()), "")
+        fields = {
+            "LoadState": "loaded",
+            "ActiveState": "inactive",
+            "ControlGroup": "",
+            "InvocationID": "",
+        }
+        absent = server.ServiceObservation(
+            server.Readiness.ACTIONABLE_ABSENT,
+            self.state,
+            config["instance_id"],
+            server.unit_name(self.state),
+            "never-started unit",
+            manager=fields,
+        )
+
+        def manager(
+            *arguments: str, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                [],
+                1 if arguments[0] == "reset-failed" else 0,
+                "\n".join(key + "=" + value for key, value in fields.items()),
+                "",
+            )
+
         deadline = time.monotonic() + 30
-        with server.lifecycle_reservation(self.state), patch.object(server, "all_contexts_drained") as drain, patch.object(server, "service_readiness", return_value=absent) as readiness, patch.object(server, "require_maintenance_owner", wraps=server.require_maintenance_owner) as authority, patch.object(server, "systemctl", side_effect=manager) as operations:
+        with (
+            server.lifecycle_reservation(self.state),
+            patch.object(server, "all_contexts_drained") as drain,
+            patch.object(server, "service_readiness", return_value=absent) as readiness,
+            patch.object(
+                server,
+                "require_maintenance_owner",
+                wraps=server.require_maintenance_owner,
+            ) as authority,
+            patch.object(server, "systemctl", side_effect=manager) as operations,
+        ):
             self.bind_maintenance_listener(config)
             server.reset_maintenance_failure_window(self.state, config, deadline)
             self.assertEqual(drain.call_count, 2)
             self.assertEqual(authority.call_count, 3)
-            self.assertTrue(all(arguments.kwargs["deadline"] == deadline for arguments in readiness.call_args_list))
-            self.assertFalse(any(arguments.args[0] == "start" for arguments in operations.call_args_list))
+            self.assertTrue(
+                all(
+                    arguments.kwargs["deadline"] == deadline
+                    for arguments in readiness.call_args_list
+                )
+            )
+            self.assertFalse(
+                any(
+                    arguments.args[0] == "start"
+                    for arguments in operations.call_args_list
+                )
+            )
 
-    def test_maintenance_reset_absence_fallback_refuses_unknown_or_surviving_lifetime(self) -> None:
+    def test_maintenance_reset_absence_fallback_refuses_unknown_or_surviving_lifetime(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
-        for case in ("manager-error", "active", "group", "invocation", "missing-invocation", "foreign-owner", "changed-config", "changed-readiness"):
-            fields = {"LoadState": "loaded", "ActiveState": "inactive", "ControlGroup": "", "InvocationID": ""}
+        for case in (
+            "manager-error",
+            "active",
+            "group",
+            "invocation",
+            "missing-invocation",
+            "foreign-owner",
+            "changed-config",
+            "changed-readiness",
+        ):
+            fields = {
+                "LoadState": "loaded",
+                "ActiveState": "inactive",
+                "ControlGroup": "",
+                "InvocationID": "",
+            }
             if case == "active":
                 fields["ActiveState"] = "active"
             elif case == "group":
@@ -6896,22 +7213,66 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 fields["InvocationID"] = "a" * 32
             elif case == "missing-invocation":
                 fields.pop("InvocationID")
-            absent = server.ServiceObservation(server.Readiness.ACTIONABLE_ABSENT, self.state, config["instance_id"], server.unit_name(self.state), "controlled absence", manager=fields)
-            def manager(*arguments: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            absent = server.ServiceObservation(
+                server.Readiness.ACTIONABLE_ABSENT,
+                self.state,
+                config["instance_id"],
+                server.unit_name(self.state),
+                "controlled absence",
+                manager=fields,
+            )
+
+            def manager(
+                *arguments: str, **_kwargs: object
+            ) -> subprocess.CompletedProcess[str]:
                 if arguments[0] == "reset-failed":
                     if case == "foreign-owner":
-                        marker = server.read_json(self.state / ".maintenance-listener.json")
-                        server.write_json(self.state / ".maintenance-listener.json", {**marker, "instance_id": "other"})
+                        marker = server.read_json(
+                            self.state / ".maintenance-listener.json"
+                        )
+                        server.write_json(
+                            self.state / ".maintenance-listener.json",
+                            {**marker, "instance_id": "other"},
+                        )
                     elif case == "changed-config":
-                        server.write_json(self.state / "config.json", {**config, "resident": not config.get("resident", False)})
+                        server.write_json(
+                            self.state / "config.json",
+                            {**config, "resident": not config.get("resident", False)},
+                        )
                     return subprocess.CompletedProcess([], 1, "", "")
-                return subprocess.CompletedProcess([], 1 if case == "manager-error" else 0, "\n".join(key + "=" + value for key, value in fields.items()), "")
-            with self.subTest(case=case), server.lifecycle_reservation(self.state), patch.object(server, "all_contexts_drained"), patch.object(server, "service_readiness", side_effect=[absent, readiness_fixture(server.Readiness.STARTING)] if case == "changed-readiness" else None, return_value=absent), patch.object(server, "systemctl", side_effect=manager) as operations:
+                return subprocess.CompletedProcess(
+                    [],
+                    1 if case == "manager-error" else 0,
+                    "\n".join(key + "=" + value for key, value in fields.items()),
+                    "",
+                )
+
+            with (
+                self.subTest(case=case),
+                server.lifecycle_reservation(self.state),
+                patch.object(server, "all_contexts_drained"),
+                patch.object(
+                    server,
+                    "service_readiness",
+                    side_effect=[absent, readiness_fixture(server.Readiness.STARTING)]
+                    if case == "changed-readiness"
+                    else None,
+                    return_value=absent,
+                ),
+                patch.object(server, "systemctl", side_effect=manager) as operations,
+            ):
                 server.write_json(self.state / "config.json", config)
                 self.bind_maintenance_listener(config)
                 with self.assertRaises(server.SupervisorError):
-                    server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
-                self.assertFalse(any(arguments.args[0] == "start" for arguments in operations.call_args_list))
+                    server.reset_maintenance_failure_window(
+                        self.state, config, time.monotonic() + 30
+                    )
+                self.assertFalse(
+                    any(
+                        arguments.args[0] == "start"
+                        for arguments in operations.call_args_list
+                    )
+                )
                 # Restore fixture metadata before the enclosing normal drain.
                 server.write_json(self.state / "config.json", config)
                 self.bind_maintenance_listener(config)

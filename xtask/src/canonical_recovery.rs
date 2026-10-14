@@ -73,7 +73,8 @@ const LARGE_BYTES: usize = 5 * 1024 * 1024 + 17;
 
 const ANALYSIS_RECEIPT: &str = "recovery-retained-analysis";
 const ANALYSIS_RECEIPT_VERSION: &str = "recovery-retained-analysis-v1";
-const ARTIFACT_BYTES: &[u8] = br#"{"minus_zero_bits":"8000000000000000","source":"historical-first","unit":"dimensionless"}"#;
+const ARTIFACT_BYTES: &[u8] =
+    br#"{"minus_zero_bits":"8000000000000000","source":"historical-first","unit":"dimensionless"}"#;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -196,13 +197,19 @@ async fn seed_retained_science(
     store
         .release_artifact(&artifact.key, "user", "recovery-fixture")
         .await?;
-    ensure!(analysis.active && artifact.active, "retained science was not admitted");
+    ensure!(
+        analysis.active && artifact.active,
+        "retained science was not admitted"
+    );
     let refusal = store
         .collect_artifact(&artifact_intent)
         .await
         .err()
         .context("analysis future artifact input had no retained obligation")?;
-    ensure!(format!("{refusal:?}").contains("artifact has retained obligations"), "artifact collection refused for a different reason: {refusal}");
+    ensure!(
+        format!("{refusal:?}").contains("artifact has retained obligations"),
+        "artifact collection refused for a different reason: {refusal}"
+    );
     Ok(serde_json::to_vec(&RetainedScience {
         analysis: serde_json::to_vec(
             &pse_operations::generated::surreal::encode_canonical_analyses(&analysis)?,
@@ -230,7 +237,9 @@ async fn verify_retained_science(
     reservation.try_grow(
         extent
             .checked_mul(2)
-            .and_then(|bytes| bytes.checked_add(2 * pse_operations::canonical_staging::SOURCE_BLOCK_BYTES))
+            .and_then(|bytes| {
+                bytes.checked_add(2 * pse_operations::canonical_staging::SOURCE_BLOCK_BYTES)
+            })
             .context("retained analysis receipt extent overflow")?,
     )?;
     let receipt = store
@@ -245,18 +254,48 @@ async fn verify_retained_science(
         serde_json::from_slice(&receipt.artifact)?,
     )?;
     let analysis = store.analysis(&expected_analysis.key).await?;
-    ensure!(analysis == expected_analysis, "admitted analysis changed during recovery");
+    ensure!(
+        analysis == expected_analysis,
+        "admitted analysis changed during recovery"
+    );
     let (nodes, edges) = analysis_graph(&analysis, &expected_artifact.key);
-    ensure!(store.analysis_node_page(&analysis.key, None).await? == nodes, "retained analysis nodes changed");
-    ensure!(store.analysis_edge_page(&analysis.key, None).await? == edges, "retained analysis edges changed");
-    ensure!(store.analysis_node_page(&analysis.key, Some(&nodes[1].key)).await?.is_empty(), "retained analysis acquired extra nodes");
-    ensure!(store.analysis_edge_page(&analysis.key, Some(&edges[0].key)).await?.is_empty(), "retained analysis acquired extra edges");
+    ensure!(
+        store.analysis_node_page(&analysis.key, None).await? == nodes,
+        "retained analysis nodes changed"
+    );
+    ensure!(
+        store.analysis_edge_page(&analysis.key, None).await? == edges,
+        "retained analysis edges changed"
+    );
+    ensure!(
+        store
+            .analysis_node_page(&analysis.key, Some(&nodes[1].key))
+            .await?
+            .is_empty(),
+        "retained analysis acquired extra nodes"
+    );
+    ensure!(
+        store
+            .analysis_edge_page(&analysis.key, Some(&edges[0].key))
+            .await?
+            .is_empty(),
+        "retained analysis acquired extra edges"
+    );
     let artifact = store.read_artifact(&expected_artifact.key).await?;
-    ensure!(artifact.header() == &expected_artifact, "independent artifact metadata changed");
+    ensure!(
+        artifact.header() == &expected_artifact,
+        "independent artifact metadata changed"
+    );
     {
         let block = artifact.block(0).await?;
-        ensure!(block.payload.as_slice() == ARTIFACT_BYTES, "analysis future artifact input changed");
-        ensure!(block.original_digest == "recovery-original-json-v1" && block.rows == 1, "artifact scientific coordinates changed");
+        ensure!(
+            block.payload.as_slice() == ARTIFACT_BYTES,
+            "analysis future artifact input changed"
+        );
+        ensure!(
+            block.original_digest == "recovery-original-json-v1" && block.rows == 1,
+            "artifact scientific coordinates changed"
+        );
     }
     artifact.release().await?;
     Ok(())
@@ -326,7 +365,11 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
     ];
     if seed {
         let first = store.edit(PROBLEM, None, FIRST, &first_edits).await?;
-        let mut read = SelectedRead::new(store.protect(first.clone(), Duration::from_secs(60)).await?);
+        let mut read = SelectedRead::new(
+            store
+                .protect(first.clone(), Duration::from_secs(60))
+                .await?,
+        );
         store
             .resolve_names(
                 &mut read,

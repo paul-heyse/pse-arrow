@@ -161,17 +161,13 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let read = self
-                    .store
-                    .read_results(run, attempt)
-                    .await?;
+                let read = self.store.read_results(run, attempt).await?;
                 let completion = self
                     .decode_completion(CompletionSelection::Full(&read))
                     .await?;
                 let mut solutions = Vec::new();
                 let mut after = None;
                 loop {
-
                     let page = self.store.result_seed_page(attempt, after).await?;
                     if page.is_empty() {
                         break;
@@ -221,10 +217,7 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let read = self
-                    .store
-                    .read_completion(run, attempt)
-                    .await?;
+                let read = self.store.read_completion(run, attempt).await?;
                 self.decode_completion(CompletionSelection::Slim(&read))
                     .await
             })
@@ -2032,7 +2025,9 @@ fn progress_memory(
     capacity: usize,
 ) -> Option<Arc<pse_columnar::AllocationLease>> {
     let extent = (2 * capacity + 1) * PROGRESS_EVENT_BYTES
-        + 8 * capacity.saturating_mul(PROGRESS_EVENT_BYTES).min(RESULT_BATCH_BYTES);
+        + 8 * capacity
+            .saturating_mul(PROGRESS_EVENT_BYTES)
+            .min(RESULT_BATCH_BYTES);
     let reservation = MemoryConsumer::new("canonical:ordinary-progress").register(pool);
     reservation
         .try_grow(extent)
@@ -2228,7 +2223,11 @@ impl Streamer {
                     };
                     output
                         .bytes
-                        .try_reserve_exact(capacity.saturating_mul(PROGRESS_EVENT_BYTES).min(RESULT_BATCH_BYTES))
+                        .try_reserve_exact(
+                            capacity
+                                .saturating_mul(PROGRESS_EVENT_BYTES)
+                                .min(RESULT_BATCH_BYTES),
+                        )
                         .map_err(|_| super::ProgressWriteStage::Allocation {})?;
                     match serde_json::to_writer(&mut output, &events[start..end]) {
                         Ok(()) => {
@@ -2491,17 +2490,21 @@ async fn read_chunks_selection(
     // Hydrated opaque file access allocates one extra chunk concurrently with
     // the accumulated JSON document; reserve before any physical file read.
     let staging = MemoryConsumer::new("canonical:opaque-file-read").register(pool);
-    staging.try_grow(extent.min(RESULT_BATCH_BYTES).saturating_mul(2).saturating_add(64 * 1024))
+    staging
+        .try_grow(
+            extent
+                .min(RESULT_BATCH_BYTES)
+                .saturating_mul(2)
+                .saturating_add(64 * 1024),
+        )
         .map_err(pse_engine::EngineError::from)?;
     for ordinal in 0..count {
         let payload = match read {
             CompletionSelection::Full(full) => {
-
                 let set = result_set_key(&full.attempt().key, name);
                 store.result_payload(full, &set, first + ordinal).await?
             }
             CompletionSelection::Slim(slim) => {
-
                 store.completion_payload(slim, first + ordinal).await?
             }
         };
@@ -2900,10 +2903,7 @@ impl Operations {
         if row.key != solution.to_string() {
             return Err(contract("stored seed identity differs from selection"));
         }
-        let read = self
-            .store
-            .read_results(&row.run, &row.attempt)
-            .await?;
+        let read = self.store.read_results(&row.run, &row.attempt).await?;
         if read.attempt().seed_manifest.as_deref() != Some(read.manifest().key.as_str())
             || row.attempt_generation != read.attempt().generation
             || row.run_sequence != read.run().sequence
@@ -3043,10 +3043,7 @@ impl Operations {
         let activity = self.store.admit_activity()?;
         activity
             .scope(async {
-                let read = self
-                    .store
-                    .read_artifact(artifact)
-                    .await?;
+                let read = self.store.read_artifact(artifact).await?;
                 if read.header().kind != "seed" || read.header().block_count != 1 {
                     return Err(contract("artifact is not a seed capsule"));
                 }

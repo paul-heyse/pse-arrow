@@ -4,8 +4,6 @@
 //! Persisted incidence and retained result-evidence graphs. Reachability is
 //! structural; quantitative meaning stays in the original scientific Arrow rows.
 
-#[cfg(all(test, feature = "canonical-tests"))]
-use std::time::Duration;
 use super::{Durability, ModelingSolvePreparation, Runtime, WorkflowError, contract, relation};
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -15,6 +13,8 @@ use pse_columnar::{CancellationToken, MemoryConsumer};
 use pse_operations::canonical_analyses::{
     ANALYSIS_EDGES, ANALYSIS_NODES, AnalysisEdge, AnalysisNode, analysis_key,
 };
+#[cfg(all(test, feature = "canonical-tests"))]
+use std::time::Duration;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{Arc, atomic::AtomicBool},

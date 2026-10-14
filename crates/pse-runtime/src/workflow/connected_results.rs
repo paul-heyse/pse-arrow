@@ -6,9 +6,7 @@
 
 use super::{Runtime, WorkflowError, contract, result_blocks, result_files};
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
-use pse_columnar::{
-    CancellationToken, MemoryConsumer, MemoryReservation,
-};
+use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
 use pse_operations::canonical_results::ResultRead;
 use std::{
@@ -116,7 +114,9 @@ impl CanonicalResultReader {
         &self.read
     }
     /// Frozen relation and row-range inventory shared with native query plans.
-    pub fn snapshot(&self) -> super::ResultSnapshot { self.snapshot.clone() }
+    pub fn snapshot(&self) -> super::ResultSnapshot {
+        self.snapshot.clone()
+    }
     /// Cancellation shared with this typed consumer.
     pub fn cancellation_token(&self) -> CancellationToken {
         self.cancel.clone()
@@ -201,12 +201,7 @@ impl CanonicalResultReader {
                 metadata.insert("pse.canonical.missing".into(), value.to_string());
             }
         }
-        let schema = Arc::new(
-            self.schema
-                .as_ref()
-                .clone()
-                .with_metadata(metadata),
-        );
+        let schema = Arc::new(self.schema.as_ref().clone().with_metadata(metadata));
         let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
             BufWriter::new(file),
             schema.as_ref(),
@@ -286,7 +281,6 @@ impl CanonicalResultReader {
                 let owner = response_owner(&self.runtime, "canonical:result-metadata")?;
                 let page =
                     pse_operations::canonical::response_ownership_scope(owner.clone(), async {
-
                         let page = if let Some(filter) = &self.output {
                             let page = self
                                 .runtime
@@ -371,19 +365,26 @@ impl CanonicalResultReader {
                 .checkpoint()
                 .map_err(pse_engine::EngineError::from)?;
             if metadata.columns != self.schema.fields().len() as u64
-                || self.output.is_none() && self.last_end.is_some_and(|end| metadata.start < end) {
-                return Err(contract("recorded result block shape/order/coverage overlaps"));
+                || self.output.is_none() && self.last_end.is_some_and(|end| metadata.start < end)
+            {
+                return Err(contract(
+                    "recorded result block shape/order/coverage overlaps",
+                ));
             }
             self.last_end = Some(metadata.end);
             let checked = self.snapshot.read_block(&metadata, &self.cancel).await?;
             let lower = self.start.max(metadata.start);
             let upper = self.end.min(metadata.end);
-            if lower >= upper { continue; }
+            if lower >= upper {
+                continue;
+            }
             let offset = usize::try_from(lower - metadata.start)
                 .map_err(|_| contract("result coordinate exceeds platform"))?;
             let length = usize::try_from(upper - lower)
                 .map_err(|_| contract("result coordinate exceeds platform"))?;
-            let checked = if self.output.is_some() { checked } else {
+            let checked = if self.output.is_some() {
+                checked
+            } else {
                 checked.slice(offset, length).map_err(super::relation)?
             };
             let checked = if let Some(filter) = &self.output {
@@ -620,11 +621,11 @@ impl Runtime {
                 let extent = response_owner(self, "canonical:result-selection")?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
-                    self.canonical_store()?
-                        .latest_results(problem, classes),
+                    self.canonical_store()?.latest_results(problem, classes),
                 )
                 .await?;
-                self.result_selection(read, relation, start, end, cancel, &extent).await
+                self.result_selection(read, relation, start, end, cancel, &extent)
+                    .await
             })
             .await
     }
@@ -650,11 +651,11 @@ impl Runtime {
                 let extent = response_owner(self, "canonical:result-selection")?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
-                    self.canonical_store()?
-                        .read_results(run, attempt),
+                    self.canonical_store()?.read_results(run, attempt),
                 )
                 .await?;
-                self.result_selection(read, relation, start, end, cancel, &extent).await
+                self.result_selection(read, relation, start, end, cancel, &extent)
+                    .await
             })
             .await
     }
@@ -695,7 +696,16 @@ impl Runtime {
         }
         let selection_owner = extent.split(retained);
         let read = Arc::new(read);
-        let snapshot = super::ResultSnapshot::capture(self, read.clone(), spec.id, &set, schema.clone(), start, end).await?;
+        let snapshot = super::ResultSnapshot::capture(
+            self,
+            read.clone(),
+            spec.id,
+            &set,
+            schema.clone(),
+            start,
+            end,
+        )
+        .await?;
         Ok(CanonicalResultReader {
             runtime: self.clone(),
             snapshot,
@@ -1060,10 +1070,15 @@ mod canonical_connected_results_server_unit {
         let snapshot = selected.snapshot();
         let snapshot_metadata = snapshot.inventory_reserved_bytes();
         assert!(snapshot_metadata > selected.selection().retained_bytes().unwrap());
-        assert!(snapshot.blocks().is_empty(), "requested empty relation retains no physical file inventory");
+        assert!(
+            snapshot.blocks().is_empty(),
+            "requested empty relation retains no physical file inventory"
+        );
         let retained = reader_metadata + snapshot_metadata;
-        assert!(retained < READ_BYTES / 16,
-            "idle reader and snapshot retain actual metadata, not RPC envelopes");
+        assert!(
+            retained < READ_BYTES / 16,
+            "idle reader and snapshot retain actual metadata, not RPC envelopes"
+        );
         assert_eq!(pool.reserved() - before_selection, retained);
         assert_eq!(selected.schema().fields(), schema.fields());
         let demanded = selected
@@ -1076,8 +1091,11 @@ mod canonical_connected_results_server_unit {
         assert!(selected.next_batch().await.unwrap().is_none());
         assert!(selected.next_batch().await.unwrap().is_none());
         drop(selected);
-        assert_eq!(pool.reserved() - before_selection, snapshot_metadata,
-            "an independent snapshot alias retains its one metadata owner");
+        assert_eq!(
+            pool.reserved() - before_selection,
+            snapshot_metadata,
+            "an independent snapshot alias retains its one metadata owner"
+        );
         drop(snapshot);
         assert_eq!(pool.reserved(), before_selection);
         assert!(
@@ -1188,19 +1206,38 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
-        let query_reader = runtime.results("decoded-owner", fence.attempt(), "runtime.solve_metrics", 0, 3, CancellationToken::new()).await.unwrap();
+        let query_reader = runtime
+            .results(
+                "decoded-owner",
+                fence.attempt(),
+                "runtime.solve_metrics",
+                0,
+                3,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
         let snapshot = query_reader.snapshot();
         drop(query_reader);
         let state = snapshot.session_state();
-        assert!(state.scalar_functions().contains_key("pse_checked_value"), "query retains registry-bound native functions");
+        assert!(
+            state.scalar_functions().contains_key("pse_checked_value"),
+            "query retains registry-bound native functions"
+        );
         let context = datafusion::execution::context::SessionContext::new_with_state(state);
         // Model state intentionally creates no default catalog/schema. Bind
         // this provider directly without mutating the model's shared catalogs.
-        let dataframe = context.read_table(snapshot.table_provider()).unwrap()
-            .filter(datafusion::prelude::col("real").gt(datafusion::prelude::lit(0.0))).unwrap()
-            .select_columns(&["real", "step"]).unwrap()
-            .sort(vec![datafusion::prelude::col("step").sort(true, false)]).unwrap()
-            .limit(0, Some(1)).unwrap();
+        let dataframe = context
+            .read_table(snapshot.table_provider())
+            .unwrap()
+            .filter(datafusion::prelude::col("real").gt(datafusion::prelude::lit(0.0)))
+            .unwrap()
+            .select_columns(&["real", "step"])
+            .unwrap()
+            .sort(vec![datafusion::prelude::col("step").sort(true, false)])
+            .unwrap()
+            .limit(0, Some(1))
+            .unwrap();
         let plan = dataframe.create_physical_plan().await.unwrap();
         drop(dataframe); // The unexecuted physical plan now owns this query's snapshot.
         let task = context.task_ctx();
@@ -1226,10 +1263,22 @@ mod canonical_connected_results_server_unit {
         let escaped = batch.column_by_name("real").unwrap().clone();
         assert!(cleanup.forget_run_results("decoded-owner").await.is_err());
         drop(reader);
-        assert!(cleanup.forget_run_results("decoded-owner").await.is_err(), "unexecuted native plan retains future unread files");
-        let queried = datafusion::physical_plan::collect(plan.clone(), task).await.unwrap();
-        assert_eq!(queried.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
-        let values = queried[0].column(0).as_any().downcast_ref::<Float64Array>().unwrap();
+        assert!(
+            cleanup.forget_run_results("decoded-owner").await.is_err(),
+            "unexecuted native plan retains future unread files"
+        );
+        let queried = datafusion::physical_plan::collect(plan.clone(), task)
+            .await
+            .unwrap();
+        assert_eq!(
+            queried.iter().map(|batch| batch.num_rows()).sum::<usize>(),
+            1
+        );
+        let values = queried[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
         assert_eq!(values.value(0).to_bits(), 273.15f64.to_bits());
         drop(queried);
         drop(plan);
@@ -1697,8 +1746,20 @@ mod canonical_connected_results_server_unit {
             payload_digest: result_payload_digest(&payload),
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
-        let intent = store.reserve_result_file(&fence, "fixture-file", &result_payload_digest(&payload)).await.unwrap();
-        let file = store.seal_file(&intent, &payload, pse_operations::canonical_files::ARROW_IPC_FILE, 1, &name).await.unwrap();
+        let intent = store
+            .reserve_result_file(&fence, "fixture-file", &result_payload_digest(&payload))
+            .await
+            .unwrap();
+        let file = store
+            .seal_file(
+                &intent,
+                &payload,
+                pse_operations::canonical_files::ARROW_IPC_FILE,
+                1,
+                &name,
+            )
+            .await
+            .unwrap();
         store
             .append_result_block(
                 &fence,
@@ -1966,15 +2027,32 @@ mod canonical_connected_results_server_unit {
                 payload_digest: result_payload_digest(&bytes),
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
-            let intent = store.reserve_result_file(&broken, &format!("malformed-file-{ordinal}"), &result_payload_digest(&bytes)).await.unwrap();
-            let file = store.seal_file(&intent, &bytes, pse_operations::canonical_files::ARROW_IPC_FILE, 1, &name).await.unwrap();
+            let intent = store
+                .reserve_result_file(
+                    &broken,
+                    &format!("malformed-file-{ordinal}"),
+                    &result_payload_digest(&bytes),
+                )
+                .await
+                .unwrap();
+            let file = store
+                .seal_file(
+                    &intent,
+                    &bytes,
+                    pse_operations::canonical_files::ARROW_IPC_FILE,
+                    1,
+                    &name,
+                )
+                .await
+                .unwrap();
             store
                 .append_result_block(
                     &broken,
                     &format!("malformed-write-{ordinal}"),
                     &name,
                     ordinal,
-                    pse_operations::canonical_execution::ResultPayload::from_sealed(file, 0).unwrap(),
+                    pse_operations::canonical_execution::ResultPayload::from_sealed(file, 0)
+                        .unwrap(),
                     end - start,
                     &block,
                 )

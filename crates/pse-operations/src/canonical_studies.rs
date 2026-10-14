@@ -3128,9 +3128,7 @@ mod canonical_studies_server_unit {
                 assert_eq!(settled.attempt.as_deref(), Some(claim.fence.attempt()));
                 assert_eq!(point_facts(&settled).unwrap().attempt_count, 1);
                 let read = store
-                    .read_results(
-                        &claim.point.run,
-                        claim.fence.attempt())
+                    .read_results(&claim.point.run, claim.fence.attempt())
                     .await
                     .unwrap();
                 let payload = store

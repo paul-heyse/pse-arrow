@@ -2177,9 +2177,7 @@ impl StudyHandle {
                 if store.canonical_study_summary(&study.key).await?.as_ref() != Some(&study) {
                     return Err(contract("terminal study changed during occurrence read"));
                 }
-                store
-                    .read_results(&study.run, &attempt)
-                    .await?;
+                store.read_results(&study.run, &attempt).await?;
                 Ok(Some(TerminalStudyInventory {
                     status: StudyStatus {
                         study_id: self.study_id,

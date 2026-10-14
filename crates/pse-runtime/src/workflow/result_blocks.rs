@@ -20,9 +20,13 @@ const MAX_VALUES: usize = MAX_REPRESENTATION_BYTES;
 const MAX_IPC_TABLES: usize = 128 * 1024;
 
 #[derive(Clone, Copy, Debug)]
-enum Purpose { CanonicalSource }
+enum Purpose {
+    CanonicalSource,
+}
 impl Purpose {
-    const fn bytes(self) -> usize { pse_operations::canonical::PAYLOAD_BYTES }
+    const fn bytes(self) -> usize {
+        pse_operations::canonical::PAYLOAD_BYTES
+    }
 }
 
 /// Malformed, incompatible or oversized scientific result transport.
@@ -109,8 +113,10 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, Result
 }
 
 fn can_split(error: &ResultBlockError) -> bool {
-    matches!(error, ResultBlockError::Invalid("batch body exceeds bound" | "field value bound"))
-        || matches!(error,ResultBlockError::Arrow(datafusion::arrow::error::ArrowError::IoError(message,_)) if message=="result block limit")
+    matches!(
+        error,
+        ResultBlockError::Invalid("batch body exceeds bound" | "field value bound")
+    ) || matches!(error,ResultBlockError::Arrow(datafusion::arrow::error::ArrowError::IoError(message,_)) if message=="result block limit")
 }
 
 /// Canonical revision inputs retain their exact source schema and rows under
@@ -190,7 +196,10 @@ where
     Ok(())
 }
 
-pub(super) fn visible_size(data: &ArrayData, values: &mut usize) -> Result<usize, ResultBlockError> {
+pub(super) fn visible_size(
+    data: &ArrayData,
+    values: &mut usize,
+) -> Result<usize, ResultBlockError> {
     *values = values
         .checked_add(data.len())
         .ok_or(ResultBlockError::Invalid("field size overflow"))?;
@@ -584,8 +593,18 @@ mod source_stream_unit {
 
     #[test]
     fn canonical_source_encoder_retains_its_bounded_stream_contract() {
-        let schema = Arc::new(Schema::new(vec![Field::new("value", DataType::Float64, false)]));
-        let source = RecordBatch::try_new(schema, vec![Arc::new(Float64Array::from_iter_values((0..150_000).map(|i|i as f64)))]).unwrap();
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "value",
+            DataType::Float64,
+            false,
+        )]));
+        let source = RecordBatch::try_new(
+            schema,
+            vec![Arc::new(Float64Array::from_iter_values(
+                (0..150_000).map(|i| i as f64),
+            ))],
+        )
+        .unwrap();
         let mut covered = 0;
         visit_source_blocks(&source, |start, rows, bytes| {
             assert_eq!(start, covered);
@@ -597,7 +616,8 @@ mod source_stream_unit {
             assert!(reader.next().is_none());
             covered += rows;
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
         assert_eq!(covered, source.num_rows());
     }
 }

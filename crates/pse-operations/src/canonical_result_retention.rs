@@ -276,10 +276,7 @@ mod canonical_result_retention_server_unit {
                 .unwrap(),
         );
         let attempt = finish(&store, &request).await;
-        let read = store
-            .read_results(&request.key, &attempt)
-            .await
-            .unwrap();
+        let read = store.read_results(&request.key, &attempt).await.unwrap();
         let payload = store
             .result_payload(&read, &read.sets()[0].key, 0)
             .await
@@ -299,12 +296,7 @@ mod canonical_result_retention_server_unit {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
         assert!(retired);
-        assert!(
-            store
-                .read_results(&request.key, &attempt)
-                .await
-                .is_err()
-        );
+        assert!(store.read_results(&request.key, &attempt).await.is_err());
         assert!(store.begin_run(&request).await.is_err());
         assert!(
             store
@@ -500,10 +492,7 @@ mod canonical_result_retention_server_unit {
             )
             .await
             .unwrap();
-        let artifact_read = store
-            .read_artifact(&artifact.key)
-            .await
-            .unwrap();
+        let artifact_read = store.read_artifact(&artifact.key).await.unwrap();
         let mut header = store
             .new_analysis(
                 &request.revision,

@@ -241,58 +241,144 @@ async fn abandoned_rpc_waiter_retains_activity_until_actual_late_response_drains
 #[tokio::test]
 async fn final_fixture_teardown_seals_admission_and_joins_actual_response_work() {
     use std::{future::Future, task::Poll};
-    let (mut store,mut received,server)=super::tests::canonical_read_barrier_peer().await;
+    let (mut store, mut received, server) = super::tests::canonical_read_barrier_peer().await;
     // This wire fixture owns its clients directly and needs no service disposal.
-    store.database="canonical_test_wire_terminal_drain".into();
-    let activity=store.admit_activity().unwrap();let first_store=store.clone();let first_activity=activity.clone();
-    let first=tokio::spawn(async move{first_activity.scope(first_store.protected_query("problem",QueryEffect::Read,"lifetime::first_terminal",||Ok(first_store.db.query("RETURN 'FIRST_READ';")))).await});
-    assert_eq!(received.recv().await.unwrap(),"RETURN 'FIRST_READ'");
-    let mut cleanup=Box::pin(store.remove_isolated_fixture());
-    std::future::poll_fn(|cx|{assert!(cleanup.as_mut().poll(cx).is_pending());Poll::Ready(())}).await;
-    assert!(matches!(store.admit_activity(),Err(CanonicalError::ConnectionUnavailable)));
-    assert!(matches!(store.disconnect().await,Err(CanonicalError::ConnectionBusy{..})));
-    let mut second=activity.scope(store.protected_query("problem",QueryEffect::Read,"lifetime::second_terminal",||Ok(store.db.query("RETURN 'SECOND_READ';")))).await.unwrap();
-    assert_eq!(second.take::<Value>(0).unwrap(),Value::Bool(true));assert_eq!(received.recv().await.unwrap(),"RETURN 'SECOND_READ'");
-    let mut first=first.await.unwrap().unwrap();assert_eq!(first.take::<Value>(0).unwrap(),Value::Bool(true));
-    std::future::poll_fn(|cx|{assert!(cleanup.as_mut().poll(cx).is_pending());Poll::Ready(())}).await;
-    drop(activity);tokio::time::timeout(Duration::from_secs(2),cleanup).await.unwrap().unwrap();
-    tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();assert!(received.try_recv().is_err());
+    store.database = "canonical_test_wire_terminal_drain".into();
+    let activity = store.admit_activity().unwrap();
+    let first_store = store.clone();
+    let first_activity = activity.clone();
+    let first = tokio::spawn(async move {
+        first_activity
+            .scope(first_store.protected_query(
+                "problem",
+                QueryEffect::Read,
+                "lifetime::first_terminal",
+                || Ok(first_store.db.query("RETURN 'FIRST_READ';")),
+            ))
+            .await
+    });
+    assert_eq!(received.recv().await.unwrap(), "RETURN 'FIRST_READ'");
+    let mut cleanup = Box::pin(store.remove_isolated_fixture());
+    std::future::poll_fn(|cx| {
+        assert!(cleanup.as_mut().poll(cx).is_pending());
+        Poll::Ready(())
+    })
+    .await;
+    assert!(matches!(
+        store.admit_activity(),
+        Err(CanonicalError::ConnectionUnavailable)
+    ));
+    assert!(matches!(
+        store.disconnect().await,
+        Err(CanonicalError::ConnectionBusy { .. })
+    ));
+    let mut second = activity
+        .scope(store.protected_query(
+            "problem",
+            QueryEffect::Read,
+            "lifetime::second_terminal",
+            || Ok(store.db.query("RETURN 'SECOND_READ';")),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(second.take::<Value>(0).unwrap(), Value::Bool(true));
+    assert_eq!(received.recv().await.unwrap(), "RETURN 'SECOND_READ'");
+    let mut first = first.await.unwrap().unwrap();
+    assert_eq!(first.take::<Value>(0).unwrap(), Value::Bool(true));
+    std::future::poll_fn(|cx| {
+        assert!(cleanup.as_mut().poll(cx).is_pending());
+        Poll::Ready(())
+    })
+    .await;
+    drop(activity);
+    tokio::time::timeout(Duration::from_secs(2), cleanup)
+        .await
+        .unwrap()
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(received.try_recv().is_err());
 }
 
-async fn decision_wire_fixture(mut store:crate::canonical::CanonicalStore)->crate::canonical::CanonicalStore {
-    static EXECUTOR:std::sync::OnceLock<tokio::runtime::Runtime>=std::sync::OnceLock::new();
-    let executor=EXECUTOR.get_or_init(||tokio::runtime::Builder::new_current_thread().build().unwrap());
-    let lifetime=Arc::new(crate::testing::FixtureLifetime::new(store.clone(),executor,"wire-decision-only".into()));
+async fn decision_wire_fixture(
+    mut store: crate::canonical::CanonicalStore,
+) -> crate::canonical::CanonicalStore {
+    static EXECUTOR: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
+    let executor = EXECUTOR.get_or_init(|| {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+    });
+    let lifetime = Arc::new(crate::testing::FixtureLifetime::new(
+        store.clone(),
+        executor,
+        "wire-decision-only".into(),
+    ));
     // No service resource was allocated. Exercise the real fixture membership
     // and final decision while keeping fallback registry publication disabled.
-    *lifetime.removed.lock().await=true;
-    store.fixture_lifetime=Some(lifetime);store
+    *lifetime.removed.lock().await = true;
+    store.fixture_lifetime = Some(lifetime);
+    store
 }
 
 #[tokio::test]
-async fn independent_fixture_caller_mint_finishes_before_final_borrower_decision(){
-    let (store,mut received,server)=super::tests::canonical_read_barrier_peer().await;
-    let store=Arc::new(decision_wire_fixture(store).await);let barrier=Arc::new(std::sync::Barrier::new(2));
-    let issuer=store.clone();let paused=barrier.clone();
-    let mint=std::thread::spawn(move||{crate::canonical::lifetime::pause_next_caller_mint(paused);issuer.independent_caller().unwrap()});
+async fn independent_fixture_caller_mint_finishes_before_final_borrower_decision() {
+    let (store, mut received, server) = super::tests::canonical_read_barrier_peer().await;
+    let store = Arc::new(decision_wire_fixture(store).await);
+    let barrier = Arc::new(std::sync::Barrier::new(2));
+    let issuer = store.clone();
+    let paused = barrier.clone();
+    let mint = std::thread::spawn(move || {
+        crate::canonical::lifetime::pause_next_caller_mint(paused);
+        issuer.independent_caller().unwrap()
+    });
     barrier.wait();
     // Pause precisely after Open was validated but before fixture Arc cloning.
     // The final decision must be excluded throughout this old race window.
-    let admission_held=store.db.access.physical.caller_mint_holds_admission();
-    barrier.wait();let borrower=mint.join().unwrap();assert!(admission_held);
-    assert!(!store.seal_final_fixture_owner(),"the completely constructed caller is a registered fixture borrower");
-    drop(store.admit_activity().unwrap());drop(borrower);
-    assert!(store.seal_final_fixture_owner());store.drain_fixture_connection().await.unwrap();
-    tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();assert!(received.try_recv().is_err());
+    let admission_held = store.db.access.physical.caller_mint_holds_admission();
+    barrier.wait();
+    let borrower = mint.join().unwrap();
+    assert!(admission_held);
+    assert!(
+        !store.seal_final_fixture_owner(),
+        "the completely constructed caller is a registered fixture borrower"
+    );
+    drop(store.admit_activity().unwrap());
+    drop(borrower);
+    assert!(store.seal_final_fixture_owner());
+    store.drain_fixture_connection().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(received.try_recv().is_err());
 }
 
 #[tokio::test]
-async fn final_fixture_decision_fences_independent_mint_and_clones_remain_closed_aliases(){
-    let (store,mut received,server)=super::tests::canonical_read_barrier_peer().await;
-    let store=decision_wire_fixture(store).await;assert!(store.seal_final_fixture_owner());
-    assert!(matches!(store.independent_caller(),Err(CanonicalError::ConnectionUnavailable)));
-    let closed_alias=store.clone();assert!(matches!(closed_alias.admit_activity(),Err(CanonicalError::ConnectionUnavailable)));
-    assert!(store.seal_final_fixture_owner(),"a closed alias cannot undo the original final decision");
-    store.drain_fixture_connection().await.unwrap();drop(closed_alias);
-    tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();assert!(received.try_recv().is_err());
+async fn final_fixture_decision_fences_independent_mint_and_clones_remain_closed_aliases() {
+    let (store, mut received, server) = super::tests::canonical_read_barrier_peer().await;
+    let store = decision_wire_fixture(store).await;
+    assert!(store.seal_final_fixture_owner());
+    assert!(matches!(
+        store.independent_caller(),
+        Err(CanonicalError::ConnectionUnavailable)
+    ));
+    let closed_alias = store.clone();
+    assert!(matches!(
+        closed_alias.admit_activity(),
+        Err(CanonicalError::ConnectionUnavailable)
+    ));
+    assert!(
+        store.seal_final_fixture_owner(),
+        "a closed alias cannot undo the original final decision"
+    );
+    store.drain_fixture_connection().await.unwrap();
+    drop(closed_alias);
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(received.try_recv().is_err());
 }

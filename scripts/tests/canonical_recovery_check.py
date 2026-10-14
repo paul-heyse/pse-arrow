@@ -298,10 +298,9 @@ def recovery_equivalence(
     ):
         raise server.SupervisorError("Recovery exact resource profile changed")
     for key in ("credentials_file", "server", "payload_verifier"):
-        if (
-            server.reroot_restored(original.get(key), str(original_root), restored_root)
-            != restored.get(key)
-        ):
+        if server.reroot_restored(
+            original.get(key), str(original_root), restored_root
+        ) != restored.get(key):
             raise server.SupervisorError("Recovery installation association changed")
     for key, primary in (("service_supervisor", False), ("primary_receiver", True)):
         if original.get(key) is None and restored.get(key) is None:

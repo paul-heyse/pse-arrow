@@ -1065,12 +1065,7 @@ mod canonical_execution_server_unit {
                 .unwrap(),
             old_seeds
         );
-        assert!(
-            store
-                .read_results(new.run(), new.attempt())
-                .await
-                .is_err()
-        );
+        assert!(store.read_results(new.run(), new.attempt()).await.is_err());
         remove(&store, &database).await;
     }
 
@@ -1208,12 +1203,7 @@ mod canonical_execution_server_unit {
                 .await
                 .is_err()
         );
-        assert!(
-            store
-                .read_results("run", fence.attempt())
-                .await
-                .is_err()
-        );
+        assert!(store.read_results("run", fence.attempt()).await.is_err());
         let close = store.close_result_ingestion(&fence, "close").await.unwrap();
         assert!(
             store
@@ -1303,10 +1293,7 @@ mod canonical_execution_server_unit {
                 .row(),
             manifest.row()
         );
-        let history = store
-            .read_results("run", fence.attempt())
-            .await
-            .unwrap();
+        let history = store.read_results("run", fence.attempt()).await.unwrap();
         assert_eq!(history.attempt().outcome.as_deref(), Some("partial"));
         let fresh = store
             .claim_run("run", "new-claim", "worker", Duration::from_secs(60))
@@ -1333,12 +1320,7 @@ mod canonical_execution_server_unit {
                 .await
                 .is_err()
         );
-        assert!(
-            store
-                .read_results("run", fence.attempt())
-                .await
-                .is_ok()
-        );
+        assert!(store.read_results("run", fence.attempt()).await.is_ok());
         drop(history);
         remove(&store, &database).await;
     }
@@ -1462,10 +1444,7 @@ mod canonical_execution_server_unit {
                 }
                 .unwrap();
                 assert_eq!(terminal.outcome.as_deref(), Some("succeeded"));
-                let read = store
-                    .read_results(&key, fence.attempt())
-                    .await
-                    .unwrap();
+                let read = store.read_results(&key, fence.attempt()).await.unwrap();
                 assert_eq!(read.run().revision, revision.key);
                 let payload = store
                     .result_payload(&read, &descriptors[0].key, 0)
@@ -2233,11 +2212,14 @@ impl ResultBlockAppend {
             digest: digest.clone(),
             row_count,
             file_binding: String::new(),
-            file_instance: file.as_ref().map(|f|f.instance.clone()).unwrap_or_default(),
+            file_instance: file
+                .as_ref()
+                .map(|f| f.instance.clone())
+                .unwrap_or_default(),
             file_digest: digest.clone(),
             file_batch_index: file_index,
-            payload_bytes: payload_bytes,
-            schema: file.as_ref().map(|f|f.schema.clone()).unwrap_or_default(),
+            payload_bytes,
+            schema: file.as_ref().map(|f| f.schema.clone()).unwrap_or_default(),
             encoding: payload.encoding().to_owned(),
         };
         if let Some(block) = block
@@ -2457,7 +2439,7 @@ impl ResultBlockAppend {
         row.insert("ordinal", canonical_codec::encode_uint(ack.ordinal)?);
         row.insert("digest", Value::String(ack.digest.clone()));
         row.insert("row_count", canonical_codec::encode_uint(ack.row_count)?);
-        row.insert("file_binding",Value::String(ack.file_binding.clone()));
+        row.insert("file_binding", Value::String(ack.file_binding.clone()));
         row.insert("request", Value::Bytes(Bytes::from(ack.request.clone())));
         Ok(row)
     }
@@ -2540,7 +2522,7 @@ impl ReceiptProof {
             row.insert("ordinal", canonical_codec::encode_uint(batch.ordinal)?);
             row.insert("digest", Value::String(batch.digest.clone()));
             row.insert("rows", canonical_codec::encode_uint(batch.row_count)?);
-            row.insert("file_binding",Value::String(batch.file_binding.clone()));
+            row.insert("file_binding", Value::String(batch.file_binding.clone()));
         }
         Ok(row)
     }
@@ -2920,17 +2902,48 @@ impl ResultPayload {
         Ok(payload)
     }
     /// Bind an already complete file member without copying its physical bytes.
-    pub fn from_sealed(file: crate::canonical_files::SealedFile, index: u64) -> Result<Self, CanonicalError> {
+    pub fn from_sealed(
+        file: crate::canonical_files::SealedFile,
+        index: u64,
+    ) -> Result<Self, CanonicalError> {
         file.batch(index)?;
-        Ok(Self { bytes: Vec::new().into(), digest: file.descriptor().digest.clone(), owner: None, file: Some(file), file_index: index })
+        Ok(Self {
+            bytes: Vec::new().into(),
+            digest: file.descriptor().digest.clone(),
+            owner: None,
+            file: Some(file),
+            file_index: index,
+        })
     }
     /// Carry the caller's actual prepaid encoder and metadata allowance.
-    pub fn from_sealed_owned(file: crate::canonical_files::SealedFile, index: u64, owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<Self, CanonicalError> {
-        let mut payload=Self::from_sealed(file,index)?; payload.owner=Some(owner); Ok(payload)
+    pub fn from_sealed_owned(
+        file: crate::canonical_files::SealedFile,
+        index: u64,
+        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<Self, CanonicalError> {
+        let mut payload = Self::from_sealed(file, index)?;
+        payload.owner = Some(owner);
+        Ok(payload)
     }
     /// Complete physical extent, independent of whether bytes remain resident.
-    pub fn byte_len(&self) -> u64 { self.file.as_ref().map(|f|f.descriptor().bytes).unwrap_or(self.bytes.len() as u64) }
-    fn encoding(&self) -> &str { self.file.as_ref().map(|f|f.descriptor().encoding.as_str()).unwrap_or_else(||if serde_json::from_slice::<serde_json::Value>(self.bytes.as_slice()).is_ok(){crate::canonical_files::OPAQUE_JSON}else{crate::canonical_files::OPAQUE_BYTES}) }
+    pub fn byte_len(&self) -> u64 {
+        self.file
+            .as_ref()
+            .map(|f| f.descriptor().bytes)
+            .unwrap_or(self.bytes.len() as u64)
+    }
+    fn encoding(&self) -> &str {
+        self.file
+            .as_ref()
+            .map(|f| f.descriptor().encoding.as_str())
+            .unwrap_or_else(|| {
+                if serde_json::from_slice::<serde_json::Value>(self.bytes.as_slice()).is_ok() {
+                    crate::canonical_files::OPAQUE_JSON
+                } else {
+                    crate::canonical_files::OPAQUE_BYTES
+                }
+            })
+    }
     /// Exact immutable bytes; no mutable alias or digest setter is exposed.
     pub fn as_slice(&self) -> &[u8] {
         self.bytes.as_slice()
@@ -2940,22 +2953,40 @@ impl ResultPayload {
         &self.digest
     }
 }
-fn file_binding(batch:&ResultBatch)->String {
-    let mut physical=FramedHasher::new(Frame::CanonicalPayloadV1);
-    physical.str("pse.execution.file-binding.v1").str(&batch.file_instance).str(&batch.file_digest).u64(batch.file_batch_index).str(&batch.encoding).str(&batch.schema);
+fn file_binding(batch: &ResultBatch) -> String {
+    let mut physical = FramedHasher::new(Frame::CanonicalPayloadV1);
+    physical
+        .str("pse.execution.file-binding.v1")
+        .str(&batch.file_instance)
+        .str(&batch.file_digest)
+        .u64(batch.file_batch_index)
+        .str(&batch.encoding)
+        .str(&batch.schema);
     physical.finish_hash().to_hex()
 }
 /// Verify a bounded exact batch before decoding its scientific contents.
 pub fn validate_result_batch(batch: &ResultBatch) -> Result<(), CanonicalError> {
     if batch.key != result_batch_key(&batch.attempt, &batch.result_set, batch.ordinal)
-        || batch.digest != batch.file_digest || batch.payload_bytes == 0 || batch.payload_bytes > RESULT_BATCH_BYTES as u64
+        || batch.digest != batch.file_digest
+        || batch.payload_bytes == 0
+        || batch.payload_bytes > RESULT_BATCH_BYTES as u64
         || uuid::Uuid::parse_str(&batch.file_instance).is_err()
-        || batch.digest.len()!=64 || !batch.digest.bytes().all(|byte|byte.is_ascii_hexdigit())
-        || batch.file_binding!=file_binding(batch)
+        || batch.digest.len() != 64
+        || !batch.digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || batch.file_binding != file_binding(batch)
         || (batch.encoding == crate::canonical_files::ARROW_IPC_FILE && batch.schema.is_empty())
-        || (batch.encoding != crate::canonical_files::ARROW_IPC_FILE && (batch.file_batch_index != 0 || !batch.schema.is_empty()))
-        || ![crate::canonical_files::ARROW_IPC_FILE,crate::canonical_files::OPAQUE_JSON,crate::canonical_files::OPAQUE_BYTES].contains(&batch.encoding.as_str()) {
-        return Err(CanonicalError::Configuration("result batch file identity or coordinate mismatch".into()));
+        || (batch.encoding != crate::canonical_files::ARROW_IPC_FILE
+            && (batch.file_batch_index != 0 || !batch.schema.is_empty()))
+        || ![
+            crate::canonical_files::ARROW_IPC_FILE,
+            crate::canonical_files::OPAQUE_JSON,
+            crate::canonical_files::OPAQUE_BYTES,
+        ]
+        .contains(&batch.encoding.as_str())
+    {
+        return Err(CanonicalError::Configuration(
+            "result batch file identity or coordinate mismatch".into(),
+        ));
     }
     Ok(())
 }
@@ -3939,21 +3970,62 @@ impl CanonicalStore {
             Ok(prepared.acknowledgment)
         }).await
     }
-    async fn prepare_result_file(&self, fence:&AttemptFence, item:&mut ResultBlockAppend) -> Result<(),CanonicalError> {
-        let sealed=match item.payload.file.as_ref() { Some(file)=>file.clone(), None=>{
-            let mut hash=FramedHasher::new(Frame::CanonicalPayloadV1);hash.str("pse.file.original-append.v1").part(&item.acknowledgment.request);
-            let intent=self.reserve_result_file(fence,&format!("file:{}",item.acknowledgment.operation),&hash.finish_hash().to_hex()).await?;
-            self.seal_file(&intent,item.payload.as_slice(),item.payload.encoding(),0,"").await?
-        }};
-        if sealed.original_intent().instance()!=sealed.descriptor().instance { return Err(CanonicalError::OperationReused); }
-        let mut batch=wire::decode_canonical_result_batches(match item.item.get("batch"){Some(Value::Object(batch))=>batch.clone(),_=>return Err(CanonicalError::IncompleteResponse)})?;
-        batch.file_instance=sealed.descriptor().instance.clone(); batch.file_digest=sealed.descriptor().digest.clone(); batch.file_batch_index=item.payload.file_index; batch.payload_bytes=sealed.descriptor().bytes; batch.schema=sealed.descriptor().schema.clone();batch.encoding=sealed.descriptor().encoding.clone();
+    async fn prepare_result_file(
+        &self,
+        fence: &AttemptFence,
+        item: &mut ResultBlockAppend,
+    ) -> Result<(), CanonicalError> {
+        let sealed = match item.payload.file.as_ref() {
+            Some(file) => file.clone(),
+            None => {
+                let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+                hash.str("pse.file.original-append.v1")
+                    .part(&item.acknowledgment.request);
+                let intent = self
+                    .reserve_result_file(
+                        fence,
+                        &format!("file:{}", item.acknowledgment.operation),
+                        &hash.finish_hash().to_hex(),
+                    )
+                    .await?;
+                self.seal_file(
+                    &intent,
+                    item.payload.as_slice(),
+                    item.payload.encoding(),
+                    0,
+                    "",
+                )
+                .await?
+            }
+        };
+        if sealed.original_intent().instance() != sealed.descriptor().instance {
+            return Err(CanonicalError::OperationReused);
+        }
+        let mut batch = wire::decode_canonical_result_batches(match item.item.get("batch") {
+            Some(Value::Object(batch)) => batch.clone(),
+            _ => return Err(CanonicalError::IncompleteResponse),
+        })?;
+        batch.file_instance = sealed.descriptor().instance.clone();
+        batch.file_digest = sealed.descriptor().digest.clone();
+        batch.file_batch_index = item.payload.file_index;
+        batch.payload_bytes = sealed.descriptor().bytes;
+        batch.schema = sealed.descriptor().schema.clone();
+        batch.encoding = sealed.descriptor().encoding.clone();
         // The original semantic request is stable before file work; its final
         // append receipt additionally seals the complete physical coordinates.
-        batch.file_binding=file_binding(&batch);
-        item.acknowledgment.receipt.file_binding=batch.file_binding.clone();
-        let request=json(&(&item.acknowledgment.request,&batch.file_binding))?;
-        item.acknowledgment.request=request.clone();item.item.insert("request",Value::Bytes(Bytes::from(request)));item.item.insert("batch",Value::Object(wire::encode_canonical_result_batches(&batch)?));item.extent=result_metadata_extent(&Value::Object(item.item.clone()))?;item.payload.file=Some(sealed);Ok(())
+        batch.file_binding = file_binding(&batch);
+        item.acknowledgment.receipt.file_binding = batch.file_binding.clone();
+        let request = json(&(&item.acknowledgment.request, &batch.file_binding))?;
+        item.acknowledgment.request = request.clone();
+        item.item
+            .insert("request", Value::Bytes(Bytes::from(request)));
+        item.item.insert(
+            "batch",
+            Value::Object(wire::encode_canonical_result_batches(&batch)?),
+        );
+        item.extent = result_metadata_extent(&Value::Object(item.item.clone()))?;
+        item.payload.file = Some(sealed);
+        Ok(())
     }
     /// Submit multiple original immutable blocks in one server transaction.
     /// All actual per-block receipts are validated before any opaque ACK escapes.
@@ -4812,7 +4884,8 @@ mod canonical_result_admission_unit {
             .str("pse.execution.batch-selection.v1")
             .str(&first.key)
             .str(&first.digest)
-            .u64(first.row_count).str(&first.file_binding);
+            .u64(first.row_count)
+            .str(&first.file_binding);
         acks.append(first).unwrap();
         acks.append(ack(&fence, "values", 0, "first", &[0, 1], 2))
             .unwrap();
@@ -4828,7 +4901,8 @@ mod canonical_result_admission_unit {
         expected
             .str(&second.key)
             .str(&second.digest)
-            .u64(second.row_count).str(&second.file_binding);
+            .u64(second.row_count)
+            .str(&second.file_binding);
         acks.append(second).unwrap();
         assert!(
             acks.append(ack(&fence, "values", 0, "first", &[0, 1], 2))
@@ -4932,14 +5006,25 @@ mod canonical_result_admission_unit {
             payload.digest(),
             result_payload_digest(&0.0f64.to_bits().to_be_bytes())
         );
-        let digest=payload.digest().to_owned();
+        let digest = payload.digest().to_owned();
         let mut batch = ResultBatch {
-            key: result_batch_key("attempt", "set", 0), attempt: "attempt".into(),result_set:"set".into(),ordinal:0,digest:digest.clone(),row_count:1,
-            file_binding:"synthetic".into(),file_instance:uuid::Uuid::new_v4().to_string(),file_digest:digest,file_batch_index:0,payload_bytes:payload.byte_len(),schema:String::new(),encoding:crate::canonical_files::OPAQUE_BYTES.into(),
+            key: result_batch_key("attempt", "set", 0),
+            attempt: "attempt".into(),
+            result_set: "set".into(),
+            ordinal: 0,
+            digest: digest.clone(),
+            row_count: 1,
+            file_binding: "synthetic".into(),
+            file_instance: uuid::Uuid::new_v4().to_string(),
+            file_digest: digest,
+            file_batch_index: 0,
+            payload_bytes: payload.byte_len(),
+            schema: String::new(),
+            encoding: crate::canonical_files::OPAQUE_BYTES.into(),
         };
-        batch.file_binding=file_binding(&batch);
+        batch.file_binding = file_binding(&batch);
         validate_result_batch(&batch).unwrap();
-        batch.file_batch_index=1;
+        batch.file_batch_index = 1;
         assert!(validate_result_batch(&batch).is_err());
         assert!(matches!(
             ResultPayload::new(vec![0; RESULT_BATCH_BYTES + 1]),

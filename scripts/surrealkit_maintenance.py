@@ -29,7 +29,12 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
-from scripts import native_operation, surreal_rollout_producer, surreal_server, surrealkit
+from scripts import (
+    native_operation,
+    surreal_rollout_producer,
+    surreal_server,
+    surrealkit,
+)
 
 PENDING = "surrealkit_rollout_pending"
 VERSION = "surrealkit-maintenance-v1"
@@ -276,8 +281,11 @@ def predecessor_marker(state: Path, config: dict[str, object]) -> object:
 
 
 def require_empty_cutover_target(
-    state: Path, config: dict[str, object], folder: Path,
-    selected_rollouts: list[str], previous_marker: object,
+    state: Path,
+    config: dict[str, object],
+    folder: Path,
+    selected_rollouts: list[str],
+    previous_marker: object,
 ) -> None:
     """Explicit design-phase schema replacement cannot operate on retained data.
 
@@ -290,21 +298,32 @@ def require_empty_cutover_target(
         return
     publication = surreal_rollout_producer.load(folder)
     releases = cast("list[dict[str, object]]", publication["rollouts"])
-    if not any(release["id"] in selected_rollouts and "cutover" in release for release in releases):
+    if not any(
+        release["id"] in selected_rollouts and "cutover" in release
+        for release in releases
+    ):
         return
     if previous_marker is not None or predecessor_marker(state, config) is not None:
-        raise MaintenanceError("Design-phase v6 cutover requires a fresh empty uninitialized target; retained-data upgrade refused")
+        raise MaintenanceError(
+            "Design-phase v6 cutover requires a fresh empty uninitialized target; retained-data upgrade refused"
+        )
     credentials = surreal_server.read_json(state / "credentials.json")
     catalog = surreal_server.maintenance_catalog(state, config, credentials, "DB")
     for table in sorted(surreal_server.object_mapping(catalog["tables"])):
         if table in {"__entity", "__rollout"}:
             continue
         result = surreal_server.maintenance_query(
-            state, config, credentials,
-            "LET $rows=(SELECT id FROM " + surreal_server.sql_identifier(table) + " LIMIT 1);",
+            state,
+            config,
+            credentials,
+            "LET $rows=(SELECT id FROM "
+            + surreal_server.sql_identifier(table)
+            + " LIMIT 1);",
         )
         if result.get("rows") != []:
-            raise MaintenanceError("Design-phase v6 cutover target has retained or unknown application rows; regenerate a fresh disposable target")
+            raise MaintenanceError(
+                "Design-phase v6 cutover target has retained or unknown application rows; regenerate a fresh disposable target"
+            )
 
 
 def execute(
@@ -467,7 +486,10 @@ def execute(
                 value["previous_marker"] = predecessor_marker(state, config)
             if mode not in {"status", "repair"}:
                 require_empty_cutover_target(
-                    state, config, snapshot, cast("list[str]", value["rollouts"]),
+                    state,
+                    config,
+                    snapshot,
+                    cast("list[str]", value["rollouts"]),
                     value["previous_marker"],
                 )
             value["initializer"] = owner

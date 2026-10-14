@@ -237,7 +237,9 @@ impl CanonicalStore {
             Value::None | Value::Null => Ok(None),
             Value::Object(object) => {
                 let marker = wire::decode_canonical_interpretations(object)?;
-                if marker.payload_incarnation != self.files.incarnation {return Err(invalid("maintenance selected payload incarnation differs"));}
+                if marker.payload_incarnation != self.files.incarnation {
+                    return Err(invalid("maintenance selected payload incarnation differs"));
+                }
                 Ok(Some(Marker {
                     interpretation: marker.interpretation,
                     schema_digest: marker.schema_digest,

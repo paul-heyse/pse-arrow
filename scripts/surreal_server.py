@@ -493,8 +493,14 @@ def open_context_admission(state: Path) -> None:
             if deadline is not None:
                 remaining(deadline)
             if config.get("payload_frozen"):
-                if payload_query(context, config,
-                    f"RETURN fn::pse_files_v1::thaw({payload_expiry()},{json.dumps(config['payload_incarnation'])});") is not True:
+                if (
+                    payload_query(
+                        context,
+                        config,
+                        f"RETURN fn::pse_files_v1::thaw({payload_expiry()},{json.dumps(config['payload_incarnation'])});",
+                    )
+                    is not True
+                ):
                     raise SupervisorError("File admission reopen was not acknowledged")
                 config.pop("payload_frozen")
             config.update(accepting_writes=True, admission="open")
@@ -4776,7 +4782,9 @@ def start(
         _STARTUP.deadline = previous
 
 
-def reset_maintenance_failure_window(state: Path, config: dict[str, object], deadline: float) -> None:
+def reset_maintenance_failure_window(
+    state: Path, config: dict[str, object], deadline: float
+) -> None:
     """Intentional terminal maintenance launches do not spend the crash restart budget."""
     with lifecycle_deadline(deadline) as selected_deadline:
         assert selected_deadline is not None
@@ -4784,7 +4792,9 @@ def reset_maintenance_failure_window(state: Path, config: dict[str, object], dea
         all_contexts_drained(state)
         observed = service_readiness(state, config, deadline=selected_deadline)
         if observed.phase is not Readiness.ACTIONABLE_ABSENT:
-            raise SupervisorError("Maintenance failure-window reset requires the exact drained terminal service")
+            raise SupervisorError(
+                "Maintenance failure-window reset requires the exact drained terminal service"
+            )
         remaining(selected_deadline)
         reset = systemctl("reset-failed", unit_name(state), check=False)
         if reset.returncode:
@@ -4795,9 +4805,20 @@ def reset_maintenance_failure_window(state: Path, config: dict[str, object], dea
             require_maintenance_owner(state, selected)
             all_contexts_drained(state)
             absent = service_readiness(state, selected, deadline=selected_deadline)
-            manager = systemctl("show", "--property=LoadState", "--property=ActiveState",
-                "--property=ControlGroup", "--property=InvocationID", unit_name(state), check=False)
-            fields = dict(line.split("=", 1) for line in manager.stdout.splitlines() if "=" in line)
+            manager = systemctl(
+                "show",
+                "--property=LoadState",
+                "--property=ActiveState",
+                "--property=ControlGroup",
+                "--property=InvocationID",
+                unit_name(state),
+                check=False,
+            )
+            fields = dict(
+                line.split("=", 1)
+                for line in manager.stdout.splitlines()
+                if "=" in line
+            )
             if (
                 selected != config
                 or absent.phase is not Readiness.ACTIONABLE_ABSENT
@@ -4810,12 +4831,15 @@ def reset_maintenance_failure_window(state: Path, config: dict[str, object], dea
                 or fields.get("ActiveState") != "inactive"
                 or fields.get("ControlGroup") != ""
                 or fields.get("InvocationID") != ""
-                or any(absent.manager.get(key) != fields.get(key) for key in (
-                    "ActiveState", "ControlGroup", "InvocationID"
-                ))
+                or any(
+                    absent.manager.get(key) != fields.get(key)
+                    for key in ("ActiveState", "ControlGroup", "InvocationID")
+                )
                 or config_for(state, deadline=selected_deadline) != selected
             ):
-                raise SupervisorError("Exact owned maintenance failure-window reset was refused")
+                raise SupervisorError(
+                    "Exact owned maintenance failure-window reset was refused"
+                )
             require_maintenance_owner(state, selected)
             remaining(selected_deadline)
 
@@ -5396,8 +5420,14 @@ def _serve(state: Path) -> int:
 
 def payload_verifier(path: Path) -> dict[str, object]:
     path = lexical_absolute(path)
-    if any(part.is_symlink() for part in (path, *path.parents)) or not path.is_file() or not os.access(path, os.X_OK):
-        raise SupervisorError("Payload verifier must be an explicit executable without symlinks")
+    if (
+        any(part.is_symlink() for part in (path, *path.parents))
+        or not path.is_file()
+        or not os.access(path, os.X_OK)
+    ):
+        raise SupervisorError(
+            "Payload verifier must be an explicit executable without symlinks"
+        )
     return {"binary": str(path), "sha256": file_digest(path)}
 
 
@@ -5412,7 +5442,9 @@ def unsealed_payload_descriptor(instance: dict[str, object]) -> bool:
     )
 
 
-def verify_payload_inventory(state: Path, config: dict[str, object], inventory: list[dict[str, object]]) -> None:
+def verify_payload_inventory(
+    state: Path, config: dict[str, object], inventory: list[dict[str, object]]
+) -> None:
     """Delegate canonical content hashing to the existing native identity owner."""
     selected = []
     for entry in inventory:
@@ -5421,9 +5453,13 @@ def verify_payload_inventory(state: Path, config: dict[str, object], inventory: 
         # Collection is irreversible: a dead collector may have unlinked the
         # file before recording its final catalog acknowledgment. Its absent
         # bytes remain an unresolved deletion, never reconstructed science.
-        collecting_bytes = state_value == "collecting" and not unsealed_payload_descriptor(instance) and any(
-            Path(name).name == str(instance["key"]) + ".sealed"
-            for name in object_mapping(entry["files"])
+        collecting_bytes = (
+            state_value == "collecting"
+            and not unsealed_payload_descriptor(instance)
+            and any(
+                Path(name).name == str(instance["key"]) + ".sealed"
+                for name in object_mapping(entry["files"])
+            )
         )
         if state_value in {"sealed", "attached"} or collecting_bytes:
             selected.append(entry)
@@ -5432,30 +5468,61 @@ def verify_payload_inventory(state: Path, config: dict[str, object], inventory: 
     verifier = object_mapping(config.get("payload_verifier", {}))
     binary = verifier.get("binary")
     if not isinstance(binary, str) or payload_verifier(Path(binary)) != verifier:
-        raise SupervisorError("Sealed backup/restore requires --payload-verifier for the exact native verifier artifact")
+        raise SupervisorError(
+            "Sealed backup/restore requires --payload-verifier for the exact native verifier artifact"
+        )
     descriptor, raw = tempfile.mkstemp(prefix=".payload-verification-", dir=state)
     path = Path(raw)
     try:
         with os.fdopen(descriptor, "w") as stream:
             for entry in selected:
                 instance = object_mapping(entry["instance"])
-                placement = {"payload_incarnation": entry["payload_incarnation"], "database": entry["database"]}
-                final, _pending = payload_files.instance_paths(state, placement, instance["key"])
-                row = {key: instance[key] for key in ("digest", "encoding", "batch_count", "schema", "interpretation")}
-                row.update(instance=instance["key"], bytes=instance["payload_bytes"], path=str(final))
+                placement = {
+                    "payload_incarnation": entry["payload_incarnation"],
+                    "database": entry["database"],
+                }
+                final, _pending = payload_files.instance_paths(
+                    state, placement, instance["key"]
+                )
+                row = {
+                    key: instance[key]
+                    for key in (
+                        "digest",
+                        "encoding",
+                        "batch_count",
+                        "schema",
+                        "interpretation",
+                    )
+                }
+                row.update(
+                    instance=instance["key"],
+                    bytes=instance["payload_bytes"],
+                    path=str(final),
+                )
                 line = json.dumps(row, separators=(",", ":")) + "\n"
                 if len(line.encode()) > 64 * 1024:
-                    raise SupervisorError("Native payload verifier entry exceeded its bounded envelope")
+                    raise SupervisorError(
+                        "Native payload verifier entry exceeded its bounded envelope"
+                    )
                 stream.write(line)
-        result = subprocess.run([binary, "--verify-payload-inventory", str(path)],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=False, timeout=120)
+        result = subprocess.run(
+            [binary, "--verify-payload-inventory", str(path)],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
         try:
             acknowledgment = json.loads(result.stdout)
         except (ValueError, TypeError):
             acknowledgment = None
-        if result.returncode or acknowledgment != {"verified_payload_files": len(selected)}:
-            raise SupervisorError("Native canonical payload verification failed; backup/restore remains incomplete")
+        if result.returncode or acknowledgment != {
+            "verified_payload_files": len(selected)
+        }:
+            raise SupervisorError(
+                "Native canonical payload verification failed; backup/restore remains incomplete"
+            )
     finally:
         path.unlink(missing_ok=True)
 
@@ -5464,12 +5531,17 @@ def payload_query(state: Path, config: dict[str, object], body: str) -> object:
     """One bounded administrative transaction; no scientific RPC or implicit catalog creation."""
     deadline = getattr(_STARTUP, "deadline", None) or time.monotonic() + 90
     response = administrative_query(
-        state, "BEGIN; " + body + " COMMIT;", deadline,
-        namespace=str(config["namespace"]), database=str(config["database"]),
+        state,
+        "BEGIN; " + body + " COMMIT;",
+        deadline,
+        namespace=str(config["namespace"]),
+        database=str(config["database"]),
     )
     values = [row["result"] for row in response if row.get("result") is not None]
     if len(values) != 1:
-        raise SupervisorError("File maintenance did not return exactly one acknowledgment")
+        raise SupervisorError(
+            "File maintenance did not return exactly one acknowledgment"
+        )
     return values[0]
 
 
@@ -5477,20 +5549,25 @@ def payload_expiry() -> int:
     return time.time_ns() // 1000 + 90_000_000
 
 
-def payload_pages(state: Path, config: dict[str, object], table: str) -> Generator[list[dict[str, object]], None, None]:
+def payload_pages(
+    state: Path, config: dict[str, object], table: str
+) -> Generator[list[dict[str, object]], None, None]:
     if table not in {"canonical_file_owners", "canonical_file_instances"}:
         raise SupervisorError("Unknown file inventory table")
     columns = (
         "key,issuing_store,storage_incarnation,boot,pid_namespace,<string>pid AS pid,start,invocation,unit,group,"
         "(IF group_inode=NONE {NONE} ELSE {<string>group_inode}) AS group_inode,drained"
-        if table == "canonical_file_owners" else
-        "key,intent,request_digest,owner,owner_kind,selection,issuing_store,storage_incarnation,digest,"
+        if table == "canonical_file_owners"
+        else "key,intent,request_digest,owner,owner_kind,selection,issuing_store,storage_incarnation,digest,"
         "<string>payload_bytes AS payload_bytes,encoding,<string>batch_count AS batch_count,schema,interpretation,state"
     )
     after = ""
     while True:
-        value = payload_query(state, config,
-            f"LET $rows=SELECT {columns} FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; RETURN $rows;")
+        value = payload_query(
+            state,
+            config,
+            f"LET $rows=SELECT {columns} FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; RETURN $rows;",
+        )
         if not isinstance(value, list) or len(value) > 64:
             raise SupervisorError("Invalid bounded file catalog inventory")
         rows: list[dict[str, object]] = []
@@ -5499,7 +5576,14 @@ def payload_pages(state: Path, config: dict[str, object], table: str) -> Generat
             if table == "canonical_file_owners":
                 # Explicit SELECT projections encode absent native option fields
                 # as JSON null. Restore their canonical absent-field shape only.
-                row = {name: field for name, field in row.items() if not (name in {"group", "group_inode", "invocation", "unit"} and field is None)}
+                row = {
+                    name: field
+                    for name, field in row.items()
+                    if not (
+                        name in {"group", "group_inode", "invocation", "unit"}
+                        and field is None
+                    )
+                }
             key = row.get("key")
             if not isinstance(key, str) or key <= after:
                 raise SupervisorError("File inventory cursor did not advance")
@@ -5524,8 +5608,16 @@ def managed_file_owner_drained(owner: dict[str, object]) -> bool:
     if owner.get("boot") != Path("/proc/sys/kernel/random/boot_id").read_text().strip():
         return True
     unit, group, inode = owner.get("unit"), owner.get("group"), owner.get("group_inode")
-    if not isinstance(unit, str) or not unit.endswith((".scope", ".service")) or "/" in unit or not isinstance(group, str) or Path(group).name != unit:
-        raise SupervisorError("Invocation-bound file owner lacks exact managed scope identity")
+    if (
+        not isinstance(unit, str)
+        or not unit.endswith((".scope", ".service"))
+        or "/" in unit
+        or not isinstance(group, str)
+        or Path(group).name != unit
+    ):
+        raise SupervisorError(
+            "Invocation-bound file owner lacks exact managed scope identity"
+        )
     if isinstance(inode, str) and inode.isascii() and inode.isdecimal():
         inode = int(inode)
     if type(inode) is not int or inode <= 0:
@@ -5535,14 +5627,23 @@ def managed_file_owner_drained(owner: dict[str, object]) -> bool:
         # Linux cannot remove a cgroup with live members. A replacement inode is
         # a different lifetime, not a target this owner may stop or adopt.
         return True
-    observation = systemctl("show", "--property=ControlGroup", "--property=InvocationID", unit, check=False)
-    fields = dict(line.split("=", 1) for line in observation.stdout.splitlines() if "=" in line)
-    if observation.returncode or fields != {"ControlGroup": group, "InvocationID": invocation}:
+    observation = systemctl(
+        "show", "--property=ControlGroup", "--property=InvocationID", unit, check=False
+    )
+    fields = dict(
+        line.split("=", 1) for line in observation.stdout.splitlines() if "=" in line
+    )
+    if observation.returncode or fields != {
+        "ControlGroup": group,
+        "InvocationID": invocation,
+    }:
         raise SupervisorError("File owner managed invocation cannot be authenticated")
     return not group_populated(group)
 
 
-def reap_payload_owners(state: Path, config: dict[str, object], *, require_all: bool) -> dict[str, int]:
+def reap_payload_owners(
+    state: Path, config: dict[str, object], *, require_all: bool
+) -> dict[str, int]:
     counts = {"recovered": 0, "live": 0, "unknown": 0}
     for rows in payload_pages(state, config, "canonical_file_owners"):
         for row in rows:
@@ -5550,23 +5651,31 @@ def reap_payload_owners(state: Path, config: dict[str, object], *, require_all: 
                 continue
             try:
                 if row.get("storage_incarnation") != config["payload_incarnation"]:
-                    raise SupervisorError("File owner belongs to another storage incarnation")
+                    raise SupervisorError(
+                        "File owner belongs to another storage incarnation"
+                    )
                 dead = payload_files.owner_dead(row)
                 if not dead:
                     counts["live"] += 1
                     if require_all:
-                        raise SupervisorError("A live independent file owner still borrows this store")
+                        raise SupervisorError(
+                            "A live independent file owner still borrows this store"
+                        )
                     continue
                 if not managed_file_owner_drained(row):
                     counts["live"] += 1
                     if require_all:
-                        raise SupervisorError("File owner managed descendants still borrow this store")
+                        raise SupervisorError(
+                            "File owner managed descendants still borrow this store"
+                        )
                     continue
             except (payload_files.PayloadError, OSError, SupervisorError) as error:
                 if require_all:
                     if isinstance(error, SupervisorError):
                         raise
-                    raise SupervisorError("File owner drain is unobservable; admission remains closed") from error
+                    raise SupervisorError(
+                        "File owner drain is unobservable; admission remains closed"
+                    ) from error
                 counts["unknown"] += 1
                 continue
             fields: list[str] = []
@@ -5584,8 +5693,11 @@ def reap_payload_owners(state: Path, config: dict[str, object], *, require_all: 
                     encoded = json.dumps(value)
                 fields.append(json.dumps(key) + ":" + encoded)
             expected_sql = "{" + ",".join(fields) + "}"
-            acknowledged = payload_query(state, config,
-                f"RETURN fn::pse_files_v1::drain_owner({payload_expiry()},{expected_sql});")
+            acknowledged = payload_query(
+                state,
+                config,
+                f"RETURN fn::pse_files_v1::drain_owner({payload_expiry()},{expected_sql});",
+            )
             if acknowledged is not True:
                 if require_all:
                     raise SupervisorError("Exact file owner drain was not acknowledged")
@@ -5599,13 +5711,31 @@ def recover_file_owners(state: Path) -> dict[str, int]:
     """Explicit orphan recovery; ordinary service restart neither reaps nor invents owners."""
     with lifecycle_reservation(state):
         config = config_for(state)
-        if service_directory(state) != state or not owns_listener(state, config) or not listener_ready(state, config):
-            raise SupervisorError("File-owner recovery requires the active owned catalog")
-        marker = payload_query(state, config,
+        if (
+            service_directory(state) != state
+            or not owns_listener(state, config)
+            or not listener_ready(state, config)
+        ):
+            raise SupervisorError(
+                "File-owner recovery requires the active owned catalog"
+            )
+        marker = payload_query(
+            state,
+            config,
             "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
-            "RETURN {payload_incarnation:$marker.payload_incarnation,interpretation:$marker.interpretation};")
-        if marker != {"payload_incarnation": config["payload_incarnation"], "interpretation": SUBSTRATE_INTERPRETATION} or config["interpretation"] != SUBSTRATE_INTERPRETATION:
-            raise SupervisorError("File-owner recovery requires the current selected incarnation and interpretation")
+            "RETURN {payload_incarnation:$marker.payload_incarnation,interpretation:$marker.interpretation};",
+        )
+        if (
+            marker
+            != {
+                "payload_incarnation": config["payload_incarnation"],
+                "interpretation": SUBSTRATE_INTERPRETATION,
+            }
+            or config["interpretation"] != SUBSTRATE_INTERPRETATION
+        ):
+            raise SupervisorError(
+                "File-owner recovery requires the current selected incarnation and interpretation"
+            )
         return reap_payload_owners(state, config, require_all=False)
 
 
@@ -5629,10 +5759,15 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
     start(state, config, validation=True)
     for context in contexts:
         selected = config_for(context)
-        acknowledged = payload_query(state, selected,
-            f"RETURN fn::pse_files_v1::freeze({payload_expiry()},{json.dumps(selected['payload_incarnation'])});")
+        acknowledged = payload_query(
+            state,
+            selected,
+            f"RETURN fn::pse_files_v1::freeze({payload_expiry()},{json.dumps(selected['payload_incarnation'])});",
+        )
         if acknowledged is not True:
-            raise SupervisorError("File admission and collection freeze was not acknowledged")
+            raise SupervisorError(
+                "File admission and collection freeze was not acknowledged"
+            )
     # File-owner death alone cannot establish managed descendant drain.
     all_contexts_drained(state)
     inventory: list[dict[str, object]] = []
@@ -5642,53 +5777,104 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
         for rows in payload_pages(state, selected, "canonical_file_instances"):
             for row in rows:
                 if row.get("storage_incarnation") != selected["payload_incarnation"]:
-                    raise SupervisorError("File instance belongs to another storage incarnation")
+                    raise SupervisorError(
+                        "File instance belongs to another storage incarnation"
+                    )
                 entry: dict[str, object] = {
                     "context": str(context.relative_to(state)),
                     "database": selected["database"],
                     "payload_incarnation": selected["payload_incarnation"],
-                    "instance": {key: value for key, value in row.items() if key != "id"},
+                    "instance": {
+                        key: value for key, value in row.items() if key != "id"
+                    },
                     "files": {},
                 }
-                final, pending = payload_files.instance_paths(state, selected, row["key"])
+                final, pending = payload_files.instance_paths(
+                    state, selected, row["key"]
+                )
                 state_value = row.get("state")
-                if state_value not in {"pending", "sealed", "attached", "abandoned", "collecting", "collected"}:
+                if state_value not in {
+                    "pending",
+                    "sealed",
+                    "attached",
+                    "abandoned",
+                    "collecting",
+                    "collected",
+                }:
                     raise SupervisorError("Unknown file instance state")
                 try:
                     payload_files.reconcile_frozen_alias(state, selected, row["key"])
                 except (payload_files.PayloadError, OSError) as error:
-                    raise SupervisorError("Frozen payload staging alias reconciliation refused") from error
+                    raise SupervisorError(
+                        "Frozen payload staging alias reconciliation refused"
+                    ) from error
                 required = state_value in {"sealed", "attached"}
                 if required and not final.is_file():
-                    raise SupervisorError("Required sealed file is missing; backup cannot complete")
+                    raise SupervisorError(
+                        "Required sealed file is missing; backup cannot complete"
+                    )
                 files: dict[str, object] = {}
                 for path in (final, pending):
                     if path.exists() or path.is_symlink():
                         try:
                             digest, extent = payload_files.checked_file(path)
                         except (payload_files.PayloadError, OSError) as error:
-                            raise SupervisorError("File inventory failed private content validation") from error
-                        if path == final and (state_value in {"sealed", "attached"} or (state_value == "collecting" and not unsealed_payload_descriptor(row))) and str(extent) != str(row.get("payload_bytes")):
-                            raise SupervisorError("Sealed file extent differs from its catalog")
-                        files[str(path.relative_to(state))] = {"sha256": digest, "bytes": extent}
+                            raise SupervisorError(
+                                "File inventory failed private content validation"
+                            ) from error
+                        if (
+                            path == final
+                            and (
+                                state_value in {"sealed", "attached"}
+                                or (
+                                    state_value == "collecting"
+                                    and not unsealed_payload_descriptor(row)
+                                )
+                            )
+                            and str(extent) != str(row.get("payload_bytes"))
+                        ):
+                            raise SupervisorError(
+                                "Sealed file extent differs from its catalog"
+                            )
+                        files[str(path.relative_to(state))] = {
+                            "sha256": digest,
+                            "bytes": extent,
+                        }
                 entry["files"] = files
                 # Missing/unsealed pending output remains unresolved in both metadata and bytes.
                 inventory.append(entry)
-    expected_files = {name for entry in inventory for name in object_mapping(entry["files"])}
+    expected_files = {
+        name for entry in inventory for name in object_mapping(entry["files"])
+    }
     for context in contexts:
-        keys = {str(object_mapping(entry["instance"])["key"]) for entry in inventory if entry["context"] == str(context.relative_to(state))}
+        keys = {
+            str(object_mapping(entry["instance"])["key"])
+            for entry in inventory
+            if entry["context"] == str(context.relative_to(state))
+        }
         try:
-            locks = payload_files.recognized_locks(payload_files.root(state, config_for(context)), keys)
+            locks = payload_files.recognized_locks(
+                payload_files.root(state, config_for(context)), keys
+            )
         except (payload_files.PayloadError, OSError) as error:
-            raise SupervisorError("Payload synchronization lock inventory failed") from error
+            raise SupervisorError(
+                "Payload synchronization lock inventory failed"
+            ) from error
         expected_files.update(str(path.relative_to(state)) for path in locks)
-    actual_files = {str(path.relative_to(state)) for context in contexts for path in payload_files.root(state, config_for(context)).rglob("*") if path.is_file() or path.is_symlink()}
+    actual_files = {
+        str(path.relative_to(state))
+        for context in contexts
+        for path in payload_files.root(state, config_for(context)).rglob("*")
+        if path.is_file() or path.is_symlink()
+    }
     if actual_files != expected_files:
         raise SupervisorError("Unknown payload bytes refuse complete backup inventory")
     return inventory
 
 
-def copy_payload_inventory(state: Path, destination: Path, inventory: list[dict[str, object]]) -> None:
+def copy_payload_inventory(
+    state: Path, destination: Path, inventory: list[dict[str, object]]
+) -> None:
     for entry in inventory:
         for name, raw in object_mapping(entry["files"]).items():
             expected = object_mapping(raw)
@@ -5701,30 +5887,46 @@ def copy_payload_inventory(state: Path, destination: Path, inventory: list[dict[
                 digest, extent = payload_files.checked_file(target)
                 original_digest, original_extent = payload_files.checked_file(source)
             except (payload_files.PayloadError, OSError) as error:
-                raise SupervisorError("Payload changed during offline backup") from error
-            if expected != {"sha256": digest, "bytes": extent} or (digest, extent) != (original_digest, original_extent):
+                raise SupervisorError(
+                    "Payload changed during offline backup"
+                ) from error
+            if expected != {"sha256": digest, "bytes": extent} or (digest, extent) != (
+                original_digest,
+                original_extent,
+            ):
                 raise SupervisorError("Payload copy differs from its frozen inventory")
 
 
-def validate_payload_inventory(source: Path, config: dict[str, object], value: object) -> None:
+def validate_payload_inventory(
+    source: Path, config: dict[str, object], value: object
+) -> None:
     if not isinstance(value, list):
         raise SupervisorError("Backup is missing its file-tier closure inventory")
     seen: set[str] = set()
     for raw in value:
         entry = object_mapping(raw)
         # Restore supports the service's one private database, as before.
-        if entry.get("context") != "." or entry.get("database") != config["database"] or entry.get("payload_incarnation") != config["payload_incarnation"]:
+        if (
+            entry.get("context") != "."
+            or entry.get("database") != config["database"]
+            or entry.get("payload_incarnation") != config["payload_incarnation"]
+        ):
             raise SupervisorError("Backup file-tier context differs from its profile")
         row = object_mapping(entry.get("instance"))
         if row.get("storage_incarnation") != config["payload_incarnation"]:
             raise SupervisorError("Backup instance storage incarnation differs")
         try:
-            final, pending = payload_files.instance_paths(source, config, row.get("key"))
+            final, pending = payload_files.instance_paths(
+                source, config, row.get("key")
+            )
         except payload_files.PayloadError as error:
             raise SupervisorError(str(error)) from error
         allowed = {str(path.relative_to(source)) for path in (final, pending)}
         files = object_mapping(entry.get("files"))
-        if row.get("state") in {"sealed", "attached"} and str(final.relative_to(source)) not in files:
+        if (
+            row.get("state") in {"sealed", "attached"}
+            and str(final.relative_to(source)) not in files
+        ):
             raise SupervisorError("Backup omits a required sealed file")
         if not set(files) <= allowed or seen.intersection(files):
             raise SupervisorError("Backup file-tier placement is ambiguous")
@@ -5733,10 +5935,16 @@ def validate_payload_inventory(source: Path, config: dict[str, object], value: o
             try:
                 digest, extent = payload_files.checked_file(source / name)
             except (payload_files.PayloadError, OSError) as error:
-                raise SupervisorError("Backup file-tier bytes are unavailable") from error
+                raise SupervisorError(
+                    "Backup file-tier bytes are unavailable"
+                ) from error
             if expected != {"sha256": digest, "bytes": extent}:
                 raise SupervisorError("Backup file-tier digest or extent differs")
-    actual = {str(path.relative_to(source)) for path in (source / "payloads").rglob("*") if path.is_file()}
+    actual = {
+        str(path.relative_to(source))
+        for path in (source / "payloads").rglob("*")
+        if path.is_file()
+    }
     if actual != seen:
         raise SupervisorError("Backup has payload bytes outside its closure inventory")
 
@@ -6382,46 +6590,76 @@ def current_marker(
         raise SupervisorError("Current interpretation was not acknowledged")
 
 
-def retire_partial_payload_target(state: Path, config: dict[str, object], credentials: dict[str, object]) -> None:
+def retire_partial_payload_target(
+    state: Path, config: dict[str, object], credentials: dict[str, object]
+) -> None:
     """Failed initializer catalogs cannot be discarded underneath surviving file owners."""
-    tables = object_mapping(maintenance_catalog(state, config, credentials, "DB")["tables"])
-    tier = {"canonical_file_admission", "canonical_file_owners", "canonical_file_instances"}
+    tables = object_mapping(
+        maintenance_catalog(state, config, credentials, "DB")["tables"]
+    )
+    tier = {
+        "canonical_file_admission",
+        "canonical_file_owners",
+        "canonical_file_instances",
+    }
     present = tier.intersection(tables)
     if present and present != tier:
-        raise SupervisorError("Partial file catalog has unknown ownership; recovery remains closed")
+        raise SupervisorError(
+            "Partial file catalog has unknown ownership; recovery remains closed"
+        )
     directory = payload_files.root(state, config)
     if not present:
         if directory.exists() and any(directory.rglob("*")):
-            raise SupervisorError("Payload bytes without an owner catalog cannot be discarded")
+            raise SupervisorError(
+                "Payload bytes without an owner catalog cannot be discarded"
+            )
         return
     inventory = freeze_payloads(state, config)
-    owners = [{key: value for key, value in row.items() if key != "id"}
-        for page in payload_pages(state, config, "canonical_file_owners") for row in page]
+    owners = [
+        {key: value for key, value in row.items() if key != "id"}
+        for page in payload_pages(state, config, "canonical_file_owners")
+        for row in page
+    ]
     if any(owner.get("drained") is not True for owner in owners):
         raise SupervisorError("Partial target file owners remain undrained")
     pending = object_mapping(config["derived_rebuild_pending"])
     retired = pending.setdefault("retired_payloads", [])
     if not isinstance(retired, list):
         raise SupervisorError("Invalid retired file-tier recovery inventory")
-    retirement = {"payload_incarnation": config["payload_incarnation"], "database": config["database"], "inventory": inventory, "owners": owners}
+    retirement = {
+        "payload_incarnation": config["payload_incarnation"],
+        "database": config["database"],
+        "inventory": inventory,
+        "owners": owners,
+    }
     if retirement not in retired:
         retired.append(retirement)
     config["derived_rebuild_pending"] = pending
     write_json(state / "config.json", config)
 
 
-def cleanup_retired_payloads(state: Path, config: dict[str, object], credentials: dict[str, object]) -> None:
+def cleanup_retired_payloads(
+    state: Path, config: dict[str, object], credentials: dict[str, object]
+) -> None:
     """Retire only inventoried placement after exact old-owner drain; unknown bytes survive."""
     pending = object_mapping(config["derived_rebuild_pending"])
     old_incarnation = pending.get("payload_incarnation")
     if old_incarnation is None:
         # Maintenance begun before a file tier existed carries no deletion authority.
         return
-    source = {**config, "namespace": pending["namespace"], "database": pending["database"]}
+    source = {
+        **config,
+        "namespace": pending["namespace"],
+        "database": pending["database"],
+    }
     if database_present(state, source, credentials):
-        response = maintenance_query(state, source, credentials,
+        response = maintenance_query(
+            state,
+            source,
+            credentials,
             "LET $owners=SELECT key FROM canonical_file_owners WHERE !drained LIMIT 1; "
-            "IF array::len($owners)!=0 { THROW 'old file owners refuse root cleanup'; }; LET $value=true;")
+            "IF array::len($owners)!=0 { THROW 'old file owners refuse root cleanup'; }; LET $value=true;",
+        )
         if response.get("value") is not True:
             raise SupervisorError("Old file-owner drain was not acknowledged")
     elif not pending.get("payload_cleanup_done"):
@@ -6434,14 +6672,23 @@ def cleanup_retired_payloads(state: Path, config: dict[str, object], credentials
         inventory = pending.get("payload_inventory", [])
     if not isinstance(inventory, list):
         raise SupervisorError("Missing retired payload inventory")
-    placements = [{"payload_incarnation": old_incarnation, "database": pending["database"]}, *pending.get("payload_targets", [])]
+    placements = [
+        {"payload_incarnation": old_incarnation, "database": pending["database"]},
+        *pending.get("payload_targets", []),
+    ]
     work = [(placement, inventory) for placement in placements]
     for raw in pending.get("retired_payloads", []):
         retired = object_mapping(raw)
         owners = retired.get("owners")
         retired_inventory = retired.get("inventory")
-        if not isinstance(owners, list) or any(object_mapping(owner).get("drained") is not True for owner in owners) or not isinstance(retired_inventory, list):
-            raise SupervisorError("Retired payload target lost its authenticated drain inventory")
+        if (
+            not isinstance(owners, list)
+            or any(object_mapping(owner).get("drained") is not True for owner in owners)
+            or not isinstance(retired_inventory, list)
+        ):
+            raise SupervisorError(
+                "Retired payload target lost its authenticated drain inventory"
+            )
         work.append((retired, retired_inventory))
     selected_root = payload_files.root(state, config)
     for placement, placement_inventory in work:
@@ -6452,22 +6699,37 @@ def cleanup_retired_payloads(state: Path, config: dict[str, object], credentials
         for raw in placement_inventory:
             entry = object_mapping(raw)
             row = object_mapping(entry["instance"])
-            sealed, staging = payload_files.instance_paths(state, object_mapping(placement), row["key"])
+            sealed, staging = payload_files.instance_paths(
+                state, object_mapping(placement), row["key"]
+            )
             for name in object_mapping(entry["files"]):
                 expected.add(sealed if name.endswith(".sealed") else staging)
-        if any(path.is_symlink() for path in (directory, *directory.parents)) or any(path.is_symlink() for path in directory.rglob("*")):
+        if any(path.is_symlink() for path in (directory, *directory.parents)) or any(
+            path.is_symlink() for path in directory.rglob("*")
+        ):
             raise SupervisorError("Retired payload root must not traverse symlinks")
-        keys = {str(object_mapping(object_mapping(entry)["instance"])["key"]) for entry in placement_inventory}
+        keys = {
+            str(object_mapping(object_mapping(entry)["instance"])["key"])
+            for entry in placement_inventory
+        }
         try:
             expected.update(payload_files.recognized_locks(directory, keys))
         except (payload_files.PayloadError, OSError) as error:
-            raise SupervisorError("Retired payload synchronization locks retained; cleanup refused") from error
+            raise SupervisorError(
+                "Retired payload synchronization locks retained; cleanup refused"
+            ) from error
         actual = {path for path in directory.rglob("*") if path.is_file()}
         if not actual <= expected:
-            raise SupervisorError("Unknown retired payload content retained; cleanup refused")
+            raise SupervisorError(
+                "Unknown retired payload content retained; cleanup refused"
+            )
         for path in actual:
             path.unlink()
-        for path in sorted((path for path in directory.rglob("*") if path.is_dir()), key=lambda path: len(path.parts), reverse=True):
+        for path in sorted(
+            (path for path in directory.rglob("*") if path.is_dir()),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        ):
             path.rmdir()
         directory.rmdir()
     pending["payload_cleanup_done"] = True
@@ -6607,18 +6869,26 @@ def copy_current_database(
         write_json(state / "config.json", target)
 
 
-def rehome_restored_payloads(state: Path, config: dict[str, object], credentials: dict[str, object]) -> None:
+def rehome_restored_payloads(
+    state: Path, config: dict[str, object], credentials: dict[str, object]
+) -> None:
     """Copy verified backup bytes to fresh placement, then re-fence the imported catalog."""
     pending = object_mapping(config["derived_rebuild_pending"])
     backup = Path(str(pending.get("backup", "")))
     manifest, original = validated_restore_backup(backup, SUBSTRATE_INTERPRETATION)
     if file_digest(backup / "backup.json") != pending.get("backup_digest"):
-        raise SupervisorError("Payload restore source changed; admission remains closed")
+        raise SupervisorError(
+            "Payload restore source changed; admission remains closed"
+        )
     old_incarnation = original["payload_incarnation"]
     new_incarnation = config["payload_incarnation"]
-    response = maintenance_query(state, config, credentials,
+    response = maintenance_query(
+        state,
+        config,
+        credentials,
         "LET $owners=SELECT key FROM canonical_file_owners WHERE !drained LIMIT 1; "
-        "IF array::len($owners)!=0 { THROW 'undrained file owner refuses restored placement'; }; LET $value=true;")
+        "IF array::len($owners)!=0 { THROW 'undrained file owner refuses restored placement'; }; LET $value=true;",
+    )
     if response.get("value") is not True:
         raise SupervisorError("Restored file-owner drain was not acknowledged")
     target = {"payload_incarnation": new_incarnation, "database": config["database"]}
@@ -6637,10 +6907,14 @@ def rehome_restored_payloads(state: Path, config: dict[str, object], credentials
             source = backup / name
             destination = sealed if name.endswith(".sealed") else staging
             if any(path.is_symlink() for path in (destination, *destination.parents)):
-                raise SupervisorError("Restored payload target must not traverse symlinks")
+                raise SupervisorError(
+                    "Restored payload target must not traverse symlinks"
+                )
             destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             if destination.is_symlink():
-                raise SupervisorError("Restored payload target must not traverse symlinks")
+                raise SupervisorError(
+                    "Restored payload target must not traverse symlinks"
+                )
             if not destination.exists():
                 shutil.copy2(source, destination)
                 with destination.open("rb") as stream:
@@ -6648,33 +6922,55 @@ def rehome_restored_payloads(state: Path, config: dict[str, object], credentials
             try:
                 digest, extent = payload_files.checked_file(destination)
             except (payload_files.PayloadError, OSError) as error:
-                raise SupervisorError("Restored payload failed identity validation") from error
+                raise SupervisorError(
+                    "Restored payload failed identity validation"
+                ) from error
             if expected != {"sha256": digest, "bytes": extent}:
                 raise SupervisorError("Restored payload bytes differ from the backup")
-    restored_inventory = [{**object_mapping(entry), "database": config["database"], "payload_incarnation": new_incarnation} for entry in manifest["payload_inventory"]]
+    restored_inventory = [
+        {
+            **object_mapping(entry),
+            "database": config["database"],
+            "payload_incarnation": new_incarnation,
+        }
+        for entry in manifest["payload_inventory"]
+    ]
     verify_payload_inventory(state, config, restored_inventory)
     # The imported gate remains closed throughout bounded catalog updates. These
     # physical fields are absent from scientific descriptors and manifest bytes.
     after = ""
     while True:
-        response = maintenance_query(state, config, credentials,
+        response = maintenance_query(
+            state,
+            config,
+            credentials,
             "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
             f"IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored file gate mismatch'; }}; "
             f"LET $rows=SELECT * FROM canonical_file_instances WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; "
             f"FOR $row IN $rows {{ IF $row.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored instance mismatch'; }}; UPDATE ONLY $row.id SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; }}; "
-            "LET $value={count:array::len($rows),after:array::last($rows.key) ?? ''};")
+            "LET $value={count:array::len($rows),after:array::last($rows.key) ?? ''};",
+        )
         value = object_mapping(response.get("value"))
         count, cursor = value.get("count"), value.get("after")
-        if type(count) is not int or not 0 <= count <= 64 or not isinstance(cursor, str) or (count and cursor <= after):
+        if (
+            type(count) is not int
+            or not 0 <= count <= 64
+            or not isinstance(cursor, str)
+            or (count and cursor <= after)
+        ):
             raise SupervisorError("Invalid bounded payload rehome acknowledgment")
         if not count:
             break
         after = cursor
-    response = maintenance_query(state, config, credentials,
+    response = maintenance_query(
+        state,
+        config,
+        credentials,
         "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
         f"IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored file gate mismatch'; }}; "
         f"UPDATE ONLY canonical_interpretations:current SET payload_incarnation={json.dumps(new_incarnation)} RETURN NONE; "
-        f"UPDATE ONLY canonical_file_admission:current SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; LET $value=true;")
+        f"UPDATE ONLY canonical_file_admission:current SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; LET $value=true;",
+    )
     if response.get("value") is not True:
         raise SupervisorError("Restored file incarnation was not acknowledged")
     config["payload_frozen"] = True
@@ -6836,7 +7132,9 @@ def recover_credentials(
     return candidate, True
 
 
-def recover_maintenance(state: Path, initializer: list[str], verifier: Path | None = None) -> dict[str, object]:
+def recover_maintenance(
+    state: Path, initializer: list[str], verifier: Path | None = None
+) -> dict[str, object]:
     with lifecycle_reservation(state):
         config = config_for(state)
         if verifier is not None:
@@ -7091,7 +7389,14 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
         )
     all_contexts_drained(state)
     files = object_mapping(manifest["files"])
-    roots = {"database", "credentials.json", ".generations", ".contexts", ".receivers", "payloads"}
+    roots = {
+        "database",
+        "credentials.json",
+        ".generations",
+        ".contexts",
+        ".receivers",
+        "payloads",
+    }
     selected = {
         name: digest for name, digest in files.items() if Path(name).parts[0] in roots
     }
@@ -7169,7 +7474,9 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
     maintenance_phase(state, config, "cleanup")
 
 
-def restore(source: Path, state: Path, interpretation: str, verifier: Path | None = None) -> dict[str, object]:
+def restore(
+    source: Path, state: Path, interpretation: str, verifier: Path | None = None
+) -> dict[str, object]:
     manifest, original = validated_restore_backup(source, interpretation)
     state = checked_directory(state)
     with lifecycle_reservation(state):
@@ -7222,14 +7529,19 @@ def validation_payload_reads(
         or selected.get("derived_rebuild_pending")
         or selected.get("surrealkit_rollout_pending")
         or selected.get("interpretation") != interpretation
-        or any(selected.get(key) != config.get(key) for key in (
-            "instance_id", "namespace", "database", "payload_incarnation"
-        ))
+        or any(
+            selected.get(key) != config.get(key)
+            for key in ("instance_id", "namespace", "database", "payload_incarnation")
+        )
     ):
-        raise SupervisorError("Validator file reads require the exact closed restored profile")
+        raise SupervisorError(
+            "Validator file reads require the exact closed restored profile"
+        )
     expiry = payload_expiry()
     incarnation = json.dumps(config["payload_incarnation"])
-    acknowledged = payload_query(state, config,
+    acknowledged = payload_query(
+        state,
+        config,
         f"LET $validation_start_deadline=fn::pse_execution_v1::deadline({expiry}); "
         "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
         "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
@@ -7237,15 +7549,22 @@ def validation_payload_reads(
         f"OR $marker=NONE OR $marker.payload_incarnation!={incarnation} OR $marker.interpretation!={json.dumps(interpretation)} "
         "{ THROW 'validator requires exact frozen restored placement'; }; "
         "UPDATE ONLY canonical_file_admission:current SET frozen=false,gc_frozen=true RETURN NONE; "
-        f"LET $validation_end_deadline=fn::pse_execution_v1::deadline({expiry}); RETURN true;")
+        f"LET $validation_end_deadline=fn::pse_execution_v1::deadline({expiry}); RETURN true;",
+    )
     if acknowledged is not True:
         raise SupervisorError("Validator file-read admission was not acknowledged")
 
 
 def close_validation_payload_reads(state: Path, config: dict[str, object]) -> None:
     """Reclose before authenticating actual validator owners and managed descendants."""
-    if payload_query(state, config,
-        f"RETURN fn::pse_files_v1::freeze({payload_expiry()},{json.dumps(config['payload_incarnation'])});") is not True:
+    if (
+        payload_query(
+            state,
+            config,
+            f"RETURN fn::pse_files_v1::freeze({payload_expiry()},{json.dumps(config['payload_incarnation'])});",
+        )
+        is not True
+    ):
         raise SupervisorError("Validator file-read closure was not acknowledged")
     all_contexts_drained(state)
     reap_payload_owners(state, config, require_all=True)
@@ -7908,7 +8227,11 @@ def parser() -> argparse.ArgumentParser:
         ],
     )
     result.add_argument("--worker-executable", type=Path)
-    result.add_argument("--payload-verifier", type=Path, help="Exact built native canonical payload verifier artifact; never builds implicitly")
+    result.add_argument(
+        "--payload-verifier",
+        type=Path,
+        help="Exact built native canonical payload verifier artifact; never builds implicitly",
+    )
     result.add_argument("--observer-pid", type=int)
     result.add_argument("--canonical-database")
     result.add_argument(
@@ -7971,7 +8294,10 @@ def _dispatch(args: argparse.Namespace) -> int:
         if args.source is None:
             raise SupervisorError("restore requires --source")
         output = restore(
-            args.source.absolute(), args.state.absolute(), args.interpretation or "", args.payload_verifier
+            args.source.absolute(),
+            args.state.absolute(),
+            args.interpretation or "",
+            args.payload_verifier,
         )
     elif args.command == "worker":
         return worker(
@@ -8022,7 +8348,9 @@ def _dispatch(args: argparse.Namespace) -> int:
             config = config_for(state)
             if args.payload_verifier is not None:
                 if args.command not in {"backup", "recover-maintenance"}:
-                    raise SupervisorError("Verifier selection is only available with setup, backup, restore or recover-maintenance")
+                    raise SupervisorError(
+                        "Verifier selection is only available with setup, backup, restore or recover-maintenance"
+                    )
                 config["payload_verifier"] = payload_verifier(args.payload_verifier)
                 write_json(state / "config.json", config)
             if args.command == "recover-file-owners":

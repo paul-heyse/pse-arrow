@@ -19,45 +19,80 @@ use std::time::Duration;
 use surrealdb::types::Object;
 
 pub use pse_model::generated::runtime::{
-    canonical_artifact_obligations::Row as ArtifactObligation,
-    canonical_artifacts::Row as Artifact,
+    canonical_artifact_obligations::Row as ArtifactObligation, canonical_artifacts::Row as Artifact,
 };
 
 /// Materialized artifact member. The catalog stores only its sealed file binding.
 #[derive(Clone, Debug)]
 pub struct ArtifactBlock {
     /// Original immutable artifact member identity.
-    pub key:String,
+    pub key: String,
     /// Independent artifact occurrence.
-    pub artifact:String,
+    pub artifact: String,
     /// Original member ordinal.
-    pub ordinal:u64,
+    pub ordinal: u64,
     /// Scientific relation or opaque capsule label.
-    pub relation:String,
+    pub relation: String,
     /// Original exact copied bytes.
-    pub payload:pse_model::Bytes,
+    pub payload: pse_model::Bytes,
     /// Exact copied encoding digest.
-    pub digest:String,
+    pub digest: String,
     /// Producer encoding provenance, distinct from copied digest.
-    pub original_digest:String,
+    pub original_digest: String,
     /// Original row coverage.
-    pub rows:u64,
-    allocation:Option<std::sync::Arc<dyn std::fmt::Debug+Send+Sync>>,
-    encoding:String,
-    schema:String,
-    batch_count:u64,
+    pub rows: u64,
+    allocation: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+    encoding: String,
+    schema: String,
+    batch_count: u64,
 }
 impl ArtifactBlock {
     /// Bind a Runtime-validated standalone native IPC file to its exact schema.
     /// Capsules retain their original JSON/opaque encoding instead.
-    pub fn native_file(mut self,schema:&str)->Result<Self,CanonicalError>{
-        if schema.is_empty()||!self.payload.starts_with(b"ARROW1")||!self.payload.ends_with(b"ARROW1"){return Err(invalid("artifact native file/schema binding invalid"));}
-        self.encoding=crate::canonical_files::ARROW_IPC_FILE.into();self.schema=schema.into();self.batch_count=1;Ok(self)
+    pub fn native_file(mut self, schema: &str) -> Result<Self, CanonicalError> {
+        if schema.is_empty()
+            || !self.payload.starts_with(b"ARROW1")
+            || !self.payload.ends_with(b"ARROW1")
+        {
+            return Err(invalid("artifact native file/schema binding invalid"));
+        }
+        self.encoding = crate::canonical_files::ARROW_IPC_FILE.into();
+        self.schema = schema.into();
+        self.batch_count = 1;
+        Ok(self)
     }
 }
-impl PartialEq for ArtifactBlock { fn eq(&self,other:&Self)->bool{self.key==other.key&&self.artifact==other.artifact&&self.ordinal==other.ordinal&&self.relation==other.relation&&self.payload==other.payload&&self.digest==other.digest&&self.original_digest==other.original_digest&&self.rows==other.rows&&self.encoding==other.encoding&&self.schema==other.schema&&self.batch_count==other.batch_count} }
+impl PartialEq for ArtifactBlock {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+            && self.artifact == other.artifact
+            && self.ordinal == other.ordinal
+            && self.relation == other.relation
+            && self.payload == other.payload
+            && self.digest == other.digest
+            && self.original_digest == other.original_digest
+            && self.rows == other.rows
+            && self.encoding == other.encoding
+            && self.schema == other.schema
+            && self.batch_count == other.batch_count
+    }
+}
 impl Eq for ArtifactBlock {}
-impl SemanticFrame for ArtifactBlock {fn frame(&self,hash:&mut FramedHasher){hash.str(&self.key).str(&self.artifact).u64(self.ordinal).str(&self.relation).part(self.payload.as_slice()).str(&self.digest).str(&self.original_digest).u64(self.rows).str(&self.encoding).str(&self.schema).u64(self.batch_count);}}
+impl SemanticFrame for ArtifactBlock {
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.str(&self.key)
+            .str(&self.artifact)
+            .u64(self.ordinal)
+            .str(&self.relation)
+            .part(self.payload.as_slice())
+            .str(&self.digest)
+            .str(&self.original_digest)
+            .u64(self.rows)
+            .str(&self.encoding)
+            .str(&self.schema)
+            .u64(self.batch_count);
+    }
+}
 
 /// A copied block locator retains scientific row and field coordinates, not a producer read.
 #[derive(
@@ -112,7 +147,11 @@ pub fn artifact_block(
     let key = hash.finish_hash().to_hex();
     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
     hash.str("pse.execution.result-payload.v1").part(&payload);
-    let encoding=if serde_json::from_slice::<serde_json::Value>(&payload).is_ok(){crate::canonical_files::OPAQUE_JSON}else{crate::canonical_files::OPAQUE_BYTES};
+    let encoding = if serde_json::from_slice::<serde_json::Value>(&payload).is_ok() {
+        crate::canonical_files::OPAQUE_JSON
+    } else {
+        crate::canonical_files::OPAQUE_BYTES
+    };
     ArtifactBlock {
         key,
         artifact: artifact.into(),
@@ -122,8 +161,10 @@ pub fn artifact_block(
         digest: hash.finish_hash().to_hex(),
         original_digest: original_digest.into(),
         rows,
-        allocation:None,
-        encoding:encoding.into(),schema:String::new(),batch_count:0,
+        allocation: None,
+        encoding: encoding.into(),
+        schema: String::new(),
+        batch_count: 0,
     }
 }
 
@@ -327,10 +368,7 @@ impl CanonicalStore {
         }).await
     }
     /// Acquire under independent artifact authority; producer payload is never consulted.
-    pub async fn read_artifact(
-        &self,
-        key: &str,
-    ) -> Result<ArtifactRead, CanonicalError> {
+    pub async fn read_artifact(&self, key: &str) -> Result<ArtifactRead, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
             let header=self.artifact(key).await?;
@@ -455,12 +493,20 @@ mod canonical_artifact_tests {
         );
         (intent, blocks)
     }
-    async fn wait_for_original_creation_window(store:&CanonicalStore,intent:&Artifact){
+    async fn wait_for_original_creation_window(store: &CanonicalStore, intent: &Artifact) {
         loop {
-            let mut response=bounded_query(store.db.query("RETURN time::micros();")).await.unwrap();
-            let now=u64::try_from(codec::decode_int(response.take::<Value>(0).unwrap()).unwrap()).unwrap();
-            if now>=intent.creation_expires_at{return;}
-            tokio::time::sleep(Duration::from_micros((intent.creation_expires_at-now).min(250_000))).await;
+            let mut response = bounded_query(store.db.query("RETURN time::micros();"))
+                .await
+                .unwrap();
+            let now = u64::try_from(codec::decode_int(response.take::<Value>(0).unwrap()).unwrap())
+                .unwrap();
+            if now >= intent.creation_expires_at {
+                return;
+            }
+            tokio::time::sleep(Duration::from_micros(
+                (intent.creation_expires_at - now).min(250_000),
+            ))
+            .await;
         }
     }
     #[tokio::test]
@@ -490,10 +536,7 @@ mod canonical_artifact_tests {
             store.collect_artifact(&intent).await.is_err(),
             "another attributed obligation prevents collection"
         );
-        let read = store
-            .read_artifact(&saved.key)
-            .await
-            .unwrap();
+        let read = store.read_artifact(&saved.key).await.unwrap();
         let copied = read.block(0).await.unwrap();
         assert_eq!(copied.payload.as_slice(), [0, 255, 1, 128]);
         assert_eq!(copied.original_digest, "original-encoding");
@@ -553,10 +596,7 @@ mod canonical_artifact_tests {
             .unwrap();
         assert!(store.collect_artifact(&intent).await.is_err());
         assert!(
-            store
-                .read_artifact(&intent.key)
-                .await
-                .is_ok(),
+            store.read_artifact(&intent.key).await.is_ok(),
             "other owners remain available"
         );
         store.remove_isolated_fixture().await.unwrap();
@@ -576,10 +616,7 @@ mod canonical_artifact_tests {
             )
             .await
             .unwrap();
-        let read = store
-            .read_artifact(&intent.key)
-            .await
-            .unwrap();
+        let read = store.read_artifact(&intent.key).await.unwrap();
         let copied = read.block(0).await.unwrap();
         store
             .release_artifact(&intent.key, "user", "reader")
@@ -620,7 +657,7 @@ mod canonical_artifact_tests {
             store.artifact(&intent.key).await.is_err(),
             "retirement closes fresh acquisition"
         );
-        wait_for_original_creation_window(&store,&intent).await;
+        wait_for_original_creation_window(&store, &intent).await;
         let mut complete = false;
         for _ in 0..8 {
             if store.collect_artifact(&intent).await.unwrap() {
@@ -699,10 +736,7 @@ mod canonical_artifact_tests {
             "staged original intent grants no active discovery"
         );
         assert!(
-            store
-                .read_artifact(&intent.key)
-                .await
-                .is_err(),
+            store.read_artifact(&intent.key).await.is_err(),
             "staged original intent grants no reader"
         );
         let mut changed = intent.clone();
@@ -730,7 +764,7 @@ mod canonical_artifact_tests {
             !store.collect_artifact(&intent).await.unwrap(),
             "original creation window remains pending"
         );
-        wait_for_original_creation_window(&store,&intent).await;
+        wait_for_original_creation_window(&store, &intent).await;
         let mut complete = false;
         for _ in 0..8 {
             if store.collect_artifact(&intent).await.unwrap() {
@@ -826,55 +860,229 @@ mod canonical_artifact_tests {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
-    async fn canonical_artifact_unread_block_survives_logical_caller_close_and_clone_release(){
-        let (store,revision)=fixture().await;let (intent,blocks)=content(&store,&revision,"user","close-owner").await;
-        let saved=store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","close-owner").await.unwrap();
-        let read=store.read_artifact(&saved.key).await.unwrap();let remaining=read.clone();read.release().await.unwrap();store.close();
-        let block=remaining.block(0).await.unwrap();assert_eq!(block.payload,blocks[0].payload);remaining.release().await.unwrap();store.remove_isolated_fixture().await.unwrap();
+    async fn canonical_artifact_unread_block_survives_logical_caller_close_and_clone_release() {
+        let (store, revision) = fixture().await;
+        let (intent, blocks) = content(&store, &revision, "user", "close-owner").await;
+        let saved = store
+            .persist_artifact(
+                &intent,
+                std::slice::from_ref(&revision),
+                &[],
+                &blocks,
+                "user",
+                "close-owner",
+            )
+            .await
+            .unwrap();
+        let read = store.read_artifact(&saved.key).await.unwrap();
+        let remaining = read.clone();
+        read.release().await.unwrap();
+        store.close();
+        let block = remaining.block(0).await.unwrap();
+        assert_eq!(block.payload, blocks[0].payload);
+        remaining.release().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
-    async fn canonical_historical_absent_pin_receipt_survives_artifact_association_cleanup(){
-        let (store,revision)=fixture().await;let (intent,blocks)=content(&store,&revision,"user","absent-pin").await;
-        store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","absent-pin").await.unwrap();
+    async fn canonical_historical_absent_pin_receipt_survives_artifact_association_cleanup() {
+        let (store, revision) = fixture().await;
+        let (intent, blocks) = content(&store, &revision, "user", "absent-pin").await;
+        store
+            .persist_artifact(
+                &intent,
+                std::slice::from_ref(&revision),
+                &[],
+                &blocks,
+                "user",
+                "absent-pin",
+            )
+            .await
+            .unwrap();
         // Issue a short original acquisition window before any read effects,
         // using the same transaction as public protection acquisition.
-        let mut clock=bounded_query(store.db.query("RETURN time::micros()+500000;")).await.unwrap();let deadline=codec::decode_int(clock.take(0).unwrap()).unwrap();
-        let grant=format!("pse.protection.v2:{}:{}:{deadline}",intent.primary_authority,uuid::Uuid::new_v4());
-        bounded_query(store.db.query(crate::canonical::ACQUIRE_PROTECTION).bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone())).bind(("key",grant.clone())).bind(("lifetime",1_000_000i64))).await.unwrap();
+        let mut clock = bounded_query(store.db.query("RETURN time::micros()+500000;"))
+            .await
+            .unwrap();
+        let deadline = codec::decode_int(clock.take(0).unwrap()).unwrap();
+        let grant = format!(
+            "pse.protection.v2:{}:{}:{deadline}",
+            intent.primary_authority,
+            uuid::Uuid::new_v4()
+        );
+        bounded_query(
+            store
+                .db
+                .query(crate::canonical::ACQUIRE_PROTECTION)
+                .bind(("problem", revision.problem.clone()))
+                .bind(("revision", revision.key.clone()))
+                .bind(("key", grant.clone()))
+                .bind(("lifetime", 1_000_000i64)),
+        )
+        .await
+        .unwrap();
         bounded_query(store.db.query("BEGIN; RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection); COMMIT;").bind(("key",intent.key.clone())).bind(("protection",grant.clone()))).await.unwrap();
-        bounded_query(store.db.query(crate::canonical::RELEASE_PROTECTION).bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone())).bind(("sequence",codec::encode_uint(revision.sequence).unwrap())).bind(("protection",grant.clone()))).await.unwrap();
-        loop {let mut clock=bounded_query(store.db.query("RETURN time::micros();")).await.unwrap();if codec::decode_int(clock.take(0).unwrap()).unwrap()>=deadline{break;}tokio::time::sleep(Duration::from_millis(10)).await;}
-        assert!(store.settle_protection_grant(&revision.problem,&grant).await.unwrap());
-        let mut absent=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_protections',$key);").bind(("key",grant.clone()))).await.unwrap();assert!(absent.take::<Option<Object>>(0).unwrap().is_none());
+        bounded_query(
+            store
+                .db
+                .query(crate::canonical::RELEASE_PROTECTION)
+                .bind(("problem", revision.problem.clone()))
+                .bind(("revision", revision.key.clone()))
+                .bind(("sequence", codec::encode_uint(revision.sequence).unwrap()))
+                .bind(("protection", grant.clone())),
+        )
+        .await
+        .unwrap();
+        loop {
+            let mut clock = bounded_query(store.db.query("RETURN time::micros();"))
+                .await
+                .unwrap();
+            if codec::decode_int(clock.take(0).unwrap()).unwrap() >= deadline {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(
+            store
+                .settle_protection_grant(&revision.problem, &grant)
+                .await
+                .unwrap()
+        );
+        let mut absent = bounded_query(
+            store
+                .db
+                .query("RETURN SELECT * FROM ONLY type::record('canonical_protections',$key);")
+                .bind(("key", grant.clone())),
+        )
+        .await
+        .unwrap();
+        assert!(absent.take::<Option<Object>>(0).unwrap().is_none());
         bounded_query(store.db.query("UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET incarnation=$authority,protection_closed_through=31dec;").bind(("problem",revision.problem.clone())).bind(("authority",uuid::Uuid::new_v4().to_string()))).await.unwrap();
         // The first historical settlement can lose its acknowledgement. Cleanup
         // of the association cannot erase the original grant's replay receipt.
-        assert!(store.settle_protection_grant(&revision.problem,&grant).await.unwrap());
-        store.release_artifact(&intent.key,"user","absent-pin").await.unwrap();let mut complete=false;for _ in 0..8{complete=store.collect_artifact(&intent).await.unwrap();if complete{break;}}assert!(complete);
-        let mut cleared=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_artifact_reads',$key);").bind(("key",grant.clone()))).await.unwrap();assert!(cleared.take::<Option<Object>>(0).unwrap().is_none());
-        assert!(store.settle_protection_grant(&revision.problem,&grant).await.unwrap());
-        let mut floor=bounded_query(store.db.query("RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).protection_closed_through;").bind(("problem",revision.problem.clone()))).await.unwrap();assert_eq!(codec::decode_uint(floor.take(0).unwrap()).unwrap(),31);
+        assert!(
+            store
+                .settle_protection_grant(&revision.problem, &grant)
+                .await
+                .unwrap()
+        );
+        store
+            .release_artifact(&intent.key, "user", "absent-pin")
+            .await
+            .unwrap();
+        let mut complete = false;
+        for _ in 0..8 {
+            complete = store.collect_artifact(&intent).await.unwrap();
+            if complete {
+                break;
+            }
+        }
+        assert!(complete);
+        let mut cleared = bounded_query(
+            store
+                .db
+                .query("RETURN SELECT * FROM ONLY type::record('canonical_artifact_reads',$key);")
+                .bind(("key", grant.clone())),
+        )
+        .await
+        .unwrap();
+        assert!(cleared.take::<Option<Object>>(0).unwrap().is_none());
+        assert!(
+            store
+                .settle_protection_grant(&revision.problem, &grant)
+                .await
+                .unwrap()
+        );
+        let mut floor=bounded_query(store.db.query("RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).protection_closed_through;").bind(("problem",revision.problem.clone()))).await.unwrap();
+        assert_eq!(codec::decode_uint(floor.take(0).unwrap()).unwrap(), 31);
         store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
-    async fn canonical_historical_artifact_cleanup_retains_exact_receipt_without_advancing_new_floor(){
-        let (store,revision)=fixture().await;let (intent,blocks)=content(&store,&revision,"user","historical").await;
-        store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","historical").await.unwrap();
-        let read=store.read_artifact(&intent.key).await.unwrap();let grant=read.selection.grant_key().to_owned();
-        assert_eq!(read.block(0).await.unwrap().payload,blocks[0].payload);read.release().await.unwrap();
-        let authority=uuid::Uuid::new_v4().to_string();
+    async fn canonical_historical_artifact_cleanup_retains_exact_receipt_without_advancing_new_floor()
+     {
+        let (store, revision) = fixture().await;
+        let (intent, blocks) = content(&store, &revision, "user", "historical").await;
+        store
+            .persist_artifact(
+                &intent,
+                std::slice::from_ref(&revision),
+                &[],
+                &blocks,
+                "user",
+                "historical",
+            )
+            .await
+            .unwrap();
+        let read = store.read_artifact(&intent.key).await.unwrap();
+        let grant = read.selection.grant_key().to_owned();
+        assert_eq!(read.block(0).await.unwrap().payload, blocks[0].payload);
+        read.release().await.unwrap();
+        let authority = uuid::Uuid::new_v4().to_string();
         bounded_query(store.db.query("UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET incarnation=$authority,artifact_creation_closed_through=19dec,protection_closed_through=17dec;").bind(("problem",revision.problem.clone())).bind(("authority",authority.clone()))).await.unwrap();
         assert!(store.artifact(&intent.key).await.unwrap().active);
-        store.release_artifact(&intent.key,"user","historical").await.unwrap();
-        let mut complete=false;for _ in 0..8{complete=store.collect_artifact(&intent).await.unwrap();if complete{break;}}assert!(complete);assert!(store.collect_artifact(&intent).await.unwrap());
-        assert!(store.artifact(&intent.key).await.is_err());assert!(store.retain_artifact(&intent.key,"user","late").await.is_err());assert!(store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","historical").await.is_err());
-        let mut row=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_artifacts',$key);").bind(("key",intent.key.clone()))).await.unwrap();let terminal=wire::decode_canonical_artifacts(row.take::<Option<Object>>(0).unwrap().unwrap()).unwrap();assert!(terminal.retiring);assert!(!terminal.active);assert_eq!(terminal.creation_request_digest,intent.creation_request_digest);
-        let mut floor=bounded_query(store.db.query("RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).artifact_creation_closed_through; RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).protection_closed_through; RETURN SELECT * FROM ONLY type::record('canonical_protections',$key); RETURN SELECT * FROM ONLY type::record('canonical_artifact_reads',$key);").bind(("problem",revision.problem.clone())).bind(("key",grant.clone()))).await.unwrap();assert_eq!(codec::decode_uint(floor.take(0).unwrap()).unwrap(),19);assert_eq!(codec::decode_uint(floor.take(1).unwrap()).unwrap(),17);
-        let receipt=floor.take::<Option<Object>>(2).unwrap().unwrap();assert_eq!(receipt.get("released"),Some(&Value::Bool(true)));assert!(floor.take::<Option<Object>>(3).unwrap().is_none());
-        assert!(store.settle_protection_grant(&revision.problem,&grant).await.unwrap());
+        store
+            .release_artifact(&intent.key, "user", "historical")
+            .await
+            .unwrap();
+        let mut complete = false;
+        for _ in 0..8 {
+            complete = store.collect_artifact(&intent).await.unwrap();
+            if complete {
+                break;
+            }
+        }
+        assert!(complete);
+        assert!(store.collect_artifact(&intent).await.unwrap());
+        assert!(store.artifact(&intent.key).await.is_err());
+        assert!(
+            store
+                .retain_artifact(&intent.key, "user", "late")
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .persist_artifact(
+                    &intent,
+                    std::slice::from_ref(&revision),
+                    &[],
+                    &blocks,
+                    "user",
+                    "historical"
+                )
+                .await
+                .is_err()
+        );
+        let mut row = bounded_query(
+            store
+                .db
+                .query("RETURN SELECT * FROM ONLY type::record('canonical_artifacts',$key);")
+                .bind(("key", intent.key.clone())),
+        )
+        .await
+        .unwrap();
+        let terminal =
+            wire::decode_canonical_artifacts(row.take::<Option<Object>>(0).unwrap().unwrap())
+                .unwrap();
+        assert!(terminal.retiring);
+        assert!(!terminal.active);
+        assert_eq!(
+            terminal.creation_request_digest,
+            intent.creation_request_digest
+        );
+        let mut floor=bounded_query(store.db.query("RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).artifact_creation_closed_through; RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).protection_closed_through; RETURN SELECT * FROM ONLY type::record('canonical_protections',$key); RETURN SELECT * FROM ONLY type::record('canonical_artifact_reads',$key);").bind(("problem",revision.problem.clone())).bind(("key",grant.clone()))).await.unwrap();
+        assert_eq!(codec::decode_uint(floor.take(0).unwrap()).unwrap(), 19);
+        assert_eq!(codec::decode_uint(floor.take(1).unwrap()).unwrap(), 17);
+        let receipt = floor.take::<Option<Object>>(2).unwrap().unwrap();
+        assert_eq!(receipt.get("released"), Some(&Value::Bool(true)));
+        assert!(floor.take::<Option<Object>>(3).unwrap().is_none());
+        assert!(
+            store
+                .settle_protection_grant(&revision.problem, &grant)
+                .await
+                .unwrap()
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
-
 }
