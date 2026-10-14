@@ -474,6 +474,7 @@ fn drain_child_pipe(
 ) -> std::io::Result<Vec<String>> {
     use std::io::Write;
     let mut errors = Vec::new();
+    let mut spool_failed = false;
     let mut bytes = [0u8; 65_536];
     loop {
         let count = match source.read(&mut bytes) {
@@ -485,8 +486,11 @@ fn drain_child_pipe(
                 break;
             }
         };
-        if let Err(error) = spool.write_all(&bytes[..count]).and_then(|()| spool.flush()) {
-            errors.push(format!("child spool write: {error}"));
+        if !spool_failed {
+            if let Err(error) = spool.write_all(&bytes[..count]).and_then(|()| spool.flush()) {
+                errors.push(format!("child spool write: {error}"));
+                spool_failed = true;
+            }
         }
         if let Some(sink) = forward.as_mut() {
             if let Err(error) = sink.write_all(&bytes[..count]).and_then(|()| sink.flush()) {
@@ -641,6 +645,8 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
         PathBuf::from(directory)
     });
     if let Some(directory) = &evidence_directory {
+        let evidence = options.declarations.actual_build_evidence.as_ref().context("selected evidence path")?;
+        ensure!(!path_entry_exists(&absolute(&root, evidence))?, "capture evidence already exists; choose a fresh owned output");
         fs::create_dir(directory).context("create new protected capture evidence (never overwrite)")?;
     }
     let lock_before = fs::read(root.join("Cargo.lock"))?;
@@ -749,7 +755,7 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
         if let Some(path) = &options.declarations.actual_build_evidence {
             let path = absolute(&root, path);
             let mut file = fs::OpenOptions::new();
-            file.write(true).create(true).truncate(true);
+            file.write(true).create_new(true);
             #[cfg(unix)]
             {
                 use std::os::unix::fs::OpenOptionsExt;
@@ -809,6 +815,7 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
     );
     let mut identity = capture(options, &root, &graph, &packages, &messages)?;
     if options.declarations.capture_actual_build {
+        eprintln!("producer capture: associating actual selected role artifact");
         identity.deployment = Some(deployment_association(
             options, &root, &graph, &messages, &identity,
         )?);
