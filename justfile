@@ -175,7 +175,7 @@ producer-identity-test *args:
     scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p xtask --bin xtask --no-default-features --locked -E 'test(producer_)' "$@"
 
 [group('local')]
-[doc('Capture reviewed runtime, worker and Python deployment targets after producer-profile installation')]
+[doc('Capture reviewed deployment roles and install the actual observed Maturin Cargo realization')]
 [positional-arguments]
 producer-deployment output:
     # Keep the deployment operation and all nested captures under one setup owner.
@@ -184,7 +184,7 @@ producer-deployment output:
 [group('local')]
 [doc('Producer deployment, native runner and assessment admission mechanism controls')]
 producer-deployment-unit:
-    "{{ py }}" -m unittest scripts.tests.test_producer_deployment scripts.tests.test_native_tests scripts.tests.test_validation
+    "{{ py }}" -m unittest scripts.tests.test_producer_cargo scripts.tests.test_producer_deployment scripts.tests.test_python_extension scripts.tests.test_native_tests scripts.tests.test_validation
 
 [group('local')]
 [doc('Generator identity, unchanged-output and physical fixture controls')]

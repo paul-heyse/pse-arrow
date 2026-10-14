@@ -548,8 +548,8 @@ mod tests {
             std::fs::write(out.join("generated.rs"), "pub fn generated_value() -> u32 { 7 }\n").unwrap();
             println!("cargo:rerun-if-changed=build.rs");
         }"#).unwrap();
-        fs::write(package.join("src/lib.rs"), "p39_history_emitter::identity!(include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\")));\n").unwrap();
-        fs::write(package.join("src/bin/worker.rs"), "p39_history_emitter::identity!(include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\")));\nfn main() { assert_eq!(generated_value(), 7); }\n").unwrap();
+        fs::write(package.join("src/lib.rs"), "p39_history_emitter::identity! { include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\")); }\n").unwrap();
+        fs::write(package.join("src/bin/worker.rs"), "p39_history_emitter::identity! { include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\")); }\nfn main() { assert_eq!(generated_value(), 7); }\n").unwrap();
         let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         fs::copy(repository.join("rust-toolchain.toml"), root.join("rust-toolchain.toml")).unwrap();
         cargo_output(&root, &["generate-lockfile".into(), "--offline".into()]).unwrap();

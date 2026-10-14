@@ -111,6 +111,13 @@ External reading copies under `external/` are fetched rather than vendored
 evidence of the resolved API. Tie an API claim to the lockfile and the capability-map
 evidence.
 
+Proposed ADR-0189 permits explicit root `patch.crates-io` source selection for
+transitive guarded owners. Each selection names an exact version and repository-contained
+`vendor/<package>` manifest with the same name/version, and the committed lock contains
+one matching local package without a registry/git source. Aliases, implicit versions,
+replacement tables and configuration-path overrides remain unsupported. Local source
+provenance and exact source-qualified review remain separate obligations.
+
 ### 3.2 Workspace crates and dependency direction
 
 > Decision: [ADR-0175](../../adr/0175-responsibility-local-admission-and-build-roots.md)

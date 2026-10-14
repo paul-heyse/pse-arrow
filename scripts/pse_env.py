@@ -977,6 +977,7 @@ def operation_description(
     return {
         "version": 1,
         "kind": "operation-selection",
+        "selection_status": "provisional: local configuration is unevaluated" if local_pending else "selected intent; execution/admission unobserved",
         "checkout": str(root),
         "interpreter": str(venv(root, env) / "bin/python"),
         "python_package": str(root / "python/pse"),

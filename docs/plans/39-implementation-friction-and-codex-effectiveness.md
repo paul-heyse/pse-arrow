@@ -1,8 +1,8 @@
 ---
 title: Implementation friction and Codex effectiveness
-status: draft
+status: in-progress
 date: 2026-10-14
-adrs: []
+adrs: [ADR-0189]
 review_sources:
   - docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md
   - docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md
@@ -131,3 +131,7 @@ The minimal authoring transfer preserves old Plan 38 bodies/outcomes while marki
 All five documents now describe a standalone target and execution route. Product implementation and acceptance have not begun. Both RC target recommendations were explicitly accepted on 2026-10-14; RC01's technical channel-binding premise remains B1's bounded investigation. Future execution starts with the independently ready foundation/decision slices above, then ends with the complete transferred 38 scope. No plan Outcome claims are filled as though authoring implemented the system.
 
 **Interface-checked:** a fresh independent assembled-plan readback found no consequential blocker; its bounded CLI-start observation lead is incorporated in 39d D3. The complete 39-packet transfer and eleven measurement selectors were checked against their source obligations/declarations. The original bodies of the two inactive Plan 38 owners are unchanged after their new notices, and completed 38a–f documents are untouched. **Tested, documentation only:** metadata validation returned zero errors across 417 native scope items; `just docs` rendered/indexed 439 chapters; scoped offline `lychee --include-fragments` over the five new plans, two transfer owners and two discovery pages returned zero errors (458 links, 19 excluded), against the zero-failure baseline. These establish authored-document publication and consistency, not product implementation, scientific qualification or measured benefit.
+
+## Active selected execution — 2026-10-14
+
+Maintainer-authorized implementation selects all 39b/39c agent-effectiveness scope and supporting production changes. 39a and the full 39d/remaining Plan38 campaign are deferred. Packet state and bounded outcomes remain in their companion owners. C1–C5 are delivered with targeted controls and an explicit decision to retain full mutable-report integrity checks. B1 is settled by the explicit guarded-pure-owner selection; B2–B6 integration/acceptance is progressing. Proposed ADR-0189 and its bounded independent target review record the new channel/source-realization rules. Whole-plan finding closure, scientific acceptance and measurements remain with 39d; this checkpoint does not promote selected implementation to assembled qualification.

@@ -27,6 +27,8 @@ scripts/pse-env --native=solver -- <cmd>   # only the capabilities named
 scripts/pse-env --store -- <command>       # first require a serving canonical server
 scripts/pse-env --docs -- <command>        # provisioned docs-only Python environment
 scripts/pse-env --explain [--native]       # what a command would get, and why
+scripts/pse-env --explain --json --native -- cargo build --profile producer
+                                         # structured selection before effects
 scripts/pse-env --print                    # shell exports (direnv, the Claude hook)
 ```
 
@@ -52,8 +54,25 @@ and the choice survives nested native setup. Assessment gates and case measureme
 single-thread budget their receipts require.
 
 **Secrets.** `--print` never contains a `.envrc.local` value: local keys are rendered as
-deferred reads that source the file at use. `--explain` names where a value came from
-without printing it.
+deferred reads that source the file at use. `--explain` never evaluates local shell
+configuration, imports the extension, prepares a provider or opens admission metadata.
+When `.envrc.local` exists, absent caller selections are marked unresolved; reported
+defaults and tool paths are provisional where that file could affect them. An execution
+owner can supply its already evaluated local mapping to `operation_description`, using
+the same compiler and native-runtime selectors as execution. Only selected nonsecret
+configuration is exposed. Provider reuse remains unknown until actual admission.
+Use `doctor` or `activity` for live readiness/ownership observations. `--json` requires
+`--explain`; build arguments are intent, separate from actual installer-child evidence.
+
+For strict producer preparation, `just producer-deployment <new-output-directory>`
+captures runtime/worker roles and lets Maturin select the Python Cargo child. The private
+single-use observer records actual argv/cwd/SDK/compiler context and seals raw evidence
+before permitting installation. It does not run a sibling Python compilation. Ordinary
+`py-sync` remains ordinary editable installation. Historical inspection uses
+`target/debug/xtask producer-history-verify <role-build-evidence.json.closure>` and reads
+protected dep-info, inputs, graph and artifact association without live Cargo paths.
+Historical success never grants current receiving freshness; final actual artifact/input
+checks still refuse changed earlier roles.
 
 **Exit status** is the command's own (pse-env replaces itself with it). `125` means the
 boundary failed — the line starting `pse-env:` says why and what to run; `126`/`127` mean the
@@ -167,6 +186,11 @@ their separate lifetime owners; cancelling a foreground assessment does not stop
 `just activity` (read-only; `--json`) lists the `pse-*` scopes and services with memory, age
 and command, canonical servers and workers, Cargo processes in this checkout and the slice
 limits. It is not a lock: a bare Cargo lock owner is reported as unknown.
+Use repeated exact `--unit <name.service|name.scope>` options to inspect only selected
+units, with `--json` for selection/completeness fields. Selected mode bypasses the global
+unit listing; a disappeared selected unit is unavailable while healthy independent
+observations remain. Errors include bounded manager stderr and endpoint context.
+Observation never grants drain, signal or cleanup authority.
 
 If an empty owned scope stays active and its user-manager journal reports inotify
 `ENOSPC`, check `fs.inotify.max_user_watches` and `fs.inotify.max_user_instances`.

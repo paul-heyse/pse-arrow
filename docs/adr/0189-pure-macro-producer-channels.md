@@ -6,7 +6,7 @@ date: 2026-10-14
 deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-03, AP-04, AP-07, DP-09, DP-19]
-blueprint: [§5.3, §14.3, §24.2]
+blueprint: [§3.1, §5.3, §14.3, §24.2]
 review: docs/design_review/reviews/design_review_plan39-pure-macro-channels_2026-10-14.md
 evidence: Proposed
 supersedes: []
@@ -24,6 +24,8 @@ Plan39 B1 found that actual Paste arguments can select environment inputs absent
 ## Scope
 
 Amend the macro external-input assurance realization of blueprint §5.3/§14.3. Preserve scientific code identity, actual unit/feature/helper closure, receipt interpretation and current deployment freshness. This does not change the Python public API or numerical grammar. ADR status remains proposed pending the decision-PR route.
+
+For these transitive library owners, explicit root `patch.crates-io` path selection is necessary. Amend the old blanket patch prohibition in blueprint §3.1: permit exact-version repository-contained vendor sources only when the committed lock records one matching local package/version, without a registry/git source. Retain the ban on replacement tables, configuration-path overrides, aliases and unreviewed source substitution. A workspace dependency declaration alone cannot select a transitive crate's implementation; copying all intervening consumers would add unnecessary maintained forks.
 
 ## Drivers
 

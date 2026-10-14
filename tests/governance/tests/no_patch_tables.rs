@@ -8,9 +8,9 @@
     reason = "a governance test reports by panicking with the offending path; the workspace panic policy governs library code"
 )]
 
-//! No `[patch]`/`[replace]` in the root manifest; Cargo uses mold only for `x86_64` Linux.
+//! Exact root-local vendor source pins; Cargo uses mold only for `x86_64` Linux.
 //!
-//! A `[patch]` table makes the committed `Cargo.lock` a lie about what was built, and a
+//! Root source overrides must agree with the unique selected lock entry (ADR-0189). A
 //! `target-cpu` makes a developer machine and CI produce different floating-point
 //! results: `-C target-cpu=native` lets LLVM contract `a*b + c` into one
 //! FMA, so a parity tolerance can pass in one place and fail in the other (blueprint §3.1,
@@ -44,14 +44,30 @@ fn walk(value: &Value, keys: &mut BTreeSet<String>, strings: &mut Vec<String>) {
 }
 
 #[test]
-fn root_manifest_has_no_patch_or_replace() {
+fn root_manifest_has_exact_selected_local_sources_and_no_replace() {
     let manifest = common::root_manifest();
-    for table in ["patch", "replace"] {
-        assert!(
-            manifest.get(table).is_none(),
-            "Cargo.toml declares [{table}]; the committed Cargo.lock would stop describing \
-             what CI builds (blueprint §3.1). Pin the dependency instead, by ADR."
-        );
+    assert!(manifest.get("replace").is_none(), "replacement tables are unsupported");
+    let Some(patches) = manifest.get("patch").and_then(Value::as_table) else { return; };
+    assert_eq!(patches.len(), 1, "only explicit crates-io source pins are supported");
+    let sources = patches.get("crates-io").and_then(Value::as_table).expect("root patch.crates-io table");
+    let root = common::workspace_root().canonicalize().unwrap();
+    let lock = common::parse_toml(&root.join("Cargo.lock"));
+    let packages = lock["package"].as_array().unwrap();
+    for (name, source) in sources {
+        let source = source.as_table().expect("source pin is a table");
+        assert_eq!(source.keys().map(String::as_str).collect::<BTreeSet<_>>(), BTreeSet::from(["path", "version"]), "aliases, git and implicit version selection are unsupported");
+        let path = source["path"].as_str().unwrap();
+        assert_eq!(path, format!("vendor/{name}"), "source pins have one repository-local owner");
+        let owner = root.join(path).canonicalize().unwrap();
+        assert!(owner.starts_with(root.join("vendor")), "vendor source escapes the checkout's vendor owner");
+        let vendor = common::parse_toml(&owner.join("Cargo.toml"));
+        assert_eq!(vendor["package"]["name"].as_str(), Some(name.as_str()));
+        let version = vendor["package"]["version"].as_str().unwrap();
+        assert_eq!(source["version"].as_str(), Some(format!("={version}").as_str()));
+        let selected: Vec<_> = packages.iter().filter(|package| package["name"].as_str() == Some(name.as_str())).collect();
+        assert_eq!(selected.len(), 1, "source pin must select one actual package/version");
+        assert_eq!(selected[0]["version"].as_str(), Some(version));
+        assert!(selected[0].get("source").is_none() && selected[0].get("checksum").is_none(), "lock must record the actual local source, not a registry/git substitute");
     }
 }
 

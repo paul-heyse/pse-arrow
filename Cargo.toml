@@ -451,7 +451,8 @@ inherits = "release"
 lto = "fat"
 codegen-units = 1
 
-# No [patch] / [replace] tables, ever (tests/governance/no_patch_tables.rs).
+# Exact repository-local source overrides are checked against vendor manifests
+# and the unique selected lock entry (ADR-0189). No [replace] or config overrides.
 
 [workspace.metadata.pse]
 blueprint = "docs/authoritative_design/blueprint.md"
