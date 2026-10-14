@@ -85,6 +85,17 @@ enum Cmd {
         output: PathBuf,
     },
     ProducerIdentity(Box<ProducerIdentityArgs>),
+    /// Refresh the finite strict preparation family union before any role capture.
+    ProducerPreparationBegin {
+        #[arg(long)]
+        selection: PathBuf,
+        #[arg(long)]
+        directory: PathBuf,
+        #[arg(long)]
+        owner_pid: u32,
+        #[arg(long)]
+        owner_start: String,
+    },
     /// Verify protected historical role evidence; grants no current admission.
     ProducerHistoryVerify {
         directory: PathBuf,
@@ -199,6 +210,8 @@ struct ProducerIdentityArgs {
     #[arg(long)]
     refresh_executors: bool,
     #[arg(long)]
+    preparation: Option<PathBuf>,
+    #[arg(long)]
     output: PathBuf,
 }
 
@@ -270,6 +283,10 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string(&result)?);
             Ok(())
         }
+        Cmd::ProducerPreparationBegin { selection, directory, owner_pid, owner_start } => {
+            let selections = serde_json::from_slice(&std::fs::read(selection)?)?;
+            producer_identity::begin_preparation(&root, &directory, selections, owner_pid, &owner_start)
+        }
         Cmd::ProducerIdentity(args) => {
             let ProducerIdentityArgs {
                 package,
@@ -288,6 +305,7 @@ fn main() -> Result<()> {
                 build_evidence,
                 observed_cargo_arguments,
                 refresh_executors,
+                preparation,
                 output,
             } = *args;
             let declared_environment = environment
@@ -308,6 +326,7 @@ fn main() -> Result<()> {
                 declarations.actual_build_evidence = Some(path);
             }
             declarations.refresh_executors |= refresh_executors;
+            declarations.preparation = preparation;
             let options = producer_identity::ProducerOptions {
                 workspace_root: root,
                 package,

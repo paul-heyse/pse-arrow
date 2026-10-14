@@ -10,6 +10,7 @@ attestation consumed by qualification; receipt metadata is not that observation.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -20,7 +21,7 @@ import sys
 import tempfile
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING, BinaryIO, TypeAlias
 
 from scripts import producer_cargo, python_extension
 from scripts.producer_cargo import EFFECTIVE_ENVIRONMENT as DECLARED_ENVIRONMENT
@@ -515,6 +516,56 @@ def require_capture_success(name: str, returncode: int) -> None:
         )
 
 
+def begin_preparation(
+    root: Path, output: Path, environment: Mapping[str, str],
+    inputs: dict[str, tuple[Path, list[Path]]],
+) -> BinaryIO:
+    """Own one target-local strict operation; this does not exclude bare Cargo."""
+    directory = output / "preparation"
+    directory.mkdir(mode=0o700)
+    (root / "target").mkdir(exist_ok=True)
+    descriptor = os.open(root / "target/.producer-preparation.lock",
+        os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    guard = os.fdopen(descriptor, "r+b")
+    try:
+        fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        owner_pid = os.getpid()
+        owner_start = Path(f"/proc/{owner_pid}/stat").read_text().rsplit(") ", 1)[1].split()[19]
+        guard.seek(0)
+        guard.truncate()
+        guard.write(json.dumps({"directory": str(directory), "owner_pid": owner_pid,
+            "owner_start": owner_start}).encode())
+        guard.flush()
+        os.fsync(guard.fileno())
+        selections = []
+        for role, package, _, _, target_args in ROLES:
+            declaration, files = inputs[role]
+            target: str | dict[str, str] = "Library"
+            if role == "worker":
+                target = {"Binary": target_args[1]}
+            elif role == "python":
+                target = {"Cdylib": target_args[1]}
+            selections.append({"workspace_root": str(root), "package": package,
+                "profile": "producer", "target": None, "production_target": target,
+                "features": ["native-solvers", "force-validate" if role == "python" else "pse-relations/force-validate"],
+                "no_default_features": False, "dep_info": [], "declared_inputs": [],
+                "native_inputs": [str(path) for path in files], "declared_environment": {},
+                "declarations": read_object(declaration)})
+        selection = directory / "selection.json"
+        producer_cargo.write_new(selection, selections)
+        with (directory / "preparation.log").open("xb") as log:
+            result = subprocess.run([str(root / "target/debug/xtask"),
+                "producer-preparation-begin", "--selection", str(selection),
+                "--directory", str(directory), "--owner-pid", str(owner_pid),
+                "--owner-start", owner_start], cwd=root, env=dict(environment),
+                stdout=log, stderr=subprocess.STDOUT, check=False)
+        require_capture_success("preparation", result.returncode)
+        return guard
+    except BaseException:
+        guard.close()
+        raise
+
+
 def capture(
     root: Path, output: Path, environment: Mapping[str, str] | None = None
 ) -> dict[str, str]:
@@ -523,11 +574,22 @@ def capture(
     env = dict(os.environ if environment is None else environment)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.mkdir(mode=0o700)  # Never overwrite successful or failed capture evidence.
+    guard: BinaryIO | None = None
     try:
-        inputs = reviewed_inputs(root, env)
+        # Validate required operator selections before any effect; no source or
+        # native digest baseline is taken until dependency setup has completed.
+        reviewed_inputs(root, env)
         producer_cargo.cargo_executable(
             env
         )  # Refuse unsupported installer selection before role builds.
+        # Dependency installation is an effect before the shared source/native
+        # baseline; it must not invalidate an already captured Rust role.
+        with (output / "dependency-setup.log").open("xb") as log:
+            result = subprocess.run(["uv", "sync", "--locked", "--no-install-project"],
+                cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+        require_capture_success("dependency setup", result.returncode)
+        inputs = reviewed_inputs(root, env)
+        guard = begin_preparation(root, output, env, inputs)
         for role in ROLES:
             name, package, _, _, target_args = role
             role_env = dict(env)
@@ -557,6 +619,8 @@ def capture(
                 str(output / f"{name}-build-evidence.json"),
                 "--output",
                 str(output / f"{name}.json"),
+                "--preparation",
+                str(output / "preparation"),
                 *target_args,
             ]
             for path in files:
@@ -572,15 +636,6 @@ def capture(
                         root, output, command[2:], role_env
                     )
                     installer_env["VIRTUAL_ENV"] = str(root / ".venv")
-                    result = subprocess.run(
-                        ["uv", "sync", "--locked", "--no-install-project"],
-                        cwd=root,
-                        env=role_env,
-                        stdout=log,
-                        stderr=subprocess.STDOUT,
-                        check=False,
-                    )
-                    require_capture_success(name, result.returncode)
                     result = subprocess.run(
                         python_extension.develop_command(root, "native", "producer"),
                         cwd=root,
@@ -633,6 +688,7 @@ def capture(
             env=env,
             check=True,
         )
+        producer_cargo.write_new(output / "preparation/COMPLETE", {"terminal": "complete"})
     except (
         OSError,
         ValueError,
@@ -643,7 +699,16 @@ def capture(
         (output / "deployment-error.log").write_text(
             f"{type(error).__name__}: {error}\n"
         )
+        if guard is not None and not (output / "preparation/FAILED").exists():
+            producer_cargo.write_new(output / "preparation/FAILED", {"terminal": "failed"})
         raise
+    finally:
+        if guard is not None:
+            # Interrupted ownership is terminal as well; it cannot be resumed by
+            # presenting a leftover completed-role marker.
+            if not (output / "preparation/COMPLETE").exists() and not (output / "preparation/FAILED").exists():
+                producer_cargo.write_new(output / "preparation/FAILED", {"terminal": "interrupted"})
+            guard.close()
     return deployment_environment(root, output)
 
 

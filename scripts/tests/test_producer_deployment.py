@@ -105,6 +105,15 @@ class ProducerDeploymentTests(unittest.TestCase):
                 )
             if command[:2] == ["uv", "sync"]:
                 return subprocess.CompletedProcess(command, 0)
+            if "producer-preparation-begin" in command:
+                selection = json.loads(
+                    Path(command[command.index("--selection") + 1]).read_text()
+                )
+                self.assertEqual([item["package"] for item in selection],
+                    [role[1] for role in deployment.ROLES])
+                self.assertEqual(Path(command[command.index("--directory") + 1]).name,
+                    "preparation")
+                return subprocess.CompletedProcess(command, 0)
             if Path(command[0]).name == "maturin":
                 selected = deployment.read_object(
                     Path(env[deployment.producer_cargo.CAPTURE])
@@ -267,6 +276,8 @@ class ProducerDeploymentTests(unittest.TestCase):
                 else "native-solvers,pse-relations/force-validate",
             )
             self.assertNotIn("--refresh-executors", command)
+            self.assertEqual(command[command.index("--preparation") + 1],
+                str(self.output / "preparation"))
             self.assertNotIn("--outer-source", command)
             self.assertNotIn("--outer-build", command)
             if name == "python":
@@ -489,7 +500,7 @@ class ProducerDeploymentTests(unittest.TestCase):
                 for call in run.call_args_list
                 if "producer-history-verify" not in call.args[0]
             ],
-            ["just", "just", "uv", "maturin"],
+            ["uv", "xtask", "just", "just", "maturin"],
         )
         self.assertTrue((self.output / "deployment-error.log").is_file())
 
@@ -701,9 +712,12 @@ class ProducerDeploymentTests(unittest.TestCase):
             )
 
     def test_failed_actual_capture_stops_and_keeps_command_log(self) -> None:
+        actual = self.actual_capture()
         def failed(
-            _command: list[str], **kwargs: object
+            command: list[str], **kwargs: object
         ) -> subprocess.CompletedProcess[bytes]:
+            if command[:2] != ["just", "producer-identity"]:
+                return actual(command, **kwargs)
             log = kwargs["stdout"]
             if not hasattr(log, "write"):
                 self.fail("capture must preserve the diagnostic stream")
@@ -715,8 +729,9 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "actual producer capture failed"),
         ):
             deployment.capture(self.root, self.output, self.environment)
-        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_count, 3)
         self.assertIn("source changed", (self.output / "runtime.log").read_text())
+        self.assertTrue((self.output / "preparation/FAILED").is_file())
 
     def test_actual_elf_installation_accepts_only_reviewed_rpath_replay(self) -> None:
         installed = self.root / "python/pse/_native.so"

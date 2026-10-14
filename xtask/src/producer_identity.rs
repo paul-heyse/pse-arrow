@@ -13,6 +13,9 @@ use std::process::Command;
 #[path = "producer_history.rs"]
 mod history;
 pub(crate) use history::verify_historical_evidence;
+#[path = "producer_preparation.rs"]
+mod preparation;
+pub(crate) use preparation::begin as begin_preparation;
 
 use anyhow::{Context, Result, ensure};
 use pse_ids::{EncodingHasher, Frame, FramedHasher};
@@ -169,6 +172,9 @@ pub(crate) struct InputDeclarations {
     /// a newly reviewed arbitrary-I/O branch merely by being CargoFresh.
     #[serde(default)]
     pub(crate) refresh_executors: bool,
+    /// Private finite preparation owner; never a persistent freshness grant.
+    #[serde(default)]
+    pub(crate) preparation: Option<PathBuf>,
     /// Optional private audit output for actual selected Cargo messages/commands.
     /// This records effects; it never grants completeness or enters the key.
     #[serde(default)]
@@ -210,7 +216,7 @@ pub(crate) struct InputDeclarations {
     pub(crate) native_abi: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct ProducerOptions {
     pub(crate) workspace_root: PathBuf,
     pub(crate) package: String,
@@ -227,7 +233,7 @@ pub(crate) struct ProducerOptions {
 }
 
 /// One production root, independently of the target architecture triple.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) enum ProducerTarget {
     Library,
     Binary(String),
@@ -842,6 +848,7 @@ fn run_selected(
     options: &ProducerOptions,
     observed_arguments: Option<&[String]>,
 ) -> Result<ProducerIdentity> {
+    let _standalone = preparation::standalone_guard(options)?;
     ensure!(
         options.declarations.actual_build_evidence.is_none()
             || options.declarations.capture_actual_build,
@@ -928,8 +935,9 @@ fn run_selected(
     }
     let options = expand_reviews(options, &root, &graph, &packages)?;
     let options = &options;
+    let mut prepared = preparation::Capture::enter(options, &root, &graph, &packages)?;
     let mut refresh_diagnostics = None;
-    let refreshed_executors = if options.declarations.refresh_executors {
+    let refreshed_executors = if options.declarations.refresh_executors && prepared.is_none() {
         ensure!(
             options.declarations.capture_actual_build,
             "executor refresh requires an actual selected production build"
@@ -1072,6 +1080,9 @@ fn run_selected(
         "selected Cargo inputs changed during producer capture; capture again from one deployment baseline"
     );
     let mut identity = capture(options, &root, &graph, &packages, &messages)?;
+    if let Some(prepared) = &mut prepared {
+        prepared.validate(options, &root, &graph, &packages, &messages, &identity)?;
+    }
     if options.declarations.capture_actual_build {
         eprintln!("producer capture: associating actual selected role artifact");
         identity.deployment = Some(deployment_association(
@@ -1151,6 +1162,9 @@ fn run_selected(
     if let Some(directory) = &evidence_directory {
         eprintln!("producer capture: sealing consistent historical evidence");
         history::seal(directory)?;
+    }
+    if let Some(prepared) = &mut prepared {
+        prepared.commit()?;
     }
     Ok(identity)
 }
