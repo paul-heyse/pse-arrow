@@ -6494,6 +6494,7 @@ name = "pse-runtime"
 version = "0.0.1"
 dependencies = [
  "argmin",
+ "async-trait",
  "bytes",
  "chrono",
  "datafusion",
