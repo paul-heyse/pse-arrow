@@ -523,6 +523,63 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn producer_historical_actual_worker_survives_second_role_executor_refresh() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("workspace");
+        let package = root.join("model");
+        let captures = directory.path().join("captures");
+        fs::create_dir_all(package.join("src/bin")).unwrap();
+        fs::create_dir(&captures).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers=['model']\nresolver='3'\n").unwrap();
+        fs::write(package.join("Cargo.toml"), "[package]\nname='p39-history-fixture'\nversion='0.1.0'\nedition='2024'\n[lib]\ncrate-type=['cdylib']\n[features]\npython-context=[]\n").unwrap();
+        fs::write(package.join("build.rs"), r#"fn main() {
+            let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+            std::fs::write(out.join("generated.rs"), "pub fn generated_value() -> u32 { 7 }\n").unwrap();
+            println!("cargo:rerun-if-changed=build.rs");
+        }"#).unwrap();
+        fs::write(package.join("src/lib.rs"), "include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\"));\n").unwrap();
+        fs::write(package.join("src/bin/worker.rs"), "include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\"));\nfn main() { assert_eq!(generated_value(), 7); }\n").unwrap();
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        fs::copy(repository.join("rust-toolchain.toml"), root.join("rust-toolchain.toml")).unwrap();
+        cargo_output(&root, &["generate-lockfile".into(), "--offline".into()]).unwrap();
+        let worker_evidence = captures.join("worker.json");
+        let options = ProducerOptions {
+            workspace_root: root.clone(), package: "p39-history-fixture".into(), profile: "dev".into(), target: None,
+            production_target: ProducerTarget::Binary("worker".into()), features: Vec::new(), no_default_features: false,
+            dep_info: Vec::new(), declared_inputs: Vec::new(), native_inputs: Vec::new(), declared_environment: BTreeMap::new(),
+            declarations: InputDeclarations { capture_actual_build: true, actual_build_evidence: Some(worker_evidence.clone()), ..Default::default() },
+        };
+        let worker = run(&options).unwrap();
+        // This is a real historical capture, deliberately not an arbitrary-I/O
+        // qualification of the fixture build script, host compiler or native ABI.
+        assert!(!worker.persistent_reuse_eligible);
+        let evidence = captures.join("worker.json.closure");
+        let worker_index: Index = serde_json::from_slice(&fs::read(evidence.join("index.json")).unwrap()).unwrap();
+        let dep_info: Vec<_> = worker_index.associations.values().flatten().cloned().collect();
+        let generated: Vec<_> = worker_index.members.keys().filter(|path| path.file_name().is_some_and(|name| name == "generated.rs")).cloned().collect();
+        assert!(!dep_info.is_empty());
+        assert!(!generated.is_empty());
+        assert!(generated.iter().all(|path| !path.starts_with(&package)));
+        let mut second = options.clone();
+        second.production_target = ProducerTarget::Cdylib(package.join("Cargo.toml"));
+        second.features = vec!["python-context".into()];
+        second.declarations.refresh_executors = true;
+        second.declarations.actual_build_evidence = Some(captures.join("python-like.json"));
+        run(&second).unwrap();
+        assert!(dep_info.iter().any(|path| !path.exists()), "actual executor refresh must remove first role dep-info");
+        assert!(generated.iter().any(|path| !path.exists()), "second role context must replace first role generated inputs");
+        assert!(worker.deployment.as_ref().unwrap().built_artifact.verify().is_err());
+        assert_eq!(verify_historical_evidence(&evidence).unwrap()["historical_only"], true);
+        fs::remove_file(&worker_evidence).unwrap();
+        fs::remove_dir_all(&root).unwrap();
+        verify_historical_evidence(&evidence).unwrap();
+        let context_member = &worker_index.members[&worker_evidence].protected;
+        fs::write(evidence.join(context_member), b"substituted installer/compiler context").unwrap();
+        assert!(verify_historical_evidence(&evidence).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn producer_historical_evidence_reconstructs_cross_root_aliases_and_dangling_presence() {
         let directory = tempfile::tempdir().unwrap();
         let (_, evidence) = fixture(directory.path());
