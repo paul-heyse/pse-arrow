@@ -1083,6 +1083,13 @@ only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
+> Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
+
+`EngineSettings` no longer accepts or exposes `hashing_may_use_pool`. Identical resolved
+consumed settings acquire the same process Runtime; differing real resource or execution
+settings still refuse. The removed flag previously caused acquisition refusal when its value
+differed; it never selected an isolated Runtime or hashing implementation.
+
 > Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; Plan38e target): existing Python tables/streams/export/live consumers migrate to sealed payloads and strong snapshots; Rust snapshot providers preserve the existing DataFusion SQL/functions/resource context. No new Python query product is selected.
 
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
@@ -1269,12 +1276,15 @@ relation-local intrinsic/request-local delivery semantics ([§19.2](#section-19-
 Scientific and metadata tables cross as one-consumption `TableStream` objects exposing
 `__arrow_c_stream__`, never as parallel row objects or materialized on both sides. The capsule
 protocol, not `pyarrow`, is the contract
-([ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md)). Active readers renew finite
-protection for subsequent database reads. Fully decoded copied arrays retain their accounted
-allocation owners after reader or parent-wrapper drop. `close` releases unread work while
-live arrays remain valid; `cancel` makes further consumption fail with a cancellation
-diagnostic. An expired selection refuses further protected reads. Requested-schema casts
-are refused.
+([ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md)). Result readers hold their exact
+strong snapshot ticket for future chunks. Dispatched metadata and file-open responses retain
+that original ticket and their own prepaid decode allowance through native transport drain,
+even after cancellation discards the caller. Source/creation selections retain their separate
+finite-clock rules. Fully decoded copied arrays retain accounted allocation owners after reader
+or parent-wrapper drop. `close` releases unread work while live arrays remain valid; `cancel`
+makes further consumption fail with a cancellation diagnostic. Python signal handling cancels
+without taking the producer lock and joins the exact native pull before returning the original
+exception; that join alone is not late SDK-response drain. Requested-schema casts are refused.
 `TableStream.extension_report` compares a consumer's schema field by field as retained,
 storage-only, metadata-lost or mismatched (`python/pse/_transfer.py`); capsule export
 does not prove the consumer registered the extension types.

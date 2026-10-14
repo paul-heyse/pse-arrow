@@ -1510,6 +1510,12 @@ step only when the steps are declared independent.
 
 ### 18.8 Threading, cancellation and resource ownership
 
+> Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
+
+Process resource compatibility includes every remaining consumed budget setting. No unused
+hashing permission distinguishes otherwise equal budgets. This changes no admitted native
+team, CPU, memory or cancellation contract and creates no alternate runtime-isolation policy.
+
 > Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; scoped Plan38c implementation).
 
 Bounded service-owned native lanes retain explicit profile affinity, resident memory/stacks

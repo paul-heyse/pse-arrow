@@ -549,6 +549,12 @@ own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
+
+Deployment configuration retains only consumed resource and execution settings. Removing the
+unconsumed hashing permission does not alter hash algorithms, framing or bytes; hashing remains
+owned by `pse-ids`. All actual pool, spill, execution, cache and math limits remain explicit.
+
 > Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A3–P-A6).
 
 > Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
