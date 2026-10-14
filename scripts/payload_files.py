@@ -60,7 +60,7 @@ def checked_file(path: Path) -> tuple[str, int]:
         after = os.fstat(stream.fileno())
         def identity(value: os.stat_result) -> tuple[int, ...]:
             return (value.st_dev, value.st_ino, value.st_mode, value.st_uid, value.st_nlink, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
-        if identity(before) != identity(after) or identity(path.stat()) != identity(after):
+        if identity(before) != identity(after) or identity(path.lstat()) != identity(after):
             raise PayloadError("Payload file changed during inventory")
         return digest.hexdigest(), before.st_size
 

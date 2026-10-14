@@ -4099,6 +4099,12 @@ class SurrealSupervisorTests(unittest.TestCase):
         def copy(
             arguments: list[str], **options: object
         ) -> subprocess.CompletedProcess[str]:
+            if arguments[1] == "--verify-payload-inventory":
+                entries = [json.loads(line) for line in Path(arguments[2]).read_text().splitlines()]
+                for entry in entries:
+                    self.assertEqual(set(entry), {"instance", "digest", "bytes", "encoding", "batch_count", "schema", "interpretation", "path"})
+                    self.assertEqual(Path(entry["path"]).stat().st_size, int(entry["bytes"]))
+                return subprocess.CompletedProcess(arguments, 0, json.dumps({"verified_payload_files": len(entries)}), "")
             self.assertIn(arguments[1], {"export", "import"})
             calls.append((arguments[6], arguments[8], arguments[1]))
             if arguments[1] == "export":

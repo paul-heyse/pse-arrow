@@ -5428,6 +5428,35 @@ def payload_pages(state: Path, config: dict[str, object], table: str) -> Generat
         yield rows
 
 
+def managed_file_owner_drained(owner: dict[str, object]) -> bool:
+    """A managed leader's death does not release its still-populated exact cgroup."""
+    invocation = owner.get("invocation")
+    if invocation is None:
+        return True
+    if not isinstance(invocation, str) or not invocation:
+        raise SupervisorError("File owner has an invalid managed invocation")
+    if owner.get("boot") != Path("/proc/sys/kernel/random/boot_id").read_text().strip():
+        return True
+    scope = object_mapping(owner.get("managed_scope", {}))
+    unit, group, inode = scope.get("unit"), scope.get("group"), scope.get("inode")
+    if not isinstance(unit, str) or not unit.endswith((".scope", ".service")) or "/" in unit or not isinstance(group, str) or Path(group).name != unit:
+        raise SupervisorError("Invocation-bound file owner lacks exact managed scope identity")
+    if isinstance(inode, str) and inode.isascii() and inode.isdecimal():
+        inode = int(inode)
+    if type(inode) is not int or inode <= 0 or scope.get("invocation") != invocation:
+        raise SupervisorError("File owner managed scope identity is incomplete")
+    observed = host_admission.group_identity(group)
+    if observed is None or observed != inode:
+        # Linux cannot remove a cgroup with live members. A replacement inode is
+        # a different lifetime, not a target this owner may stop or adopt.
+        return True
+    observation = systemctl("show", "--property=ControlGroup", "--property=InvocationID", unit, check=False)
+    fields = dict(line.split("=", 1) for line in observation.stdout.splitlines() if "=" in line)
+    if observation.returncode or fields != {"ControlGroup": group, "InvocationID": invocation}:
+        raise SupervisorError("File owner managed invocation cannot be authenticated")
+    return not group_populated(group)
+
+
 def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, object]]:
     """Close admission/GC, authenticate every owner, then capture bounded catalog pages."""
     if service_directory(state) != state:
@@ -5456,16 +5485,18 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
         selected = config_for(context)
         for rows in payload_pages(state, selected, "canonical_file_owners"):
             for row in rows:
-                if row.get("storage_incarnation") != selected["payload_incarnation"]:
-                    raise SupervisorError("File owner belongs to another storage incarnation")
                 if row.get("drained") is True:
                     continue
+                if row.get("storage_incarnation") != selected["payload_incarnation"]:
+                    raise SupervisorError("File owner belongs to another storage incarnation")
                 try:
                     dead = payload_files.owner_dead(row)
                 except (payload_files.PayloadError, OSError) as error:
                     raise SupervisorError("File owner drain is unobservable; admission remains closed") from error
                 if not dead:
                     raise SupervisorError("A live independent file owner still borrows this store")
+                if not managed_file_owner_drained(row):
+                    raise SupervisorError("File owner managed descendants still borrow this store")
                 expected = {key: value for key, value in row.items() if key != "id"}
                 if payload_query(state, selected,
                     f"RETURN fn::pse_files_v1::drain_owner({payload_expiry()},{json.dumps(expected)});") is not True:

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import unittest
 import uuid
 from pathlib import Path
@@ -207,6 +208,36 @@ class PayloadLifecycleTests(unittest.TestCase):
             self.backup(self.root / "backup")
         self.assertFalse(self.owner["drained"])
         self.assertNotIn("stop", self.events)
+
+    def test_dead_managed_leader_with_live_descendants_refuses_backup(self) -> None:
+        self.owner.update(start="0", invocation="managed-invocation", managed_scope={
+            "unit": "pse-owned.scope", "group": "/pse-owned.scope", "inode": "99", "invocation": "managed-invocation",
+        })
+        with (
+            patch.object(server.host_admission, "group_identity", return_value=99),
+            patch.object(server, "systemctl", return_value=subprocess.CompletedProcess([], 0, "ControlGroup=/pse-owned.scope\nInvocationID=managed-invocation\n", "")),
+            patch.object(server, "group_populated", return_value=True),
+            self.assertRaisesRegex(server.SupervisorError, "descendants"),
+        ):
+            self.backup(self.root / "backup")
+        self.assertFalse(self.owner["drained"])
+        self.assertNotIn("stop", self.events)
+
+    def test_managed_scope_absence_is_refused_and_exact_removed_group_is_drained(self) -> None:
+        self.owner.update(start="0", invocation="managed-invocation")
+        with self.assertRaisesRegex(server.SupervisorError, "scope identity"):
+            self.backup(self.root / "backup")
+        self.owner["managed_scope"] = {"unit": "pse-owned.scope", "group": "/pse-owned.scope", "inode": "99", "invocation": "managed-invocation"}
+        self.verifier()
+        with patch.object(server.host_admission, "group_identity", return_value=None):
+            self.backup(self.root / "backup")
+        self.assertTrue(self.owner["drained"])
+
+    def test_drained_owner_from_prior_incarnation_remains_historical_after_restore(self) -> None:
+        self.owner.update(drained=True, storage_incarnation=str(uuid.uuid4()))
+        self.verifier()
+        self.backup(self.root / "backup")
+        self.assertTrue((self.root / "backup/backup.json").is_file())
 
     def test_replaced_pid_is_death_but_exact_live_pid_is_not(self) -> None:
         self.assertFalse(payload_files.owner_dead(self.owner))
