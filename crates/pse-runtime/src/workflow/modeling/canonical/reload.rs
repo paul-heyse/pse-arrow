@@ -59,6 +59,10 @@ impl LoaderOrigins {
                 .cloned()
                 .ok_or_else(|| contract(format!("loader origin member absent: {logical}")))
         };
+        let mut encoded_by_package: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        for document in encoded {
+            encoded_by_package.entry(document.package()).or_default().push(document);
+        }
         let mut packages = Vec::with_capacity(bundles.len());
         for bundle in bundles {
             let mut documents = Vec::new();
@@ -87,10 +91,7 @@ impl LoaderOrigins {
                     fits,
                 });
             }
-            for document in encoded
-                .iter()
-                .filter(|document| document.package() == bundle.package.package_id.as_id())
-            {
+            for document in encoded_by_package.get(&bundle.package.package_id.as_id()).into_iter().flatten() {
                 documents.push(DocumentOrigin {
                     document: document.id(),
                     path: document.path().into(),
@@ -404,10 +405,16 @@ fn make_edit(
             documents.insert(row.document_id, row);
         }
     }
-    let data = parsed
-        .encoded_data()
-        .iter()
-        .map(|document| (document.id(), document.content_hash()))
+    let mut encoded_by_id = BTreeMap::new();
+    let mut encoded_by_package: BTreeMap<_, Vec<_>> = BTreeMap::new();
+    for document in parsed.encoded_data() {
+        if encoded_by_id.insert(document.id(), document).is_some() {
+            return Err(contract("parsed reload repeats an encoded document identity"));
+        }
+        encoded_by_package.entry(document.package()).or_default().push(document.id());
+    }
+    let data = encoded_by_id.iter()
+        .map(|(id, document)| (*id, document.content_hash()))
         .collect::<BTreeMap<_, _>>();
     // The captured data intents have no decoded Document wrapper, but retain the
     // same package dependency visibility as independent fresh ingress.
@@ -418,13 +425,9 @@ fn make_edit(
                 .iter()
                 .any(|document| visible.contains(&document.id))
             {
-                visible.extend(
-                    parsed
-                        .encoded_data()
-                        .iter()
-                        .filter(|document| document.package() == bundle.package.package_id.as_id())
-                        .map(EncodedReloadDocument::id),
-                );
+                if let Some(documents) = encoded_by_package.get(&bundle.package.package_id.as_id()) {
+                    visible.extend(documents.iter().copied());
+                }
             }
         }
     }
@@ -469,10 +472,7 @@ fn make_edit(
         }
         let mut intent = row.clone();
         if changed_data
-            && let Some(encoded) = parsed
-                .encoded_data()
-                .iter()
-                .find(|document| document.id() == *id)
+            && let Some(encoded) = encoded_by_id.get(id)
         {
             intent.content = Some(encoded.bytes().to_vec().into());
         }

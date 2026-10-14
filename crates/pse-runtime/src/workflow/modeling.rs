@@ -132,6 +132,8 @@ fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
 /// Immutable source revision sharing one deployment-owned compiler workspace.
 #[derive(Clone, Debug)]
 pub struct ModelingPackage {
+    /// Escaped positional replay metadata retains its receiving allocation owner.
+    pub(in crate::workflow) replay_owner: Option<Arc<pse_columnar::AllocationLease>>,
     pub(in crate::workflow) held_preparation: Option<Arc<engagement::HeldPreparationScope>>,
     pub(in crate::workflow) runtime: Runtime,
     pub(in crate::workflow) revision: canonical::SourceRevision,
@@ -246,6 +248,7 @@ impl Runtime {
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
+            replay_owner: None,
             held_preparation: None,
             runtime: self.clone(),
             revision: admitted.revision.clone(),
@@ -550,6 +553,7 @@ impl Runtime {
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
+            replay_owner: None,
             held_preparation: None,
             runtime: self.clone(),
             revision,

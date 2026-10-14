@@ -17,6 +17,7 @@ use std::{
 };
 mod delta;
 mod local;
+mod rebind;
 pub(crate) use local::{AdmittedModelRevision, LocalSourcePremises};
 use local::{LocalInventory, LocalSourceObject, SourceMember};
 pub(crate) mod reload;
@@ -2225,21 +2226,27 @@ impl ModelingPackage {
                 .collect(),
         })
     }
-    /// Reconstruct through production local admission while retaining actual callable premises.
+    /// Bind retained immutable inputs to an admitted receiver without a transport crossing.
     pub(in crate::workflow) fn reconstruct_replay_source(
         &self,
         runtime: &Runtime,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let bytes = self.replay_source_extent();
-        let _scratch = runtime
-            .shared
-            .math()
-            .reserve("replay:retained-source-reconstruction", bytes)?;
-        self.replay_source()?.reconstruct(
-            runtime,
-            self.physical.clone(),
-            self.providers.as_ref().clone(),
+        rebind::rebind(self, runtime)
+    }
+    /// Candidate only; all owners stay borrowed and exact premises are checked after lookup.
+    pub(in crate::workflow) fn replay_source_owner_key(&self) -> (usize, usize, usize, usize) {
+        (
+            Arc::as_ptr(&self.revision.admitted) as usize,
+            Arc::as_ptr(&self.physical.quantities) as usize,
+            Arc::as_ptr(&self.physical.preconditions) as usize,
+            Arc::as_ptr(&self.providers) as usize,
         )
+    }
+    /// Exact retained premises for operation-local coalescing, never a durable identity.
+    pub(in crate::workflow) fn same_replay_source(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.revision.admitted, &other.revision.admitted)
+            && self.physical.same_sources(&other.physical)
+            && Arc::ptr_eq(&self.providers, &other.providers)
     }
 }
 impl Runtime {
@@ -2307,6 +2314,7 @@ impl Runtime {
             })?;
         let bytes = crate::workflow::replay::source_reconstruction_extent(document)?
             .checked_add(actual_bytes)
+            .and_then(|bytes| bytes.checked_add(document.objects.len().checked_mul(256)?))
             .filter(|bytes| *bytes <= 256 * 1024 * 1024)
             .ok_or_else(|| {
                 contract("complete replay premises exceed finite reconstruction allocation")
@@ -2334,10 +2342,10 @@ impl Runtime {
             ));
         }
         let mut edits = Vec::with_capacity(document.objects.len());
-        let mut logicals = BTreeSet::new();
+        let mut objects = BTreeMap::new();
         let mut names = BTreeSet::new();
         for object in &document.objects {
-            if !logicals.insert(object.logical.clone())
+            if objects.insert(object.logical.as_str(), object).is_some()
                 || !names.insert((object.scope.clone(), object.name.clone()))
             {
                 return Err(contract(
@@ -2378,14 +2386,12 @@ impl Runtime {
                 "replay source is missing a referenced immutable object",
             ));
         }
-        let context = document
-            .objects
-            .iter()
-            .find(|object| object.logical == CONTEXT_LOGICAL)
+        let context = objects
+            .get(CONTEXT_LOGICAL)
             .ok_or_else(|| contract("replay source context absent"))?;
         if context.kind != CONTEXT
-            || !logicals.contains(PHYSICAL_SCOPE_LOGICAL)
-            || !logicals.contains(INGRESS_FRAME)
+            || !objects.contains_key(PHYSICAL_SCOPE_LOGICAL)
+            || !objects.contains_key(INGRESS_FRAME)
         {
             return Err(contract(
                 "replay source interpretation or physical/ingress frame absent",
@@ -2434,10 +2440,8 @@ impl Runtime {
                     (scope(target.parent_id), target.name.clone())
                 })
                 .collect();
-            let object = document
-                .objects
-                .iter()
-                .find(|object| object.logical == logical(row.declaration_id))
+            let object = objects
+                .get(logical(row.declaration_id).as_str())
                 .ok_or_else(|| contract("replay declaration body absent"))?;
             if references != object.references.iter().cloned().collect() {
                 return Err(contract(
@@ -2445,10 +2449,8 @@ impl Runtime {
                 ));
             }
         }
-        let frame_object = document
-            .objects
-            .iter()
-            .find(|object| object.logical == INGRESS_FRAME)
+        let frame_object = objects
+            .get(INGRESS_FRAME)
             .ok_or_else(|| contract("replay ingress frame absent"))?;
         let frame: IngressFrame = decode(&frame_object.payload)?;
         let ordered: BTreeSet<_> = frame.order.iter().copied().collect();
@@ -2462,10 +2464,8 @@ impl Runtime {
             .iter()
             .map(|id| index.rows[id].clone())
             .collect::<Vec<_>>();
-        let physical_object = document
-            .objects
-            .iter()
-            .find(|object| object.logical == PHYSICAL_SCOPE_LOGICAL)
+        let physical_object = objects
+            .get(PHYSICAL_SCOPE_LOGICAL)
             .ok_or_else(|| contract("replay physical scope absent"))?;
         let mut physical_scope: PhysicalScope = decode(&physical_object.payload)?;
         if let Some(documents) = &mut physical_scope.documents {
@@ -2482,10 +2482,8 @@ impl Runtime {
             }
         }
         for (id, expected) in &frame.data {
-            let data = document
-                .objects
-                .iter()
-                .find(|object| object.logical == format!("data:{id}"))
+            let data = objects
+                .get(format!("data:{id}").as_str())
                 .ok_or_else(|| contract("replay data payload absent"))?;
             if pse_ids::preimage::hash(&data.payload) != *expected {
                 return Err(contract(

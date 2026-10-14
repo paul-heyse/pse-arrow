@@ -114,6 +114,11 @@ impl ValidationContext {
             scoped: Arc::new(ScopedContracts::default()),
         }
     }
+    /// Compare retained actual registry and native implementation owners, independently
+    /// of the admission invocation. Content equality never establishes this relation.
+    pub fn same_bindings(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.shared, &other.shared)
+    }
     /// Begin another operation while retaining exact bindings and immutable templates.
     pub fn new_scope(&self) -> Self {
         self.for_scope(AdmissionScope::new())
@@ -819,3 +824,19 @@ impl<'a> Findings<'a> {
 mod consolidation_unit;
 
 mod predicate;
+
+#[cfg(test)]
+mod owner_tests {
+    use super::*;
+    #[test]
+    fn retained_validation_bindings_do_not_identify_an_invocation_or_equal_registry() {
+        let registry = pse_schema::registry().unwrap();
+        let original = ValidationContext::new(registry, super::super::planner::LocalPlanner);
+        let child = original.new_scope();
+        let foreign = ValidationContext::new(registry, super::super::planner::LocalPlanner);
+        assert!(original.same_bindings(&original.clone()));
+        assert!(original.same_bindings(&child));
+        assert!(!original.admission_scope().same_invocation(child.admission_scope()));
+        assert!(!original.same_bindings(&foreign));
+    }
+}
