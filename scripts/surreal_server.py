@@ -4770,6 +4770,19 @@ def start(
         _STARTUP.deadline = previous
 
 
+def reset_maintenance_failure_window(state: Path, config: dict[str, object], deadline: float) -> None:
+    """Intentional terminal maintenance launches do not spend the crash restart budget."""
+    require_maintenance_owner(state, config)
+    all_contexts_drained(state)
+    observed = service_readiness(state, config, deadline=deadline)
+    if observed.phase is not Readiness.ACTIONABLE_ABSENT:
+        raise SupervisorError("Maintenance failure-window reset requires the exact drained terminal service")
+    remaining(deadline)
+    reset = systemctl("reset-failed", unit_name(state), check=False)
+    if reset.returncode:
+        raise SupervisorError("Exact owned maintenance failure-window reset was refused")
+
+
 def _start(
     state: Path,
     config: dict[str, object],
@@ -4852,6 +4865,8 @@ def _start(
                 write_json(state / "config.json", config)
             # An admitted park/unpark is a new startup, not another failure retry.
             systemctl("reset-failed", unit_name(state), check=False)
+        elif maintenance:
+            reset_maintenance_failure_window(state, config, deadline)
         result = systemctl("start", unit_name(state), check=False)
         if result.returncode:
             allocation_owner.release()

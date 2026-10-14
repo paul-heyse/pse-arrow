@@ -6715,6 +6715,88 @@ class SurrealSupervisorTests(unittest.TestCase):
             ):
                 server.require_maintenance_owner(self.state, selected)
 
+    def bind_maintenance_listener(self, config: dict[str, object]) -> None:
+        server.write_json(self.state / ".maintenance-listener.json", {
+            "owner": server.read_json(self.state / "lifecycle-owner.json"),
+            "instance_id": config["instance_id"], "server": config["server"],
+            "resources": config["resources"], "supervisor": config["service_supervisor"],
+            "credentials_sha256": server.file_digest(self.state / "credentials.json"),
+        })
+
+    def test_exact_terminal_maintenance_launch_resets_only_its_owned_failure_window(self) -> None:
+        config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
+        absent = readiness_fixture(server.Readiness.ACTIONABLE_ABSENT)
+        ready = server.ServiceObservation(server.Readiness.MAINTENANCE, self.state, config["instance_id"], server.unit_name(self.state), "owned maintenance ready", listener_owned=True)
+        with (
+            server.lifecycle_reservation(self.state),
+            patch.object(server, "service_readiness", side_effect=[absent, absent, ready]),
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "service_allocation", return_value=self.allocation),
+            patch.object(server, "materialize_service"),
+            patch.object(server, "systemctl", return_value=subprocess.CompletedProcess([], 0, "", "")) as manager,
+        ):
+            self.bind_maintenance_listener(config)
+            server._start(self.state, config, validation=True, deadline=time.monotonic() + 30)  # noqa: SLF001 -- exercise the reserved exact launch branch
+        reset = call("reset-failed", server.unit_name(self.state), check=False)
+        start = call("start", server.unit_name(self.state), check=False)
+        self.assertEqual(manager.call_args_list.count(reset), 1)
+        self.assertLess(manager.call_args_list.index(reset), manager.call_args_list.index(start))
+
+    def test_ordinary_new_launch_retains_its_crash_failure_window(self) -> None:
+        config = self.initialized()
+        with (
+            server.lifecycle_reservation(self.state),
+            patch.object(server, "service_readiness", side_effect=[readiness_fixture(server.Readiness.ACTIONABLE_ABSENT), readiness_fixture(server.Readiness.READY)]),
+            patch.object(server, "service_allocation", return_value=self.allocation),
+            patch.object(server, "materialize_service"),
+            patch.object(server, "establish_protocol_readiness"),
+            patch.object(server, "systemctl", return_value=subprocess.CompletedProcess([], 0, "", "")) as manager,
+        ):
+            server._start(self.state, config, validation=False, deadline=time.monotonic() + 30)  # noqa: SLF001 -- ordinary launches must preserve the crash policy
+        self.assertFalse(any(arguments.args[0] == "reset-failed" for arguments in manager.call_args_list))
+
+    def test_maintenance_reset_refuses_nonowned_nondrained_and_nonterminal_service(self) -> None:
+        config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
+        with server.lifecycle_reservation(self.state):
+            self.bind_maintenance_listener(config)
+            marker = server.read_json(self.state / ".maintenance-listener.json")
+            server.write_json(self.state / ".maintenance-listener.json", {**marker, "instance_id": "another-owner"})
+            with (
+                patch.object(server, "systemctl") as manager,
+                self.assertRaisesRegex(server.SupervisorError, "exact live closed owner"),
+            ):
+                server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
+            manager.assert_not_called()
+            server.write_json(self.state / ".maintenance-listener.json", marker)
+            with (
+                patch.object(server, "all_contexts_drained", side_effect=server.SupervisorError("managed descendants remain")),
+                patch.object(server, "systemctl") as manager,
+                self.assertRaisesRegex(server.SupervisorError, "descendants"),
+            ):
+                server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
+            manager.assert_not_called()
+            with (
+                patch.object(server, "all_contexts_drained"),
+                patch.object(server, "service_readiness", return_value=readiness_fixture(server.Readiness.STOPPING)),
+                patch.object(server, "systemctl") as manager,
+                self.assertRaisesRegex(server.SupervisorError, "drained terminal"),
+            ):
+                server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
+            manager.assert_not_called()
+
+    def test_maintenance_reset_manager_refusal_never_launches_service(self) -> None:
+        config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
+        with (
+            server.lifecycle_reservation(self.state),
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "service_readiness", return_value=readiness_fixture(server.Readiness.ACTIONABLE_ABSENT)),
+            patch.object(server, "systemctl", return_value=subprocess.CompletedProcess([], 1, "", "")) as manager,
+            self.assertRaisesRegex(server.SupervisorError, "reset was refused"),
+        ):
+            self.bind_maintenance_listener(config)
+            server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
+        manager.assert_called_once_with("reset-failed", server.unit_name(self.state), check=False)
+
     def test_maintenance_launch_has_no_restart_bootstrap_or_readiness_mutation(
         self,
     ) -> None:
