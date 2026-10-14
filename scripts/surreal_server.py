@@ -5456,6 +5456,59 @@ def managed_file_owner_drained(owner: dict[str, object]) -> bool:
     return not group_populated(group)
 
 
+def reap_payload_owners(state: Path, config: dict[str, object], *, require_all: bool) -> dict[str, int]:
+    counts = {"recovered": 0, "live": 0, "unknown": 0}
+    for rows in payload_pages(state, config, "canonical_file_owners"):
+        for row in rows:
+            if row.get("drained") is True:
+                continue
+            try:
+                if row.get("storage_incarnation") != config["payload_incarnation"]:
+                    raise SupervisorError("File owner belongs to another storage incarnation")
+                dead = payload_files.owner_dead(row)
+                if not dead:
+                    counts["live"] += 1
+                    if require_all:
+                        raise SupervisorError("A live independent file owner still borrows this store")
+                    continue
+                if not managed_file_owner_drained(row):
+                    counts["live"] += 1
+                    if require_all:
+                        raise SupervisorError("File owner managed descendants still borrow this store")
+                    continue
+            except (payload_files.PayloadError, OSError, SupervisorError) as error:
+                if require_all:
+                    if isinstance(error, SupervisorError):
+                        raise
+                    raise SupervisorError("File owner drain is unobservable; admission remains closed") from error
+                counts["unknown"] += 1
+                continue
+            expected = {key: value for key, value in row.items() if key != "id"}
+            acknowledged = payload_query(state, config,
+                f"RETURN fn::pse_files_v1::drain_owner({payload_expiry()},{json.dumps(expected)});")
+            if acknowledged is not True:
+                if require_all:
+                    raise SupervisorError("Exact file owner drain was not acknowledged")
+                counts["unknown"] += 1
+                continue
+            counts["recovered"] += 1
+    return counts
+
+
+def recover_file_owners(state: Path) -> dict[str, int]:
+    """Explicit orphan recovery; ordinary service restart neither reaps nor invents owners."""
+    with lifecycle_reservation(state):
+        config = config_for(state)
+        if service_directory(state) != state or not owns_listener(state, config) or not listener_ready(state, config):
+            raise SupervisorError("File-owner recovery requires the active owned catalog")
+        marker = payload_query(state, config,
+            "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
+            "RETURN {payload_incarnation:$marker.payload_incarnation,interpretation:$marker.interpretation};")
+        if marker != {"payload_incarnation": config["payload_incarnation"], "interpretation": SUBSTRATE_INTERPRETATION} or config["interpretation"] != SUBSTRATE_INTERPRETATION:
+            raise SupervisorError("File-owner recovery requires the current selected incarnation and interpretation")
+        return reap_payload_owners(state, config, require_all=False)
+
+
 def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, object]]:
     """Close admission/GC, authenticate every owner, then capture bounded catalog pages."""
     if service_directory(state) != state:
@@ -5482,24 +5535,7 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
     inventory: list[dict[str, object]] = []
     for context in contexts:
         selected = config_for(context)
-        for rows in payload_pages(state, selected, "canonical_file_owners"):
-            for row in rows:
-                if row.get("drained") is True:
-                    continue
-                if row.get("storage_incarnation") != selected["payload_incarnation"]:
-                    raise SupervisorError("File owner belongs to another storage incarnation")
-                try:
-                    dead = payload_files.owner_dead(row)
-                except (payload_files.PayloadError, OSError) as error:
-                    raise SupervisorError("File owner drain is unobservable; admission remains closed") from error
-                if not dead:
-                    raise SupervisorError("A live independent file owner still borrows this store")
-                if not managed_file_owner_drained(row):
-                    raise SupervisorError("File owner managed descendants still borrow this store")
-                expected = {key: value for key, value in row.items() if key != "id"}
-                if payload_query(state, selected,
-                    f"RETURN fn::pse_files_v1::drain_owner({payload_expiry()},{json.dumps(expected)});") is not True:
-                    raise SupervisorError("Exact file owner drain was not acknowledged")
+        reap_payload_owners(state, selected, require_all=True)
         for rows in payload_pages(state, selected, "canonical_file_instances"):
             for row in rows:
                 if row.get("storage_incarnation") != selected["payload_incarnation"]:
@@ -6300,7 +6336,7 @@ def cleanup_retired_payloads(state: Path, config: dict[str, object], credentials
             sealed, staging = payload_files.instance_paths(state, object_mapping(placement), row["key"])
             for name in object_mapping(entry["files"]):
                 expected.add(sealed if name.endswith(".sealed") else staging)
-        if directory.is_symlink() or any(path.is_symlink() for path in directory.rglob("*")):
+        if any(path.is_symlink() for path in (directory, *directory.parents)) or any(path.is_symlink() for path in directory.rglob("*")):
             raise SupervisorError("Retired payload root must not traverse symlinks")
         actual = {path for path in directory.rglob("*") if path.is_file()}
         if not actual <= expected:
@@ -6476,6 +6512,8 @@ def rehome_restored_payloads(state: Path, config: dict[str, object], credentials
         for name, expected in object_mapping(entry["files"]).items():
             source = backup / name
             destination = sealed if name.endswith(".sealed") else staging
+            if any(path.is_symlink() for path in (destination, *destination.parents)):
+                raise SupervisorError("Restored payload target must not traverse symlinks")
             destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             if destination.is_symlink():
                 raise SupervisorError("Restored payload target must not traverse symlinks")
@@ -7636,6 +7674,7 @@ def parser() -> argparse.ArgumentParser:
             "restore",
             "rebuild",
             "recover-maintenance",
+            "recover-file-owners",
             "validate",
             "worker",
             "ensure-primary",
@@ -7812,6 +7851,10 @@ def _dispatch(args: argparse.Namespace) -> int:
                     raise SupervisorError("Verifier selection is only available with setup, backup, restore or recover-maintenance")
                 config["payload_verifier"] = payload_verifier(args.payload_verifier)
                 write_json(state / "config.json", config)
+            if args.command == "recover-file-owners":
+                output = recover_file_owners(state)
+                print(json.dumps(output, sort_keys=True))
+                return 0
             if args.command == "readmit":
                 output = readmit_supervisor(state)
                 print(json.dumps(output, sort_keys=True))

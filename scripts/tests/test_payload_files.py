@@ -57,8 +57,13 @@ class PayloadLifecycleTests(unittest.TestCase):
             rows = self.owners if "canonical_file_owners" in body else self.instances
             after = json.loads(body.split("key>", 1)[1].split(" ORDER BY", 1)[0])
             return [dict(row) for row in sorted(rows, key=lambda row: row["key"]) if row["key"] > after][:64]
+        if "$marker=SELECT" in body:
+            return {"payload_incarnation": self.config["payload_incarnation"], "interpretation": self.config["interpretation"]}
         if "drain_owner" in body:
-            self.owner["drained"] = True
+            expected = json.loads(body.split(",", 1)[1].removesuffix(");"))
+            for owner in self.owners:
+                if owner["key"] == expected["key"]:
+                    owner["drained"] = True
         return True
 
     def backup(self, destination: Path) -> dict[str, object]:
@@ -236,6 +241,42 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.verifier()
         self.backup(self.root / "backup")
         self.assertTrue((self.root / "backup/backup.json").is_file())
+
+    def test_public_owner_recovery_retains_live_unknown_and_reports_exact_death(self) -> None:
+        dead = {**self.owner, "key": str(uuid.uuid4()), "boot": str(uuid.uuid4())}
+        unknown = {**self.owner, "key": str(uuid.uuid4()), "pid_namespace": "pid:[foreign]"}
+        self.owners.extend([dead, unknown])
+        args = server.parser().parse_args(["recover-file-owners", "--state", str(self.state)])
+        with (
+            patch.object(server, "owns_listener", return_value=True),
+            patch.object(server, "listener_ready", return_value=True),
+            patch.object(server, "payload_query", side_effect=self.query),
+            patch("builtins.print") as output,
+        ):
+            self.assertEqual(server.dispatch(args), 0)
+        self.assertEqual(json.loads(output.call_args.args[0]), {"recovered": 1, "live": 1, "unknown": 1})
+        self.assertTrue(dead["drained"])
+        self.assertFalse(self.owner["drained"])
+        self.assertFalse(unknown["drained"])
+        self.assertTrue(server.config_for(self.state)["accepting_writes"])
+        self.assertFalse(any("freeze" in event or "thaw" in event for event in self.events))
+
+    def test_owner_recovery_refuses_stale_catalog_or_unowned_listener_without_reaping(self) -> None:
+        with (
+            patch.object(server, "owns_listener", return_value=True),
+            patch.object(server, "listener_ready", return_value=True),
+            patch.object(server, "payload_query", return_value={"payload_incarnation": str(uuid.uuid4()), "interpretation": server.SUBSTRATE_INTERPRETATION}) as query,
+            self.assertRaisesRegex(server.SupervisorError, "current selected"),
+        ):
+            server.recover_file_owners(self.state)
+        self.assertEqual(query.call_count, 1)
+        with (
+            patch.object(server, "owns_listener", return_value=False),
+            patch.object(server, "payload_query") as query,
+            self.assertRaisesRegex(server.SupervisorError, "active owned catalog"),
+        ):
+            server.recover_file_owners(self.state)
+        query.assert_not_called()
 
     def test_replaced_pid_is_death_but_exact_live_pid_is_not(self) -> None:
         self.assertFalse(payload_files.owner_dead(self.owner))
