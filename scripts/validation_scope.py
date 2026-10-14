@@ -250,12 +250,18 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
         else []
     )
     return [
-        *(deployment_gates[:1] if deployment else [Gate(
-            "py-sync-native-correctness",
-            (python_profile,),
-            profile=python_profile,
-            input_scope="python-product",
-        )]),
+        *(
+            deployment_gates[:1]
+            if deployment
+            else [
+                Gate(
+                    "py-sync-native-correctness",
+                    (python_profile,),
+                    profile=python_profile,
+                    input_scope="python-product",
+                )
+            ]
+        ),
         *static,
         Gate(
             "python-stubs",

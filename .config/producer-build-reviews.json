@@ -504,25 +504,6 @@
         "d3c52a5dbc52848ef8e3ea193d7f01ff9b047b9adaea864d1bb12b33c66652fb"
       ]
     },
-    "registry+https://github.com/rust-lang/crates.io-index#paste@1.0.15": {
-      "reviewed_source": "32a96ff9cba651336b22d0f12bdeeb053bd3e0a897c1b127591d3297ca515d2a",
-      "rationale": "Reviewed complete build.rs and reached compiler-version helper: selected rustc version controls cfg; ref-cast also writes fixed private module template with Cargo patch version under OUT_DIR. No other file/process/network I/O. Compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
-      "environment": [
-        "RUSTC",
-        "RUSTC_WRAPPER",
-        "RUSTC_WORKSPACE_WRAPPER",
-        "RUSTFLAGS",
-        "CARGO_ENCODED_RUSTFLAGS",
-        "CARGO_TARGET_DIR",
-        "PATH",
-        "RUSTUP_TOOLCHAIN",
-        "RUSTUP_HOME",
-        "RUSTUP_OVERRIDE_TOOLCHAIN"
-      ],
-      "reviewed_closures": [
-        "8188d72ab671326bc027ff442f73c5a8a0b579c37e94b0a8508eed7e11198b97"
-      ]
-    },
     "registry+https://github.com/rust-lang/crates.io-index#portable-atomic@1.15.0": {
       "reviewed_source": "ee9e2ddf1b895d62520d8558b9dc1ea0ab714c5d2dcb2d5b56ce14ad0b9b3196",
       "rationale": "Reviewed complete build.rs and version.rs, plus fixed generated target tables, for selected x86_64 Linux context: consumes Cargo target/cfg/encoded flags and explicit warning/stage/bootstrap/wrapper overrides; invokes selected compiler or wrapper -vV and emits version/LLVM/target-feature cfg directives. Helpers parse strings/date/version and use compile-time target tables. No file/network or additional process input; compiler/wrapper native/config closure remains separately required. Other target contexts excluded from this review. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
@@ -1465,6 +1446,25 @@
       "environment": [
         "AWS_LC_RS_DISABLE_SLOW_TESTS",
         "AWS_LC_RS_DEV_TESTS_ONLY"
+      ]
+    },
+    "path+workspace://vendor/paste#1.0.15": {
+      "reviewed_source": "bf8ff664121eefd8b8ce378703dfe5a8f1d2b2f12f5dee8efe4c182790e6ed36",
+      "rationale": "Reviewed checksum-verified unchanged Paste 1.0.15 build.rs: reads the selected RUSTC executable and invokes it with fixed --version, parses its version and emits fixed cfg switches. It has no helper dependency or other owner-level file/network/entropy input. Exact inherited compiler/wrapper/loader/configuration context remains separately required; the conservative declared environment inputs retain their existing freshness checks. Source realization includes the reviewed Env-refusal patch and exact local manifest under ADR-0189; this grant covers only the unchanged compiler-version build effect, not invocation-channel purity or native compiler completeness. The complete currently selected executable build closure remains source/context-bound.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "7248e110474599dbef5009927f51077df544b25c1d24b05453f8bb46051fc0ce"
       ]
     }
   }

@@ -28,7 +28,11 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         self.output = self.root / "evidence"
         self.environment = {}
-        cargo = patch.object(deployment.producer_cargo, "cargo_executable", return_value="/selected/cargo")
+        cargo = patch.object(
+            deployment.producer_cargo,
+            "cargo_executable",
+            return_value="/selected/cargo",
+        )
         cargo.start()
         self.addCleanup(cargo.stop)
         self.native = self.root / "native-library"
@@ -89,20 +93,34 @@ class ProducerDeploymentTests(unittest.TestCase):
             if "producer-history-verify" in command:
                 self.assertTrue(text)
                 self.assertTrue(capture_output)
-                name = Path(command[-1]).name.removesuffix("-build-evidence.json.closure")
-                return subprocess.CompletedProcess(command, 0, stdout=(Path(command[-1]).parent / f"{name}-fixture-history.json").read_text())
+                name = Path(command[-1]).name.removesuffix(
+                    "-build-evidence.json.closure"
+                )
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout=(
+                        Path(command[-1]).parent / f"{name}-fixture-history.json"
+                    ).read_text(),
+                )
             if command[:2] == ["uv", "sync"]:
                 return subprocess.CompletedProcess(command, 0)
             if Path(command[0]).name == "maturin":
-                selected = deployment.read_object(Path(env[deployment.producer_cargo.CAPTURE]))
+                selected = deployment.read_object(
+                    Path(env[deployment.producer_cargo.CAPTURE])
+                )
                 options = selected["capture_options"]
                 if not isinstance(options, list):
                     raise TypeError("installer must select its actual capture options")
                 command = ["just", "producer-identity", *options]
                 env = {**self.environment, "PYO3_BUILD_EXTENSION_MODULE": "1"}
-                for name, value in deployment.producer_cargo.effective_environment(env).items():
+                for name, value in deployment.producer_cargo.effective_environment(
+                    env
+                ).items():
                     command.extend(("--environment", f"{name}={value}"))
-                (self.output / "python-installer-cargo.status.json").write_text(json.dumps({"returncode": 0, "sealed": True}))
+                (self.output / "python-installer-cargo.status.json").write_text(
+                    json.dumps({"returncode": 0, "sealed": True})
+                )
             if "verify-deployment-artifact" in command:
                 self.assertTrue(text)
                 self.assertTrue(capture_output)
@@ -174,10 +192,17 @@ class ProducerDeploymentTests(unittest.TestCase):
             Path(command[command.index("--build-evidence") + 1]).write_text(
                 json.dumps(evidence)
             )
-            (output.parent / f"{name}-fixture-history.json").write_text(json.dumps({
-                "version": 1, "historical_only": True, "producer_identity": receipt["identity"],
-                "selected_root": receipt["selected_root"], "actual_build_evidence": evidence,
-            }))
+            (output.parent / f"{name}-fixture-history.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "historical_only": True,
+                        "producer_identity": receipt["identity"],
+                        "selected_root": receipt["selected_root"],
+                        "actual_build_evidence": evidence,
+                    }
+                )
+            )
             if stdout is None or isinstance(stdout, int):
                 raise AssertionError("Capture diagnostics require an opened binary log")
             stdout.write(b"actual capture diagnostics\n")
@@ -186,8 +211,12 @@ class ProducerDeploymentTests(unittest.TestCase):
         return run
 
     def verified_receipts(self) -> dict[str, dict[str, object]]:
-        with patch.object(deployment.subprocess, "run", side_effect=self.actual_capture()):
-            return deployment.validate_receipts(self.root, self.output, self.environment)
+        with patch.object(
+            deployment.subprocess, "run", side_effect=self.actual_capture()
+        ):
+            return deployment.validate_receipts(
+                self.root, self.output, self.environment
+            )
 
     def test_capture_orders_actual_targets_and_preserves_safe_declared_environment(
         self,
@@ -213,7 +242,9 @@ class ProducerDeploymentTests(unittest.TestCase):
             call.args[0] for call in run.call_args_list if call.args[0][0] == "just"
         ]
         self.assertEqual(len(commands), 2)  # Python is selected by Maturin's child.
-        options = deployment.read_object(self.output / "python-installer-cargo.json")["capture_options"]
+        options = deployment.read_object(self.output / "python-installer-cargo.json")[
+            "capture_options"
+        ]
         self.assertIsInstance(options, list)
         commands.append(["just", "producer-identity", *options])
         self.assertEqual(
@@ -240,9 +271,18 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertNotIn("--outer-build", command)
             if name == "python":
                 self.assertNotIn("--environment", command)
-                installer = next(call for call in run.call_args_list if Path(call.args[0][0]).name == "maturin")
-                self.assertEqual(installer.kwargs["env"]["PYO3_CONFIG_FILE"], str(self.python_native))
-                self.assertEqual(installer.kwargs["env"]["CARGO"], str(self.root / "scripts/producer-cargo"))
+                installer = next(
+                    call
+                    for call in run.call_args_list
+                    if Path(call.args[0][0]).name == "maturin"
+                )
+                self.assertEqual(
+                    installer.kwargs["env"]["PYO3_CONFIG_FILE"], str(self.python_native)
+                )
+                self.assertEqual(
+                    installer.kwargs["env"]["CARGO"],
+                    str(self.root / "scripts/producer-cargo"),
+                )
             else:
                 self.assertIn("TZ=UTC", command)
                 self.assertIn("SOURCE_DATE_EPOCH=0", command)
@@ -298,9 +338,15 @@ class ProducerDeploymentTests(unittest.TestCase):
         run.assert_not_called()
         self.assertTrue((self.output / "deployment-error.log").is_file())
 
-    def test_unsupported_cargo_selection_refuses_before_any_role_build_or_install(self) -> None:
+    def test_unsupported_cargo_selection_refuses_before_any_role_build_or_install(
+        self,
+    ) -> None:
         with (
-            patch.object(deployment.producer_cargo, "cargo_executable", side_effect=ValueError("unsupported explicit Cargo invocation")),
+            patch.object(
+                deployment.producer_cargo,
+                "cargo_executable",
+                side_effect=ValueError("unsupported explicit Cargo invocation"),
+            ),
             patch.object(deployment.subprocess, "run") as run,
             self.assertRaisesRegex(ValueError, "unsupported explicit Cargo"),
         ):
@@ -358,7 +404,9 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "ineligible"),
         ):
             deployment.capture(self.root, self.output, self.environment)
-        self.assertEqual(len([call for call in run.call_args_list if call.args[0][0] == "just"]), 2)
+        self.assertEqual(
+            len([call for call in run.call_args_list if call.args[0][0] == "just"]), 2
+        )
         self.assertFalse((self.output / "python.json").exists())
         self.assertEqual(
             (self.output / "worker.log").read_bytes(), b"actual capture diagnostics\n"
@@ -436,7 +484,11 @@ class ProducerDeploymentTests(unittest.TestCase):
         ):
             deployment.capture(self.root, self.output, self.environment)
         self.assertEqual(
-            [Path(call.args[0][0]).name for call in run.call_args_list if "producer-history-verify" not in call.args[0]],
+            [
+                Path(call.args[0][0]).name
+                for call in run.call_args_list
+                if "producer-history-verify" not in call.args[0]
+            ],
             ["just", "just", "uv", "maturin"],
         )
         self.assertTrue((self.output / "deployment-error.log").is_file())
@@ -471,8 +523,12 @@ class ProducerDeploymentTests(unittest.TestCase):
             associations,
         )
 
-    def test_role_validation_uses_protected_context_after_legacy_evidence_disappears(self) -> None:
-        with patch.object(deployment.subprocess, "run", side_effect=self.actual_capture()):
+    def test_role_validation_uses_protected_context_after_legacy_evidence_disappears(
+        self,
+    ) -> None:
+        with patch.object(
+            deployment.subprocess, "run", side_effect=self.actual_capture()
+        ):
             deployment.capture(self.root, self.output, self.environment)
         for role, *_ in deployment.ROLES:
             (self.output / f"{role}-build-evidence.json").unlink()
@@ -480,32 +536,69 @@ class ProducerDeploymentTests(unittest.TestCase):
         receipt = deployment.read_object(self.output / "worker.json")
         receipt["identity"] = "f" * 64
         (self.output / "worker.json").write_text(json.dumps(receipt))
-        with self.assertRaisesRegex(ValueError, "protected historical evidence differs"):
+        with self.assertRaisesRegex(
+            ValueError, "protected historical evidence differs"
+        ):
             self.verified_receipts()
 
-    def test_protected_reader_identity_and_completion_precede_current_artifact_checks(self) -> None:
-        receipt = {"receipt_version": 2, "identity": "a" * 64, "selected_root": "selected"}
+    def test_protected_reader_identity_and_completion_precede_current_artifact_checks(
+        self,
+    ) -> None:
+        receipt = {
+            "receipt_version": 2,
+            "identity": "a" * 64,
+            "selected_root": "selected",
+        }
         history = {
-            "version": 1, "historical_only": True, "producer_identity": receipt["identity"],
-            "selected_root": "selected", "actual_build_evidence": {"success": True},
+            "version": 1,
+            "historical_only": True,
+            "producer_identity": receipt["identity"],
+            "selected_root": "selected",
+            "actual_build_evidence": {"success": True},
         }
         for changed in (
-            {"version": True}, {"version": 2}, {"historical_only": False}, {"producer_identity": "b" * 64},
-            {"selected_root": "other"}, {"actual_build_evidence": None},
+            {"version": True},
+            {"version": 2},
+            {"historical_only": False},
+            {"producer_identity": "b" * 64},
+            {"selected_root": "other"},
+            {"actual_build_evidence": None},
             {"actual_build_evidence": {"success": False}},
         ):
             with (
                 self.subTest(changed=changed),
-                patch.object(deployment.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, stdout=json.dumps({**history, **changed}))),
-                patch.object(deployment, "receipt_artifact", side_effect=AssertionError("current artifact checked before protected context")),
+                patch.object(
+                    deployment.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess(
+                        [], 0, stdout=json.dumps({**history, **changed})
+                    ),
+                ),
+                patch.object(
+                    deployment,
+                    "receipt_artifact",
+                    side_effect=AssertionError(
+                        "current artifact checked before protected context"
+                    ),
+                ),
                 self.assertRaises(ValueError),
             ):
-                deployment.load_history(self.root, self.output, "worker", self.environment, receipt)
+                deployment.load_history(
+                    self.root, self.output, "worker", self.environment, receipt
+                )
         with (
-            patch.object(deployment.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, stdout="", stderr="historical seal differs")),
+            patch.object(
+                deployment.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess(
+                    [], 1, stdout="", stderr="historical seal differs"
+                ),
+            ),
             self.assertRaisesRegex(ValueError, "historical seal differs"),
         ):
-            deployment.load_history(self.root, self.output, "worker", self.environment, receipt)
+            deployment.load_history(
+                self.root, self.output, "worker", self.environment, receipt
+            )
 
     def capture_shared_contracts(
         self, contracts: dict[str, list[dict[str, object]]]
@@ -672,16 +765,27 @@ class ProducerDeploymentTests(unittest.TestCase):
         )
         actual_check_output = subprocess.check_output
         actual_run = subprocess.run
-        history_evidence = {"success": True, **deployment.read_object(self.output / "python-build-evidence.json")}
+        history_evidence = {
+            "success": True,
+            **deployment.read_object(self.output / "python-build-evidence.json"),
+        }
         (self.output / "python-build-evidence.json").unlink()
 
         def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
             if "producer-history-verify" in command:
-                return subprocess.CompletedProcess(command, 0, stdout=json.dumps({
-                    "version": 1, "historical_only": True, "producer_identity": receipt["identity"],
-                    "selected_root": receipt["selected_root"],
-                    "actual_build_evidence": history_evidence,
-                }))
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout=json.dumps(
+                        {
+                            "version": 1,
+                            "historical_only": True,
+                            "producer_identity": receipt["identity"],
+                            "selected_root": receipt["selected_root"],
+                            "actual_build_evidence": history_evidence,
+                        }
+                    ),
+                )
             return actual_run(command, **kwargs)
 
         def observed(
@@ -717,12 +821,22 @@ class ProducerDeploymentTests(unittest.TestCase):
                 association["built_artifact"],
                 deployment.file_observation(original),
             )
-            installation = deployment.read_object(self.output / "python-installation.json")
-            self.assertEqual(installation["raw_artifact"], deployment.file_observation(original))
-            self.assertEqual(installation["installed_artifact"], deployment.file_observation(installed))
+            installation = deployment.read_object(
+                self.output / "python-installation.json"
+            )
+            self.assertEqual(
+                installation["raw_artifact"], deployment.file_observation(original)
+            )
+            self.assertEqual(
+                installation["installed_artifact"],
+                deployment.file_observation(installed),
+            )
             transformation = installation["transformation"]
             self.assertIsInstance(transformation, dict)
-            self.assertEqual(transformation["replayed_sha256"], deployment.file_observation(installed)["sha256"])
+            self.assertEqual(
+                transformation["replayed_sha256"],
+                deployment.file_observation(installed)["sha256"],
+            )
             path.write_text(json.dumps(receipt))
             subprocess.run(
                 ["patchelf", "--add-needed", "unreviewed.so", str(installed)],

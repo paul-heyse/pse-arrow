@@ -231,9 +231,7 @@ they do not create another mutable finding ledger.
 
 ## Verification and current checkpoint
 
-**Proposed:** C1–C5 are planned behavior/investigations. Source inspection informs these
-boundaries; no new product test, measurement, native build, service or retained-evidence
-campaign ran while authoring them. No performance or token-efficiency benefit is established.
+C1–C5 are delivered within the selected execution boundary. The Outcome below records source decisions and targeted evidence. No performance or token-efficiency benefit is measured; broader qualification remains with 39d.
 
 During implementation, use targeted tests for changed mechanisms through `scripts/pse-env --`
 and the selected pinned environment. Report command, mode, scope, zero-failure baseline and
@@ -257,3 +255,5 @@ C1 inspected representative historical complete reports without resuming them. T
 C5 identified the source: `~/.profile` and `~/.bashrc` load `~/.config/shell/user-session-env.sh`, whose explicit cwd-sensitive dispatcher block prepends the other repository's `scripts/agent-shims` only when present. That directory is currently absent; old Codex ancestry still carries its former PATH entry. The source documents intentional dispatch rather than an accidental project activation. No host edit is justified or made. Revisit actual dispatcher relocation/resolution if the directory returns or a concrete unwanted selection is observed; C3 supplies explicit current selection meanwhile.
 
 **Tested, zero-failure baseline:** `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_pse_env scripts.tests.test_activity` passed 56 tests. The operations worker's focused manager/runtime/drain/reuse selection passed 21 tests and its independent borrow/deadline/reference/refusal selection passed five. The corrected explicit-light run followed an admission refusal; that refused invocation was not a test failure. `just activity --json --unit pse-compiler-cache-7b08ddbbbbee458e8a79d28812d8e2b6.service` returned the selected active service, complete selected observation and no errors. C3's real structured description reports the Python role/profile/features, provisional local selection and unknown provider reuse without preparation. These establish bounded mechanisms, not whole-host or simulator qualification. 39d's integrated/static/scientific/performance campaign was not run here.
+
+Final selected integration after root formatting passed 207 combined operational/adapter/validation controls; the owning 39b Outcome names the selected composition and exclusions. `just ready`, `just turn-end`, documentation publication and Plan39 native scope extraction completed with zero errors. No broader host/service or scientific campaign was added.

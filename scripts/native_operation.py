@@ -181,11 +181,15 @@ class ManagerObservationTimeout(subprocess.TimeoutExpired):
     """A manager timeout retaining its selected endpoint and bounded diagnostics."""
 
     def __init__(self, error: subprocess.TimeoutExpired, context: str) -> None:
-        super().__init__(error.cmd, error.timeout, stderr=_manager_detail(error.stderr, 4096))
+        super().__init__(
+            error.cmd, error.timeout, stderr=_manager_detail(error.stderr, 4096)
+        )
         self.context = context
 
     def __str__(self) -> str:
-        return f"{super().__str__()} ({self.context}); stderr: {self.stderr or '(empty)'}"
+        return (
+            f"{super().__str__()} ({self.context}); stderr: {self.stderr or '(empty)'}"
+        )
 
 
 def manager_observation(*arguments: str, deadline: float | None = None) -> str:
@@ -225,9 +229,11 @@ def manager_observation(*arguments: str, deadline: float | None = None) -> str:
 def unit_observation(
     unit: str, *, deadline: float | None = None, properties: tuple[str, ...] = ()
 ) -> dict[str, str]:
-    requested = tuple(dict.fromkeys((
-        "InvocationID", "ControlGroup", "LoadState", "ActiveState", *properties
-    )))
+    requested = tuple(
+        dict.fromkeys(
+            ("InvocationID", "ControlGroup", "LoadState", "ActiveState", *properties)
+        )
+    )
     value = manager_observation(
         "show", *(f"--property={key}" for key in requested), unit, deadline=deadline
     )
@@ -238,7 +244,9 @@ def unit_observation(
             raise ValueError(f"malformed systemctl properties for {unit} ({context})")
         key, observed = line.split("=", 1)
         if key in fields:
-            raise ValueError(f"duplicate systemctl property {key} for {unit} ({context})")
+            raise ValueError(
+                f"duplicate systemctl property {key} for {unit} ({context})"
+            )
         fields[key] = observed
     if any(key not in fields for key in requested) or not all(
         fields.get(key) for key in ("LoadState", "ActiveState")
@@ -1530,7 +1538,9 @@ def runtime_selection(
         elif name in result:
             off.discard(name)
     if any(kind in requested for kind in ("solver", "uno", "petsc")):
-        for name, value in cache.runtime_env(root / "docker/solvers/Dockerfile").items():
+        for name, value in cache.runtime_env(
+            root / "docker/solvers/Dockerfile"
+        ).items():
             if name in AUTHORITATIVE:
                 result[name] = value
             elif name not in off:

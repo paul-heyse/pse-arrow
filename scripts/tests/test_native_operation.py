@@ -4017,18 +4017,39 @@ class DrainObservationTests(unittest.TestCase):
 class ManagerObservationTests(unittest.TestCase):
     def test_runtime_selection_is_pure_and_preserves_off_and_authority(self) -> None:
         environment = {
-            "MKL_CBWR": "AUTO", "OMP_NUM_THREADS": "8", "OMP_PLACES": "off",
-            operation.OFF_MARKER: "MKL_NUM_THREADS", "CUSTOM": "preserved",
+            "MKL_CBWR": "AUTO",
+            "OMP_NUM_THREADS": "8",
+            "OMP_PLACES": "off",
+            operation.OFF_MARKER: "MKL_NUM_THREADS",
+            "CUSTOM": "preserved",
         }
         with (
-            patch.object(cache, "runtime_env", return_value={"MKL_CBWR": "COMPATIBLE", "OMP_PLACES": "sockets"}) as runtime,
-            patch.object(cache, "solver", side_effect=AssertionError("provider preparation")),
-            patch.object(cache, "admit_external", side_effect=AssertionError("provider admission")),
-            patch.object(cache, "compiler_env", side_effect=AssertionError("compiler preparation")),
-            patch.object(operation, "admit", side_effect=AssertionError("capability admission")),
+            patch.object(
+                cache,
+                "runtime_env",
+                return_value={"MKL_CBWR": "COMPATIBLE", "OMP_PLACES": "sockets"},
+            ) as runtime,
+            patch.object(
+                cache, "solver", side_effect=AssertionError("provider preparation")
+            ),
+            patch.object(
+                cache,
+                "admit_external",
+                side_effect=AssertionError("provider admission"),
+            ),
+            patch.object(
+                cache,
+                "compiler_env",
+                side_effect=AssertionError("compiler preparation"),
+            ),
+            patch.object(
+                operation, "admit", side_effect=AssertionError("capability admission")
+            ),
             patch("sys.stderr", new_callable=io.StringIO) as errors,
         ):
-            selected = operation.runtime_selection(["solver"], environment, root=Path("/selected"))
+            selected = operation.runtime_selection(
+                ["solver"], environment, root=Path("/selected")
+            )
         runtime.assert_called_once_with(Path("/selected/docker/solvers/Dockerfile"))
         self.assertEqual(environment["MKL_CBWR"], "AUTO")
         self.assertEqual(selected["MKL_CBWR"], "COMPATIBLE")
@@ -4042,7 +4063,9 @@ class ManagerObservationTests(unittest.TestCase):
 
     def test_unit_properties_validate_structure_and_preserve_absence(self) -> None:
         properties = "InvocationID=abc\nControlGroup=/owned\nLoadState=loaded\nActiveState=active\n"
-        with patch.object(operation, "manager_observation", return_value=properties) as query:
+        with patch.object(
+            operation, "manager_observation", return_value=properties
+        ) as query:
             observed = operation.unit_observation("pse-owned.scope")
         self.assertEqual(observed["InvocationID"], "abc")
         self.assertEqual(query.call_args.args[-1], "pse-owned.scope")
@@ -4058,23 +4081,41 @@ class ManagerObservationTests(unittest.TestCase):
                 self.assertRaises(ValueError),
             ):
                 operation.unit_observation("pse-owned.scope")
-        absent = "InvocationID=\nControlGroup=\nLoadState=not-found\nActiveState=inactive\n"
+        absent = (
+            "InvocationID=\nControlGroup=\nLoadState=not-found\nActiveState=inactive\n"
+        )
         with patch.object(operation, "manager_observation", return_value=absent):
-            self.assertEqual(operation.unit_observation("pse-gone.scope")["LoadState"], "not-found")
+            self.assertEqual(
+                operation.unit_observation("pse-gone.scope")["LoadState"], "not-found"
+            )
 
     def test_manager_failure_reports_bounded_stderr_and_selected_endpoint(self) -> None:
-        endpoint = {"XDG_RUNTIME_DIR": "/selected/runtime", "DBUS_SESSION_BUS_ADDRESS": "unix:path=/selected/bus", "SECRET": "must-not-appear"}
+        endpoint = {
+            "XDG_RUNTIME_DIR": "/selected/runtime",
+            "DBUS_SESSION_BUS_ADDRESS": "unix:path=/selected/bus",
+            "SECRET": "must-not-appear",
+        }
         for failure in (
-            subprocess.CompletedProcess([], 1, stdout="", stderr="prefix-" + "x" * 5000 + "hidden-suffix"),
+            subprocess.CompletedProcess(
+                [], 1, stdout="", stderr="prefix-" + "x" * 5000 + "hidden-suffix"
+            ),
             FileNotFoundError("systemctl missing"),
             subprocess.TimeoutExpired("systemctl", 10, stderr=b"timed-out-detail"),
         ):
             with (
                 self.subTest(failure=failure),
-                patch.object(operation, "manager_control_environment", return_value=endpoint),
-                patch.object(operation.subprocess, "run", **(
-                    {"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure}
-                )),
+                patch.object(
+                    operation, "manager_control_environment", return_value=endpoint
+                ),
+                patch.object(
+                    operation.subprocess,
+                    "run",
+                    **(
+                        {"side_effect": failure}
+                        if isinstance(failure, Exception)
+                        else {"return_value": failure}
+                    ),
+                ),
                 self.assertRaises((ValueError, subprocess.TimeoutExpired)) as refused,
             ):
                 operation.unit_observation("pse-owned.scope")

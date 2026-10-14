@@ -1017,7 +1017,9 @@ def run_gates(
                     try:
                         observed_deployment_attestation(artifacts[0])
                         producer_deployment.validate_receipts(
-                            root, output / "deployment", gate_env,
+                            root,
+                            output / "deployment",
+                            gate_env,
                         )
                     except (OSError, ValueError, KeyError, TypeError) as error:
                         record["status"] = "failed"

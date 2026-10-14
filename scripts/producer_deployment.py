@@ -213,28 +213,46 @@ def verify_artifact(
 
 
 def load_history(
-    root: Path, output: Path, role: str, environment: Mapping[str, str], receipt: Mapping[str, object]
+    root: Path,
+    output: Path,
+    role: str,
+    environment: Mapping[str, str],
+    receipt: Mapping[str, object],
 ) -> dict[str, object]:
     """Read only the sealed core product; historical context grants no freshness."""
     if not current_receipt(dict(receipt)):
         raise ValueError(f"{role} has unsupported deployment receipt interpretation")
     result = subprocess.run(
-        [str(root / "target/debug/xtask"), "producer-history-verify",
-         str(output / f"{role}-build-evidence.json.closure")],
-        cwd=root, env=dict(environment), capture_output=True, check=False, text=True,
+        [
+            str(root / "target/debug/xtask"),
+            "producer-history-verify",
+            str(output / f"{role}-build-evidence.json.closure"),
+        ],
+        cwd=root,
+        env=dict(environment),
+        capture_output=True,
+        check=False,
+        text=True,
     )
     if result.returncode:
-        raise ValueError(f"{role} protected historical evidence refused: {result.stderr}")
+        raise ValueError(
+            f"{role} protected historical evidence refused: {result.stderr}"
+        )
     history = json.loads(result.stdout)
     if (
-        not isinstance(history, dict) or type(history.get("version")) is not int
-        or history["version"] != 1 or history.get("historical_only") is not True
+        not isinstance(history, dict)
+        or type(history.get("version")) is not int
+        or history["version"] != 1
+        or history.get("historical_only") is not True
         or not hash_value(receipt.get("identity"))
-        or not isinstance(receipt.get("selected_root"), str) or not receipt["selected_root"]
+        or not isinstance(receipt.get("selected_root"), str)
+        or not receipt["selected_root"]
         or history.get("producer_identity") != receipt["identity"]
         or history.get("selected_root") != receipt["selected_root"]
     ):
-        raise ValueError(f"{role} protected historical evidence differs from selected producer")
+        raise ValueError(
+            f"{role} protected historical evidence differs from selected producer"
+        )
     evidence = history.get("actual_build_evidence")
     if not isinstance(evidence, dict) or evidence.get("success") is not True:
         raise ValueError(f"{role} lacks sealed successful actual build evidence")
@@ -334,8 +352,10 @@ def bind_python_artifact(
                     "Imported extension differs beyond the admitted RPATH-only transformation"
                 )
             transformation = {
-                "kind": "maturin-rpath-only", "original_rpath": old,
-                "installed_rpath": actual, "appended_rpaths": appended,
+                "kind": "maturin-rpath-only",
+                "original_rpath": old,
+                "installed_rpath": actual,
+                "appended_rpaths": appended,
                 "replayed_sha256": replayed,
             }
     association = receipt["deployment"]
@@ -344,10 +364,15 @@ def bind_python_artifact(
     association["artifact"] = installed
     path.write_text(json.dumps(receipt, indent=2) + "\n")
     verify_artifact(root, path, imported, environment)
-    producer_cargo.write_new(output / "python-installation.json", {
-        "version": 1, "raw_artifact": built, "installed_artifact": installed,
-        "transformation": transformation,
-    })
+    producer_cargo.write_new(
+        output / "python-installation.json",
+        {
+            "version": 1,
+            "raw_artifact": built,
+            "installed_artifact": installed,
+            "transformation": transformation,
+        },
+    )
 
 
 def validate_receipt(
@@ -422,7 +447,9 @@ def validate_receipts(
     root: Path, output: Path, environment: Mapping[str, str]
 ) -> dict[str, dict[str, object]]:
     """Validate each actual role; role artifact digests have no equality rule."""
-    associations = {role[0]: validate_receipt(root, output, role, environment) for role in ROLES}
+    associations = {
+        role[0]: validate_receipt(root, output, role, environment) for role in ROLES
+    }
     shared: dict[str, dict[str, set[str]]] = {}
     for role in ROLES:
         receipt = read_object(output / f"{role[0]}.json")
@@ -498,7 +525,9 @@ def capture(
     output.mkdir(mode=0o700)  # Never overwrite successful or failed capture evidence.
     try:
         inputs = reviewed_inputs(root, env)
-        producer_cargo.cargo_executable(env)  # Refuse unsupported installer selection before role builds.
+        producer_cargo.cargo_executable(
+            env
+        )  # Refuse unsupported installer selection before role builds.
         for role in ROLES:
             name, package, _, _, target_args = role
             role_env = dict(env)
@@ -539,27 +568,48 @@ def capture(
                 if name == "python":
                     # Maturin selects the only Python realization. Its actual Cargo
                     # child is observed and sealed before packaging can continue.
-                    installer_env = producer_cargo.configure(root, output, command[2:], role_env)
+                    installer_env = producer_cargo.configure(
+                        root, output, command[2:], role_env
+                    )
                     installer_env["VIRTUAL_ENV"] = str(root / ".venv")
                     result = subprocess.run(
                         ["uv", "sync", "--locked", "--no-install-project"],
-                        cwd=root, env=role_env, stdout=log, stderr=subprocess.STDOUT, check=False,
+                        cwd=root,
+                        env=role_env,
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        check=False,
                     )
                     require_capture_success(name, result.returncode)
                     result = subprocess.run(
                         python_extension.develop_command(root, "native", "producer"),
-                        cwd=root, env=installer_env, stdout=log, stderr=subprocess.STDOUT, check=False,
+                        cwd=root,
+                        env=installer_env,
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        check=False,
                     )
                     require_capture_success(name, result.returncode)
                     if not (output / "python-installer-cargo.status.json").is_file():
-                        raise ValueError("Maturin did not consume the selected Cargo observer")
+                        raise ValueError(
+                            "Maturin did not consume the selected Cargo observer"
+                        )
                     status = read_object(output / "python-installer-cargo.status.json")
-                    if status.get("returncode") != 0 or status.get("sealed") is not True:
-                        raise ValueError("Maturin actual Cargo child lacks completed capture")
+                    if (
+                        status.get("returncode") != 0
+                        or status.get("sealed") is not True
+                    ):
+                        raise ValueError(
+                            "Maturin actual Cargo child lacks completed capture"
+                        )
                 else:
                     result = subprocess.run(
-                        command, cwd=root, env=role_env, stdout=log,
-                        stderr=subprocess.STDOUT, check=False,
+                        command,
+                        cwd=root,
+                        env=role_env,
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        check=False,
                     )
             require_capture_success(name, result.returncode)
             validate_receipt(root, output, role, role_env)

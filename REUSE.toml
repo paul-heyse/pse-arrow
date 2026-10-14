@@ -11,13 +11,19 @@ SPDX-PackageDownloadLocation = "https://github.com/paul-heyse/pse-arrow"
 [[annotations]]
 path = ["vendor/paste/**"]
 precedence = "override"
-SPDX-FileCopyrightText = ["David Tolnay", "2026 Paul Heyse (pure invocation guard)"]
+SPDX-FileCopyrightText = [
+  "David Tolnay",
+  "2026 Paul Heyse (pure invocation guard)",
+]
 SPDX-License-Identifier = "MIT OR Apache-2.0"
 
 [[annotations]]
 path = ["vendor/pest_derive/**", "vendor/py_literal/**"]
 precedence = "override"
-SPDX-FileCopyrightText = ["pest and py_literal contributors (original notices retained)", "2026 Paul Heyse (pure invocation integration)"]
+SPDX-FileCopyrightText = [
+  "pest and py_literal contributors (original notices retained)",
+  "2026 Paul Heyse (pure invocation integration)",
+]
 SPDX-License-Identifier = "MIT OR Apache-2.0"
 
 # Preserve the imported SDK family's exact upstream license parameters.

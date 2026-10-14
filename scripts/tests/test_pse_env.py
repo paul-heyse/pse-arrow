@@ -28,15 +28,29 @@ def identity(_root: Path, env: dict[str, str]) -> dict[str, str]:
 class PseEnvTests(unittest.TestCase):
     def test_description_never_evaluates_local_code_or_acquires_authority(self) -> None:
         touched = self.root / "local-effect"
-        (self.root / ".envrc.local").write_text(f"touch '{touched}'\nexport PYO3_PYTHON=local\n")
+        (self.root / ".envrc.local").write_text(
+            f"touch '{touched}'\nexport PYO3_PYTHON=local\n"
+        )
         with (
             patch.object(pse_env, "local_keys", side_effect=AssertionError("shell")),
-            patch.object(pse_env.host, "allocation_metadata", side_effect=AssertionError("ledger")),
-            patch.object(pse_env.operation, "environment", side_effect=AssertionError("prepare")),
-            patch.object(pse_env, "manager_available", side_effect=AssertionError("manager")),
-            patch.object(pse_env.subprocess, "run", side_effect=AssertionError("child")),
+            patch.object(
+                pse_env.host,
+                "allocation_metadata",
+                side_effect=AssertionError("ledger"),
+            ),
+            patch.object(
+                pse_env.operation, "environment", side_effect=AssertionError("prepare")
+            ),
+            patch.object(
+                pse_env, "manager_available", side_effect=AssertionError("manager")
+            ),
+            patch.object(
+                pse_env.subprocess, "run", side_effect=AssertionError("child")
+            ),
         ):
-            value = pse_env.operation_description(self.root, {"PATH": "/usr/bin", "RUSTC_WRAPPER": ""}, ["solver"])
+            value = pse_env.operation_description(
+                self.root, {"PATH": "/usr/bin", "RUSTC_WRAPPER": ""}, ["solver"]
+            )
         self.assertFalse(touched.exists())
         self.assertEqual(value["local_configuration"], "unresolved: not executed")
         self.assertEqual(value["compiler"]["RUSTC_WRAPPER"]["value"], "")
@@ -44,15 +58,36 @@ class PseEnvTests(unittest.TestCase):
         self.assertTrue(value["compiler"]["PYO3_PYTHON"]["local_unresolved"])
         self.assertEqual(value["placement"]["admission"], "not observed or acquired")
 
-    def test_description_supplied_local_and_caller_match_execution_selection(self) -> None:
-        caller = {"PATH": "/usr/bin", "PYO3_PYTHON": "/caller/python", "RUSTC_WRAPPER": "", "IPOPT_DIR": "/chosen/provider"}
-        local = {"PYO3_PYTHON": "/local/python", "LIBCLANG_PATH": "/chosen/llvm/lib", "SECRET": "never disclose"}
+    def test_description_supplied_local_and_caller_match_execution_selection(
+        self,
+    ) -> None:
+        caller = {
+            "PATH": "/usr/bin",
+            "PYO3_PYTHON": "/caller/python",
+            "RUSTC_WRAPPER": "",
+            "IPOPT_DIR": "/chosen/provider",
+        }
+        local = {
+            "PYO3_PYTHON": "/local/python",
+            "LIBCLANG_PATH": "/chosen/llvm/lib",
+            "SECRET": "never disclose",
+        }
         env = pse_env.compose(self.root, caller, local)
-        value = pse_env.operation_description(self.root, caller, ["solver"], local=local, command=["cargo", "build"], resource_class="compile")
+        value = pse_env.operation_description(
+            self.root,
+            caller,
+            ["solver"],
+            local=local,
+            command=["cargo", "build"],
+            resource_class="compile",
+        )
         self.assertEqual(value["compiler"]["PYO3_PYTHON"]["value"], env["PYO3_PYTHON"])
         self.assertEqual(value["compiler"]["PYO3_PYTHON"]["source"], "caller")
         self.assertEqual(value["compiler"]["LIBCLANG_PATH"]["source"], "local")
-        self.assertEqual(value["providers"]["solver"]["inputs"]["IPOPT_DIR"]["value"], "/chosen/provider")
+        self.assertEqual(
+            value["providers"]["solver"]["inputs"]["IPOPT_DIR"]["value"],
+            "/chosen/provider",
+        )
         self.assertEqual(value["placement"]["resource_class"], "compile")
         self.assertNotIn("never disclose", json.dumps(value))
 
@@ -64,10 +99,29 @@ class PseEnvTests(unittest.TestCase):
             patch.object(pse_env, "local_keys", side_effect=AssertionError("shell")),
             contextlib.redirect_stdout(output),
         ):
-            self.assertEqual(pse_env.main(["--explain", "--json", "--resource-class", "compile", "--", "maturin", "develop", "--profile", "producer"]), 0)
+            self.assertEqual(
+                pse_env.main(
+                    [
+                        "--explain",
+                        "--json",
+                        "--resource-class",
+                        "compile",
+                        "--",
+                        "maturin",
+                        "develop",
+                        "--profile",
+                        "producer",
+                        "--token",
+                        "private-value",
+                    ]
+                ),
+                0,
+            )
         value = json.loads(output.getvalue())
         self.assertEqual(value["version"], 1)
-        self.assertEqual(value["command"], ["maturin", "develop", "--profile", "producer"])
+        self.assertEqual(value["command"], ["maturin", "develop"])
+        self.assertEqual(value["build_context"]["profile"]["values"], ["producer"])
+        self.assertNotIn("private-value", output.getvalue())
         self.assertEqual(value["placement"]["resource_class"], "compile")
 
     def test_scoped_exits_ignore_unrelated_corrupt_resource_metadata(self) -> None:
@@ -464,7 +518,9 @@ class PseEnvTests(unittest.TestCase):
         self.root = Path(directory.name)
         docker = self.root / "docker/solvers/Dockerfile"
         docker.parent.mkdir(parents=True)
-        docker.write_text("FROM fixture AS solvers\nENV MKL_CBWR=COMPATIBLE MKL_DYNAMIC=FALSE OMP_CANCELLATION=TRUE\n")
+        docker.write_text(
+            "FROM fixture AS solvers\nENV MKL_CBWR=COMPATIBLE MKL_DYNAMIC=FALSE OMP_CANCELLATION=TRUE\n"
+        )
         (self.root / ".python-version").write_text("3.14.7\n")
         (self.root / ".envrc.local").write_text(
             "export PSE_TEST_LICENSE='s3cret value'\nexport PSE_TEST_OTHER=local\n"

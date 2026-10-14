@@ -88,8 +88,13 @@ def develop_command(root: Path, mode: str, profile: str) -> list[str]:
     if mode not in {"dev", "native"}:
         raise ValueError("correctness extension mode must be dev or native")
     return [
-        str(root / ".venv/bin/maturin"), "develop", "--uv", "--profile", profile,
-        "--locked", "--features",
+        str(root / ".venv/bin/maturin"),
+        "develop",
+        "--uv",
+        "--profile",
+        profile,
+        "--locked",
+        "--features",
         "force-validate,native-solvers" if mode == "native" else "force-validate",
     ]
 

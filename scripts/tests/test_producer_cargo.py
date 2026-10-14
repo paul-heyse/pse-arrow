@@ -27,41 +27,78 @@ class ProducerCargoTests(unittest.TestCase):
         self.output = self.root / "capture"
         self.output.mkdir(mode=0o700)
         self.options = [
-            "--package", "fixture", "--profile", "producer", "--features", "force-validate,native-solvers",
-            "--cdylib-manifest", "Cargo.toml", "--output", str(self.output / "python.json"),
-            "--build-evidence", str(self.output / "python-build-evidence.json"),
+            "--package",
+            "fixture",
+            "--profile",
+            "producer",
+            "--features",
+            "force-validate,native-solvers",
+            "--cdylib-manifest",
+            "Cargo.toml",
+            "--output",
+            str(self.output / "python.json"),
+            "--build-evidence",
+            str(self.output / "python-build-evidence.json"),
         ]
-        self.environment = observer.configure(self.root, self.output, self.options, os.environ)
+        self.environment = observer.configure(
+            self.root, self.output, self.options, os.environ
+        )
         self.configuration = Path(self.environment[observer.CAPTURE])
         self.arguments = [
-            "rustc", "--manifest-path", str(self.root / "Cargo.toml"), "--profile", "producer",
-            "--features", "force-validate,native-solvers", "--lib", "--crate-type", "cdylib",
-            "--locked", "--message-format", "json-render-diagnostics",
+            "rustc",
+            "--manifest-path",
+            str(self.root / "Cargo.toml"),
+            "--profile",
+            "producer",
+            "--features",
+            "force-validate,native-solvers",
+            "--lib",
+            "--crate-type",
+            "cdylib",
+            "--locked",
+            "--message-format",
+            "json-render-diagnostics",
         ]
 
     def seal(self, *, eligible: bool = True) -> None:
-        (self.output / "python.json").write_text(json.dumps({
-            "receipt_version": 2, "persistent_reuse_eligible": eligible,
-            "reasons": [] if eligible else ["unknown macro input"],
-        }))
+        (self.output / "python.json").write_text(
+            json.dumps(
+                {
+                    "receipt_version": 2,
+                    "persistent_reuse_eligible": eligible,
+                    "reasons": [] if eligible else ["unknown macro input"],
+                }
+            )
+        )
         closure = self.output / "python-build-evidence.json.closure"
         closure.mkdir()
         raw = b'{"actual":"fixture protected index"}'
         (closure / "index.json").write_bytes(raw)
         (closure / "COMPLETE").write_text(hashlib.sha256(raw).hexdigest())
 
-    def test_actual_child_context_is_captured_without_synthetic_sdk_or_secret_dump(self) -> None:
+    def test_actual_child_context_is_captured_without_synthetic_sdk_or_secret_dump(
+        self,
+    ) -> None:
         child = {
-            **self.environment, "PYO3_PYTHON": "/actual/python", "PYO3_ENVIRONMENT_SIGNATURE": "cpython-3.14-64bit",
-            "PYTHON_SYS_EXECUTABLE": "/actual/python", "PYO3_BUILD_EXTENSION_MODULE": "1",
-            "RUSTC_WRAPPER": "", "IPOPT_DIR": "/actual/solver", "SYMBOLICA_LICENSE": "never-observed",
-            "CARGO_BUILD_JOBS": "2", "CARGO_TERM_COLOR": "always",
+            **self.environment,
+            "PYO3_PYTHON": "/actual/python",
+            "PYO3_ENVIRONMENT_SIGNATURE": "cpython-3.14-64bit",
+            "PYTHON_SYS_EXECUTABLE": "/actual/python",
+            "PYO3_BUILD_EXTENSION_MODULE": "1",
+            "RUSTC_WRAPPER": "",
+            "IPOPT_DIR": "/actual/solver",
+            "SYMBOLICA_LICENSE": "never-observed",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_TERM_COLOR": "always",
             "CARGO_REGISTRIES_PRIVATE_TOKEN": "never-observed-registry-token",
         }
 
         def capture(command: list[str], *, cwd: Path, env: dict[str, str]) -> int:
             self.assertEqual(cwd, self.root)
-            self.assertEqual(command[:2], [str(self.root / "target/debug/xtask"), "producer-identity"])
+            self.assertEqual(
+                command[:2],
+                [str(self.root / "target/debug/xtask"), "producer-identity"],
+            )
             self.assertNotIn("CARGO", env)
             self.assertNotIn(observer.CAPTURE, env)
             self.assertNotIn(observer.PYTHON, env)
@@ -74,32 +111,51 @@ class ProducerCargoTests(unittest.TestCase):
             self.seal()
             return 0
 
-        with contextlib.chdir(self.root), patch.object(observer.subprocess, "call", side_effect=capture):
+        with (
+            contextlib.chdir(self.root),
+            patch.object(observer.subprocess, "call", side_effect=capture),
+        ):
             self.assertEqual(observer.observe(self.arguments, child), 0)
-        actual = json.loads(self.configuration.with_suffix(".observation.json").read_text())
+        actual = json.loads(
+            self.configuration.with_suffix(".observation.json").read_text()
+        )
         self.assertEqual(actual["arguments"], self.arguments)
-        self.assertEqual(actual["effective_environment"]["PYTHON_SYS_EXECUTABLE"], "/actual/python")
+        self.assertEqual(
+            actual["effective_environment"]["PYTHON_SYS_EXECUTABLE"], "/actual/python"
+        )
         self.assertEqual(actual["effective_environment"]["CARGO_BUILD_JOBS"], "2")
         self.assertEqual(actual["effective_environment"]["CARGO_TERM_COLOR"], "always")
         self.assertNotIn("never-observed", json.dumps(actual))
-        self.assertEqual(json.loads(self.configuration.with_suffix(".status.json").read_text()), {"returncode": 0, "sealed": True})
+        self.assertEqual(
+            json.loads(self.configuration.with_suffix(".status.json").read_text()),
+            {"returncode": 0, "sealed": True},
+        )
         with (
-            contextlib.chdir(self.root), patch.object(observer.subprocess, "call") as run,
+            contextlib.chdir(self.root),
+            patch.object(observer.subprocess, "call") as run,
             self.assertRaises(FileExistsError),
         ):
             observer.observe(self.arguments, child)
         run.assert_not_called()
 
-    def test_metadata_and_version_passthrough_do_not_consume_the_build_claim(self) -> None:
+    def test_metadata_and_version_passthrough_do_not_consume_the_build_claim(
+        self,
+    ) -> None:
         for arguments in (["metadata", "--format-version", "1"], ["--version"]):
-            with contextlib.chdir(self.root), patch.object(observer.subprocess, "call", return_value=0) as run:
+            with (
+                contextlib.chdir(self.root),
+                patch.object(observer.subprocess, "call", return_value=0) as run,
+            ):
                 self.assertEqual(observer.observe(arguments, self.environment), 0)
             self.assertEqual(run.call_args.args[0][1:], arguments)
             self.assertNotIn("CARGO", run.call_args.kwargs["env"])
             self.assertFalse(self.configuration.with_suffix(".claim.json").exists())
 
     def test_unsupported_command_and_wrong_checkout_refuse_before_capture(self) -> None:
-        with contextlib.chdir(self.root), patch.object(observer.subprocess, "call") as run:
+        with (
+            contextlib.chdir(self.root),
+            patch.object(observer.subprocess, "call") as run,
+        ):
             with self.assertRaisesRegex(ValueError, "unsupported actual installer"):
                 observer.observe(["build"], self.environment)
             self.assertFalse(self.configuration.with_suffix(".claim.json").exists())
@@ -129,10 +185,13 @@ class ProducerCargoTests(unittest.TestCase):
         binary.write_text("#!/bin/sh\nexit 0\n")
         binary.chmod(0o700)
         with (
-            contextlib.chdir(self.root), patch.object(observer.subprocess, "call") as run,
+            contextlib.chdir(self.root),
+            patch.object(observer.subprocess, "call") as run,
             self.assertRaisesRegex(ValueError, "different Cargo executable"),
         ):
-            observer.observe(self.arguments, {**self.environment, "PATH": str(binary.parent)})
+            observer.observe(
+                self.arguments, {**self.environment, "PATH": str(binary.parent)}
+            )
         run.assert_not_called()
         self.assertFalse(self.configuration.with_suffix(".claim.json").exists())
 
@@ -141,32 +200,58 @@ class ProducerCargoTests(unittest.TestCase):
         directory.mkdir()
         cargo = directory / "cargo"
         rustc = directory / "rustc"
-        cargo.write_text('#!/bin/sh\ncase "$0" in */cargo) echo cargo ;; *) echo rustc ;; esac\n')
+        cargo.write_text(
+            '#!/bin/sh\ncase "$0" in */cargo) echo cargo ;; *) echo rustc ;; esac\n'
+        )
         cargo.chmod(0o700)
         os.link(cargo, rustc)
         self.assertTrue(os.path.samefile(cargo, rustc))
-        self.assertEqual(subprocess.check_output([str(cargo)], text=True).strip(), "cargo")
-        self.assertEqual(subprocess.check_output([str(rustc)], text=True).strip(), "rustc")
+        self.assertEqual(
+            subprocess.check_output([str(cargo)], text=True).strip(), "cargo"
+        )
+        self.assertEqual(
+            subprocess.check_output([str(rustc)], text=True).strip(), "rustc"
+        )
         environment = {"PATH": str(directory), "CARGO": str(rustc)}
         with self.assertRaisesRegex(ValueError, "differing"):
             observer.cargo_executable(environment)
-        self.assertEqual(observer.cargo_executable({"PATH": str(directory), "CARGO": str(cargo)}), str(cargo))
+        self.assertEqual(
+            observer.cargo_executable({"PATH": str(directory), "CARGO": str(cargo)}),
+            str(cargo),
+        )
 
     def test_nonzero_capture_retains_failure_and_cannot_claim_sealing(self) -> None:
-        with contextlib.chdir(self.root), patch.object(observer.subprocess, "call", return_value=17):
+        with (
+            contextlib.chdir(self.root),
+            patch.object(observer.subprocess, "call", return_value=17),
+        ):
             self.assertEqual(observer.observe(self.arguments, self.environment), 17)
-        self.assertEqual(json.loads(self.configuration.with_suffix(".status.json").read_text()), {"returncode": 17, "sealed": False})
-        self.assertEqual(json.loads(self.configuration.with_suffix(".arguments.json").read_text()), self.arguments)
+        self.assertEqual(
+            json.loads(self.configuration.with_suffix(".status.json").read_text()),
+            {"returncode": 17, "sealed": False},
+        )
+        self.assertEqual(
+            json.loads(self.configuration.with_suffix(".arguments.json").read_text()),
+            self.arguments,
+        )
 
-    def test_success_without_eligible_sealed_realization_refuses_installation(self) -> None:
+    def test_success_without_eligible_sealed_realization_refuses_installation(
+        self,
+    ) -> None:
         for failure in ("ineligible", "missing-seal", "tampered-seal"):
             with self.subTest(failure=failure):
                 directory = self.root / failure
                 directory.mkdir(mode=0o700)
                 self.output = directory
-                self.options[self.options.index("--output") + 1] = str(directory / "python.json")
-                self.options[self.options.index("--build-evidence") + 1] = str(directory / "python-build-evidence.json")
-                environment = observer.configure(self.root, directory, self.options, os.environ)
+                self.options[self.options.index("--output") + 1] = str(
+                    directory / "python.json"
+                )
+                self.options[self.options.index("--build-evidence") + 1] = str(
+                    directory / "python-build-evidence.json"
+                )
+                environment = observer.configure(
+                    self.root, directory, self.options, os.environ
+                )
 
                 def capture(_command: list[str], **_kwargs: object) -> int:
                     self.seal(eligible=failure != "ineligible")
@@ -177,13 +262,21 @@ class ProducerCargoTests(unittest.TestCase):
                         complete.write_text("changed")
                     return 0
 
-                with contextlib.chdir(self.root), patch.object(observer.subprocess, "call", side_effect=capture), self.assertRaises((OSError, ValueError)):
+                with (
+                    contextlib.chdir(self.root),
+                    patch.object(observer.subprocess, "call", side_effect=capture),
+                    self.assertRaises((OSError, ValueError)),
+                ):
                     observer.observe(self.arguments, environment)
-                status = json.loads((directory / "python-installer-cargo.status.json").read_text())
+                status = json.loads(
+                    (directory / "python-installer-cargo.status.json").read_text()
+                )
                 self.assertEqual(status["returncode"], 1)
                 self.assertFalse(status["sealed"])
 
-    def test_pyo3_configuration_bytes_are_protected_and_change_refuses_return(self) -> None:
+    def test_pyo3_configuration_bytes_are_protected_and_change_refuses_return(
+        self,
+    ) -> None:
         source = self.root / "pyo3.cfg"
         source.write_bytes(b"actual-sdk-config")
         environment = {**self.environment, "PYO3_CONFIG_FILE": str(source)}
@@ -193,21 +286,34 @@ class ProducerCargoTests(unittest.TestCase):
             source.write_bytes(b"changed-sdk-config")
             return 0
 
-        with contextlib.chdir(self.root), patch.object(observer.subprocess, "call", side_effect=capture), self.assertRaisesRegex(ValueError, "PyO3 configuration changed"):
+        with (
+            contextlib.chdir(self.root),
+            patch.object(observer.subprocess, "call", side_effect=capture),
+            self.assertRaisesRegex(ValueError, "PyO3 configuration changed"),
+        ):
             observer.observe(self.arguments, environment)
-        self.assertEqual(self.configuration.with_suffix(".pyo3-config").read_bytes(), b"actual-sdk-config")
+        self.assertEqual(
+            self.configuration.with_suffix(".pyo3-config").read_bytes(),
+            b"actual-sdk-config",
+        )
 
-    def test_real_adapter_streams_cargo_stdout_before_selected_child_exits(self) -> None:
+    def test_real_adapter_streams_cargo_stdout_before_selected_child_exits(
+        self,
+    ) -> None:
         # An actual process handshake proves the adapter does not buffer the
         # machine stream until capture completion. Its fake core owns this fixture.
         tool = self.root / "target/debug/xtask"
         tool.parent.mkdir(parents=True)
         release = self.root / "release"
-        tool.write_text(f"#!{sys.executable}\n" + """import json,sys,time
+        tool.write_text(
+            f"#!{sys.executable}\n"
+            + """import json,sys,time
 from pathlib import Path
 args=sys.argv
 print('{"reason":"fixture-before-exit"}',flush=True)
-release=Path(""" + repr(str(release)) + """)
+release=Path("""
+            + repr(str(release))
+            + """)
 until=time.monotonic()+5
 while not release.exists():
  if time.monotonic()>=until:sys.exit(17)
@@ -218,11 +324,15 @@ closure=Path(args[args.index('--build-evidence')+1]+'.closure');closure.mkdir()
 raw=b'fixture sealed index';(closure/'index.json').write_bytes(raw)
 import hashlib
 (closure/'COMPLETE').write_text(hashlib.sha256(raw).hexdigest())
-""")
+"""
+        )
         tool.chmod(0o700)
         process = subprocess.Popen(
             [sys.executable, str(Path(observer.__file__)), *self.arguments],
-            cwd=self.root, env=self.environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            cwd=self.root,
+            env=self.environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
         try:
             self.assertIsNotNone(process.stdout)

@@ -86,7 +86,9 @@ enum Cmd {
     },
     ProducerIdentity(Box<ProducerIdentityArgs>),
     /// Verify protected historical role evidence; grants no current admission.
-    ProducerHistoryVerify { directory: PathBuf },
+    ProducerHistoryVerify {
+        directory: PathBuf,
+    },
     /// Verify a reviewed provider association without Cargo discovery or building.
     VerifyNativeProvider {
         #[arg(long)]
@@ -324,12 +326,17 @@ fn main() -> Result<()> {
                 declared_environment,
                 declarations,
             };
-            let observed_arguments = observed_cargo_arguments.as_ref().map(|path| {
-                Ok::<Vec<String>, anyhow::Error>(serde_json::from_slice(&std::fs::read(path)?)?)
-            }).transpose()?;
+            let observed_arguments = observed_cargo_arguments
+                .as_ref()
+                .map(|path| {
+                    Ok::<Vec<String>, anyhow::Error>(serde_json::from_slice(&std::fs::read(path)?)?)
+                })
+                .transpose()?;
             let identity = if let Some(arguments) = &observed_arguments {
                 producer_identity::run_observed(&options, arguments)?
-            } else { producer_identity::run(&options)? };
+            } else {
+                producer_identity::run(&options)?
+            };
             producer_identity::write_if_changed(&output, &identity)?;
             eprintln!(
                 "producer identity {}: persistent reuse eligible={}",

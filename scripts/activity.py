@@ -23,7 +23,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import native_operation, pse_env  # noqa: E402 -- direct-script path routing
+from scripts import (  # noqa: E402 -- direct-script path routing
+    native_operation,
+    pse_env,
+)
 
 BUILD_TOOLS = {"cargo", "rustc", "cargo-nextest", "clippy-driver", "rustdoc", "maturin"}
 
@@ -34,7 +37,9 @@ def systemctl(*args: str) -> str:
 
 def selected_unit(value: str) -> str:
     if not re.fullmatch(r"pse-[A-Za-z0-9_.:-]+\.(?:service|scope)", value):
-        raise argparse.ArgumentTypeError("expected an exact pse-* service or scope unit")
+        raise argparse.ArgumentTypeError(
+            "expected an exact pse-* service or scope unit"
+        )
     return value
 
 
@@ -52,7 +57,9 @@ def parse_units(value: str) -> list[dict[str, str]]:
     return listed
 
 
-def units(selection: list[str] | None = None) -> tuple[list[dict[str, str]] | None, list[str]]:
+def units(
+    selection: list[str] | None = None,
+) -> tuple[list[dict[str, str]] | None, list[str]]:
     """Keep a failed list distinct from an empty list, and retain partial results."""
     errors = []
     if selection is None:
@@ -136,7 +143,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="structured output")
     parser.add_argument(
-        "--unit", action="append", type=selected_unit, help="observe only this exact pse-* service or scope (repeatable)"
+        "--unit",
+        action="append",
+        type=selected_unit,
+        help="observe only this exact pse-* service or scope (repeatable)",
     )
     args = parser.parse_args(argv)
     selection = list(dict.fromkeys(args.unit)) if args.unit is not None else None

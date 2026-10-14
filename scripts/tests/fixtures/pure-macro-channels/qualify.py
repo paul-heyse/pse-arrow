@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import hashlib
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 
 def main() -> None:
@@ -18,8 +18,13 @@ def main() -> None:
     source = (literal / "parse.rs").read_text()
     grammar = source.split('#[grammar_inline = r####"', 1)[1].split('"####]', 1)[0]
     # Independent golden value from the checksum-verified published crate archive.
-    if hashlib.sha256(grammar.encode()).hexdigest() != "5ce3a6b819b2ced5448442248f9fdde5bdf7023709b9a7a1ceeb7b4443a3c0a3":
-        raise RuntimeError("inline grammar differs from published py_literal 0.4.0 grammar")
+    if (
+        hashlib.sha256(grammar.encode()).hexdigest()
+        != "5ce3a6b819b2ced5448442248f9fdde5bdf7023709b9a7a1ceeb7b4443a3c0a3"
+    ):
+        raise RuntimeError(
+            "inline grammar differs from published py_literal 0.4.0 grammar"
+        )
     if (literal / "grammar.pest").exists():
         raise RuntimeError("the replaced grammar authority must be removed")
     common = ["cargo", "--locked", "--offline", "--manifest-path", str(manifest)]
@@ -45,7 +50,16 @@ def main() -> None:
         mode = "release" if profile else "debug"
         for name, diagnostic in cases.items():
             result = subprocess.run(
-                [common[0], "check", *common[1:], *profile, "--features", "compile-refusal", "--bin", name],
+                [
+                    common[0],
+                    "check",
+                    *common[1:],
+                    *profile,
+                    "--features",
+                    "compile-refusal",
+                    "--bin",
+                    name,
+                ],
                 cwd=root,
                 env=environment,
                 capture_output=True,
@@ -53,10 +67,13 @@ def main() -> None:
                 check=False,
             )
             if result.returncode == 0 or diagnostic not in result.stderr:
-                raise RuntimeError(f"{mode} {name}: expected guard refusal, got {result.returncode}\n{result.stderr}")
+                raise RuntimeError(
+                    f"{mode} {name}: expected guard refusal, got {result.returncode}\n{result.stderr}"
+                )
             print(f"{mode} {name}: refused by actual guarded owner", flush=True)
-    print("Pure macro controls passed in debug and release: normal parsing, upstream literal tests, six compiler refusals each.")
-
+    print(
+        "Pure macro controls passed in debug and release: normal parsing, upstream literal tests, six compiler refusals each."
+    )
 
 
 if __name__ == "__main__":

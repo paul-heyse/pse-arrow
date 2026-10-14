@@ -38,8 +38,9 @@ pub(super) async fn open(
     let cancelled = pse_runtime::CancelSource::new();
     // The serving source does not exist yet. Own interruption before either
     // strict receipt work or local receiving observation can enter native work.
-    let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-        .map_err(|error| format!("deployment startup interrupt listener: {error}"))?;
+    let mut interrupt =
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+            .map_err(|error| format!("deployment startup interrupt listener: {error}"))?;
     let stopped = cancelled.clone();
     let listener = tokio::spawn(async move {
         if interrupt.recv().await.is_some() {

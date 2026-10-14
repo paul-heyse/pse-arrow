@@ -494,7 +494,9 @@ fn forward_child_bytes(
     forward: &std::sync::Mutex<&mut (dyn std::io::Write + Send)>,
     bytes: &[u8],
 ) -> std::io::Result<()> {
-    let mut sink = forward.lock().map_err(|_| std::io::Error::other("child diagnostic writer poisoned"))?;
+    let mut sink = forward
+        .lock()
+        .map_err(|_| std::io::Error::other("child diagnostic writer poisoned"))?;
     sink.write_all(bytes)?;
     sink.flush()
 }
@@ -504,7 +506,9 @@ impl CompilerMessageLines {
         &self,
         forward: &std::sync::Mutex<&mut (dyn std::io::Write + Send)>,
     ) -> std::io::Result<()> {
-        if self.discard_line { return Ok(()); }
+        if self.discard_line {
+            return Ok(());
+        }
         let Ok(message) = serde_json::from_slice::<serde_json::Value>(&self.pending) else {
             return Ok(());
         };
@@ -562,7 +566,10 @@ fn drain_child_pipe(
             }
         };
         if !spool_failed {
-            if let Err(error) = spool.write_all(&bytes[..count]).and_then(|()| spool.flush()) {
+            if let Err(error) = spool
+                .write_all(&bytes[..count])
+                .and_then(|()| spool.flush())
+            {
                 errors.push(format!("child spool write: {error}"));
                 spool_failed = true;
             }
@@ -613,7 +620,10 @@ fn streamed_child(
     };
     let stdout_file = open(&stdout_path)?;
     let stderr_file = open(&stderr_path)?;
-    let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
     let stdout = child.stdout.take().context("child stdout pipe")?;
     let stderr = child.stderr.take().context("child stderr pipe")?;
     // Ordinary Cargo puts rendered compiler diagnostics inside stdout JSON.
@@ -628,12 +638,29 @@ fn streamed_child(
                 let mut sink = std::io::stdout();
                 let stdout_forward: &mut (dyn std::io::Write + Send) = &mut sink;
                 let stdout_forward = std::sync::Mutex::new(stdout_forward);
-                drain_child_pipe(stdout, stdout_file, Some(&stdout_forward), ChildPipeForwarding::Raw)
+                drain_child_pipe(
+                    stdout,
+                    stdout_file,
+                    Some(&stdout_forward),
+                    ChildPipeForwarding::Raw,
+                )
             } else {
-                drain_child_pipe(stdout, stdout_file, Some(&forward), ChildPipeForwarding::RenderedCompilerMessages)
+                drain_child_pipe(
+                    stdout,
+                    stdout_file,
+                    Some(&forward),
+                    ChildPipeForwarding::RenderedCompilerMessages,
+                )
             }
         });
-        let err = scope.spawn(|| drain_child_pipe(stderr, stderr_file, Some(&forward), ChildPipeForwarding::Raw));
+        let err = scope.spawn(|| {
+            drain_child_pipe(
+                stderr,
+                stderr_file,
+                Some(&forward),
+                ChildPipeForwarding::Raw,
+            )
+        });
         let status = child.wait();
         (status, out.join(), err.join())
     });
@@ -667,9 +694,15 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
 
 /// Strict installer adapter: the actual selected Cargo child is captured in the
 /// same operation. Unsupported arguments refuse before any build/refresh effects.
-pub(crate) fn run_observed(options: &ProducerOptions, arguments: &[String]) -> Result<ProducerIdentity> {
-    ensure!(options.declarations.capture_actual_build && options.declarations.actual_build_evidence.is_some(),
-        "observed installer requires actual build capture and protected evidence output");
+pub(crate) fn run_observed(
+    options: &ProducerOptions,
+    arguments: &[String],
+) -> Result<ProducerIdentity> {
+    ensure!(
+        options.declarations.capture_actual_build
+            && options.declarations.actual_build_evidence.is_some(),
+        "observed installer requires actual build capture and protected evidence output"
+    );
     validate_observed_arguments(options, arguments)?;
     run_selected(options, Some(arguments))
 }
@@ -678,37 +711,111 @@ fn validate_observed_arguments(options: &ProducerOptions, arguments: &[String]) 
     let ProducerTarget::Cdylib(manifest) = &options.production_target else {
         anyhow::bail!("observed installer capture requires selected cdylib");
     };
-    ensure!(arguments.first().map(String::as_str) == Some("rustc"), "observed installer requires Cargo rustc");
+    ensure!(
+        arguments.first().map(String::as_str) == Some("rustc"),
+        "observed installer requires Cargo rustc"
+    );
     let mut values = BTreeMap::new();
     let mut switches = BTreeSet::new();
     let mut index = 1;
     while index < arguments.len() {
         let argument = &arguments[index];
-        let (name, inline) = argument.split_once('=').map_or((argument.as_str(), None), |(name,value)| (name, Some(value)));
+        let (name, inline) = argument
+            .split_once('=')
+            .map_or((argument.as_str(), None), |(name, value)| {
+                (name, Some(value))
+            });
         if ["--lib", "--locked", "--offline", "--no-default-features"].contains(&name) {
-            ensure!(inline.is_none() && switches.insert(name.to_owned()), "repeated/invalid observed Cargo switch: {name}");
+            ensure!(
+                inline.is_none() && switches.insert(name.to_owned()),
+                "repeated/invalid observed Cargo switch: {name}"
+            );
         } else {
-            ensure!(["--manifest-path", "--profile", "--features", "--target", "--crate-type", "--message-format", "--color"].contains(&name), "unsupported observed Cargo argument: {name}");
-            let value = if let Some(value) = inline { value.to_owned() } else {
+            ensure!(
+                [
+                    "--manifest-path",
+                    "--profile",
+                    "--features",
+                    "--target",
+                    "--crate-type",
+                    "--message-format",
+                    "--color"
+                ]
+                .contains(&name),
+                "unsupported observed Cargo argument: {name}"
+            );
+            let value = if let Some(value) = inline {
+                value.to_owned()
+            } else {
                 index += 1;
-                arguments.get(index).context("observed Cargo argument requires value")?.clone()
+                arguments
+                    .get(index)
+                    .context("observed Cargo argument requires value")?
+                    .clone()
             };
-            ensure!(!value.is_empty() && values.insert(name.to_owned(), value).is_none(), "repeated/empty observed Cargo argument: {name}");
+            ensure!(
+                !value.is_empty() && values.insert(name.to_owned(), value).is_none(),
+                "repeated/empty observed Cargo argument: {name}"
+            );
         }
         index += 1;
     }
-    ensure!(switches.contains("--lib") && switches.contains("--locked"), "observed Cargo requires locked library selection");
-    ensure!(values.get("--crate-type").map(String::as_str) == Some("cdylib"), "observed Cargo crate type differs");
-    ensure!(matches!(values.get("--message-format").map(String::as_str), Some("json-render-diagnostics") | Some("json")), "observed Cargo requires JSON diagnostics");
-    ensure!(values.get("--profile") == Some(&options.profile), "observed Cargo profile differs");
-    ensure!(values.get("--target") == options.target.as_ref(), "observed Cargo target differs");
-    ensure!(switches.contains("--no-default-features") == options.no_default_features, "observed Cargo default features differ");
-    let features = values.get("--features").into_iter().flat_map(|value| value.split([',', ' '])).filter(|value| !value.is_empty()).collect::<BTreeSet<_>>();
-    ensure!(features == options.features.iter().map(String::as_str).collect(), "observed Cargo features differ");
-    let actual = values.get("--manifest-path").context("observed Cargo manifest missing")?;
-    ensure!(absolute(&options.workspace_root, Path::new(actual)).canonicalize()? == absolute(&options.workspace_root, manifest).canonicalize()?, "observed Cargo manifest differs");
+    ensure!(
+        switches.contains("--lib") && switches.contains("--locked"),
+        "observed Cargo requires locked library selection"
+    );
+    // Maturin omits this switch when the manifest already declares cdylib.
+    // run_selected validates that the actual graph has exactly that sole root
+    // before any refresh/build effect; an explicit different type still refuses.
+    ensure!(
+        matches!(
+            values.get("--crate-type").map(String::as_str),
+            None | Some("cdylib")
+        ),
+        "observed Cargo crate type differs"
+    );
+    ensure!(
+        matches!(
+            values.get("--message-format").map(String::as_str),
+            Some("json-render-diagnostics") | Some("json")
+        ),
+        "observed Cargo requires JSON diagnostics"
+    );
+    ensure!(
+        values.get("--profile") == Some(&options.profile),
+        "observed Cargo profile differs"
+    );
+    ensure!(
+        values.get("--target") == options.target.as_ref(),
+        "observed Cargo target differs"
+    );
+    ensure!(
+        switches.contains("--no-default-features") == options.no_default_features,
+        "observed Cargo default features differ"
+    );
+    let features = values
+        .get("--features")
+        .into_iter()
+        .flat_map(|value| value.split([',', ' ']))
+        .filter(|value| !value.is_empty())
+        .collect::<BTreeSet<_>>();
+    ensure!(
+        features == options.features.iter().map(String::as_str).collect(),
+        "observed Cargo features differ"
+    );
+    let actual = values
+        .get("--manifest-path")
+        .context("observed Cargo manifest missing")?;
+    ensure!(
+        absolute(&options.workspace_root, Path::new(actual)).canonicalize()?
+            == absolute(&options.workspace_root, manifest).canonicalize()?,
+        "observed Cargo manifest differs"
+    );
     if let Some(color) = values.get("--color") {
-        ensure!(["auto", "always", "never"].contains(&color.as_str()), "unsupported observed Cargo color");
+        ensure!(
+            ["auto", "always", "never"].contains(&color.as_str()),
+            "unsupported observed Cargo color"
+        );
     }
     Ok(())
 }
@@ -719,15 +826,22 @@ fn observed_graph_arguments(arguments: &[String]) -> Vec<String> {
     while index < arguments.len() {
         let name = arguments[index].split('=').next().unwrap();
         if ["--message-format", "--color"].contains(&name) {
-            if !arguments[index].contains('=') { index += 1; }
-        } else { result.push(arguments[index].clone()); }
+            if !arguments[index].contains('=') {
+                index += 1;
+            }
+        } else {
+            result.push(arguments[index].clone());
+        }
         index += 1;
     }
     result.extend(["--unit-graph".into(), "-Zunstable-options".into()]);
     result
 }
 
-fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>) -> Result<ProducerIdentity> {
+fn run_selected(
+    options: &ProducerOptions,
+    observed_arguments: Option<&[String]>,
+) -> Result<ProducerIdentity> {
     ensure!(
         options.declarations.actual_build_evidence.is_none()
             || options.declarations.capture_actual_build,
@@ -738,26 +852,43 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
         .canonicalize()
         .context("producer workspace root")?;
     eprintln!("producer capture: selecting configuration and compilation units");
-    let evidence_directory = options.declarations.actual_build_evidence.as_ref().map(|path| {
-        let mut directory = absolute(&root, path).into_os_string();
-        directory.push(".closure");
-        PathBuf::from(directory)
-    });
+    let evidence_directory = options
+        .declarations
+        .actual_build_evidence
+        .as_ref()
+        .map(|path| {
+            let mut directory = absolute(&root, path).into_os_string();
+            directory.push(".closure");
+            PathBuf::from(directory)
+        });
     if let Some(directory) = &evidence_directory {
-        let evidence = options.declarations.actual_build_evidence.as_ref().context("selected evidence path")?;
-        ensure!(!path_entry_exists(&absolute(&root, evidence))?, "capture evidence already exists; choose a fresh owned output");
-        fs::create_dir(directory).context("create new protected capture evidence (never overwrite)")?;
+        let evidence = options
+            .declarations
+            .actual_build_evidence
+            .as_ref()
+            .context("selected evidence path")?;
+        ensure!(
+            !path_entry_exists(&absolute(&root, evidence))?,
+            "capture evidence already exists; choose a fresh owned output"
+        );
+        fs::create_dir(directory)
+            .context("create new protected capture evidence (never overwrite)")?;
     }
     let lock_before = fs::read(root.join("Cargo.lock"))?;
     let manifest_before = fs::read(root.join("Cargo.toml"))?;
     let configuration_before = configuration_state(&root)?;
-    let graph_arguments = observed_arguments.map_or_else(|| unit_graph_arguments(options), observed_graph_arguments);
+    let graph_arguments =
+        observed_arguments.map_or_else(|| unit_graph_arguments(options), observed_graph_arguments);
     let graph_bytes = cargo_output(&root, &graph_arguments)?;
     if let Some(directory) = &evidence_directory {
         fs::write(directory.join("unit-graph.stdout"), &graph_bytes)?;
-        fs::write(directory.join("unit-graph.arguments.json"), serde_json::to_vec(&graph_arguments)?)?;
+        fs::write(
+            directory.join("unit-graph.arguments.json"),
+            serde_json::to_vec(&graph_arguments)?,
+        )?;
     }
-    let graph: UnitGraph = serde_json::from_slice(&graph_bytes).context("selected Cargo unit graph")?;
+    let graph: UnitGraph =
+        serde_json::from_slice(&graph_bytes).context("selected Cargo unit graph")?;
     ensure!(
         graph.version == 1,
         "unsupported Cargo unit graph version {}",
@@ -816,9 +947,16 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
             eprintln!("producer capture: refreshing selected executor families");
             let output = streamed_child(
                 Command::new("cargo").current_dir(&root).args(&arguments),
-                evidence_directory.as_deref(), "refresh", false, &mut std::io::stderr(),
+                evidence_directory.as_deref(),
+                "refresh",
+                false,
+                &mut std::io::stderr(),
             )?;
-            ensure!(output.stream_errors.is_empty(), "executor refresh stream failure: {:?}", output.stream_errors);
+            ensure!(
+                output.stream_errors.is_empty(),
+                "executor refresh stream failure: {:?}",
+                output.stream_errors
+            );
             ensure!(
                 output.status.success(),
                 "selected executor family refresh failed: {}",
@@ -842,17 +980,26 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
     let sources_before = selected_source_state(&graph, &packages)?;
     let mut observed_build_outputs = BTreeMap::new();
     let messages = if options.declarations.capture_actual_build {
-        let arguments = observed_arguments.map_or_else(|| {
-            let mut arguments = unit_graph_arguments(options);
-            arguments.retain(|argument| !matches!(argument.as_str(), "--unit-graph" | "-Zunstable-options"));
-            arguments.push("--message-format=json".into());
-            arguments
-        }, <[String]>::to_vec);
+        let arguments = observed_arguments.map_or_else(
+            || {
+                let mut arguments = unit_graph_arguments(options);
+                arguments.retain(|argument| {
+                    !matches!(argument.as_str(), "--unit-graph" | "-Zunstable-options")
+                });
+                arguments.push("--message-format=json".into());
+                arguments
+            },
+            <[String]>::to_vec,
+        );
         eprintln!("producer capture: building selected production target");
         let output = streamed_child(
             Command::new("cargo").current_dir(&root).args(&arguments),
-            evidence_directory.as_deref(), "build", observed_arguments.is_some(), &mut std::io::stderr(),
-        ).context("running selected Cargo production build")?;
+            evidence_directory.as_deref(),
+            "build",
+            observed_arguments.is_some(),
+            &mut std::io::stderr(),
+        )
+        .context("running selected Cargo production build")?;
         // Preserve stream/status evidence even when successful Cargo emitted malformed JSON.
         let parsed = parse_cargo_messages(&output.stdout);
         let messages = parsed.as_ref().cloned().unwrap_or_default();
@@ -885,7 +1032,11 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
                 }),
             )?;
         }
-        ensure!(output.stream_errors.is_empty(), "selected Cargo stream failure: {:?}", output.stream_errors);
+        ensure!(
+            output.stream_errors.is_empty(),
+            "selected Cargo stream failure: {:?}",
+            output.stream_errors
+        );
         ensure!(
             output.status.success(),
             "selected Cargo command failed: {}",
@@ -971,7 +1122,9 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
     }
     if let Some(directory) = &evidence_directory {
         eprintln!("producer capture: protecting selected role artifact and consumed evidence");
-        history::prepare(directory, options, &root, &graph, &packages, &messages, &identity)?;
+        history::prepare(
+            directory, options, &root, &graph, &packages, &messages, &identity,
+        )?;
     }
     ensure!(
         configuration_state(&root)? == configuration_before,
@@ -1795,9 +1948,22 @@ fn macro_caller_input_basis(
     root: &Path,
     declaration: Option<&BuildScriptInputs>,
 ) -> Result<Option<String>> {
-    macro_caller_input_basis_with_reader(graph, macro_index, keys, associated, actual_associated, root, declaration, |path| {
-        if path.try_exists()? { Ok(Some(fs::read(path)?)) } else { Ok(None) }
-    })
+    macro_caller_input_basis_with_reader(
+        graph,
+        macro_index,
+        keys,
+        associated,
+        actual_associated,
+        root,
+        declaration,
+        |path| {
+            if path.try_exists()? {
+                Ok(Some(fs::read(path)?))
+            } else {
+                Ok(None)
+            }
+        },
+    )
 }
 
 fn macro_caller_input_basis_with_reader(
@@ -1852,7 +2018,9 @@ fn macro_caller_input_basis_with_reader(
         };
         let mut consumed = BTreeMap::new();
         for path in paths {
-            let text = String::from_utf8(read(&absolute(root, path))?.context("historical caller dep-info absent")?)?;
+            let text = String::from_utf8(
+                read(&absolute(root, path))?.context("historical caller dep-info absent")?,
+            )?;
             for input in parse_dep_info(&text)? {
                 let path = absolute(root, &input);
                 let name = path.strip_prefix(root).map_or_else(
@@ -1861,7 +2029,10 @@ fn macro_caller_input_basis_with_reader(
                 );
                 consumed.insert(
                     name,
-                    hash_parts(&[b"raw-macro-caller-input", &read(&path)?.context("historical caller input absent")?]),
+                    hash_parts(&[
+                        b"raw-macro-caller-input",
+                        &read(&path)?.context("historical caller input absent")?,
+                    ]),
                 );
             }
             for line in text.lines().filter(|line| line.starts_with("# env-dep:")) {
@@ -2297,11 +2468,14 @@ fn namespace_observation(root: &Path, entry_limit: usize) -> Result<NamespaceObs
                 path.display()
             );
         };
-        inventory.insert(label.clone(), serde_json::json!({
-            "kind": kind, "mode_frame": mode, "target_mode_frame": target_mode,
-            "link": link, "content_frame": content,
-            "raw_coverage": "inventory-only; consumed file bytes retained separately",
-        }));
+        inventory.insert(
+            label.clone(),
+            serde_json::json!({
+                "kind": kind, "mode_frame": mode, "target_mode_frame": target_mode,
+                "link": link, "content_frame": content,
+                "raw_coverage": "inventory-only; consumed file bytes retained separately",
+            }),
+        );
         entries.insert(
             label,
             hash_parts(&[
@@ -2876,13 +3050,18 @@ fn capture(
                     && declaration.pest_grammars.is_empty()
                     && declaration.reviewed_callers.is_none()
                     && review_matches(declaration, &reviewed_owner_sources[&package_id])
-                    && closure.as_ref().is_some_and(|basis| declaration.reviewed_closures.contains(basis))
+                    && closure
+                        .as_ref()
+                        .is_some_and(|basis| declaration.reviewed_closures.contains(basis))
             });
-            if declaration.is_some_and(|value| value.invocation_contract.is_some()) && !tokens_only {
+            if declaration.is_some_and(|value| value.invocation_contract.is_some()) && !tokens_only
+            {
                 reasons.insert(format!("{package_id}: invocation-channel contract lacks a current pure owner/helper review"));
             }
-            let requires_callers = !tokens_only && (matches!(package.name.as_str(), "paste" | "pest_derive")
-                || declaration.is_some_and(|declaration| declaration.reviewed_callers.is_some()));
+            let requires_callers = !tokens_only
+                && (matches!(package.name.as_str(), "paste" | "pest_derive")
+                    || declaration
+                        .is_some_and(|declaration| declaration.reviewed_callers.is_some()));
             let caller_basis = if requires_callers {
                 macro_caller_input_basis(
                     graph,
@@ -4547,25 +4726,43 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn producer_streamed_child_forwards_before_exit_and_preserves_raw_bytes() {
-        struct Acknowledge { path: PathBuf, bytes: Vec<u8> }
+        struct Acknowledge {
+            path: PathBuf,
+            bytes: Vec<u8>,
+        }
         impl std::io::Write for Acknowledge {
             fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
                 self.bytes.extend_from_slice(bytes);
                 fs::write(&self.path, b"observed before child exit")?;
                 Ok(bytes.len())
             }
-            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
         }
         let directory = tempfile::tempdir().unwrap();
-        let mut sink = Acknowledge { path: directory.path().join("ack"), bytes: Vec::new() };
+        let mut sink = Acknowledge {
+            path: directory.path().join("ack"),
+            bytes: Vec::new(),
+        };
         let mut command = Command::new("/bin/sh");
         command.args(["-c", r#"printf 'live diagnostic' >&2; n=0; while [ ! -f "$1" ]; do n=$((n+1)); [ "$n" -lt 200 ] || exit 9; sleep 0.01; done; printf '\000\377{\"reason\":\"build-finished\"}'"#, "child"]);
         command.arg(&sink.path);
-        let output = streamed_child(&mut command, Some(directory.path()), "live", false, &mut sink).unwrap();
+        let output = streamed_child(
+            &mut command,
+            Some(directory.path()),
+            "live",
+            false,
+            &mut sink,
+        )
+        .unwrap();
         assert!(output.status.success());
         assert_eq!(sink.bytes, b"live diagnostic");
         assert_eq!(&output.stdout[..2], &[0, 255]);
-        assert_eq!(fs::read(directory.path().join("live.stdout")).unwrap(), output.stdout);
+        assert_eq!(
+            fs::read(directory.path().join("live.stdout")).unwrap(),
+            output.stdout
+        );
         assert!(parse_cargo_messages(&output.stdout).is_err());
         assert!(directory.path().join("live.status.json").is_file());
     }
@@ -4573,30 +4770,55 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn producer_streamed_child_renders_cargo_stdout_diagnostic_before_exit() {
-        struct Acknowledge { path: PathBuf, bytes: Vec<u8> }
+        struct Acknowledge {
+            path: PathBuf,
+            bytes: Vec<u8>,
+        }
         impl std::io::Write for Acknowledge {
             fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
                 self.bytes.extend_from_slice(bytes);
-                if self.bytes.windows(b"actual compiler cause".len()).any(|part| part == b"actual compiler cause") {
+                if self
+                    .bytes
+                    .windows(b"actual compiler cause".len())
+                    .any(|part| part == b"actual compiler cause")
+                {
                     fs::write(&self.path, b"rendered before child exit")?;
                 }
                 Ok(bytes.len())
             }
-            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
         }
         let directory = tempfile::tempdir().unwrap();
-        let mut sink = Acknowledge { path: directory.path().join("ack"), bytes: Vec::new() };
+        let mut sink = Acknowledge {
+            path: directory.path().join("ack"),
+            bytes: Vec::new(),
+        };
         let diagnostic = serde_json::json!({"reason": "compiler-message", "message": {"rendered": "actual compiler cause\n"}}).to_string();
         let finished = r#"{"reason":"build-finished","success":true}"#;
         let mut command = Command::new("/bin/sh");
         command.args(["-c", r#"printf '%s\n' "$1"; n=0; while [ ! -f "$2" ]; do n=$((n+1)); [ "$n" -lt 200 ] || exit 9; sleep 0.01; done; printf 'generic Cargo trailer' >&2; printf '%s\n' "$3""#, "child"]);
         command.arg(&diagnostic).arg(&sink.path).arg(finished);
-        let output = streamed_child(&mut command, Some(directory.path()), "cargo-live", false, &mut sink).unwrap();
+        let output = streamed_child(
+            &mut command,
+            Some(directory.path()),
+            "cargo-live",
+            false,
+            &mut sink,
+        )
+        .unwrap();
         assert!(output.status.success());
         assert!(output.stream_errors.is_empty());
         assert_eq!(sink.bytes, b"actual compiler cause\ngeneric Cargo trailer");
-        assert_eq!(output.stdout, format!("{diagnostic}\n{finished}\n").as_bytes());
-        assert_eq!(fs::read(directory.path().join("cargo-live.stdout")).unwrap(), output.stdout);
+        assert_eq!(
+            output.stdout,
+            format!("{diagnostic}\n{finished}\n").as_bytes()
+        );
+        assert_eq!(
+            fs::read(directory.path().join("cargo-live.stdout")).unwrap(),
+            output.stdout
+        );
         assert_eq!(parse_cargo_messages(&output.stdout).unwrap().len(), 2);
     }
 
@@ -4607,7 +4829,9 @@ mod tests {
             fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
                 while let Some(piece) = self.0.front_mut() {
                     let count = std::io::Read::read(piece, buffer)?;
-                    if count != 0 { return Ok(count); }
+                    if count != 0 {
+                        return Ok(count);
+                    }
                     self.0.pop_front();
                 }
                 Ok(0)
@@ -4616,7 +4840,8 @@ mod tests {
         let mut oversized = serde_json::to_vec(&serde_json::json!({"reason": "compiler-message", "message": {"rendered": "x".repeat(LIVE_COMPILER_MESSAGE_BYTES + 100)}})).unwrap();
         oversized.push(b'\n');
         let pieces = vec![
-            b"arbitrary stdout text\n".to_vec(), oversized,
+            b"arbitrary stdout text\n".to_vec(),
+            oversized,
             br#"{"reason":"compiler-"#.to_vec(),
             br#"message","message":{"rendered":"split cause\n"}}"#.to_vec(),
             b"\nnot JSON\n{\"reason\":\"compiler-message\"".to_vec(),
@@ -4628,26 +4853,54 @@ mod tests {
         let mut sink = Vec::<u8>::new();
         let observer: &mut (dyn std::io::Write + Send) = &mut sink;
         let observer = std::sync::Mutex::new(observer);
-        let errors = drain_child_pipe(source, fs::File::create(&path).unwrap(), Some(&observer), ChildPipeForwarding::RenderedCompilerMessages).unwrap();
+        let errors = drain_child_pipe(
+            source,
+            fs::File::create(&path).unwrap(),
+            Some(&observer),
+            ChildPipeForwarding::RenderedCompilerMessages,
+        )
+        .unwrap();
         drop(observer);
         assert!(errors.is_empty());
         assert_eq!(sink, b"split cause\n");
         assert_eq!(fs::read(path).unwrap(), expected);
-        assert!(parse_cargo_messages(&expected).is_err(), "live projection cannot validate malformed evidence");
+        assert!(
+            parse_cargo_messages(&expected).is_err(),
+            "live projection cannot validate malformed evidence"
+        );
     }
 
     #[cfg(unix)]
     #[test]
     fn producer_streamed_child_preserves_nonzero_and_cancelled_partial_output() {
         let directory = tempfile::tempdir().unwrap();
-        for (label, script) in [("failed", "printf partial; printf failure >&2; exit 7"), ("cancelled", "printf partial; printf stopping >&2; kill -TERM $$")] {
+        for (label, script) in [
+            ("failed", "printf partial; printf failure >&2; exit 7"),
+            (
+                "cancelled",
+                "printf partial; printf stopping >&2; kill -TERM $$",
+            ),
+        ] {
             let mut sink = Vec::new();
-            let output = streamed_child(Command::new("/bin/sh").args(["-c", script]), Some(directory.path()), label, false, &mut sink).unwrap();
+            let output = streamed_child(
+                Command::new("/bin/sh").args(["-c", script]),
+                Some(directory.path()),
+                label,
+                false,
+                &mut sink,
+            )
+            .unwrap();
             assert!(!output.status.success());
             assert_eq!(output.stdout, b"partial");
             assert_eq!(sink, output.stderr);
-            assert_eq!(fs::read(directory.path().join(format!("{label}.stdout"))).unwrap(), b"partial");
-            let status: serde_json::Value = serde_json::from_slice(&fs::read(directory.path().join(format!("{label}.status.json"))).unwrap()).unwrap();
+            assert_eq!(
+                fs::read(directory.path().join(format!("{label}.stdout"))).unwrap(),
+                b"partial"
+            );
+            let status: serde_json::Value = serde_json::from_slice(
+                &fs::read(directory.path().join(format!("{label}.status.json"))).unwrap(),
+            )
+            .unwrap();
             assert_eq!(status["success"], false);
         }
     }
@@ -4657,42 +4910,121 @@ mod tests {
     fn producer_streamed_child_drains_after_observer_failure_and_descendant_pipe() {
         struct Broken;
         impl std::io::Write for Broken {
-            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> { Err(std::io::Error::other("observer closed")) }
-            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("observer closed"))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
         }
         let directory = tempfile::tempdir().unwrap();
         let mut command = Command::new("/bin/sh");
-        command.args(["-c", "(sleep 0.05; printf descendant; printf diagnostics >&2) & exit 0"]);
-        let output = streamed_child(&mut command, Some(directory.path()), "drain", false, &mut Broken).unwrap();
+        command.args([
+            "-c",
+            "(sleep 0.05; printf descendant; printf diagnostics >&2) & exit 0",
+        ]);
+        let output = streamed_child(
+            &mut command,
+            Some(directory.path()),
+            "drain",
+            false,
+            &mut Broken,
+        )
+        .unwrap();
         assert!(output.status.success());
         assert_eq!(output.stdout, b"descendant");
         assert_eq!(output.stderr, b"diagnostics");
-        assert!(output.stream_errors.iter().any(|error| error.contains("observer closed")));
+        assert!(
+            output
+                .stream_errors
+                .iter()
+                .any(|error| error.contains("observer closed"))
+        );
     }
 
     #[test]
     fn producer_observed_installer_arguments_preserve_actual_context_and_refuse_unknowns() {
         let directory = tempfile::tempdir().unwrap();
-        fs::write(directory.path().join("Cargo.toml"), "[package]\nname='fixture'\nversion='0.1.0'\n").unwrap();
+        fs::write(
+            directory.path().join("Cargo.toml"),
+            "[package]\nname='fixture'\nversion='0.1.0'\n",
+        )
+        .unwrap();
         let options = ProducerOptions {
-            workspace_root: directory.path().to_path_buf(), package: "fixture".into(), profile: "producer".into(), target: None,
-            production_target: ProducerTarget::Cdylib(PathBuf::from("Cargo.toml")), features: vec!["native-solvers".into(), "force-validate".into()],
-            no_default_features: false, dep_info: Vec::new(), declared_inputs: Vec::new(), native_inputs: Vec::new(),
-            declared_environment: BTreeMap::new(), declarations: InputDeclarations::default(),
+            workspace_root: directory.path().to_path_buf(),
+            package: "fixture".into(),
+            profile: "producer".into(),
+            target: None,
+            production_target: ProducerTarget::Cdylib(PathBuf::from("Cargo.toml")),
+            features: vec!["native-solvers".into(), "force-validate".into()],
+            no_default_features: false,
+            dep_info: Vec::new(),
+            declared_inputs: Vec::new(),
+            native_inputs: Vec::new(),
+            declared_environment: BTreeMap::new(),
+            declarations: InputDeclarations::default(),
         };
-        let arguments = vec!["rustc".into(), "--lib".into(), "--crate-type".into(), "cdylib".into(), "--message-format=json-render-diagnostics".into(),
-            "--manifest-path".into(), directory.path().join("Cargo.toml").to_string_lossy().into_owned(), "--profile".into(), "producer".into(),
-            "--features".into(), "force-validate,native-solvers".into(), "--locked".into(), "--color=always".into()];
-        assert!(run_observed(&options, &arguments).unwrap_err().to_string().contains("actual build capture"));
+        let arguments = vec![
+            "rustc".into(),
+            "--lib".into(),
+            "--crate-type".into(),
+            "cdylib".into(),
+            "--message-format=json-render-diagnostics".into(),
+            "--manifest-path".into(),
+            directory
+                .path()
+                .join("Cargo.toml")
+                .to_string_lossy()
+                .into_owned(),
+            "--profile".into(),
+            "producer".into(),
+            "--features".into(),
+            "force-validate,native-solvers".into(),
+            "--locked".into(),
+            "--color=always".into(),
+        ];
+        assert!(
+            run_observed(&options, &arguments)
+                .unwrap_err()
+                .to_string()
+                .contains("actual build capture")
+        );
         let mut missing_output = options.clone();
         missing_output.declarations.capture_actual_build = true;
         assert!(run_observed(&missing_output, &arguments).is_err());
         validate_observed_arguments(&options, &arguments).unwrap();
+        let mut manifest_selected = arguments.clone();
+        let kind = manifest_selected
+            .iter()
+            .position(|argument| argument == "--crate-type")
+            .unwrap();
+        manifest_selected.drain(kind..kind + 2);
+        validate_observed_arguments(&options, &manifest_selected).unwrap();
+        assert!(
+            !observed_graph_arguments(&manifest_selected)
+                .iter()
+                .any(|argument| argument == "--crate-type")
+        );
+        // The actual graph, validated before refresh/build, must still have a
+        // sole cdylib root when Maturin relies on the manifest's declaration.
+        manifest_selected.extend(["--crate-type".into(), "rlib".into()]);
+        assert!(validate_observed_arguments(&options, &manifest_selected).is_err());
         let graph = observed_graph_arguments(&arguments);
         assert!(graph.contains(&"--unit-graph".into()));
         assert!(graph.contains(&"cdylib".into()));
-        assert!(!graph.iter().any(|argument| argument.starts_with("--message-format") || argument.starts_with("--color")));
-        for extra in [vec!["--profile", "other"], vec!["--target", "other"], vec!["--", "--cfg", "different"], vec!["--jobs", "4"], vec!["--no-default-features"]] {
+        assert!(
+            !graph
+                .iter()
+                .any(|argument| argument.starts_with("--message-format")
+                    || argument.starts_with("--color"))
+        );
+        for extra in [
+            vec!["--profile", "other"],
+            vec!["--target", "other"],
+            vec!["--", "--cfg", "different"],
+            vec!["--jobs", "4"],
+            vec!["--no-default-features"],
+        ] {
             let mut changed = arguments.clone();
             changed.extend(extra.into_iter().map(str::to_owned));
             assert!(validate_observed_arguments(&options, &changed).is_err());
@@ -6198,22 +6530,48 @@ mod tests {
         let root = directory.path();
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("macro/src")).unwrap();
-        fs::write(root.join("Cargo.toml"), format!("{FINITE_FIXTURE_MANIFEST}\n[dependencies]\npaste={{path='macro'}}\n")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            format!("{FINITE_FIXTURE_MANIFEST}\n[dependencies]\npaste={{path='macro'}}\n"),
+        )
+        .unwrap();
         fs::write(root.join("macro/Cargo.toml"), "[package]\nname='paste'\nversion='0.0.1'\nedition='2024'\n[features]\ncontext=[]\n[lib]\nproc-macro=true\n").unwrap();
         fs::write(root.join("macro/src/lib.rs"), "extern crate proc_macro; #[proc_macro] pub fn supplied(input:proc_macro::TokenStream)->proc_macro::TokenStream {input}\n").unwrap();
-        fs::write(root.join("src/lib.rs"), "paste::supplied!{pub fn value()->u32 {7}}\n").unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "paste::supplied!{pub fn value()->u32 {7}}\n",
+        )
+        .unwrap();
         let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        fs::copy(repository.join("rust-toolchain.toml"), root.join("rust-toolchain.toml")).unwrap();
+        fs::copy(
+            repository.join("rust-toolchain.toml"),
+            root.join("rust-toolchain.toml"),
+        )
+        .unwrap();
         cargo_output(root, &["generate-lockfile".into(), "--offline".into()]).unwrap();
         let mut options = ProducerOptions {
-            workspace_root: root.into(), package: "producer-fixture".into(), profile: "dev".into(),
-            target: None, production_target: ProducerTarget::Library, features: Vec::new(),
-            no_default_features: false, dep_info: Vec::new(), declared_inputs: Vec::new(),
-            native_inputs: Vec::new(), declared_environment: BTreeMap::new(),
-            declarations: InputDeclarations {capture_actual_build:true, ..Default::default()},
+            workspace_root: root.into(),
+            package: "producer-fixture".into(),
+            profile: "dev".into(),
+            target: None,
+            production_target: ProducerTarget::Library,
+            features: Vec::new(),
+            no_default_features: false,
+            dep_info: Vec::new(),
+            declared_inputs: Vec::new(),
+            native_inputs: Vec::new(),
+            declared_environment: BTreeMap::new(),
+            declarations: InputDeclarations {
+                capture_actual_build: true,
+                ..Default::default()
+            },
         };
         let first = run(&options).unwrap();
-        let unit = first.units.iter().find(|unit| unit.target_kind == ["proc-macro"]).unwrap();
+        let unit = first
+            .units
+            .iter()
+            .find(|unit| unit.target_kind == ["proc-macro"])
+            .unwrap();
         let owner = &unit.package_id;
         let closure = format!("executable-closure:{owner}:{}", unit.key);
         let catalog = directory.path().with_extension("pure-review.json");
@@ -6226,11 +6584,29 @@ mod tests {
         fs::write(&catalog, serde_json::to_vec(&review).unwrap()).unwrap();
         options.declarations.review_catalogs.push(catalog.clone());
         let admitted = run(&options).unwrap();
-        let has_macro_refusal = |value: &ProducerIdentity| value.reasons.iter().any(|reason| reason.contains("macro I/O") || reason.contains("procedural macro arbitrary I/O") || reason.contains("invocation-channel"));
+        let has_macro_refusal = |value: &ProducerIdentity| {
+            value.reasons.iter().any(|reason| {
+                reason.contains("macro I/O")
+                    || reason.contains("procedural macro arbitrary I/O")
+                    || reason.contains("invocation-channel")
+            })
+        };
         assert!(!has_macro_refusal(&admitted));
-        assert!(!admitted.reviewed_owner_sources.keys().any(|key| key.starts_with("macro-caller-inputs:")));
-        assert!(!admitted.persistent_reuse_eligible, "unqualified native/tool context cannot acquire eligibility from a pure macro review");
-        fs::write(root.join("src/lib.rs"), "paste::supplied!{pub fn value()->u32 {8}}\n").unwrap();
+        assert!(
+            !admitted
+                .reviewed_owner_sources
+                .keys()
+                .any(|key| key.starts_with("macro-caller-inputs:"))
+        );
+        assert!(
+            !admitted.persistent_reuse_eligible,
+            "unqualified native/tool context cannot acquire eligibility from a pure macro review"
+        );
+        fs::write(
+            root.join("src/lib.rs"),
+            "paste::supplied!{pub fn value()->u32 {8}}\n",
+        )
+        .unwrap();
         let changed_caller = run(&options).unwrap();
         assert_ne!(admitted.identity, changed_caller.identity);
         assert!(!has_macro_refusal(&changed_caller));

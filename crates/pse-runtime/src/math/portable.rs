@@ -1943,15 +1943,12 @@ mod portable_frame_tests {
 
         // The receipt-size preflight returns a scalar, so none of its complete
         // native allowance remains reserved during the next admitted operation.
-        let (extent, owner) = startup_observation_job(
-            &service,
-            OBSERVATION_WORK_BYTES,
-            deadline,
-            &driver,
-            |_| Ok((172_usize, 0)),
-        )
-        .await
-        .unwrap();
+        let (extent, owner) =
+            startup_observation_job(&service, OBSERVATION_WORK_BYTES, deadline, &driver, |_| {
+                Ok((172_usize, 0))
+            })
+            .await
+            .unwrap();
         assert_eq!(extent, 172);
         assert_eq!(owner.size(), 0);
         assert_eq!(service.pool.reserved(), baseline);
