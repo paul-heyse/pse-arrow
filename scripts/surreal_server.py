@@ -7230,14 +7230,14 @@ def validation_payload_reads(
     expiry = payload_expiry()
     incarnation = json.dumps(config["payload_incarnation"])
     acknowledged = payload_query(state, config,
-        f"fn::pse_execution_v1::deadline({expiry}); "
+        f"LET $validation_start_deadline=fn::pse_execution_v1::deadline({expiry}); "
         "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
         "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
         f"IF $gate=NONE OR $gate.storage_incarnation!={incarnation} OR !$gate.frozen OR !$gate.gc_frozen "
         f"OR $marker=NONE OR $marker.payload_incarnation!={incarnation} OR $marker.interpretation!={json.dumps(interpretation)} "
         "{ THROW 'validator requires exact frozen restored placement'; }; "
         "UPDATE ONLY canonical_file_admission:current SET frozen=false,gc_frozen=true RETURN NONE; "
-        f"fn::pse_execution_v1::deadline({expiry}); RETURN true;")
+        f"LET $validation_end_deadline=fn::pse_execution_v1::deadline({expiry}); RETURN true;")
     if acknowledged is not True:
         raise SupervisorError("Validator file-read admission was not acknowledged")
 

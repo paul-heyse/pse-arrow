@@ -141,19 +141,26 @@ class PayloadLifecycleTests(unittest.TestCase):
 
     def test_validation_read_mutation_returns_only_exact_administrative_ack(self) -> None:
         self.validation_profile()
+        deadline_calls: list[str] = []
         def administrative(_state: Path, query: str, _deadline: float, **_kwargs: object) -> list[dict[str, object]]:
             self.assertTrue(query.startswith("BEGIN; "))
             self.assertTrue(query.endswith(" COMMIT;"))
             self.assertIn("SET frozen=false,gc_frozen=true", query)
             mutation = next(statement for statement in query.split(";") if "UPDATE ONLY" in statement)
-            # Real UPDATE defaults RETURN AFTER; the exact-one-result wrapper
-            # rejects the extra record unless the emitter suppresses it.
+            deadline_calls.extend(statement.strip() for statement in query.split(";") if "fn::pse_execution_v1::deadline(" in statement)
+            # UPDATE defaults RETURN AFTER and the deadline function returns bool.
+            # Only RETURN NONE and LET suppress these intermediate results.
             return [
+                *({"status": "OK", "result": None if statement.startswith("LET ") else True} for statement in deadline_calls),
                 {"status": "OK", "result": None if "RETURN NONE" in mutation else {"id": "canonical_file_admission:current"}},
                 {"status": "OK", "result": True},
             ]
         with patch.object(server, "administrative_query", side_effect=administrative):
             server.validation_payload_reads(self.state, self.config, server.SUBSTRATE_INTERPRETATION)
+        self.assertEqual(len(deadline_calls), 2)
+        self.assertTrue(deadline_calls[0].startswith("LET $validation_start_deadline="))
+        self.assertTrue(deadline_calls[1].startswith("LET $validation_end_deadline="))
+        self.assertEqual(deadline_calls[0].split("deadline(", 1)[1], deadline_calls[1].split("deadline(", 1)[1])
         selected = server.config_for(self.state)
         self.assertFalse(selected["accepting_writes"])
         self.assertTrue(selected["payload_frozen"])
