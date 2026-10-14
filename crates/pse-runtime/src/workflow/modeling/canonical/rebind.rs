@@ -144,6 +144,53 @@ mod tests {
         assert!(matches!(bind(&source, &receiver), Err(WorkflowError::CallerClosed)));
     }
     #[tokio::test]
+    async fn retained_receiver_readmits_physical_scope_checks_in_the_actual_receiving_invocation() {
+        use datafusion::arrow::{array::{Int64Array, RecordBatch}, datatypes::DataType};
+        use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
+        let original = crate::workflow::tests::runtime();
+        let mut builder = pse_schema::RegistryBuilder::new();
+        pse_schema::catalog::declare(&mut builder);
+        builder.declare_relation(
+            RelationDecl::new(Namespace::Reference, "rebind_clock", 1, Authority::Reference,
+                SnapshotClass::Model, "receiver scope control")
+                .pk(&["n"])
+                .columns(vec![FieldContract::payload("n", FieldContract::native(DataType::Int64), "time")])
+                .checks(BTreeMap::from([("fresh".into(), "to_timestamp_seconds(n) <= now()".into())])),
+        );
+        let registry = Arc::new(builder.build().unwrap());
+        let model = original.model.factory().bind_model(registry.clone()).unwrap();
+        let runtime = Runtime::from_shared_local(original.shared.clone(), model).unwrap();
+        let spec = registry.relation("reference.rebind_clock").unwrap();
+        let actual = runtime.admission_context();
+        let now = actual.admission_scope().execution_props().query_execution_start_time.unwrap();
+        let mut future_properties = actual.admission_scope().execution_props().clone();
+        future_properties.query_execution_start_time = Some(now + std::time::Duration::from_secs(60));
+        let future = actual.for_scope(pse_relations::validate::AdmissionScope::from_execution_props(&future_properties));
+        let make_physical = |timestamp| {
+            let raw = RecordBatch::try_new(
+                pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+                vec![Arc::new(Int64Array::from(vec![timestamp]))],
+            ).unwrap();
+            let checked = pse_relations::columnar::FieldCheckedBatch::admit(&registry, spec, raw, &future,
+                &crate::CancelSource::new().token()).unwrap();
+            let mut physical = crate::workflow::tests::physical();
+            physical.sources.insert(spec.key, checked);
+            physical
+        };
+        let past_source = runtime.modeling_package(rows(), make_physical(0)).await.unwrap();
+        let activity = runtime.admit_activity().unwrap();
+        activity.sync_scope(|| {
+            let receiving_context = runtime.admission_context();
+            let rebound = rebind(&past_source, &runtime).unwrap();
+            assert!(rebound.physical.sources[&spec.key].local_admission().unwrap()
+                .matches(&registry, spec, &receiving_context).unwrap());
+            assert!(past_source.physical.sources[&spec.key].same_source(&rebound.physical.sources[&spec.key]));
+        });
+        let future_source = runtime.modeling_package(rows(), make_physical((now + std::time::Duration::from_secs(30)).timestamp())).await.unwrap();
+        assert!(bind(&future_source, &runtime).is_err(),
+            "a successful future-clock source admission cannot authorize the receiving current scope");
+    }
+    #[tokio::test]
     async fn retained_receiver_refuses_foreign_bindings_and_unknown_source_coverage() {
         let runtime = crate::workflow::tests::runtime();
         let source = runtime.modeling_package(rows(), crate::workflow::tests::physical()).await.unwrap();
