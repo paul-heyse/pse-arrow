@@ -1428,11 +1428,20 @@ DEFINE FUNCTION fn::pse_files_v1::reserve($expiry:int,$row:object,$run:option<st
 DEFINE FUNCTION fn::pse_files_v1::recover_intent($expiry:int,$expected:object,$new_owner:string,$incarnation:string) -> object {
     fn::pse_files_v1::owner($expiry,$new_owner,$incarnation);
     LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$expected.instance) FOR UPDATE;
-    IF $file=NONE OR $file.intent!=$expected.intent OR $file.request_digest!=$expected.request_digest OR $file.storage_incarnation!=$incarnation OR $file.owner!=$expected.owner OR $file.state IN ['abandoned','collecting','collected'] { THROW 'original file recovery intent differs or settled'; };
+    IF $file=NONE OR $file.intent!=$expected.intent OR $file.request_digest!=$expected.request_digest OR $file.storage_incarnation!=$incarnation OR $file.state IN ['abandoned','collecting','collected'] { THROW 'original file recovery intent differs or settled'; };
     IF $file.owner=$new_owner { RETURN $file; };
+    IF $file.owner!=$expected.owner { THROW 'original file recovery custody differs'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_file_owners',$file.owner) FOR UPDATE;
     IF $old=NONE OR !$old.drained { THROW 'original file owner has no authenticated drain; run recover-file-owners --state PATH'; };
     RETURN UPDATE ONLY type::record('canonical_file_instances',$file.key) SET owner=$new_owner;
+};
+// Called while the unique OS instance lock is held, before any physical
+// mutation. This fences late original callers after irreversible collection.
+DEFINE FUNCTION fn::pse_files_v1::intent_open($expiry:int,$expected:object,$owner:string,$incarnation:string) -> object {
+    fn::pse_files_v1::owner($expiry,$owner,$incarnation);
+    LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$expected.instance) FOR UPDATE;
+    IF $file=NONE OR $file.intent!=$expected.intent OR $file.request_digest!=$expected.request_digest OR $file.owner!=$owner OR $file.storage_incarnation!=$incarnation OR $file.state NOT IN ['pending','sealed','attached'] { THROW 'original physical intent is settled or differs'; };
+    RETURN $file;
 };
 DEFINE FUNCTION fn::pse_files_v1::seal($expiry:int,$key:string,$owner:string,$incarnation:string,$descriptor:object) -> object {
     fn::pse_files_v1::owner($expiry,$owner,$incarnation);
@@ -1547,8 +1556,17 @@ DEFINE FUNCTION fn::pse_files_v1::thaw($expiry:int,$incarnation:string) -> bool 
 };
 DEFINE FUNCTION fn::pse_files_v1::drain_owner($expiry:int,$expected:object) -> bool {
     LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$expected.key) FOR UPDATE;
-    IF $owner=NONE OR object::remove($owner,['id','drained'])!=object::remove($expected,'drained') { THROW 'file owner drain exact identity differs'; };
-    UPDATE ONLY type::record('canonical_file_owners',$expected.key) SET drained=true;
+    IF $owner=NONE {
+        // Local cancellation can precede registration dispatch. Fence that
+        // original key permanently before any delayed create can acquire it.
+        LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
+        LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
+        IF $gate=NONE OR $marker=NONE OR $expected.storage_incarnation!=$gate.storage_incarnation OR $expected.storage_incarnation!=$marker.payload_incarnation OR $expected.issuing_store!=$marker.issuing_store OR $expected.drained OR $expected.pid=0dec OR string::len($expected.key)!=36 OR string::len($expected.boot)=0 OR string::len($expected.start)=0 OR string::len($expected.pid_namespace)=0 { THROW 'file pending owner drain original identity unavailable'; };
+        CREATE ONLY type::record('canonical_file_owners',$expected.key) CONTENT object::extend($expected,{drained:true});
+    } ELSE {
+        IF object::remove($owner,['id','drained'])!=object::remove($expected,['id','drained']) { THROW 'file owner drain exact identity differs'; };
+        UPDATE ONLY type::record('canonical_file_owners',$expected.key) SET drained=true;
+    };
     fn::pse_execution_v1::deadline($expiry); RETURN true;
 };
 
@@ -2017,13 +2035,41 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
 // Continued renewals register the exact pin and therefore invalidate a stale
 // settlement decision. The monotone floor remains after physical cleanup.
 DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem:string,$key:string) -> object {
-    LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$problem,$key,false);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $parts=string::split($key,':');
+    IF array::len($parts)!=4 OR $parts[0]!='pse.protection.v2' OR string::len($parts[1])!=36 OR string::len($parts[2])!=36 OR <int>$parts[3]<=0 { THROW 'protection settlement immutable grant binding'; };
+    LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem) FOR UPDATE;
+    IF $authority=NONE { THROW 'protection settlement authority unavailable'; };
     LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$key) FOR UPDATE;
+    IF $pin!=NONE AND ($pin.problem!=$problem OR $pin.grant_deadline!=<int>$parts[3] OR $pin.grant_nonce!=$parts[2] OR $pin.authority_incarnation!=$parts[1]) { THROW 'protection settlement requires original grant'; };
+    IF fn::pse_files_v1::ticket_open($rpc_expiry,$key) { RETURN {complete:false,waiting:true}; };
+    IF $authority.incarnation!=$parts[1] {
+        // A rotated authority closes old acquisition, but is not evidence that
+        // an arbitrary absent grant ever belonged to this problem. Persisted
+        // pins, or exact persisted read/header associations, supply that proof.
+        IF $pin=NONE {
+            LET $artifact_read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$key) FOR UPDATE;
+            LET $artifact=IF $artifact_read=NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_artifacts',$artifact_read.artifact) FOR UPDATE };
+            LET $result_read=SELECT * FROM ONLY type::record('canonical_result_protections',$key) FOR UPDATE;
+            LET $run=IF $result_read=NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_runs',$result_read.run) };
+            IF ($artifact=NONE OR $artifact.primary_problem!=$problem) AND ($run=NONE OR $run.problem!=$problem) { THROW 'historical protection original receipt unavailable'; };
+            LET $revision_key=IF $artifact!=NONE AND $artifact.primary_problem=$problem { $artifact.revision } ELSE { $run.revision };
+            LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$revision_key);
+            IF $revision=NONE OR $revision.problem!=$problem { THROW 'historical protection original revision unavailable'; };
+            CREATE ONLY type::record('canonical_protections',$key) SET key=$key,problem=$problem,revision=$revision.key,sequence=$revision.sequence,expires_at=0,released=true,grant_deadline=<int>$parts[3],grant_nonce=$parts[2],authority_incarnation=$parts[1];
+        } ELSE {
+            // Retain the exact terminal grant as its lost-reply receipt. Released
+            // pins retain no source/result bytes and cannot reacquire authority.
+            UPDATE ONLY type::record('canonical_protections',$key) SET released=true,expires_at=0;
+        };
+        DELETE ONLY type::record('canonical_result_protections',$key);
+        fn::pse_execution_v1::deadline($rpc_expiry);
+        RETURN {complete:true,waiting:false};
+    };
+    LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$problem,$key,false);
     IF time::micros()<$grant.grant_deadline { RETURN {complete:false,waiting:true}; };
-    IF $pin!=NONE AND ($pin.problem!=$problem OR $pin.grant_deadline!=$grant.grant_deadline OR $pin.grant_nonce!=$grant.grant_nonce OR $pin.authority_incarnation!=$grant.authority_incarnation) { THROW 'protection settlement requires original grant'; };
     IF $pin!=NONE AND !$pin.released AND $pin.expires_at>time::micros() { RETURN {complete:false,waiting:true}; };
     UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET protection_closed_through=math::max([protection_closed_through ?? 0dec,<decimal>$grant.grant_deadline]);
-    IF fn::pse_files_v1::ticket_open($rpc_expiry,$key) { THROW 'strong read ticket remains admitted'; };
     DELETE ONLY type::record('canonical_result_protections',$key);
     DELETE ONLY type::record('canonical_protections',$key);
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -2071,7 +2117,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
         DELETE $roots.id;
         fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false};
     };
-    IF time::micros()<$header.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+    LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$header.primary_problem) FOR UPDATE;
+    IF $authority=NONE { THROW 'analysis original settlement authority unavailable'; };
+    IF $authority.incarnation=$header.primary_authority AND time::micros()<$header.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
     RETURN fn::pse_retention_v1::settle_analysis($rpc_expiry,$header);
 };
 
@@ -2079,18 +2127,22 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:ob
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$intent.key) FOR UPDATE;
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
-    IF $guard=NONE OR $guard.incarnation!=$intent.primary_authority { THROW 'analysis settlement authority unavailable'; };
+    IF $guard=NONE OR ($guard.incarnation!=$intent.primary_authority AND $header=NONE) { THROW 'analysis settlement authority unavailable'; };
     IF $intent.key!='pse.analysis.v2:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'analysis settlement key binding'; };
-    IF time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-    IF $header!=NONE AND ($header.primary_authority!=$intent.primary_authority OR $header.creation_expires_at!=$intent.creation_expires_at) { THROW 'analysis settlement requires original occurrence'; };
+    IF $guard.incarnation=$intent.primary_authority AND time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+    IF $header!=NONE AND object::remove($header,['id','active','retiring'])!=object::remove($intent,['id','active','retiring']) { THROW 'analysis settlement requires exact original occurrence'; };
     IF $header!=NONE AND !$header.retiring { UPDATE ONLY type::record('canonical_analyses',$intent.key) SET retiring=true; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $edges=SELECT key FROM canonical_analysis_edges WHERE analysis=$intent.key LIMIT 1;
     LET $nodes=SELECT key FROM canonical_analysis_nodes WHERE analysis=$intent.key LIMIT 1;
     LET $inputs=SELECT key FROM canonical_analysis_inputs WHERE analysis=$intent.key LIMIT 1;
     LET $roots=SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$intent.key LIMIT 1;
     IF array::len($edges)+array::len($nodes)+array::len($inputs)+array::len($roots)!=0 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
-    UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET generation=generation+1dec, analysis_creation_closed_through=math::max([analysis_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
-    DELETE ONLY type::record('canonical_analyses',$intent.key);
+    IF $guard.incarnation=$intent.primary_authority {
+        UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET generation=generation+1dec, analysis_creation_closed_through=math::max([analysis_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
+        DELETE ONLY type::record('canonical_analyses',$intent.key);
+    } ELSE {
+        UPDATE ONLY type::record('canonical_analyses',$intent.key) SET active=false,retiring=true;
+    };
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN {complete:true,waiting:false};
 };
@@ -2320,9 +2372,12 @@ DEFINE FUNCTION fn::pse_artifact_v1::authority($rpc_expiry:int,$row:object) -> o
 };
 // Recovery validates the original immutable intent without granting content access.
 DEFINE FUNCTION fn::pse_artifact_v1::original($rpc_expiry:int,$intent:object) -> object {
-    LET $guard=fn::pse_artifact_v1::authority($rpc_expiry,$intent);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
     LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$intent.key) FOR UPDATE;
-    IF $row!=NONE AND object::remove($row,['id','active','retiring'])!=object::remove($intent,['active','retiring']) { THROW 'artifact recovery requires exact original intent'; };
+    IF $guard=NONE OR $intent.key!='pse.artifact.v1:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'artifact original settlement authority unavailable'; };
+    IF $row!=NONE AND object::remove($row,['id','active','retiring'])!=object::remove($intent,['id','active','retiring']) { THROW 'artifact recovery requires exact original intent'; };
+    IF $guard.incarnation!=$intent.primary_authority AND $row=NONE { THROW 'historical artifact settlement receipt unavailable'; };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $guard;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::available($rpc_expiry:int,$key:string) -> object {
@@ -2454,16 +2509,13 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     IF $row!=NONE AND ($row.creation_request_digest!=$intent.creation_request_digest OR $row.creation_expires_at!=$intent.creation_expires_at) { THROW 'artifact settlement requires original intent'; };
     LET $reads=SELECT key FROM canonical_artifact_reads WHERE artifact=$intent.key ORDER BY key LIMIT 64;
     FOR $read IN $reads {
-        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$read.key) FOR UPDATE;
-        IF $pin!=NONE AND !$pin.released AND ($pin.expires_at>time::micros() OR fn::pse_files_v1::ticket_open($rpc_expiry,$read.key)) { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-        LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$intent.primary_problem,$read.key,false);
-        IF time::micros()<$grant.grant_deadline { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-        fn::pse_retention_v1::settle_protection($rpc_expiry,$intent.primary_problem,$read.key);
+        LET $settlement=fn::pse_retention_v1::settle_protection($rpc_expiry,$intent.primary_problem,$read.key);
+        IF !$settlement.complete { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
         DELETE ONLY type::record('canonical_artifact_reads',$read.key);
     };
     IF array::len($reads)=64 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     IF $row!=NONE { UPDATE ONLY type::record('canonical_artifacts',$intent.key) SET retiring=true; };
-    IF time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+    IF $guard.incarnation=$intent.primary_authority AND time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
     LET $blocks=SELECT id,key FROM canonical_artifact_blocks WHERE artifact=$intent.key ORDER BY ordinal LIMIT 64;
     IF array::len($blocks)!=0 { FOR $block IN $blocks { fn::pse_files_v1::release_borrower($rpc_expiry,'artifact:'+$block.key); }; DELETE $blocks.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $inputs=SELECT id,run FROM canonical_artifact_staging_inputs WHERE artifact=$intent.key ORDER BY key LIMIT 64;
@@ -2472,8 +2524,14 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='artifact' AND owner=$intent.key ORDER BY key LIMIT 64;
     FOR $root IN $roots { SELECT * FROM ONLY type::record('canonical_guards','retention:'+$root.problem) FOR UPDATE; };
     IF array::len($roots)!=0 { DELETE $roots.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
-    UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET artifact_creation_closed_through=math::max([artifact_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
-    DELETE ONLY type::record('canonical_artifacts',$intent.key);
+    IF $guard.incarnation=$intent.primary_authority {
+        UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET artifact_creation_closed_through=math::max([artifact_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
+        DELETE ONLY type::record('canonical_artifacts',$intent.key);
+    } ELSE {
+        // Original historical authority is already fenced. Retain its exact
+        // terminal receipt for lost-reply settlement, without touching a new floor.
+        UPDATE ONLY type::record('canonical_artifacts',$intent.key) SET active=false,retiring=true;
+    };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:true,waiting:false};
 };
 
