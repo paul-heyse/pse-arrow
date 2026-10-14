@@ -6,8 +6,11 @@ use std::{fs, path::Path};
 /// Full synchronous observation envelope, including simultaneously live inventories,
 /// bounded proc/configuration buffers, traversal frames and streamed encoding scratch.
 /// Runtime jobs reserve this allowance before entering the observation owner.
-pub const OBSERVATION_WORK_BYTES: usize =
-    2 * SOURCE_METADATA_BYTES + (4 << 20) + 2 * MAPPING_BYTES;
+pub const OBSERVATION_WORK_BYTES: usize = 2 * SOURCE_METADATA_BYTES + (4 << 20) + 2 * MAPPING_BYTES;
+/// Additional allowance for one complete deployment namespace. Strict receipt
+/// verification traverses namespaces sequentially; ordinary local observation does
+/// not traverse them. Callers reserve this separately before strict verification.
+pub const DEPLOYMENT_NAMESPACE_WORK_BYTES: usize = 512 << 20;
 // Complete imported native trees are source inputs too. Reconfirmation temporarily
 // retains two inventories; each has this independently enforced finite allowance.
 const SOURCE_METADATA_BYTES: usize = 16 << 20;
@@ -510,7 +513,10 @@ pub fn namespace_digest_scoped(
     checkpoint: &dyn Fn() -> std::io::Result<()>,
 ) -> std::io::Result<String> {
     use std::collections::{BTreeMap, BTreeSet};
-    let mut budget = MetadataBudget::default();
+    let mut budget = MetadataBudget {
+        used: 0,
+        limit: DEPLOYMENT_NAMESPACE_WORK_BYTES,
+    };
     budget.path(root, 2)?;
     let mut pending = vec![root.to_path_buf()];
     let mut visited = BTreeSet::new();
@@ -1623,8 +1629,7 @@ mod foundation_unit {
         fs::write(&path, &maps).unwrap();
         let read = super::bounded_read(&path, super::MAPPING_BYTES, &|| Ok(())).unwrap();
         assert_eq!(read, maps.as_bytes());
-        let files = super::executable_mapping_files(std::str::from_utf8(&read).unwrap())
-            .unwrap();
+        let files = super::executable_mapping_files(std::str::from_utf8(&read).unwrap()).unwrap();
         assert_eq!(files, [std::path::PathBuf::from("/lib/actual.so")].into());
 
         maps.push_str("3000-4000 rwxp 00000000 08:01 44 /lib/writable.so\n");
@@ -2226,6 +2231,24 @@ mod foundation_unit {
         fs::remove_file(root.join("b")).unwrap();
         fs::write(root.join("b"), b"native").unwrap();
         assert_ne!(linked, super::namespace_digest(root).unwrap());
+    }
+    #[test]
+    fn deployment_namespace_observes_complete_tree_beyond_small_metadata_budget() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        // Node charges alone exceed the unrelated small-observer budget. These
+        // members must all remain guarded, rather than truncating the namespace.
+        for index in 0..512 {
+            fs::write(root.join(format!("input-{index:04}")), b"native").unwrap();
+        }
+        let initial = super::namespace_digest(root).unwrap();
+        fs::write(root.join("input-0511"), b"replacement").unwrap();
+        assert_ne!(initial, super::namespace_digest(root).unwrap());
+        let stopped = super::namespace_digest_scoped(root, &|| {
+            Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "stop"))
+        })
+        .unwrap_err();
+        assert_eq!(stopped.kind(), std::io::ErrorKind::Interrupted);
     }
     #[test]
     fn loaded_code_mapping_is_independent_of_metadata_only_paths() {

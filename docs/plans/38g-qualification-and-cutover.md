@@ -25,8 +25,8 @@ The combined acceptance checks in G0–G4 are **Proposed**, baseline zero permit
 |---|---|---|
 | <a id="g0"></a>G0 | Accepted rule rows plus concrete selected target. Install each required ADR/design/register/binding amendment before dependent implementation; record actual available contracts, not acceptance by proposal | In progress |
 | <a id="g1"></a>G1 | All selected functional slices/consumers migrated, investigations dispositioned. Assemble policy/preparation/transport/result/recovery consumer acceptance and remove replaced mechanisms | In progress |
-| <a id="g2"></a>G2 | Working selected native/scientific profiles and actual build/environment. Qualify affected solver/recycle/dynamics/fitting/physical/reference scope with independent oracles | Planned |
-| <a id="g3"></a>G3 | Functional scope complete and actual installed/worker/prefix closure. Run selected integration/component/Python/native/performance and scope-end hygiene/manual checks, repair failures | Planned |
+| <a id="g2"></a>G2 | Working selected native/scientific profiles and actual build/environment. Qualify affected solver/recycle/dynamics/fitting/physical/reference scope with independent oracles | In progress |
+| <a id="g3"></a>G3 | Functional scope complete and actual installed/worker/prefix closure. Run selected integration/component/Python/native/performance and scope-end hygiene/manual checks, repair failures | In progress |
 | <a id="g4"></a>G4 | G1–G3 complete plus explicit support/deferral decisions. Reconcile all adopted contributions, evidence labels and new plan Outcome; keep later existing-plan/status/index reconciliation separately scoped | Planned |
 
 G0 applies per dependency, not an all-series implementation barrier. G1–G3 are the scope-end acceptance selection after all functional scope, with coherent journeys allowed to share one run. Targeted compile/unit checks accompany each implementation package. Do not run full hygiene/integration campaigns mid-plan merely because a companion finishes; the maintainer may explicitly request broader qualification at any time.
@@ -177,3 +177,97 @@ they report actual reference-host conditions rather than timing-lane isolation. 
 tracked plans, integration, shared contracts and serial workload execution. Source reviewers
 write only ignored advice artifacts. Existing primary state, other active plans, stopped
 campaigns, unrelated allocations and warm build artifacts retain their ownership.
+
+The prerequisite changes are integrated: the cubic real-interval control uses independent
+known roots rather than the production fallback as its expected answer; a new composed
+durable/KINSOL-to-local replay control covers logical publication close and explicit
+ephemeral reconstruction; bundled SUNDIALS tracks its four timestamp/CI environment inputs;
+and the producer build-review catalog matches current selected owner/helper contexts.
+Independent source review found no material issue in the first three changes. The replay
+and environment-change execution controls now pass as bounded below. The initial editing
+worktrees were integrated and removed. The follow-up supplier worktree is also removed
+after its source/catalog changes were confirmed clean and fully integrated; the remaining
+actual caller review uses the shared evidence folder.
+
+**Tested:** `just unit-package pse-math real_interval_route_matches_known_roots` passed one
+selected control. Ordinary explicitly validated `just py-test` API/read/close controls
+passed 22 tests, and explicit local-construction/refusal controls passed three, against
+zero failures. These bounded no-solve Python selections used the functional allocation
+and an owned v6 fixture. The default exclusive launch was refused before test execution
+while that owned unparkable fixture occupied the host; no admission override was used.
+The fixture is now authentically quiesced/stopped. `just parity -n 0 -q` on a separate
+owned reference fixture passed all nine IDAES 2.13.0 comparisons in 17.60 seconds, with
+the explicitly validated linked extension on Python 3.13.15 and zero failures/warnings;
+its enclosing quiesce/stop also succeeded. This precedes final producer installation.
+
+Parity exposed an actual constructor defect: its scientific import set has approximately
+185 KB of Linux mappings, exceeding the old 128 KB mapping buffer. The repair gives
+mappings their own finite 1 MiB bound and reserves two such buffers, preserving the
+existing small kernel/environment limits and executable-code refusal rules. The two
+selected large-mapping/refusal controls pass. The initial parity result was five passes
+and four constructor errors; the final complete rerun above settles that affected path.
+Independent review caught an unused historical constant, which was removed before the
+warning-free rerun. No numerical oracle, tolerance or solver acceptance was changed.
+
+**Tested:** the linked, explicitly validated canonical native replay selection
+(`just unit-native-package pse-runtime native-solvers,canonical-tests` with the exact
+`solve_durable_replay_after_publication_close_requires_explicit_local_receiver` filter,
+local Nextest profile) passed its one selected body in 30.370 seconds, with enclosing
+observer/fixture cleanup successful. Its first compile exposed two conditional fixture
+errors: a missing duration qualification and an attempt to consume an artifact reader
+through a shared reference. Both are corrected; owned readers are released directly.
+
+**Tested:** eight serial SUNDIALS build-input controls passed on the same development
+unit/provider: baseline, unchanged repeat, four isolated metadata-variable changes,
+baseline recovery and unchanged recovery repeat. The first sequence exposed generated
+headers watched as inputs, causing an unnecessary final rebuild. A source-reviewed
+callback filter now removes exactly 39 own generated-header watches while retaining all
+118 other path watches and eight environment watches. Both unchanged repeats are Fresh;
+each mutation/recovery reruns. This establishes build invalidation, not numerical benefit.
+
+The strict Python review guards its complete startup namespace. uv rewrites installer
+cache timestamps on each reinstall, so the producer extension is installed once through
+the existing scoped setup gate before its resulting namespace is independently reviewed
+and bound. The full assessment retains that actual setup receipt through the documented
+continuation route with explicit changed-review-input provenance; it does not reinstall.
+Production deployment captures and imported association still execute fresh. Any later
+functional source change requires a corresponding rebuilt installed artifact and renewed
+review, rather than transfer of stale implementation evidence.
+
+Current native/tool/configuration source review covers actual selectors, lookup namespaces,
+ABI premises and Python-only startup inputs; strict deployment eligibility still requires
+fresh source-bound input identities, actual compiler/macro consumption and deployed role
+association. Metadata-only captures deliberately remain ineligible. Current artifacts are
+under `build/acceptance/38g-20261014T151916Z`; G1–G4 remain open until the selected assembled,
+scientific, recovery, signal and measurement obligations are settled.
+
+The first actual runtime producer capture completed its Cargo build but failed before
+producing a receipt: the deployment namespace observer reused the small 1 MiB metadata
+bound. A source-backed, metadata-only charge inventory covers 377 selected namespaces;
+27 exceed that bound, and the largest (`/usr/include`) charges 334.68 MiB under the
+observer's conservative accounting. No namespace or guard is removed. The pending repair
+uses a separate finite 512 MiB namespace allowance and admits it only for receipt-bearing
+startup observation, keeping ordinary local observation's 38 MiB envelope. Namespaces are
+verified sequentially, so only one namespace allowance is reserved. New focused controls
+cover complete large-tree mutation detection, cancellation, ordinary small-pool startup,
+strict insufficient-pool refusal and receipt/owner outcomes with adequate capacity.
+Independent source review found no material issue. **Tested:**
+`just unit-package pse-buildinfo 'test(deployment_namespace)'` passed both selected
+controls, with 24 unselected, against zero failures.
+`just unit-native-capability-package pse-runtime native-solvers,canonical-tests
+solver,klu,isolation,uno,petsc 'test(deployment_startup)' --profile local` passed all five
+selected controls, with 943 unselected and zero failures, under a functional allocation.
+These isolated startup tests require native capabilities but no store or worker effects.
+These source changes invalidate the earlier
+scoped producer install as current-source evidence; final formatting, catalog refresh and
+a fresh install must precede post-install review and fresh actual captures.
+
+Execution paused heavy jobs when free disk space fell below 0.6 GB after the failed
+capture. The maintainer was asked to free 30–40 GB outside active build and acceptance
+artifacts; live space subsequently recovered to approximately 38 GB, permitting the
+focused tests and renewed execution. The reference and ordinary fixtures remain
+quiesced/stopped. No caches, fixture data, unrelated allocations or evidence were deleted.
+`just turn-end` passed both checks before rebuilding final artifacts. G1–G4 remain open;
+the full assessment, manual scientific recovery/signal controls, native/powerset checks
+and selected measurements have not run in this execution. Complete the focused startup
+tests, source-finalization and producer-install order above before assembled qualification.

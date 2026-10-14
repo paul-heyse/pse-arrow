@@ -770,6 +770,13 @@ impl super::MathService {
         let allowance = receipt_bytes
             .checked_mul(16)
             .and_then(|n| n.checked_add(OBSERVATION_WORK_BYTES))
+            .and_then(|n| {
+                n.checked_add(if receipt.is_some() {
+                    pse_buildinfo::identity::DEPLOYMENT_NAMESPACE_WORK_BYTES
+                } else {
+                    0
+                })
+            })
             .ok_or_else(|| {
                 PortableError::Qualification("startup observation extent overflow".into())
             })?;
@@ -1800,10 +1807,45 @@ mod portable_frame_tests {
             .unwrap(),
         )
         .unwrap();
-        let service = super::super::tests::service();
-        let baseline = service.pool.reserved();
+        let local_service = super::super::tests::service();
+        let local_baseline = local_service.pool.reserved();
         let driver = crate::CancelSource::new();
         let deadline = std::time::Instant::now() + ReplayAdmission::STARTUP_OBSERVATION_LIMIT;
+        // Receipt-free construction keeps its small observation reservation. The
+        // same pool must truthfully refuse the larger strict namespace envelope.
+        // SAFETY: this isolated artifact and absent receipt cannot grant a producer.
+        let local = unsafe {
+            local_service.observe_deployment_runtime(
+                artifact.clone(),
+                None,
+                ExpectedProducerTarget::PYTHON,
+                deadline,
+                &driver,
+            )
+        }
+        .await
+        .unwrap();
+        assert!(local.producer.is_none());
+        drop(local);
+        assert_eq!(local_service.pool.reserved(), local_baseline);
+        // SAFETY: this controlled receipt explicitly refuses producer eligibility.
+        assert!(
+            unsafe {
+                local_service.observe_deployment_runtime(
+                    artifact.clone(),
+                    Some(receipt.clone()),
+                    ExpectedProducerTarget::PYTHON,
+                    deadline,
+                    &driver,
+                )
+            }
+            .await
+            .is_err()
+        );
+        assert_eq!(local_service.pool.reserved(), local_baseline);
+        let (service, _cache) =
+            super::super::tests::service_with_policy(1 << 30, local_service.policy.clone());
+        let baseline = service.pool.reserved();
         // SAFETY: the controlled fixture's receipt explicitly refuses eligibility;
         // no scientific permission is minted from its artificial artifact path.
         let observed = unsafe {

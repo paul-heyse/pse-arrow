@@ -2836,7 +2836,14 @@ mod tests {
         let fresh = restored.start().unwrap().wait().await.unwrap();
         assert_ne!(fresh.run_id, original.run_id);
         assert_original_root(&fresh);
-        assert!(!fresh.replay().document().unwrap().native_attempts.is_empty());
+        assert!(
+            !fresh
+                .replay()
+                .document()
+                .unwrap()
+                .native_attempts
+                .is_empty()
+        );
         assert!(matches!(fresh.durability(), RunDurability::Ephemeral));
         assert!(fresh.canonical_run_key().is_none());
         assert!(fresh.canonical_attempt_key().is_none());

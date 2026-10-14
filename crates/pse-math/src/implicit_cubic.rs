@@ -262,15 +262,29 @@ mod tests {
         // of the isolation/refinement route used by the production fallback.
         let near_zero = 1.0 / 1_073_741_824.0;
         let fixtures = [
-            (vec![(-6).into(), 11.into(), (-6).into(), 1.into()], vec![1.0, 2.0, 3.0]),
-            (vec![(-2).into(), 0.into(), 1.into()], vec![-2.0_f64.sqrt(), 2.0_f64.sqrt()]),
+            (
+                vec![(-6).into(), 11.into(), (-6).into(), 1.into()],
+                vec![1.0, 2.0, 3.0],
+            ),
+            (
+                vec![(-2).into(), 0.into(), 1.into()],
+                vec![-2.0_f64.sqrt(), 2.0_f64.sqrt()],
+            ),
             (vec![(-2).into(), 1.into()], vec![2.0]),
             (vec![0.into(), 0.into(), 0.into(), 1.into()], vec![0.0]),
             (
-                vec![0.into(), Rational::from((-1, 1_i64 << 60)), 0.into(), 1.into()],
+                vec![
+                    0.into(),
+                    Rational::from((-1, 1_i64 << 60)),
+                    0.into(),
+                    1.into(),
+                ],
                 vec![-near_zero, 0.0, near_zero],
             ),
-            (vec![(-1).into(), 3.into(), (-3).into(), 1.into()], vec![1.0]),
+            (
+                vec![(-1).into(), 3.into(), (-3).into(), 1.into()],
+                vec![1.0],
+            ),
         ];
         let cancel = Arc::new(AtomicBool::new(false));
         for (coefficients, expected) in fixtures {
