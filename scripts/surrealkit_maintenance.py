@@ -1286,6 +1286,7 @@ def main() -> int:
         )
     except (
         MaintenanceError,
+        surreal_rollout_producer.ProducerError,
         surrealkit.ToolError,
         surreal_server.SupervisorError,
         OSError,
