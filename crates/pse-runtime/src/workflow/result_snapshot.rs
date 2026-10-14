@@ -106,6 +106,8 @@ impl ResultSnapshot {
     /// Actual selected attempt and immutable closure, including partiality class.
     pub fn selection(&self) -> &ResultRead { &self.0.read }
     pub(super) fn blocks(&self) -> &[Block] { &self.0.blocks }
+    #[cfg(all(test, feature = "canonical-tests"))]
+    pub(super) fn inventory_reserved_bytes(&self) -> usize { self.0._owner.size() }
     /// Existing configured native state, including its functions and shared pool.
     pub fn session_state(&self) -> SessionState { self.0.runtime.bound_model().native_state() }
     /// A native provider over this frozen inventory; no directory discovery.

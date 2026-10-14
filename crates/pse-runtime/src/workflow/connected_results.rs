@@ -685,10 +685,9 @@ impl Runtime {
             .key
             .clone();
         // The schema is borrowed from the registry's charged immutable arena.
-        let retained = read
-            .retained_bytes()?
-            .checked_add(set.capacity())
-            .ok_or_else(|| contract("result selection allocation extent"))?;
+        // The snapshot owns the shared ResultRead allocation. This reader only
+        // owns its additional set key; Arc aliases do not charge read metadata twice.
+        let retained = set.capacity();
         if retained > extent.size() {
             return Err(contract(
                 "result selection metadata exceeds its admitted response extent",
@@ -1056,12 +1055,15 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
-        let retained = selected.selection().retained_bytes().unwrap() + selected.set.capacity();
-        assert_eq!(selected._selection_owner.size(), retained);
-        assert!(
-            retained < READ_BYTES / 16,
-            "idle reader retains actual metadata, not the RPC envelope"
-        );
+        let reader_metadata = selected.set.capacity();
+        assert_eq!(selected._selection_owner.size(), reader_metadata);
+        let snapshot = selected.snapshot();
+        let snapshot_metadata = snapshot.inventory_reserved_bytes();
+        assert!(snapshot_metadata > selected.selection().retained_bytes().unwrap());
+        assert!(snapshot.blocks().is_empty(), "requested empty relation retains no physical file inventory");
+        let retained = reader_metadata + snapshot_metadata;
+        assert!(retained < READ_BYTES / 16,
+            "idle reader and snapshot retain actual metadata, not RPC envelopes");
         assert_eq!(pool.reserved() - before_selection, retained);
         assert_eq!(selected.schema().fields(), schema.fields());
         let demanded = selected
@@ -1074,6 +1076,9 @@ mod canonical_connected_results_server_unit {
         assert!(selected.next_batch().await.unwrap().is_none());
         assert!(selected.next_batch().await.unwrap().is_none());
         drop(selected);
+        assert_eq!(pool.reserved() - before_selection, snapshot_metadata,
+            "an independent snapshot alias retains its one metadata owner");
+        drop(snapshot);
         assert_eq!(pool.reserved(), before_selection);
         assert!(
             runtime
