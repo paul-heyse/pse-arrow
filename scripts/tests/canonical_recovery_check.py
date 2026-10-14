@@ -271,9 +271,12 @@ def recovery_equivalence(
         "server",
         "service_supervisor",
         "primary_receiver",
+        "payload_verifier",
     }
     incarnation = {
         "instance_id",
+        "payload_incarnation",
+        "payload_frozen",
         "namespace",
         "database",
         "unit_materialized",
@@ -294,10 +297,10 @@ def recovery_equivalence(
         original["resources"] if expected_resources is None else expected_resources
     ):
         raise server.SupervisorError("Recovery exact resource profile changed")
-    for key in ("credentials_file", "server"):
+    for key in ("credentials_file", "server", "payload_verifier"):
         if (
-            server.reroot_restored(original[key], str(original_root), restored_root)
-            != restored[key]
+            server.reroot_restored(original.get(key), str(original_root), restored_root)
+            != restored.get(key)
         ):
             raise server.SupervisorError("Recovery installation association changed")
     for key, primary in (("service_supervisor", False), ("primary_receiver", True)):
@@ -310,7 +313,7 @@ def recovery_equivalence(
             restored_root,
             primary=primary,
         )
-    for key in ("instance_id", "namespace", "database"):
+    for key in ("instance_id", "payload_incarnation", "namespace", "database"):
         if fresh == (original[key] == restored[key]):
             raise server.SupervisorError(
                 "Recovery current incarnation was not re-established"

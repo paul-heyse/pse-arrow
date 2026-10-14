@@ -5952,7 +5952,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertRaisesRegex(server.SupervisorError, "initializer failed"),
         ):
             server.rebuild(self.state, ["initializer"])
-        stop.assert_called_once()
+        self.assertEqual(stop.call_count, 2)
         validate.assert_not_called()
         discard.assert_not_called()
         config = server.config_for(self.state)
@@ -7131,6 +7131,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.maintenance_phase(state, selected, "validated")
 
         with (
+            self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
@@ -7171,6 +7172,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             events.append("copy")
 
         with (
+            self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
@@ -7212,6 +7214,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             "current-restore", "accounts"
         )
         with (
+            self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
             patch.object(server, "require_private_catalog"),
