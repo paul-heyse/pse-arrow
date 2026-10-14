@@ -485,7 +485,7 @@ async fn canonical_operation_scope_keeps_nested_minimum_clock_and_drains_issued_
     );
 }
 
-async fn response_ownership_late_frame(spawned_acquisition: bool) {
+async fn response_ownership_late_frame(spawned_acquisition: bool, second_metadata_rpc: bool) {
     use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -572,6 +572,11 @@ async fn response_ownership_late_frame(spawned_acquisition: bool) {
         Arc::new(owner)
     };
     let (enclosing, nested, outbound) = (grant(), grant(), grant());
+    // The response scope carries the original strong protection witness as well
+    // as its grant. A copied identity or connection activity is insufficient.
+    let ticket = Arc::new("original exact read ticket".to_owned());
+    let original_ticket = Arc::downgrade(&ticket);
+    let enclosing = Arc::new((ticket, enclosing));
     let active = client.clone();
     let caller = tokio::spawn(async move {
         let original = Instant::now() + Duration::from_secs(5);
@@ -583,6 +588,10 @@ async fn response_ownership_late_frame(spawned_acquisition: bool) {
                         original
                     );
                     let request = async move {
+                        if second_metadata_rpc {
+                            let mut first = active.query("RETURN 'FIRST_METADATA'").await?;
+                            assert_eq!(first.take::<Value>(0)?, Value::Bool(true));
+                        }
                         // The query's existing payload owner must compose with
                         // both response scopes rather than replace either grant.
                         let mut response = active
@@ -610,6 +619,13 @@ async fn response_ownership_late_frame(spawned_acquisition: bool) {
         })
         .await
     });
+    if second_metadata_rpc {
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), requests.recv())
+                .await.unwrap().unwrap(),
+            "RETURN 'FIRST_METADATA'"
+        );
+    }
     assert_eq!(
         tokio::time::timeout(Duration::from_secs(2), requests.recv())
             .await
@@ -624,6 +640,8 @@ async fn response_ownership_late_frame(spawned_acquisition: bool) {
         3 * GRANT,
         "original request grants must survive caller abandonment"
     );
+    assert!(original_ticket.upgrade().is_some(),
+        "the original strong read ticket must survive caller abandonment");
     let next = MemoryConsumer::new("unit:canonical-response-reuse").register(&pool);
     assert!(
         next.try_grow(1).is_err(),
@@ -641,6 +659,8 @@ async fn response_ownership_late_frame(spawned_acquisition: bool) {
     })
     .await
     .unwrap();
+    assert!(original_ticket.upgrade().is_none(),
+        "the exact read ticket must release after the actual late frame drains");
     next.try_grow(3 * GRANT).unwrap();
     drop(next);
     assert_eq!(pool.reserved(), 0);
@@ -653,12 +673,17 @@ async fn response_ownership_late_frame(spawned_acquisition: bool) {
 
 #[tokio::test]
 async fn canonical_response_owner_survives_cancelled_caller_until_actual_late_frame_drains() {
-    response_ownership_late_frame(false).await;
+    response_ownership_late_frame(false, false).await;
 }
 
 #[tokio::test]
 async fn canonical_response_owner_crosses_spawned_acquisition_without_replacing_nested_grants() {
-    response_ownership_late_frame(true).await;
+    response_ownership_late_frame(true, false).await;
+}
+
+#[tokio::test]
+async fn canonical_response_owner_retains_exact_ticket_across_sequential_metadata_rpcs() {
+    response_ownership_late_frame(false, true).await;
 }
 
 #[tokio::test]

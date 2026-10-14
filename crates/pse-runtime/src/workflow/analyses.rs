@@ -141,12 +141,14 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analyses as rows;
-                let owner = MemoryConsumer::new("canonical:analysis-header")
-                    .register(&self.runtime.shared.pool());
+                let owner = Arc::new(MemoryConsumer::new("canonical:analysis-header")
+                    .register(&self.runtime.shared.pool()));
                 owner
                     .try_grow(12 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
-                let row = self.runtime.canonical_store()?.analysis(&self.key).await?;
+                let row = pse_operations::canonical::response_ownership_scope(
+                    owner.clone(), self.runtime.canonical_store()?.analysis(&self.key),
+                ).await?;
                 let validation = self.runtime.validation_context();
                 let mut builder =
                     rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
@@ -169,16 +171,14 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_nodes as rows;
-                let owner = MemoryConsumer::new("canonical:analysis-page")
-                    .register(&self.runtime.shared.pool());
+                let owner = Arc::new(MemoryConsumer::new("canonical:analysis-page")
+                    .register(&self.runtime.shared.pool()));
                 owner
                     .try_grow(12 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
-                let page = self
-                    .runtime
-                    .canonical_store()?
-                    .analysis_node_page(&self.key, after)
-                    .await?;
+                let page = pse_operations::canonical::response_ownership_scope(
+                    owner.clone(), self.runtime.canonical_store()?.analysis_node_page(&self.key, after),
+                ).await?;
                 let validation = self.runtime.validation_context();
                 let mut builder =
                     rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
@@ -203,16 +203,14 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_edges as rows;
-                let owner = MemoryConsumer::new("canonical:analysis-page")
-                    .register(&self.runtime.shared.pool());
+                let owner = Arc::new(MemoryConsumer::new("canonical:analysis-page")
+                    .register(&self.runtime.shared.pool()));
                 owner
                     .try_grow(12 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
-                let page = self
-                    .runtime
-                    .canonical_store()?
-                    .analysis_edge_page(&self.key, after)
-                    .await?;
+                let page = pse_operations::canonical::response_ownership_scope(
+                    owner.clone(), self.runtime.canonical_store()?.analysis_edge_page(&self.key, after),
+                ).await?;
                 let validation = self.runtime.validation_context();
                 let mut builder =
                     rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
@@ -247,7 +245,10 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
-                self.canonical_store()?.analysis(key).await?;
+                let response = super::connected_results::response_owner(self, "canonical:analysis-selection-response")?;
+                pse_operations::canonical::response_ownership_scope(
+                    response, self.canonical_store()?.analysis(key),
+                ).await?;
                 Ok(AnalysisHandle {
                     runtime: self.clone(),
                     key: key.into(),
@@ -406,11 +407,13 @@ impl Runtime {
         owner
             .try_grow(128 * 1024 * 1024)
             .map_err(pse_engine::EngineError::from)?;
-        let input = self
-            .canonical_store()?
-            .read_results(run, attempt)
-            .await?;
-        let sources = self.canonical_store()?.analysis_run_sources(run).await?;
+        let response=super::connected_results::response_owner(self,"canonical:result-analysis-selection-response")?;
+        let input = Arc::new(pse_operations::canonical::response_ownership_scope(
+            response.clone(), self.canonical_store()?.read_results(run, attempt),
+        ).await?);
+        let sources = pse_operations::canonical::response_ownership_scope(
+            Arc::new((input.clone(),response)),self.canonical_store()?.analysis_run_sources(run),
+        ).await?;
         let revision = sources
             .iter()
             .find(|source| source.key == input.run().revision)
@@ -444,11 +447,13 @@ impl Runtime {
             }
         };
         let transfer_error=|source:WorkflowError,analysis:Option<String>,read:Option<String>|WorkflowError::ArtifactTransferUnsettled {analysis,artifact:Box::new(artifact.header().clone()),owner_kind:"audit".into(),owner:staging_owner.clone(),read,source:Box::new(source)};
-        let artifact_read=self.canonical_store()?.read_artifact(&artifact.header().key).await.map_err(|source|transfer_error(source.into(),None,None))?;
+        let response=super::connected_results::response_owner(self,"canonical:analysis-artifact-selection-response")?;
+        let artifact_read=pse_operations::canonical::response_ownership_scope(response,self.canonical_store()?.read_artifact(&artifact.header().key)).await.map_err(|source|transfer_error(source.into(),None,None))?;
         let read_key=artifact_read.read_key().to_owned();
         let graph_result:Result<AnalysisHandle,WorkflowError>=async {
         for ordinal in 0..artifact.header().block_count {
-            let block=artifact_read.block(ordinal).await?;
+            let response=super::connected_results::response_owner(self,"canonical:analysis-artifact-response")?;
+            let block=pse_operations::canonical::response_ownership_scope(response,artifact_read.block(ordinal)).await?;
             let relation_name=block.relation.as_str();
             if !["runtime.parametric_sensitivities","runtime.response_sensitivities"].contains(&relation_name) {continue;}
             let spec=self.registry().relation(relation_name).ok_or_else(||contract("analysis copied relation unavailable"))?;

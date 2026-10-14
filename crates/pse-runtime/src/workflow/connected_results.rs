@@ -21,7 +21,7 @@ use std::time::Duration;
 // footer/body allocations use file-shaped grants in ResultSnapshot.
 const READ_BYTES: usize = 3 * result_files::MAX_FILE_BYTES;
 
-fn response_owner(
+pub(super) fn response_owner(
     runtime: &Runtime,
     name: &'static str,
 ) -> Result<Arc<MemoryReservation>, WorkflowError> {
@@ -280,7 +280,9 @@ impl CanonicalResultReader {
                 }
                 let owner = response_owner(&self.runtime, "canonical:result-metadata")?;
                 let page =
-                    pse_operations::canonical::response_ownership_scope(owner.clone(), async {
+                    pse_operations::canonical::response_ownership_scope(
+                        Arc::new((self.read.clone(), owner.clone())),
+                        async {
                         let page = if let Some(filter) = &self.output {
                             let page = self
                                 .runtime
@@ -349,7 +351,8 @@ impl CanonicalResultReader {
                             page
                         };
                         Ok::<_, WorkflowError>(page)
-                    })
+                        },
+                    )
                     .await?;
                 self.pending = page.into();
                 self.metadata_owner = Some(owner);

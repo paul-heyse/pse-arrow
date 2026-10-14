@@ -927,6 +927,8 @@ def _assert_owned_delayed_canonical_sigint(
     run: str,
     attempt: str,
     owned_instance: str,
+    relation: str,
+    file_instances: tuple[str, str],
 ) -> dict[str, object]:
     """Explicit private-server control; never selected by the normal test suite.
 
@@ -947,9 +949,11 @@ def _assert_owned_delayed_canonical_sigint(
     assert process["instance_id"] == owned_instance
     pid = server.integer(process["pid"])
     pidfd = os.pidfd_open(pid)
+    assert len(file_instances) == 2 and file_instances[0] != file_instances[1]
     runtime: pse.Runtime | None = None
+    cleanup: pse.Runtime | None = None
     stream: pse.TableStream | None = None
-    read_bytes = 48 * 1024 * 1024
+    read_bytes = 96 * 1024 * 1024
     reservation_baselines: dict[str, int] = {}
 
     def reserved(name: str) -> int:
@@ -981,19 +985,25 @@ def _assert_owned_delayed_canonical_sigint(
         return queued
 
     def delayed_call(
-        work: Callable[[], object], consumer: str, *, prompt_join: bool
+        work: Callable[[], object], consumer: str, *, prompt_join: bool,
+        after_interrupt: Callable[[], None] | None = None,
     ) -> float:
         before = reserved(consumer)
         reservation_baselines[consumer] = before
         ready = threading.Event()
         observed_signal = threading.Event()
         returned = threading.Event()
+        discarded = threading.Event()
         failures: list[BaseException] = []
         times: dict[str, float] = {}
 
+        original_cause = RuntimeError("original signal handler cause")
+        original_error = KeyboardInterrupt("original entered signal")
+        original_error.__cause__ = original_cause
+
         def interrupted(_number: int, _frame: FrameType | None) -> None:
             observed_signal.set()
-            raise KeyboardInterrupt
+            raise original_error
 
         original_handler = signal.signal(signal.SIGINT, interrupted)
 
@@ -1041,6 +1051,7 @@ def _assert_owned_delayed_canonical_sigint(
                     assert returned.wait(2), (
                         "entered canonical pull did not cancel and join while delayed"
                     )
+                    assert discarded.is_set(), "caller-owned reader was not discarded before resume"
                     assert reserved(consumer) >= before + read_bytes, (
                         "late dispatched response lost its actual grant "
                         "before the server resumed"
@@ -1065,8 +1076,17 @@ def _assert_owned_delayed_canonical_sigint(
             assert ready.wait(6), "owned delay controller did not establish its state"
             if failures:
                 raise failures[0]
-            with pytest.raises(KeyboardInterrupt):
+            with pytest.raises(KeyboardInterrupt) as interrupted_call:
                 work()
+            assert interrupted_call.value is original_error
+            assert interrupted_call.value.__cause__ is original_cause
+            # Traceback frames can themselves retain the Python stream wrapper.
+            # Dispose those observer aliases before asserting caller release.
+            original_error.__traceback__ = None
+            del interrupted_call
+            if after_interrupt is not None:
+                after_interrupt()
+                discarded.set()
         finally:
             times["returned"] = time.monotonic()
             returned.set()
@@ -1079,7 +1099,8 @@ def _assert_owned_delayed_canonical_sigint(
 
     try:
         runtime = pse.Runtime(settings, substrate=str(state), database=database)
-        stream = runtime.results(run, attempt, "runtime.solve_variables")
+        cleanup = pse.Runtime(settings, substrate=str(state), database=database)
+        stream = runtime.results(run, attempt, relation)
         schema = pa.schema(stream)
         # A signal before consumption is a separate control, never evidence that
         # the native producer entered or cancelled an in-flight operation.
@@ -1097,39 +1118,68 @@ def _assert_owned_delayed_canonical_sigint(
             "canonical:result-header",
             prompt_join=False,
         )
+        def discard_interrupted_reader() -> None:
+            nonlocal stream
+            assert stream is not None
+            assert not any(
+                task.joinpath("comm").read_text().strip() == "pse-python-pull"
+                for task in Path("/proc/self/task").iterdir()
+                if task.joinpath("comm").exists()
+            ), "the original Python-owned native pull must already be joined"
+            failure = stream.failure
+            assert failure is not None
+            assert failure.code == DiagnosticCode.RUNTIME_CANCELLED
+            with pytest.raises(pse.InspectionError) as repeated:
+                stream.next_batch()
+            assert repeated.value.report.code == failure.code
+            stream.close()
+            stream = None  # Release every caller-owned reader while server is stopped.
+            assert first.to_pylist() == expected
+            assert runtime is not None
+            runtime.clear_program_cache()
+            runtime.close()
+
+        def next_file() -> object:
+            assert stream is not None
+            return stream.next_batch()
+
         pull_seconds = delayed_call(
-            stream.next_batch, "canonical:result-block", prompt_join=True
+            next_file, "canonical:result-file-open-response", prompt_join=True,
+            after_interrupt=discard_interrupted_reader,
         )
-        assert not any(
-            task.joinpath("comm").read_text().strip() == "pse-python-pull"
-            for task in Path("/proc/self/task").iterdir()
-            if task.joinpath("comm").exists()
-        ), "the original Python-owned native pull must already be joined"
-        failure = stream.failure
-        assert failure is not None
-        assert failure.code == DiagnosticCode.RUNTIME_CANCELLED
-        with pytest.raises(pse.InspectionError) as repeated:
-            stream.next_batch()
-        assert repeated.value.report.code == failure.code
-        stream.close()
-        assert first.to_pylist() == expected
-        runtime.clear_program_cache()
-        runtime.close()  # Logical caller release; the admitted pull has joined.
-        for consumer, before in reservation_baselines.items():
-            assert reserved(consumer) <= before, (
-                "original response reservation survived joined pull and reader release"
-            )
+        drain_deadline = time.monotonic() + 5
+        while any(reserved(consumer) > before for consumer, before in reservation_baselines.items()):
+            assert time.monotonic() < drain_deadline, "original metadata response did not drain"
+            time.sleep(0.005)
+        # Reclamation supplies an actual canonical release/collection control
+        # after the original late frame, rather than treating worker join as drain.
+        collection_deadline = time.monotonic() + 10
+        while True:
+            try:
+                page = cleanup.reclaim_run_results(run)
+            except pse.InspectionError as error:
+                assert "run results have protected readers" in str(error), error
+                assert time.monotonic() < collection_deadline, "original ticket did not release"
+                time.sleep(0.01)
+                continue
+            if page.complete:
+                break
+            assert time.monotonic() < collection_deadline, "result collection did not complete"
         assert first.schema == schema
         assert first.to_pylist() == expected
         return {
             "event": "complete",
             "entry": (
-                "public canonical:result-block reservation "
+                "public canonical:result-file-open-response reservation "
                 "and stopped-server socket receipt"
             ),
             "controlled_pull_joined_while_delayed": True,
             "response_grant_retained_until_server_resume": True,
             "response_grant_released_after_joined_pull_and_reader_release": True,
+            "reader_discarded_while_server_stopped": True,
+            "original_exception_and_cause_preserved": True,
+            "exact_ticket_released_and_results_collected": True,
+            "first_page_file_instances": file_instances,
             "ordinary_signal_observed_while_delayed": True,
             "ordinary_join_seconds": ordinary_seconds,
             "controlled_join_seconds": pull_seconds,
@@ -1149,3 +1199,6 @@ def _assert_owned_delayed_canonical_sigint(
         if runtime is not None:
             runtime.clear_program_cache()
             runtime.close()
+        if cleanup is not None:
+            cleanup.clear_program_cache()
+            cleanup.close()

@@ -99,16 +99,15 @@ impl ScientificArtifact {
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::canonical_artifacts as rows;
-        let owner = MemoryConsumer::new("canonical:artifact-metadata")
-            .register(&self.runtime.shared.pool());
+        let owner = std::sync::Arc::new(MemoryConsumer::new("canonical:artifact-metadata")
+            .register(&self.runtime.shared.pool()));
         owner
             .try_grow(12 * 1024 * 1024)
             .map_err(pse_engine::EngineError::from)?;
-        let row = self
-            .runtime
-            .canonical_store()?
-            .artifact(&self.header.key)
-            .await?;
+        let row = pse_operations::canonical::response_ownership_scope(
+            owner.clone(),
+            self.runtime.canonical_store()?.artifact(&self.header.key),
+        ).await?;
         let validation = self.runtime.validation_context();
         let mut builder = rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
             .map_err(super::relation)?;
@@ -137,12 +136,16 @@ impl ScientificArtifact {
         owner
             .try_grow(4 * super::result_files::MAX_FILE_BYTES)
             .map_err(pse_engine::EngineError::from)?;
-        let read = self
-            .runtime
-            .canonical_store()?
-            .read_artifact(&self.header.key)
-            .await?;
-        let block = read.block(ordinal).await?;
+        let response = super::connected_results::response_owner(
+            &self.runtime, "canonical:artifact-block-response",
+        )?;
+        let read = pse_operations::canonical::response_ownership_scope(
+            response.clone(),
+            self.runtime.canonical_store()?.read_artifact(&self.header.key),
+        ).await?;
+        let block = pse_operations::canonical::response_ownership_scope(
+            response, read.block(ordinal),
+        ).await?;
         let spec = self
             .runtime
             .registry()

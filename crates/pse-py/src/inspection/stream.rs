@@ -173,6 +173,7 @@ impl TableStream {
             Err(error) => {
                 if cancel.is_cancelled()
                     && let Err(cause) = self.stream.cancel()
+                    && error.cause(py).is_none()
                 {
                     error.set_cause(py, Some(errors::diagnostic(py, &cause)));
                 }

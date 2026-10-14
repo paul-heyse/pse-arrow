@@ -217,7 +217,12 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let read = self.store.read_completion(run, attempt).await?;
+                let response = Arc::new(MemoryConsumer::new("canonical:completion-selection-response").register(&self.pool));
+                response.try_grow(3 * super::result_files::MAX_FILE_BYTES)
+                    .map_err(pse_engine::EngineError::from)?;
+                let read = pse_operations::canonical::response_ownership_scope(
+                    response, self.store.read_completion(run, attempt),
+                ).await?;
                 self.decode_completion(CompletionSelection::Slim(&read))
                     .await
             })
@@ -2498,6 +2503,14 @@ async fn read_chunks_selection(
                 .saturating_add(64 * 1024),
         )
         .map_err(pse_engine::EngineError::from)?;
+    let response = Arc::new(MemoryConsumer::new("canonical:opaque-file-response").register(pool));
+    response.try_grow(3 * super::result_files::MAX_FILE_BYTES)
+        .map_err(pse_engine::EngineError::from)?;
+    let response: Arc<dyn std::fmt::Debug + Send + Sync> = match read {
+        CompletionSelection::Full(full) => Arc::new((full.clone(), response)),
+        CompletionSelection::Slim(slim) => Arc::new((slim.clone(), response)),
+    };
+    pse_operations::canonical::response_ownership_scope(response, async {
     for ordinal in 0..count {
         let payload = match read {
             CompletionSelection::Full(full) => {
@@ -2515,6 +2528,8 @@ async fn read_chunks_selection(
         }
         bytes.extend_from_slice(payload.batch.payload.as_slice());
     }
+    Ok::<_, WorkflowError>(())
+    }).await?;
     if result_payload_digest(&bytes) != digest {
         return Err(contract("stored chunk digest differs"));
     }
@@ -3043,11 +3058,21 @@ impl Operations {
         let activity = self.store.admit_activity()?;
         activity
             .scope(async {
-                let read = self.store.read_artifact(artifact).await?;
+                let response = Arc::new(MemoryConsumer::new("canonical:seed-artifact-response").register(&self.pool));
+                response.try_grow(3 * super::result_files::MAX_FILE_BYTES)
+                    .map_err(pse_engine::EngineError::from)?;
+                let read = pse_operations::canonical::response_ownership_scope(
+                    response.clone(), self.store.read_artifact(artifact),
+                ).await?;
                 if read.header().kind != "seed" || read.header().block_count != 1 {
                     return Err(contract("artifact is not a seed capsule"));
                 }
-                let block = read.block(0).await?;
+                let file_owner = Arc::new(MemoryConsumer::new("canonical:seed-artifact-file").register(&self.pool));
+                file_owner.try_grow(4 * super::result_files::MAX_FILE_BYTES)
+                    .map_err(pse_engine::EngineError::from)?;
+                let block = pse_operations::canonical::response_ownership_scope(
+                    Arc::new((response, file_owner)), read.block(0),
+                ).await?;
                 let owner = reserve(
                     &self.pool,
                     block

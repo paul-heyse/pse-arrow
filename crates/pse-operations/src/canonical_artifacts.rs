@@ -254,7 +254,11 @@ impl ArtifactRead {
     /// Read one bounded member under the exact artifact acquisition.
     pub async fn block(&self, ordinal: u64) -> Result<ArtifactBlock, CanonicalError> {
         let activity = self.store.selection_activity(&self.selection)?;
+        // Metadata authentication and sealed-file discovery can outlive an
+        // abandoned caller. Preserve this exact acquisition in every dispatched
+        // request, composing with the invoking runtime's prepaid allowance.
         activity.scope(async {
+            let (row,descriptor)=crate::canonical::response_ownership_scope(std::sync::Arc::new(self.clone()),async {
             let value=codec::encode_uint(ordinal)?;
             let mut response=protected_query("canonical_artifacts::read",||Ok(self.store.db.query("BEGIN; RETURN fn::pse_artifact_v1::read($pse_rpc_expires_at,$key,$protection,$ordinal); COMMIT;")
                 .bind(("key",self.header.key.clone())).bind(("protection",self.selection.key().to_owned())).bind(("ordinal",value.clone())))).await?;
@@ -262,6 +266,10 @@ impl ArtifactRead {
             if row.artifact!=self.header.key || row.ordinal!=ordinal || row.payload_bytes>wire::RESULT_BLOCK_BYTES as u64 { return Err(invalid("artifact block coordinate differs")); }
             let descriptor=self.store.descriptor_for_instance(&row.file_instance).await?;
             if descriptor.digest!=row.file_digest||descriptor.bytes!=row.payload_bytes||descriptor.encoding!=row.encoding||descriptor.schema!=row.schema||row.file_batch_index!=0{return Err(invalid("artifact sealed file binding differs"));}
+            Ok::<_,CanonicalError>((row,descriptor))
+            }).await?;
+            // Copied content retains the invoking allocation allowance, not the
+            // metadata-only ticket follower once both actual responses drained.
             use std::io::Read;
             let mut file=self.store.open_physical_file(descriptor,std::sync::Arc::new(self.clone()))?;
             let mut bytes=Vec::with_capacity(row.payload_bytes as usize);file.read_to_end(&mut bytes).map_err(|error|invalid(&error.to_string()))?;

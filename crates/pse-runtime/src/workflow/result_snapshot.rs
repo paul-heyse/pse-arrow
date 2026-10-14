@@ -86,7 +86,9 @@ impl ResultSnapshot {
                 .try_grow(READ_BYTES)
                 .map_err(pse_engine::EngineError::from)?;
             let (page, descriptors) =
-                pse_operations::canonical::response_ownership_scope(response.clone(), async {
+                pse_operations::canonical::response_ownership_scope(
+                    Arc::new((read.clone(), response.clone())),
+                    async {
                     let page = runtime
                         .canonical_store()?
                         .result_block_page(
@@ -105,7 +107,8 @@ impl ResultSnapshot {
                         .result_file_batch_descriptors(&read, set, &ordinals)
                         .await?;
                     Ok::<_, WorkflowError>((page, descriptors))
-                })
+                    },
+                )
                 .await?;
             if page.len() != descriptors.len() {
                 return Err(contract("snapshot descriptor coverage differs"));
@@ -245,12 +248,25 @@ impl ResultSnapshot {
                         .saturating_add(64 * 1024),
                 )
                 .map_err(pse_engine::EngineError::from)?;
-            let file = self
-                .0
-                .runtime
-                .canonical_store()?
-                .open_result_file(&self.0.read, descriptor)
-                .await?;
+            // Both sequential catalog RPCs inside open_result_file must retain
+            // the exact read ticket and a separately prepaid metadata response.
+            // The file-shaped decode/footer grants cannot bound SDK metadata,
+            // and connection activity alone does not retain this ResultRead.
+            let response = Arc::new(
+                MemoryConsumer::new("canonical:result-file-open-response")
+                    .register(&self.0.runtime.shared.pool()),
+            );
+            response
+                .try_grow(READ_BYTES)
+                .map_err(pse_engine::EngineError::from)?;
+            let file = pse_operations::canonical::response_ownership_scope(
+                Arc::new((self.0.read.clone(), response)),
+                self.0
+                    .runtime
+                    .canonical_store()?
+                    .open_result_file(&self.0.read, descriptor),
+            )
+            .await?;
             let count = usize::try_from(file.descriptor().batch_count)
                 .map_err(|_| contract("file batch count extent"))?;
             let reader = result_files::open_file_reader(file, &self.schema(), Some(count))?;

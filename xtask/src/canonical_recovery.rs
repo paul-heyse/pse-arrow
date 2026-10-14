@@ -527,3 +527,91 @@ mod tests {
         Ok(())
     }
 }
+
+/// Seed an explicit two-file terminal partial observation for the installed
+/// Python signal control. Each ordinary file seal + append ACK is a demanded
+/// flush boundary. Runtime's append queue is private and deliberately not made
+/// into a production fixture API.
+#[cfg(feature = "package-fixtures")]
+#[allow(unsafe_code, reason = "explicit control asserts only its own partial observation closure")]
+pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Value> {
+    use pse_operations::canonical_execution::{
+        ResultPayload, RunRequest, SeedEligibility, TerminalClass,
+        result_batch_key, result_payload_digest, result_set_key,
+    };
+    use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+    ensure!(cfg!(feature = "force-validate"), "signal fixture requires force-validate");
+    let options = CanonicalOptions::from_state(state)?;
+    let store = CanonicalStore::connect(&options).await?;
+    store.create().await?;
+    store.open().await?;
+    let run_id = pse_operations::mint_id::<pse_model::generated::identities::RunId>();
+    let run = format!("signal-results:{run_id}");
+    let revision = store.edit(&run, None, &format!("{run}:source"), &[]).await?;
+    store.begin_run(&RunRequest {
+        key: run.clone(), revision, sources: vec![],
+        request: b"explicit-two-file-signal-control-v1".to_vec(),
+        source_selection: vec![], attestation: vec![],
+    }).await?;
+    let fence = store.claim_run(&run, &format!("{run}:claim"), "signal-control", Duration::from_secs(60)).await?;
+    let registry = pse_schema::shared_registry()?;
+    let context = datafusion::execution::context::SessionContext::new();
+    let validation = pse_relations::validate::ValidationContext::new(
+        &registry, pse_engine::validation::NativeValidation(context.state()),
+    );
+    let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(256 << 20));
+    let name = solve_metrics::RELATION_ID.to_string();
+    let set = result_set_key(fence.attempt(), &name);
+    let mut files = Vec::new();
+    for ordinal in 0..2_u64 {
+        let owner = Arc::new(pse_columnar::MemoryConsumer::new("control:signal-result-file").register(&pool));
+        owner.try_grow(4 * pse_operations::canonical_files::FILE_BYTES)?;
+        let mut builder = solve_metrics::Builder::with_registry(&registry, 1, &validation)?;
+        builder.push(solve_metrics::Row {
+            run_id, step: ordinal as i64, namespace: "signal-control".into(),
+            name: "sealed-observation".into(), kind: NativeMetricKind::Real,
+            real: Some(if ordinal == 0 { -0.0 } else { 2.0 }),
+            integer: None, boolean: None, text: None, unavailable: None,
+        })?;
+        let batch = builder.finish()?;
+        let bytes = pse_runtime::workflow::result_files::encode_result_file(batch.batch())?;
+        let intent = store.reserve_result_file(&fence, &format!("signal-file:{ordinal}"), &result_payload_digest(&bytes)).await?;
+        let file = store.seal_file(&intent, &bytes, pse_operations::canonical_files::ARROW_IPC_FILE, 1, &name).await?;
+        let payload = ResultPayload::from_sealed_owned(file.clone(), 0, owner)?;
+        let key = result_batch_key(fence.attempt(), &set, ordinal);
+        let block = pse_model::generated::runtime::canonical_result_blocks::Row {
+            key: key.clone(), batch: key, result_set: set.clone(), output: name.clone(),
+            partition: "0".into(), ordinal, start: ordinal, end: ordinal + 1,
+            rows: 1, columns: batch.batch().num_columns() as u64,
+            coordinate_min: None, coordinate_max: None,
+            payload_bytes: payload.byte_len(), payload_digest: payload.digest().into(),
+            interpretation: INTERPRETATION.into(),
+        };
+        store.append_result_block(&fence, &format!("signal-append:{ordinal}"), &name, ordinal, payload, 1, &block).await?;
+        files.push(file.descriptor().instance.clone());
+    }
+    let closed = store.close_result_ingestion(&fence, "signal-close").await?;
+    let manifest = store.reconcile_closed_attempt(&closed).await?;
+    // SAFETY: this explicit control owns two registry-valid observations, asserts
+    // only partial availability, and grants no successful solve or seed meaning.
+    unsafe {
+        store.seal_attempt(&manifest, "signal-partial", TerminalClass::Partial,
+            b"explicit signal-control partial observations", SeedEligibility::Unavailable).await?;
+    }
+    let read = store.read_results(&run, fence.attempt()).await?;
+    let page = store.result_block_page(&read, &set, &name, "0", 0, 2, None).await?;
+    ensure!(page.len() == 2 && page[0].ordinal == 0 && page[1].ordinal == 1
+        && page[0].end == page[1].start, "first page lacks consecutive distinct-file blocks");
+    let descriptors = store.result_file_batch_descriptors(&read, &set, &[0, 1]).await?;
+    ensure!(descriptors.len() == 2 && descriptors[0].file_instance != descriptors[1].file_instance
+        && descriptors.iter().zip(&files).all(|(batch, file)| &batch.file_instance == file),
+        "signal control did not seal two actual file instances");
+    drop(read);
+    store.disconnect().await?;
+    Ok(serde_json::json!({
+        "version": 1, "event": "signal-results-seeded", "state": state,
+        "database": options.database, "run": run, "attempt": fence.attempt(),
+        "relation": "runtime.solve_metrics", "terminal_class": "partial",
+        "first_page_ordinals": [0, 1], "file_instances": files,
+    }))
+}

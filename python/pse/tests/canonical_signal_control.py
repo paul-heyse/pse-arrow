@@ -2,9 +2,10 @@
 # Copyright (c) 2026 Paul Heyse
 """Manual entered-pull/SIGINT control for an exclusively owned canonical fixture.
 
-Requires an already activated/readmitted authentic historical fixture and a
-force-validated installed extension. It creates no source, solve, server or
-configuration and never stops an unselected instance.
+Requires the explicit two-file receipt from pse-canonical-recovery
+--seed-signal-results and a force-validated installed extension. The selected
+private fixture's results are collected after cancellation and transport drain;
+this control never stops an unselected server instance.
 """
 
 from __future__ import annotations
@@ -19,15 +20,33 @@ import pse
 from pse.tests.test_canonical_results import _assert_owned_delayed_canonical_sigint
 
 
+class SignalResultFixture(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    version: int
+    event: str
+    state: str
+    database: str
+    run: str
+    attempt: str
+    relation: str
+    terminal_class: str
+    first_page_ordinals: tuple[int, int]
+    file_instances: tuple[str, str]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", required=True, type=Path)
-    parser.add_argument("--database", required=True)
-    parser.add_argument("--run", required=True)
-    parser.add_argument("--attempt", required=True)
+    parser.add_argument("--fixture-receipt", required=True, type=Path)
     parser.add_argument("--exclusive-owned-instance", required=True)
     parser.add_argument("--spill-directory", required=True, type=Path)
     options = parser.parse_args()
+    fixture = msgspec.json.decode(options.fixture_receipt.read_bytes(), type=SignalResultFixture)
+    assert fixture.version == 1 and fixture.event == "signal-results-seeded"
+    assert Path(fixture.state).resolve(strict=True) == options.state.resolve(strict=True)
+    assert fixture.terminal_class == "partial"
+    assert fixture.relation == "runtime.solve_metrics"
+    assert fixture.first_page_ordinals == (0, 1)
+    assert fixture.file_instances[0] != fixture.file_instances[1]
     options.spill_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     settings = pse.EngineSettings(
         memory_limit_bytes=512 << 20,
@@ -48,9 +67,11 @@ def main() -> None:
     outcome = _assert_owned_delayed_canonical_sigint(
         settings,
         state=options.state,
-        database=options.database,
-        run=options.run,
-        attempt=options.attempt,
+        database=fixture.database,
+        run=fixture.run,
+        attempt=fixture.attempt,
+        relation=fixture.relation,
+        file_instances=fixture.file_instances,
         owned_instance=options.exclusive_owned_instance,
     )
     sys.stdout.write(msgspec.json.encode(outcome).decode() + "\n")
