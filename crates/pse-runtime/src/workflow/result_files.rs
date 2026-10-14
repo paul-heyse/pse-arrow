@@ -13,9 +13,9 @@ use datafusion::arrow::{
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 /// Default packing target; acknowledgement boundaries can seal smaller files.
-pub const TARGET_FILE_BYTES: usize = 16 * 1024 * 1024;
+pub const TARGET_FILE_BYTES: usize = pse_operations::canonical_files::FILE_TARGET_BYTES;
 /// Every complete file, including its footer, fits this bound.
-pub const MAX_FILE_BYTES: usize = 32 * 1024 * 1024;
+pub const MAX_FILE_BYTES: usize = pse_operations::canonical_files::FILE_BYTES;
 const MAX_TABLES: usize = 128 * 1024;
 const MAX_BATCHES: usize = 32 * 1024;
 

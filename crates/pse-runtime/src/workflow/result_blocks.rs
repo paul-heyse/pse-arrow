@@ -12,11 +12,11 @@ use datafusion::arrow::{
 };
 use std::io::Write;
 
-const MAX_REPRESENTATION_BYTES: usize = 32 * 1024 * 1024;
+const MAX_REPRESENTATION_BYTES: usize = pse_operations::canonical_files::FILE_BYTES;
 const MAX_FIELDS: usize = 16 * 1024;
 const MAX_DEPTH: usize = 64;
 const MAX_ROWS: usize = 32 * 1024;
-const MAX_VALUES: usize = 32 * 1024 * 1024;
+const MAX_VALUES: usize = MAX_REPRESENTATION_BYTES;
 const MAX_IPC_TABLES: usize = 128 * 1024;
 
 #[derive(Clone, Copy, Debug)]
