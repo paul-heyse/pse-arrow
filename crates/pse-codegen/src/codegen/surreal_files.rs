@@ -55,6 +55,14 @@ DEFINE FUNCTION fn::pse_files_v1::recover_intent($expiry:int,$expected:object,$n
     IF $old=NONE OR !$old.drained { THROW 'original file owner has no authenticated drain; run recover-file-owners --state PATH'; };
     RETURN UPDATE ONLY type::record('canonical_file_instances',$file.key) SET owner=$new_owner;
 };
+// Called while the unique OS instance lock is held, before any physical
+// mutation. This fences late original callers after irreversible collection.
+DEFINE FUNCTION fn::pse_files_v1::intent_open($expiry:int,$expected:object,$owner:string,$incarnation:string) -> object {
+    fn::pse_files_v1::owner($expiry,$owner,$incarnation);
+    LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$expected.instance) FOR UPDATE;
+    IF $file=NONE OR $file.intent!=$expected.intent OR $file.request_digest!=$expected.request_digest OR $file.owner!=$owner OR $file.storage_incarnation!=$incarnation OR $file.state NOT IN ['pending','sealed','attached'] { THROW 'original physical intent is settled or differs'; };
+    RETURN $file;
+};
 DEFINE FUNCTION fn::pse_files_v1::seal($expiry:int,$key:string,$owner:string,$incarnation:string,$descriptor:object) -> object {
     fn::pse_files_v1::owner($expiry,$owner,$incarnation);
     LET $row=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE;

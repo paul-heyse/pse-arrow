@@ -224,9 +224,14 @@ impl CanonicalStore {
         let mut saved=last_object(&mut response)?;
         let recovered=FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner,storage_incarnation:self.files.incarnation.clone()};
         let lock=lock_instance(&self.files.root,&recovered.instance).await?;
+        self.physical_intent_open(&recovered).await?;
         settle_published_alias(&self.files.root,&recovered.instance,&lock)?;
         Ok(recovered)
         })).await
+    }
+    async fn physical_intent_open(&self,intent:&FilePublicationIntent)->Result<Object,CanonicalError>{
+        let mut expected=Object::new();expected.insert("instance",intent.instance.clone());expected.insert("intent",intent.intent.clone());expected.insert("request_digest",intent.request_digest.clone());
+        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::intent_open($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected)).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone()))).await?;last_object(&mut response)
     }
     /// Complete an opaque bounded native file after original intent reservation.
     /// Runtime validates native IPC/schema before this boundary; Operations
@@ -239,6 +244,11 @@ impl CanonicalStore {
         let descriptor=FileDescriptor{instance:intent.instance.clone(),digest:crate::canonical_execution::result_payload_digest(bytes),bytes:bytes.len() as u64,encoding:encoding.into(),batch_count,schema:schema.into(),interpretation:crate::generated::surreal::INTERPRETATION.into()};descriptor.validate()?;
         if encoding==OPAQUE_JSON {let _:serde_json::Value=serde_json::from_slice(bytes).map_err(configuration)?;}
         let lock=lock_instance(&self.files.root,&descriptor.instance).await?;
+        let mut original=self.physical_intent_open(intent).await?;
+        if original.get("state")!=Some(&Value::String("pending".into())) {
+            if text(&mut original,"digest")?!=descriptor.digest||codec::decode_uint(codec::required(&mut original,"payload_bytes")?)?!=descriptor.bytes||text(&mut original,"encoding")?!=descriptor.encoding||codec::decode_uint(codec::required(&mut original,"batch_count")?)?!=descriptor.batch_count||text(&mut original,"schema")?!=descriptor.schema||text(&mut original,"interpretation")?!=descriptor.interpretation{return Err(CanonicalError::OperationReused);}
+            if !self.files.path(&descriptor.instance)?.try_exists().map_err(configuration)?{return Err(configuration("original sealed file is missing; immutable physical paths cannot be recreated"));}
+        }
         publish_locked(&self.files.root,&descriptor,bytes,&lock)?;
         #[cfg(all(test,feature="canonical-tests"))]
         effect_pause("seal").await;
