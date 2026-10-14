@@ -396,3 +396,21 @@ and conservative lifecycle validation are integrated. Worker worktrees are remov
 
 Combined assembled/scientific/reference/performance qualification and G4 disposition remain
 separately scoped in 38g. Existing Plan 28/32 work and stopped campaigns retain their prior status.
+
+## Execution checkpoint — 38g turn handoff, 2026-10-14
+
+At the maintainer's request, execution concludes after the current setup and input-review
+work. [38g's turn handoff](38g-qualification-and-cutover.md#turn-handoff--2026-10-14)
+owns the exact qualified scope, current artifact/input basis and remaining dependency order.
+Implementation and tooling repairs are integrated on `main`; the editing worktrees are
+merged and removed. The selected static/tooling scope passes, including 1,066 tooling
+tests; final standard producer setup, compiled API checking and the controlled producer
+fixture also pass. Six exact compiler/macro caller reviews are integrated without broader
+grants or relaxed association rules.
+
+These are bounded preparation and verification results. Fresh assembled deployment and
+installed-byte association, native/managed/Python acceptance, scientific recovery and
+entered-pull interruption, manual native/powerset checks, development-context functional
+prerequisites, eleven measurements and G4 reconciliation remain open. The original failed
+assembled report is unchanged. No full-series scientific or measured-benefit claim is made.
+Other plans and stopped campaigns retain their existing owners and status.

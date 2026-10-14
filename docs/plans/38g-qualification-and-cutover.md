@@ -412,3 +412,64 @@ unproved; prior SDK discovery observations do not establish the earlier installe
 complete context. No symbol normalization, stripping or association relaxation is used.
 The final standard setup and post-install namespace/input review now precede a fresh
 assembled capture, whose byte association remains decisive.
+
+## Turn handoff — 2026-10-14
+
+The maintainer requested conclusion of the current turn before a separate review.
+The current setup/input-review tasks are finished; no full acceptance campaign is
+started as part of this handoff. Implementation and fixes are integrated on `main`;
+all editing worktrees have been merged, validated within their stated scope and removed.
+Other active plans and stopped campaigns are not resumed.
+
+**Tested:** `source-finalization-qualified` passes all 38 selected checks against the
+zero-failure baseline, including all 1,066 tooling tests. The final scoped runner at
+`build/acceptance/38g-20261014T151916Z/source-final-setup` also completes all 38 declared
+checks successfully: `just py-sync-native-correctness producer`, compiled API/stub
+checking and the controlled producer fixture execute fresh; unaffected static/tooling
+observations retain their qualified origins and explicit transfer rationale. This is
+scoped setup/static verification, not assembled product qualification.
+
+**Interface-checked:** the six exact runtime/worker/Python Paste/Pest caller bases are
+independently reconstructed and integrated. Current raw Python artifact `93bb0ccc…`
+and installed artifact `f628ff0c…` retain the exact observed RPATH transformation through
+the final standard install. The final complete Python namespace review retains 7,053
+members, all 570 absence premises and the same 504-file/378-namespace input selection;
+only expected installer provenance metadata changes. Metadata-only observations remain
+ineligible and do not establish actual compiler consumption or deployment acceptance.
+Supporting source/ELF/installer reviews and versioned declarations remain under the
+run's `producer-input-review` folder; historical receipts and declarations are unchanged.
+The current Python declaration is `python-declarations.final-turn.reviewed.json`, paired
+with `python-native-inputs.maturin-config.source-reviewed.json`; its independent binding
+is recorded in `python-final-turn-native-cfg-reconciliation.json`. Runtime and worker
+retain their respective `*-declarations.system-current.reviewed.json` and the common
+`native-inputs.reviewed.json`. Earlier Python declarations precede the final installation
+and must not be substituted for this final input basis.
+
+The initial assembled assessment remains **failed**: 36 passed, four failed, six blocked.
+Subsequent scoped repairs and artifact reproduction do not rewrite that result. Fresh
+post-grant all-role capture and installed-byte association have not run. Historical
+LLVM symbol-suffix causality remains unproved; matching machine-code sections alone is
+not accepted as artifact association. No association, scientific tolerance or ownership
+safeguard was relaxed.
+
+Resume only under a new maintainer instruction, in this order:
+
+1. Use the current source-reviewed role declarations and exact Python input selection;
+   retain the final setup receipt through the documented continuation route. Run fresh
+   actual runtime, worker and Python deployment capture and imported-byte association.
+   Recheck post-install/native/configuration premises if any selected input changes.
+2. Complete assembled native, managed and installed-Python acceptance, then the selected
+   scientific recovery and entered-pull SIGINT/disposal controls and manual native and
+   feature-powerset checks. Preserve the pre-install parity result's original scope.
+3. Build a separate development worker and owned original reference-profile state; run
+   exact standalone native and managed functional gates without producer injection,
+   followed by the eleven selected measurements. Preserve actual allocation, profile,
+   environment and source identity across those prerequisites and measurements.
+4. Complete G4 finding/rule/investigation/packet reconciliation and the owning Outcomes.
+   G1–G4 remain open; formal ADR status and other plans retain their separate routes.
+
+Both owned ordinary/reference fixtures are quiesced with writes disabled; their exact
+services are inactive/dead and recorded cgroups are gone. No owned test/build job remains
+at handoff. The shared compiler-cache allocation and unrelated services/resources are
+preserved. The fixed activity observer's unrelated disappeared-unit error is recorded
+as an incomplete global observation, not a cleanup claim or authority to stop that owner.

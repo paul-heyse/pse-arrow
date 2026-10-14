@@ -6,9 +6,9 @@ progress. The current architecture and its supported scope live in the
 
 [Plan 38: Efficiency and the common solver target](38-efficiency-and-solver-target.md)
 owns the current reconciled efficiency/solver scope and supersedes remaining Plan36 work.
-Its [current handoff](38-efficiency-and-solver-target.md#execution-checkpoint--static-remediation-2026-10-14)
-routes completed boundary/development implementation, the scoped static-check repairs and the
-separately owed assembled/scientific qualification in 38g. The owning companions retain their exact outcomes and limits. Plan37 supplies
+Its [current handoff](38-efficiency-and-solver-target.md#execution-checkpoint--38g-turn-handoff-2026-10-14)
+routes completed implementation, qualified scoped static/tooling checks and producer-input
+preparation to the remaining assembled/scientific qualification in 38g. The owning companions retain their exact outcomes and limits. Plan37 supplies
 completed lifecycle prerequisites; this handoff does not resume or qualify a stopped campaign.
 
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
