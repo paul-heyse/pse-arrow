@@ -437,12 +437,6 @@ mod canonical_artifact_tests {
             )
             .await
             .unwrap();
-        // Test controls issue a shorter original window before sealing/effects.
-        intent.creation_expires_at -= 59_500_000;
-        intent.key = format!(
-            "pse.artifact.v1:{}:{}:{}",
-            intent.primary_authority, intent.creation_nonce, intent.creation_expires_at
-        );
         let blocks = vec![artifact_block(
             &intent.key,
             0,
@@ -460,6 +454,14 @@ mod canonical_artifact_tests {
             owner,
         );
         (intent, blocks)
+    }
+    async fn wait_for_original_creation_window(store:&CanonicalStore,intent:&Artifact){
+        loop {
+            let mut response=bounded_query(store.db.query("RETURN time::micros();")).await.unwrap();
+            let now=u64::try_from(codec::decode_int(response.take::<Value>(0).unwrap()).unwrap()).unwrap();
+            if now>=intent.creation_expires_at{return;}
+            tokio::time::sleep(Duration::from_micros((intent.creation_expires_at-now).min(250_000))).await;
+        }
     }
     #[tokio::test]
     async fn canonical_artifact_independent_owners_and_exact_copied_read() {
@@ -618,7 +620,7 @@ mod canonical_artifact_tests {
             store.artifact(&intent.key).await.is_err(),
             "retirement closes fresh acquisition"
         );
-        tokio::time::sleep(Duration::from_millis(550)).await;
+        wait_for_original_creation_window(&store,&intent).await;
         let mut complete = false;
         for _ in 0..8 {
             if store.collect_artifact(&intent).await.unwrap() {
@@ -728,7 +730,7 @@ mod canonical_artifact_tests {
             !store.collect_artifact(&intent).await.unwrap(),
             "original creation window remains pending"
         );
-        tokio::time::sleep(Duration::from_millis(550)).await;
+        wait_for_original_creation_window(&store,&intent).await;
         let mut complete = false;
         for _ in 0..8 {
             if store.collect_artifact(&intent).await.unwrap() {
