@@ -11,7 +11,8 @@ other backend journeys have drained. Never select an existing state directory::
 Requires the pinned native SurrealDB CLI and a current target/debug/xtask built
 with canonical-tools. This control installs the production canonical schema,
 leaves external authored input bytes untouched, and exercises native restore/rebuild,
-account/catalog authority and interrupted-initializer recovery. It retains its
+account/catalog authority, exact retained analysis rows and interrupted-initializer
+recovery. It retains its
 private acceptance.json and diagnostic files, then normally stops its profiles.
 Scientific model reconstruction and delayed creation API replay are separate.
 """
@@ -223,6 +224,14 @@ def main() -> int:
             + json.dumps(input_hashes["heat-exchanger.pse"])
             + " RETURN NONE; LET $value=true;",
         )
+        retained_analysis_query = (
+            "LET $nodes=SELECT key,analysis,semantic,kind FROM canonical_analysis_nodes ORDER BY key; "
+            "LET $roots=SELECT key,problem,revision,sequence,owner_kind,owner FROM canonical_roots WHERE owner_kind='analysis' ORDER BY key; "
+            "LET $guard=SELECT key,generation FROM ONLY canonical_guards:`analysis:maintenance`; "
+            "LET $value={nodes:$nodes,roots:$roots,analysis_guard:$guard};"
+        )
+        retained_analysis_rows = query(source, retained_analysis_query)
+        checked(isinstance(retained_analysis_rows, dict), "exact typed analysis rows captured before backup")
         server.backup(source, server.config_for(source), backup)
         backup_hashes = {
             str(path.relative_to(backup)): server.file_digest(path)
@@ -231,7 +240,7 @@ def main() -> int:
         }
         checked(
             True,
-            "production canonical initializer and real typed cleanup rows installed",
+            "production canonical initializer and real typed retention rows installed",
         )
 
         # Actual native sql + RocksDB export/import + authenticated ROOT rotation.
@@ -259,12 +268,8 @@ def main() -> int:
             "source guard authority rotated while original closed-through floor retained",
         )
         checked(
-            query(
-                restored,
-                "LET $nodes=SELECT key FROM canonical_analysis_nodes; LET $roots=SELECT key FROM canonical_roots WHERE owner_kind='analysis'; LET $value=array::len($nodes)+array::len($roots);",
-            )
-            == 0,
-            "derived analysis rows and roots retired by actual bounded cleanup",
+            query(restored, retained_analysis_query) == retained_analysis_rows,
+            "exact analysis nodes, roots and analysis guard preserved under restored target",
         )
         checked(
             query(
@@ -475,6 +480,7 @@ def main() -> int:
                     drain_errors.append(type(error).__name__ + ": " + str(error))
         report["limits"] = [
             "Initializer installs production current schema; external .pse input is not compiled/reimported into a scientific model.",
+            "Typed analysis rows, roots and analysis guard are compared exactly across restore; the native canonical recovery journey owns admitted public graph-read and future artifact-obligation qualification.",
             "Old authority checks cover actual namespace disposal, ROOT authentication and guard incarnation; end-to-end delayed analysis-creation API replay remains separate.",
             "Failure injection is a real child exit after successful production initialization; SIGKILL/fsync power-loss recovery remains covered by targeted phase controls only.",
         ]

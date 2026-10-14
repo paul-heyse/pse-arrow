@@ -71,6 +71,190 @@ const FIRST: &str = "native-recovery-first";
 const SECOND: &str = "native-recovery-second";
 const LARGE_BYTES: usize = 5 * 1024 * 1024 + 17;
 
+const ANALYSIS_RECEIPT: &str = "recovery-retained-analysis";
+const ANALYSIS_RECEIPT_VERSION: &str = "recovery-retained-analysis-v1";
+const ARTIFACT_BYTES: &[u8] = br#"{"minus_zero_bits":"8000000000000000","source":"historical-first","unit":"dimensionless"}"#;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RetainedScience {
+    analysis: Vec<u8>,
+    artifact: Vec<u8>,
+}
+
+fn analysis_graph(
+    header: &pse_operations::canonical_analyses::Analysis,
+    artifact: &str,
+) -> (
+    Vec<pse_operations::canonical_analyses::AnalysisNode>,
+    Vec<pse_operations::canonical_analyses::AnalysisEdge>,
+) {
+    use pse_operations::canonical_analyses::{AnalysisEdge, AnalysisNode};
+    let source = format!("{}:node:0", header.key);
+    let target = format!("{}:node:1", header.key);
+    let nodes = vec![
+        AnalysisNode {
+            key: source.clone(),
+            analysis: header.key.clone(),
+            semantic: "historical-x".into(),
+            kind: "variable".into(),
+        },
+        AnalysisNode {
+            key: target.clone(),
+            analysis: header.key.clone(),
+            semantic: "historical-result".into(),
+            kind: "result".into(),
+        },
+    ];
+    let edges = vec![AnalysisEdge {
+        key: format!("{}:edge:0", header.key),
+        analysis: header.key.clone(),
+        source,
+        target,
+        kind: "recorded-evidence".into(),
+        evidence_artifact: Some(artifact.into()),
+        evidence_block: Some(0),
+        evidence_row: None,
+        evidence_field: None,
+    }];
+    (nodes, edges)
+}
+
+async fn seed_retained_science(
+    store: &CanonicalStore,
+    revision: &pse_operations::canonical::Revision,
+) -> Result<Vec<u8>> {
+    use pse_operations::{
+        canonical_analyses::seal_analysis_request,
+        canonical_artifacts::{artifact_block, seal_artifact_request},
+    };
+    let mut artifact = store
+        .new_artifact(
+            revision,
+            "recovery-json-capsule",
+            vec![0, 255, 1],
+            1,
+            u64::try_from(ARTIFACT_BYTES.len())?,
+        )
+        .await?;
+    let blocks = vec![artifact_block(
+        &artifact.key,
+        0,
+        "historical-exact-bits",
+        ARTIFACT_BYTES.to_vec(),
+        "recovery-original-json-v1",
+        1,
+    )];
+    seal_artifact_request(
+        &mut artifact,
+        std::slice::from_ref(revision),
+        &[],
+        &blocks,
+        "user",
+        "recovery-fixture",
+    );
+    let artifact = store
+        .persist_artifact(
+            &artifact,
+            std::slice::from_ref(revision),
+            &[],
+            &blocks,
+            "user",
+            "recovery-fixture",
+        )
+        .await?;
+    let input = store.read_artifact(&artifact.key).await?;
+    let mut analysis = store
+        .new_analysis(
+            revision,
+            "recovery-retained-graph.v1",
+            vec![0, 255, 1],
+            blocks[0].digest.clone(),
+            2,
+            1,
+        )
+        .await?;
+    let (nodes, edges) = analysis_graph(&analysis, &artifact.key);
+    seal_analysis_request(
+        &mut analysis,
+        std::slice::from_ref(revision),
+        std::slice::from_ref(&input),
+        &nodes,
+        &edges,
+    );
+    let analysis = store
+        .persist_analysis(
+            &analysis,
+            std::slice::from_ref(revision),
+            std::slice::from_ref(&input),
+            &nodes,
+            &edges,
+        )
+        .await?;
+    input.release().await?;
+    store
+        .release_artifact(&artifact.key, "user", "recovery-fixture")
+        .await?;
+    ensure!(analysis.active && artifact.active, "retained science was not admitted");
+    Ok(serde_json::to_vec(&RetainedScience {
+        analysis: serde_json::to_vec(
+            &pse_operations::generated::surreal::encode_canonical_analyses(&analysis)?,
+        )?,
+        artifact: serde_json::to_vec(
+            &pse_operations::generated::surreal::encode_canonical_artifacts(&artifact)?,
+        )?,
+    })?)
+}
+
+async fn verify_retained_science(
+    store: &CanonicalStore,
+    read: &mut SelectedRead,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+) -> Result<()> {
+    let members = store
+        .resolve_names(read, "root", &[ANALYSIS_RECEIPT.into()])
+        .await?;
+    ensure!(members.len() == 1, "retained analysis receipt missing");
+    let extent = store
+        .selected_object_extent(read.selection(), &members[0].version)
+        .await?
+        .context("retained analysis receipt extent missing")?;
+    let reservation = pse_columnar::MemoryConsumer::new("recovery:analysis-receipt").register(pool);
+    reservation.try_grow(
+        extent
+            .checked_mul(2)
+            .and_then(|bytes| bytes.checked_add(2 * pse_operations::canonical_staging::SOURCE_BLOCK_BYTES))
+            .context("retained analysis receipt extent overflow")?,
+    )?;
+    let receipt = store
+        .selected_object(read.selection(), &members[0].version)
+        .await?
+        .context("retained analysis receipt missing")?;
+    let receipt: RetainedScience = serde_json::from_slice(receipt.payload.as_slice())?;
+    let expected_analysis = pse_operations::generated::surreal::decode_canonical_analyses(
+        serde_json::from_slice(&receipt.analysis)?,
+    )?;
+    let expected_artifact = pse_operations::generated::surreal::decode_canonical_artifacts(
+        serde_json::from_slice(&receipt.artifact)?,
+    )?;
+    let analysis = store.analysis(&expected_analysis.key).await?;
+    ensure!(analysis == expected_analysis, "admitted analysis changed during recovery");
+    let (nodes, edges) = analysis_graph(&analysis, &expected_artifact.key);
+    ensure!(store.analysis_node_page(&analysis.key, None).await? == nodes, "retained analysis nodes changed");
+    ensure!(store.analysis_edge_page(&analysis.key, None).await? == edges, "retained analysis edges changed");
+    ensure!(store.analysis_node_page(&analysis.key, Some(&nodes[1].key)).await?.is_empty(), "retained analysis acquired extra nodes");
+    ensure!(store.analysis_edge_page(&analysis.key, Some(&edges[0].key)).await?.is_empty(), "retained analysis acquired extra edges");
+    let artifact = store.read_artifact(&expected_artifact.key).await?;
+    ensure!(artifact.header() == &expected_artifact, "independent artifact metadata changed");
+    {
+        let block = artifact.block(0).await?;
+        ensure!(block.payload.as_slice() == ARTIFACT_BYTES, "analysis future artifact input changed");
+        ensure!(block.original_digest == "recovery-original-json-v1" && block.rows == 1, "artifact scientific coordinates changed");
+    }
+    artifact.release().await?;
+    Ok(())
+}
+
 async fn read_product(
     store: &CanonicalStore,
     read: &mut SelectedRead,
@@ -135,7 +319,7 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
     ];
     if seed {
         let first = store.edit(PROBLEM, None, FIRST, &first_edits).await?;
-        let mut read = SelectedRead::new(store.protect(first, Duration::from_secs(60)).await?);
+        let mut read = SelectedRead::new(store.protect(first.clone(), Duration::from_secs(60)).await?);
         store
             .resolve_names(
                 &mut read,
@@ -159,16 +343,20 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
             )
             .await?;
         store.release(read.selection()).await?;
+        let analysis_receipt = seed_retained_science(&store, &first).await?;
         store
             .edit(
                 PROBLEM,
                 Some(FIRST),
                 SECOND,
-                &[object(
-                    "x",
-                    "recovery-x-second",
-                    3.0f64.to_bits().to_be_bytes().to_vec(),
-                )],
+                &[
+                    object(
+                        "x",
+                        "recovery-x-second",
+                        3.0f64.to_bits().to_be_bytes().to_vec(),
+                    ),
+                    object(ANALYSIS_RECEIPT, ANALYSIS_RECEIPT_VERSION, analysis_receipt),
+                ],
             )
             .await?;
         ensure!(
@@ -236,6 +424,7 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
         read_product(&store, &mut changed, &pool).await?.is_none(),
         "changed dependency incorrectly reused the old description"
     );
+    verify_retained_science(&store, &mut changed, &pool).await?;
     store.release(changed.selection()).await?;
     if !seed {
         // Gated restore permits protection bookkeeping and reads, while authoring remains closed.
@@ -249,6 +438,7 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
             "validation admitted an authoring mutation"
         );
     }
+    store.disconnect().await?;
     Ok(())
 }
 
