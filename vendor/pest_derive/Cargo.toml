@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pest_derive"
+version = "2.9.2"
+edition = "2021"
+rust-version = "1.83"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/pest-parser/pest"
+description = "Source-qualified inline-only Pest derive"
+autotests = false
+autoexamples = false
+
+[lib]
+proc-macro = true
+
+[features]
+default = ["std"]
+std = ["pest/std", "pest_generator/std"]
+grammar-extras = ["pest_generator/grammar-extras"]
+
+[dependencies]
+pest = { version = "=2.9.2", default-features = false }
+pest_generator = { version = "=2.9.2", default-features = false }
+syn = "=2.0.119"

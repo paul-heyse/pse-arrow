@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "paste"
+version = "1.0.15"
+edition = "2018"
+rust-version = "1.31"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dtolnay/paste"
+description = "Source-qualified token pasting with environment selectors refused"
+build = "build.rs"
+autotests = false
+autoexamples = false
+
+[lib]
+proc-macro = true

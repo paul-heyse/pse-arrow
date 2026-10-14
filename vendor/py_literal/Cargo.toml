@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "py_literal"
+version = "0.4.0"
+edition = "2018"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jturner314/py_literal"
+description = "Read and write Python literals with a single inline grammar authority"
+
+[dependencies]
+num-bigint = { version = "=0.4.8", default-features = false }
+num-complex = { version = "=0.4.6", default-features = false }
+num-traits = { version = "=0.2.19", default-features = false }
+pest = "=2.9.2"
+pest_derive = "=2.9.2"

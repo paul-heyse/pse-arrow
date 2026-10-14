@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pure-macro-channel-controls"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[features]
+compile-refusal = []
+
+[dependencies]
+paste = "=1.0.15"
+pest = "=2.9.2"
+pest_derive = "=2.9.2"
+py_literal = "=0.4.0"
+
+[patch.crates-io]
+paste = { version = "=1.0.15", path = "../../../../vendor/paste" }
+pest_derive = { version = "=2.9.2", path = "../../../../vendor/pest_derive" }
+py_literal = { version = "=0.4.0", path = "../../../../vendor/py_literal" }
+
+[[bin]]
+name = "paste-env-paste"
+path = "src/bin/paste-env-paste.rs"
+required-features = ["compile-refusal"]
+
+[[bin]]
+name = "paste-env-item"
+path = "src/bin/paste-env-item.rs"
+required-features = ["compile-refusal"]
+
+[[bin]]
+name = "paste-env-expr"
+path = "src/bin/paste-env-expr.rs"
+required-features = ["compile-refusal"]
+
+[[bin]]
+name = "pest-file"
+path = "src/bin/pest-file.rs"
+required-features = ["compile-refusal"]
+
+[[bin]]
+name = "pest-generated-file"
+path = "src/bin/pest-generated-file.rs"
+required-features = ["compile-refusal"]
+
+[[bin]]
+name = "pest-inline-expression"
+path = "src/bin/pest-inline-expression.rs"
+required-features = ["compile-refusal"]

@@ -1,0 +1,2 @@
+# Fixture-owned Cargo output; never shared with the root target.
+/target/

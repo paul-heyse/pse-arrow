@@ -632,3 +632,10 @@ forbidden = [
   "pse-backend*",
   "pse-ipopt*",
 ]
+
+# ADR-0189: these exact source-qualified owners enforce pure invocation channels.
+# Transitive users receive the same guarded owner; package identity alone is no grant.
+[patch.crates-io]
+paste = { version = "=1.0.15", path = "vendor/paste" }
+pest_derive = { version = "=2.9.2", path = "vendor/pest_derive" }
+py_literal = { version = "=0.4.0", path = "vendor/py_literal" }
