@@ -362,3 +362,53 @@ association before native/managed/Python acceptance. Scientific recovery/signal 
 the separately qualified development-context measurements and G4 reconciliation remain
 outstanding. The original assessment and original declarations retain their actual scope
 and failures; no current assembled pass is claimed.
+
+The aligned producer install is complete. Its explicit generated PyO3 configuration
+and empty wrapper selection match the planned capture environment. An owned-copy
+RPATH replay reproduces the installed extension byte-for-byte; this is artifact-only
+reproduction, not deployment acceptance. Independent post-install review binds the
+504-file Python input list, the configuration selector and complete startup namespace.
+All guarded topology/absence premises remain intact; only installer provenance metadata
+changed. Fresh actual all-role captures and imported-byte association remain necessary.
+
+Scope-end verification exposed a report-reference bug before the renewed gates ran:
+wrappers converted an absent overall deadline into one five-second clock spanning
+manifest verification and the complete evidence read. Reference retention and release
+then inherited an expired metadata clock. The correction preserves optional caller-wide
+deadlines and separately bounded metadata operations; explicit expiry still refuses,
+retains the borrower and creates no false reference. Ownership, manifest verification
+and reference-before-release ordering are unchanged. Independent source review and
+three selected lifecycle controls pass. Ruff also required the two deterministic test
+clocks to bind their loop-local lists explicitly; that correction is integrated.
+
+**Tested:** the selected 38-gate scope at
+`build/acceptance/38g-20261014T151916Z/source-finalization-qualified` now passes against
+zero failures, including all 1,066 tooling tests. The aligned installation observation
+and unaffected successful checks retain their explicit original provenance; Python
+formatting, Ruff, typing and the full tooling suite execute fresh after the final
+fixture correction. Original failed reports remain unchanged. This settles the scoped
+static/tooling boundary, not assembled scientific qualification.
+
+Current actual runtime, worker and Python captures now run serially at `d8186994b`.
+Their exact compiler/macro caller inputs must be reconciled before renewed strict
+producer deployment and installed association. Native/managed/Python acceptance,
+scientific recovery and entered-pull interruption, manual native/powerset checks,
+separate development-context functional prerequisites and eleven measurements remain
+outstanding. G1–G4 stay open; the other active plans and stopped campaigns are not resumed.
+
+All three renewed actual captures complete with only their exact Paste/Pest caller
+reviews outstanding. Independent reconstruction settles all six bases. Python refresh
+removed a worker-only compiler dependency file, so one fresh worker capture was reviewed
+immediately before another refresh; no reconstructed or arbitrary fallback evidence was
+substituted. The six exact grants are integrated with owner/helper reviews unchanged.
+
+The renewed Python raw artifact initially differs from the installed extension even
+though native search paths agree. Complete ELF comparison confines the difference to
+3,019 numeric LLVM suffixes in the ordinary symbol/string tables; all other sections
+match exactly. This does not satisfy exact-byte association. A supported verbose
+installer observation then reuses the current raw artifact unchanged and installs
+exactly its authorized RPATH transformation. The historic suffix cause remains
+unproved; prior SDK discovery observations do not establish the earlier installer's
+complete context. No symbol normalization, stripping or association relaxation is used.
+The final standard setup and post-install namespace/input review now precede a fresh
+assembled capture, whose byte association remains decisive.
