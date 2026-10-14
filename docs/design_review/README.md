@@ -18,8 +18,9 @@ cite retired reviews as `git:<commit>:<path>`.
 The [implementation friction and Codex effectiveness review](reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md)
 examines the final October 14 implementation interval and its operational logs. It traces
 startup ownership, local preparation and replay work, producer assurance and capture lifetimes,
-and command diagnostics. Its proposed corrections and rule impacts await a separately authorized
-follow-up plan; it does not restart or close Plan 38's qualification campaign. The
+and command diagnostics. [Plan 39](../plans/39-implementation-friction-and-codex-effectiveness.md)
+owns its proposed corrections and rule decisions, with all remaining Plan 38 acceptance
+sequenced last. Plan authoring does not restart or close that campaign. The
 [observed episodes](evidence/implementation-friction-and-codex-effectiveness-2026-10-14/observed-episodes.md)
 retain the historical evidence boundaries and route to the independent assessment.
 

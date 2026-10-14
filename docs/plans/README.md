@@ -4,12 +4,15 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan 38: Efficiency and the common solver target](38-efficiency-and-solver-target.md)
-owns the current reconciled efficiency/solver scope and supersedes remaining Plan36 work.
-Its [current handoff](38-efficiency-and-solver-target.md#execution-checkpoint--38g-turn-handoff-2026-10-14)
-routes completed implementation, qualified scoped static/tooling checks and producer-input
-preparation to the remaining assembled/scientific qualification in 38g. The owning companions retain their exact outcomes and limits. Plan37 supplies
-completed lifecycle prerequisites; this handoff does not resume or qualify a stopped campaign.
+[Plan 39: Implementation friction and Codex effectiveness](39-implementation-friction-and-codex-effectiveness.md)
+owns the new review-driven corrections and all remaining Plan 38 execution/disposition.
+Its [sequence](39-implementation-friction-and-codex-effectiveness.md#prerequisites-and-execution-sequence)
+places local preparation/rebinding, deployment and operational work first, then the complete
+[transferred qualification and cutover](39d-qualification-and-plan38-cutover.md).
+Plan 38a–f retain completed implementation/investigation outcomes; the inactive
+[Plan 38 coordinator](38-efficiency-and-solver-target.md) and [38g handoff](38g-qualification-and-cutover.md#turn-handoff--2026-10-14)
+preserve historical decisions and exact failed/scoped/not-run evidence. Plan 39 is a draft
+authoring result, not product implementation or a resumed qualification campaign.
 
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
 interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded

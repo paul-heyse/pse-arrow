@@ -1219,6 +1219,90 @@ status_profile = "finding"
 status_column = 2
 owner_column = 3
 
+# Plan 39 owns the new findings and all transferred remaining Plan 38 execution.
+# Companion packet tables own progress; the coordinator does not copy that state.
+
+[[scope_tables]]
+path = "docs/plans/39-implementation-friction-and-codex-effectiveness.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/39a-local-selection-and-receiver-rebinding.md"
+name = "packets-and-dependencies"
+heading = "Packets and dependencies"
+headers = [
+  "Packet",
+  "Prerequisite",
+  "Delivered boundary and verification",
+  "State",
+]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/39b-deployment-assurance-and-preparation.md"
+name = "execution-packets"
+heading = "Execution packets"
+headers = [
+  "Packet",
+  "Prerequisite",
+  "Delivered boundary and verification",
+  "State",
+]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/39c-operational-composition-and-retained-evidence.md"
+name = "packet-sequence-and-progress"
+heading = "Packet sequence and progress"
+headers = [
+  "Packet",
+  "Prerequisite",
+  "Delivered boundary and verification",
+  "State",
+]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/39d-qualification-and-plan38-cutover.md"
+name = "packets"
+heading = "Packets"
+headers = [
+  "Packet",
+  "Prerequisite",
+  "Delivered boundary and verification",
+  "State",
+]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
 # Closed immutable legacy scalar encodings: exact source spans, never fallback parsing.
 
 [[legacy_yaml]]

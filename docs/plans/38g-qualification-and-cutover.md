@@ -1,6 +1,6 @@
 ---
 title: Qualification and direct target cutover
-status: in-progress
+status: abandoned
 date: 2026-10-14
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
@@ -10,6 +10,13 @@ doc_topics: [architecture, validation, environment]
 ---
 
 # Plan 38g: Qualification and direct target cutover
+
+> **Remaining scope superseded, 2026-10-14.** [Plan 39d](39d-qualification-and-plan38-cutover.md)
+> owns every remaining G0–G4 obligation, executed after Plan 39's new functional work and
+> investigations. The [Plan 39 coordinator](39-implementation-friction-and-codex-effectiveness.md)
+> owns current dispositions. This inactive record preserves failed, scoped and not-run evidence
+> unchanged; supersession grants no qualification, disposal or campaign restart.
+> The body and packet states below are historical, with current execution routed to the successor.
 
 ## Acceptance boundary and baseline
 

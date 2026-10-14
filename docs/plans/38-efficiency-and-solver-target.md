@@ -1,6 +1,6 @@
 ---
 title: Efficiency and the common solver target
-status: in-progress
+status: abandoned
 date: 2026-10-14
 adrs: []
 review_sources:
@@ -14,6 +14,13 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 ---
 
 # Plan 38: Efficiency and the common solver target
+
+> **Remaining scope superseded, 2026-10-14.** [Plan 39](39-implementation-friction-and-codex-effectiveness.md)
+> now owns remaining execution and finding/decision reconciliation; [39d](39d-qualification-and-plan38-cutover.md)
+> places all remaining Plan 38 work after its review-driven corrections. This inactive record
+> preserves the original target, accepted decisions, transfers and evidence. Completed 38a–f
+> outcomes remain completed foundations; supersession is neither completion nor campaign restart.
+> Read the unchanged body and status tables below as historical checkpoints, not current scheduling.
 
 ## Scope, basis and current boundary
 
