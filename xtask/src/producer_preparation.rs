@@ -306,6 +306,9 @@ impl Capture {
     }
 
     pub(super) fn commit(&mut self) -> Result<()> {
+        owner_is_ancestor(self.state.owner_pid,&self.state.owner_start)?;
+        require_held_guard(&self.state.root)?;
+        ensure!(!path_entry_exists(&self.directory.join("FAILED"))?, "preparation became terminal during capture");
         self.state.compiled.append(&mut self.pending);
         let next = self.directory.join("state.next.json");
         write_new(&next, &self.state)?;

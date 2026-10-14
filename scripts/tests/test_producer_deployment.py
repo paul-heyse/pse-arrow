@@ -87,6 +87,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             check: bool,
             text: bool = False,
             capture_output: bool = False,
+            pass_fds: tuple[int, ...] = (),
         ) -> subprocess.CompletedProcess[bytes | str]:
             self.assertEqual(cwd, self.root)
             self.assertIsInstance(text, bool)
@@ -122,7 +123,8 @@ class ProducerDeploymentTests(unittest.TestCase):
                 if not isinstance(options, list):
                     raise TypeError("installer must select its actual capture options")
                 command = ["just", "producer-identity", *options]
-                env = {**self.environment, "PYO3_BUILD_EXTENSION_MODULE": "1"}
+                env = {**self.environment, "PYO3_BUILD_EXTENSION_MODULE": "1",
+                    deployment.producer_cargo.PREPARATION_GUARD_FD:env[deployment.producer_cargo.PREPARATION_GUARD_FD]}
                 for name, value in deployment.producer_cargo.effective_environment(
                     env
                 ).items():
@@ -149,6 +151,8 @@ class ProducerDeploymentTests(unittest.TestCase):
             output = Path(command[command.index("--output") + 1])
             name = output.stem
             expected_env = dict(self.environment)
+            expected_env[deployment.producer_cargo.PREPARATION_GUARD_FD] = env[deployment.producer_cargo.PREPARATION_GUARD_FD]
+            self.assertEqual(pass_fds, (int(env[deployment.producer_cargo.PREPARATION_GUARD_FD]),))
             if name == "python":
                 expected_env["PYO3_BUILD_EXTENSION_MODULE"] = "1"
             else:

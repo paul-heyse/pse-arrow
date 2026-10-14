@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -75,6 +76,31 @@ class ProducerCargoTests(unittest.TestCase):
         raw = b'{"actual":"fixture protected index"}'
         (closure / "index.json").write_bytes(raw)
         (closure / "COMPLETE").write_text(hashlib.sha256(raw).hexdigest())
+
+    def test_target_guard_remains_charged_until_actual_writer_descendant_exits(self) -> None:
+        path = self.root / "target-guard"
+        with path.open("w+b") as owner:
+            fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            environment = {**os.environ, observer.PREPARATION_GUARD_FD: str(owner.fileno())}
+            child = subprocess.Popen(
+                [sys.executable, "-c", "import os,sys;os.fstat(int(os.environ['PSE_PRODUCER_PREPARATION_GUARD_FD']));print('writer-ready',flush=True);sys.stdin.buffer.read(1)"],
+                env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                **observer.preparation_child_arguments(environment),
+            )
+            try:
+                self.assertIsNotNone(child.stdout)
+                self.assertEqual(child.stdout.readline(), b"writer-ready\n")
+                owner.close()
+                with path.open("r+b") as competing:
+                    with self.assertRaises(BlockingIOError):
+                        fcntl.flock(competing, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    _, errors = child.communicate(b"x", timeout=5)
+                    self.assertEqual(child.returncode, 0, errors)
+                    fcntl.flock(competing, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                    child.communicate(timeout=5)
 
     def test_actual_child_context_is_captured_without_synthetic_sdk_or_secret_dump(
         self,

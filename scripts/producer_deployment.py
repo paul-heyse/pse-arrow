@@ -570,7 +570,8 @@ def begin_preparation(
             "producer-preparation-begin", "--selection", str(selection),
             "--directory", str(directory), "--owner-pid", str(owner_pid),
             "--owner-start", owner_start], cwd=root, env=dict(environment),
-            stdout=log, stderr=subprocess.STDOUT, check=False)
+            stdout=log, stderr=subprocess.STDOUT, check=False,
+            **producer_cargo.preparation_child_arguments(environment))
     require_capture_success("preparation", result.returncode)
 
 
@@ -591,11 +592,13 @@ def capture(
             env
         )  # Refuse unsupported installer selection before role builds.
         guard = own_preparation(root, output)
+        env[producer_cargo.PREPARATION_GUARD_FD] = str(guard.fileno())
         # Dependency installation is an effect before the shared source/native
         # baseline; it must not invalidate an already captured Rust role.
         with (output / "dependency-setup.log").open("xb") as log:
             result = subprocess.run(["uv", "sync", "--locked", "--no-install-project"],
-                cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+                cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, check=False,
+                **producer_cargo.preparation_child_arguments(env))
         require_capture_success("dependency setup", result.returncode)
         inputs = reviewed_inputs(root, env)
         begin_preparation(root, output, env, inputs, guard)
@@ -652,6 +655,7 @@ def capture(
                         stdout=log,
                         stderr=subprocess.STDOUT,
                         check=False,
+                        **producer_cargo.preparation_child_arguments(installer_env),
                     )
                     require_capture_success(name, result.returncode)
                     if not (output / "python-installer-cargo.status.json").is_file():
@@ -674,6 +678,7 @@ def capture(
                         stdout=log,
                         stderr=subprocess.STDOUT,
                         check=False,
+                        **producer_cargo.preparation_child_arguments(role_env),
                     )
             require_capture_success(name, result.returncode)
             validate_receipt(root, output, role, role_env)
