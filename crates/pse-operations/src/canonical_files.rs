@@ -284,7 +284,19 @@ fn publish(root:&Path,descriptor:&FileDescriptor,bytes:&[u8])->Result<(),Canonic
     let pending=root.join(".pending");let sealed=root.join("instances");
     std::fs::create_dir_all(&pending).map_err(configuration)?;std::fs::create_dir_all(&sealed).map_err(configuration)?;
     let final_path=sealed.join(format!("{}.sealed",descriptor.instance));
-    if final_path.try_exists().map_err(configuration)?{let mut file=File::open(final_path).map_err(configuration)?;validate_file(&mut file,descriptor)?;let mut original=vec![0;bytes.len()];file.read_exact(&mut original).map_err(configuration)?;if original!=bytes{return Err(CanonicalError::OperationReused);}return Ok(());}
+    if final_path.try_exists().map_err(configuration)? {
+        let mut file=open_regular(&final_path)?;validate_file(&mut file,descriptor)?;
+        let mut scratch=[0u8;65536];let mut checked=0usize;
+        while checked<bytes.len(){let width=(bytes.len()-checked).min(scratch.len());file.read_exact(&mut scratch[..width]).map_err(configuration)?;if scratch[..width]!=bytes[checked..checked+width]{return Err(CanonicalError::OperationReused);}checked+=width;}
+        let leftover=pending.join(format!("{}.pending",descriptor.instance));
+        match std::fs::symlink_metadata(&leftover){Ok(metadata)=>{
+            use std::os::unix::fs::MetadataExt;
+            let original=file.metadata().map_err(configuration)?;
+            if !metadata.is_file()||metadata.dev()!=original.dev()||metadata.ino()!=original.ino(){return Err(configuration("original staging inode differs from sealed publication"));}
+            std::fs::remove_file(leftover).map_err(configuration)?;File::open(&pending).and_then(|file|file.sync_all()).map_err(configuration)?;
+        },Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
+        return Ok(());
+    }
     let staging=pending.join(format!("{}.pending",descriptor.instance));
     use std::os::unix::fs::OpenOptionsExt;
     let mut file=match OpenOptions::new().write(true).read(true).create_new(true).open(&staging){Ok(file)=>file,Err(error) if error.kind()==std::io::ErrorKind::AlreadyExists=>OpenOptions::new().read(true).write(true).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(&staging).map_err(configuration)?,Err(error)=>return Err(configuration(error))};
