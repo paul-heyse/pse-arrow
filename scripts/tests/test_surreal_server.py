@@ -4024,10 +4024,12 @@ class SurrealSupervisorTests(unittest.TestCase):
         return {field: {} for field in fields[scope]}
 
     @contextlib.contextmanager
-    def native_maintenance(self) -> Generator[list[tuple[str, str, str]], None, None]:
-        """Model native acknowledgments; no service, embedded database or listener."""
+    def native_maintenance(self, *, retained_science: dict[str, list[dict[str, object]]] | None = None) -> Generator[list[tuple[str, str, str]], None, None]:
+        """Model native acknowledgments and science preserved by native export/import."""
         calls: list[tuple[str, str, str]] = []
         inventory: dict[Path, dict[str, set[str]]] = {}
+        science: dict[tuple[Path, str, str], dict[str, list[dict[str, object]]]] = {}
+        exported_science: dict[str, list[dict[str, object]]] = {}
 
         def known_databases(state: Path) -> dict[str, set[str]]:
             if state not in inventory:
@@ -4042,6 +4044,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                         str(pending.get("database", current["database"]))
                     }
                 }
+                science[(state, str(pending.get("namespace", current["namespace"])), str(pending.get("database", current["database"])))] = {table: [dict(row) for row in rows] for table, rows in (retained_science or {}).items()}
             return inventory[state]
 
         def query(
@@ -4052,6 +4055,13 @@ class SurrealSupervisorTests(unittest.TestCase):
         ) -> dict[str, object]:
             calls.append((str(config["namespace"]), str(config["database"]), body))
             self.assertFalse(server.config_for(state)["accepting_writes"])
+            known_databases(state)
+            selected_science = science.get((state, str(config["namespace"]), str(config["database"])), {})
+            for table in selected_science:
+                if "DELETE $rows.id" in body and "FROM " + table + " " in body:
+                    selected_science[table] = []
+                if body == "LET $value=SELECT * FROM " + table + ";":
+                    return {"value": [dict(row) for row in selected_science[table]]}
             if "LET $value={count:" in body:
                 return {"value": {"count": 0, "after": ""}}
             if body.startswith("REMOVE DATABASE "):
@@ -4099,6 +4109,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         def copy(
             arguments: list[str], **options: object
         ) -> subprocess.CompletedProcess[str]:
+            nonlocal exported_science
             if arguments[1] == "--verify-payload-inventory":
                 entries = [json.loads(line) for line in Path(arguments[2]).read_text().splitlines()]
                 for entry in entries:
@@ -4108,13 +4119,17 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertIn(arguments[1], {"export", "import"})
             calls.append((arguments[6], arguments[8], arguments[1]))
             if arguments[1] == "export":
+                state = Path(str(options["cwd"]))
+                known_databases(state)
+                exported_science = {table: [dict(row) for row in rows] for table, rows in science.get((state, arguments[6], arguments[8]), {}).items()}
                 Path(arguments[-1]).write_text(
-                    "current authored records, excluding retired analyses"
+                    "current authored records and retained admitted analyses"
                 )
             else:
                 self.assertTrue(Path(arguments[-1]).is_file())
                 state = Path(str(options["cwd"]))
                 known_databases(state).setdefault(arguments[6], set()).add(arguments[8])
+                science[(state, arguments[6], arguments[8])] = {table: [dict(row) for row in rows] for table, rows in exported_science.items()}
             return subprocess.CompletedProcess(arguments, 0, "", "")
 
         with (
@@ -5960,12 +5975,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertFalse(config["accepting_writes"])
         self.assertEqual((source / "input").read_text(), "external authority")
 
-    def test_bounded_analysis_cleanup_preserves_other_roots_and_guard_floor(
-        self,
-    ) -> None:
+    def test_bounded_authority_rotation_preserves_admitted_analyses_and_borrowers(self) -> None:
         config = self.initialized()
         bodies: list[str] = []
-        edges = 0
         rotation = 0
 
         def query(
@@ -5974,112 +5986,24 @@ class SurrealSupervisorTests(unittest.TestCase):
             _credentials: dict[str, object],
             body: str,
         ) -> dict[str, object]:
-            nonlocal edges, rotation
+            nonlocal rotation
             bodies.append(body)
             if "LET $value={count:" in body:
                 rotation += 1
-                return {
-                    "value": {"count": 1, "after": "retention:source"}
-                    if rotation == 1
-                    else {"count": 0, "after": ""}
-                }
-            if "DELETE $rows.id" not in body:
-                return {"value": True}
-            if "FROM canonical_analysis_edges " in body:
-                edges += 1
-                return {"value": 64 if edges == 1 else 0}
-            return {"value": 0}
+                return {"value": {"count": 1, "after": "retention:source"} if rotation == 1 else {"count": 0, "after": ""}}
+            return {"value": True}
 
         with patch.object(server, "maintenance_query", side_effect=query):
-            server.remove_analysis_state(self.state, config, {})
-        self.assertEqual(edges, 2)
-        deletes = [body for body in bodies if "DELETE $rows.id" in body]
-        self.assertTrue(all("LIMIT 64" in body for body in deletes))
-        self.assertTrue(
-            all("LET $deleted=DELETE $rows.id RETURN NONE;" in body for body in deletes)
-        )
-        self.assertIn("canonical_analysis_edges", deletes[0])
-        self.assertIn("canonical_analysis_nodes", deletes[2])
-        self.assertIn("'execution-run:'+$row.run", deletes[3])
-        self.assertIn("FOR UPDATE;", deletes[3])
-        self.assertNotIn("IF $guard=NONE", deletes[3])
-        self.assertIn("owner_kind='analysis'", deletes[4])
-        self.assertIn("'retention:'+$row.problem", deletes[4])
-        self.assertIn("IF $guard=NONE", deletes[4])
-        self.assertIn("string::starts_with(key,'analysis:')", deletes[-1])
+            server.rotate_source_authorities(self.state, config, {})
+        self.assertEqual(rotation, 2)
+        self.assertTrue(all("LIMIT 64" in body for body in bodies[1:]))
         self.assertIn("incarnation=<string>rand::uuid::v4()", bodies[-2])
+        self.assertIn("generation=generation+1dec", bodies[-2])
         self.assertNotIn("analysis_creation_closed_through", " ".join(bodies))
-        self.assertNotIn("DELETE canonical_revisions", " ".join(bodies))
-        self.assertNotIn("DELETE canonical_protections", " ".join(bodies))
+        self.assertFalse(any("DELETE" in body for body in bodies))
+        self.assertFalse(any(table in body for body in bodies for table in ("canonical_analyses", "canonical_analysis_nodes", "canonical_analysis_edges", "canonical_analysis_inputs", "canonical_roots", "canonical_file_borrowers")))
 
-    def test_analysis_cleanup_registers_absent_run_guard_but_requires_source_authority(
-        self,
-    ) -> None:
-        config = self.initialized()
-        credentials = server.read_json(self.state / "credentials.json")
-        bodies: list[str] = []
-        input_pages = 0
-
-        def native_result(
-            _state: Path,
-            _config: dict[str, object],
-            _credentials: dict[str, object],
-            body: str,
-        ) -> tuple[str, subprocess.CompletedProcess[str]]:
-            nonlocal input_pages
-            bodies.append(body)
-            nonce = "exact-cleanup-ack"
-            value: object = 0
-            if "FROM canonical_analysis_inputs " in body:
-                input_pages += 1
-                self.assertIn(
-                    "SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$row.run) FOR UPDATE;",
-                    body,
-                )
-                self.assertNotIn("IF $guard=NONE", body)
-                self.assertNotIn("CREATE", body)
-                self.assertNotIn("UPSERT", body)
-                self.assertNotIn("UPDATE ONLY", body)
-                value = 1 if input_pages == 1 else 0
-            elif "FROM canonical_roots " in body:
-                self.assertIn("IF $guard=NONE", body)
-                self.assertIn("THROW 'source authority missing'", body)
-                # The native CLI exits zero even when this guarded transaction
-                # aborts. Its missing acknowledgment must still fence cleanup.
-                return nonce, subprocess.CompletedProcess(
-                    [],
-                    0,
-                    json.dumps(
-                        [
-                            None,
-                            "An error occurred: source authority missing",
-                            "Cannot COMMIT: the transaction was aborted due to a prior error",
-                        ]
-                    ),
-                    "",
-                )
-            elif "LET $value=true;" in body:
-                value = True
-            return nonce, subprocess.CompletedProcess(
-                [],
-                0,
-                json.dumps([None, {"maintenance": nonce, "value": value}, None]),
-                "",
-            )
-
-        with (
-            patch.object(server, "maintenance_sql", side_effect=native_result),
-            self.assertRaisesRegex(server.SupervisorError, "acknowledgment"),
-        ):
-            server.remove_analysis_state(self.state, config, credentials)
-        self.assertEqual(input_pages, 2)
-        self.assertIn("FROM canonical_roots ", bodies[-1])
-        self.assertFalse(any("incarnation=<string>" in body for body in bodies))
-        failure = server.read_json(self.state / "maintenance-cli-failure.json")
-        self.assertEqual(failure["returncode"], 0)
-        self.assertIn("source authority missing", str(failure["stdout"]))
-
-    def test_cleanup_refuses_live_protection_and_invalid_page_acknowledgment(
+    def test_authority_rotation_refuses_live_protection_and_invalid_page_acknowledgment(
         self,
     ) -> None:
         config = self.initialized()
@@ -6091,7 +6015,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             ) as query,
             self.assertRaisesRegex(server.SupervisorError, "live protections"),
         ):
-            server.remove_analysis_state(self.state, config, {})
+            server.rotate_source_authorities(self.state, config, {})
         self.assertEqual(query.call_count, 1)
         for count in (-1, 65, True, "0"):
             with (
@@ -6099,11 +6023,11 @@ class SurrealSupervisorTests(unittest.TestCase):
                 patch.object(
                     server,
                     "maintenance_query",
-                    side_effect=[{"value": True}, {"value": count}],
+                    side_effect=[{"value": True}, {"value": {"count": count, "after": "retention:source"}}],
                 ),
-                self.assertRaisesRegex(server.SupervisorError, "bounded"),
+                self.assertRaisesRegex(server.SupervisorError, "rotation acknowledgment"),
             ):
-                server.remove_analysis_state(self.state, config, {})
+                server.rotate_source_authorities(self.state, config, {})
 
     def test_maintenance_query_requires_exact_ack_and_keeps_secrets_out_of_arguments(
         self,
@@ -6475,6 +6399,28 @@ class SurrealSupervisorTests(unittest.TestCase):
                     self.assertEqual(retained.read(25), b"unknown retained producer")
             slot.unlink()
 
+    def test_current_restore_retains_readable_active_analysis_and_future_artifact_borrowers(self) -> None:
+        backup = self.backup_fixture()
+        restored = self.root / "restored"
+        retained = {
+            "canonical_analyses": [{"key": "admitted-analysis", "active": True, "retiring": False, "primary_authority": "original-source-authority", "configuration_hex": "00ff01"}],
+            "canonical_analysis_nodes": [{"key": "analysis-node", "analysis": "admitted-analysis", "payload_hex": "8000000000000000"}],
+            "canonical_analysis_edges": [{"key": "analysis-edge", "analysis": "admitted-analysis", "source": "analysis-node", "target": "analysis-node"}],
+            "canonical_analysis_inputs": [{"key": "future-input", "analysis": "admitted-analysis", "artifact": "independent-artifact"}],
+            "canonical_roots": [{"key": "analysis-root", "owner_kind": "analysis", "owner": "admitted-analysis", "problem": "original-problem"}],
+            "canonical_file_borrowers": [{"key": "future-file-borrow", "owner_kind": "analysis", "owner": "admitted-analysis", "instance": "independent-artifact-file", "released": False}],
+        }
+        with self.native_maintenance(retained_science=retained):
+            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+            selected = server.config_for(restored)
+            credentials = server.read_json(restored / "credentials.json")
+            for table, rows in retained.items():
+                with self.subTest(table=table):
+                    read = server.maintenance_query(restored, selected, credentials, "LET $value=SELECT * FROM " + table + ";")
+                    self.assertEqual(read["value"], rows)
+            self.assertEqual(selected["admission"], "validation_required")
+            self.assertFalse(selected["accepting_writes"])
+
     def test_restore_copy_failure_retains_pending_identity_and_original_backup(
         self,
     ) -> None:
@@ -6484,7 +6430,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
-            patch.object(server, "remove_analysis_state"),
+            patch.object(server, "rotate_source_authorities"),
             patch.object(
                 server.subprocess,
                 "run",
@@ -6502,7 +6448,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             b"acknowledged fixed operation identity",
         )
 
-    def test_restore_cleanup_failure_is_durably_fenced_before_any_derived_deletion(
+    def test_restore_authority_rotation_failure_is_durably_fenced_before_catalog_disposal(
         self,
     ) -> None:
         backup = self.backup_fixture()
@@ -6522,7 +6468,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
             patch.object(server, "private_offline_state"),
-            patch.object(server, "remove_analysis_state", side_effect=refuse),
+            patch.object(server, "rotate_source_authorities", side_effect=refuse),
             patch.object(server, "discard_database") as discard,
             self.assertRaisesRegex(server.SupervisorError, "live protection"),
         ):
@@ -7186,7 +7132,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             ),
             patch.object(
                 server,
-                "remove_analysis_state",
+                "rotate_source_authorities",
                 side_effect=lambda *_args: events.append("remint"),
             ),
             patch.object(
@@ -7223,7 +7169,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "database_present", return_value=True),
             patch.object(server, "discard_database"),
             patch.object(server, "copy_current_database") as copy,
-            patch.object(server, "remove_analysis_state") as cleanup,
+            patch.object(server, "rotate_source_authorities") as cleanup,
         ):
             server.recover_maintenance(self.state, [])
         copy.assert_not_called()

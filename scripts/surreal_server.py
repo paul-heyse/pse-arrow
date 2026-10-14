@@ -6103,50 +6103,19 @@ def maintenance_catalog(
     return object_mapping(nonempty[0])
 
 
-def remove_analysis_state(
+def rotate_source_authorities(
     state: Path, config: dict[str, object], credentials: dict[str, object]
 ) -> None:
-    """Drain only owned derived rows in fixed pages; retain every unrelated input."""
+    """Fence old creation grants while preserving admitted science and its borrowers."""
     response = maintenance_query(
         state,
         config,
         credentials,
         "LET $pins=SELECT key FROM canonical_protections WHERE !released AND expires_at>time::micros() LIMIT 1; "
-        "IF array::len($pins)!=0 { THROW 'live source protections refuse derived cutover'; }; LET $value=true;",
+        "IF array::len($pins)!=0 { THROW 'live source protections refuse authority rotation'; }; LET $value=true;",
     )
     if response.get("value") is not True:
         raise SupervisorError("Live protection check was not acknowledged")
-    # Explicit edge deletion bounds graph-pointer work before any endpoint deletion.
-    for table, predicate in (
-        ("canonical_analysis_edges", "true"),
-        ("canonical_analysis_nodes", "true"),
-        ("canonical_analysis_inputs", "true"),
-        ("canonical_roots", "owner_kind='analysis'"),
-        ("canonical_analyses", "true"),
-        ("canonical_guards", "string::starts_with(key,'analysis:')"),
-    ):
-        while True:
-            guards = ""
-            if table == "canonical_roots":
-                guards = "FOR $row IN $rows { LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$row.problem) FOR UPDATE; IF $guard=NONE { THROW 'source authority missing'; }; }; "
-            if table == "canonical_analysis_inputs":
-                # This touch-created conflict key may be absent from preserved
-                # history. Register that exact absence without inventing a run
-                # authority; source retention incarnations remain required below.
-                guards = "FOR $row IN $rows { LET $guard=SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$row.run) FOR UPDATE; }; "
-            response = maintenance_query(
-                state,
-                config,
-                credentials,
-                f"LET $rows=SELECT * FROM {table} WHERE {predicate} ORDER BY key LIMIT 64; "  # noqa: S608 -- Fixed internal table and predicate declarations.
-                + guards
-                + "LET $deleted=DELETE $rows.id RETURN NONE; LET $value=array::len($rows);",
-            )
-            count = response.get("value")
-            if type(count) is not int or not 0 <= count <= 64:
-                raise SupervisorError("Invalid bounded derived cleanup acknowledgment")
-            if count == 0:
-                break
     after = ""
     while True:
         response = maintenance_query(
@@ -6893,7 +6862,7 @@ def recover_maintenance(state: Path, initializer: list[str], verifier: Path | No
             current_marker(state, source, credentials)
             # Re-mint source authorities before copying again: no old creation
             # capability from an unadmitted partial target survives recovery.
-            remove_analysis_state(state, source, credentials)
+            rotate_source_authorities(state, source, credentials)
             if database_present(state, config, credentials):
                 discard_database(state, config, config, credentials)
             drain_maintenance_listener(state)
