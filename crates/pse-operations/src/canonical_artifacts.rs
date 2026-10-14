@@ -43,10 +43,21 @@ pub struct ArtifactBlock {
     /// Original row coverage.
     pub rows:u64,
     allocation:Option<std::sync::Arc<dyn std::fmt::Debug+Send+Sync>>,
+    encoding:String,
+    schema:String,
+    batch_count:u64,
 }
-impl PartialEq for ArtifactBlock { fn eq(&self,other:&Self)->bool{self.key==other.key&&self.artifact==other.artifact&&self.ordinal==other.ordinal&&self.relation==other.relation&&self.payload==other.payload&&self.digest==other.digest&&self.original_digest==other.original_digest&&self.rows==other.rows} }
+impl ArtifactBlock {
+    /// Bind a Runtime-validated standalone native IPC file to its exact schema.
+    /// Capsules retain their original JSON/opaque encoding instead.
+    pub fn native_file(mut self,schema:&str)->Result<Self,CanonicalError>{
+        if schema.is_empty()||!self.payload.starts_with(b"ARROW1")||!self.payload.ends_with(b"ARROW1"){return Err(invalid("artifact native file/schema binding invalid"));}
+        self.encoding=crate::canonical_files::ARROW_IPC_FILE.into();self.schema=schema.into();self.batch_count=1;Ok(self)
+    }
+}
+impl PartialEq for ArtifactBlock { fn eq(&self,other:&Self)->bool{self.key==other.key&&self.artifact==other.artifact&&self.ordinal==other.ordinal&&self.relation==other.relation&&self.payload==other.payload&&self.digest==other.digest&&self.original_digest==other.original_digest&&self.rows==other.rows&&self.encoding==other.encoding&&self.schema==other.schema&&self.batch_count==other.batch_count} }
 impl Eq for ArtifactBlock {}
-impl SemanticFrame for ArtifactBlock {fn frame(&self,hash:&mut FramedHasher){hash.str(&self.key).str(&self.artifact).u64(self.ordinal).str(&self.relation).part(self.payload.as_slice()).str(&self.digest).str(&self.original_digest).u64(self.rows);}}
+impl SemanticFrame for ArtifactBlock {fn frame(&self,hash:&mut FramedHasher){hash.str(&self.key).str(&self.artifact).u64(self.ordinal).str(&self.relation).part(self.payload.as_slice()).str(&self.digest).str(&self.original_digest).u64(self.rows).str(&self.encoding).str(&self.schema).u64(self.batch_count);}}
 
 /// A copied block locator retains scientific row and field coordinates, not a producer read.
 #[derive(
@@ -101,6 +112,7 @@ pub fn artifact_block(
     let key = hash.finish_hash().to_hex();
     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
     hash.str("pse.execution.result-payload.v1").part(&payload);
+    let encoding=if serde_json::from_slice::<serde_json::Value>(&payload).is_ok(){crate::canonical_files::OPAQUE_JSON}else{crate::canonical_files::OPAQUE_BYTES};
     ArtifactBlock {
         key,
         artifact: artifact.into(),
@@ -111,6 +123,7 @@ pub fn artifact_block(
         original_digest: original_digest.into(),
         rows,
         allocation:None,
+        encoding:encoding.into(),schema:String::new(),batch_count:0,
     }
 }
 
@@ -194,8 +207,8 @@ impl ArtifactRead {
         &self.header
     }
     /// Explicit release is idempotent; the original grant remains fenced through its issue window.
-    pub async fn release(&self) -> Result<(), CanonicalError> {
-        self.store.release(&self.selection).await
+    pub async fn release(self) -> Result<(), CanonicalError> {
+        self.selection.finish().await
     }
     /// Read one bounded member under the exact artifact acquisition.
     pub async fn block(&self, ordinal: u64) -> Result<ArtifactBlock, CanonicalError> {
@@ -212,6 +225,7 @@ impl ArtifactRead {
             let mut file=self.store.open_physical_file(descriptor,std::sync::Arc::new(self.clone()))?;
             let mut bytes=Vec::with_capacity(row.payload_bytes as usize);file.read_to_end(&mut bytes).map_err(|error|invalid(&error.to_string()))?;
             let mut copied=artifact_block(&row.artifact,row.ordinal,&row.relation,bytes,&row.original_digest,row.rows);
+            if row.encoding==crate::canonical_files::ARROW_IPC_FILE {copied=copied.native_file(&row.schema)?;}
             if copied.key!=row.key || copied.digest!=row.digest { return Err(invalid("artifact copied encoding digest differs")); }
             copied.allocation=crate::canonical::transport::current_response_owner();Ok(copied)
         }).await
@@ -271,7 +285,8 @@ impl CanonicalStore {
                 self.ensure_writes()?;
                 if header.active || header.retiring || header.interpretation!=wire::INTERPRETATION || header.block_count!=blocks.len() as u64 || sources.is_empty() || sources.len()>65 || inputs.len()>64 || inputs.iter().any(|input|!input.belongs_to(self)) { return Err(invalid("artifact exact closure differs")); }
                 let total=blocks.iter().enumerate().try_fold(0u64,|total,(ordinal,block)|{
-                    let copied=artifact_block(&header.key,ordinal as u64,&block.relation,block.payload.to_vec(),&block.original_digest,block.rows);
+                    let mut copied=artifact_block(&header.key,ordinal as u64,&block.relation,block.payload.to_vec(),&block.original_digest,block.rows);
+                    if block.encoding==crate::canonical_files::ARROW_IPC_FILE {copied=copied.native_file(&block.schema)?;} else if block.payload.starts_with(b"ARROW1") {return Err(invalid("native artifact file requires explicit schema binding"));}
                     if block!=&copied || block.payload.len()>wire::RESULT_BLOCK_BYTES { return Err(invalid("artifact block admission differs")); }
                     total.checked_add(block.payload.len() as u64).ok_or(CanonicalError::PayloadLimit)
                 })?;
@@ -290,8 +305,7 @@ impl CanonicalStore {
                 protected_query("canonical_artifacts::begin",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,$inputs); COMMIT;").bind(("row",row.clone())).bind(("sources",roots.clone())).bind(("inputs",selected.clone())))).await?;
                 for block in blocks {
                     let intent=self.reserve_artifact_file(&header.key,&format!("artifact-file:{}",block.key),&header.creation_request_digest).await?;
-                    let encoding=if serde_json::from_slice::<serde_json::Value>(block.payload.as_slice()).is_ok(){crate::canonical_files::OPAQUE_JSON}else{crate::canonical_files::OPAQUE_BYTES};
-                    let sealed=self.seal_file(&intent,block.payload.as_slice(),encoding,0,"").await?;
+                    let sealed=self.seal_file(&intent,block.payload.as_slice(),&block.encoding,block.batch_count,&block.schema).await?;
                     let descriptor=sealed.descriptor();
                     let stored=pse_model::generated::runtime::canonical_artifact_blocks::Row{key:block.key.clone(),artifact:block.artifact.clone(),ordinal:block.ordinal,relation:block.relation.clone(),file_instance:descriptor.instance.clone(),file_digest:descriptor.digest.clone(),file_batch_index:0,payload_bytes:descriptor.bytes,schema:descriptor.schema.clone(),encoding:descriptor.encoding.clone(),digest:block.digest.clone(),original_digest:block.original_digest.clone(),rows:block.rows};
                     let row=wire::encode_canonical_artifact_blocks(&stored)?;
