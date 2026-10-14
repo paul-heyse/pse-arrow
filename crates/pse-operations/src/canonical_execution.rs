@@ -2940,12 +2940,21 @@ impl ResultPayload {
         &self.digest
     }
 }
+fn file_binding(batch:&ResultBatch)->String {
+    let mut physical=FramedHasher::new(Frame::CanonicalPayloadV1);
+    physical.str("pse.execution.file-binding.v1").str(&batch.file_instance).str(&batch.file_digest).u64(batch.file_batch_index).str(&batch.encoding).str(&batch.schema);
+    physical.finish_hash().to_hex()
+}
 /// Verify a bounded exact batch before decoding its scientific contents.
 pub fn validate_result_batch(batch: &ResultBatch) -> Result<(), CanonicalError> {
     if batch.key != result_batch_key(&batch.attempt, &batch.result_set, batch.ordinal)
         || batch.digest != batch.file_digest || batch.payload_bytes == 0 || batch.payload_bytes > RESULT_BATCH_BYTES as u64
         || uuid::Uuid::parse_str(&batch.file_instance).is_err()
-        || (batch.encoding != crate::canonical_files::ARROW_IPC_FILE && batch.file_batch_index != 0) {
+        || batch.digest.len()!=64 || !batch.digest.bytes().all(|byte|byte.is_ascii_hexdigit())
+        || batch.file_binding!=file_binding(batch)
+        || (batch.encoding == crate::canonical_files::ARROW_IPC_FILE && batch.schema.is_empty())
+        || (batch.encoding != crate::canonical_files::ARROW_IPC_FILE && (batch.file_batch_index != 0 || !batch.schema.is_empty()))
+        || ![crate::canonical_files::ARROW_IPC_FILE,crate::canonical_files::OPAQUE_JSON,crate::canonical_files::OPAQUE_BYTES].contains(&batch.encoding.as_str()) {
         return Err(CanonicalError::Configuration("result batch file identity or coordinate mismatch".into()));
     }
     Ok(())
@@ -3939,10 +3948,9 @@ impl CanonicalStore {
         if sealed.original_intent().instance()!=sealed.descriptor().instance { return Err(CanonicalError::OperationReused); }
         let mut batch=wire::decode_canonical_result_batches(match item.item.get("batch"){Some(Value::Object(batch))=>batch.clone(),_=>return Err(CanonicalError::IncompleteResponse)})?;
         batch.file_instance=sealed.descriptor().instance.clone(); batch.file_digest=sealed.descriptor().digest.clone(); batch.file_batch_index=item.payload.file_index; batch.payload_bytes=sealed.descriptor().bytes; batch.schema=sealed.descriptor().schema.clone();batch.encoding=sealed.descriptor().encoding.clone();
-        let mut physical=FramedHasher::new(Frame::CanonicalPayloadV1);physical.str("pse.execution.file-binding.v1").str(&batch.file_instance).str(&batch.file_digest).u64(batch.file_batch_index).str(&batch.encoding).str(&batch.schema);
         // The original semantic request is stable before file work; its final
         // append receipt additionally seals the complete physical coordinates.
-        batch.file_binding=physical.finish_hash().to_hex();
+        batch.file_binding=file_binding(&batch);
         item.acknowledgment.receipt.file_binding=batch.file_binding.clone();
         let request=json(&(&item.acknowledgment.request,&batch.file_binding))?;
         item.acknowledgment.request=request.clone();item.item.insert("request",Value::Bytes(Bytes::from(request)));item.item.insert("batch",Value::Object(wire::encode_canonical_result_batches(&batch)?));item.extent=result_metadata_extent(&Value::Object(item.item.clone()))?;item.payload.file=Some(sealed);Ok(())
@@ -4804,7 +4812,7 @@ mod canonical_result_admission_unit {
             .str("pse.execution.batch-selection.v1")
             .str(&first.key)
             .str(&first.digest)
-            .u64(first.row_count);
+            .u64(first.row_count).str(&first.file_binding);
         acks.append(first).unwrap();
         acks.append(ack(&fence, "values", 0, "first", &[0, 1], 2))
             .unwrap();
@@ -4820,7 +4828,7 @@ mod canonical_result_admission_unit {
         expected
             .str(&second.key)
             .str(&second.digest)
-            .u64(second.row_count);
+            .u64(second.row_count).str(&second.file_binding);
         acks.append(second).unwrap();
         assert!(
             acks.append(ack(&fence, "values", 0, "first", &[0, 1], 2))
@@ -4929,6 +4937,7 @@ mod canonical_result_admission_unit {
             key: result_batch_key("attempt", "set", 0), attempt: "attempt".into(),result_set:"set".into(),ordinal:0,digest:digest.clone(),row_count:1,
             file_binding:"synthetic".into(),file_instance:uuid::Uuid::new_v4().to_string(),file_digest:digest,file_batch_index:0,payload_bytes:payload.byte_len(),schema:String::new(),encoding:crate::canonical_files::OPAQUE_BYTES.into(),
         };
+        batch.file_binding=file_binding(&batch);
         validate_result_batch(&batch).unwrap();
         batch.file_batch_index=1;
         assert!(validate_result_batch(&batch).is_err());
