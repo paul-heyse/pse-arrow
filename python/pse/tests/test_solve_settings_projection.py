@@ -395,7 +395,7 @@ def test_solve_settings_backend_projection(
     assert native["presolve_enable"] is False
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_route_and_eligibility_are_typed(
     cases: tuple[pse.ModelingPackage, dict[str, DeclarationId]],
 ) -> None:

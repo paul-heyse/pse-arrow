@@ -575,7 +575,7 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
         })?;
         let batch = builder.finish()?;
         let bytes = pse_runtime::workflow::result_files::encode_result_file(batch.batch())?;
-        let intent = store.reserve_result_file(&fence, &format!("signal-file:{ordinal}"), &result_payload_digest(&bytes)).await?;
+        let intent = store.reserve_result_file(&fence, &format!("{run}:signal-file:{ordinal}"), &result_payload_digest(&bytes)).await?;
         let file = store.seal_file(&intent, &bytes, pse_operations::canonical_files::ARROW_IPC_FILE, 1, &name).await?;
         let payload = ResultPayload::from_sealed_owned(file.clone(), 0, owner)?;
         let key = result_batch_key(fence.attempt(), &set, ordinal);
@@ -587,15 +587,15 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
             payload_bytes: payload.byte_len(), payload_digest: payload.digest().into(),
             interpretation: INTERPRETATION.into(),
         };
-        store.append_result_block(&fence, &format!("signal-append:{ordinal}"), &name, ordinal, payload, 1, &block).await?;
+        store.append_result_block(&fence, &format!("{run}:signal-append:{ordinal}"), &name, ordinal, payload, 1, &block).await?;
         files.push(file.descriptor().instance.clone());
     }
-    let closed = store.close_result_ingestion(&fence, "signal-close").await?;
+    let closed = store.close_result_ingestion(&fence, &format!("{run}:signal-close")).await?;
     let manifest = store.reconcile_closed_attempt(&closed).await?;
     // SAFETY: this explicit control owns two registry-valid observations, asserts
     // only partial availability, and grants no successful solve or seed meaning.
     unsafe {
-        store.seal_attempt(&manifest, "signal-partial", TerminalClass::Partial,
+        store.seal_attempt(&manifest, &format!("{run}:signal-partial"), TerminalClass::Partial,
             b"explicit signal-control partial observations", SeedEligibility::Unavailable).await?;
     }
     let read = store.read_results(&run, fence.attempt()).await?;
@@ -607,7 +607,20 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
         && descriptors.iter().zip(&files).all(|(batch, file)| &batch.file_instance == file),
         "signal control did not seal two actual file instances");
     drop(read);
-    store.disconnect().await?;
+    // Dropping the final read schedules its authenticated protection release.
+    // Disconnect deliberately refuses while that original activity is live.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        match store.disconnect().await {
+            Ok(()) => break,
+            Err(pse_operations::canonical::CanonicalError::ConnectionBusy { .. })
+                if tokio::time::Instant::now() < deadline =>
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
     Ok(serde_json::json!({
         "version": 1, "event": "signal-results-seeded", "state": state,
         "database": options.database, "run": run, "attempt": fence.attempt(),

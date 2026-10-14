@@ -49,6 +49,10 @@ The three patched build scripts make these corrections:
   and, where present, `ParseSignedConstants` callbacks. These callbacks append;
   upstream custom callbacks never replaced another callback. Included headers and
   bindgen-observed environment options now participate in Cargo freshness.
+- SuiteSparse/SUNDIALS bindgen parsing uses `-fno-builtin` to preserve header
+  `size_t` typedef identity instead of Clang builtin integer prototypes. This
+  corrects the pinned nightly's runtime-symbol warnings without disabling a lint
+  or changing native-code compilation/optimization. See [the upstream explanation](https://github.com/rust-lang/rust-bindgen/issues/1770#issuecomment-1412631382).
 - Bindings are rendered through bindgen's existing byte writer and compared with
   the current output. Identical bytes preserve the output mtime; changed or missing
   outputs are written. Input observation still reruns bindgen when required.

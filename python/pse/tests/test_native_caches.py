@@ -46,8 +46,23 @@ def test_cache_settings_refuse_overflow_and_missing_working_headroom(
             threads=1,
             spill_dir=str(tmp_path),
             max_spill_bytes=1024,
-            cache=pse.CacheSettings(working_bytes=512, metadata_bytes=1024),
+            cache=pse.CacheSettings(working_bytes=1025),
         )
+
+
+@pytest.mark.unit
+def test_optional_file_capacity_does_not_activate_at_settings_construction(
+    tmp_path: Path,
+) -> None:
+    settings = pse.EngineSettings(
+        memory_limit_bytes=1024,
+        batch_size=7,
+        threads=1,
+        spill_dir=str(tmp_path),
+        max_spill_bytes=1024,
+        cache=pse.CacheSettings(working_bytes=512, metadata_bytes=1024),
+    )
+    assert settings.cache.metadata_bytes == 1024
 
 
 @pytest.mark.component

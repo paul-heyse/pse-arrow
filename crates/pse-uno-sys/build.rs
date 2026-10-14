@@ -8,16 +8,21 @@
 use sha2::{Digest, Sha256};
 use std::{env, path::PathBuf};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("cargo:rerun-if-changed=build.rs");
+    if env::var_os("CARGO_FEATURE_LINK").is_none() {
+        return Ok(());
+    }
     println!("cargo:rerun-if-env-changed=UNO_DIR");
     println!("cargo:rerun-if-env-changed=IPOPT_DIR");
     println!("cargo:rerun-if-changed=bridge/pse_uno.cpp");
     println!("cargo:rerun-if-changed=bridge/pse_uno.h");
-    if env::var_os("CARGO_FEATURE_LINK").is_none() {
-        return Ok(());
-    }
     let prefix = env::var_os("UNO_DIR")
         .map(PathBuf::from)
         .ok_or("UNO_DIR must name the qualified Uno prefix for the link feature")?;
+    // These are consumed inputs, including transitive headers in the selected prefix.
+    println!("cargo:rerun-if-changed={}", prefix.join(".complete.json").display());
+    println!("cargo:rerun-if-changed={}", prefix.join("include/uno").display());
+    println!("cargo:rerun-if-changed={}", prefix.join("lib/libuno.a").display());
     let receipt = std::fs::read(prefix.join(".complete.json"))?;
     let value: serde_json::Value = serde_json::from_slice(&receipt)?;
     let version = value["identity"]["pin"]["revision"]

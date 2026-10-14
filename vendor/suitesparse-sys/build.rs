@@ -251,7 +251,11 @@ fn generate_bindings(suitesparse: &Library) -> Result<(), String> {
         lib_args.push(format!("-DUSE_{}", lib.to_uppercase()));
     }
 
-    let mut builder = bindgen::Builder::default().header("wrapper.h");
+    let mut builder = bindgen::Builder::default()
+        .header("wrapper.h")
+        // Parse the header typedefs rather than Clang builtin prototypes, so
+        // C size_t remains Rust usize without changing native compilation.
+        .clang_arg("-fno-builtin");
     if let Some(dir) = suitesparse.inc.as_ref() {
         builder = builder.clang_arg(format!("-I{}", dir));
     }

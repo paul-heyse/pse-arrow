@@ -1,8 +1,8 @@
 ---
 title: Boundaries, build, test and development
-status: draft
-date: 2026-10-13
-adrs: []
+status: in-progress
+date: 2026-10-14
+adrs: [ADR-0188]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
 doc_owner: docs/plans/38-efficiency-and-solver-target.md
 doc_topics: [architecture, environment, validation]
@@ -22,9 +22,9 @@ Current blueprint §3/§14/§18.8/§21 and environment/validation guides own bou
 
 | Packet | Prerequisites | Delivery/retirement | State |
 |---|---|---|---|
-| <a id="f1"></a>F1 | Existing bounded stream/RPC owners; A5/E exact trust/read interfaces | Installed Python pull/cancel/drain, prepaid responses, weighted physical/file cache, gather/export consumers; remove redundant copies/unsafe release paths | Planned |
-| <a id="f2"></a>F2 | Actual lower admission/generator manifests; RC08; selected public-setting decision | Remaining exact consumer/dependency/generator migration, truthful extension modes and float contract; retire replaced roots/projections after checks | Planned |
-| <a id="f3"></a>F3 | Current invocation/admission/native-build owners; C actual resources | Product dispatch/width/build-input/inventory/provenance/setup corrections and explicit residual host-policy disposition | Planned |
+| <a id="f1"></a>F1 | Existing bounded stream/RPC owners; A5/E exact trust/read interfaces | Installed Python pull/cancel/drain, prepaid responses, weighted physical/file cache, gather/export consumers; remove redundant copies/unsafe release paths | In progress |
+| <a id="f2"></a>F2 | Actual lower admission/generator manifests; RC08; selected public-setting decision | Remaining exact consumer/dependency/generator migration, truthful extension modes and float contract; retire replaced roots/projections after checks | In progress |
+| <a id="f3"></a>F3 | Current invocation/admission/native-build owners; C actual resources | Product dispatch/width/build-input/inventory/provenance/setup corrections and explicit residual host-policy disposition | In progress |
 
 F1 subcontracts can improve independently; actual installed-extension/drain integration remains required. F2 verifies existing extraction rather than creates another crate. F3 host decisions are bounded by I-F3; explicit per-operation classes/widths must not silently change scientific native teams. Root manifests/recipes/registry/generated roots are shared edit surfaces owned by execution coordination.
 
@@ -77,3 +77,32 @@ Derive actual product/default Cargo/nextest widths from admitted physical lanes,
 Optional sorted-source claims require actual cross-batch/partition ordering. Keep scope-sensitive UDF snapshots, bound-owner reflection and isolated mutable cattrs hooks unless complete equivalence/workload evidence supports sharing. Preserve explicit 4096-row complete-campaign refusal/support limit where still consumed. No compression/cross-output-query/inbound-Arrow/hash-algorithm change is inferred from library availability. Library questions use skills/Context7/exact source; no stale maps/utilization journal.
 
 Compile/targeted tests accompany implementation; regenerate actual declarations when changed. At functional scope end G1–G3 select real installed Python/native/canonical, feature/closure/codegen and applicable hygiene/manual checks. Prior 940-control setup, 398 feature configurations and interrupted managed Python evidence retain their original source/artifact conditions; they are not current assembled acceptance.
+
+## Execution checkpoint — 2026-10-14
+
+The maintainer authorized the detailed execution approach and selected focused 38f acceptance;
+full 38g scientific/integration/performance/hygiene qualification remains separate. The public
+setting choice explicitly includes its accidental equality distinction: otherwise identical
+remaining settings may reuse the process Runtime. The old flag caused refusal, never isolation.
+[The independent bounded target review](../design_review/reviews/design_review_consumed-runtime-settings_2026-10-14.md)
+accepts that target; proposed ADR-0188 and blueprint revision 167 precede dependent code removal.
+Its RC01/RC02 are adopted by the accepted R38-02 and this explicit execution choice; F2 owns
+implementation and focused acceptance. No new review finding is open.
+
+The actual delayed-read gap is late metadata transport retaining connection activity without
+necessarily retaining the original strong ResultRead and its prepaid decode allowance. F1
+corrects composite ownership at real result/file/artifact/progress consumers and replaces the
+stale installed delayed-SIGINT fixture with known consecutive blocks in distinct sealed files.
+File decode/footer estimates remain distinct from RPC metadata-response grants.
+
+F3 retains direct dispatch and fixes the remaining prepared-inventory handoff/association and
+default-width gaps. Physical lanes, usable logical affinity and enforced finite quota determine
+default widths; explicit overrides, effect slots and scientific native teams retain their own
+contracts. Root serializes compilation, generation and installed builds on main; two isolated
+editing worktrees own F1 and F3. No worktree-local builds or service startup are selected.
+
+Next: integrate ready implementation, exercise focused owners, regenerate from the actual
+extension, then complete the installed mode matrix and owned delayed canonical journey. Preserve
+all prior recovery evidence and unknown allocations. The initial installed native extension is
+stale against generated contracts and is not acceptance evidence. Other active-plan reconciliation
+and the complete assembled campaign remain with the series closeout, not this checkpoint.

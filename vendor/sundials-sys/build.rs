@@ -141,7 +141,11 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
         };
     }
 
-    let mut builder = bindgen::Builder::default().header("wrapper.h");
+    let mut builder = bindgen::Builder::default()
+        .header("wrapper.h")
+        // Parse the header typedefs rather than Clang builtin prototypes, so
+        // C size_t remains Rust usize without changing native compilation.
+        .clang_arg("-fno-builtin");
     for dir in inc_dirs {
         if let Some(dir) = dir {
             builder = builder.clang_arg(format!("-I{}", dir))

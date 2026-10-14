@@ -588,6 +588,9 @@ class ExecutionContracts(unittest.TestCase):
 
     def test_pure_pytest_run_has_no_git_attribution_or_native_setup(self) -> None:
         (self.output / "conftest.py").write_bytes((ROOT / "conftest.py").read_bytes())
+        (self.output / "pytest.ini").write_text(
+            "[pytest]\nmarkers =\n    unit: fixture control\n    component: fixture control\n"
+        )
         (self.output / "test_owned.py").write_text(
             'import pathlib, pytest\n@pytest.mark.unit\ndef test_owned(tmp_path):\n    (tmp_path / "output").write_text("owned")\n    pathlib.Path("concurrent.txt").write_text("authorized unrelated edit")\n'
         )
@@ -601,6 +604,8 @@ class ExecutionContracts(unittest.TestCase):
                 "no:cacheprovider",
                 "-p",
                 "xdist.plugin",
+                "--basetemp",
+                str(self.output / "pytest-temp"),
             ],
             cwd=self.output,
             capture_output=True,

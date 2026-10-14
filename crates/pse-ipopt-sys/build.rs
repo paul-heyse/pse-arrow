@@ -22,21 +22,23 @@ use std::path::Path;
 const MIN_VERSION: &str = "3.14.2";
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("cargo:rerun-if-env-changed=IPOPT_DIR");
-    println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=bridge/pse_ipopt_sequence.cpp");
-    println!("cargo:rerun-if-changed=bridge/pse_ipopt_sequence.h");
 
     if env::var_os("CARGO_FEATURE_LINK").is_none() {
         // Compile-only shell; see the `link` feature comment in Cargo.toml.
         return Ok(());
     }
 
+    println!("cargo:rerun-if-env-changed=IPOPT_DIR");
+    println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
+    println!("cargo:rerun-if-changed=bridge/pse_ipopt_sequence.cpp");
+    println!("cargo:rerun-if-changed=bridge/pse_ipopt_sequence.h");
+
     let version = if let Some(dir) = env::var_os("IPOPT_DIR") {
         let dir = Path::new(&dir);
         println!("cargo:rustc-link-search=native={}/lib", dir.display());
         println!("cargo:rustc-link-lib=dylib=ipopt");
+        println!("cargo:rerun-if-changed={}", dir.join("lib/libipopt.so").display());
         let pc = dir.join("lib/pkgconfig/ipopt.pc");
         println!("cargo:rerun-if-changed={}", pc.display());
         version_from_pc(&pc)?
@@ -45,6 +47,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             .atleast_version(MIN_VERSION)
             .probe("ipopt")
             .map_err(|err| help(&err.to_string()))?;
+        for directory in &lib.link_paths {
+            println!("cargo:rerun-if-changed={}", directory.display());
+        }
         lib.version
     };
 
@@ -71,13 +76,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         .flag("-ffp-contract=off")
         .flag("-fno-fast-math");
     if let Some(prefix) = env::var_os("IPOPT_DIR") {
-        sequence.include(Path::new(&prefix).join("include/coin-or"));
+        let include = Path::new(&prefix).join("include/coin-or");
+        println!("cargo:rerun-if-changed={}", include.display());
+        sequence.include(include);
     } else {
         for include in pkg_config::Config::new()
             .atleast_version(MIN_VERSION)
             .probe("ipopt")?
             .include_paths
         {
+            println!("cargo:rerun-if-changed={}", include.display());
             sequence.include(include);
         }
     }

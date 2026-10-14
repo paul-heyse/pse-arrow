@@ -382,6 +382,36 @@ class ManagedRustSelectionTests(unittest.TestCase):
             "PSE_NATIVE_PROVENANCE": str(self.provenance),
         })
 
+    def test_prepared_environment_tracks_explicit_inputs_across_observer_admission(self) -> None:
+        parent = {
+            "BUILD_INPUT": "fixed", "PSE_HOST_ALLOCATION": "compile-owner",
+            "PSE_RESOURCE_CLASS": "compile", "PSE_ADMISSION_DEADLINE": "100",
+            "CARGO_BUILD_JOBS": "4", "PSE_CARGO_DEFAULT_JOBS": "4",
+            "NEXTEST_TEST_THREADS": "4", "PSE_NEXTEST_DEFAULT_THREADS": "4",
+        }
+        observer = {
+            **parent, "PSE_HOST_ALLOCATION": "observer-owner",
+            "PSE_RESOURCE_CLASS": "functional", "PSE_ADMISSION_DEADLINE": "200",
+            "CARGO_BUILD_JOBS": "2", "PSE_CARGO_DEFAULT_JOBS": "2",
+            "NEXTEST_TEST_THREADS": "2", "PSE_NEXTEST_DEFAULT_THREADS": "2",
+        }
+        identity = native_tests.rust_environment_identity
+        self.assertEqual(identity(parent), identity(observer))
+        self.assertNotEqual(identity(parent), identity({**observer, "CARGO_BUILD_JOBS": "8"}))
+        self.assertNotEqual(identity(parent), identity({**observer, "NEXTEST_TEST_THREADS": "8"}))
+        self.assertNotEqual(identity(parent), identity({**observer, "BUILD_INPUT": "changed"}))
+        self.assertNotEqual(identity(parent), identity({**observer, "NEW_INPUT": "changed"}))
+
+    def test_prepared_selection_allows_actual_junit_composition_only(self) -> None:
+        for profile in ("default", "local", "flaky-hunt"):
+            original = ["--profile", profile, "-E", "test(control)", "--", "--nocapture"]
+            composed, _ = test_run.rust_report_command(self.root / f"{profile}.json", original.copy())
+            self.assertEqual(native_tests.rust_selection_identity(original), native_tests.rust_selection_identity(composed))
+            self.assertLess(composed.index("--config-file"), composed.index("--"))
+            config = Path(composed[composed.index("--config-file") + 1])
+            config.write_text(config.read_text().replace("retries = 0", "retries = 1", 1))
+            self.assertNotEqual(native_tests.rust_selection_identity(original), native_tests.rust_selection_identity(composed))
+
     def test_prepared_inventory_reuses_catalog_and_preserves_exit_and_signal(self) -> None:
         execution, _, _ = self.capture(["--profile", "local"])
         inventory = json.loads(self.inventory)
@@ -757,7 +787,7 @@ class PythonSelectionTests(unittest.TestCase):
             managed[-4:], ["-m", "(integration) and managed_primary", "-n", "0"]
         )
 
-    def test_four_workers_overlap_and_controller_inventory_preserves_every_case(
+    def test_explicit_workers_overlap_and_controller_inventory_preserves_every_case(
         self,
     ) -> None:
         """An actual parallel run retains collection and terminal identities."""
@@ -796,6 +826,8 @@ class PythonSelectionTests(unittest.TestCase):
                 "16",
                 "--dist=worksteal",
                 "--max-worker-restart=0",
+                "--basetemp",
+                str(self.root / "pytest-temp"),
                 f"--junitxml={report}",
                 "-q",
             ],

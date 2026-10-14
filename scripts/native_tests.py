@@ -289,21 +289,35 @@ RUST_EXECUTION_ENVIRONMENT = frozenset(
         "PSE_RUST_OBSERVER_CHILD", "PSE_RUST_TERMINAL_OWNER",
         "PSE_NATIVE_OPERATION", "PSE_NATIVE_HANDOFF", "PSE_NATIVE_WORKER_SLOT",
         "PSE_NATIVE_WORKER_MEMORY_BYTES", "PSE_MEMORY_MAX", "PSE_SURREAL_STATE",
+        "PSE_HOST_ALLOCATION", "PSE_ADMISSION_DEADLINE", "PSE_RESOURCE_CLASS",
         "INVOCATION_ID", "JOURNAL_STREAM", "SYSTEMD_EXEC_PID",
     }
 )
 
 
 def rust_environment_identity(environment: Mapping[str, str]) -> dict[str, str]:
+    # The observer receives a new authenticated allocation. Automatically chosen
+    # executor widths follow that placement; explicit caller widths remain inputs.
+    automatic_widths = {
+        value
+        for value, marker in (
+            ("CARGO_BUILD_JOBS", "PSE_CARGO_DEFAULT_JOBS"),
+            ("NEXTEST_TEST_THREADS", "PSE_NEXTEST_DEFAULT_THREADS"),
+        )
+        if environment.get(marker) is not None
+        and environment.get(value) == environment[marker]
+    }
     return {
         name: hashlib.sha256(value.encode()).hexdigest()
         for name, value in environment.items()
         if name not in RUST_EXECUTION_ENVIRONMENT
+        and name not in automatic_widths
+        and name not in {"PSE_CARGO_DEFAULT_JOBS", "PSE_NEXTEST_DEFAULT_THREADS"}
     }
 
 
 def rust_selection_identity(arguments: list[str]) -> dict:
-    """Bind execution filters and configuration, allowing only report relocation."""
+    """Bind execution filters/configuration independently of JUnit reporting."""
     selection = []
     configs = []
     index = 0
@@ -322,10 +336,10 @@ def rust_selection_identity(arguments: list[str]) -> dict:
                 value = arguments[index]
             tool, path = value.split(":", 1) if name == "--tool-config-file" else ("", value)
             config = tomllib.loads(Path(path).read_text())
-            # The terminal composer relocates JUnit output for this invocation.
+            # The terminal composer can add or relocate a JUnit report, including
+            # captured failure output. These fields do not select/run tests.
             for profile in config.get("profile", {}).values():
-                if isinstance(profile.get("junit"), dict):
-                    profile["junit"].pop("path", None)
+                profile.pop("junit", None)
             configs.append([name, tool, config])
         else:
             selection.append(argument)
@@ -333,8 +347,7 @@ def rust_selection_identity(arguments: list[str]) -> dict:
     if not any(item[0] == "--config-file" for item in configs):
         config = tomllib.loads((ROOT / ".config/nextest.toml").read_text())
         for profile in config.get("profile", {}).values():
-            if isinstance(profile.get("junit"), dict):
-                profile["junit"].pop("path", None)
+            profile.pop("junit", None)
         configs.insert(0, ["--config-file", "", config])
     return {"arguments": selection, "configuration": configs}
 
