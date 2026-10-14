@@ -955,7 +955,7 @@ fn run<LS: LinearSolver<M>>(
                     if stop == time {
                         return Ok((None, solver.state().y.as_slice().to_vec()));
                     }
-                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps, &mut observation, output)
+                    drive(&shared, &mut solver, p, r, SegmentContext { stop, boundaries: &boundaries, observation: &mut observation }, &mut steps, output)
                 }));
                 r.statistics
                     .push(segment_statistics(solver.get_statistics(), &p.diffsol, &observation)?);
@@ -993,7 +993,7 @@ fn run<LS: LinearSolver<M>>(
                     if stop == time {
                         return Ok((None, solver.state().y.as_slice().to_vec()));
                     }
-                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps, &mut observation, output)
+                    drive(&shared, &mut solver, p, r, SegmentContext { stop, boundaries: &boundaries, observation: &mut observation }, &mut steps, output)
                 }));
                 r.statistics
                     .push(segment_statistics(solver.get_statistics(), &p.diffsol, &observation)?);
@@ -1263,16 +1263,21 @@ fn record_start<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     r.completed_time = time;
     Ok(())
 }
+struct SegmentContext<'a> {
+    stop: f64,
+    boundaries: &'a [f64],
+    observation: &'a mut crate::solve::NativeStepObservation,
+}
 fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     shared: &Rc<Shared<'o>>,
     s: &mut S,
     p: &Profile,
     r: &mut Report,
-    (stop, boundaries): (f64, &[f64]),
+    segment: SegmentContext<'_>,
     steps: &mut usize,
-    observation: &mut crate::solve::NativeStepObservation,
     output: &mut SampleOutput<'_>,
 ) -> Result<(Option<usize>, Vec<f64>), ProblemError> {
+    let SegmentContext { stop, boundaries, observation } = segment;
     s.set_stop_time(stop).map_err(native)?;
     loop {
         shared.check();

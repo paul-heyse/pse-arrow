@@ -1646,7 +1646,7 @@ impl Session {
             let flag = if iterations.is_some_and(|n| n > 0)
                 && unsafe { ffi::KINGetLastLinFlag(self.mem, &mut flag) } == 0
             {
-                Metric::Integer(flag.into())
+                Metric::Integer(long(flag))
             } else {
                 Metric::Unavailable(UnavailableReason::Unknown)
             };
@@ -2734,7 +2734,7 @@ mod tests {
                 Self::Affine(coefficient) => Ok(1. + coefficient * x),
                 Self::NoisyBranch => Ok(0.5 * x
                     + if x < 1. { 1.2 } else { 0.8 }
-                    + if call % 2 == 0 { 0.05 } else { -0.05 }),
+                    + if call.is_multiple_of(2) { 0.05 } else { -0.05 }),
                 Self::DomainLeaving if x > 1. => Err(pse_math::MathError::Domain {
                     source_id: pse_ids::SemanticId::NIL,
                     requirement: "map input <= 1",

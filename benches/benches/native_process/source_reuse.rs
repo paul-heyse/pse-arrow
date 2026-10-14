@@ -54,7 +54,7 @@ pub(super) fn measure(
     let package = executor
         .block_on(runtime.modeling_package(original.clone(), physical))
         .unwrap();
-    let revision = package.canonical_revision().clone();
+    let revision = package.canonical_revision().unwrap().clone();
     owner.runtime.reset_observation_peak();
     phases.reset();
     let mut iterations = 0_u64;
@@ -74,7 +74,7 @@ pub(super) fn measure(
                 let edited = executor.block_on(package.with_declarations(rows)).unwrap();
                 elapsed += started.elapsed();
                 assert_eq!(copied, authored);
-                assert_eq!(edited.canonical_revision(), &revision);
+                assert_eq!(edited.canonical_revision(), Some(&revision));
                 let actual = executor.block_on(edited.declarations()).unwrap();
                 assert_eq!(actual.len(), expected.len());
                 assert!(

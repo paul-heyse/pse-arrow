@@ -7,6 +7,7 @@ use pse_backend_native::dynamics as native;
 use pse_ids::{ContentHash, Frame, FramedHasher, SemanticId};
 use pse_kernels::DerivativeOrder;
 use pse_model::{SemanticFrame, generated::identities::RunId};
+use pse_operations::canonical_artifacts::ArtifactLocator;
 use pse_relations::{
     columnar::RelationRow,
     generated::runtime::{
@@ -134,12 +135,92 @@ async fn trajectory(runtime: &Runtime, expected: &Expected, one_output: bool) ->
     }
 }
 
-/// During setup this additionally checks original sensitivity receipt references
+fn evidence_locator(row: &canonical_analysis_edges::Row) -> ArtifactLocator {
+    ArtifactLocator {
+        artifact: row.evidence_artifact.clone().unwrap(),
+        block: row.evidence_block.unwrap(),
+        row: row.evidence_row,
+        field: row.evidence_field.clone(),
+    }
+}
+
+/// Setup-only oracle: compare every retained response artifact row against the
+/// independent simulation response, then bind its actual block-local coordinate.
+async fn original_artifact_evidence(
+    runtime: &Runtime,
+    analysis: &AnalysisHandle,
+    responses: &[response_sensitivities::Row],
+    cancel: &CancelSource,
+) -> BTreeMap<ArtifactLocator, (SemanticId, SemanticId)> {
+    let store = runtime.canonical_store().unwrap();
+    let mut artifacts = BTreeSet::new();
+    let mut after = None::<String>;
+    loop {
+        let batch = analysis.edges(after.as_deref()).await.unwrap();
+        let view = canonical_analysis_edges::View::from_checked(&batch).unwrap();
+        if view.is_empty() {
+            break;
+        }
+        for index in 0..view.len() {
+            let row = view.row(index).unwrap();
+            if let Some(artifact) = row.evidence_artifact {
+                artifacts.insert(artifact);
+            }
+            after = Some(row.key);
+        }
+    }
+    assert_eq!(artifacts.len(), 1, "one original local-analysis artifact");
+    let mut evidence = BTreeMap::new();
+    let mut retained = hasher("response");
+    let mut original = hasher("response");
+    for row in responses {
+        row.frame(&mut original);
+    }
+    let mut start = 0usize;
+    for key in artifacts {
+        let artifact = runtime.scientific_artifact(&key).await.unwrap();
+        let read = store.read_artifact(&key).await.unwrap();
+        for ordinal in 0..artifact.header().block_count {
+            let block = read.block(ordinal).await.unwrap();
+            assert_eq!(block.artifact, key);
+            assert_eq!(block.ordinal, ordinal);
+            if block.relation != response_sensitivities::RELATION_ID.to_string() {
+                continue;
+            }
+            let batch = artifact.block(ordinal, cancel.token()).await.unwrap();
+            let view = response_sensitivities::View::from_checked(&batch).unwrap();
+            assert_eq!(view.len() as u64, block.rows);
+            for index in 0..view.len() {
+                let row = view.row(index).unwrap();
+                let expected = &responses[start + index];
+                assert_eq!(&row, expected);
+                row.frame(&mut retained);
+                assert!(evidence.insert(
+                    ArtifactLocator {
+                        artifact: key.clone(),
+                        block: ordinal,
+                        row: Some(index as u64),
+                        field: Some("value".into()),
+                    },
+                    (expected.output_id, expected.parameter_id),
+                ).is_none());
+            }
+            start = start.checked_add(view.len()).unwrap();
+        }
+        read.release().await.unwrap();
+    }
+    assert_eq!(start, responses.len());
+    assert_eq!(evidence.len(), responses.len());
+    assert_eq!(retained.finish_hash(), original.finish_hash());
+    evidence
+}
+
+/// During setup this additionally checks original sensitivity artifact coordinates
 /// and endpoint semantics. Timed reads check the exact complete graph digest.
 async fn graph(
     analysis: &AnalysisHandle,
     expected: &Expected,
-    original_evidence: Option<&BTreeMap<String, (SemanticId, SemanticId)>>,
+    original_evidence: Option<&BTreeMap<ArtifactLocator, (SemanticId, SemanticId)>>,
 ) -> ReadObservation {
     let headers = canonical_analyses::Row::rows(&analysis.header().await.unwrap()).unwrap();
     assert_eq!(headers.as_slice(), std::slice::from_ref(&expected.header));
@@ -208,19 +289,24 @@ async fn graph(
                     "retained_response_sensitivity" => {
                         assert_eq!(source_kind, "parameter");
                         assert_eq!(target_kind, "output");
-                        let evidence = row.evidence.as_ref().unwrap();
-                        let (output, parameter) = original[evidence];
+                        let evidence = evidence_locator(&row);
+                        assert!(evidence.row.is_some());
+                        assert_eq!(evidence.field.as_deref(), Some("value"));
+                        let (output, parameter) = original[&evidence];
                         assert_eq!(parameter, expected.parameter);
                         assert_eq!(source, &parameter.to_string());
                         assert_eq!(target, &output.to_string());
-                        assert!(seen.insert(evidence.clone()));
+                        assert!(seen.insert(evidence));
                         response_count += 1;
                     }
                     "produced_evidence" => {
                         assert_eq!(source_kind, "attempt");
                         assert_eq!(source, &format!("attempt:{}", expected.attempt));
                         assert_eq!(target_kind, "output");
-                        let evidence = format!("{}:value", row.evidence.as_ref().unwrap());
+                        let mut evidence = evidence_locator(&row);
+                        assert!(evidence.row.is_some());
+                        assert!(evidence.field.is_none());
+                        evidence.field = Some("value".into());
                         let (output, _) = original[&evidence];
                         assert_eq!(target, &output.to_string());
                         assert!(produced.insert(evidence));
@@ -233,7 +319,10 @@ async fn graph(
                                 .contains(source.strip_prefix("revision:").unwrap())
                         );
                         assert_eq!(target, &format!("attempt:{}", expected.attempt));
-                        assert!(row.evidence.is_none());
+                        assert!(row.evidence_artifact.is_none());
+                        assert!(row.evidence_block.is_none());
+                        assert!(row.evidence_row.is_none());
+                        assert!(row.evidence_field.is_none());
                         provenance_count += 1;
                     }
                     other => panic!("unexpected original method edge {other}"),
@@ -361,7 +450,7 @@ async fn prepare(
         )
         .await
         .unwrap();
-    let revision = package.canonical_revision().key.clone();
+    let revision = package.canonical_revision().unwrap().key.clone();
     let root = package
         .declarations()
         .await
@@ -480,6 +569,7 @@ async fn prepare(
     let attempt = result.canonical_attempt_key().unwrap().to_owned();
     let input_sources = runtime
         .canonical_store()
+        .unwrap()
         .analysis_run_sources(&run)
         .await
         .unwrap()
@@ -631,9 +721,8 @@ async fn prepare(
             assert!(response_grid.contains(&(*output, sample)));
         }
     }
-    // Evidence refers to actual immutable original IPC row coordinates, not to
-    // a derivative copied into graph metadata. Every receipt retains the
-    // original output/parameter endpoints; this setup-only map is dropped.
+    // Independently compare complete original IPC transport before checking the
+    // artifact-owned coordinates used by the analysis graph below.
     let mut reader = runtime
         .results(
             &expected.run,
@@ -645,7 +734,6 @@ async fn prepare(
         )
         .await
         .unwrap();
-    let mut evidence = BTreeMap::new();
     let mut retained_responses = hasher("response");
     let mut original_responses = hasher("response");
     let response_set = reader
@@ -663,31 +751,13 @@ async fn prepare(
     while let Some(batch) = reader.next_relation_batch().await.unwrap() {
         // An unrestricted relation read yields each admitted self-contained
         // batch once, in frozen ordinal order and contiguous stored coverage.
-        // Derive its public immutable coordinate from the closed descriptor.
         assert!(ordinal < response_set.batch_count);
-        let receipt = pse_operations::canonical_execution::result_batch_key(
-            &expected.attempt,
-            &response_set.key,
-            ordinal,
-        );
         let view = response_sensitivities::View::from_checked(&batch).unwrap();
         for index in 0..view.len() {
             let row = view.row(index).unwrap();
             let original = &responses[usize::try_from(start).unwrap() + index];
             assert_eq!(&row, original);
             row.frame(&mut retained_responses);
-            assert!(
-                evidence
-                    .insert(
-                        format!(
-                            "ipc:{}:{receipt}:{}:value",
-                            response_sensitivities::RELATION_ID,
-                            start + index as u64
-                        ),
-                        (original.output_id, original.parameter_id)
-                    )
-                    .is_none()
-            );
         }
         start = start.checked_add(view.len() as u64).unwrap();
         ordinal = ordinal.checked_add(1).unwrap();
@@ -698,6 +768,7 @@ async fn prepare(
         retained_responses.finish_hash(),
         original_responses.finish_hash()
     );
+    let evidence = original_artifact_evidence(runtime, &analysis, &responses, &cancel).await;
     assert_eq!(evidence.len(), states * samples);
     let dense = trajectory(runtime, &expected, false).await;
     let selected = trajectory(runtime, &expected, true).await;
@@ -887,6 +958,7 @@ async fn read_all(
 }
 
 async fn retire(runtime: &Runtime, expected: &Expected) {
+    let store = runtime.canonical_store().unwrap();
     tokio::time::timeout(pse_operations::canonical::REQUEST_TIMEOUT, async {
         let deadline = Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
         // Retirement removes one bounded page per call. Drain graph membership,
@@ -911,8 +983,7 @@ async fn retire(runtime: &Runtime, expected: &Expected) {
             }
         }
         loop {
-            match runtime
-                .canonical_store()
+            match store
                 .forget_run_results(&expected.run)
                 .await
             {
@@ -932,8 +1003,7 @@ async fn retire(runtime: &Runtime, expected: &Expected) {
         }
         let mut complete = false;
         for _ in 0..expected.reclamation_pages {
-            if runtime
-                .canonical_store()
+            if store
                 .reclaim_result_page(&expected.run)
                 .await
                 .unwrap()

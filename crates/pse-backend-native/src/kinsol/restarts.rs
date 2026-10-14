@@ -130,10 +130,10 @@ impl Session {
             proof_steps: Some(0),
         };
         let mut history = None;
-        let mut starts = std::iter::once(initial).chain(schedule.starts.iter().map(Vec::as_slice));
+        let starts = std::iter::once(initial).chain(schedule.starts.iter().map(Vec::as_slice));
         let mut attempt = 0u64;
         let mut report: Option<SolveReport> = None;
-        while let Some(start) = starts.next() {
+        for start in starts {
             if let Err(cause) = execution.check() {
                 if let Some(report) = &mut report {
                     report.termination.category =

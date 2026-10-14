@@ -177,11 +177,11 @@ fn sdirk_matches_bdf_on_vessel() {
         // The level rises from 0.5 toward its steady value (Fin/k)² = 4.
         let last = bdf.samples.last().unwrap();
         assert!(last.outputs[0] > 3.0 && last.outputs[0] < 4.0, "{last:?}");
-        let mut methods = vec![DiffsolMethod::TrBdf2, DiffsolMethod::Esdirk34];
+        let mut methods = vec![(DiffsolMethod::TrBdf2, 2), (DiffsolMethod::Esdirk34, 3)];
         if !dae {
-            methods.push(DiffsolMethod::Tsit45);
+            methods.push((DiffsolMethod::Tsit45, 5));
         }
-        for method in methods {
+        for (method, expected_order) in methods {
             let mut p = vessel_profile(dae);
             p.diffsol.method = method;
             let r = drain(dae, &p);
@@ -193,12 +193,6 @@ fn sdirk_matches_bdf_on_vessel() {
             );
             // The current order is the actual library/tableau order, not an inference
             // from requested tolerances or an accepted output-grid interval.
-            let expected_order = match method {
-                DiffsolMethod::TrBdf2 => 2,
-                DiffsolMethod::Esdirk34 => 3,
-                DiffsolMethod::Tsit45 => 5,
-                DiffsolMethod::Bdf => unreachable!(),
-            };
             assert_eq!(
                 r.statistics[0]["native_step"]["current_order"],
                 expected_order

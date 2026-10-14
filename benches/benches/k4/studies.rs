@@ -47,7 +47,7 @@ impl ManagedReceiver {
             "previous managed receiver did not drain; isolated fixture preserved"
         );
         Self {
-            store: Some(runtime.canonical().store().clone()),
+            store: Some(runtime.canonical().unwrap().store().clone()),
             finished: false,
         }
     }
@@ -420,7 +420,7 @@ pub(super) fn measure(
                 };
                 let mut receiver=managed.then(|| ManagedReceiver::new(&runtime));
                 let receiving_profile=if managed {
-                    let selected=workflow::NativeExecutionSelection::from_store(runtime.canonical().store()).unwrap();
+                    let selected=workflow::NativeExecutionSelection::from_store(runtime.canonical().unwrap().store()).unwrap();
                     let allocation=selected.allocation();
                     allocation.validate().unwrap();
                     assert_eq!(allocation.native_workers, 1);

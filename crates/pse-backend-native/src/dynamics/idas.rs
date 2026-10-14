@@ -3249,10 +3249,7 @@ pub(super) fn integrate_with_samples(
     output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
     let (report, _, _) = attempt(
-        oracle,
-        p,
-        integration,
-        &[],
+        NumericalRequest { oracle, profile: p, integration, directions: &[] },
         cancel,
         progress,
         output,
@@ -3593,10 +3590,7 @@ fn backward_route(
         observer: &mut observer,
     };
     let (mut report, outcome, checkpoints) = attempt(
-        oracle,
-        p,
-        integration,
-        directions,
+        NumericalRequest { oracle, profile: p, integration, directions },
         cancel,
         progress,
         &mut output,
@@ -3639,18 +3633,23 @@ fn backward_route(
         reserved_bytes: 0,
     })
 }
+/// Borrowed numerical inputs shared by forward-only and adjoint attempts.
+struct NumericalRequest<'a> {
+    oracle: &'a mut dyn Oracle,
+    profile: &'a Profile,
+    integration: &'a [f64],
+    directions: &'a [usize],
+}
 /// One IDAS attempt: the forward pass, then `after` once it completed, with every failure
 /// and stop kept in the report.
 fn attempt<T>(
-    oracle: &mut dyn Oracle,
-    p: &Profile,
-    integration: &[f64],
-    directions: &[usize],
+    request: NumericalRequest<'_>,
     cancel: Cancellation,
     progress: Arc<Progress>,
     output: &mut SampleOutput<'_>,
     after: impl FnOnce(&mut Session<'_>, &Report) -> Result<T, ProblemError>,
 ) -> (Report, Option<T>, usize) {
+    let NumericalRequest { oracle, profile: p, integration, directions } = request;
     let execution = Execution {
         cancel,
         started: Instant::now(),

@@ -239,11 +239,10 @@ mod tests {
         out: *mut f64,
         _: *mut c_void,
     ) -> i32 {
-        // SAFETY: the optional one-row fixture receives one readable variable and
-        // one distinct writable constraint value for its identity row.
-        unsafe {
-            *out = *x;
-        }
+        // SAFETY: the optional one-row fixture receives one readable variable.
+        let value = unsafe { *x };
+        // SAFETY: the bridge supplies one distinct writable constraint value.
+        unsafe { *out = value };
         0
     }
     unsafe extern "C" fn row_jacobian(

@@ -158,6 +158,7 @@ pub(super) async fn run(
             workflow::FitProfile {
                 solver,
                 simulations: BTreeMap::from([(id("experiment").into(), integration)]),
+                experiment_workers: pse_model::scalars::PositiveCount::try_new(1).unwrap(),
                 rank_tolerance: 1e-8,
                 max_cells: 100_000,
                 derivatives,

@@ -121,19 +121,23 @@ pub(crate) struct NestedDefaults {
 #[cfg(feature = "scip")]
 impl NestedDefaults {
     pub(crate) fn observe() -> Self {
-        // SAFETY: scalar queries of the linked provider; no global or local setting
-        // changes. Domain numbers are the selected oneMKL mkl_types.h constants.
-        unsafe {
-            Self {
-                omp: omp_get_max_threads(),
-                mkl: MKL_Get_Max_Threads(),
-                all: MKL_Domain_Get_Max_Threads(0),
-                blas: MKL_Domain_Get_Max_Threads(1),
-                lapack: MKL_Domain_Get_Max_Threads(5),
-                pardiso: MKL_Domain_Get_Max_Threads(4),
-                cancellation: omp_get_cancellation() != 0,
-                proc_bind: omp_get_proc_bind(),
-            }
+        Self {
+            // SAFETY: read-only scalar query of the current OpenMP ICV.
+            omp: unsafe { omp_get_max_threads() },
+            // SAFETY: read-only scalar query of the linked MKL provider.
+            mkl: unsafe { MKL_Get_Max_Threads() },
+            // SAFETY: read-only query; 0 is oneMKL's MKL_DOMAIN_ALL constant.
+            all: unsafe { MKL_Domain_Get_Max_Threads(0) },
+            // SAFETY: read-only query; 1 is oneMKL's MKL_DOMAIN_BLAS constant.
+            blas: unsafe { MKL_Domain_Get_Max_Threads(1) },
+            // SAFETY: read-only query; 5 is oneMKL's MKL_DOMAIN_LAPACK constant.
+            lapack: unsafe { MKL_Domain_Get_Max_Threads(5) },
+            // SAFETY: read-only query; 4 is oneMKL's MKL_DOMAIN_PARDISO constant.
+            pardiso: unsafe { MKL_Domain_Get_Max_Threads(4) },
+            // SAFETY: read-only scalar query of OpenMP cancellation state.
+            cancellation: unsafe { omp_get_cancellation() } != 0,
+            // SAFETY: read-only scalar query of OpenMP binding state.
+            proc_bind: unsafe { omp_get_proc_bind() },
         }
     }
     /// The first OpenMP width does not establish every entry of an explicit nested

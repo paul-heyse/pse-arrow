@@ -329,7 +329,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         )
         .await
         .unwrap();
-    let revision = package.canonical_revision().clone();
+    let revision = package.canonical_revision().unwrap().clone();
     let root = package
         .declarations()
         .await
@@ -395,7 +395,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         .modeling_revision(revision.clone(), physical, Default::default())
         .await
         .unwrap();
-    assert_eq!(package.canonical_revision(), &revision);
+    assert_eq!(package.canonical_revision(), Some(&revision));
     let reopen_seconds = phase.elapsed().as_secs_f64();
     phases.reset();
     let phase = Instant::now();
@@ -449,7 +449,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     let history_seconds = phase.elapsed().as_secs_f64();
     let peak = seed_peak.max(owner.runtime.observation_peak_bytes());
     let retained = pool.reserved();
-    let store = runtime.canonical_store().clone();
+    let store = runtime.canonical_store().unwrap().clone();
     let phase = Instant::now();
     drop(result);
     drop(prepared);
@@ -481,7 +481,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         .modeling_revision(revision.clone(), physical, Default::default())
         .await
         .unwrap();
-    assert_eq!(package.canonical_revision(), &revision);
+    assert_eq!(package.canonical_revision(), Some(&revision));
     phases.reset();
     let prepared = seed_prepare(
         &package,

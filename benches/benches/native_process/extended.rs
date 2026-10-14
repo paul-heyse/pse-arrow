@@ -192,6 +192,8 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
             realization: workflow::CausalUnitRealization::ExplicitMap,
         }],
         anderson: 1,
+        anderson_delay: 0,
+        restarts: None,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
     let prepared = package
@@ -254,6 +256,7 @@ async fn sparse_fit(
             workflow::FitProfile {
                 solver,
                 simulations: BTreeMap::new(),
+                experiment_workers: pse_model::scalars::PositiveCount::try_new(1).unwrap(),
                 rank_tolerance: 1e-8,
                 max_cells: n * 8,
                 derivatives: workflow::FitDerivatives::Responses,

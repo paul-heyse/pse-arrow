@@ -365,7 +365,10 @@ fn injected_free_failure_exposes_typed_cause_and_quarantines_only_uncertain_comp
                     |raw| {
                         // Destroy a real idle fixture, then inject the returned failure. No
                         // uncertain native jobs are run; this exercises the ownership branch.
-                        assert_eq!(unsafe { ffi::SCIPfree(raw) }, ffi::SCIP_Retcode_SCIP_OKAY);
+                        // SAFETY: raw points to this fixture's live, idle SCIP instance;
+                        // shutdown invokes this closure once and relinquishes that instance.
+                        let status = unsafe { ffi::SCIPfree(raw) };
+                        assert_eq!(status, ffi::SCIP_Retcode_SCIP_OKAY);
                         ffi::SCIP_Retcode_SCIP_ERROR
                     },
                     |owner| quarantined = Some(owner),
@@ -399,6 +402,8 @@ fn injected_free_failure_exposes_typed_cause_and_quarantines_only_uncertain_comp
         );
         // The injected fixture was actually freed, so this test can release its
         // quarantined owners. Production uncertainty deliberately never does so.
+        // SAFETY: the fixture's successful SCIPfree above ended all uses of the
+        // uniquely allocated watch. Quarantine retained its pointer without freeing it.
         drop(unsafe { Box::from_raw(owner._watch.as_ptr()) });
         drop(owner);
         assert_eq!(available.load(Ordering::Acquire), 1);

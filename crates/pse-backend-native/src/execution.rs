@@ -880,38 +880,38 @@ impl Retained {
     pub fn reset_independent(&mut self) -> Result<(), ProblemError> {
         self.release();
         #[cfg(feature = "scip")]
-        if let Some((Backend::Scip, state)) = &mut self.session {
-            if let Some(session) = state.downcast_mut::<crate::scip::Session>() {
-                let result = session.shutdown();
-                self.clear();
-                self.reuse_history.record(Backend::Scip);
-                return result;
-            }
+        if let Some((Backend::Scip, state)) = &mut self.session
+            && let Some(session) = state.downcast_mut::<crate::scip::Session>()
+        {
+            let result = session.shutdown();
+            self.clear();
+            self.reuse_history.record(Backend::Scip);
+            return result;
         }
         #[cfg(feature = "highs")]
-        if let Some((Backend::Highs, state)) = &mut self.session {
-            if let Some(session) = state.downcast_mut::<crate::highs::Session>() {
-                if let Err(cause) = session.reset_for_new_application() {
-                    self.clear();
-                    return Err(cause);
-                }
-                return Ok(());
+        if let Some((Backend::Highs, state)) = &mut self.session
+            && let Some(session) = state.downcast_mut::<crate::highs::Session>()
+        {
+            if let Err(cause) = session.reset_for_new_application() {
+                self.clear();
+                return Err(cause);
             }
+            return Ok(());
         }
         #[cfg(feature = "pounce")]
-        if let Some((Backend::Pounce, state)) = &mut self.session {
-            if let Some(session) = state.downcast_mut::<crate::pounce::Session>() {
-                if let Err(cause) = session.reset_for_new_application() {
-                    self.clear();
-                    return Err(cause);
-                }
-                if session.has_neutral_state() {
-                    return Ok(());
-                }
+        if let Some((Backend::Pounce, state)) = &mut self.session
+            && let Some(session) = state.downcast_mut::<crate::pounce::Session>()
+        {
+            if let Err(cause) = session.reset_for_new_application() {
                 self.clear();
-                self.reuse_history.record(Backend::Pounce);
+                return Err(cause);
+            }
+            if session.has_neutral_state() {
                 return Ok(());
             }
+            self.clear();
+            self.reuse_history.record(Backend::Pounce);
+            return Ok(());
         }
         let discarded = self.scope_history();
         self.clear();

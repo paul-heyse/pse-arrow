@@ -130,6 +130,7 @@ pub(crate) fn profile(backend: Backend, optimize: bool) -> SolverProfile {
         controls: Controls::default(),
         backend: BackendSettings::Default,
         sensitivity: None,
+        ..Default::default()
     }
 }
 pub(crate) fn variable(result: &RunResult, id: SemanticId) -> f64 {
@@ -266,6 +267,7 @@ pub(crate) async fn heat_fit(
         pse_runtime::workflow::FitProfile {
             solver,
             simulations,
+            experiment_workers: pse_model::scalars::PositiveCount::try_new(1).unwrap(),
             rank_tolerance: 1e-8,
             max_cells: 1 << 20,
             derivatives: pse_runtime::workflow::FitDerivatives::Responses,
