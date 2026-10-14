@@ -156,7 +156,6 @@ class EngineSettings:
         concurrent_queries: int | None = ...,
         concurrent_outputs: int | None = ...,
         model_result_bytes: int | None = ...,
-        hashing_may_use_pool: bool = ...,
         spill_compression: str | None = ...,
         max_spill_file_size_bytes: int | None = ...,
         sort_spill_reservation_bytes: int | None = ...,
@@ -180,8 +179,6 @@ class EngineSettings:
     def concurrent_outputs(self, /) -> int: ...
     @property
     def concurrent_queries(self, /) -> int: ...
-    @property
-    def hashing_may_use_pool(self, /) -> bool: ...
     @property
     def math_admission_wait_ms(self, /) -> int: ...
     @property

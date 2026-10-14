@@ -150,7 +150,6 @@ impl WorkflowRuntime {
             execution: ExecutionSettings::default(),
             cache,
             math,
-            hashing_may_use_pool: false,
         })?;
         let sessions = Arc::new(runtime.session_factory(native_engine_profile())?);
         let model = sessions.bind_model(registry)?;

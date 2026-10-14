@@ -33,6 +33,38 @@ def physical_documents() -> dict[str, str]:
 
 
 @pytest.mark.unit
+def test_process_runtime_reuses_equal_consumed_settings_and_refuses_conflicts(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    def settings(threads: int) -> pse.EngineSettings:
+        return pse.EngineSettings(
+            memory_limit_bytes=inspection_settings.memory_limit_bytes,
+            threads=threads,
+            target_partitions=inspection_settings.target_partitions,
+            spill_dir=inspection_settings.spill_dir,
+            max_spill_bytes=inspection_settings.max_spill_bytes,
+            batch_size=inspection_settings.batch_size,
+            cache=inspection_settings.cache,
+        )
+
+    first = pse.Runtime(inspection_settings, ephemeral=True)
+    second = pse.Runtime(settings(inspection_settings.threads), ephemeral=True)
+    try:
+        with pytest.raises(pse.InspectionError, match="process resource budget"):
+            pse.Runtime(settings(inspection_settings.threads + 1), ephemeral=True)
+        first.close()
+        # Logical caller release leaves the equal-settings caller's shared service usable.
+        physical = second.physical_from_documents(physical_documents())
+        package = second.modeling_from_documents(
+            [package_documents("package shared {param a:Scalar=1;}")], physical
+        )
+        assert package.revision_id
+    finally:
+        first.close()
+        second.close()
+
+
+@pytest.mark.unit
 def test_local_runtime_owns_models_and_exact_edits_without_a_substrate(
     inspection_settings: pse.EngineSettings,
 ) -> None:

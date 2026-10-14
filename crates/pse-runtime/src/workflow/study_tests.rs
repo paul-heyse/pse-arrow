@@ -1938,7 +1938,6 @@ fn study_runtime_with_population(threads: usize, jobs: usize) -> Runtime {
             jobs,
             ..Default::default()
         },
-        hashing_may_use_pool: false,
     })
     .unwrap();
     let registry = pse_schema::shared_registry().unwrap();

@@ -19,7 +19,6 @@ macro_rules! engine_settings_fields {
         concurrent_queries: Option<usize>, "int | None", None => usize, $budget.cache.concurrent_queries.get();
         concurrent_outputs: Option<usize>, "int | None", None => usize, $budget.cache.concurrent_outputs.get();
         model_result_bytes: Option<usize>, "int | None", None => usize, $budget.cache.model_result_bytes;
-        hashing_may_use_pool: bool, "bool", false => bool, $budget.hashing_may_use_pool;
         spill_compression: Option<String>, "str | None", None => String, $budget.execution.spill_compression.to_string();
         max_spill_file_size_bytes: Option<u64>, "int | None", None => u64, $budget.execution.max_spill_file_size_bytes;
         sort_spill_reservation_bytes: Option<usize>, "int | None", None => usize, $budget.execution.sort_spill_reservation_bytes;
@@ -144,7 +143,6 @@ impl EngineSettingsInput {
                     .map(std::time::Duration::from_millis)
                     .unwrap_or(math_defaults.admission_wait),
             },
-            hashing_may_use_pool: self.hashing_may_use_pool,
             cache,
         };
         budget.validate()?;
@@ -164,7 +162,6 @@ mod delta_boundary_unit {
             batch_size: 256,
             target_partitions: None,
             top_consumers: None,
-            hashing_may_use_pool: false,
             spill_compression: None,
             max_spill_file_size_bytes: None,
             sort_spill_reservation_bytes: None,

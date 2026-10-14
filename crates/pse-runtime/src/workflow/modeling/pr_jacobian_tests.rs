@@ -102,7 +102,6 @@ async fn package(
             jobs: settings.math_jobs,
             ..Default::default()
         },
-        hashing_may_use_pool: false,
     })?;
     let registry = pse_schema::shared_registry()?;
     let sessions = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);

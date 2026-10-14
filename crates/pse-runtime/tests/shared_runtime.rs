@@ -51,7 +51,6 @@ fn budget(directory: &Scratch, limit: usize) -> ResourceBudget {
         execution: ExecutionSettings::default(),
         cache: pse_runtime::CacheBudget::disabled(1),
         math: Default::default(),
-        hashing_may_use_pool: false,
     }
 }
 
@@ -126,7 +125,6 @@ fn selected_timezone_compression_and_partition_policy_are_supported() {
     settings.execution.time_zone = "+05:30".to_owned();
     settings.execution.spill_compression = datafusion::common::config::SpillCompression::Zstd;
     settings.threads.target_partitions = NonZeroUsize::new(8).expect("nonzero");
-    settings.hashing_may_use_pool = true;
     assert!(SharedRuntime::build(settings).is_ok());
 }
 

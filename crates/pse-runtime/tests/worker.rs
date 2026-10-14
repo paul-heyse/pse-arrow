@@ -390,7 +390,6 @@ fn runtime_with_store(
             foreign_bytes: 1 << 20,
             ..Default::default()
         },
-        hashing_may_use_pool: false,
     })
     .unwrap();
     let registry = pse_schema::shared_registry().unwrap();
@@ -603,7 +602,6 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
             artifact_bytes: memory / 8,
             ..Default::default()
         },
-        hashing_may_use_pool: false,
     })
     .unwrap();
     let registry = pse_schema::shared_registry().unwrap();

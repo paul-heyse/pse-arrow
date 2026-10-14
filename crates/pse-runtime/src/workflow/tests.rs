@@ -131,7 +131,6 @@ fn shared_runtime_on_threads(
         execution: Default::default(),
         cache: crate::CacheBudget::disabled(1024),
         math,
-        hashing_may_use_pool: false,
     })
     .unwrap()
 }

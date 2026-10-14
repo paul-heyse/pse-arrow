@@ -135,7 +135,6 @@ fn resource_budget(
                 admission_wait: Duration::from_millis(execution.admission_wait_ms),
                 ..Default::default()
             },
-            hashing_may_use_pool: false,
         });
     }
     let memory = cli
@@ -173,7 +172,6 @@ fn resource_budget(
         execution: Default::default(),
         cache: pse_runtime::CacheBudget::disabled(1024),
         math,
-        hashing_may_use_pool: false,
     })
 }
 

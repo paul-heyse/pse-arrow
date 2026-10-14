@@ -49,11 +49,6 @@ pub struct ResourceBudget {
     pub cache: CacheBudget,
     /// Finite compiler and native math allowances in this same pool.
     pub math: crate::math::MathPolicy,
-    /// Whether artifact hashing may take pool threads (`blake3::update_rayon`).
-    ///
-    /// This grants permission; it does not require parallel hashing or change canonical
-    /// framing. The caller selects the scheduling policy for its workload.
-    pub hashing_may_use_pool: bool,
 }
 
 impl ResourceBudget {
@@ -138,7 +133,6 @@ mod tests {
             execution: ExecutionSettings::default(),
             cache: CacheBudget::disabled(1),
             math: Default::default(),
-            hashing_may_use_pool: false,
         }
     }
 
@@ -171,14 +165,6 @@ mod tests {
             Err(RuntimeError::ConfigInvalid { ref reason, .. })
                 if reason.contains("is not a directory")
         ));
-    }
-
-    #[test]
-    fn hashing_pool_permission_is_a_selected_policy() {
-        let directory = scratch("hashing");
-        let mut budget = budget(directory);
-        budget.hashing_may_use_pool = true;
-        assert!(budget.validate().is_ok());
     }
 
     #[test]
