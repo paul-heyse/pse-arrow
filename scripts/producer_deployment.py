@@ -212,6 +212,35 @@ def verify_artifact(
     return value
 
 
+def load_history(
+    root: Path, output: Path, role: str, environment: Mapping[str, str], receipt: Mapping[str, object]
+) -> dict[str, object]:
+    """Read only the sealed core product; historical context grants no freshness."""
+    if not current_receipt(dict(receipt)):
+        raise ValueError(f"{role} has unsupported deployment receipt interpretation")
+    result = subprocess.run(
+        [str(root / "target/debug/xtask"), "producer-history-verify",
+         str(output / f"{role}-build-evidence.json.closure")],
+        cwd=root, env=dict(environment), capture_output=True, check=False, text=True,
+    )
+    if result.returncode:
+        raise ValueError(f"{role} protected historical evidence refused: {result.stderr}")
+    history = json.loads(result.stdout)
+    if (
+        not isinstance(history, dict) or type(history.get("version")) is not int
+        or history["version"] != 1 or history.get("historical_only") is not True
+        or not hash_value(receipt.get("identity"))
+        or not isinstance(receipt.get("selected_root"), str) or not receipt["selected_root"]
+        or history.get("producer_identity") != receipt["identity"]
+        or history.get("selected_root") != receipt["selected_root"]
+    ):
+        raise ValueError(f"{role} protected historical evidence differs from selected producer")
+    evidence = history.get("actual_build_evidence")
+    if not isinstance(evidence, dict) or evidence.get("success") is not True:
+        raise ValueError(f"{role} lacks sealed successful actual build evidence")
+    return evidence
+
+
 def bind_python_artifact(
     root: Path, output: Path, environment: Mapping[str, str]
 ) -> None:
@@ -233,13 +262,13 @@ def bind_python_artifact(
         raise ValueError("Actual imported extension belongs to another checkout")
     path = output / "python.json"
     receipt = read_object(path)
+    evidence = load_history(root, output, "python", environment, receipt)
     built = receipt_artifact(receipt, "python")
     original = Path(str(built["path"]))
     verify_artifact(root, path, original, environment)
     installed = file_observation(imported)
     transformation: dict[str, object] = {"kind": "identical-bytes"}
     if installed["sha256"] != built["sha256"]:
-        evidence = read_object(output / "python-build-evidence.json")
         messages = [
             json.loads(line)
             for line in str(evidence["stdout"]).splitlines()
@@ -321,9 +350,12 @@ def bind_python_artifact(
     })
 
 
-def validate_receipt(output: Path, role: ProducerRole) -> dict[str, object]:
+def validate_receipt(
+    root: Path, output: Path, role: ProducerRole, environment: Mapping[str, str]
+) -> dict[str, object]:
     name, package, target, kind, _ = role
     receipt = read_object(output / f"{name}.json")
+    evidence = load_history(root, output, name, environment, receipt)
     receipt_artifact(receipt, name)
     if receipt.get("frame") != "pse.producer.v1" or receipt.get("package") != package:
         raise ValueError(f"{name} receipt has the wrong frame or package")
@@ -359,9 +391,6 @@ def validate_receipt(output: Path, role: ProducerRole) -> dict[str, object]:
         raise ValueError(
             f"{name} selected root does not match its actual deployment role"
         )
-    evidence = read_object(output / f"{name}-build-evidence.json")
-    if evidence.get("success") is not True:
-        raise ValueError(f"{name} lacks successful actual build evidence")
     graph = evidence.get("unit_graph")
     if not isinstance(graph, dict):
         raise TypeError(f"{name} lacks actual selected build graph")
@@ -389,9 +418,11 @@ def validate_receipt(output: Path, role: ProducerRole) -> dict[str, object]:
     return receipt_artifact(receipt, name)
 
 
-def validate_receipts(output: Path) -> dict[str, dict[str, object]]:
+def validate_receipts(
+    root: Path, output: Path, environment: Mapping[str, str]
+) -> dict[str, dict[str, object]]:
     """Validate each actual role; role artifact digests have no equality rule."""
-    associations = {role[0]: validate_receipt(output, role) for role in ROLES}
+    associations = {role[0]: validate_receipt(root, output, role, environment) for role in ROLES}
     shared: dict[str, dict[str, set[str]]] = {}
     for role in ROLES:
         receipt = read_object(output / f"{role[0]}.json")
@@ -530,9 +561,9 @@ def capture(
                         stderr=subprocess.STDOUT, check=False,
                     )
             require_capture_success(name, result.returncode)
-            validate_receipt(output, role)
+            validate_receipt(root, output, role, role_env)
         bind_python_artifact(root, output, env)
-        associations = validate_receipts(output)
+        associations = validate_receipts(root, output, env)
         for name, artifact in associations.items():
             verify_artifact(
                 root, output / f"{name}.json", Path(str(artifact["path"])), env

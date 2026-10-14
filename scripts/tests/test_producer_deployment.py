@@ -86,6 +86,11 @@ class ProducerDeploymentTests(unittest.TestCase):
         ) -> subprocess.CompletedProcess[bytes | str]:
             self.assertEqual(cwd, self.root)
             self.assertIsInstance(text, bool)
+            if "producer-history-verify" in command:
+                self.assertTrue(text)
+                self.assertTrue(capture_output)
+                name = Path(command[-1]).name.removesuffix("-build-evidence.json.closure")
+                return subprocess.CompletedProcess(command, 0, stdout=(Path(command[-1]).parent / f"{name}-fixture-history.json").read_text())
             if command[:2] == ["uv", "sync"]:
                 return subprocess.CompletedProcess(command, 0)
             if Path(command[0]).name == "maturin":
@@ -169,12 +174,20 @@ class ProducerDeploymentTests(unittest.TestCase):
             Path(command[command.index("--build-evidence") + 1]).write_text(
                 json.dumps(evidence)
             )
+            (output.parent / f"{name}-fixture-history.json").write_text(json.dumps({
+                "version": 1, "historical_only": True, "producer_identity": receipt["identity"],
+                "selected_root": receipt["selected_root"], "actual_build_evidence": evidence,
+            }))
             if stdout is None or isinstance(stdout, int):
                 raise AssertionError("Capture diagnostics require an opened binary log")
             stdout.write(b"actual capture diagnostics\n")
             return subprocess.CompletedProcess(command, 0)
 
         return run
+
+    def verified_receipts(self) -> dict[str, dict[str, object]]:
+        with patch.object(deployment.subprocess, "run", side_effect=self.actual_capture()):
+            return deployment.validate_receipts(self.root, self.output, self.environment)
 
     def test_capture_orders_actual_targets_and_preserves_safe_declared_environment(
         self,
@@ -259,7 +272,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         )
         self.assertFalse((self.output / "python-attestation.json").exists())
         self.assertEqual(
-            set(deployment.validate_receipts(self.output)),
+            set(self.verified_receipts()),
             {"runtime", "worker", "python"},
         )
 
@@ -336,7 +349,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "ineligible"),
         ):
             deployment.capture(self.root, self.output, self.environment)
-        self.assertEqual(run.call_count, 2)
+        self.assertEqual(len([call for call in run.call_args_list if call.args[0][0] == "just"]), 2)
         self.assertFalse((self.output / "python.json").exists())
         self.assertEqual(
             (self.output / "worker.log").read_bytes(), b"actual capture diagnostics\n"
@@ -414,7 +427,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         ):
             deployment.capture(self.root, self.output, self.environment)
         self.assertEqual(
-            [Path(call.args[0][0]).name for call in run.call_args_list],
+            [Path(call.args[0][0]).name for call in run.call_args_list if "producer-history-verify" not in call.args[0]],
             ["just", "just", "uv", "maturin"],
         )
         self.assertTrue((self.output / "deployment-error.log").is_file())
@@ -429,7 +442,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         receipt = deployment.read_object(self.output / "worker.json")
         self.artifacts["worker"].write_bytes(b"replacement at same path")
         with self.assertRaisesRegex(ValueError, "artifact changed"):
-            deployment.validate_receipts(self.output)
+            self.verified_receipts()
         receipt["deployment"] = "historical shape cannot be current-decoded"
         for version in (1, 2.0, True, None):
             receipt["receipt_version"] = version
@@ -441,13 +454,49 @@ class ProducerDeploymentTests(unittest.TestCase):
             deployment.subprocess, "run", side_effect=self.actual_capture()
         ):
             deployment.capture(self.root, self.output, self.environment)
-        associations = deployment.validate_receipts(self.output)
+        associations = self.verified_receipts()
         self.assertEqual(len({record["sha256"] for record in associations.values()}), 3)
         self.assertTrue((self.output / "outer-observation.json").is_file())
         self.assertEqual(
             json.loads((self.output / "observed-artifacts.json").read_text()),
             associations,
         )
+
+    def test_role_validation_uses_protected_context_after_legacy_evidence_disappears(self) -> None:
+        with patch.object(deployment.subprocess, "run", side_effect=self.actual_capture()):
+            deployment.capture(self.root, self.output, self.environment)
+        for role, *_ in deployment.ROLES:
+            (self.output / f"{role}-build-evidence.json").unlink()
+        self.assertEqual(set(self.verified_receipts()), {"runtime", "worker", "python"})
+        receipt = deployment.read_object(self.output / "worker.json")
+        receipt["identity"] = "f" * 64
+        (self.output / "worker.json").write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(ValueError, "protected historical evidence differs"):
+            self.verified_receipts()
+
+    def test_protected_reader_identity_and_completion_precede_current_artifact_checks(self) -> None:
+        receipt = {"receipt_version": 2, "identity": "a" * 64, "selected_root": "selected"}
+        history = {
+            "version": 1, "historical_only": True, "producer_identity": receipt["identity"],
+            "selected_root": "selected", "actual_build_evidence": {"success": True},
+        }
+        for changed in (
+            {"version": True}, {"version": 2}, {"historical_only": False}, {"producer_identity": "b" * 64},
+            {"selected_root": "other"}, {"actual_build_evidence": None},
+            {"actual_build_evidence": {"success": False}},
+        ):
+            with (
+                self.subTest(changed=changed),
+                patch.object(deployment.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, stdout=json.dumps({**history, **changed}))),
+                patch.object(deployment, "receipt_artifact", side_effect=AssertionError("current artifact checked before protected context")),
+                self.assertRaises(ValueError),
+            ):
+                deployment.load_history(self.root, self.output, "worker", self.environment, receipt)
+        with (
+            patch.object(deployment.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, stdout="", stderr="historical seal differs")),
+            self.assertRaisesRegex(ValueError, "historical seal differs"),
+        ):
+            deployment.load_history(self.root, self.output, "worker", self.environment, receipt)
 
     def capture_shared_contracts(
         self, contracts: dict[str, list[dict[str, object]]]
@@ -504,7 +553,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             }
         )
         self.assertEqual(
-            set(deployment.validate_receipts(self.output)),
+            set(self.verified_receipts()),
             {"runtime", "worker", "python"},
         )
 
@@ -514,7 +563,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.capture_shared_contracts(
             {"runtime": [standard], "worker": [standard, helper], "python": [standard]}
         )
-        self.assertEqual(len(deployment.validate_receipts(self.output)), 3)
+        self.assertEqual(len(self.verified_receipts()), 3)
 
     def test_shared_single_variant_contract_changes_refuse(self) -> None:
         for field, value in (
@@ -590,7 +639,8 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.output.mkdir()
         receipt = {
             "receipt_version": 2,
-            "identity": "unchanged-scientific-key",
+            "identity": "a" * 64,
+            "selected_root": "python-fixture-root",
             "deployment": {
                 "artifact": deployment.file_observation(original),
                 "built_artifact": deployment.file_observation(original),
@@ -612,6 +662,18 @@ class ProducerDeploymentTests(unittest.TestCase):
             )
         )
         actual_check_output = subprocess.check_output
+        actual_run = subprocess.run
+        history_evidence = {"success": True, **deployment.read_object(self.output / "python-build-evidence.json")}
+        (self.output / "python-build-evidence.json").unlink()
+
+        def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            if "producer-history-verify" in command:
+                return subprocess.CompletedProcess(command, 0, stdout=json.dumps({
+                    "version": 1, "historical_only": True, "producer_identity": receipt["identity"],
+                    "selected_root": receipt["selected_root"],
+                    "actual_build_evidence": history_evidence,
+                }))
+            return actual_run(command, **kwargs)
 
         def observed(
             command: list[str],
@@ -629,6 +691,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         # Import/code mapping and consumed-input guards have separate real controls.
         with (
             patch.object(deployment.subprocess, "check_output", side_effect=observed),
+            patch.object(deployment.subprocess, "run", side_effect=run),
             patch.object(deployment, "verify_artifact"),
         ):
             self.actual_bind(self.root, self.output, self.environment)
