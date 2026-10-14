@@ -22,6 +22,7 @@ from pse.contracts.documents import (
     SourceChoice,
     SourceDelta,
     StudyDetailDemand,
+    StudyInputsExplicit,
     StudyInputsLazy,
     StudyMemberDemandVariable,
     StudyOutputDemandCompact,
@@ -53,6 +54,7 @@ from pse.tests.managed_study_fixture import (
 )
 from pse.tests.study_fixtures import assignment, physical_ids, point
 from pse.tests.study_fixtures import request as study_request
+from scripts import thermodynamic_campaign
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -70,6 +72,14 @@ SOURCE = """package algebraic { def Root {
     annotation report x("root");
     annotation check x(x>1);
 } }"""
+
+
+@pytest.mark.unit
+def test_campaign_constructs_current_explicit_study_input_variant() -> None:
+    request = thermodynamic_campaign.explicit_study_request(())
+    assert isinstance(request.inputs, StudyInputsExplicit)
+    assert request.inputs.value == ()
+    assert isinstance(request.output, StudyOutputDemandFull)
 
 
 def _assert_scalar_root(table: pa.Table, expected: float) -> None:

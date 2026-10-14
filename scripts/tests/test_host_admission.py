@@ -23,7 +23,8 @@ from scripts import host_admission as host
 from scripts import surreal_server
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Sequence
+    from typing import BinaryIO
 
 
 def readiness_fixture(
@@ -1406,7 +1407,25 @@ class HostAdmissionTests(unittest.TestCase):
         # A descendant inherits stdout: pipe-based subprocess.run cleanup would
         # wait for it after killing the direct child. Regular-file capture cannot.
         program = "import subprocess,time,sys; subprocess.Popen([sys.executable,'-c','import time; time.sleep(.08)']); time.sleep(1)"
-        with self.assertRaises(subprocess.TimeoutExpired):
+        popen = subprocess.Popen
+
+        def owned_child(
+            command: Sequence[str],
+            *,
+            env: dict[str, str],
+            stdout: BinaryIO,
+            stderr: BinaryIO,
+        ) -> subprocess.Popen[bytes]:
+            child = popen(command, env=env, stdout=stdout, stderr=stderr)
+            # The control boundary may spend its entire original reap budget.
+            # Keep this fixture's exact child alive until its bounded test cleanup.
+            self.addCleanup(child.wait, timeout=5)
+            return child
+
+        with (
+            patch.object(host.subprocess, "Popen", side_effect=owned_child),
+            self.assertRaises(subprocess.TimeoutExpired),
+        ):
             host.control_run(
                 [sys.executable, "-c", program], env=os.environ, deadline=started + 0.04
             )

@@ -12,12 +12,16 @@ import sys
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 
 import msgspec
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 from scripts.thermodynamic_feeds import COUNT, FEEDS, ROOT
+
+if TYPE_CHECKING:
+    from pse.contracts.documents import StudyPoint, StudyRequest
 
 
 def documents(path: Path) -> dict[str, str | bytes]:
@@ -35,6 +39,19 @@ def binary_hex(value: object) -> str:
         return value.hex()
     message = f"unsupported campaign JSON value: {type(value).__name__}"
     raise TypeError(message)
+
+
+def explicit_study_request(points: tuple[StudyPoint, ...]) -> StudyRequest:
+    """Build the campaign's explicit input variant using the current contract."""
+    from pse.contracts.documents import (  # noqa: PLC0415 -- constructed inside the placed observer
+        StudyInputsExplicit,
+        StudyOutputDemandFull,
+        StudyRequest,
+    )
+
+    return StudyRequest(
+        output=StudyOutputDemandFull(), inputs=StudyInputsExplicit(value=points)
+    )
 
 
 def measure(output: Path, selected: str) -> None:
@@ -57,11 +74,8 @@ def measure(output: Path, selected: str) -> None:
         SolveSettings,
         StartPolicyFresh,
         StudyCompilerProfile,
-        StudyInputsExplicit,
-        StudyOutputDemandFull,
         StudyPoint,
         StudyPointPolicy,
-        StudyRequest,
         StudyRunControls,
     )
     from pse.contracts.enums import (  # noqa: PLC0415 -- load only inside placed observer
@@ -221,30 +235,27 @@ def measure(output: Path, selected: str) -> None:
             )
             started = time.perf_counter()
             definition = package.admit_study(
-                StudyRequest(
-                    output=StudyOutputDemandFull(),
-                    inputs=StudyInputsExplicit(
-                        points=tuple(
-                            StudyPoint(
-                                operation=OperationRequestDeclaredCase(
-                                    request=CaseOperation(
-                                        case=cases[name].to_hex(),
-                                        route=ModelingAnalysisRoute.STEADY,
-                                        settings=settings,
-                                    )
-                                ),
-                                preparation=preparation,
-                                overlay=overlay,
-                                policy=StudyPointPolicy(
-                                    key=index,
-                                    dependencies=(),
-                                    start=StartPolicyFresh(),
-                                    attempt_limit=1,
-                                ),
-                            )
-                            for index, overlay in enumerate(overlays)
-                        ),
-                    ),
+                explicit_study_request(
+                    tuple(
+                        StudyPoint(
+                            operation=OperationRequestDeclaredCase(
+                                request=CaseOperation(
+                                    case=cases[name].to_hex(),
+                                    route=ModelingAnalysisRoute.STEADY,
+                                    settings=settings,
+                                )
+                            ),
+                            preparation=preparation,
+                            overlay=overlay,
+                            policy=StudyPointPolicy(
+                                key=index,
+                                dependencies=(),
+                                start=StartPolicyFresh(),
+                                attempt_limit=1,
+                            ),
+                        )
+                        for index, overlay in enumerate(overlays)
+                    )
                 )
             )
             study = package.study(

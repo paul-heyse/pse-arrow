@@ -29,6 +29,7 @@ from scripts.tests import canonical_recovery_check as recovery
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from typing import TextIO
 
 
 def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
@@ -5232,11 +5233,42 @@ class SurrealSupervisorTests(unittest.TestCase):
         try:
             assert child.stdout is not None
             self.assertEqual(child.stdout.readline().strip(), "held")
+            parent_identity = parent.with_suffix(".lock").stat()
+            real_flock = fcntl.flock
             for role in ("worker", "primary"):
                 with self.subTest(role=role):
                     started = server.time.monotonic()
                     deadline = started + 0.2
+                    clock = MagicMock(return_value=started)
+                    blocked: list[bool] = []
+
+                    def observed_flock(
+                        lock: int | TextIO,
+                        flags: int,
+                        *,
+                        clock: MagicMock = clock,
+                        blocked: list[bool] = blocked,
+                        deadline: float = deadline,
+                    ) -> None:
+                        try:
+                            real_flock(lock, flags)
+                        except BlockingIOError:
+                            identity = os.fstat(
+                                lock if isinstance(lock, int) else lock.fileno()
+                            )
+                            if (identity.st_dev, identity.st_ino) == (
+                                parent_identity.st_dev,
+                                parent_identity.st_ino,
+                            ):
+                                # Advance only after the real exact parent lock
+                                # refuses acquisition, independent of host load.
+                                blocked.append(True)
+                                clock.return_value = deadline
+                            raise
+
                     with (
+                        patch.object(server.time, "monotonic", clock),
+                        patch.object(operation.fcntl, "flock", side_effect=observed_flock),
                         patch.object(
                             operation, "owner_record", return_value=parent
                         ) as discover,
@@ -5265,7 +5297,8 @@ class SurrealSupervisorTests(unittest.TestCase):
                                 create=True,
                             ):
                                 server.ensure_primary(self.state)
-                    self.assertLess(server.time.monotonic() - started, 1.0)
+                    self.assertEqual(blocked, [True])
+                    self.assertEqual(clock.return_value, deadline)
                     discover.assert_called_once_with(deadline=deadline)
                     dispatch_worker.assert_not_called()
                     dispatch_primary.assert_not_called()
