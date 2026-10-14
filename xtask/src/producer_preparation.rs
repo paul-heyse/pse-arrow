@@ -224,7 +224,10 @@ impl Capture {
         native_options.production_target = ProducerTarget::Library;
         native_options.features.clear();
         native_options.no_default_features = false;
-        let native_basis = native_review_basis(&native_options,root)?;
+        let native_basis = (native_review_basis(&native_options,root)?,
+            options.declarations.native_inputs_complete,
+            options.declarations.native_reviewed_source.clone(),
+            options.declarations.native_environment.clone());
         let caller_environment = native_caller_environment(options)?;
         let catalogs = options.declarations.review_catalogs.iter().map(|path|
             Ok((path.clone(),bytes_hash(&absolute(root,path))?))).collect::<Result<Vec<_>>>()?;
@@ -259,6 +262,7 @@ impl Capture {
             let basis = hash_parts(&[b"finite-preparation-executor.v1", &serde_json::to_vec(&(
                 &keys[&index], executable_closure_basis(graph,index,&sources,&keys)?,
                 reviewed_input_state(&normalized,root)?, &native_basis, &caller_environment, &catalogs,
+                &normalized.declarations.configuration_executors,
                 &normalized.declarations.build_scripts, &normalized.declarations.proc_macros))?]);
             let names = message["filenames"].as_array().context("executor output files missing")?;
             let mut outputs = names.iter().map(|name| deployment_identity::FileObservation::capture(
