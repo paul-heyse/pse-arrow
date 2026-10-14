@@ -349,4 +349,44 @@ mod result_files_unit {
         let second = RecordBatch::try_new(wrong, source.columns().to_vec()).unwrap();
         assert!(encode_file_batches(&[source, second]).is_err());
     }
+
+    #[test]
+    fn copied_native_file_arrays_retain_actual_allocation_after_reader_and_scope_drop() {
+        use pse_columnar::{MemoryConsumer, MemoryPool, owned_buffer::AllocationScope};
+        let source = batch(&[0, 1 << 63, 0x7ff8_0000_0000_0042]);
+        let bytes = encode_result_file(&source).unwrap();
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        let grant = MemoryConsumer::new("file:test-owned-decode").register(&pool);
+        grant.try_grow(bytes.len() * 4 + 64 * 1024).unwrap();
+        let decoded = decode_result_file(&bytes, source.schema(), 3).unwrap();
+        let scope = AllocationScope::default();
+        let owned = scope.attach_borrowed_reserved(decoded, &grant).unwrap();
+        let batch = owned.into_batch();
+        let escaped = batch.column(0).slice(1, 2);
+        drop(batch);
+        drop(scope);
+        drop(grant);
+        drop(bytes);
+        assert!(pool.reserved() > 0, "escaped copied native buffers keep their actual grant");
+        let values = escaped.as_any().downcast_ref::<Float64Array>().unwrap();
+        assert_eq!(values.value(0).to_bits(), 1 << 63);
+        assert_eq!(values.value(1).to_bits(), 0x7ff8_0000_0000_0042);
+        drop(escaped);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn packing_targets_complete_file_bytes_and_refuses_an_oversized_single_row() {
+        use datafusion::arrow::array::BinaryArray;
+        let source = batch(&vec![0; 3_000_000]);
+        let (bytes, rows) = encode_result_prefix(&source, 0, source.num_rows()).unwrap();
+        assert!(rows > 32_768 && rows < source.num_rows());
+        assert!(bytes.len() <= TARGET_FILE_BYTES);
+        assert_eq!(decode_result_file(&bytes, source.schema(), rows).unwrap().num_rows(), rows);
+        let value = vec![0u8; MAX_FILE_BYTES];
+        let array = BinaryArray::from_iter_values([value.as_slice()]);
+        let schema = Arc::new(Schema::new(vec![Field::new("large", DataType::Binary, false)]));
+        let source = RecordBatch::try_new(schema, vec![Arc::new(array)]).unwrap();
+        assert!(encode_result_prefix(&source, 0, 1).is_err(), "footer and offsets also fit the hard file bound");
+    }
 }
