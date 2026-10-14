@@ -51,6 +51,14 @@ Review binds exact source and executable helper closure. Real compiler fixtures 
 
 The bounded design assessment is linked above. Current implementation and test outcomes belong to Plan39b B1/B5. Targeted compiler behavior does not qualify the full deployment campaign; Plan39d owns that later scope.
 
+### One finite preparation operation — authorized remaining Plan39 scope
+
+The maintainer authorized the remaining-design execution on 2026-10-14, excluding the final campaign. The existing role-by-role package-family refresh can delete earlier roles' current inputs. Amend physical sequencing, not current-input verification: one private preparation operation performs dependency setup and the selected executor-family union refresh before any role capture. No subsequent role cleans beneath completed evidence. This is not a persistent compiler cache grant or permission for a Fresh artifact from a previous operation.
+
+Actual Maturin child argv/SDK/environment remains authoritative and is enrolled late. Unknown executor families refuse before build. A first exact executor compilation context requires successful non-Fresh compiler evidence; later Fresh use requires that same operation's preceding exact compilation with unchanged dependency-complete source/configuration/reviewed environment/native/absence premises and original outputs. Unit-graph keys alone are insufficient. Build-script output associations remain distinct from executable compilation evidence; an emitted build-script-executed message alone does not prove execution in that child. Unknown, changed or incomplete premises refuse.
+
+Protected historical evidence remains independently reconstructible; original-path current artifact/input/namespace/environment verification is unchanged. Existing coordinated ownership and before/after checks still apply: private preparation exclusion does not make arbitrary concurrent tools harmless. The bounded independent assessment is [the preparation-operation review](../design_review/reviews/design_review_plan39-preparation-operation_2026-10-14.md). Dependent assurance code waits for that assessment. Tiny compiler fixtures establish only this mechanism; actual PSE all-role capture/install/import remains Plan39d work.
+
 ## Pros and cons
 
 The target removes unrelated caller review invalidation at the channel owner and keeps standard library semantics for supported pure inputs. It requires small maintained forks and explicit refusal of ambient forms; it does not eliminate source-qualified owner/helper review.

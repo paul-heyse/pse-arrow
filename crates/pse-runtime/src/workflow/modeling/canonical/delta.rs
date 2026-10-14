@@ -844,7 +844,7 @@ impl ModelingPackage {
         let revision = if record {
             admit_revision(&self.runtime, Some(&self.revision), identity, &edits).await?
         } else {
-            let admitted = AdmittedModelRevision::apply(&self.runtime, Some(&self.revision.admitted), &edits)?;
+            let admitted = AdmittedModelRevision::apply(&self.runtime, Some(&self.revision.admitted), &edits, Some(cancel))?;
             SourceRevision::admitted(admitted, identity, None, None)?
         };
         Ok(Self {revision,held_preparation:None,..self.clone()})

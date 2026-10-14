@@ -72,14 +72,14 @@ impl ModelingPackage {
         activity
             .scope(async {
                 let math = self.runtime.shared.math();
-                if !selected
-                    .admission
-                    .dependencies
-                    .matches(&self.revision.admitted)
-                {
-                    return Err(contract(
-                        "selected source premises differ from the local receiver",
-                    ));
+                if !selected.carries(self) {
+                    // Different sources/invocations must establish eligibility now;
+                    // a retained checked relation never keeps a caller activity open.
+                    *selected = scoped(cancel, deadline,
+                        self.checked_selection(&selected.admission.request.roots.clone(), cancel)).await?;
+                    if !selected.carries(self) {
+                        return Err(contract("selected source/context differs from the local receiver"));
+                    }
                 }
                 let key = math.basis_key(&selected.admission, root, instance, bindings, limits)?;
                 let basis = if let Some(basis) = math.modeling_cache.basis(&key)
