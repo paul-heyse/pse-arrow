@@ -344,7 +344,12 @@ impl Runtime {
         &self,
         key: &str,
     ) -> Result<ScientificArtifact, WorkflowError> {
-        let header = self.canonical_store()?.artifact(key).await?;
+        let activity = self.admit_activity()?;
+        activity.scope(async {
+        let response = super::connected_results::response_owner(self, "canonical:scientific-artifact-header-response")?;
+        let header = pse_operations::canonical::response_ownership_scope(
+            response, self.canonical_store()?.artifact(key),
+        ).await?;
         if ![
             "seed",
             "final-state",
@@ -360,6 +365,7 @@ impl Runtime {
             runtime: self.clone(),
             header,
         })
+        }).await
     }
     /// Copy a scientifically sufficient immutable product without rerunning science.
     /// The trajectory product retains its entire recorded prefix; no row-level
@@ -377,14 +383,20 @@ impl Runtime {
         activity.scope(async {
             let memory=MemoryConsumer::new("canonical:scientific-artifact-promotion").register(&self.shared.pool());
             memory.try_grow(128*1024*1024).map_err(pse_engine::EngineError::from)?;
-            let input=self.canonical_store()?.read_results(run,attempt).await?;
+            let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-selection-response")?;
+            let input=std::sync::Arc::new(pse_operations::canonical::response_ownership_scope(
+                response,self.canonical_store()?.read_results(run,attempt),
+            ).await?);
             let mut names=vec!["runtime.scientific_contexts","runtime.candidate_assessments","runtime.run_lineage","runtime.resolved_numerics","runtime.modeling_checks","runtime.modeling_reports","runtime.modeling_findings"];
             match kind {
                 ScientificArtifactKind::FinalState=>names.extend(["runtime.trajectory_endpoints","runtime.computation_runs","runtime.solve_variables","runtime.solve_runs"]),
                 ScientificArtifactKind::Trajectory=>names.extend(["runtime.trajectory_endpoints","runtime.simulation_samples","runtime.simulation_events","runtime.modeling_trajectory_modes","runtime.response_sensitivities","runtime.computation_runs"]),
                 ScientificArtifactKind::LocalAnalysis=>names.extend(["runtime.local_validity","runtime.parametric_sensitivities","runtime.response_sensitivities","runtime.reduced_hessians","runtime.parameter_covariances","runtime.parameter_intervals","runtime.profile_points","runtime.response_directions","runtime.propagated_covariances","runtime.fit_parameters","runtime.fit_observations","runtime.solve_runs","runtime.computation_runs","runtime.solve_metrics"]),
             }
-            let sources=self.canonical_store()?.analysis_run_sources(run).await?;
+            let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-sources-response")?;
+            let sources=pse_operations::canonical::response_ownership_scope(
+                std::sync::Arc::new((input.clone(),response)),self.canonical_store()?.analysis_run_sources(run),
+            ).await?;
             let revision=sources.iter().find(|source|source.key==input.run().revision).ok_or_else(||contract("artifact primary source unavailable"))?;
             let members=MemoryConsumer::new("canonical:scientific-artifact-member-files").register(&self.shared.pool());
             let mut copied=Vec::new();
@@ -404,7 +416,7 @@ impl Runtime {
                 }
                 if set.batch_count != 0 {
                     let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
-                    let snapshot=super::ResultSnapshot::capture(self,std::sync::Arc::new(input.clone()),spec.id,&set.key,schema,0,u64::MAX).await?;
+                    let snapshot=super::ResultSnapshot::capture(self,input.clone(),spec.id,&set.key,schema,0,u64::MAX).await?;
                     for block in snapshot.blocks() {
                         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                         let checked=snapshot.read_block(block,&cancel).await?;
@@ -445,13 +457,23 @@ impl Runtime {
             }
             let provenance=serde_json::to_vec(&(1u8,run,attempt,&input.run().revision,input.run().sequence,input.attempt().generation,&input.attempt().outcome,input.manifest(),&selected)).map_err(|error|contract(error.to_string()))?;
             let bytes=copied.iter().map(|(_,payload,_,_)|payload.len() as u64).sum();
-            let mut header=self.canonical_store()?.new_artifact(revision,kind.name(),provenance,copied.len() as u64,bytes).await?;
+            let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-header-response")?;
+            let mut header=pse_operations::canonical::response_ownership_scope(
+                std::sync::Arc::new((input.clone(),response)),
+                self.canonical_store()?.new_artifact(revision,kind.name(),provenance,copied.len() as u64,bytes),
+            ).await?;
             let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))| {
                 let spec=self.registry().relation(name).ok_or_else(||contract("artifact member relation unavailable"))?;
                 Ok::<_,WorkflowError>(pse_operations::canonical_artifacts::artifact_block(&header.key,ordinal as u64,name,payload,&digest,rows).native_file(&spec.id.to_string())?)
             }).collect::<Result<Vec<_>,_>>()?;
-            pse_operations::canonical_artifacts::seal_artifact_request(&mut header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner);
-            self.canonical_store()?.persist_artifact(&header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner).await?;
+            pse_operations::canonical_artifacts::seal_artifact_request(&mut header,&sources,std::slice::from_ref(input.as_ref()),&blocks,owner_kind,owner);
+            let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-publication-response")?;
+            pse_operations::canonical::response_ownership_scope(
+                // The SDK owns metadata and the original read follower only;
+                // copied member buffers retain their separate local grant.
+                std::sync::Arc::new((input.clone(),response)),
+                self.canonical_store()?.persist_artifact(&header,&sources,std::slice::from_ref(input.as_ref()),&blocks,owner_kind,owner),
+            ).await?;
             Ok(ScientificArtifact {runtime:self.clone(),header})
         }).await
     }
@@ -645,5 +667,43 @@ mod intent_unit {
             decode_intent(&serde_json::to_vec(&unknown).unwrap()).is_err(),
             "generated original document remains strict"
         );
+    }
+}
+
+#[cfg(all(test, feature = "canonical-tests"))]
+mod response_ownership_tests {
+    #![allow(clippy::unwrap_used, reason = "canonical response controls require an admitted exact fixture and actual pool")]
+    use super::*;
+
+    #[tokio::test]
+    async fn canonical_public_artifact_entrypoints_refuse_unprepaid_metadata() {
+        let runtime = super::super::durable_tests::durable_runtime();
+        let pool = runtime.shared.pool();
+        let baseline = pool.reserved();
+        let metadata = 3 * super::super::result_files::MAX_FILE_BYTES;
+        let copy_envelope = 128 * 1024 * 1024;
+        let pressure = MemoryConsumer::new("control:artifact-response-pressure").register(&pool);
+        let datafusion::execution::memory_pool::MemoryLimit::Finite(capacity) = pool.memory_limit() else {
+            unreachable!("canonical fixture requires a finite shared pool");
+        };
+        // Leave exactly one byte less than the metadata envelope, rather than
+        // making all work impossible or changing the actual fixture capacity.
+        pressure.try_grow(capacity - baseline - metadata + 1).unwrap();
+        let refused = runtime.scientific_artifact("unissued-artifact").await;
+        assert!(matches!(refused, Err(WorkflowError::Engine(_))),
+            "public acquisition must prepay before querying an absent artifact: {refused:?}");
+        // Promotion's existing copy-out allowance can succeed. Its distinct
+        // first metadata response must still refuse, without leaking that grant.
+        pressure.shrink(copy_envelope);
+        let before = pool.reserved();
+        let refused = runtime.promote_scientific_artifact(
+            "unissued-run", "unissued-attempt", ScientificArtifactKind::FinalState,
+            "user", "unissued-owner", CancellationToken::new(),
+        ).await;
+        assert!(matches!(refused, Err(WorkflowError::Engine(_))),
+            "copy-out admission cannot substitute for metadata prepayment: {refused:?}");
+        assert_eq!(pool.reserved(), before);
+        drop(pressure);
+        assert_eq!(pool.reserved(), baseline);
     }
 }

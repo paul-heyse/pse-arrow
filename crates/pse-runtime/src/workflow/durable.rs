@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
 use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
+use super::connected_results::pooled_response_owner;
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryPool};
 use pse_backend_native::solve::{Compatibility, Event, ProgressTap, WarmPayload, WarmStart};
 use pse_ids::{ContentHash, Frame, FramedHasher, SemanticId};
@@ -153,7 +154,12 @@ impl Operations {
     ) -> Result<Vec<pse_operations::canonical_execution::RunSummary>, WorkflowError> {
         let activity = self.store().admit_activity()?;
         activity
-            .scope(async { Ok(self.store.execution_run_page(problem, after, limit).await?) })
+            .scope(async {
+                let response = pooled_response_owner(&self.pool, "canonical:run-page-response")?;
+                Ok(pse_operations::canonical::response_ownership_scope(
+                    response, self.store.execution_run_page(problem, after, limit),
+                ).await?)
+            })
             .await
     }
     /// Reopen the exact historical admitted completion and eligible seed inventory.
@@ -161,14 +167,20 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let read = self.store.read_results(run, attempt).await?;
-                let completion = self
-                    .decode_completion(CompletionSelection::Full(&read))
-                    .await?;
+                let response = pooled_response_owner(&self.pool, "canonical:record-selection-response")?;
+                let read = Arc::new(pse_operations::canonical::response_ownership_scope(
+                    response, self.store.read_results(run, attempt),
+                ).await?);
+                let completion = pse_operations::canonical::response_ownership_scope(
+                    read.clone(), self.decode_completion(CompletionSelection::Full(&read)),
+                ).await?;
                 let mut solutions = Vec::new();
                 let mut after = None;
                 loop {
-                    let page = self.store.result_seed_page(attempt, after).await?;
+                    let response = pooled_response_owner(&self.pool, "canonical:record-seed-page-response")?;
+                    let page = pse_operations::canonical::response_ownership_scope(
+                        Arc::new((read.clone(), response)), self.store.result_seed_page(attempt, after),
+                    ).await?;
                     if page.is_empty() {
                         break;
                     }
@@ -217,9 +229,7 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response = Arc::new(MemoryConsumer::new("canonical:completion-selection-response").register(&self.pool));
-                response.try_grow(3 * super::result_files::MAX_FILE_BYTES)
-                    .map_err(pse_engine::EngineError::from)?;
+                let response = pooled_response_owner(&self.pool, "canonical:completion-selection-response")?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     response, self.store.read_completion(run, attempt),
                 ).await?;
@@ -365,20 +375,18 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let current = self
-                    .store
-                    .canonical_run(run)
-                    .await?
-                    .ok_or_else(|| contract("recovery run absent"))?;
+                let response = pooled_response_owner(&self.pool, "canonical:recovery-header-response")?;
+                let current = pse_operations::canonical::response_ownership_scope(
+                    response, self.store.canonical_run(run),
+                ).await?.ok_or_else(|| contract("recovery run absent"))?;
                 let attempt = current
                     .current_attempt
                     .as_ref()
                     .ok_or_else(|| contract("recovery attempt absent"))?;
-                let actual = self
-                    .store
-                    .canonical_attempt(attempt)
-                    .await?
-                    .ok_or_else(|| contract("recovery attempt header absent"))?;
+                let response = pooled_response_owner(&self.pool, "canonical:recovery-header-response")?;
+                let actual = pse_operations::canonical::response_ownership_scope(
+                    response, self.store.canonical_attempt(attempt),
+                ).await?.ok_or_else(|| contract("recovery attempt header absent"))?;
                 if actual.terminal {
                     return Ok(Recovery {
                         recovered: vec![actual.key],
@@ -394,17 +402,18 @@ impl Operations {
                         "worker authority expired before durable scientific completion".into(),
                     ),
                 );
-                let current = self
-                    .store
-                    .canonical_run(run)
-                    .await?
-                    .ok_or_else(|| contract("recovered run absent"))?;
-                let cancelled = current.cancelled
-                    || self
-                        .store
-                        .canonical_study_for_run(run)
-                        .await?
-                        .is_some_and(|study| study.cancelled);
+                let response = pooled_response_owner(&self.pool, "canonical:recovery-header-response")?;
+                let current = pse_operations::canonical::response_ownership_scope(
+                    response, self.store.canonical_run(run),
+                ).await?.ok_or_else(|| contract("recovered run absent"))?;
+                let cancelled = if current.cancelled {
+                    true
+                } else {
+                    let response = pooled_response_owner(&self.pool, "canonical:recovery-study-response")?;
+                    pse_operations::canonical::response_ownership_scope(
+                        response, self.store.canonical_study_for_run(run),
+                    ).await?.is_some_and(|study| study.cancelled)
+                };
                 let mut outcome = failure(&error, cancelled);
                 outcome.retryable = true;
                 outcome.detail.retry_failure = Some(pse_model::study::RetryFailure::Transient);
@@ -2503,9 +2512,7 @@ async fn read_chunks_selection(
                 .saturating_add(64 * 1024),
         )
         .map_err(pse_engine::EngineError::from)?;
-    let response = Arc::new(MemoryConsumer::new("canonical:opaque-file-response").register(pool));
-    response.try_grow(3 * super::result_files::MAX_FILE_BYTES)
-        .map_err(pse_engine::EngineError::from)?;
+    let response = pooled_response_owner(pool, "canonical:opaque-file-response")?;
     let response: Arc<dyn std::fmt::Debug + Send + Sync> = match read {
         CompletionSelection::Full(full) => Arc::new((full.clone(), response)),
         CompletionSelection::Slim(slim) => Arc::new((slim.clone(), response)),
@@ -2914,11 +2921,14 @@ impl Operations {
         &self,
         solution: SolutionId,
         row: pse_model::generated::runtime::canonical_result_seeds::Row,
-    ) -> Result<(AdmittedSeed, ResultRead, SeedCapsule), WorkflowError> {
+    ) -> Result<(AdmittedSeed, Arc<ResultRead>, SeedCapsule), WorkflowError> {
         if row.key != solution.to_string() {
             return Err(contract("stored seed identity differs from selection"));
         }
-        let read = self.store.read_results(&row.run, &row.attempt).await?;
+        let response = pooled_response_owner(&self.pool, "canonical:seed-selection-response")?;
+        let read = Arc::new(pse_operations::canonical::response_ownership_scope(
+            response, self.store.read_results(&row.run, &row.attempt),
+        ).await?);
         if read.attempt().seed_manifest.as_deref() != Some(read.manifest().key.as_str())
             || row.attempt_generation != read.attempt().generation
             || row.run_sequence != read.run().sequence
@@ -2927,9 +2937,9 @@ impl Operations {
                 "stored seed is outside the admitted original inventory",
             ));
         }
-        let completed = self
-            .decode_completion(CompletionSelection::Full(&read))
-            .await?;
+        let completed = pse_operations::canonical::response_ownership_scope(
+            read.clone(), self.decode_completion(CompletionSelection::Full(&read)),
+        ).await?;
         let assessment = completed
             .completion
             .as_ref()
@@ -2946,18 +2956,12 @@ impl Operations {
         {
             return Err(contract("stored seed set coordinates differ"));
         }
-        let (bytes, owner) = read_chunks(
-            &self.store,
-            &self.pool,
-            &read,
-            name,
-            row.first_ordinal,
-            row.batch_count,
-            row.payload_bytes,
-            &row.digest,
-            true,
-        )
-        .await?;
+        let (bytes, owner) = pse_operations::canonical::response_ownership_scope(
+            read.clone(), read_chunks(
+                &self.store, &self.pool, &read, name, row.first_ordinal,
+                row.batch_count, row.payload_bytes, &row.digest, true,
+            ),
+        ).await?;
         let payload: SeedDocument =
             serde_json::from_slice(&bytes).map_err(|error| contract(error.to_string()))?;
         if payload.version != 1 {
@@ -3004,13 +3008,15 @@ impl Operations {
         let activity = self.store.admit_activity()?;
         activity
             .scope(async {
-                let row = self
-                    .store
-                    .result_seed(&solution.to_string())
-                    .await?
-                    .ok_or(SeedReadError::Missing { solution })?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-header-response")?;
+                let row = pse_operations::canonical::response_ownership_scope(
+                    response, self.store.result_seed(&solution.to_string()),
+                ).await?.ok_or(SeedReadError::Missing { solution })?;
                 let (_admitted, read, capsule) = self.load_seed(solution, row).await?;
-                let sources = self.store.analysis_run_sources(&capsule.header.run).await?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-promotion-sources-response")?;
+                let sources = pse_operations::canonical::response_ownership_scope(
+                    Arc::new((read.clone(), response)), self.store.analysis_run_sources(&capsule.header.run),
+                ).await?;
                 let revision = sources
                     .iter()
                     .find(|source| source.key == read.run().revision)
@@ -3019,10 +3025,11 @@ impl Operations {
                     serde_json::to_vec(&capsule).map_err(|error| contract(error.to_string()))?;
                 let provenance = serde_json::to_vec(&(1_u8, &capsule.header, &capsule.manifest))
                     .map_err(|error| contract(error.to_string()))?;
-                let mut artifact = self
-                    .store
-                    .new_artifact(revision, "seed", provenance, 1, payload.len() as u64)
-                    .await?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-promotion-header-response")?;
+                let mut artifact = pse_operations::canonical::response_ownership_scope(
+                    Arc::new((read.clone(), response)),
+                    self.store.new_artifact(revision, "seed", provenance, 1, payload.len() as u64),
+                ).await?;
                 let block = pse_operations::canonical_artifacts::artifact_block(
                     &artifact.key,
                     0,
@@ -3034,22 +3041,19 @@ impl Operations {
                 pse_operations::canonical_artifacts::seal_artifact_request(
                     &mut artifact,
                     &sources,
-                    std::slice::from_ref(&read),
+                    std::slice::from_ref(read.as_ref()),
                     std::slice::from_ref(&block),
                     owner_kind,
                     owner,
                 );
-                Ok(self
-                    .store
-                    .persist_artifact(
-                        &artifact,
-                        &sources,
-                        std::slice::from_ref(&read),
-                        std::slice::from_ref(&block),
-                        owner_kind,
-                        owner,
-                    )
-                    .await?)
+                let response = pooled_response_owner(&self.pool, "canonical:seed-promotion-publication-response")?;
+                Ok(pse_operations::canonical::response_ownership_scope(
+                    Arc::new((read.clone(), response)),
+                    self.store.persist_artifact(
+                        &artifact, &sources, std::slice::from_ref(read.as_ref()),
+                        std::slice::from_ref(&block), owner_kind, owner,
+                    ),
+                ).await?)
             })
             .await
     }
@@ -3058,9 +3062,7 @@ impl Operations {
         let activity = self.store.admit_activity()?;
         activity
             .scope(async {
-                let response = Arc::new(MemoryConsumer::new("canonical:seed-artifact-response").register(&self.pool));
-                response.try_grow(3 * super::result_files::MAX_FILE_BYTES)
-                    .map_err(pse_engine::EngineError::from)?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-artifact-response")?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     response.clone(), self.store.read_artifact(artifact),
                 ).await?;
@@ -3122,11 +3124,10 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let row = self
-                    .store
-                    .result_seed(&solution.to_string())
-                    .await?
-                    .ok_or(SeedReadError::Missing { solution })?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-header-response")?;
+                let row = pse_operations::canonical::response_ownership_scope(
+                    response, self.store.result_seed(&solution.to_string()),
+                ).await?.ok_or(SeedReadError::Missing { solution })?;
                 self.admit_seed(solution, row).await
             })
             .await
@@ -3141,15 +3142,13 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let rows = self
-                    .store
-                    .result_seed_candidates(
-                        &target.layout.to_string(),
-                        &preparation.to_string(),
-                        target.backend.as_str(),
-                        attempt,
-                    )
-                    .await?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-candidates-response")?;
+                let rows = pse_operations::canonical::response_ownership_scope(
+                    response, self.store.result_seed_candidates(
+                        &target.layout.to_string(), &preparation.to_string(),
+                        target.backend.as_str(), attempt,
+                    ),
+                ).await?;
                 let Some(row) = rows.into_iter().next() else {
                     return Ok(None);
                 };
@@ -3430,6 +3429,48 @@ mod canonical_durable_codec {
             .unwrap();
         (operations, fence)
     }
+    #[tokio::test]
+    async fn canonical_standalone_read_entrypoints_refuse_unprepaid_metadata() {
+        let runtime = super::super::durable_tests::durable_runtime();
+        let store = runtime.canonical_store().unwrap().independent_caller().unwrap();
+        // No Python recording_operation, Runtime activity scope, or inherited
+        // response grant can cover these independently constructed Operations.
+        runtime.close();
+        drop(runtime);
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(
+            3 * super::super::result_files::MAX_FILE_BYTES - 1,
+        ));
+        let operations = Operations::from_store(store, "standalone-read-control", LeasePolicy::default(), pool.clone());
+        fn refused<T: std::fmt::Debug>(result: Result<T, WorkflowError>) {
+            assert!(matches!(result, Err(WorkflowError::Engine(_))),
+                "metadata must refuse before missing-row or empty-page RPC: {result:?}");
+        }
+        let solution = pse_operations::mint_id::<SolutionId>();
+        let identity = ContentHash::from_bytes([1; 32]);
+        let target = Compatibility {
+            layout: identity, profile: identity, data: identity, backend: NativeBackend::Kinsol,
+        };
+        refused(operations.runs("unissued-problem", None, 1).await);
+        refused(operations.record("unissued-run", "unissued-attempt").await);
+        refused(operations.completion("unissued-run", "unissued-attempt").await);
+        refused(operations.seed(solution).await);
+        refused(operations.latest_seed(&target, &identity, None).await);
+        refused(operations.promote_seed(solution, "user", "unissued-owner").await);
+        refused(operations.recover("unissued-run", "unissued-recovery").await);
+        // A previously selected header exercises the distinct load_seed entry,
+        // without claiming that these deliberately absent coordinates are science.
+        let row = pse_model::generated::runtime::canonical_result_seeds::Row {
+            key: solution.to_string(), batch: "unissued-batch".into(), first_ordinal: 0,
+            result_set: "unissued-set".into(), attempt: "unissued-attempt".into(),
+            run: "unissued-run".into(), layout: identity.to_string(),
+            preparation: identity.to_string(), profile: identity.to_string(), data: identity.to_string(),
+            backend: "kinsol".into(), step: 0, batch_count: 1, payload_bytes: 1,
+            digest: identity.to_string(), run_sequence: 1, attempt_generation: 1,
+        };
+        refused(operations.load_seed(solution, row).await);
+        assert_eq!(pool.reserved(), 0, "all refused grants must roll back");
+    }
+
     #[tokio::test]
     async fn canonical_acknowledged_finish_returns_original_without_protected_reopen() {
         let (operations, fence) = claimed().await;

@@ -6,7 +6,7 @@
 
 use super::{Runtime, WorkflowError, contract, result_blocks, result_files};
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
-use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
+use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
 use pse_operations::canonical_results::ResultRead;
 use std::{
@@ -25,7 +25,16 @@ pub(super) fn response_owner(
     runtime: &Runtime,
     name: &'static str,
 ) -> Result<Arc<MemoryReservation>, WorkflowError> {
-    let owner = MemoryConsumer::new(name).register(&runtime.shared.pool());
+    pooled_response_owner(&runtime.shared.pool(), name)
+}
+
+// Standalone Operations callers carry the same metadata allowance without
+// depending on a Runtime or a Python bridge's enclosing response scope.
+pub(super) fn pooled_response_owner(
+    pool: &Arc<dyn MemoryPool>,
+    name: &'static str,
+) -> Result<Arc<MemoryReservation>, WorkflowError> {
+    let owner = MemoryConsumer::new(name).register(pool);
     owner
         .try_grow(READ_BYTES)
         .map_err(pse_engine::EngineError::from)?;
