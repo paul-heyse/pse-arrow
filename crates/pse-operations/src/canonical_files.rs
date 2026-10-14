@@ -78,7 +78,8 @@ impl FileBatch {
 }
 
 /// Reserved original effect, issued before creating or writing a file.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FilePublicationIntent {
     instance:String,
     intent:String,
@@ -164,9 +165,11 @@ impl FileSession {
         uuid::Uuid::parse_str(&placement.payload_incarnation).map_err(configuration)?;
         Ok(Self{root:state.join("payloads").join(&placement.payload_incarnation).join(database),incarnation:placement.payload_incarnation,process:ProcessIdentity::current()?,owner:tokio::sync::Mutex::new(None)})
     }
+    #[cfg(test)]
+    pub(crate) fn wire_control()->Result<Self,CanonicalError>{Ok(Self{incarnation:uuid::Uuid::new_v4().to_string(),root:std::env::temp_dir().join("pse-wire-control-no-file-effects"),process:ProcessIdentity::current()?,owner:tokio::sync::Mutex::new(None)})}
     pub(crate) fn require_current(&self)->Result<(),CanonicalError>{self.process.require_current()}
     pub(crate) async fn registered_owner(&self)->Option<Object>{self.owner.lock().await.clone()}
-    fn path(&self,instance:&str)->Result<PathBuf,CanonicalError>{uuid::Uuid::parse_str(instance).map_err(configuration)?;Ok(self.root.join("instances").join(format!("{instance}.sealed")))}
+    pub(crate) fn path(&self,instance:&str)->Result<PathBuf,CanonicalError>{uuid::Uuid::parse_str(instance).map_err(configuration)?;Ok(self.root.join("instances").join(format!("{instance}.sealed")))}
 }
 fn configuration(error:impl std::fmt::Display)->CanonicalError{CanonicalError::Configuration(error.to_string())}
 fn last_object(response:&mut surrealdb::IndexedResults)->Result<Object,CanonicalError>{let index=response.num_statements().saturating_sub(2);response.take::<Option<Object>>(index)?.ok_or(CanonicalError::IncompleteResponse)}
@@ -193,10 +196,20 @@ impl CanonicalStore {
     async fn reserve_file(&self,kind:&str,selection:&str,operation:&str,request_digest:&str,fence:Option<&AttemptFence>)->Result<FilePublicationIntent,CanonicalError>{
         self.ensure_writes()?;let owner=self.registered_file_owner().await?;
         if operation.is_empty()||operation.len()>4096||request_digest.len()!=64{return Err(configuration("file original intent malformed"));}
-        let mut row=Object::new();row.insert("key",uuid::Uuid::new_v4().to_string());row.insert("intent",operation.to_owned());row.insert("request_digest",request_digest.to_owned());row.insert("owner",owner);row.insert("owner_kind",kind.to_owned());row.insert("selection",selection.to_owned());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("digest",String::new());row.insert("payload_bytes",codec::encode_uint(0)?);row.insert("encoding",String::new());row.insert("batch_count",codec::encode_uint(0)?);row.insert("schema",String::new());row.insert("interpretation",crate::generated::surreal::INTERPRETATION);row.insert("state","pending");
+        let mut row=Object::new();row.insert("key",uuid::Uuid::new_v4().to_string());row.insert("intent",operation.to_owned());row.insert("request_digest",request_digest.to_owned());row.insert("owner",owner.clone());row.insert("owner_kind",kind.to_owned());row.insert("selection",selection.to_owned());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("digest",String::new());row.insert("payload_bytes",codec::encode_uint(0)?);row.insert("encoding",String::new());row.insert("batch_count",codec::encode_uint(0)?);row.insert("schema",String::new());row.insert("interpretation",crate::generated::surreal::INTERPRETATION);row.insert("state","pending");
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::reserve($pse_rpc_expires_at,$row,$run,$attempt,$generation); COMMIT;").bind(("row",row)).bind(("run",fence.map(|f|Value::String(f.run().to_owned())).unwrap_or(Value::None))).bind(("attempt",fence.map(|f|Value::String(f.attempt().to_owned())).unwrap_or(Value::None))).bind(("generation",fence.map(|f|codec::encode_uint(f.generation())).transpose()?.unwrap_or(Value::None)))).await?;
         let mut saved=last_object(&mut response)?;
-        Ok(FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner:text(&mut saved,"owner")?,storage_incarnation:text(&mut saved,"storage_incarnation")?})
+        let original=FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner:text(&mut saved,"owner")?,storage_incarnation:text(&mut saved,"storage_incarnation")?};
+        if original.owner!=owner {self.recover_file_intent(&original).await}else{Ok(original)}
+    }
+    /// Recover only custody of the original file effect after authenticated old
+    /// owner drain. Original writer/creation permission is never renewed.
+    pub async fn recover_file_intent(&self,original:&FilePublicationIntent)->Result<FilePublicationIntent,CanonicalError>{
+        self.files.require_current()?;let owner=self.registered_file_owner().await?;
+        let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
+        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::recover_intent($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected)).bind(("owner",owner.clone())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut saved=last_object(&mut response)?;
+        Ok(FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner,storage_incarnation:self.files.incarnation.clone()})
     }
     /// Complete an opaque bounded native file after original intent reservation.
     /// Runtime validates native IPC/schema before this boundary; Operations
@@ -217,6 +230,14 @@ impl CanonicalStore {
         let mut file=open_regular(&self.files.path(&descriptor.instance)?)?;validate_file(&mut file,&descriptor)?;
         Ok(ProtectedFile{file,descriptor,_owner:owner,process:self.files.process.clone()})
     }
+    /// Settle only this original unpublished storage intent after actual owner
+    /// drain and original writer/creation closure. Unknown remains protected.
+    pub async fn settle_file_intent(&self,original:&FilePublicationIntent)->Result<bool,CanonicalError>{
+        self.files.require_current()?;
+        let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
+        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::settle_intent($pse_rpc_expires_at,$expected,$incarnation); COMMIT;").bind(("expected",expected)).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let index=response.num_statements().saturating_sub(2);response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)
+    }
     /// Resume an exact admitted collection. Physical unlink follows irreversible
     /// catalog collecting state; a lost final reply cannot permit ABA reuse.
     pub async fn collect_file(&self,instance:&str)->Result<(),CanonicalError>{
@@ -224,6 +245,8 @@ impl CanonicalStore {
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let row=last_object(&mut response)?;if row.get("state")==Some(&Value::String("collected".into())){return Ok(());}
         match std::fs::remove_file(&path){Ok(())=>File::open(path.parent().ok_or_else(||configuration("file parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
+        let pending=self.files.root.join(".pending").join(format!("{instance}.pending"));
+        match std::fs::remove_file(&pending){Ok(())=>File::open(pending.parent().ok_or_else(||configuration("staging parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
         bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collected($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;Ok(())
     }
 }
@@ -248,8 +271,13 @@ fn publish(root:&Path,descriptor:&FileDescriptor,bytes:&[u8])->Result<(),Canonic
     let final_path=sealed.join(format!("{}.sealed",descriptor.instance));
     if final_path.try_exists().map_err(configuration)?{let mut file=File::open(final_path).map_err(configuration)?;validate_file(&mut file,descriptor)?;let mut original=vec![0;bytes.len()];file.read_exact(&mut original).map_err(configuration)?;if original!=bytes{return Err(CanonicalError::OperationReused);}return Ok(());}
     let staging=pending.join(format!("{}.pending",descriptor.instance));
-    let mut file=OpenOptions::new().write(true).read(true).create_new(true).open(&staging).map_err(configuration)?;
-    file.write_all(bytes).map_err(configuration)?;file.sync_all().map_err(configuration)?;file.seek(SeekFrom::Start(0)).map_err(configuration)?;validate_file(&mut file,descriptor)?;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut file=match OpenOptions::new().write(true).read(true).create_new(true).open(&staging){Ok(file)=>file,Err(error) if error.kind()==std::io::ErrorKind::AlreadyExists=>OpenOptions::new().read(true).write(true).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(&staging).map_err(configuration)?,Err(error)=>return Err(configuration(error))};
+    let written=file.metadata().map_err(configuration)?.len();
+    if written>bytes.len() as u64{return Err(CanonicalError::OperationReused);}
+    let mut buffer=[0u8;65536];let mut checked=0usize;
+    while checked<written as usize {let width=(written as usize-checked).min(buffer.len());file.read_exact(&mut buffer[..width]).map_err(configuration)?;if buffer[..width]!=bytes[checked..checked+width]{return Err(CanonicalError::OperationReused);}checked+=width;}
+    file.write_all(&bytes[written as usize..]).map_err(configuration)?;file.sync_all().map_err(configuration)?;file.seek(SeekFrom::Start(0)).map_err(configuration)?;validate_file(&mut file,descriptor)?;
     // hard_link is an atomic no-replace publication on the supported local Linux filesystem.
     std::fs::hard_link(&staging,&final_path).map_err(configuration)?;
     File::open(&sealed).and_then(|f|f.sync_all()).map_err(configuration)?;
@@ -277,7 +305,30 @@ mod tests {
     #[test]
     fn inherited_actual_process_identity_cannot_use_file_capability(){let mut identity=ProcessIdentity::current().unwrap();identity.pid=identity.pid.wrapping_add(1);assert!(identity.require_current().is_err());}
     #[test]
-    fn original_partial_staging_is_not_replaced_or_advertised_complete(){let root=std::env::temp_dir().join(format!("pse-partial-control-{}",uuid::Uuid::new_v4()));let bytes=b"[1,2,3]";let file=descriptor(bytes);std::fs::create_dir_all(root.join(".pending")).unwrap();let staging=root.join(".pending").join(format!("{}.pending",file.instance));std::fs::write(&staging,b"[1,").unwrap();assert!(publish(&root,&file,bytes).is_err());assert_eq!(std::fs::read(staging).unwrap(),b"[1,");assert!(!root.join("instances").join(format!("{}.sealed",file.instance)).exists());std::fs::remove_dir_all(root).unwrap();}
+    fn original_partial_staging_is_not_replaced_or_advertised_complete(){let root=std::env::temp_dir().join(format!("pse-partial-control-{}",uuid::Uuid::new_v4()));let bytes=b"[1,2,3]";let file=descriptor(bytes);std::fs::create_dir_all(root.join(".pending")).unwrap();let staging=root.join(".pending").join(format!("{}.pending",file.instance));std::fs::write(&staging,b"[9,").unwrap();assert!(publish(&root,&file,bytes).is_err());assert_eq!(std::fs::read(staging).unwrap(),b"[9,");assert!(!root.join("instances").join(format!("{}.sealed",file.instance)).exists());std::fs::remove_dir_all(root).unwrap();}
+    #[test]
+    fn exact_original_staging_prefix_resumes_in_same_inode(){
+        use std::os::unix::fs::MetadataExt;
+        let root=std::env::temp_dir().join(format!("pse-resume-control-{}",uuid::Uuid::new_v4()));let bytes=b"[1,2,3]";let file=descriptor(bytes);
+        std::fs::create_dir_all(root.join(".pending")).unwrap();let staging=root.join(".pending").join(format!("{}.pending",file.instance));std::fs::write(&staging,b"[1,").unwrap();let inode=std::fs::metadata(&staging).unwrap().ino();
+        publish(&root,&file,bytes).unwrap();let sealed=root.join("instances").join(format!("{}.sealed",file.instance));assert_eq!(std::fs::metadata(&sealed).unwrap().ino(),inode);verify_payload_file(&sealed,&file).unwrap();std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn offline_verifier_refuses_symlink_even_when_target_bytes_match(){
+        let root=std::env::temp_dir().join(format!("pse-nofollow-control-{}",uuid::Uuid::new_v4()));let bytes=b"[1,2]";let file=descriptor(bytes);publish(&root,&file,bytes).unwrap();let path=root.join("instances").join(format!("{}.sealed",file.instance));let link=root.join("selected-link");std::os::unix::fs::symlink(path, &link).unwrap();assert!(verify_payload_file(&link,&file).is_err());std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    #[allow(unsafe_code, reason="actual fork control checks inherited handle refusal before IO and exits child without Rust teardown")]
+    fn actual_fork_child_cannot_read_inherited_protected_file(){
+        let root=std::env::temp_dir().join(format!("pse-fork-control-{}",uuid::Uuid::new_v4()));let bytes=b"[1,2]";let descriptor=descriptor(bytes);publish(&root,&descriptor,bytes).unwrap();
+        let mut file=ProtectedFile{file:open_regular(&root.join("instances").join(format!("{}.sealed",descriptor.instance))).unwrap(),descriptor,_owner:Arc::new(()),process:ProcessIdentity::current().unwrap()};
+        // SAFETY: no application locks or asynchronous tasks cross this test's
+        // fork; the child checks cached PID before IO and uses _exit directly.
+        let child=unsafe{libc::fork()};assert!(child>=0);
+        if child==0 {let mut byte=[0u8;1];let refused=file.read(&mut byte).is_err();unsafe{libc::_exit(if refused{0}else{1})};}
+        let mut status=0;assert_eq!(unsafe{libc::waitpid(child,&mut status,0)},child);assert_eq!(status,0);drop(file);std::fs::remove_dir_all(root).unwrap();
+    }
+
 }
 
 impl CanonicalStore {
@@ -297,5 +348,41 @@ impl CanonicalStore {
         let mut response=bounded_query(self.db.query("BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'admitted file physical instance unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let mut row=last_object(&mut response)?;
         let descriptor=FileDescriptor{instance:text(&mut row,"key")?,digest:text(&mut row,"digest")?,bytes:codec::decode_uint(codec::required(&mut row,"payload_bytes")?)?,encoding:text(&mut row,"encoding")?,batch_count:codec::decode_uint(codec::required(&mut row,"batch_count")?)?,schema:text(&mut row,"schema")?,interpretation:text(&mut row,"interpretation")?};descriptor.validate()?;Ok(descriptor)
+    }
+}
+
+#[cfg(all(test,feature="canonical-tests"))]
+#[allow(clippy::unwrap_used,clippy::expect_used,unsafe_code,reason="UUID-isolated actual catalog controls supply their synthetic original scientific outcomes")]
+mod catalog_controls {
+    use super::*;
+    use crate::{canonical::{CanonicalOptions,Revision},canonical_execution::{RunRequest,ResultPayload,SeedEligibility,TerminalClass}};
+    async fn fixture()->(CanonicalStore,Revision){let state=std::env::var("PSE_SURREAL_STATE").expect("explicit file lifecycle fixture state required");let mut options=CanonicalOptions::from_state(Path::new(&state)).unwrap();options.database=format!("canonical_test_file_{}",uuid::Uuid::new_v4().simple());let store=crate::testing::canonical_fixture_with_options(&options,true).unwrap();let revision=store.edit("problem",None,"source",&[]).await.unwrap();(store,revision)}
+    async fn run(store:&CanonicalStore,revision:Revision)->AttemptFence{store.begin_run(&RunRequest{key:"file-run".into(),revision,sources:vec![],request:vec![1],source_selection:vec![2],attestation:vec![3]}).await.unwrap();store.claim_run("file-run","claim","worker",std::time::Duration::from_secs(60)).await.unwrap()}
+    #[tokio::test]
+    async fn canonical_files_strong_ticket_survives_expired_grant_and_shared_file_retirement_both_orders(){
+        let (store,revision)=fixture().await;let fence=run(&store,revision).await;
+        let bytes=b"[1,2]";let intent=store.reserve_result_file(&fence,"original-file-intent",&crate::canonical_execution::result_payload_digest(bytes)).await.unwrap();let file=store.seal_file(&intent,bytes,OPAQUE_JSON,0,"").await.unwrap();
+        for ordinal in 0..2{store.append_result_batch(&fence,&format!("append-{ordinal}"),"values",ordinal,ResultPayload::from_sealed(file.clone(),0).unwrap(),1).await.unwrap();}
+        let closed=store.close_result_ingestion(&fence,"close").await.unwrap();let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this fixture owns the exact synthetic closed observations.
+        unsafe{store.seal_attempt(&manifest,"terminal",TerminalClass::Succeeded,&[1],SeedEligibility::Unavailable).await}.unwrap();
+        let read=store.read_results(fence.run(),fence.attempt()).await.unwrap();let set=read.sets()[0].key.clone();
+        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_protections',$key) SET expires_at=0;").bind(("key",read.protected_selection().key().to_owned()))).await.unwrap();
+        let descriptors=store.result_file_batch_descriptors(&read,&set,&[0,1]).await.unwrap();assert_eq!(descriptors.len(),2);assert_eq!(descriptors[0].file_instance,descriptors[1].file_instance);
+        let mut unread=store.open_result_file(&read,&descriptors[1]).await.unwrap();drop(read);
+        let mut observed=Vec::new();unread.read_to_end(&mut observed).unwrap();assert_eq!(observed,bytes);
+        assert!(store.forget_run_results(fence.run()).await.is_err());assert!(store.collect_file(file.descriptor().instance.as_str()).await.is_err());
+        drop(unread);store.result_read_drain.drain().await.unwrap();store.forget_run_results(fence.run()).await.unwrap();
+        loop{if store.reclaim_result_page(fence.run()).await.unwrap().complete{break;}}
+        store.collect_file(&file.descriptor().instance).await.unwrap();assert!(!store.files.path(&file.descriptor().instance).unwrap().exists());
+        let peer=CanonicalStore::connect(&{let mut options=CanonicalOptions::from_state(store.deployment_state()).unwrap();options.database=store.database().to_owned();options}).await.unwrap();peer.open().await.unwrap();assert!(peer.read_results(fence.run(),fence.attempt()).await.unwrap_err().to_string().contains("retired"));peer.disconnect().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_files_unresolved_intent_blocks_collection_and_original_owner_cannot_recover_live(){
+        let (store,revision)=fixture().await;let fence=run(&store,revision).await;let bytes=b"[1]";
+        let intent=store.reserve_result_file(&fence,"unresolved-file",&crate::canonical_execution::result_payload_digest(bytes)).await.unwrap();store.seal_file(&intent,bytes,OPAQUE_JSON,0,"").await.unwrap();assert!(store.collect_file(intent.instance()).await.is_err());
+        let other=CanonicalStore::connect(&{let mut options=CanonicalOptions::from_state(store.deployment_state()).unwrap();options.database=store.database().to_owned();options}).await.unwrap();other.open().await.unwrap();assert!(other.recover_file_intent(&intent).await.is_err());other.disconnect().await.unwrap();
+        assert!(store.settle_file_intent(&intent).await.is_err());store.remove_isolated_fixture().await.unwrap();
     }
 }

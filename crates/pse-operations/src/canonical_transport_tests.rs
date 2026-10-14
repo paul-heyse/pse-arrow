@@ -1211,6 +1211,7 @@ pub(crate) async fn canonical_read_barrier_peer() -> (
         problem_turns: Arc::default(),
         fixture_lifetime: None,
         issuing_store: Arc::default(),
+        files:Arc::new(crate::canonical_files::FileSession::wire_control().unwrap()),
         result_read_drain: Arc::default(),
         connection_options: options.clone(),
         state_path: options.state_path.clone(),

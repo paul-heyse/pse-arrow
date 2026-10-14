@@ -369,7 +369,7 @@ mod canonical_execution_server_unit {
         );
         assert_eq!(attempt.completion.unwrap().as_slice(), receipt);
         let read = store
-            .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+            .read_results(fence.run(), fence.attempt())
             .await
             .unwrap();
         assert_eq!(
@@ -1067,7 +1067,7 @@ mod canonical_execution_server_unit {
         );
         assert!(
             store
-                .read_results(new.run(), new.attempt(), Duration::from_secs(30))
+                .read_results(new.run(), new.attempt())
                 .await
                 .is_err()
         );
@@ -1210,7 +1210,7 @@ mod canonical_execution_server_unit {
         );
         assert!(
             store
-                .read_results("run", fence.attempt(), Duration::from_secs(30))
+                .read_results("run", fence.attempt())
                 .await
                 .is_err()
         );
@@ -1304,7 +1304,7 @@ mod canonical_execution_server_unit {
             manifest.row()
         );
         let history = store
-            .read_results("run", fence.attempt(), Duration::from_secs(30))
+            .read_results("run", fence.attempt())
             .await
             .unwrap();
         assert_eq!(history.attempt().outcome.as_deref(), Some("partial"));
@@ -1335,7 +1335,7 @@ mod canonical_execution_server_unit {
         );
         assert!(
             store
-                .read_results("run", fence.attempt(), Duration::from_secs(30))
+                .read_results("run", fence.attempt())
                 .await
                 .is_ok()
         );
@@ -1463,7 +1463,7 @@ mod canonical_execution_server_unit {
                 .unwrap();
                 assert_eq!(terminal.outcome.as_deref(), Some("succeeded"));
                 let read = store
-                    .read_results(&key, fence.attempt(), Duration::from_secs(60))
+                    .read_results(&key, fence.attempt())
                     .await
                     .unwrap();
                 assert_eq!(read.run().revision, revision.key);
@@ -2236,7 +2236,7 @@ impl ResultBlockAppend {
             file_instance: file.as_ref().map(|f|f.instance.clone()).unwrap_or_default(),
             file_digest: digest.clone(),
             file_batch_index: file_index,
-            payload_bytes: payload_bytes as u64,
+            payload_bytes: payload_bytes,
             schema: file.as_ref().map(|f|f.schema.clone()).unwrap_or_default(),
             encoding: payload.encoding().to_owned(),
         };
@@ -2246,7 +2246,7 @@ impl ResultBlockAppend {
                 || block.result_set != set_key
                 || block.ordinal != ordinal
                 || block.rows != row_count
-                || block.payload_bytes != payload_bytes as u64
+                || block.payload_bytes != payload_bytes
                 || block.payload_digest != digest
                 || block.interpretation != wire::INTERPRETATION
                 || block.end < block.start
@@ -3936,6 +3936,7 @@ impl CanonicalStore {
             let intent=self.reserve_result_file(fence,&format!("file:{}",item.acknowledgment.operation),&hash.finish_hash().to_hex()).await?;
             self.seal_file(&intent,item.payload.as_slice(),item.payload.encoding(),0,"").await?
         }};
+        if sealed.original_intent().instance()!=sealed.descriptor().instance { return Err(CanonicalError::OperationReused); }
         let mut batch=wire::decode_canonical_result_batches(match item.item.get("batch"){Some(Value::Object(batch))=>batch.clone(),_=>return Err(CanonicalError::IncompleteResponse)})?;
         batch.file_instance=sealed.descriptor().instance.clone(); batch.file_digest=sealed.descriptor().digest.clone(); batch.file_batch_index=item.payload.file_index; batch.payload_bytes=sealed.descriptor().bytes; batch.schema=sealed.descriptor().schema.clone();batch.encoding=sealed.descriptor().encoding.clone();
         let mut physical=FramedHasher::new(Frame::CanonicalPayloadV1);physical.str("pse.execution.file-binding.v1").str(&batch.file_instance).str(&batch.file_digest).u64(batch.file_batch_index).str(&batch.encoding).str(&batch.schema);

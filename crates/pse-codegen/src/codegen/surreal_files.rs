@@ -43,6 +43,17 @@ DEFINE FUNCTION fn::pse_files_v1::reserve($expiry:int,$row:object,$run:option<st
     IF $row.state!='pending' OR $row.digest!='' OR $row.payload_bytes!=0dec OR $row.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'file original intent malformed'; };
     RETURN CREATE ONLY type::record('canonical_file_instances',$row.key) CONTENT $row;
 };
+// Custody recovery changes no original occurrence, writer generation, deadline,
+// request or physical instance. Only authenticated actual owner drain permits it.
+DEFINE FUNCTION fn::pse_files_v1::recover_intent($expiry:int,$expected:object,$new_owner:string,$incarnation:string) -> object {
+    fn::pse_files_v1::owner($expiry,$new_owner,$incarnation);
+    LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$expected.instance) FOR UPDATE;
+    IF $file=NONE OR $file.intent!=$expected.intent OR $file.request_digest!=$expected.request_digest OR $file.storage_incarnation!=$incarnation OR $file.owner!=$expected.owner OR $file.state IN ['abandoned','collecting','collected'] { THROW 'original file recovery intent differs or settled'; };
+    IF $file.owner=$new_owner { RETURN $file; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_file_owners',$file.owner) FOR UPDATE;
+    IF $old=NONE OR !$old.drained { THROW 'original file owner has no authenticated drain; run recover-file-owners --state PATH'; };
+    RETURN UPDATE ONLY type::record('canonical_file_instances',$file.key) SET owner=$new_owner;
+};
 DEFINE FUNCTION fn::pse_files_v1::seal($expiry:int,$key:string,$owner:string,$incarnation:string,$descriptor:object) -> object {
     fn::pse_files_v1::owner($expiry,$owner,$incarnation);
     LET $row=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE;
@@ -95,12 +106,34 @@ DEFINE FUNCTION fn::pse_files_v1::ticket_open($expiry:int,$key:string) -> bool {
     IF $ticket=NONE OR $ticket.released { RETURN false; };
     LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$ticket.owner) FOR UPDATE;
     LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
-    IF $owner=NONE OR $owner.drained OR $gate=NONE OR $ticket.storage_incarnation!=$gate.storage_incarnation OR $owner.storage_incarnation!=$gate.storage_incarnation { THROW 'read ticket actual process owner unavailable'; };
+    IF $owner=NONE OR $gate=NONE { THROW 'read ticket actual process owner unavailable'; };
+    IF $owner.drained { RETURN false; };
+    IF $ticket.storage_incarnation!=$gate.storage_incarnation OR $owner.storage_incarnation!=$gate.storage_incarnation { THROW 'read ticket actual process incarnation unavailable'; };
     fn::pse_execution_v1::deadline($expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_files_v1::release_ticket($expiry:int,$key:string) -> bool {
     LET $ticket=SELECT * FROM ONLY type::record('canonical_manifest_tickets',$key) FOR UPDATE;
     IF $ticket!=NONE { UPDATE ONLY type::record('canonical_manifest_tickets',$key) SET released=true; };
+    fn::pse_execution_v1::deadline($expiry); RETURN true;
+};
+DEFINE FUNCTION fn::pse_files_v1::settle_intent($expiry:int,$expected:object,$incarnation:string) -> bool {
+    fn::pse_files_v1::admission($expiry,$incarnation,false);
+    LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$expected.instance) FOR UPDATE;
+    IF $file=NONE OR $file.intent!=$expected.intent OR $file.request_digest!=$expected.request_digest OR $file.owner!=$expected.owner OR $file.storage_incarnation!=$incarnation { THROW 'file settlement requires exact original intent'; };
+    IF $file.state IN ['attached','abandoned','collecting','collected'] { RETURN $file.state!='attached'; };
+    LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$file.owner) FOR UPDATE;
+    IF $owner=NONE OR !$owner.drained { THROW 'file settlement requires authenticated actual owner drain'; };
+    IF $file.owner_kind='result' {
+        LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$file.selection) FOR UPDATE;
+        IF $attempt=NONE { THROW 'original result file attempt settlement unavailable'; };
+        fn::pse_execution_v1::touch($expiry,'execution-run:'+$attempt.run);
+        IF $attempt.ingestion_open AND !$attempt.closed AND $attempt.expires_at>time::micros() { RETURN false; };
+    } ELSE IF $file.owner_kind='artifact' {
+        LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$file.selection) FOR UPDATE;
+        IF $artifact!=NONE AND !$artifact.retiring AND $artifact.creation_expires_at>time::micros() { RETURN false; };
+        IF $artifact=NONE { LET $parts=string::split($file.selection,':'); LET $guards=SELECT artifact_creation_closed_through FROM canonical_guards WHERE incarnation=$parts[1] LIMIT 1; IF array::len($guards)!=1 OR ($guards[0].artifact_creation_closed_through ?? 0dec)< <decimal>$parts[3] { THROW 'original artifact file settlement floor unavailable'; }; };
+    } ELSE { THROW 'original file settlement owner kind'; };
+    UPDATE ONLY type::record('canonical_file_instances',$file.key) SET state='abandoned';
     fn::pse_execution_v1::deadline($expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_files_v1::collect($expiry:int,$key:string,$incarnation:string) -> object {
@@ -134,7 +167,7 @@ DEFINE FUNCTION fn::pse_files_v1::thaw($expiry:int,$incarnation:string) -> bool 
 };
 DEFINE FUNCTION fn::pse_files_v1::drain_owner($expiry:int,$expected:object) -> bool {
     LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$expected.key) FOR UPDATE;
-    IF $owner=NONE OR object::remove($owner,'id')!=$expected { THROW 'file owner drain exact identity differs'; };
+    IF $owner=NONE OR object::remove($owner,['id','drained'])!=object::remove($expected,'drained') { THROW 'file owner drain exact identity differs'; };
     UPDATE ONLY type::record('canonical_file_owners',$expected.key) SET drained=true;
     fn::pse_execution_v1::deadline($expiry); RETURN true;
 };

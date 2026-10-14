@@ -212,7 +212,7 @@ impl CanonicalClient {
                     .await?;
                 let observed = self
                     .client
-                    .select::<Option<surrealdb::types::Object>>((
+                    .select::<Option<Object>>((
                         "canonical_interpretations",
                         "current",
                     ))

@@ -3130,9 +3130,7 @@ mod canonical_studies_server_unit {
                 let read = store
                     .read_results(
                         &claim.point.run,
-                        claim.fence.attempt(),
-                        Duration::from_secs(60),
-                    )
+                        claim.fence.attempt())
                     .await
                     .unwrap();
                 let payload = store

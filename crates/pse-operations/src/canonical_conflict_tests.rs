@@ -1109,7 +1109,7 @@ async fn exact_dispatched_result_renewal_and_expired_reader_retirement_both_orde
         let (store, options, revision) = fixture().await;
         let attempt = finish(&store, &revision, "target").await;
         let read = store
-            .read_results("target", &attempt, Duration::from_secs(2))
+            .read_results("target", &attempt)
             .await
             .unwrap();
         let pin = read.protected_selection();
@@ -1152,7 +1152,7 @@ async fn exact_dispatched_result_renewal_and_expired_reader_retirement_both_orde
         } else {
             retirement.commit().await.unwrap();
             conflict(renewal.commit().await.unwrap_err());
-            assert!(read.renew(Duration::from_secs(60)).await.is_err());
+            assert!(store.result_file_batch_descriptors(&read,&read.sets()[0].key,&[0]).await.is_err());
         }
         drop(read);
         store.remove_isolated_fixture().await.unwrap();

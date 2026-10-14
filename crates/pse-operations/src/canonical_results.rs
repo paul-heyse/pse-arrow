@@ -243,10 +243,7 @@ impl CompletionRead {
             .as_ref()
             .map(|set| (set.next_ordinal, set.row_count))
     }
-    /// Renew only this still-live exact permission; expired pins cannot revive.
-    pub async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> {
-        self.owner.renew(lifetime).await
-    }
+
 }
 
 /// An exact terminal attempt and its closed membership, pinned before paging.
@@ -325,10 +322,7 @@ impl ResultRead {
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
     }
-    /// Renew protection during a long paged selection. Expired leases cannot revive.
-    pub async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> {
-        self.owner.renew(lifetime).await
-    }
+
     fn set(&self, key: &str) -> Result<&ResultSetDescriptor, CanonicalError> {
         self.sets
             .iter()
@@ -336,45 +330,6 @@ impl ResultRead {
             .ok_or_else(|| invalid("result set outside admitted descriptor"))
     }
 }
-impl ReadOwner {
-    async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> {
-        let activity = self.store.selection_activity(&self.selection)?;
-        activity
-            .scope(async {
-                let micros = i64::try_from(lifetime.as_micros())
-                    .map_err(|_| CanonicalError::PayloadLimit)?;
-                if micros <= 0 {
-                    return Err(invalid("positive read protection lifetime required"));
-                }
-                let selection = &self.selection;
-                self.store
-                    .protected_query(
-                        &format!("pin:{}", selection.key()),
-                        crate::canonical::QueryEffect::Mutation,
-                        "canonical_results::renew",
-                        || {
-                            Ok(self
-                                .store
-                                .db
-                                .query(format!("{PROTECTED_BEGIN}\n{RENEW_PROTECTION}\nCOMMIT;"))
-                                .bind(("problem", selection.revision().problem.clone()))
-                                .bind(("revision", selection.revision().key.clone()))
-                                .bind((
-                                    "sequence",
-                                    canonical_codec::encode_uint(selection.revision().sequence)?,
-                                ))
-                                .bind(("protection", selection.key().to_owned()))
-                                .bind(("lifetime", micros)))
-                        },
-                    )
-                    .await?;
-                Ok(())
-            })
-            .await
-    }
-}
-
-/// One exact bounded blob retains read ownership until its consumer releases it.
 /// A catalog-only logical descriptor with independently verified file bytes.
 #[derive(Clone, Debug)]
 pub struct HydratedResultBatch {
@@ -386,6 +341,7 @@ pub struct HydratedResultBatch {
 }
 impl std::ops::Deref for HydratedResultBatch { type Target=ResultBatch;fn deref(&self)->&ResultBatch{&self.descriptor} }
 
+/// One exact admitted block with verified file bytes and continuing read ownership.
 #[derive(Clone, Debug)]
 pub struct ResultBlock {
     /// Narrow recorded shape, range and interpretation.
@@ -803,7 +759,6 @@ impl CanonicalStore {
         &self,
         problem: &str,
         classes: &[crate::canonical_execution::TerminalClass],
-        lifetime: Duration,
     ) -> Result<ResultRead, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
@@ -829,7 +784,7 @@ impl CanonicalStore {
         if !row.is_empty() {
             return Err(invalid("latest result selection fields"));
         }
-        let read = self.read_results(&run, &attempt, lifetime).await?;
+        let read = self.read_results(&run, &attempt).await?;
         if read.run.problem != problem
             || (!classes.is_empty()
                 && !read
@@ -899,12 +854,11 @@ impl CanonicalStore {
         &self,
         run_key: &str,
         attempt_key: &str,
-        lifetime: Duration,
     ) -> Result<ResultRead, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
         let (owner, run, attempt) = self
-            .terminal_read_owner(run_key, attempt_key, lifetime)
+            .terminal_read_owner(run_key, attempt_key, crate::canonical::REQUEST_TIMEOUT)
             .await?;
         let key = attempt
             .closed_manifest
@@ -946,12 +900,11 @@ impl CanonicalStore {
         &self,
         run_key: &str,
         attempt_key: &str,
-        lifetime: Duration,
     ) -> Result<CompletionRead, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
         let (owner, run, attempt) = self
-            .terminal_read_owner(run_key, attempt_key, lifetime)
+            .terminal_read_owner(run_key, attempt_key, crate::canonical::REQUEST_TIMEOUT)
             .await?;
         let manifest = attempt
             .closed_manifest
@@ -1116,17 +1069,20 @@ impl CanonicalStore {
             .await
     }
 
-    /// Freeze the ordered logical file members from this admitted manifest.
-    pub async fn result_file_batches(&self,read:&ResultRead,set_key:&str)->Result<Vec<ResultBatch>,CanonicalError>{
+    /// Fetch only an explicitly demanded bounded set of exact logical members.
+    /// Callers prepay each page before accumulating frozen snapshot metadata.
+    pub async fn result_file_batch_descriptors(&self,read:&ResultRead,set_key:&str,ordinals:&[u64])->Result<Vec<ResultBatch>,CanonicalError>{
         self.files.require_current()?;
         if !read.belongs_to(self){return Err(invalid("result read belongs to another store"));}
-        let set=read.set(set_key)?;let mut result=Vec::new();let mut next=0;
-        while next<set.batch_count {
-            let mut response=self.protected_query(&read.run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_batches",||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal >= $next AND ordinal<$count ORDER BY ordinal LIMIT 64; COMMIT;"))
-            .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone())).bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?)).bind(("protection",read.owner.selection.key().to_owned())).bind(("set",set_key.to_owned())).bind(("next",canonical_codec::encode_uint(next)?)).bind(("count",canonical_codec::encode_uint(set.batch_count)?)))).await?;
-            let index=response.num_statements().saturating_sub(2);let page:Vec<Object>=response.take(index)?;if page.is_empty(){return Err(invalid("frozen file inventory is incomplete"));}
-            for row in page {let batch=wire::decode_canonical_result_batches(row)?;crate::canonical_execution::validate_result_batch(&batch)?;if batch.ordinal!=next||batch.attempt!=read.attempt.key||batch.result_set!=set_key{return Err(invalid("frozen file inventory coordinate differs"));}next+=1;result.push(batch);}
-        }Ok(result)
+        let set=read.set(set_key)?;
+        if ordinals.len()>64||ordinals.windows(2).any(|pair|pair[0]>=pair[1])||ordinals.iter().any(|ordinal|*ordinal>=set.batch_count){return Err(invalid("demanded file descriptor page exceeds exact manifest scope"));}
+        if ordinals.is_empty(){return Ok(Vec::new());}
+        let selected=ordinals.iter().map(|value|canonical_codec::encode_uint(*value)).collect::<Result<Vec<_>,_>>()?;
+        let mut response=self.protected_query(&read.run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptors",||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64; COMMIT;"))
+        .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone())).bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?)).bind(("protection",read.owner.selection.key().to_owned())).bind(("set",set_key.to_owned())).bind(("selected",selected.clone())))).await?;
+        let index=response.num_statements().saturating_sub(2);let page:Vec<Object>=response.take(index)?;
+        if page.len()!=ordinals.len(){return Err(invalid("frozen demanded file inventory is incomplete"));}
+        page.into_iter().zip(ordinals).map(|(row,ordinal)|{let batch=wire::decode_canonical_result_batches(row)?;crate::canonical_execution::validate_result_batch(&batch)?;if batch.ordinal!=*ordinal||batch.attempt!=read.attempt.key||batch.result_set!=set_key{return Err(invalid("frozen demanded file coordinate differs"));}Ok(batch)}).collect()
     }
     /// Authenticate an exact frozen logical member before exposing its native file.
     pub async fn open_result_file(&self,read:&ResultRead,batch:&ResultBatch)->Result<crate::canonical_files::ProtectedFile,CanonicalError>{
@@ -1598,7 +1554,7 @@ mod canonical_results_server_unit {
         );
         assert!(
             store
-                .read_results("run", first.attempt(), Duration::from_secs(30))
+                .read_results("run", first.attempt())
                 .await
                 .is_err()
         );
@@ -1620,7 +1576,7 @@ mod canonical_results_server_unit {
         .await
         .unwrap();
         let read = store
-            .read_results("run", first.attempt(), Duration::from_secs(30))
+            .read_results("run", first.attempt())
             .await
             .unwrap();
         let values = store
@@ -1676,7 +1632,7 @@ mod canonical_results_server_unit {
         }
         assert_eq!(read.attempt().outcome.as_deref(), Some("partial"));
         assert!(store.result_payload(&read, &set, 1).await.is_err());
-        read.renew(Duration::from_secs(30)).await.unwrap();
+        assert!(!read.sets().is_empty());
         let second = store
             .claim_run("run", "claim-2", "worker", Duration::from_secs(60))
             .await
@@ -1699,7 +1655,7 @@ mod canonical_results_server_unit {
         .await
         .unwrap();
         let historical = store
-            .read_results("run", first.attempt(), Duration::from_secs(30))
+            .read_results("run", first.attempt())
             .await
             .unwrap();
         assert_eq!(
@@ -1724,13 +1680,13 @@ mod canonical_results_server_unit {
             1
         );
         let failed = store
-            .read_results("run", second.attempt(), Duration::from_secs(30))
+            .read_results("run", second.attempt())
             .await
             .unwrap();
         assert!(failed.sets().is_empty());
         assert_eq!(failed.attempt().outcome.as_deref(), Some("failed"));
         let latest = store
-            .latest_results("problem", &[], Duration::from_secs(30))
+            .latest_results("problem", &[])
             .await
             .unwrap();
         assert_eq!(latest.attempt().key, second.attempt());
@@ -1738,9 +1694,7 @@ mod canonical_results_server_unit {
             store
                 .latest_results(
                     "problem",
-                    &[TerminalClass::Succeeded],
-                    Duration::from_secs(30)
-                )
+                    &[TerminalClass::Succeeded])
                 .await
                 .is_err()
         );
@@ -1748,9 +1702,7 @@ mod canonical_results_server_unit {
             store
                 .latest_results(
                     "problem",
-                    &[TerminalClass::Partial],
-                    Duration::from_secs(30)
-                )
+                    &[TerminalClass::Partial])
                 .await
                 .is_err()
         );
@@ -1843,7 +1795,7 @@ mod canonical_results_server_unit {
         .await
         .unwrap();
         let read = store
-            .read_results("run", fence.attempt(), Duration::from_secs(30))
+            .read_results("run", fence.attempt())
             .await
             .unwrap();
         let page = store
@@ -1932,24 +1884,11 @@ mod canonical_results_server_unit {
         let mut changed = page[0].clone();
         changed.payload_digest = "wrong".into();
         assert!(store.result_block(&read, changed).await.is_err());
-        // Corrupt only this UUID-isolated fixture's stored payload, leaving the
-        // acknowledged metadata and digest intact. A fresh read must verify the
-        // bytes again, even though an earlier immutable owner remains valid.
-        let tampered = bounded_query(
-            store
-                .db
-                .query(
-                    "UPDATE type::record('canonical_result_batches',$batch) SET payload=$payload;",
-                )
-                .bind(("batch", page[0].batch.clone()))
-                .bind((
-                    "payload",
-                    canonical_codec::encode_bytes(vec![2u8; 32].into()).unwrap(),
-                )),
-        )
-        .await
-        .unwrap();
-        tampered.check().unwrap();
+        // Corrupt the isolated original file while leaving its catalog digest
+        // and admitted logical locators unchanged. Fresh native IO must refuse.
+        let descriptor=store.result_file_batch_descriptors(&read,&set,&[page[0].ordinal]).await.unwrap().remove(0);
+        let path=store.files.path(&descriptor.file_instance).unwrap();
+        std::fs::write(&path,[2u8;32]).unwrap();
         assert!(store.result_block(&read, page[0].clone()).await.is_err());
         assert_eq!(blob.batch.payload.as_slice(), [1u8; 32]);
         drop(read);

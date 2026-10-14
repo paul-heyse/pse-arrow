@@ -14,6 +14,7 @@ use crate::{
 };
 use pse_ids::{Frame, FramedHasher};
 use pse_model::SemanticFrame;
+#[cfg(all(test, feature = "canonical-tests"))]
 use std::time::Duration;
 use surrealdb::types::Object;
 
@@ -170,7 +171,7 @@ fn object(response: &mut surrealdb::IndexedResults) -> Result<Object, CanonicalE
         .ok_or(CanonicalError::IncompleteResponse)
 }
 
-/// An acquired current grant. Cloned decoded arrays own bytes independently of this DB grant.
+/// An exact nonexpiring artifact read; cloned decoded arrays retain their actual byte allowances.
 #[derive(Clone, Debug)]
 pub struct ArtifactRead {
     store: CanonicalStore,
@@ -191,10 +192,6 @@ impl ArtifactRead {
     /// Exact immutable occurrence metadata.
     pub fn header(&self) -> &Artifact {
         &self.header
-    }
-    /// Renew this existing finite acquisition, never mint a new owner from copied metadata.
-    pub async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> {
-        self.selection.renew(lifetime).await
     }
     /// Explicit release is idempotent; the original grant remains fenced through its issue window.
     pub async fn release(&self) -> Result<(), CanonicalError> {
@@ -319,13 +316,12 @@ impl CanonicalStore {
     pub async fn read_artifact(
         &self,
         key: &str,
-        lifetime: Duration,
     ) -> Result<ArtifactRead, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
             let header=self.artifact(key).await?;
             let revision=self.revision(&header.revision).await?.ok_or_else(||invalid("artifact source absent"))?;
-            let selection=self.protect(revision,lifetime).await?;
+            let selection=self.protect(revision,crate::canonical::REQUEST_TIMEOUT).await?;
             let mut response=protected_query("canonical_artifacts::acquire",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection); COMMIT;").bind(("key",key.to_owned())).bind(("protection",selection.key().to_owned())))).await?;
             let actual=wire::decode_canonical_artifacts(object(&mut response)?)?;
             if actual!=header { return Err(invalid("artifact changed during acquisition")); }
@@ -478,7 +474,7 @@ mod canonical_artifact_tests {
             "another attributed obligation prevents collection"
         );
         let read = store
-            .read_artifact(&saved.key, Duration::from_secs(10))
+            .read_artifact(&saved.key)
             .await
             .unwrap();
         let copied = read.block(0).await.unwrap();
@@ -542,7 +538,7 @@ mod canonical_artifact_tests {
         assert!(store.collect_artifact(&intent).await.is_err());
         assert!(
             store
-                .read_artifact(&intent.key, Duration::from_secs(10))
+                .read_artifact(&intent.key)
                 .await
                 .is_ok(),
             "other owners remain available"
@@ -565,7 +561,7 @@ mod canonical_artifact_tests {
             .await
             .unwrap();
         let read = store
-            .read_artifact(&intent.key, Duration::from_secs(10))
+            .read_artifact(&intent.key)
             .await
             .unwrap();
         let copied = read.block(0).await.unwrap();
@@ -688,7 +684,7 @@ mod canonical_artifact_tests {
         );
         assert!(
             store
-                .read_artifact(&intent.key, Duration::from_secs(1))
+                .read_artifact(&intent.key)
                 .await
                 .is_err(),
             "staged original intent grants no reader"

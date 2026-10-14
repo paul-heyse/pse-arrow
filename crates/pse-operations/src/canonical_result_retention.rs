@@ -277,7 +277,7 @@ mod canonical_result_retention_server_unit {
         );
         let attempt = finish(&store, &request).await;
         let read = store
-            .read_results(&request.key, &attempt, Duration::from_secs(60))
+            .read_results(&request.key, &attempt)
             .await
             .unwrap();
         let payload = store
@@ -301,7 +301,7 @@ mod canonical_result_retention_server_unit {
         assert!(retired);
         assert!(
             store
-                .read_results(&request.key, &attempt, Duration::from_secs(60))
+                .read_results(&request.key, &attempt)
                 .await
                 .is_err()
         );
@@ -446,7 +446,7 @@ mod canonical_result_retention_server_unit {
         .await
         .unwrap();
         let read = store
-            .read_results(&request.key, fence.attempt(), Duration::from_secs(60))
+            .read_results(&request.key, fence.attempt())
             .await
             .unwrap();
         let (first, retired) = tokio::join!(
@@ -501,7 +501,7 @@ mod canonical_result_retention_server_unit {
             .await
             .unwrap();
         let artifact_read = store
-            .read_artifact(&artifact.key, Duration::from_secs(60))
+            .read_artifact(&artifact.key)
             .await
             .unwrap();
         let mut header = store
@@ -635,7 +635,7 @@ mod canonical_result_retention_server_unit {
             let request = request(&store, &format!("race-{index}")).await;
             let attempt = finish(&store, &request).await;
             let (read, retired) = tokio::join!(
-                store.read_results(&request.key, &attempt, Duration::from_secs(60)),
+                store.read_results(&request.key, &attempt),
                 store.forget_run_results(&request.key)
             );
             assert!(!(read.is_ok() && retired.is_ok()));
