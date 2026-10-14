@@ -84,7 +84,7 @@ fn require_held_guard(root: &Path) -> Result<()> {
     let file = OpenOptions::new().read(true).write(true).open(guard_path(root))?;
     match file.try_lock() {
         Ok(()) => anyhow::bail!("preparation target guard is not held by its owner"),
-        Err(std::fs::TryLockError::WouldBlock) => Ok(()),
+        Err(fs::TryLockError::WouldBlock) => Ok(()),
         Err(error) => Err(anyhow::anyhow!("cannot observe preparation guard: {error}")),
     }
 }
