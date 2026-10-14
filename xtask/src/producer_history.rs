@@ -253,6 +253,16 @@ pub(super) fn seal(directory: &Path) -> Result<()> {
     for (path, present) in &index.absences {
         ensure!(presence(path)? == *present, "absence premise changed before historical seal");
     }
+    let mut live_native = BTreeMap::new();
+    let mut live_aliases = BTreeMap::<(u64, u64), BTreeSet<PathBuf>>::new();
+    for root in &index.declarations.native_namespaces {
+        let path = absolute(&index.workspace_root, root);
+        let observed = namespace_observation(&path, 262_144)?;
+        live_native.insert(path.to_string_lossy().into_owned(), observed.identity);
+        for (identity, paths) in observed.aliases { live_aliases.entry(identity).or_default().extend(paths); }
+    }
+    live_native.insert("file-identity-aliases".into(), namespace_alias_identity(&live_aliases)?);
+    ensure!(live_native == historical_native_namespaces(&index)?, "cross-namespace alias premise changed before historical seal");
     let digest = file_digest(&directory.join("index.json"))?;
     let mut seal = fs::OpenOptions::new().write(true).create_new(true).open(directory.join("COMPLETE"))?;
     seal.write_all(digest.as_bytes())?;
@@ -314,6 +324,8 @@ fn validate(directory: &Path) -> Result<Index> {
     let root = &index.workspace_root;
     let keys = unit_keys(&index.graph, root)?;
     let selected = selected_indices(&index.graph)?;
+    ensure!(index.graph.version == 1 && index.graph.roots.len() == 1, "historical graph lacks one supported production root");
+    ensure!(index.receipt.selected_root.as_ref() == keys.get(&index.graph.roots[0]), "historical selected root differs");
     for (number, paths) in &index.associations {
         ensure!(selected.contains(number), "historical association names an unselected unit");
         let unit = &index.graph.units[*number];
