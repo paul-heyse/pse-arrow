@@ -130,6 +130,22 @@ class ProducerCargoTests(unittest.TestCase):
         run.assert_not_called()
         self.assertFalse(self.configuration.with_suffix(".claim.json").exists())
 
+    def test_hardlinked_rustup_style_proxy_names_are_distinct_invocations(self) -> None:
+        directory = self.root / "proxies"
+        directory.mkdir()
+        cargo = directory / "cargo"
+        rustc = directory / "rustc"
+        cargo.write_text('#!/bin/sh\ncase "$0" in */cargo) echo cargo ;; *) echo rustc ;; esac\n')
+        cargo.chmod(0o700)
+        os.link(cargo, rustc)
+        self.assertTrue(os.path.samefile(cargo, rustc))
+        self.assertEqual(subprocess.check_output([str(cargo)], text=True).strip(), "cargo")
+        self.assertEqual(subprocess.check_output([str(rustc)], text=True).strip(), "rustc")
+        environment = {"PATH": str(directory), "CARGO": str(rustc)}
+        with self.assertRaisesRegex(ValueError, "differing"):
+            observer.cargo_executable(environment)
+        self.assertEqual(observer.cargo_executable({"PATH": str(directory), "CARGO": str(cargo)}), str(cargo))
+
     def test_nonzero_capture_retains_failure_and_cannot_claim_sealing(self) -> None:
         with contextlib.chdir(self.root), patch.object(observer.subprocess, "call", return_value=17):
             self.assertEqual(observer.observe(self.arguments, self.environment), 17)

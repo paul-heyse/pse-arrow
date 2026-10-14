@@ -498,6 +498,7 @@ def capture(
     output.mkdir(mode=0o700)  # Never overwrite successful or failed capture evidence.
     try:
         inputs = reviewed_inputs(root, env)
+        producer_cargo.cargo_executable(env)  # Refuse unsupported installer selection before role builds.
         for role in ROLES:
             name, package, _, _, target_args = role
             role_env = dict(env)

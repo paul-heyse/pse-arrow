@@ -298,6 +298,15 @@ class ProducerDeploymentTests(unittest.TestCase):
         run.assert_not_called()
         self.assertTrue((self.output / "deployment-error.log").is_file())
 
+    def test_unsupported_cargo_selection_refuses_before_any_role_build_or_install(self) -> None:
+        with (
+            patch.object(deployment.producer_cargo, "cargo_executable", side_effect=ValueError("unsupported explicit Cargo invocation")),
+            patch.object(deployment.subprocess, "run") as run,
+            self.assertRaisesRegex(ValueError, "unsupported explicit Cargo"),
+        ):
+            deployment.capture(self.root, self.output, self.environment)
+        run.assert_not_called()
+
     def test_unreviewed_or_graph_only_context_is_not_refreshed(self) -> None:
         path = self.declarations["runtime"]
         path.write_text(

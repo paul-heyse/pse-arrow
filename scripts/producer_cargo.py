@@ -62,9 +62,9 @@ def cargo_executable(environment: Mapping[str, str]) -> str:
         if not explicit:
             raise ValueError("strict installer does not support an empty explicit CARGO")
         chosen = shutil.which(explicit, path=environment.get("PATH", os.defpath))
-        if chosen is None or not os.path.samefile(chosen, selected):
+        if chosen is None or os.path.abspath(chosen) != os.path.abspath(selected):
             raise ValueError("strict installer does not support CARGO differing from the selected PATH Cargo")
-    return str(Path(selected).absolute())
+    return os.path.abspath(selected)
 
 
 def configure(
@@ -137,7 +137,7 @@ def observe(arguments: list[str], environment: Mapping[str, str]) -> int:
     cargo = str(configuration["cargo"])
     child_environment = {name: value for name, value in environment.items() if name not in {"CARGO", CAPTURE, PYTHON}}
     actual_cargo = shutil.which("cargo", path=child_environment.get("PATH", os.defpath))
-    if actual_cargo is None or not os.path.samefile(actual_cargo, cargo):
+    if actual_cargo is None or os.path.abspath(actual_cargo) != os.path.abspath(cargo):
         raise ValueError("actual installer PATH selects a different Cargo executable")
     if arguments and arguments[0] in {"--version", "-V", "version", "metadata"}:
         return subprocess.call([cargo, *arguments], cwd=root, env=child_environment)
