@@ -5437,13 +5437,12 @@ def managed_file_owner_drained(owner: dict[str, object]) -> bool:
         raise SupervisorError("File owner has an invalid managed invocation")
     if owner.get("boot") != Path("/proc/sys/kernel/random/boot_id").read_text().strip():
         return True
-    scope = object_mapping(owner.get("managed_scope", {}))
-    unit, group, inode = scope.get("unit"), scope.get("group"), scope.get("inode")
+    unit, group, inode = owner.get("unit"), owner.get("group"), owner.get("group_inode")
     if not isinstance(unit, str) or not unit.endswith((".scope", ".service")) or "/" in unit or not isinstance(group, str) or Path(group).name != unit:
         raise SupervisorError("Invocation-bound file owner lacks exact managed scope identity")
     if isinstance(inode, str) and inode.isascii() and inode.isdecimal():
         inode = int(inode)
-    if type(inode) is not int or inode <= 0 or scope.get("invocation") != invocation:
+    if type(inode) is not int or inode <= 0:
         raise SupervisorError("File owner managed scope identity is incomplete")
     observed = host_admission.group_identity(group)
     if observed is None or observed != inode:

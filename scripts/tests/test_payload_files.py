@@ -210,9 +210,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertNotIn("stop", self.events)
 
     def test_dead_managed_leader_with_live_descendants_refuses_backup(self) -> None:
-        self.owner.update(start="0", invocation="managed-invocation", managed_scope={
-            "unit": "pse-owned.scope", "group": "/pse-owned.scope", "inode": "99", "invocation": "managed-invocation",
-        })
+        self.owner.update(start="0", invocation="managed-invocation", unit="pse-owned.scope", group="/pse-owned.scope", group_inode="99")
         with (
             patch.object(server.host_admission, "group_identity", return_value=99),
             patch.object(server, "systemctl", return_value=subprocess.CompletedProcess([], 0, "ControlGroup=/pse-owned.scope\nInvocationID=managed-invocation\n", "")),
@@ -227,7 +225,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.owner.update(start="0", invocation="managed-invocation")
         with self.assertRaisesRegex(server.SupervisorError, "scope identity"):
             self.backup(self.root / "backup")
-        self.owner["managed_scope"] = {"unit": "pse-owned.scope", "group": "/pse-owned.scope", "inode": "99", "invocation": "managed-invocation"}
+        self.owner.update(unit="pse-owned.scope", group="/pse-owned.scope", group_inode="99")
         self.verifier()
         with patch.object(server.host_admission, "group_identity", return_value=None):
             self.backup(self.root / "backup")
