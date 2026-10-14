@@ -454,6 +454,8 @@ def journey(
                     str(port),
                     "--interpretation",
                     server.SUBSTRATE_INTERPRETATION,
+                    "--payload-verifier",
+                    str(binary.resolve()),
                     *profile_args,
                 ]
             )
