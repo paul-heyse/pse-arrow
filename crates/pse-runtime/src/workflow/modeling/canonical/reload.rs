@@ -986,6 +986,43 @@ mod tests {
         }
     }
     #[tokio::test]
+    async fn local_parsed_reload_replaces_exact_encoded_data_and_missing_supplier_refuses() {
+        use datafusion::arrow::{array::Int64Array, datatypes::{DataType, Field, Schema}, record_batch::RecordBatch};
+        let encoded = |value| {
+            let batch = RecordBatch::try_new(
+                Arc::new(Schema::new(vec![Field::new("n", DataType::Int64, false), Field::new("value", DataType::Int64, false)])),
+                vec![Arc::new(Int64Array::from(vec![1])), Arc::new(Int64Array::from(vec![value]))],
+            ).unwrap();
+            let mut bytes = Vec::new();
+            let mut writer = parquet::arrow::ArrowWriter::try_new(&mut bytes, batch.schema(), None).unwrap();
+            writer.write(&batch).unwrap();
+            writer.close().unwrap();
+            bytes
+        };
+        let mut inventory = sources(
+            "package minimal_named {entity kind source provenance {} entity source s {} enum role {given} entity kind node {key n:Integer; attribute value:Integer;} dataset bank:node provenance(s,role.given) from \"data/bank.parquet\";}",
+        );
+        let old_bytes = encoded(2);
+        inventory.insert("data/bank.parquet".into(), old_bytes.clone());
+        let runtime = crate::workflow::tests::runtime();
+        let physical = crate::workflow::tests::physical();
+        let cancel = crate::CancelSource::new();
+        let original = runtime.package_from_sources(&[inventory.clone()], physical.clone(), &cancel).await.unwrap();
+        let data_id = parent(&original).await.documents.values().find(|row| row.path == "data/bank.parquet").unwrap().document_id;
+        let new_bytes = encoded(3);
+        inventory.insert("data/bank.parquet".into(), new_bytes.clone());
+        let changed = original.reload_from_parent(&[inventory.clone()], &cancel).await.unwrap();
+        let fresh = runtime.package_from_sources(&[inventory.clone()], physical, &cancel).await.unwrap();
+        assert_eq!(changed.revision.identity(), fresh.revision.identity());
+        assert_eq!(parent(&changed).await.frame.data, parent(&fresh).await.frame.data);
+        let logical = format!("data:{data_id}");
+        assert_eq!(original.local_object(&logical).unwrap().payload, old_bytes);
+        assert_eq!(changed.local_object(&logical).unwrap().payload, new_bytes);
+        inventory.remove("data/bank.parquet");
+        assert!(changed.reload_from_parent(&[inventory], &cancel).await.is_err());
+        assert_eq!(changed.local_object(&logical).unwrap().payload, new_bytes);
+    }
+    #[tokio::test]
     async fn local_parsed_reload_removed_document_fit_is_exact_and_ir_replacement_survives() {
         let runtime = crate::workflow::tests::runtime();
         let cancel = crate::CancelSource::new();
