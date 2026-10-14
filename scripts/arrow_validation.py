@@ -307,15 +307,15 @@ def resolve(
 ) -> Resolution:
     graph_args = graph_command(command)
     metadata_bytes = run(
-            [
-                "cargo",
-                "metadata",
-                "--format-version",
-                "1",
-                "--locked",
-                "--all-features",
-                *manifest_options(graph_args),
-            ]
+        [
+            "cargo",
+            "metadata",
+            "--format-version",
+            "1",
+            "--locked",
+            "--all-features",
+            *manifest_options(graph_args),
+        ]
     )
     metadata = msgspec.json.decode(metadata_bytes, type=Metadata)
     packages = {package.id: package for package in metadata.packages}

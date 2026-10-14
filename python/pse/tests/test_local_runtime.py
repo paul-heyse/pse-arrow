@@ -53,7 +53,7 @@ def test_process_runtime_reuses_equal_consumed_settings_and_refuses_conflicts(
         with pytest.raises(pse.InspectionError, match="process resource budget"):
             pse.Runtime(settings(inspection_settings.threads + 1), ephemeral=True)
         first.close()
-        # Logical caller release leaves the equal-settings caller's shared service usable.
+        # Logical release leaves the equal-settings caller's shared service usable.
         physical = second.physical_from_documents(physical_documents())
         package = second.modeling_from_documents(
             [package_documents("package shared {param a:Scalar=1;}")], physical

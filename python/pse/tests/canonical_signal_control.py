@@ -40,9 +40,14 @@ def main() -> None:
     parser.add_argument("--exclusive-owned-instance", required=True)
     parser.add_argument("--spill-directory", required=True, type=Path)
     options = parser.parse_args()
-    fixture = msgspec.json.decode(options.fixture_receipt.read_bytes(), type=SignalResultFixture)
-    assert fixture.version == 1 and fixture.event == "signal-results-seeded"
-    assert Path(fixture.state).resolve(strict=True) == options.state.resolve(strict=True)
+    fixture = msgspec.json.decode(
+        options.fixture_receipt.read_bytes(), type=SignalResultFixture
+    )
+    assert fixture.version == 1
+    assert fixture.event == "signal-results-seeded"
+    assert Path(fixture.state).resolve(strict=True) == options.state.resolve(
+        strict=True
+    )
     assert fixture.terminal_class == "partial"
     assert fixture.relation == "runtime.solve_metrics"
     assert fixture.first_page_ordinals == (0, 1)

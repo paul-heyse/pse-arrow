@@ -547,7 +547,9 @@ class PseEnvTests(unittest.TestCase):
         ):
             with (
                 self.subTest(affinity=affinity, quota=quota),
-                patch.object(pse_env.host, "cpu_set", return_value=(2, 4, 6, 8, 10, 12, 14, 16)),
+                patch.object(
+                    pse_env.host, "cpu_set", return_value=(2, 4, 6, 8, 10, 12, 14, 16)
+                ),
                 patch.object(pse_env.os, "sched_getaffinity", return_value=affinity),
                 patch.object(pse_env, "cpu_ceiling", return_value=quota),
             ):
@@ -563,7 +565,12 @@ class PseEnvTests(unittest.TestCase):
     def test_width_refuses_unknown_quota_and_empty_usable_affinity(self) -> None:
         owner = MagicMock(spec=pse_env.host.Allocation)
         owner.profile = MagicMock(cores=(2, 4))
-        for quota, affinity in ((None, {2, 4}), (float("inf"), {2, 4}), (0, {2, 4}), (2, {9})):
+        for quota, affinity in (
+            (None, {2, 4}),
+            (float("inf"), {2, 4}),
+            (0, {2, 4}),
+            (2, {9}),
+        ):
             with (
                 self.subTest(quota=quota, affinity=affinity),
                 patch.object(pse_env.host, "cpu_set", return_value=(2, 4)),

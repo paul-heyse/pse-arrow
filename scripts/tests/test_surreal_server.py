@@ -7009,7 +7009,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             self.bind_maintenance_listener(config)
             server._start(
                 self.state, config, validation=True, deadline=time.monotonic() + 30
-            )  # noqa: SLF001 -- exercise the reserved exact launch branch
+            )
         reset = call("reset-failed", server.unit_name(self.state), check=False)
         start = call("start", server.unit_name(self.state), check=False)
         self.assertEqual(manager.call_args_list.count(reset), 1)
@@ -7040,7 +7040,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         ):
             server._start(
                 self.state, config, validation=False, deadline=time.monotonic() + 30
-            )  # noqa: SLF001 -- ordinary launches must preserve the crash policy
+            )
         self.assertFalse(
             any(
                 arguments.args[0] == "reset-failed"

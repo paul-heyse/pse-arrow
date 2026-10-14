@@ -169,16 +169,21 @@ class ExecutionContracts(unittest.TestCase):
         width.start()
         self.addCleanup(width.stop)
         resolution = patch.object(
-            native_tests, "correctness_resolution",
+            native_tests,
+            "correctness_resolution",
             side_effect=lambda command, _env: native_tests.arrow_validation.Resolution(
-                command, ["pse-runtime"], native_tests.arrow_validation.Graph(1, [], []),
+                command,
+                ["pse-runtime"],
+                native_tests.arrow_validation.Graph(1, [], []),
                 b'{"workspace_root": "/checkout"}',
                 b'{"version": 1, "units": [], "roots": []}',
             ),
         )
         resolution.start()
         self.addCleanup(resolution.stop)
-        source = patch.object(native_tests, "rust_source_identity", return_value={"source": "current"})
+        source = patch.object(
+            native_tests, "rust_source_identity", return_value={"source": "current"}
+        )
         source.start()
         self.addCleanup(source.stop)
         composition = patch.object(

@@ -35,10 +35,17 @@ impl Runtime {
         activity
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let response = super::connected_results::response_owner(self, "canonical:progress-selection-response")?;
-                let read = Arc::new(pse_operations::canonical::response_ownership_scope(
-                    response.clone(), self.canonical_store()?.read_results(run, attempt),
-                ).await?);
+                let response = super::connected_results::response_owner(
+                    self,
+                    "canonical:progress-selection-response",
+                )?;
+                let read = Arc::new(
+                    pse_operations::canonical::response_ownership_scope(
+                        response.clone(),
+                        self.canonical_store()?.read_results(run, attempt),
+                    )
+                    .await?,
+                );
                 let operations = super::Operations::from_store(
                     self.canonical_store()?.clone(),
                     "progress-reader",
@@ -46,8 +53,10 @@ impl Runtime {
                     self.shared.pool(),
                 );
                 let coverage = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), response)), operations.progress_coverage(&read),
-                ).await?;
+                    Arc::new((read.clone(), response)),
+                    operations.progress_coverage(&read),
+                )
+                .await?;
                 let descriptor = read.sets().iter().find(|set| set.name == "__progress");
                 let (set, batches) =
                     descriptor.map_or((None, 0), |set| (Some(set.key.clone()), set.batch_count));
@@ -102,7 +111,9 @@ impl ProgressStream {
             return Ok(None);
         }
         let cancel = self.cancel.clone();
-        let outcome = cancel.until_cancelled(self.next_checked()).await
+        let outcome = cancel
+            .until_cancelled(self.next_checked())
+            .await
             .map_err(pse_engine::EngineError::from)
             .map_err(WorkflowError::from)
             .and_then(std::convert::identity);
@@ -115,7 +126,9 @@ impl ProgressStream {
         // Retain the previous page's extent until the caller requests another;
         // typed observations may contain explanatory strings and exact evidence.
         self.owner = None;
-        let owner = Arc::new(MemoryConsumer::new("canonical:progress").register(&self.runtime.shared.pool()));
+        let owner = Arc::new(
+            MemoryConsumer::new("canonical:progress").register(&self.runtime.shared.pool()),
+        );
         owner
             .try_grow(READ_BYTES)
             .map_err(pse_engine::EngineError::from)?;
@@ -129,13 +142,17 @@ impl ProgressStream {
             .as_deref()
             .ok_or_else(|| super::contract("progress descriptor absent"))?;
         let response = super::connected_results::response_owner(
-            &self.runtime, "canonical:progress-file-response",
+            &self.runtime,
+            "canonical:progress-file-response",
         )?;
         let response = Arc::new((read.clone(), response));
         let descriptors = pse_operations::canonical::response_ownership_scope(
-            response.clone(), self.runtime.canonical_store()?
+            response.clone(),
+            self.runtime
+                .canonical_store()?
                 .result_file_batch_descriptors(read, set, &[self.ordinal]),
-        ).await?;
+        )
+        .await?;
         let descriptor = descriptors
             .first()
             .ok_or_else(|| super::contract("progress file descriptor absent"))?;
@@ -145,8 +162,12 @@ impl ProgressStream {
             .try_grow(bytes.saturating_mul(8))
             .map_err(pse_engine::EngineError::from)?;
         let payload = pse_operations::canonical::response_ownership_scope(
-            response, self.runtime.canonical_store()?.result_payload(read, set, self.ordinal),
-        ).await?;
+            response,
+            self.runtime
+                .canonical_store()?
+                .result_payload(read, set, self.ordinal),
+        )
+        .await?;
         if payload.batch.row_count > 512 {
             return Err(super::contract("progress receipt row bound exceeded"));
         }

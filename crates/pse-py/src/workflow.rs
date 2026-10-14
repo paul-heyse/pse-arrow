@@ -395,7 +395,8 @@ pub(crate) fn blocking_native_call<T: Send>(
         }
         if let Some(error) = signal {
             if error.cause(py).is_none()
-                && let Some(Err(cause)) = &value {
+                && let Some(Err(cause)) = &value
+            {
                 error.set_cause(py, Some(errors::diagnostic(py, cause)));
             }
             return Err(error);
@@ -522,7 +523,8 @@ fn blocking_on_with_interrupted_value<
                         }
                     }
                     if e.cause(py).is_none()
-                        && let Err(error) = &value {
+                        && let Err(error) = &value
+                    {
                         e.set_cause(py, Some(errors::diagnostic(py, error)));
                     }
                     Err(e)

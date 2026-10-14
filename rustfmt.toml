@@ -6,5 +6,8 @@ max_width = 100
 use_field_init_shorthand = true
 use_try_shorthand = true
 newline_style = "Unix"
-# Generated files carry `#![rustfmt::skip]` (emitted by the generator); the nightly-only
-# `ignore` option is not used.
+# Generated files carry `#![rustfmt::skip]` (emitted by the generator).
+# The pinned nightly supports excluding imported path dependencies from repository
+# formatting; keep upstream source bytes and per-file notices intact.
+unstable_features = true
+ignore = ["vendor"]

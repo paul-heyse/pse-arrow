@@ -31,19 +31,31 @@ class Plan30RoutingTests(unittest.TestCase):
         composition = patch.object(
             native_tests,
             "correctness_resolution",
-            side_effect=lambda command, _environment: native_tests.arrow_validation.Resolution(
-                command, ["pse-runtime"], native_tests.arrow_validation.Graph(1, [], []),
-                b'{"workspace_root": "/checkout"}',
-                b'{"version": 1, "units": [], "roots": []}',
+            side_effect=lambda command, _environment: (
+                native_tests.arrow_validation.Resolution(
+                    command,
+                    ["pse-runtime"],
+                    native_tests.arrow_validation.Graph(1, [], []),
+                    b'{"workspace_root": "/checkout"}',
+                    b'{"version": 1, "units": [], "roots": []}',
+                )
             ),
         )
         composition.start()
         self.addCleanup(composition.stop)
-        for name, value in (("rust_source_identity", {"source": "current"}), ("prepared_rust_inventory", None)):
-            mocked = patch.object(native_tests, name, **(
-                {"return_value": value} if value is not None else
-                {"side_effect": lambda _args, _env, *, inventory: inventory}
-            ))
+        for name, value in (
+            ("rust_source_identity", {"source": "current"}),
+            ("prepared_rust_inventory", None),
+        ):
+            mocked = patch.object(
+                native_tests,
+                name,
+                **(
+                    {"return_value": value}
+                    if value is not None
+                    else {"side_effect": lambda _args, _env, *, inventory: inventory}
+                ),
+            )
             mocked.start()
             self.addCleanup(mocked.stop)
         width = patch.object(native_tests.pse_env, "default_test_width", return_value=4)

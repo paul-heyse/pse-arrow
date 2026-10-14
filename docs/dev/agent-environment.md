@@ -90,8 +90,9 @@ in `.config/agent-capacity.toml` (16 MiB), preserve an explicit positive finite 
 count, and record it in native provenance. This libtest thread setting is separate
 from production native-job stack policy.
 
-Cargo and Nextest default their widths to the allocation's physical-core count,
-bounded by its actual affinity width. SMT siblings remain visible in affinity but
+Cargo, Nextest and ordinary pytest default their widths to the allocation's
+physical-core count, bounded by actual usable logical affinity and any finite
+ancestor CPU quota. SMT siblings remain visible in affinity but
 do not increase the physical-core CPU quota or these defaults. An explicit caller
 environment or CLI width remains an override inside the kernel allocation. Nested
 allocations recompute repository-supplied defaults for their own narrower placement.
@@ -218,12 +219,18 @@ other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <pa
   or the existing managed native recipes when that association is required;
   inspect retained fixture diagnostics before intentional cleanup.
 - `PSE_NEXTEST_ACTION=list just <recipe> ...` shows a recipe's selection without running it.
+- A prepared Rust invocation resolves Arrow validation and captures its selected unit
+  graph, Cargo/binary metadata and test inventory once. Execution reuses those exact
+  executable associations within that invocation. Source, Cargo configuration,
+  explicit build environment, selection and executable changes refuse reuse; this
+  is not a cross-run cache. Authenticated observer admission, recomputed automatic
+  widths and JUnit report composition are execution context, not new build inputs.
 - Bare tools: `cargo t -p <pkg> -E 'package(<pkg>) & test(x)'` and `cargo c -p <pkg>` carry
   force-validation; plain `cargo nextest run`/`cargo check` do not.
 - Python: `just py-unit` observes the installed extension (`doctor.py --extension-kind`) and
   uses the native environment for the linked build; `just py-test` and the native suites
   require a serving canonical server (`--store`) at `$PSE_SURREAL_STATE`.
-  `just py-test` defaults to unit and component tests with four pytest workers;
+  `just py-test` defaults to unit and component tests with the admitted runner width;
   fixture-owner groups keep mutable native contexts serial within each owner.
   An explicit selection such as `just py-test -m integration` keeps the ordinary
   process allocation and excludes tests marked `managed_primary`.
@@ -240,6 +247,17 @@ they do not prove that the extension incorporates current Rust source. After rel
 Rust edits, use `just py-sync` for the default extension or `just py-sync-native` for
 the linked extension before inspecting Python behavior. Read-only queries do not trigger
 an automatic rebuild.
+
+The exact pinned SuiteSparse/SUNDIALS/Diffsol suppliers have local source selections
+to correct consumed-input observation and preserve identical generated binding
+bytes and mtimes. Their upstream trees and optional features remain available;
+[supplier provenance](../../vendor/native-supplier-notes.md) owns the source hashes
+and local corrections. Native-provider selection still belongs to the authenticated
+operation owner, including explicit external-prefix admission.
+Complete startup source observation includes those imported trees. Its finite
+allowance covers both live inventories during reconfirmation; the startup lease
+retains the admitted pool charge for its lifetime. A smaller pool may refuse
+honestly. Do not omit a source family to fit an observation allowance.
 
 These interactive builds omit `force-validate`. `just py-unit` and `just py-test` first
 build the explicitly validated correctness extension, preserving the installed ordinary or

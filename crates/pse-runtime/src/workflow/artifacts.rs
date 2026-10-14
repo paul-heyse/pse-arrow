@@ -99,15 +99,18 @@ impl ScientificArtifact {
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::canonical_artifacts as rows;
-        let owner = std::sync::Arc::new(MemoryConsumer::new("canonical:artifact-metadata")
-            .register(&self.runtime.shared.pool()));
+        let owner = std::sync::Arc::new(
+            MemoryConsumer::new("canonical:artifact-metadata")
+                .register(&self.runtime.shared.pool()),
+        );
         owner
             .try_grow(12 * 1024 * 1024)
             .map_err(pse_engine::EngineError::from)?;
         let row = pse_operations::canonical::response_ownership_scope(
             owner.clone(),
             self.runtime.canonical_store()?.artifact(&self.header.key),
-        ).await?;
+        )
+        .await?;
         let validation = self.runtime.validation_context();
         let mut builder = rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
             .map_err(super::relation)?;
@@ -137,15 +140,19 @@ impl ScientificArtifact {
             .try_grow(4 * super::result_files::MAX_FILE_BYTES)
             .map_err(pse_engine::EngineError::from)?;
         let response = super::connected_results::response_owner(
-            &self.runtime, "canonical:artifact-block-response",
+            &self.runtime,
+            "canonical:artifact-block-response",
         )?;
         let read = pse_operations::canonical::response_ownership_scope(
             response.clone(),
-            self.runtime.canonical_store()?.read_artifact(&self.header.key),
-        ).await?;
-        let block = pse_operations::canonical::response_ownership_scope(
-            response, read.block(ordinal),
-        ).await?;
+            self.runtime
+                .canonical_store()?
+                .read_artifact(&self.header.key),
+        )
+        .await?;
+        let block =
+            pse_operations::canonical::response_ownership_scope(response, read.block(ordinal))
+                .await?;
         let spec = self
             .runtime
             .registry()
@@ -345,27 +352,34 @@ impl Runtime {
         key: &str,
     ) -> Result<ScientificArtifact, WorkflowError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        let response = super::connected_results::response_owner(self, "canonical:scientific-artifact-header-response")?;
-        let header = pse_operations::canonical::response_ownership_scope(
-            response, self.canonical_store()?.artifact(key),
-        ).await?;
-        if ![
-            "seed",
-            "final-state",
-            "trajectory",
-            "local-analysis",
-            "graph-evidence",
-        ]
-        .contains(&header.kind.as_str())
-        {
-            return Err(contract("artifact kind has no scientific IPC reader"));
-        }
-        Ok(ScientificArtifact {
-            runtime: self.clone(),
-            header,
-        })
-        }).await
+        activity
+            .scope(async {
+                let response = super::connected_results::response_owner(
+                    self,
+                    "canonical:scientific-artifact-header-response",
+                )?;
+                let header = pse_operations::canonical::response_ownership_scope(
+                    response,
+                    self.canonical_store()?.artifact(key),
+                )
+                .await?;
+                if ![
+                    "seed",
+                    "final-state",
+                    "trajectory",
+                    "local-analysis",
+                    "graph-evidence",
+                ]
+                .contains(&header.kind.as_str())
+                {
+                    return Err(contract("artifact kind has no scientific IPC reader"));
+                }
+                Ok(ScientificArtifact {
+                    runtime: self.clone(),
+                    header,
+                })
+            })
+            .await
     }
     /// Copy a scientifically sufficient immutable product without rerunning science.
     /// The trajectory product retains its entire recorded prefix; no row-level
@@ -672,7 +686,10 @@ mod intent_unit {
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod response_ownership_tests {
-    #![allow(clippy::unwrap_used, reason = "canonical response controls require an admitted exact fixture and actual pool")]
+    #![allow(
+        clippy::unwrap_used,
+        reason = "canonical response controls require an admitted exact fixture and actual pool"
+    )]
     use super::*;
 
     #[tokio::test]
@@ -683,25 +700,38 @@ mod response_ownership_tests {
         let metadata = 3 * super::super::result_files::MAX_FILE_BYTES;
         let copy_envelope = 128 * 1024 * 1024;
         let pressure = MemoryConsumer::new("control:artifact-response-pressure").register(&pool);
-        let datafusion::execution::memory_pool::MemoryLimit::Finite(capacity) = pool.memory_limit() else {
+        let datafusion::execution::memory_pool::MemoryLimit::Finite(capacity) = pool.memory_limit()
+        else {
             unreachable!("canonical fixture requires a finite shared pool");
         };
         // Leave exactly one byte less than the metadata envelope, rather than
         // making all work impossible or changing the actual fixture capacity.
-        pressure.try_grow(capacity - baseline - metadata + 1).unwrap();
+        pressure
+            .try_grow(capacity - baseline - metadata + 1)
+            .unwrap();
         let refused = runtime.scientific_artifact("unissued-artifact").await;
-        assert!(matches!(refused, Err(WorkflowError::Engine(_))),
-            "public acquisition must prepay before querying an absent artifact: {refused:?}");
+        assert!(
+            matches!(refused, Err(WorkflowError::Engine(_))),
+            "public acquisition must prepay before querying an absent artifact: {refused:?}"
+        );
         // Promotion's existing copy-out allowance can succeed. Its distinct
         // first metadata response must still refuse, without leaking that grant.
         pressure.shrink(copy_envelope);
         let before = pool.reserved();
-        let refused = runtime.promote_scientific_artifact(
-            "unissued-run", "unissued-attempt", ScientificArtifactKind::FinalState,
-            "user", "unissued-owner", CancellationToken::new(),
-        ).await;
-        assert!(matches!(refused, Err(WorkflowError::Engine(_))),
-            "copy-out admission cannot substitute for metadata prepayment: {refused:?}");
+        let refused = runtime
+            .promote_scientific_artifact(
+                "unissued-run",
+                "unissued-attempt",
+                ScientificArtifactKind::FinalState,
+                "user",
+                "unissued-owner",
+                CancellationToken::new(),
+            )
+            .await;
+        assert!(
+            matches!(refused, Err(WorkflowError::Engine(_))),
+            "copy-out admission cannot substitute for metadata prepayment: {refused:?}"
+        );
         assert_eq!(pool.reserved(), before);
         drop(pressure);
         assert_eq!(pool.reserved(), baseline);

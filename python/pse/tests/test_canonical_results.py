@@ -244,7 +244,7 @@ def test_canonical_close_and_explicit_cache_release_after_completed_run(
     runtime.close()
     runtime.close()
     assert _physical_cache_usage(runtime) == (entries, retained_bytes)
-    with pytest.raises(pse.InspectionError, match="canonical caller is closed"):
+    with pytest.raises(pse.InspectionError, match="runtime caller is closed"):
         runtime.attempt_record(attempt)
     runtime.clear_program_cache()
     assert _physical_cache_usage(runtime) == (0, 0)
@@ -279,7 +279,7 @@ def test_canonical_close_preserves_live_result_reader_and_independent_caller(
         runtime.close()
         runtime.close()
         assert _physical_cache_usage(runtime) == (0, 0)
-        with pytest.raises(pse.InspectionError, match="canonical caller is closed"):
+        with pytest.raises(pse.InspectionError, match="runtime caller is closed"):
             runtime.results(run, attempt, "runtime.solve_variables")
         # The admitted reader keeps its own activity and fetches the actual
         # canonical block after its original logical caller has closed.
@@ -308,7 +308,7 @@ def test_canonical_close_preserves_admitted_solve_but_refuses_new_start(
     prepared = package.prepare_solve(case, _settings())
     handle = prepared.start()
     runtime.close()
-    with pytest.raises(pse.InspectionError, match="canonical caller is closed"):
+    with pytest.raises(pse.InspectionError, match="runtime caller is closed"):
         prepared.start()
     result = handle.wait()
     assert result.usable
@@ -949,7 +949,8 @@ def _assert_owned_delayed_canonical_sigint(
     assert process["instance_id"] == owned_instance
     pid = server.integer(process["pid"])
     pidfd = os.pidfd_open(pid)
-    assert len(file_instances) == 2 and file_instances[0] != file_instances[1]
+    assert len(file_instances) == 2
+    assert file_instances[0] != file_instances[1]
     runtime: pse.Runtime | None = None
     cleanup: pse.Runtime | None = None
     stream: pse.TableStream | None = None
@@ -985,7 +986,10 @@ def _assert_owned_delayed_canonical_sigint(
         return queued
 
     def delayed_call(
-        work: Callable[[], object], consumer: str, *, prompt_join: bool,
+        work: Callable[[], object],
+        consumer: str,
+        *,
+        prompt_join: bool,
         after_interrupt: Callable[[], None] | None = None,
     ) -> float:
         before = reserved(consumer)
@@ -1051,7 +1055,9 @@ def _assert_owned_delayed_canonical_sigint(
                     assert returned.wait(2), (
                         "entered canonical pull did not cancel and join while delayed"
                     )
-                    assert discarded.is_set(), "caller-owned reader was not discarded before resume"
+                    assert discarded.is_set(), (
+                        "caller-owned reader was not discarded before resume"
+                    )
                     assert reserved(consumer) >= before + read_bytes, (
                         "late dispatched response lost its actual grant "
                         "before the server resumed"
@@ -1118,6 +1124,7 @@ def _assert_owned_delayed_canonical_sigint(
             "canonical:result-header",
             prompt_join=False,
         )
+
         def discard_interrupted_reader() -> None:
             nonlocal stream
             assert stream is not None
@@ -1144,12 +1151,19 @@ def _assert_owned_delayed_canonical_sigint(
             return stream.next_batch()
 
         pull_seconds = delayed_call(
-            next_file, "canonical:result-file-open-response", prompt_join=True,
+            next_file,
+            "canonical:result-file-open-response",
+            prompt_join=True,
             after_interrupt=discard_interrupted_reader,
         )
         drain_deadline = time.monotonic() + 5
-        while any(reserved(consumer) > before for consumer, before in reservation_baselines.items()):
-            assert time.monotonic() < drain_deadline, "original metadata response did not drain"
+        while any(
+            reserved(consumer) > before
+            for consumer, before in reservation_baselines.items()
+        ):
+            assert time.monotonic() < drain_deadline, (
+                "original metadata response did not drain"
+            )
             time.sleep(0.005)
         # Reclamation supplies an actual canonical release/collection control
         # after the original late frame, rather than treating worker join as drain.
@@ -1158,13 +1172,18 @@ def _assert_owned_delayed_canonical_sigint(
             try:
                 page = cleanup.reclaim_run_results(run)
             except pse.InspectionError as error:
-                assert "run results have protected readers" in str(error), error
-                assert time.monotonic() < collection_deadline, "original ticket did not release"
+                if "run results have protected readers" not in str(error):
+                    raise
+                assert time.monotonic() < collection_deadline, (
+                    "original ticket did not release"
+                )
                 time.sleep(0.01)
                 continue
             if page.complete:
                 break
-            assert time.monotonic() < collection_deadline, "result collection did not complete"
+            assert time.monotonic() < collection_deadline, (
+                "result collection did not complete"
+            )
         assert first.schema == schema
         assert first.to_pylist() == expected
         return {

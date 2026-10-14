@@ -75,7 +75,9 @@ class ManagedRustSelectionTests(unittest.TestCase):
         )
         composition.start()
         self.addCleanup(composition.stop)
-        source = patch.object(native_tests, "rust_source_identity", return_value={"source": "current"})
+        source = patch.object(
+            native_tests, "rust_source_identity", return_value={"source": "current"}
+        )
         source.start()
         self.addCleanup(source.stop)
         scratch = tempfile.TemporaryDirectory()
@@ -109,14 +111,29 @@ class ManagedRustSelectionTests(unittest.TestCase):
             }
         )
 
-    def resolution(self, command: list[str]) -> native_tests.arrow_validation.Resolution:
-        graph = native_tests.arrow_validation.Graph(1, [native_tests.arrow_validation.Unit(
-            pkg_id="pse-runtime",
-            target=native_tests.arrow_validation.Target("pse_runtime", ["lib"], str(self.root / "lib.rs")),
-            features=[], dependencies=[], platform=None, mode="test",
-        )], [0])
+    def resolution(
+        self, command: list[str]
+    ) -> native_tests.arrow_validation.Resolution:
+        graph = native_tests.arrow_validation.Graph(
+            1,
+            [
+                native_tests.arrow_validation.Unit(
+                    pkg_id="pse-runtime",
+                    target=native_tests.arrow_validation.Target(
+                        "pse_runtime", ["lib"], str(self.root / "lib.rs")
+                    ),
+                    features=[],
+                    dependencies=[],
+                    platform=None,
+                    mode="test",
+                )
+            ],
+            [0],
+        )
         return native_tests.arrow_validation.Resolution(
-            command, ["pse-runtime"], graph,
+            command,
+            ["pse-runtime"],
+            graph,
             b'{"workspace_root": "/checkout", "packages": [{"id": "pse-runtime", "name": "pse-runtime"}]}',
             native_tests.arrow_validation.msgspec.json.encode(graph),
         )
@@ -135,9 +152,23 @@ class ManagedRustSelectionTests(unittest.TestCase):
         self, extra: list[str], *, package_scope: bool = False
     ) -> tuple[list[str], Path, list[list[str]]]:
         responses = [
-            subprocess.CompletedProcess([], 0, json.dumps({"rust-binaries": {
-                "pse-runtime::lib": {key: value for key, value in json.loads(self.inventory)["rust-suites"]["runtime"].items() if key != "testcases"}
-            }})),
+            subprocess.CompletedProcess(
+                [],
+                0,
+                json.dumps(
+                    {
+                        "rust-binaries": {
+                            "pse-runtime::lib": {
+                                key: value
+                                for key, value in json.loads(self.inventory)[
+                                    "rust-suites"
+                                ]["runtime"].items()
+                                if key != "testcases"
+                            }
+                        }
+                    }
+                ),
+            ),
             subprocess.CompletedProcess([], 0, self.inventory),
         ]
         with (
@@ -177,7 +208,9 @@ class ManagedRustSelectionTests(unittest.TestCase):
             command: list[str], *, run: Callable[[Sequence[str]], bytes]
         ) -> native_tests.arrow_validation.Resolution:
             self.assertTrue(callable(run))
-            resolved = self.resolution([*command, "--features", "pse-runtime/force-validate"])
+            resolved = self.resolution(
+                [*command, "--features", "pse-runtime/force-validate"]
+            )
             resolved.packages = ["pse-relations", "pse-runtime"]
             return resolved
 
@@ -202,7 +235,9 @@ class ManagedRustSelectionTests(unittest.TestCase):
         self.assertEqual(len(commands), 2)
         build, inventory = commands
         self.assertIn("pse-runtime/force-validate", build)
-        self.assertEqual(json.loads(Path(execution[3]).read_bytes())["workspace_root"], "/checkout")
+        self.assertEqual(
+            json.loads(Path(execution[3]).read_bytes())["workspace_root"], "/checkout"
+        )
         scoped = "(test(chosen)) & (package(pse-relations) | package(pse-runtime))"
         self.assertIn(scoped, inventory)
         self.assertIn(scoped, execution)
@@ -211,9 +246,13 @@ class ManagedRustSelectionTests(unittest.TestCase):
         self.assertIn("hash:1/2", execution)
 
     def test_composed_validation_features_reach_metadata_and_provenance(self) -> None:
-        def compose(command: list[str], environment: dict[str, str]) -> native_tests.arrow_validation.Resolution:
+        def compose(
+            command: list[str], environment: dict[str, str]
+        ) -> native_tests.arrow_validation.Resolution:
             self.assertEqual(environment["PSE_WORKER_BINARY"], str(self.worker))
-            return self.resolution([*command, "--features", "pse-runtime/force-validate"])
+            return self.resolution(
+                [*command, "--features", "pse-runtime/force-validate"]
+            )
 
         with patch.object(native_tests, "correctness_resolution", side_effect=compose):
             _, _, commands = self.capture(["-p", "pse-runtime"])
@@ -377,83 +416,180 @@ class ManagedRustSelectionTests(unittest.TestCase):
         run.assert_not_called()
 
     def prepared_environment(self) -> dict[str, str]:
-        return native_tests.rust_test_environment({
-            "PSE_WORKER_BINARY": str(self.worker),
-            "PSE_NATIVE_PROVENANCE": str(self.provenance),
-        })
+        return native_tests.rust_test_environment(
+            {
+                "PSE_WORKER_BINARY": str(self.worker),
+                "PSE_NATIVE_PROVENANCE": str(self.provenance),
+            }
+        )
 
-    def test_prepared_environment_tracks_explicit_inputs_across_observer_admission(self) -> None:
+    def test_prepared_environment_tracks_explicit_inputs_across_observer_admission(
+        self,
+    ) -> None:
         parent = {
-            "BUILD_INPUT": "fixed", "PSE_HOST_ALLOCATION": "compile-owner",
-            "PSE_RESOURCE_CLASS": "compile", "PSE_ADMISSION_DEADLINE": "100",
-            "CARGO_BUILD_JOBS": "4", "PSE_CARGO_DEFAULT_JOBS": "4",
-            "NEXTEST_TEST_THREADS": "4", "PSE_NEXTEST_DEFAULT_THREADS": "4",
+            "BUILD_INPUT": "fixed",
+            "PSE_HOST_ALLOCATION": "compile-owner",
+            "PSE_RESOURCE_CLASS": "compile",
+            "PSE_ADMISSION_DEADLINE": "100",
+            "PSE_NATIVE_SETUP_PYTHON": "/parent/setup-python",
+            "CARGO_BUILD_JOBS": "4",
+            "PSE_CARGO_DEFAULT_JOBS": "4",
+            "NEXTEST_TEST_THREADS": "4",
+            "PSE_NEXTEST_DEFAULT_THREADS": "4",
         }
         observer = {
-            **parent, "PSE_HOST_ALLOCATION": "observer-owner",
-            "PSE_RESOURCE_CLASS": "functional", "PSE_ADMISSION_DEADLINE": "200",
-            "CARGO_BUILD_JOBS": "2", "PSE_CARGO_DEFAULT_JOBS": "2",
-            "NEXTEST_TEST_THREADS": "2", "PSE_NEXTEST_DEFAULT_THREADS": "2",
+            **parent,
+            "PSE_HOST_ALLOCATION": "observer-owner",
+            "PSE_RESOURCE_CLASS": "functional",
+            "PSE_ADMISSION_DEADLINE": "200",
+            "CARGO_BUILD_JOBS": "2",
+            "PSE_CARGO_DEFAULT_JOBS": "2",
+            "NEXTEST_TEST_THREADS": "2",
+            "PSE_NEXTEST_DEFAULT_THREADS": "2",
         }
+        observer.pop("PSE_NATIVE_SETUP_PYTHON")
         identity = native_tests.rust_environment_identity
         self.assertEqual(identity(parent), identity(observer))
-        self.assertNotEqual(identity(parent), identity({**observer, "CARGO_BUILD_JOBS": "8"}))
-        self.assertNotEqual(identity(parent), identity({**observer, "NEXTEST_TEST_THREADS": "8"}))
-        self.assertNotEqual(identity(parent), identity({**observer, "BUILD_INPUT": "changed"}))
-        self.assertNotEqual(identity(parent), identity({**observer, "NEW_INPUT": "changed"}))
+        self.assertNotEqual(
+            identity(parent), identity({**observer, "CARGO_BUILD_JOBS": "8"})
+        )
+        self.assertNotEqual(
+            identity(parent), identity({**observer, "NEXTEST_TEST_THREADS": "8"})
+        )
+        self.assertNotEqual(
+            identity(parent), identity({**observer, "BUILD_INPUT": "changed"})
+        )
+        self.assertNotEqual(
+            identity(parent), identity({**observer, "NEW_INPUT": "changed"})
+        )
 
     def test_prepared_selection_allows_actual_junit_composition_only(self) -> None:
         for profile in ("default", "local", "flaky-hunt"):
-            original = ["--profile", profile, "-E", "test(control)", "--", "--nocapture"]
-            composed, _ = test_run.rust_report_command(self.root / f"{profile}.json", original.copy())
-            self.assertEqual(native_tests.rust_selection_identity(original), native_tests.rust_selection_identity(composed))
+            original = [
+                "--profile",
+                profile,
+                "-E",
+                "test(control)",
+                "--",
+                "--nocapture",
+            ]
+            composed, _ = test_run.rust_report_command(
+                self.root / f"{profile}.json", original.copy()
+            )
+            self.assertEqual(
+                native_tests.rust_selection_identity(original),
+                native_tests.rust_selection_identity(composed),
+            )
             self.assertLess(composed.index("--config-file"), composed.index("--"))
             config = Path(composed[composed.index("--config-file") + 1])
-            config.write_text(config.read_text().replace("retries = 0", "retries = 1", 1))
-            self.assertNotEqual(native_tests.rust_selection_identity(original), native_tests.rust_selection_identity(composed))
+            config.write_text(
+                config.read_text().replace("retries = 0", "retries = 1", 1)
+            )
+            self.assertNotEqual(
+                native_tests.rust_selection_identity(original),
+                native_tests.rust_selection_identity(composed),
+            )
 
-    def test_prepared_inventory_reuses_catalog_and_preserves_exit_and_signal(self) -> None:
+    def test_prepared_inventory_reuses_catalog_and_preserves_exit_and_signal(
+        self,
+    ) -> None:
         execution, _, _ = self.capture(["--profile", "local"])
         inventory = json.loads(self.inventory)
         for status in (7, -signal.SIGTERM):
             with (
                 self.subTest(status=status),
-                patch.object(test_run.subprocess, "run", side_effect=AssertionError("duplicate inventory")),
-                patch.object(test_run.resources, "invocation", return_value=self.root / "invocation.json"),
-                patch.object(test_run, "rust_report_command", side_effect=lambda _path, command: (command, self.root / "report.xml")),
+                patch.object(
+                    test_run.subprocess,
+                    "run",
+                    side_effect=AssertionError("duplicate inventory"),
+                ),
+                patch.object(
+                    test_run.resources,
+                    "invocation",
+                    return_value=self.root / "invocation.json",
+                ),
+                patch.object(
+                    test_run,
+                    "rust_report_command",
+                    side_effect=lambda _path, command: (
+                        command,
+                        self.root / "report.xml",
+                    ),
+                ),
                 patch.object(test_run, "execute_selected", return_value=status) as run,
             ):
-                self.assertEqual(test_run.run_rust(
-                    ["cargo", "nextest", "run", *execution],
-                    env=self.prepared_environment(), inventory=inventory,
-                ), status)
-            self.assertEqual(run.call_args.kwargs["selected"], [{"class": "pse-runtime::lib", "name": "managed_primary_control"}])
+                self.assertEqual(
+                    test_run.run_rust(
+                        ["cargo", "nextest", "run", *execution],
+                        env=self.prepared_environment(),
+                        inventory=inventory,
+                    ),
+                    status,
+                )
+            self.assertEqual(
+                run.call_args.kwargs["selected"],
+                [{"class": "pse-runtime::lib", "name": "managed_primary_control"}],
+            )
 
-    def test_prepared_inventory_rejects_changed_source_environment_selection_and_catalog(self) -> None:
+    def test_prepared_inventory_rejects_changed_source_environment_selection_and_catalog(
+        self,
+    ) -> None:
         execution, _, _ = self.capture(["--profile", "local", "-E", "test(control)"])
         environment = self.prepared_environment()
         retained = native_tests.prepared_rust_inventory(execution, environment)
         self.assertEqual(retained, json.loads(self.inventory))
-        for option, value in (("--profile", "ci"), ("--cargo-profile", "release"), ("--features", "other/feature"), ("--target", "other-target"), ("-E", "test(other)")):
-            with self.subTest(option=option), self.assertRaisesRegex(ValueError, "selection differs"):
-                native_tests.prepared_rust_inventory([*execution, option, value], environment)
+        for option, value in (
+            ("--profile", "ci"),
+            ("--cargo-profile", "release"),
+            ("--features", "other/feature"),
+            ("--target", "other-target"),
+            ("-E", "test(other)"),
+        ):
+            with (
+                self.subTest(option=option),
+                self.assertRaisesRegex(ValueError, "selection differs"),
+            ):
+                native_tests.prepared_rust_inventory(
+                    [*execution, option, value], environment
+                )
         with self.assertRaisesRegex(ValueError, "environment changed"):
-            native_tests.prepared_rust_inventory(execution, {**environment, "PREVIOUSLY_UNKNOWN_BUILD_INPUT": "changed"})
-        with patch.object(native_tests, "rust_source_identity", return_value={"source": "changed"}), self.assertRaisesRegex(ValueError, "source or configuration changed"):
+            native_tests.prepared_rust_inventory(
+                execution, {**environment, "PREVIOUSLY_UNKNOWN_BUILD_INPUT": "changed"}
+            )
+        with (
+            patch.object(
+                native_tests, "rust_source_identity", return_value={"source": "changed"}
+            ),
+            self.assertRaisesRegex(ValueError, "source or configuration changed"),
+        ):
             native_tests.prepared_rust_inventory(execution, environment)
         changed = json.loads(self.inventory)
-        changed["rust-suites"]["runtime"]["testcases"]["other"] = {"filter-match": {"status": "matches"}}
+        changed["rust-suites"]["runtime"]["testcases"]["other"] = {
+            "filter-match": {"status": "matches"}
+        }
         with self.assertRaisesRegex(ValueError, "inventory differs"):
-            native_tests.prepared_rust_inventory(execution, environment, inventory=changed)
+            native_tests.prepared_rust_inventory(
+                execution, environment, inventory=changed
+            )
 
-    def test_prepared_inventory_rejects_changed_binary_metadata_and_unknown_identity(self) -> None:
+    def test_prepared_inventory_rejects_changed_binary_metadata_and_unknown_identity(
+        self,
+    ) -> None:
         execution, _, _ = self.capture([])
         environment = self.prepared_environment()
-        for path in (self.binary, self.selected, Path(execution[1]), Path(execution[3])):
+        for path in (
+            self.binary,
+            self.selected,
+            Path(execution[1]),
+            Path(execution[3]),
+        ):
             original = path.read_bytes()
             try:
                 path.write_bytes(original + b"changed")
-                with self.subTest(path=path), self.assertRaisesRegex(ValueError, "artifacts changed"):
+                with (
+                    self.subTest(path=path),
+                    self.assertRaisesRegex(ValueError, "artifacts changed"),
+                ):
                     native_tests.prepared_rust_inventory(execution, environment)
             finally:
                 path.write_bytes(original)
@@ -463,26 +599,36 @@ class ManagedRustSelectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown Rust preparation"):
             native_tests.prepared_rust_inventory(execution, environment)
 
-    def test_prepared_inventory_binds_nextest_and_external_cargo_configuration(self) -> None:
+    def test_prepared_inventory_binds_nextest_and_external_cargo_configuration(
+        self,
+    ) -> None:
         config = self.root / "nextest.toml"
         config.write_text((native_tests.ROOT / ".config/nextest.toml").read_text())
         cargo = self.root / "cargo.toml"
-        cargo.write_text('[build]\njobs = 2\n')
-        execution, _, _ = self.capture(["--config-file", str(config), "--config", str(cargo)])
+        cargo.write_text("[build]\njobs = 2\n")
+        execution, _, _ = self.capture(
+            ["--config-file", str(config), "--config", str(cargo)]
+        )
         environment = self.prepared_environment()
         native_tests.prepared_rust_inventory(execution, environment)
-        config.write_text(config.read_text().replace("fail-fast = false", "fail-fast = true"))
+        config.write_text(
+            config.read_text().replace("fail-fast = false", "fail-fast = true")
+        )
         with self.assertRaisesRegex(ValueError, "selection differs"):
             native_tests.prepared_rust_inventory(execution, environment)
         config.write_text((native_tests.ROOT / ".config/nextest.toml").read_text())
-        cargo.write_text('[build]\njobs = 3\n')
+        cargo.write_text("[build]\njobs = 3\n")
         with self.assertRaisesRegex(ValueError, "Cargo configuration changed"):
             native_tests.prepared_rust_inventory(execution, environment)
 
-    def test_prepared_inventory_requires_exact_validated_target_association(self) -> None:
+    def test_prepared_inventory_requires_exact_validated_target_association(
+        self,
+    ) -> None:
         execution, _, _ = self.capture([])
         native = json.loads(self.provenance.read_text())
-        native["rust_invocation"]["unit_graph"]["units"][0]["target"]["name"] = "foreign_target"
+        native["rust_invocation"]["unit_graph"]["units"][0]["target"]["name"] = (
+            "foreign_target"
+        )
         self.provenance.write_text(json.dumps(native))
         with self.assertRaisesRegex(ValueError, "outside validated Cargo roots"):
             native_tests.prepared_rust_inventory(execution, self.prepared_environment())
@@ -996,15 +1142,21 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
         composition = patch.object(
             native_tests,
             "correctness_resolution",
-            side_effect=lambda command, _environment: native_tests.arrow_validation.Resolution(
-                command, ["pse-runtime"], native_tests.arrow_validation.Graph(1, [], []),
-                b'{"workspace_root": "/checkout"}',
-                b'{"version": 1, "units": [], "roots": []}',
+            side_effect=lambda command, _environment: (
+                native_tests.arrow_validation.Resolution(
+                    command,
+                    ["pse-runtime"],
+                    native_tests.arrow_validation.Graph(1, [], []),
+                    b'{"workspace_root": "/checkout"}',
+                    b'{"version": 1, "units": [], "roots": []}',
+                )
             ),
         )
         composition.start()
         self.addCleanup(composition.stop)
-        source = patch.object(native_tests, "rust_source_identity", return_value={"source": "current"})
+        source = patch.object(
+            native_tests, "rust_source_identity", return_value={"source": "current"}
+        )
         source.start()
         self.addCleanup(source.stop)
 
@@ -1080,7 +1232,9 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
             self.assertEqual(native_tests.main(), 0)
         resolved.assert_called_once()
         self.assertEqual(
-            listed.call_count, 2, "one build and one inventory reuse resolution metadata"
+            listed.call_count,
+            2,
+            "one build and one inventory reuse resolution metadata",
         )
         selected = listed.call_args_list[1].args[0]
         self.assertIn("--binaries-metadata", selected)

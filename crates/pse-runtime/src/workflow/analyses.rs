@@ -141,14 +141,18 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analyses as rows;
-                let owner = Arc::new(MemoryConsumer::new("canonical:analysis-header")
-                    .register(&self.runtime.shared.pool()));
+                let owner = Arc::new(
+                    MemoryConsumer::new("canonical:analysis-header")
+                        .register(&self.runtime.shared.pool()),
+                );
                 owner
                     .try_grow(12 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
                 let row = pse_operations::canonical::response_ownership_scope(
-                    owner.clone(), self.runtime.canonical_store()?.analysis(&self.key),
-                ).await?;
+                    owner.clone(),
+                    self.runtime.canonical_store()?.analysis(&self.key),
+                )
+                .await?;
                 let validation = self.runtime.validation_context();
                 let mut builder =
                     rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
@@ -171,14 +175,20 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_nodes as rows;
-                let owner = Arc::new(MemoryConsumer::new("canonical:analysis-page")
-                    .register(&self.runtime.shared.pool()));
+                let owner = Arc::new(
+                    MemoryConsumer::new("canonical:analysis-page")
+                        .register(&self.runtime.shared.pool()),
+                );
                 owner
                     .try_grow(12 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
                 let page = pse_operations::canonical::response_ownership_scope(
-                    owner.clone(), self.runtime.canonical_store()?.analysis_node_page(&self.key, after),
-                ).await?;
+                    owner.clone(),
+                    self.runtime
+                        .canonical_store()?
+                        .analysis_node_page(&self.key, after),
+                )
+                .await?;
                 let validation = self.runtime.validation_context();
                 let mut builder =
                     rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
@@ -203,14 +213,20 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_edges as rows;
-                let owner = Arc::new(MemoryConsumer::new("canonical:analysis-page")
-                    .register(&self.runtime.shared.pool()));
+                let owner = Arc::new(
+                    MemoryConsumer::new("canonical:analysis-page")
+                        .register(&self.runtime.shared.pool()),
+                );
                 owner
                     .try_grow(12 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
                 let page = pse_operations::canonical::response_ownership_scope(
-                    owner.clone(), self.runtime.canonical_store()?.analysis_edge_page(&self.key, after),
-                ).await?;
+                    owner.clone(),
+                    self.runtime
+                        .canonical_store()?
+                        .analysis_edge_page(&self.key, after),
+                )
+                .await?;
                 let validation = self.runtime.validation_context();
                 let mut builder =
                     rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
@@ -245,10 +261,15 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
-                let response = super::connected_results::response_owner(self, "canonical:analysis-selection-response")?;
+                let response = super::connected_results::response_owner(
+                    self,
+                    "canonical:analysis-selection-response",
+                )?;
                 pse_operations::canonical::response_ownership_scope(
-                    response, self.canonical_store()?.analysis(key),
-                ).await?;
+                    response,
+                    self.canonical_store()?.analysis(key),
+                )
+                .await?;
                 Ok(AnalysisHandle {
                     runtime: self.clone(),
                     key: key.into(),

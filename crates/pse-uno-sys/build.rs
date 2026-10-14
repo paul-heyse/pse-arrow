@@ -20,9 +20,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(PathBuf::from)
         .ok_or("UNO_DIR must name the qualified Uno prefix for the link feature")?;
     // These are consumed inputs, including transitive headers in the selected prefix.
-    println!("cargo:rerun-if-changed={}", prefix.join(".complete.json").display());
-    println!("cargo:rerun-if-changed={}", prefix.join("include/uno").display());
-    println!("cargo:rerun-if-changed={}", prefix.join("lib/libuno.a").display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        prefix.join(".complete.json").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        prefix.join("include/uno").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        prefix.join("lib/libuno.a").display()
+    );
     let receipt = std::fs::read(prefix.join(".complete.json"))?;
     let value: serde_json::Value = serde_json::from_slice(&receipt)?;
     let version = value["identity"]["pin"]["revision"]

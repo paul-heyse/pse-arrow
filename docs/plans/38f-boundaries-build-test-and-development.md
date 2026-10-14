@@ -1,6 +1,6 @@
 ---
 title: Boundaries, build, test and development
-status: in-progress
+status: done
 date: 2026-10-14
 adrs: [ADR-0188]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
@@ -22,9 +22,9 @@ Current blueprint §3/§14/§18.8/§21 and environment/validation guides own bou
 
 | Packet | Prerequisites | Delivery/retirement | State |
 |---|---|---|---|
-| <a id="f1"></a>F1 | Existing bounded stream/RPC owners; A5/E exact trust/read interfaces | Installed Python pull/cancel/drain, prepaid responses, weighted physical/file cache, gather/export consumers; remove redundant copies/unsafe release paths | In progress |
-| <a id="f2"></a>F2 | Actual lower admission/generator manifests; RC08; selected public-setting decision | Remaining exact consumer/dependency/generator migration, truthful extension modes and float contract; retire replaced roots/projections after checks | In progress |
-| <a id="f3"></a>F3 | Current invocation/admission/native-build owners; C actual resources | Product dispatch/width/build-input/inventory/provenance/setup corrections and explicit residual host-policy disposition | In progress |
+| <a id="f1"></a>F1 | Existing bounded stream/RPC owners; A5/E exact trust/read interfaces | Installed Python pull/cancel/drain, prepaid responses, weighted physical/file cache, gather/export consumers; remove redundant copies/unsafe release paths | Done |
+| <a id="f2"></a>F2 | Actual lower admission/generator manifests; RC08; selected public-setting decision | Remaining exact consumer/dependency/generator migration, truthful extension modes and float contract; retire replaced roots/projections after checks | Done |
+| <a id="f3"></a>F3 | Current invocation/admission/native-build owners; C actual resources | Product dispatch/width/build-input/inventory/provenance/setup corrections and explicit residual host-policy disposition | Done |
 
 F1 subcontracts can improve independently; actual installed-extension/drain integration remains required. F2 verifies existing extraction rather than creates another crate. F3 host decisions are bounded by I-F3; explicit per-operation classes/widths must not silently change scientific native teams. Root manifests/recipes/registry/generated roots are shared edit surfaces owned by execution coordination.
 
@@ -101,8 +101,250 @@ default widths; explicit overrides, effect slots and scientific native teams ret
 contracts. Root serializes compilation, generation and installed builds on main; two isolated
 editing worktrees own F1 and F3. No worktree-local builds or service startup are selected.
 
-Next: integrate ready implementation, exercise focused owners, regenerate from the actual
-extension, then complete the installed mode matrix and owned delayed canonical journey. Preserve
+At this checkpoint the next work was integration, focused owner checks, generation from the
+actual extension and installed/canonical acceptance; the Outcome below records their completion. Preserve
 all prior recovery evidence and unknown allocations. The initial installed native extension is
 stale against generated contracts and is not acceptance evidence. Other active-plan reconciliation
 and the complete assembled campaign remain with the series closeout, not this checkpoint.
+
+## Investigation outcomes — 2026-10-14
+
+**I-F1 — Implemented / Tested within focused acceptance.** Result metadata/file-open,
+artifact, progress, completion and standalone Operations readers now prepay their
+own response envelope before dispatch. A dispatched file-open response retains the
+original strong ResultRead and its separate 96 MiB metadata grant across both
+sequential descriptor requests; decode/footer accounting remains separate. Nested
+SDK response owners compose rather than replace one another. Dropped waiters do
+not terminate SDK transport. The installed control deliberately seeds two consecutive
+blocks in distinct sealed files and distinguishes ordinary bridge settlement,
+signal-before-entry and entered pull cancellation. The protected fixture's authentic
+release must finish before disconnect; helper retries only ConnectionBusy within
+one finite deadline, and every seeding request key belongs to its fresh run.
+
+The existing weighted multi-entry physical cache remains selected: exact source,
+registry, session factory, worker and pool identities plus fresh caller protections
+are necessary. Canonical interleaving, eviction/fencing and final-owner controls
+exercise that contract. The guarded IPC StreamingTable path still does not activate
+DataFusion's general file metadata/stat/list cache; its separately charged footer
+cache is a different mechanism. Optional file capacity stays inactive until a real
+qualified file source exists. No mutable SQL/UDF context is declared equivalent by
+registry name or fingerprint. A demonstrated repeated workload with a complete
+context-equivalence contract is the trigger for further sharing.
+
+**I-F2 — Implemented / Interface-checked.** The removed hashing permission had no
+hashing consumer. Its ResourceBudget equality participation was an accidental
+Runtime-acquisition refusal, not a separate pool. Actual consumed settings still
+control compatibility. BLAKE3 rayon remains absent; framing/hash vectors and JSON
+float_roundtrip remain unchanged. The existing lower admission and generator roots
+are retained: pure physical/native-ABI work does not need Runtime, while product
+schema generation legitimately consumes scientific/workflow DTOs. No new crate or
+removed scientific capability is warranted. The lockfile source change selects five
+exact local supplier packages without a version or transitive-edge change.
+
+Retain Arrow take for primitive/string gather, bounded selected-range copying for
+nested lists and buffered no-replace IPC export with finish/flush/sync obligations.
+Retain DataFusion's SQL/functions/Parquet/compressed-file features, scope-sensitive
+validation snapshots, reflection under its actual bound owner and isolated mutable
+cattrs converters. No demonstrated bottleneck plus complete equivalence premise
+supports another cache or transport. Sorted-source claims still require actual
+cross-batch/partition ordering; compression, cross-output queries, inbound Arrow
+and a hash-algorithm change remain unselected. The former 4096-point campaign limit
+is not a current study contract: 38d supplies explicit bounded controls and a
+100,000-point ceiling in study.rs/study_execution.rs. This inquiry does not qualify
+a 100,000-point scientific campaign or revive the obsolete cap.
+
+**I-F3 — Implemented / retained policy.** Direct Python/pytest/Nextest launch stays
+with the existing owner. One invocation retains its validated graph, Cargo and
+binary metadata, selected test catalog and executable association; source/config,
+explicit environment, selection and artifact changes refuse reuse. Automatic widths
+follow admitted physical lanes, usable affinity and finite ancestor quota. The
+observer's exact admission/setup fields and JUnit report composition are execution
+context; arbitrary new build inputs remain significant. Managed observers stay
+single-process, and effect/store/native-team capacities remain separate.
+
+Keep conservative complete RUST_INPUTS, immutable managed native generations,
+external-prefix admission, locked isolated environments and incremental maturin.
+Private relevant-header/selector/receipt probes supply the native-input correction's
+functional controls. SUNDIALS bundled CMake regenerates SUN_JOB_ID and
+SUN_JOB_START_TIME on reconfiguration: those changed input bytes correctly change
+its Rust bindings; no identical-output or downstream-freshness claim is made for
+that case. The comparison writer preserves outputs when bytes actually match.
+The current build_libraries unit does not consume external SUNDIALS prefix selectors;
+its consumed KLU inputs are tested, while separate optional provider branches retain
+source-reviewed support pending 38g qualification.
+
+The supplier import also exposed an actual integration limit: complete source
+observation refused the larger checkout's metadata inventory. Source capture now
+allows 16 MiB per inventory and prepays 36 MiB for both simultaneous inventories
+plus existing scratch. Full-content hashing, ordering, reconfirmation, path/depth
+bounds and cancellation remain intact; no input family is elided. The existing
+startup lease retains its whole admitted allowance, so this is an additional
+32 MiB of pool charge for that observation's lifetime, not an RSS claim. Smaller
+pools may honestly refuse. The 8,192-file regression control exercises complete
+capture, final-file mutation, framing equivalence and cancellation; existing
+small-budget controls retain refusal before insertion.
+
+General authenticated host accounting, retention, unknown-record safeguards and
+disjoint functional/timing policy remain with their existing owner. No unchanged-
+artifact evidence identifies a constrained product operation requiring borrowing,
+fairness weights, a new scheduler or another ledger. Their retained outcome is
+explicit, not acceptance by supersession. Reopen only for a named operation with
+an enforceable interference/revocation/drain contract. Independent IDAES/Pyomo
+reference identity is checked separately from scientific parity; no reference result
+cache or scientific parity qualification is inferred.
+
+## Verification — focused execution, 2026-10-14
+
+Failure baseline is **zero**. Commands below ran through `scripts/pse-env` and the
+private registry `/tmp/pse38e-resources-5aLWFeeA`; canonical commands selected the
+owned v6 fixture `/tmp/pse38f-boundary-mwr7yh1f/live`. Arrow-consuming correctness
+closures explicitly enabled validation. Installed interactive builds were inspected
+only; correctness ran on explicitly validated binaries. No cache clean, alternate
+target directory/toolchain, shared-ledger migration or unknown-resource disposal
+was used. Targeted passes do not qualify the enclosing Plan 38g campaign.
+
+| Evidence | Command / conditions | Result against zero baseline |
+|---|---|---|
+| **Tested** — exact hash/float contract | `python3 -m scripts.arrow_validation nextest run --no-fail-fast -p pse-ids --lib --test golden_vectors --locked -E 'test(json_finite_float_roundtrip_is_bit_exact) \| test(frozen_canonical_float_document_vectors) \| test(the_framed_hasher_reproduces_the_frozen_vectors)'` | 3 passed; 64 unselected |
+| **Tested** — actual lower owners | `just unit-package pse-admission 'all()' --execution-effects native-local`; `just unit-package pse-relations checked_take --execution-effects native-local`; `just unit-package pse-engine 'test(cache_service::tests)' --execution-effects native-local` | 19, 9 and 14 passed respectively; 0/59/170 unselected |
+| **Tested** — nested original response ownership | `python3 -m scripts.arrow_validation nextest run --no-fail-fast -p pse-operations --lib --locked -E 'test(canonical_response_owner)'` | 3 passed; 81 unselected; corrected ordinary-test cfg leaves no warnings |
+| **Tested** — native canonical readers/cache/export | `just unit-package pse-runtime` with `--features pse-runtime/canonical-tests`, selecting standalone/public artifact prepay refusal, physical admission/final owners, connected exact-range/cancellation/export, slim completion and integral progress controls | 12 passed; 559 unselected, repeated after the source-observation correction; actual prepared inventory reused through the authenticated exclusive observer |
+| **Tested** — complete bounded source capture | `python3 -m scripts.arrow_validation nextest run --no-fail-fast -p pse-buildinfo --lib --locked -E 'test(foundation_unit)'` | 24 passed; includes 8,192-file complete inventory and small-budget refusal |
+| **Tested** — invocation, direct dispatch and allocation | `.venv/bin/python -m unittest scripts.tests.test_arrow_validation scripts.tests.test_native_tests scripts.tests.test_pse_env scripts.tests.test_python_tests scripts.tests.test_test_run scripts.tests.test_plan30_routing scripts.tests.test_execution_contracts` | 158 passed; after the final exact observer setup-field correction, affected `ManagedRustSelectionTests` independently reran: 21 passed |
+| **Tested** — actual native-local prepared execution | `just unit-package pse-ids 'test(json_finite_float_roundtrip_is_bit_exact)' --execution-effects native-local` | 1 passed; 51 unselected |
+| **Interface-checked / Tested** — selected compilation | `just check-package pse-admission`; `just check-package pse-runtime -p pse-py`; selected xtask physical-admission/native-abi checks; backend KINSOL check with `--native=klu` | Passed under locked selected-root validation; no warning claim is transferred to unselected native features |
+| **Tested** — ordinary installed boundary | `python3 -m scripts.python_tests -m 'unit or component'` selecting native registry/cache/stub/extension/settings projection files plus the equal-consumed-settings Runtime control | 23 passed with 4 admitted default pytest workers; arrays survive stream close and cancellation is observable |
+| **Tested** — linked installed normal journey | `python3 -m scripts.python_tests -n 0 -m 'unit or integration'` selecting stub surface, typed route/eligibility, cache release, live-reader/independent caller and result/progress reopen | Initial 6 passed / 2 failed solely at stale close-message assertions; corrected close controls, including already-admitted solve preservation, reran: 3 passed. The passed reopen journey exercises artifact promotion/read/retention, analysis, progress and buffered no-replace export |
+| **Tested / Measured** — entered installed SIGINT | `python3 -m pse.tests.canonical_signal_control --state <owned-state> --fixture-receipt <two-file-receipt> --exclusive-owned-instance 9b964d94-fb4b-4cdd-a23c-862459582feb --spill-directory <owned-spill>` on the linked validated extension | Completed: original exception/cause, stopped-server native pull join, discard-before-resume, retained late-response grant, exact ticket release/collection and escaped Arrow row preservation. Controlled join 0.056 s; ordinary bridge settlement 0.279 s in this deliberately stopped local-server fixture, not a general performance benchmark |
+| **Tested** — environment/reference identity | `just ready`; fresh parity interpreter distribution inspection | Ready passed after dependency-source changes and the environment-shaped diagnosis. Independent Python 3.13.15 / idaes-pse 2.13.0 / Pyomo 6.10.1 identities observed; no scientific parity or current parity-extension qualification claimed |
+
+**Measured — E-C01 same-unit freshness:** the ordinary `cargo check -p pse-runtime
+--lib --locked --features force-validate --message-format=json -vv` sequence
+plain → unused solver environment → plain used identical target/profile/features
+and output directories. Backend and Runtime stayed fresh, the backend script did
+not execute, and output bytes/mtimes stayed identical. Unused selectors were
+IPOPT_DIR, PSE_ROOT_ISOLATION_DIR, SUITESPARSE_INCLUDE_DIR,
+SUITESPARSE_LIBRARY_DIR and PSE_KLU_PROVIDER_RECEIPT. An initial mixed trial also
+changed PKG_CONFIG_PATH, which aws-lc-sys actually consumes: its TLS dependency
+chain correctly rebuilt, while the backend remained fresh. That trial is not
+claimed as an unused-input success or native backend defect.
+
+**Tested / Measured — relevant native inputs:** private coherent copies of the
+selected KLU and Uno prefixes were admitted as unmanaged external inputs, never as
+new managed qualification. The same backend KINSOL unit rebuilt SuiteSparse and
+bundled SUNDIALS after an included KLU header edit, exported macro change and
+provider-selector change; unchanged repeats were fresh. SuiteSparse's comment-only
+case preserved binding bytes and mtime. SUNDIALS's only comment-case binding changes
+were its regenerated SUN_JOB_ID/SUN_JOB_START_TIME metadata. Both bindings included
+the new probe macro. Uno's same link unit rebuilt its bridge after a private header
+edit, retained its existing build identity, then changed that identity after a
+JSON-equivalent private receipt-byte edit; its final unchanged repeat was fresh.
+The probes distinguish script execution, binding output and Rust consumer rebuild;
+they establish no elapsed-build-time or scientific speed claim. Raw temporary
+controls remain under `/tmp/pse38f-e-c01/` and
+`/tmp/pse38f-native-inputs-jnjn0afs/`; reproducible source/input routes are described
+in [supplier provenance](../../vendor/native-supplier-notes.md).
+
+**Interface-checked:** selected Cargo target/host/dev roots retain the lower
+admission, physical generator and native-ABI boundaries. Full product schemas
+legitimately retain scientific/workflow consumers. The local exact-source wiring
+keeps 33 workspace members and changes only five lockfile source associations,
+without a dependency-version or transitive-edge change. Unit counts are graph
+facts, not build-time measurements. Independent source review found and corrected
+missing standalone metadata owners and JUnit-profile handoff; the final bounded
+review found no material blocker, including the source-capture envelope correction.
+
+**Not run / unexamined:** full scientific, parity, performance, feature-powerset,
+manual governance/docs/native lint and hygiene acceptance remains with 38g, as
+explicitly selected by the maintainer. Direct delayed cancellation of each
+standalone/artifact entrypoint is not separately exercised: actual pre-dispatch
+refusal, normal artifact journeys, nested SDK owner controls and entered installed
+file cancellation supply compositional evidence. Arbitrary embedding/interposition,
+mutable SQL/UDF equivalence and separate optional external-SUNDIALS/Diffsol provider
+branches are not newly qualified. No general host-policy harm or benchmark gain
+is inferred. Prior interrupted/recovery evidence and unrelated retained allocations
+keep their original outcomes.
+
+### Installed mode matrix and aggregate generation
+
+**Tested:** all four modes were rebuilt after the source-capture correction and
+observed by fresh processes importing the actual checkout extension. Every mode
+used `python/pse/_native.abi3.so`; environment text did not certify Rust cfg flags.
+The final installed selection is linked correctness.
+
+| Mode / build command | Actual compiled features | Actual binary SHA256 / acceptance |
+|---|---|---|
+| `just py-sync` | none | `6a29c4b32760128a98a895fa647011af379c5260983efbb56ffb91865db00b20`; inspection only |
+| `just py-sync-correctness dev` | force-validate | `d9b458d59049a449c29c9a8eb2d8ffd69801f1f37c212ef8e88490cf2cd43d9f`; 23 unit/component checks and fresh two-file SIGINT control passed |
+| `just py-sync-native` | native-solvers, solver-highs | `42dd20675d0d9e3f3ab8463cb9af93216c914fdaba0593e18ba8727c87efcbc2`; inspection only |
+| `just py-sync-native-correctness` | force-validate, native-solvers, solver-highs | `c77d9b01c7bd69c01269915e0b6146b0eed66d2a07a7cd84364b9fb13ddd56cd`; final 6 stub/route/canonical artifact-progress-export checks and a fresh two-file SIGINT control passed |
+
+Earlier linked correctness artifact `5118f2776600989bae67b56de5de71852d80ee04de2b373ce7aed93a5805ce97`
+exercised the corrected three close controls. Their guard and reader/solve ownership
+source did not subsequently change; the final binary separately re-exercised the
+normal composed journey and entered cancellation. Final ordinary/linked controlled
+pull joins were 0.073/0.073 seconds, with ordinary bridge settlement 0.292/0.289
+seconds under the same deliberate stopped-server conditions. These timings are
+fixture observations, not scientific throughput or general latency claims.
+
+**Tested:** `just codegen` passed aggregate generation (Rust contracts and canonical
+schema first, then all five full-generator targets including Ipopt bindings and
+actual compiled Python stubs). No generated diff remained. Capability-specific
+checks and final aggregate generation preserve one declaration/consumer route.
+
+## Outcome — 2026-10-14
+
+**Implemented / Tested:** F1–F3 and I-F1–I-F3 are complete within the maintainer's
+selected focused acceptance. Enduring public-setting/lifetime contracts live in
+blueprint §14.3/§18.8/§21 with revision 167 and proposed ADR-0188. The development
+guide and supplier provenance own operating/source details. The dead setting,
+projections and obsolete test are removed; no shim or parallel production path
+remains. Existing qualified cache, Arrow gather and buffered export mechanisms
+are retained with their preservation constraints.
+
+The original target review accepted the bounded public contract change. Independent
+implementation review exposed standalone response owners and report-profile
+association gaps, which are corrected; its final source review found no material
+blocker. The additional complete-source allowance correction is covered by its
+independent envelope/caller assessment and actual installed controls. Proposed ADR
+status is unchanged; accepted target choices do not bypass the decision-PR route.
+
+The revealing failures were repaired rather than hidden: stale cache activation
+expectations, an integration test mislabeled unit, foreign pytest temporary-root
+ownership, asynchronous fixture-release timing and reused seed request keys,
+observer admission/setup/report transformations, the enlarged source inventory and
+stale close-message assertions. Incorrect narrow-lane/no-store invocations failed
+before tests and were retried through the proper exclusive/store route. The
+ordinary constructor's initial math.library refusal was the source metadata limit;
+configured license activation and mathematical initialization independently passed.
+All corrected focused controls now pass within their stated conditions.
+
+Owned changes are integrated on main and all three editing worktrees are removed.
+The exact private service's context/launch owners were checked drained before the
+normal quiesce → stop-with-drain route; it is inactive, listener absent, admission
+quiesced. Data and failed-attempt receipts remain available; prior 38e recovery
+evidence, unrelated allocations and the warm compiler cache are preserved. Rust,
+Python and TOML format scope excludes imported supplier trees. No cache clean,
+unknown-record deletion, shared migration override, push or decision-PR acceptance
+was performed.
+
+The companion remains retained for active 38g readers. Full assembled/scientific,
+parity, performance, hygiene/manual acceptance and combined finding closure remain
+with 38g; later other-plan reconciliation remains separately scoped. This outcome
+claims focused implementation/acceptance, not whole-product qualification.
+
+**Tested — closeout tooling:** root `just turn-end` passed ADR indexing and formatting;
+imported vendor sources have no formatter diff. Its safe-fix Ruff phase still reports
+51 repository findings against the zero target; its `--exit-zero` result is not clean
+lint evidence. Scope-owned findings were corrected, their four-file focused Ruff
+check passed and `ManagedRustSelectionTests` reran with 21 passes. The entered
+SIGINT control passed again after those helper corrections; the private service was
+then authenticated drained/quiesced/stopped again. Remaining full hygiene is 38g.
+Binary mode observations precede final formatting; current-source assembled
+qualification must rebuild its artifacts rather than promote these focused receipts.
+
+A bounded operational lead for 38g's manual checks remains: the pre-existing CLI
+`start` result can print its pre-start admission snapshot even when fresh config
+already records open admission. Fresh configuration and authenticated owner checks,
+not that console snapshot, established this fixture's admission and final drain.
+No lifecycle guard was bypassed or weakened during the controls.

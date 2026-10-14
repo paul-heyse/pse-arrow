@@ -1,7 +1,7 @@
 ---
 title: Efficiency and the common solver target
 status: in-progress
-date: 2026-10-13
+date: 2026-10-14
 adrs: []
 review_sources:
   - docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md
@@ -21,9 +21,9 @@ This standalone series adopts the reconciled conclusions of the [independent aud
 
 The target is the best-in-class simulator of the profile and blueprint §0/§0.2: value edit → re-solve without structural rebuilding; sweeps, sensitivities, optimization and fitting; recycles/tears; dynamics from the same definitions; unit/property/solver extension; and compilation/testing with actual dependencies. Core 3.4, Efficient Architecture 1.0 and Process Simulator 1.5 guide choices. Current ADRs, policies and pins describe the subject and amendment routes.
 
-**Plan authoring is authorized; this does not authorize product implementation.** All changes/checks below are **Proposed**. The [rule recommendations](#rule-decisions) have explicit operator acceptance; their conditional choices remain bounded by the recorded decisions. This series supersedes remaining Plan 36 execution; it does not resolve its findings or turn stopped/failed acceptance into a pass.
+The original authoring request authorized plan documents only; its targets/checks were **Proposed**. Subsequent packet execution requests authorize the implementation recorded in the checkpoints and companion outcomes below. The [rule recommendations](#rule-decisions) have explicit operator acceptance; their conditional choices remain bounded by the recorded decisions. This series supersedes remaining Plan 36 execution; it does not resolve its findings or turn stopped/failed acceptance into a pass.
 
-The authoring boundary is eight new documents plus supersession notices/metadata in all six Plan 36 documents. Existing reviews, architecture, ADRs, other plans, indexes/status documents and publication/lifecycle policy remain unchanged. Required governing amendments are future execution dependencies. Updating other plan/status/index documents is a separately requested step after this series is fully implemented.
+The original authoring boundary was eight new documents plus supersession notices/metadata in all six Plan 36 documents. Execution installs its governing amendments through their decision routes. Reconciliation of other active plans remains a separately requested step after this series is fully implemented; companion completion does not authorize their resumption or qualification.
 
 Baseline: `6c368c88acda548d421b44e8fc4f457c95bcec7e`, inspected 2026-10-13, with the source review/audit/evidence and their existing index edit uncommitted. No product commit changed the audit baseline. Source/manifests are **Interface-checked**; no product builds, probes, tests, services or measurements ran during authoring. Historical implementation and evidence retain their original conditions.
 
@@ -352,3 +352,36 @@ terminal outcome unproved. No selected 38e task remains.
 remain open. General DataFusion file caches remain truthfully inactive; no throughput or power-loss
 claim follows from 38e. Shared findings close only through G4's combined evidence. Substantive
 updates to other active plans and historical campaigns remain deferred until series completion.
+
+## Execution checkpoint — Plan 38f, 2026-10-14
+
+[38f's investigation outcomes and focused verification](38f-boundaries-build-test-and-development.md#investigation-outcomes--2026-10-14)
+own F1–F3 and I-F1–I-F3. The implementation retains exact original reader/response
+ownership, consumes only real Runtime settings, reuses one validated invocation's
+executable inventory, derives admitted default widths and observes native build
+inputs at their actual consumers. Five exact local supplier sources preserve
+upstream numerical trees/features and correct input watches/generated writes.
+Complete source capture includes those trees under a correspondingly prepaid
+bounded envelope. No source family, native capability or authenticated host guard
+is removed to make acceptance pass.
+
+Proposed ADR-0188, its independent target review and blueprint revision 167 precede
+the public setting removal. The operator explicitly accepted removal of its
+accidental equality refusal; actual remaining settings still control shared Runtime
+compatibility. ADR status remains proposed pending its decision-PR route.
+
+**Implemented / Tested:** the bounded 38f controls include actual ordinary/linked
+Python modes, entered two-file SIGINT and late SDK drain, normal canonical
+artifact/progress/result/export journeys, exact physical cache owners, selected
+Cargo roots and relevant/irrelevant native-input controls. The companion records
+initial failures, repairs and exact evidence limits. These outcomes complete its
+focused scope, not whole-series finding dispositions or scientific qualification.
+
+Next is separately scoped [38g](38g-qualification-and-cutover.md) planning/execution:
+assembled scientific, parity, performance, hygiene and manual acceptance, final
+combined finding closure and cutover. Prior stopped campaigns remain stopped;
+other active-plan reconciliation/resumption is not authorized by this checkpoint.
+Owned 38f changes are integrated on main, editing worktrees are removed and its
+private service is drained/quiesced at handoff. Retained data/evidence and unrelated
+allocations keep their original ownership and outcomes. The completed companion
+remains available to the active qualification reader rather than being retired early.

@@ -85,10 +85,9 @@ impl ResultSnapshot {
             response
                 .try_grow(READ_BYTES)
                 .map_err(pse_engine::EngineError::from)?;
-            let (page, descriptors) =
-                pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), response.clone())),
-                    async {
+            let (page, descriptors) = pse_operations::canonical::response_ownership_scope(
+                Arc::new((read.clone(), response.clone())),
+                async {
                     let page = runtime
                         .canonical_store()?
                         .result_block_page(
@@ -107,9 +106,9 @@ impl ResultSnapshot {
                         .result_file_batch_descriptors(&read, set, &ordinals)
                         .await?;
                     Ok::<_, WorkflowError>((page, descriptors))
-                    },
-                )
-                .await?;
+                },
+            )
+            .await?;
             if page.len() != descriptors.len() {
                 return Err(contract("snapshot descriptor coverage differs"));
             }

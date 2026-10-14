@@ -58,7 +58,10 @@ fn main() -> Result<()> {
         return Ok(());
     }
     #[cfg(not(feature = "package-fixtures"))]
-    ensure!(!cli.seed_signal_results, "signal fixture requires package-fixtures and force-validate");
+    ensure!(
+        !cli.seed_signal_results,
+        "signal fixture requires package-fixtures and force-validate"
+    );
     let state = cli.state.as_deref().context("missing recovery state")?;
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -67,9 +70,15 @@ fn main() -> Result<()> {
     if cli.seed_signal_results {
         #[cfg(feature = "package-fixtures")]
         {
-            let destination = cli.signal_results_receipt.as_ref().context("missing signal receipt")?;
+            let destination = cli
+                .signal_results_receipt
+                .as_ref()
+                .context("missing signal receipt")?;
             // Refuse an existing receipt before creating any new store effects.
-            let output = std::fs::OpenOptions::new().create_new(true).write(true).open(destination)?;
+            let output = std::fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(destination)?;
             let receipt = executor.block_on(canonical_recovery::seed_signal_results(state))?;
             serde_json::to_writer(output, &receipt)?;
             println!("{receipt}");
@@ -234,8 +243,24 @@ mod tests {
     #[test]
     fn signal_results_requires_a_distinct_receipt_and_excludes_recovery_seed() -> Result<()> {
         assert!(Cli::try_parse_from(["recovery", "state", "--seed-signal-results"]).is_err());
-        assert!(Cli::try_parse_from(["recovery", "state", "--seed", "--seed-signal-results", "--signal-results-receipt", "signal.json"]).is_err());
-        let cli = Cli::try_parse_from(["recovery", "state", "--seed-signal-results", "--signal-results-receipt", "signal.json"])?;
+        assert!(
+            Cli::try_parse_from([
+                "recovery",
+                "state",
+                "--seed",
+                "--seed-signal-results",
+                "--signal-results-receipt",
+                "signal.json"
+            ])
+            .is_err()
+        );
+        let cli = Cli::try_parse_from([
+            "recovery",
+            "state",
+            "--seed-signal-results",
+            "--signal-results-receipt",
+            "signal.json",
+        ])?;
         assert!(cli.seed_signal_results);
         Ok(())
     }

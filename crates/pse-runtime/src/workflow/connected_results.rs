@@ -288,10 +288,9 @@ impl CanonicalResultReader {
                     return Ok(None);
                 }
                 let owner = response_owner(&self.runtime, "canonical:result-metadata")?;
-                let page =
-                    pse_operations::canonical::response_ownership_scope(
-                        Arc::new((self.read.clone(), owner.clone())),
-                        async {
+                let page = pse_operations::canonical::response_ownership_scope(
+                    Arc::new((self.read.clone(), owner.clone())),
+                    async {
                         let page = if let Some(filter) = &self.output {
                             let page = self
                                 .runtime
@@ -360,9 +359,9 @@ impl CanonicalResultReader {
                             page
                         };
                         Ok::<_, WorkflowError>(page)
-                        },
-                    )
-                    .await?;
+                    },
+                )
+                .await?;
                 self.pending = page.into();
                 self.metadata_owner = Some(owner);
                 if self.pending.is_empty() {

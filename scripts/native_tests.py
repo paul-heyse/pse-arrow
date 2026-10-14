@@ -17,7 +17,13 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import arrow_validation, host_admission, pse_env, python_extension, surreal_server
+from scripts import (
+    arrow_validation,
+    host_admission,
+    pse_env,
+    python_extension,
+    surreal_server,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -237,7 +243,9 @@ def rust_source_identity() -> dict:
     files = input_identity("rust-product", validation.sources(ROOT), {})["files"]
     # Local configuration is intentionally untracked, but still an actual input.
     local = ROOT / ".envrc.local"
-    files[".envrc.local"] = hashlib.sha256(b"file:" + local.read_bytes() if local.is_file() else b"absent").hexdigest()
+    files[".envrc.local"] = hashlib.sha256(
+        b"file:" + local.read_bytes() if local.is_file() else b"absent"
+    ).hexdigest()
     for name in list(files):
         path = ROOT / name
         if path.is_symlink() and path.is_file():
@@ -245,13 +253,20 @@ def rust_source_identity() -> dict:
     return files
 
 
-def rust_configuration_paths(arguments: list[str], environment: Mapping[str, str]) -> list[str]:
+def rust_configuration_paths(
+    arguments: list[str], environment: Mapping[str, str]
+) -> list[str]:
     paths = {
         str(parent / ".cargo" / name)
         for parent in (ROOT, *ROOT.parents)
         for name in ("config", "config.toml")
     }
-    cargo_home = Path(environment.get("CARGO_HOME", str(Path(environment.get("HOME", str(Path.home()))) / ".cargo")))
+    cargo_home = Path(
+        environment.get(
+            "CARGO_HOME",
+            str(Path(environment.get("HOME", str(Path.home()))) / ".cargo"),
+        )
+    )
     paths.update(str(cargo_home / name) for name in ("config", "config.toml"))
     index = 0
     while index < len(arguments):
@@ -273,7 +288,9 @@ def rust_configuration_paths(arguments: list[str], environment: Mapping[str, str
 
 def rust_configuration_identity(paths: list[str]) -> dict[str, str]:
     return {
-        name: hashlib.sha256(b"file:" + Path(name).read_bytes() if Path(name).is_file() else b"absent").hexdigest()
+        name: hashlib.sha256(
+            b"file:" + Path(name).read_bytes() if Path(name).is_file() else b"absent"
+        ).hexdigest()
         for name in paths
     }
 
@@ -284,13 +301,26 @@ def rust_configuration_identity(paths: list[str]) -> dict[str, str]:
 # hashed so credentials cannot leak into the retained association.
 RUST_EXECUTION_ENVIRONMENT = frozenset(
     {
-        "PSE_NATIVE_PROVENANCE", "PSE_NATIVE_SELECTION", "PSE_TEST_INVOCATION",
-        "PSE_TEST_EXECUTION_PROFILE", "PSE_TEST_EXECUTION_EFFECTS",
-        "PSE_RUST_OBSERVER_CHILD", "PSE_RUST_TERMINAL_OWNER",
-        "PSE_NATIVE_OPERATION", "PSE_NATIVE_HANDOFF", "PSE_NATIVE_WORKER_SLOT",
-        "PSE_NATIVE_WORKER_MEMORY_BYTES", "PSE_MEMORY_MAX", "PSE_SURREAL_STATE",
-        "PSE_HOST_ALLOCATION", "PSE_ADMISSION_DEADLINE", "PSE_RESOURCE_CLASS",
-        "INVOCATION_ID", "JOURNAL_STREAM", "SYSTEMD_EXEC_PID",
+        "PSE_NATIVE_PROVENANCE",
+        "PSE_NATIVE_SELECTION",
+        "PSE_TEST_INVOCATION",
+        "PSE_TEST_EXECUTION_PROFILE",
+        "PSE_TEST_EXECUTION_EFFECTS",
+        "PSE_RUST_OBSERVER_CHILD",
+        "PSE_RUST_TERMINAL_OWNER",
+        "PSE_NATIVE_OPERATION",
+        "PSE_NATIVE_HANDOFF",
+        "PSE_NATIVE_WORKER_SLOT",
+        "PSE_NATIVE_WORKER_MEMORY_BYTES",
+        "PSE_MEMORY_MAX",
+        "PSE_SURREAL_STATE",
+        "PSE_HOST_ALLOCATION",
+        "PSE_ADMISSION_DEADLINE",
+        "PSE_RESOURCE_CLASS",
+        "PSE_NATIVE_SETUP_PYTHON",
+        "INVOCATION_ID",
+        "JOURNAL_STREAM",
+        "SYSTEMD_EXEC_PID",
     }
 )
 
@@ -334,7 +364,9 @@ def rust_selection_identity(arguments: list[str]) -> dict:
                 if index == len(arguments):
                     raise ValueError(f"{name} requires a value")
                 value = arguments[index]
-            tool, path = value.split(":", 1) if name == "--tool-config-file" else ("", value)
+            tool, path = (
+                value.split(":", 1) if name == "--tool-config-file" else ("", value)
+            )
             config = tomllib.loads(Path(path).read_text())
             # The terminal composer can add or relocate a JUnit report, including
             # captured failure output. These fields do not select/run tests.
@@ -353,7 +385,10 @@ def rust_selection_identity(arguments: list[str]) -> dict:
 
 
 def prepared_rust_inventory(
-    arguments: list[str], environment: Mapping[str, str], *, inventory: Mapping | None = None
+    arguments: list[str],
+    environment: Mapping[str, str],
+    *,
+    inventory: Mapping | None = None,
 ) -> dict:
     """Verify one prepared invocation before reusing its exact executable catalog."""
     provenance = environment.get("PSE_NATIVE_PROVENANCE")
@@ -363,21 +398,47 @@ def prepared_rust_inventory(
     prepared = native.get("rust_invocation")
     if not isinstance(prepared, dict) or prepared.get("schema") != "prepared-rust-v1":
         raise ValueError("Unknown Rust preparation identity")
-    required = {"source", "environment", "selection", "configuration", "unit_graph", "inventory", "binaries_metadata", "cargo_metadata"}
-    if not required.issubset(prepared) or not isinstance(prepared["unit_graph"], dict) or prepared["unit_graph"].get("version") != 1:
+    required = {
+        "source",
+        "environment",
+        "selection",
+        "configuration",
+        "unit_graph",
+        "inventory",
+        "binaries_metadata",
+        "cargo_metadata",
+    }
+    if (
+        not required.issubset(prepared)
+        or not isinstance(prepared["unit_graph"], dict)
+        or prepared["unit_graph"].get("version") != 1
+    ):
         raise ValueError("Unknown Rust preparation inputs or unit graph")
     if prepared["source"] != rust_source_identity():
         raise ValueError("Rust source or configuration changed after preparation")
-    if prepared["configuration"] != rust_configuration_identity(list(prepared["configuration"])):
+    if prepared["configuration"] != rust_configuration_identity(
+        list(prepared["configuration"])
+    ):
         raise ValueError("Rust Cargo configuration changed after preparation")
-    if prepared["environment"] != rust_environment_identity(environment):
-        raise ValueError("Rust environment changed after preparation")
+    actual_environment = rust_environment_identity(environment)
+    if prepared["environment"] != actual_environment:
+        names = sorted(
+            name
+            for name in prepared["environment"].keys() | actual_environment.keys()
+            if prepared["environment"].get(name) != actual_environment.get(name)
+        )
+        raise ValueError(
+            "Rust environment changed after preparation: " + ", ".join(names)
+        )
     if prepared["selection"] != rust_selection_identity(arguments):
         raise ValueError("Rust selection differs from prepared invocation")
     files = native.get("files")
     if not isinstance(files, dict) or not files:
         raise ValueError("Rust preparation lacks artifact identity")
-    if any(prepared[key] not in files for key in ("inventory", "binaries_metadata", "cargo_metadata")):
+    if any(
+        prepared[key] not in files
+        for key in ("inventory", "binaries_metadata", "cargo_metadata")
+    ):
         raise ValueError("Rust preparation metadata is outside artifact provenance")
     for name, expected in files.items():
         if validation_receipts.digest(Path(name)) != expected:
@@ -391,21 +452,42 @@ def prepared_rust_inventory(
         position = arguments.index(option) + 1
         if position >= len(arguments) or arguments[position] != prepared[key]:
             raise ValueError("Rust metadata differs from prepared invocation")
-    retained = validation_receipts.native_inventory(Path(prepared["inventory"]).read_text())
+    retained = validation_receipts.native_inventory(
+        Path(prepared["inventory"]).read_text()
+    )
     if inventory is not None and inventory != retained:
         raise ValueError("Rust inventory differs from prepared invocation")
-    binaries = json.loads(Path(prepared["binaries_metadata"]).read_text()).get("rust-binaries")
+    binaries = json.loads(Path(prepared["binaries_metadata"]).read_text()).get(
+        "rust-binaries"
+    )
     packages = json.loads(Path(prepared["cargo_metadata"]).read_text()).get("packages")
     graph = prepared["unit_graph"]
-    if not isinstance(binaries, dict) or not isinstance(packages, list) or not isinstance(graph.get("units"), list) or not isinstance(graph.get("roots"), list):
-        raise ValueError("Unknown Rust package, binary or unit association")
+    if (
+        not isinstance(binaries, dict)
+        or not isinstance(packages, list)
+        or not isinstance(graph.get("units"), list)
+        or not isinstance(graph.get("roots"), list)
+    ):
+        raise TypeError("Invalid Rust package, binary or unit metadata shape")
     package_ids = {package["id"] for package in packages}
     roots = [graph["units"][index] for index in graph["roots"]]
     for suite in retained["rust-suites"].values():
-        if any(test["filter-match"]["status"] == "matches" for test in suite["testcases"].values()):
+        if any(
+            test["filter-match"]["status"] == "matches"
+            for test in suite["testcases"].values()
+        ):
             binary = binaries.get(suite["binary-id"])
-            keys = ("binary-id", "binary-name", "package-id", "kind", "binary-path", "build-platform")
-            if not isinstance(binary, dict) or any(key not in suite or suite[key] != binary.get(key) for key in keys):
+            keys = (
+                "binary-id",
+                "binary-name",
+                "package-id",
+                "kind",
+                "binary-path",
+                "build-platform",
+            )
+            if not isinstance(binary, dict) or any(
+                key not in suite or suite[key] != binary.get(key) for key in keys
+            ):
                 raise ValueError("Rust suite differs from prepared binary metadata")
             if binary["package-id"] not in package_ids or not any(
                 unit["pkg_id"] == binary["package-id"]
@@ -501,7 +583,12 @@ def python_command(extra: list[str], *, managed: bool = False) -> list[str]:
         *(
             []
             if managed
-            else ["-n", str(pse_env.default_test_width(os.environ)), "--dist", "loadgroup"]
+            else [
+                "-n",
+                str(pse_env.default_test_width(os.environ)),
+                "--dist",
+                "loadgroup",
+            ]
         ),
         *forwarded,
         "-m",
@@ -834,7 +921,9 @@ def _rust_capture(
     ).resolve()
     for destination in (provenance, selected, binary_metadata, cargo_metadata):
         destination.parent.mkdir(parents=True, exist_ok=True)
-    environment = rust_test_environment(os.environ if environment is None else environment)
+    environment = rust_test_environment(
+        os.environ if environment is None else environment
+    )
     source = rust_source_identity()
     configuration_paths = rust_configuration_paths(scoped, environment)
     configuration = rust_configuration_identity(configuration_paths)
@@ -1071,7 +1160,9 @@ def managed_rust_run(extra: list[str], provenance: Path) -> int:
     prepared = native.get("rust_invocation")
     if not isinstance(prepared, dict) or prepared.get("schema") != "prepared-rust-v1":
         raise ValueError("Unknown Rust preparation identity")
-    inventory = validation_receipts.native_inventory(Path(prepared["inventory"]).read_text())
+    inventory = validation_receipts.native_inventory(
+        Path(prepared["inventory"]).read_text()
+    )
     native["execution"] = observer_execution(environment)
     validation.write_json(provenance, native)
     from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle

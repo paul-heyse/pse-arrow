@@ -38,7 +38,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let dir = Path::new(&dir);
         println!("cargo:rustc-link-search=native={}/lib", dir.display());
         println!("cargo:rustc-link-lib=dylib=ipopt");
-        println!("cargo:rerun-if-changed={}", dir.join("lib/libipopt.so").display());
+        println!(
+            "cargo:rerun-if-changed={}",
+            dir.join("lib/libipopt.so").display()
+        );
         let pc = dir.join("lib/pkgconfig/ipopt.pc");
         println!("cargo:rerun-if-changed={}", pc.display());
         version_from_pc(&pc)?

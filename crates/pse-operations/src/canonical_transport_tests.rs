@@ -622,7 +622,9 @@ async fn response_ownership_late_frame(spawned_acquisition: bool, second_metadat
     if second_metadata_rpc {
         assert_eq!(
             tokio::time::timeout(Duration::from_secs(2), requests.recv())
-                .await.unwrap().unwrap(),
+                .await
+                .unwrap()
+                .unwrap(),
             "RETURN 'FIRST_METADATA'"
         );
     }
@@ -640,8 +642,10 @@ async fn response_ownership_late_frame(spawned_acquisition: bool, second_metadat
         3 * GRANT,
         "original request grants must survive caller abandonment"
     );
-    assert!(original_ticket.upgrade().is_some(),
-        "the original strong read ticket must survive caller abandonment");
+    assert!(
+        original_ticket.upgrade().is_some(),
+        "the original strong read ticket must survive caller abandonment"
+    );
     let next = MemoryConsumer::new("unit:canonical-response-reuse").register(&pool);
     assert!(
         next.try_grow(1).is_err(),
@@ -659,8 +663,10 @@ async fn response_ownership_late_frame(spawned_acquisition: bool, second_metadat
     })
     .await
     .unwrap();
-    assert!(original_ticket.upgrade().is_none(),
-        "the exact read ticket must release after the actual late frame drains");
+    assert!(
+        original_ticket.upgrade().is_none(),
+        "the exact read ticket must release after the actual late frame drains"
+    );
     next.try_grow(3 * GRANT).unwrap();
     drop(next);
     assert_eq!(pool.reserved(), 0);

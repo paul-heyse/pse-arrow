@@ -6,7 +6,10 @@ use std::{fs, path::Path};
 /// Full synchronous observation envelope, including simultaneously live inventories,
 /// bounded proc/configuration buffers, traversal frames and streamed encoding scratch.
 /// Runtime jobs reserve this allowance before entering the observation owner.
-pub const OBSERVATION_WORK_BYTES: usize = 4 << 20;
+pub const OBSERVATION_WORK_BYTES: usize = 2 * SOURCE_METADATA_BYTES + (4 << 20);
+// Complete imported native trees are source inputs too. Reconfirmation temporarily
+// retains two inventories; each has this independently enforced finite allowance.
+const SOURCE_METADATA_BYTES: usize = 16 << 20;
 /// Supported composition roots bound configuration generation before Rust allocation.
 pub const MAX_CONFIGURATION_BYTES: usize = 64 << 10;
 const METADATA_BYTES: usize = 1 << 20;
@@ -1476,7 +1479,7 @@ fn source_paths(
     let mut files = Vec::new();
     let mut budget = MetadataBudget {
         used: 0,
-        limit: 3 << 19,
+        limit: SOURCE_METADATA_BYTES,
     };
     budget.path(root, 1)?;
     for name in ["crates", "vendor", "xtask", "python", "scripts"] {
@@ -1704,6 +1707,52 @@ mod foundation_unit {
         assert_ne!(observed.source, super::observe_outer(root).unwrap().source);
         // Retained startup context remains its original observation.
         assert_eq!(observed.git_sha, "sdist");
+    }
+
+    #[test]
+    fn outer_observation_retains_complete_large_native_supplier_inventory() {
+        let directory = outer_fixture();
+        let root = directory.path();
+        let native = root.join("vendor/supplier/native/include");
+        fs::create_dir_all(&native).unwrap();
+        for n in 0..8192 {
+            fs::write(
+                native.join(format!("complete-source-input-{n:05}.h")),
+                n.to_string(),
+            )
+            .unwrap();
+        }
+        let paths = super::source_paths(root, &|| Ok(())).unwrap();
+        assert_eq!(paths.len(), 8192);
+        assert!(paths.windows(2).all(|pair| pair[0].0 < pair[1].0));
+        let observed = super::observe_outer_scoped(root, &|| Ok(())).unwrap();
+        assert_eq!(
+            observed.source,
+            Some(super::digest(super::source_files(root).unwrap()))
+        );
+        fs::write(
+            native.join("complete-source-input-08191.h"),
+            b"changed final input",
+        )
+        .unwrap();
+        assert_ne!(
+            observed.source,
+            super::observe_outer_scoped(root, &|| Ok(()))
+                .unwrap()
+                .source
+        );
+        let cancelled = || {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                "original stop",
+            ))
+        };
+        assert_eq!(
+            super::observe_outer_scoped(root, &cancelled)
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::Interrupted
+        );
     }
 
     #[test]

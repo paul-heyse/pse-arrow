@@ -66,9 +66,15 @@ class Cargo:
 class ScopedValidationTests(unittest.TestCase):
     def test_resolution_retains_full_cargo_profile_and_target_payload(self) -> None:
         selected = graph([unit("pure")])
-        selected["units"][0]["profile"] = {"opt_level": "3", "panic": "unwind", "debug_assertions": False}
+        selected["units"][0]["profile"] = {
+            "opt_level": "3",
+            "panic": "unwind",
+            "debug_assertions": False,
+        }
         selected["units"][0]["target"]["crate_types"] = ["rlib"]
-        result = resolve(["cargo", "test", "-p", "pure"], run=Cargo([package("pure")], selected))
+        result = resolve(
+            ["cargo", "test", "-p", "pure"], run=Cargo([package("pure")], selected)
+        )
         self.assertEqual(msgspec.json.decode(result.unit_graph), selected)
 
     def test_pure_normal_build_and_selected_dev_units_need_no_opt_in(self) -> None:

@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-07, DP-16]
 blueprint: [§14.3, §18.8, §21]
 review: docs/design_review/reviews/design_review_consumed-runtime-settings_2026-10-14.md
-evidence: Proposed
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A concrete hashing operation needs an independently selected scheduling policy.
@@ -68,6 +68,14 @@ Retain exact hash vectors and explicit Arrow validation in actual correctness cl
 The linked bounded review evaluates the proposed boundary before implementation. Plan38f owns
 current implementation and targeted acceptance evidence; Plan38g owns assembled qualification.
 ADR status remains proposed until the repository's decision-PR route is completed.
+
+**Implemented / Tested (2026-10-14):** the field and public projections are removed,
+and the rebuilt extension generates their actual absence. The installed validated
+`test_process_runtime_reuses_equal_consumed_settings_and_refuses_conflicts` passes
+within the 23-test `scripts.python_tests` boundary selection. The selected `pse-ids`
+JSON float/framed-hash golden controls pass (3 tests, zero failures). Plan38f records
+the actual commands, mode hashes and limits; these do not establish assembled
+Plan38g qualification or change this record's proposed status.
 
 ## Pros and cons
 
