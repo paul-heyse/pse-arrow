@@ -4,9 +4,7 @@
 //! Exact canonical result selections over protected native files. Original row
 //! coordinates select recorded coverage; missing ranges stay missing.
 
-use super::{Runtime, WorkflowError, contract, result_blocks};
-#[cfg(test)]
-use super::result_files;
+use super::{Runtime, WorkflowError, contract, result_blocks, result_files};
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{
     CancellationToken, MemoryConsumer, MemoryReservation,
@@ -23,7 +21,7 @@ use std::{
 use std::time::Duration;
 // Metadata RPC responses have their own prepaid scope. Actual native file
 // footer/body allocations use file-shaped grants in ResultSnapshot.
-const READ_BYTES: usize = 3 * super::result_files::MAX_FILE_BYTES;
+const READ_BYTES: usize = 3 * result_files::MAX_FILE_BYTES;
 
 fn response_owner(
     runtime: &Runtime,
