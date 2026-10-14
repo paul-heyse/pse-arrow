@@ -58,6 +58,8 @@ class PayloadLifecycleTests(unittest.TestCase):
             rows = self.owners if "canonical_file_owners" in body else self.instances
             after = json.loads(body.split("key>", 1)[1].split(" ORDER BY", 1)[0])
             return [dict(row) for row in sorted(rows, key=lambda row: row["key"]) if row["key"] > after][:64]
+        if "SET frozen=false,gc_frozen=true" in body:
+            return True
         if "$marker=SELECT" in body:
             return {"payload_incarnation": self.config["payload_incarnation"], "interpretation": self.config["interpretation"]}
         if "drain_owner" in body:
