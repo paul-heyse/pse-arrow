@@ -27,9 +27,12 @@ DEFINE FUNCTION fn::pse_artifact_v1::authority($rpc_expiry:int,$row:object) -> o
 };
 // Recovery validates the original immutable intent without granting content access.
 DEFINE FUNCTION fn::pse_artifact_v1::original($rpc_expiry:int,$intent:object) -> object {
-    LET $guard=fn::pse_artifact_v1::authority($rpc_expiry,$intent);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
     LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$intent.key) FOR UPDATE;
+    IF $guard=NONE OR $intent.key!='pse.artifact.v1:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'artifact original settlement authority unavailable'; };
     IF $row!=NONE AND object::remove($row,['id','active','retiring'])!=object::remove($intent,['active','retiring']) { THROW 'artifact recovery requires exact original intent'; };
+    IF $guard.incarnation!=$intent.primary_authority AND $row=NONE { THROW 'historical artifact settlement receipt unavailable'; };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $guard;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::available($rpc_expiry:int,$key:string) -> object {
@@ -170,7 +173,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     };
     IF array::len($reads)=64 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     IF $row!=NONE { UPDATE ONLY type::record('canonical_artifacts',$intent.key) SET retiring=true; };
-    IF time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+    IF $guard.incarnation=$intent.primary_authority AND time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
     LET $blocks=SELECT id,key FROM canonical_artifact_blocks WHERE artifact=$intent.key ORDER BY ordinal LIMIT 64;
     IF array::len($blocks)!=0 { FOR $block IN $blocks { fn::pse_files_v1::release_borrower($rpc_expiry,'artifact:'+$block.key); }; DELETE $blocks.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $inputs=SELECT id,run FROM canonical_artifact_staging_inputs WHERE artifact=$intent.key ORDER BY key LIMIT 64;
@@ -179,8 +182,14 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='artifact' AND owner=$intent.key ORDER BY key LIMIT 64;
     FOR $root IN $roots { SELECT * FROM ONLY type::record('canonical_guards','retention:'+$root.problem) FOR UPDATE; };
     IF array::len($roots)!=0 { DELETE $roots.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
-    UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET artifact_creation_closed_through=math::max([artifact_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
-    DELETE ONLY type::record('canonical_artifacts',$intent.key);
+    IF $guard.incarnation=$intent.primary_authority {
+        UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET artifact_creation_closed_through=math::max([artifact_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
+        DELETE ONLY type::record('canonical_artifacts',$intent.key);
+    } ELSE {
+        // Original historical authority is already fenced. Retain its exact
+        // terminal receipt for lost-reply settlement, without touching a new floor.
+        UPDATE ONLY type::record('canonical_artifacts',$intent.key) SET active=false,retiring=true;
+    };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:true,waiting:false};
 };
 "#;

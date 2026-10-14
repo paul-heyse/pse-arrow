@@ -830,4 +830,19 @@ mod canonical_artifact_tests {
         let block=remaining.block(0).await.unwrap();assert_eq!(block.payload,blocks[0].payload);remaining.release().await.unwrap();store.remove_isolated_fixture().await.unwrap();
     }
 
+    #[tokio::test]
+    async fn canonical_historical_artifact_cleanup_retains_exact_receipt_without_advancing_new_floor(){
+        let (store,revision)=fixture().await;let (intent,blocks)=content(&store,&revision,"user","historical").await;
+        store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","historical").await.unwrap();
+        let authority=uuid::Uuid::new_v4().to_string();
+        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET incarnation=$authority,artifact_creation_closed_through=19dec;").bind(("problem",revision.problem.clone())).bind(("authority",authority.clone()))).await.unwrap();
+        assert!(store.artifact(&intent.key).await.unwrap().active);
+        store.release_artifact(&intent.key,"user","historical").await.unwrap();
+        let mut complete=false;for _ in 0..8{complete=store.collect_artifact(&intent).await.unwrap();if complete{break;}}assert!(complete);assert!(store.collect_artifact(&intent).await.unwrap());
+        assert!(store.artifact(&intent.key).await.is_err());assert!(store.retain_artifact(&intent.key,"user","late").await.is_err());assert!(store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","historical").await.is_err());
+        let mut row=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_artifacts',$key);").bind(("key",intent.key.clone()))).await.unwrap();let terminal=wire::decode_canonical_artifacts(row.take::<Option<Object>>(0).unwrap().unwrap()).unwrap();assert!(terminal.retiring);assert!(!terminal.active);assert_eq!(terminal.creation_request_digest,intent.creation_request_digest);
+        let mut floor=bounded_query(store.db.query("RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).artifact_creation_closed_through;").bind(("problem",revision.problem.clone()))).await.unwrap();assert_eq!(codec::decode_uint(floor.take(0).unwrap()).unwrap(),19);
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
 }

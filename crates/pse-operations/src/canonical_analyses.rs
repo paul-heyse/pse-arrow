@@ -968,4 +968,16 @@ mod canonical_analyses_server_unit {
         assert!(store.forget_analysis_results("unknown-key").await.is_err());
         store.remove_isolated_fixture().await.unwrap();
     }
+    #[tokio::test]
+    async fn canonical_historical_analysis_cleanup_replays_original_receipt_and_fences_old_creation(){
+        let state=std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");let mut options=CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();options.database=format!("canonical_test_analysis_restore_{}",uuid::Uuid::new_v4().simple());let store=crate::testing::canonical_fixture_with_options(&options,true).unwrap();let revision=store.edit("restore-source",None,"initial",&[]).await.unwrap();
+        let mut intent=store.new_analysis(&revision,"historical:v1",vec![1],"input".into(),0,0).await.unwrap();seal_analysis_request(&mut intent,std::slice::from_ref(&revision),&[],&[],&[]);store.persist_analysis(&intent,std::slice::from_ref(&revision),&[],&[],&[]).await.unwrap();
+        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET incarnation=$authority,analysis_creation_closed_through=23dec;").bind(("problem",revision.problem.clone())).bind(("authority",uuid::Uuid::new_v4().to_string()))).await.unwrap();assert!(store.analysis(&intent.key).await.unwrap().active);
+        let mut complete=false;for _ in 0..8{complete=store.forget_analysis_results(&intent.key).await.unwrap();if complete{break;}}assert!(complete);assert!(store.settle_analysis(&intent).await.unwrap());assert!(store.forget_analysis_results(&intent.key).await.unwrap());
+        assert!(store.analysis(&intent.key).await.is_err());assert!(store.persist_analysis(&intent,std::slice::from_ref(&revision),&[],&[],&[]).await.is_err());
+        let mut row=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_analyses',$key);").bind(("key",intent.key.clone()))).await.unwrap();let terminal=wire::decode_canonical_analyses(row.take::<Option<Object>>(0).unwrap().unwrap()).unwrap();assert!(terminal.retiring);assert!(!terminal.active);assert_eq!(terminal.creation_request_digest,intent.creation_request_digest);
+        let mut floor=bounded_query(store.db.query("RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).analysis_creation_closed_through;").bind(("problem",revision.problem.clone()))).await.unwrap();assert_eq!(codec::decode_uint(floor.take(0).unwrap()).unwrap(),23);
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
 }

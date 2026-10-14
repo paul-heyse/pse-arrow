@@ -66,7 +66,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
         DELETE $roots.id;
         fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false};
     };
-    IF time::micros()<$header.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+    LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$header.primary_problem) FOR UPDATE;
+    IF $authority=NONE { THROW 'analysis original settlement authority unavailable'; };
+    IF $authority.incarnation=$header.primary_authority AND time::micros()<$header.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
     RETURN fn::pse_retention_v1::settle_analysis($rpc_expiry,$header);
 };
 
@@ -74,18 +76,22 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:ob
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$intent.key) FOR UPDATE;
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
-    IF $guard=NONE OR $guard.incarnation!=$intent.primary_authority { THROW 'analysis settlement authority unavailable'; };
+    IF $guard=NONE OR ($guard.incarnation!=$intent.primary_authority AND $header=NONE) { THROW 'analysis settlement authority unavailable'; };
     IF $intent.key!='pse.analysis.v2:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'analysis settlement key binding'; };
-    IF time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-    IF $header!=NONE AND ($header.primary_authority!=$intent.primary_authority OR $header.creation_expires_at!=$intent.creation_expires_at) { THROW 'analysis settlement requires original occurrence'; };
+    IF $guard.incarnation=$intent.primary_authority AND time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+    IF $header!=NONE AND object::remove($header,['id','active','retiring'])!=object::remove($intent,['active','retiring']) { THROW 'analysis settlement requires exact original occurrence'; };
     IF $header!=NONE AND !$header.retiring { UPDATE ONLY type::record('canonical_analyses',$intent.key) SET retiring=true; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $edges=SELECT key FROM canonical_analysis_edges WHERE analysis=$intent.key LIMIT 1;
     LET $nodes=SELECT key FROM canonical_analysis_nodes WHERE analysis=$intent.key LIMIT 1;
     LET $inputs=SELECT key FROM canonical_analysis_inputs WHERE analysis=$intent.key LIMIT 1;
     LET $roots=SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$intent.key LIMIT 1;
     IF array::len($edges)+array::len($nodes)+array::len($inputs)+array::len($roots)!=0 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
-    UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET generation=generation+1dec, analysis_creation_closed_through=math::max([analysis_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
-    DELETE ONLY type::record('canonical_analyses',$intent.key);
+    IF $guard.incarnation=$intent.primary_authority {
+        UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET generation=generation+1dec, analysis_creation_closed_through=math::max([analysis_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
+        DELETE ONLY type::record('canonical_analyses',$intent.key);
+    } ELSE {
+        UPDATE ONLY type::record('canonical_analyses',$intent.key) SET active=false,retiring=true;
+    };
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN {complete:true,waiting:false};
 };
