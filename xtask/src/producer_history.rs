@@ -656,6 +656,13 @@ mod tests {
         let mut index: Index = serde_json::from_slice(&fs::read(evidence.join("index.json")).unwrap()).unwrap();
         index.graph.units[0].features.push("different-compilation".into());
         fs::write(evidence.join("index.json"), serde_json::to_vec(&index).unwrap()).unwrap();
+        assert!(seal(&evidence).unwrap_err().to_string().contains("historical selected root differs"));
+        // A self-consistent substituted root still cannot inherit another actual
+        // compiler context's dep-info association from the retained Cargo stream.
+        let replacement = unit_keys(&index.graph, &index.workspace_root).unwrap()[&0].clone();
+        index.receipt.selected_root = Some(replacement.clone());
+        index.receipt.deployment.as_mut().unwrap().selected_root = replacement;
+        fs::write(evidence.join("index.json"), serde_json::to_vec(&index).unwrap()).unwrap();
         assert!(seal(&evidence).unwrap_err().to_string().contains("Cargo unit/artifact linkage"));
         assert!(!evidence.join("COMPLETE").exists());
         let directory = tempfile::tempdir().unwrap();
