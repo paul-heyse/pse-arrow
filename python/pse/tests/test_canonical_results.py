@@ -656,6 +656,7 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     runtime = canonical_substrate.runtime(inspection_settings, producer=receipt_path)
     package, case = _package(runtime)
     revision = package.canonical_revision
+    assert revision is not None
     settings = _settings()
     prepared = package.prepare_solve(case, settings)
     first = prepared.start().wait()
@@ -824,6 +825,7 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
     runtime = canonical_substrate.runtime(inspection_settings)
     package, case = _package(runtime)
     revision = package.canonical_revision
+    assert revision is not None
     prepared = package.prepare_solve(case, _settings())
     first = prepared.start().wait()
     assert first.usable

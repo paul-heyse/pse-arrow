@@ -588,7 +588,7 @@ class ModelingPackage:
 
     @property
     def operation_source(self) -> OperationSource:
-        """Exact admitted source and physical identity for reconstructible study inputs."""
+        """Exact source and physical identity for reconstructible study inputs."""
         return codec.decode_json(self._handle.operation_source, OperationSource)
 
     @property

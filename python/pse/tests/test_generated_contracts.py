@@ -2,7 +2,9 @@
 # Copyright (c) 2026 Paul Heyse
 """Actual generated contract boundaries, including nested values and metadata."""
 
+import hashlib
 from collections.abc import Callable, Hashable
+from pathlib import Path
 from typing import get_type_hints
 
 import attrs
@@ -122,7 +124,9 @@ def test_canonical_manifest_preserves_exact_descriptor_bytes_and_generation() ->
 
 
 @pytest.mark.unit
-def test_canonical_batch_preserves_original_float_bits_and_null_validity() -> None:
+def test_canonical_batch_preserves_original_float_bits_and_null_validity(
+    tmp_path: Path,
+) -> None:
     # Scientific values now belong to the original IPC batch, not scalar cells.
     bits = bytes.fromhex("910000000000f87f00000000000000800000000000000000")
     values = pa.Array.from_buffers(
@@ -130,7 +134,7 @@ def test_canonical_batch_preserves_original_float_bits_and_null_validity() -> No
     )
     table = pa.table({"original-field": values})
     sink = pa.BufferOutputStream()
-    with pa.ipc.new_stream(sink, table.schema) as writer:
+    with pa.ipc.new_file(sink, table.schema) as writer:
         writer.write_table(table)
     payload = sink.getvalue().to_pybytes()
     document = {
@@ -139,15 +143,25 @@ def test_canonical_batch_preserves_original_float_bits_and_null_validity() -> No
         "result_set": "result-set-key",
         "ordinal": (1 << 64) - 1,
         "digest": "original-payload-digest",
-        "payload": payload,
+        "file_binding": "binding-key",
+        "file_instance": "instance-key",
+        "file_digest": hashlib.sha256(payload).hexdigest(),
+        "file_batch_index": 0,
+        "payload_bytes": len(payload),
+        "schema": table.schema.serialize().to_pybytes().hex(),
+        "encoding": "arrow-ipc-file-v1",
         "row_count": 3,
     }
     row = structure_rows(
         [document], runtime_contracts.RuntimeCanonicalResultBatchesRow
     )[0]
-    assert row.payload == payload
     assert converter().unstructure(row) == document
-    restored = pa.ipc.open_stream(row.payload).read_all().column(0).chunk(0)
+    file = tmp_path / (row.file_instance + ".sealed")
+    file.write_bytes(payload)
+    assert file.stat().st_size == row.payload_bytes
+    assert hashlib.sha256(file.read_bytes()).hexdigest() == row.file_digest
+    with pa.memory_map(str(file), "r") as source:
+        restored = pa.ipc.open_file(source).get_batch(row.file_batch_index).column(0)
     assert restored.buffers()[1].to_pybytes() == bits
     assert restored.is_null().to_pylist() == [False, False, True]
     for invalid in (

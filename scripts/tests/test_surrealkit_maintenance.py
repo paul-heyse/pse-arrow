@@ -45,7 +45,7 @@ class MaintenanceTests(unittest.TestCase):
             + hashlib.sha256(data).hexdigest()
             + '"\n'
         )
-        self.config = {
+        self.config: dict[str, object] = {
             "instance_id": "selected-generation",
             "namespace": "canonical",
             "database": "target",
@@ -174,12 +174,13 @@ class MaintenanceTests(unittest.TestCase):
                 self.binary, self.state, self.folder, "start", rollout_id="one"
             )
         child.assert_not_called()
-        value = cast(
-            "dict[str, object]",
-            server.read_json(self.state / "config.json")[tool.PENDING],
+        value = server.object_mapping(
+            server.read_json(self.state / "config.json")[tool.PENDING]
         )
         self.assertEqual(value["sql_outcome"], "not_submitted")
-        self.assertEqual(value["attempts"][0]["listener_drain"], "complete")
+        self.assertEqual(
+            server.object_inventory(value["attempts"])[0]["listener_drain"], "complete"
+        )
 
     def test_design_cutover_rechecks_current_marker_on_completion(self) -> None:
         publication = self.cutover_publication()

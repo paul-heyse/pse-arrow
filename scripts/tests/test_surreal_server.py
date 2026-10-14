@@ -4073,7 +4073,8 @@ class SurrealSupervisorTests(unittest.TestCase):
             for table in selected_science:
                 if "DELETE $rows.id" in body and "FROM " + table + " " in body:
                     selected_science[table] = []
-                if body == "LET $value=SELECT * FROM " + table + ";":
+                if body == "LET $value=SELECT * FROM " + table + ";":  # noqa: S608
+                    # Fixture-owned table names match the validated transport query.
                     return {"value": [dict(row) for row in selected_science[table]]}
             if "LET $value={count:" in body:
                 return {"value": {"count": 0, "after": ""}}
@@ -6597,7 +6598,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
     ) -> None:
         backup = self.backup_fixture()
         restored = self.root / "restored"
-        retained = {
+        retained: dict[str, list[dict[str, object]]] = {
             "canonical_analyses": [
                 {
                     "key": "admitted-analysis",
@@ -6657,7 +6658,8 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                         restored,
                         selected,
                         credentials,
-                        "LET $value=SELECT * FROM " + table + ";",
+                        "LET $value=SELECT * FROM " + table + ";",  # noqa: S608
+                        # Table names come from this explicit fixture inventory.
                     )
                     self.assertEqual(read["value"], rows)
             self.assertEqual(selected["admission"], "validation_required")
@@ -7007,7 +7009,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             ) as manager,
         ):
             self.bind_maintenance_listener(config)
-            server._start(
+            server._start(  # noqa: SLF001 -- exercise internal maintenance startup
                 self.state, config, validation=True, deadline=time.monotonic() + 30
             )
         reset = call("reset-failed", server.unit_name(self.state), check=False)
@@ -7038,7 +7040,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 return_value=subprocess.CompletedProcess([], 0, "", ""),
             ) as manager,
         ):
-            server._start(
+            server._start(  # noqa: SLF001 -- exercise internal maintenance startup
                 self.state, config, validation=False, deadline=time.monotonic() + 30
             )
         self.assertFalse(
@@ -7223,7 +7225,10 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             )
 
             def manager(
-                *arguments: str, **_kwargs: object
+                *arguments: str,
+                case: str = case,
+                fields: dict[str, str] = fields,
+                **_kwargs: object,
             ) -> subprocess.CompletedProcess[str]:
                 if arguments[0] == "reset-failed":
                     if case == "foreign-owner":

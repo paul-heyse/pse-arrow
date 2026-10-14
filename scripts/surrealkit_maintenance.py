@@ -316,7 +316,8 @@ def require_empty_cutover_target(
             state,
             config,
             credentials,
-            "LET $rows=(SELECT id FROM "
+            # sql_identifier validates and quotes each catalog table name.
+            "LET $rows=(SELECT id FROM "  # noqa: S608
             + surreal_server.sql_identifier(table)
             + " LIMIT 1);",
         )

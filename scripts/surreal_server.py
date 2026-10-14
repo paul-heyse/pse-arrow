@@ -140,6 +140,13 @@ def object_mapping(value: object) -> dict[str, object]:
     return value
 
 
+def object_inventory(value: object) -> list[dict[str, object]]:
+    """Validate a complete metadata collection before callers act on any member."""
+    if not isinstance(value, list):
+        raise SupervisorError("Expected an owned metadata inventory")
+    return [object_mapping(item) for item in value]
+
+
 def integer(value: object) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise SupervisorError("Expected an integer in owned configuration")
@@ -4787,7 +4794,8 @@ def reset_maintenance_failure_window(
 ) -> None:
     """Intentional terminal maintenance launches do not spend the crash restart budget."""
     with lifecycle_deadline(deadline) as selected_deadline:
-        assert selected_deadline is not None
+        if selected_deadline is None:
+            raise SupervisorError("Maintenance failure-window reset requires a deadline")
         require_maintenance_owner(state, config)
         all_contexts_drained(state)
         observed = service_readiness(state, config, deadline=selected_deadline)
@@ -5566,7 +5574,8 @@ def payload_pages(
         value = payload_query(
             state,
             config,
-            f"LET $rows=SELECT {columns} FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; RETURN $rows;",
+            # Table/columns are fixed above; cursor is a JSON string value.
+            f"LET $rows=SELECT {columns} FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; RETURN $rows;",  # noqa: S608
         )
         if not isinstance(value, list) or len(value) > 64:
             raise SupervisorError("Invalid bounded file catalog inventory")
@@ -5641,6 +5650,19 @@ def managed_file_owner_drained(owner: dict[str, object]) -> bool:
     return not group_populated(group)
 
 
+def payload_owner_live_refusal(
+    row: dict[str, object], config: dict[str, object]
+) -> str | None:
+    """Return a live borrower reason, or authenticate a dead and drained owner."""
+    if row.get("storage_incarnation") != config["payload_incarnation"]:
+        raise SupervisorError("File owner belongs to another storage incarnation")
+    if not payload_files.owner_dead(row):
+        return "A live independent file owner still borrows this store"
+    if not managed_file_owner_drained(row):
+        return "File owner managed descendants still borrow this store"
+    return None
+
+
 def reap_payload_owners(
     state: Path, config: dict[str, object], *, require_all: bool
 ) -> dict[str, int]:
@@ -5650,25 +5672,7 @@ def reap_payload_owners(
             if row.get("drained") is True:
                 continue
             try:
-                if row.get("storage_incarnation") != config["payload_incarnation"]:
-                    raise SupervisorError(
-                        "File owner belongs to another storage incarnation"
-                    )
-                dead = payload_files.owner_dead(row)
-                if not dead:
-                    counts["live"] += 1
-                    if require_all:
-                        raise SupervisorError(
-                            "A live independent file owner still borrows this store"
-                        )
-                    continue
-                if not managed_file_owner_drained(row):
-                    counts["live"] += 1
-                    if require_all:
-                        raise SupervisorError(
-                            "File owner managed descendants still borrow this store"
-                        )
-                    continue
+                live_refusal = payload_owner_live_refusal(row, config)
             except (payload_files.PayloadError, OSError, SupervisorError) as error:
                 if require_all:
                     if isinstance(error, SupervisorError):
@@ -5677,6 +5681,11 @@ def reap_payload_owners(
                         "File owner drain is unobservable; admission remains closed"
                     ) from error
                 counts["unknown"] += 1
+                continue
+            if live_refusal is not None:
+                counts["live"] += 1
+                if require_all:
+                    raise SupervisorError(live_refusal)
                 continue
             fields: list[str] = []
             for key, value in row.items():
@@ -5899,12 +5908,12 @@ def copy_payload_inventory(
 
 def validate_payload_inventory(
     source: Path, config: dict[str, object], value: object
-) -> None:
+) -> list[dict[str, object]]:
     if not isinstance(value, list):
         raise SupervisorError("Backup is missing its file-tier closure inventory")
+    inventory = object_inventory(value)
     seen: set[str] = set()
-    for raw in value:
-        entry = object_mapping(raw)
+    for entry in inventory:
         # Restore supports the service's one private database, as before.
         if (
             entry.get("context") != "."
@@ -5947,6 +5956,7 @@ def validate_payload_inventory(
     }
     if actual != seen:
         raise SupervisorError("Backup has payload bytes outside its closure inventory")
+    return inventory
 
 
 def backup(
@@ -6638,6 +6648,51 @@ def retire_partial_payload_target(
     write_json(state / "config.json", config)
 
 
+def retired_payload_cleanup_files(
+    state: Path,
+    selected_root: Path,
+    placement: dict[str, object],
+    inventory: list[dict[str, object]],
+) -> tuple[Path, set[Path]] | None:
+    """Check exact inventoried source paths, target placement, locks and unknown bytes."""
+    directory = payload_files.root(state, placement)
+    expected: set[Path] = set()
+    keys: set[str] = set()
+    for entry in inventory:
+        row = object_mapping(entry.get("instance"))
+        sealed, staging = payload_files.instance_paths(state, placement, row.get("key"))
+        source_sealed, source_staging = payload_files.instance_paths(
+            state, entry, row.get("key")
+        )
+        destinations = {
+            str(source_sealed.relative_to(state)): sealed,
+            str(source_staging.relative_to(state)): staging,
+        }
+        for name in object_mapping(entry.get("files")):
+            if name not in destinations:
+                raise SupervisorError("Retired payload inventory has an invalid path")
+            expected.add(destinations[name])
+        keys.add(str(row["key"]))
+    if directory == selected_root:
+        return None
+    if any(path.is_symlink() for path in (directory, *directory.parents)) or any(
+        path.is_symlink() for path in directory.rglob("*")
+    ):
+        raise SupervisorError("Retired payload root must not traverse symlinks")
+    try:
+        expected.update(payload_files.recognized_locks(directory, keys))
+    except (payload_files.PayloadError, OSError) as error:
+        raise SupervisorError(
+            "Retired payload synchronization locks retained; cleanup refused"
+        ) from error
+    if not directory.exists():
+        return None
+    actual = {path for path in directory.rglob("*") if path.is_file()}
+    if not actual <= expected:
+        raise SupervisorError("Unknown retired payload content retained; cleanup refused")
+    return directory, actual
+
+
 def cleanup_retired_payloads(
     state: Path, config: dict[str, object], credentials: dict[str, object]
 ) -> None:
@@ -6666,63 +6721,41 @@ def cleanup_retired_payloads(
         raise SupervisorError("Old owner catalog unavailable for payload cleanup")
     if pending.get("kind") == "current-restore":
         backup = Path(str(pending.get("backup", "")))
-        manifest, _original = validated_restore_backup(backup, SUBSTRATE_INTERPRETATION)
-        inventory = manifest["payload_inventory"]
+        _manifest, _original, inventory = validated_restore_backup(
+            backup, SUBSTRATE_INTERPRETATION
+        )
     else:
-        inventory = pending.get("payload_inventory", [])
-    if not isinstance(inventory, list):
-        raise SupervisorError("Missing retired payload inventory")
+        inventory = object_inventory(pending.get("payload_inventory", []))
     placements = [
         {"payload_incarnation": old_incarnation, "database": pending["database"]},
-        *pending.get("payload_targets", []),
+        *object_inventory(pending.get("payload_targets", [])),
     ]
     work = [(placement, inventory) for placement in placements]
-    for raw in pending.get("retired_payloads", []):
-        retired = object_mapping(raw)
+    for retired in object_inventory(pending.get("retired_payloads", [])):
         owners = retired.get("owners")
-        retired_inventory = retired.get("inventory")
-        if (
-            not isinstance(owners, list)
-            or any(object_mapping(owner).get("drained") is not True for owner in owners)
-            or not isinstance(retired_inventory, list)
+        retired_inventory = object_inventory(retired.get("inventory"))
+        if any(
+            owner.get("drained") is not True for owner in object_inventory(owners)
         ):
             raise SupervisorError(
                 "Retired payload target lost its authenticated drain inventory"
             )
         work.append((retired, retired_inventory))
     selected_root = payload_files.root(state, config)
+    # Every inventory, placement, lock and unknown-file check precedes deletion.
     for placement, placement_inventory in work:
-        directory = payload_files.root(state, object_mapping(placement))
-        if directory == selected_root or not directory.exists():
+        retired_payload_cleanup_files(
+            state, selected_root, placement, placement_inventory
+        )
+    for placement, placement_inventory in work:
+        # Reobserve each placement immediately before deletion, retaining its
+        # original path/symlink/lock/unknown-content checks after global preflight.
+        removal = retired_payload_cleanup_files(
+            state, selected_root, placement, placement_inventory
+        )
+        if removal is None:
             continue
-        expected: set[Path] = set()
-        for raw in placement_inventory:
-            entry = object_mapping(raw)
-            row = object_mapping(entry["instance"])
-            sealed, staging = payload_files.instance_paths(
-                state, object_mapping(placement), row["key"]
-            )
-            for name in object_mapping(entry["files"]):
-                expected.add(sealed if name.endswith(".sealed") else staging)
-        if any(path.is_symlink() for path in (directory, *directory.parents)) or any(
-            path.is_symlink() for path in directory.rglob("*")
-        ):
-            raise SupervisorError("Retired payload root must not traverse symlinks")
-        keys = {
-            str(object_mapping(object_mapping(entry)["instance"])["key"])
-            for entry in placement_inventory
-        }
-        try:
-            expected.update(payload_files.recognized_locks(directory, keys))
-        except (payload_files.PayloadError, OSError) as error:
-            raise SupervisorError(
-                "Retired payload synchronization locks retained; cleanup refused"
-            ) from error
-        actual = {path for path in directory.rglob("*") if path.is_file()}
-        if not actual <= expected:
-            raise SupervisorError(
-                "Unknown retired payload content retained; cleanup refused"
-            )
+        directory, actual = removal
         for path in actual:
             path.unlink()
         for path in sorted(
@@ -6875,7 +6908,9 @@ def rehome_restored_payloads(
     """Copy verified backup bytes to fresh placement, then re-fence the imported catalog."""
     pending = object_mapping(config["derived_rebuild_pending"])
     backup = Path(str(pending.get("backup", "")))
-    manifest, original = validated_restore_backup(backup, SUBSTRATE_INTERPRETATION)
+    _manifest, original, inventory = validated_restore_backup(
+        backup, SUBSTRATE_INTERPRETATION
+    )
     if file_digest(backup / "backup.json") != pending.get("backup_digest"):
         raise SupervisorError(
             "Payload restore source changed; admission remains closed"
@@ -6892,15 +6927,15 @@ def rehome_restored_payloads(
     if response.get("value") is not True:
         raise SupervisorError("Restored file-owner drain was not acknowledged")
     target = {"payload_incarnation": new_incarnation, "database": config["database"]}
-    targets = pending.setdefault("payload_targets", [])
-    if not isinstance(targets, list):
-        raise SupervisorError("Invalid restored payload target inventory")
+    targets = object_inventory(pending.get("payload_targets", []))
+    for placement in targets:
+        payload_files.root(state, placement)
     if target not in targets:
         targets.append(target)
+        pending["payload_targets"] = targets
         config["derived_rebuild_pending"] = pending
         write_json(state / "config.json", config)
-    for raw in manifest["payload_inventory"]:
-        entry = object_mapping(raw)
+    for entry in inventory:
         instance = object_mapping(entry["instance"])
         sealed, staging = payload_files.instance_paths(state, config, instance["key"])
         for name, expected in object_mapping(entry["files"]).items():
@@ -6933,7 +6968,7 @@ def rehome_restored_payloads(
             "database": config["database"],
             "payload_incarnation": new_incarnation,
         }
-        for entry in manifest["payload_inventory"]
+        for entry in inventory
     ]
     verify_payload_inventory(state, config, restored_inventory)
     # The imported gate remains closed throughout bounded catalog updates. These
@@ -6944,7 +6979,8 @@ def rehome_restored_payloads(
             state,
             config,
             credentials,
-            "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
+            # Interpolated incarnation/cursor values are JSON encoded.
+            "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "  # noqa: S608
             f"IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored file gate mismatch'; }}; "
             f"LET $rows=SELECT * FROM canonical_file_instances WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; "
             f"FOR $row IN $rows {{ IF $row.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored instance mismatch'; }}; UPDATE ONLY $row.id SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; }}; "
@@ -6966,7 +7002,8 @@ def rehome_restored_payloads(
         state,
         config,
         credentials,
-        "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
+        # Incarnations are JSON encoded values in this fixed transaction.
+        "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "  # noqa: S608
         f"IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored file gate mismatch'; }}; "
         f"UPDATE ONLY canonical_interpretations:current SET payload_incarnation={json.dumps(new_incarnation)} RETURN NONE; "
         f"UPDATE ONLY canonical_file_admission:current SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; LET $value=true;",
@@ -7265,7 +7302,7 @@ def recover_maintenance(
 
 def validated_restore_backup(
     source: Path, interpretation: str
-) -> tuple[dict[str, object], dict[str, object]]:
+) -> tuple[dict[str, object], dict[str, object], list[dict[str, object]]]:
     if any(path.is_symlink() for path in (source, *source.parents)) or any(
         path.is_symlink() for path in source.rglob("*")
     ):
@@ -7300,7 +7337,9 @@ def validated_restore_backup(
         ):
             raise SupervisorError("Backup path or content failed validation")
     config = config_for(source)
-    validate_payload_inventory(source, config, manifest.get("payload_inventory"))
+    inventory = validate_payload_inventory(
+        source, config, manifest.get("payload_inventory")
+    )
     if config.get("derived_rebuild_pending") or config.get(
         "surrealkit_rollout_pending"
     ):
@@ -7318,7 +7357,7 @@ def validated_restore_backup(
         raise SupervisorError(
             "Unsupported restore requires preserved authored inputs and explicit rebuild"
         )
-    return manifest, config
+    return manifest, config, inventory
 
 
 def reroot_restored(value: object, original: str, state: Path) -> object:
@@ -7370,7 +7409,7 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
         raise SupervisorError(
             "Preserved backup manifest changed; admission remains closed"
         )
-    manifest, original_config = validated_restore_backup(
+    manifest, original_config, _inventory = validated_restore_backup(
         source, SUBSTRATE_INTERPRETATION
     )
     if (original_config["namespace"], original_config["database"]) != (
@@ -7477,7 +7516,7 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
 def restore(
     source: Path, state: Path, interpretation: str, verifier: Path | None = None
 ) -> dict[str, object]:
-    manifest, original = validated_restore_backup(source, interpretation)
+    manifest, original, _inventory = validated_restore_backup(source, interpretation)
     state = checked_directory(state)
     with lifecycle_reservation(state):
         if any(
@@ -7542,7 +7581,8 @@ def validation_payload_reads(
     acknowledged = payload_query(
         state,
         config,
-        f"LET $validation_start_deadline=fn::pse_execution_v1::deadline({expiry}); "
+        # Expiry is an integer; identity and interpretation values use JSON.
+        f"LET $validation_start_deadline=fn::pse_execution_v1::deadline({expiry}); "  # noqa: S608
         "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
         "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
         f"IF $gate=NONE OR $gate.storage_incarnation!={incarnation} OR !$gate.frozen OR !$gate.gc_frozen "

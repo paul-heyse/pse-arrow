@@ -38,7 +38,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             "issuing_store": "scientific-store",
             "storage_incarnation": self.config["payload_incarnation"],
             "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
-            "pid_namespace": os.readlink("/proc/self/ns/pid"),
+            "pid_namespace": str(Path("/proc/self/ns/pid").readlink()),
             "pid": str(os.getpid()),
             "start": server.native_operation.start_identity(os.getpid()),
             "drained": False,
@@ -274,7 +274,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             self.events.clear()
 
             def validator(
-                *_args: object, **_kwargs: object
+                *_args: object, timed_out: bool = timed_out, **_kwargs: object
             ) -> subprocess.CompletedProcess[bytes]:
                 self.validator_owner()
                 if timed_out:
@@ -320,7 +320,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             self.events.clear()
 
             def validator(
-                *_args: object, **_kwargs: object
+                *_args: object, case: str = case, **_kwargs: object
             ) -> subprocess.CompletedProcess[bytes]:
                 self.validator_owner(live=case != "managed-descendant")
                 if case == "unknown":
@@ -431,9 +431,11 @@ class PayloadLifecycleTests(unittest.TestCase):
     def test_setup_selects_fresh_incarnation_and_open_refuses_missing_identity(
         self,
     ) -> None:
+        incarnation = self.config["payload_incarnation"]
+        assert isinstance(incarnation, str)
         self.assertEqual(
-            str(uuid.UUID(self.config["payload_incarnation"])),
-            self.config["payload_incarnation"],
+            str(uuid.UUID(incarnation)),
+            incarnation,
         )
         old = dict(self.config)
         old.pop("payload_incarnation")
@@ -478,7 +480,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.verifier()
         destination = self.root / "backup"
         self.backup(destination)
-        manifest, _original = server.validated_restore_backup(
+        _manifest, _original, inventory = server.validated_restore_backup(
             destination, server.SUBSTRATE_INTERPRETATION
         )
         self.assertTrue(self.owner["drained"])
@@ -499,7 +501,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertFalse((destination / self.staging.relative_to(self.state)).exists())
         self.assertEqual(self.final.stat().st_nlink, 1)
         self.assertEqual(
-            manifest["payload_inventory"][0]["instance"]["state"], "sealed"
+            server.object_mapping(inventory[0]["instance"])["state"], "sealed"
         )
 
     def test_pending_publication_alias_is_reconciled_without_fabricating_acknowledgment(
@@ -525,10 +527,12 @@ class PayloadLifecycleTests(unittest.TestCase):
         lock_inode = lock.stat().st_ino
         backup = self.root / "backup"
         self.backup(backup)
-        manifest, _original = server.validated_restore_backup(
+        _manifest, _original, inventory = server.validated_restore_backup(
             backup, server.SUBSTRATE_INTERPRETATION
         )
-        self.assertEqual(manifest["payload_inventory"][0]["instance"], self.instance)
+        self.assertEqual(
+            server.object_mapping(inventory[0]["instance"]), self.instance
+        )
         self.assertEqual(self.instance["state"], "pending")
         self.assertEqual(self.instance["digest"], "")
         self.assertEqual(self.instance["payload_bytes"], "0")
@@ -543,7 +547,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertEqual(final.read_bytes(), self.final.read_bytes())
         self.assertFalse(pending.exists())
         self.assertEqual(
-            manifest["payload_inventory"][0]["instance"]["state"], "pending"
+            server.object_mapping(inventory[0]["instance"])["state"], "pending"
         )
 
     def test_frozen_alias_reconciliation_refuses_unknown_aliases_and_held_locks(
@@ -617,11 +621,13 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.final.unlink()
         backup = self.root / "backup"
         self.backup(backup)
-        manifest, _original = server.validated_restore_backup(
+        _manifest, _original, inventory = server.validated_restore_backup(
             backup, server.SUBSTRATE_INTERPRETATION
         )
-        entry = manifest["payload_inventory"][0]
-        self.assertEqual(entry["instance"]["state"], "collecting")
+        entry = inventory[0]
+        self.assertEqual(
+            server.object_mapping(entry["instance"])["state"], "collecting"
+        )
         self.assertEqual(entry["files"], {})
         self.assertTrue(self.owner["drained"])
         restored = self.root / "restored"
@@ -632,9 +638,11 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertFalse(final.exists())
         self.assertFalse(staging.exists())
         self.assertEqual(
-            server.read_json(backup / "backup.json")["payload_inventory"][0][
-                "instance"
-            ]["state"],
+            server.object_mapping(
+                server.object_inventory(
+                    server.read_json(backup / "backup.json")["payload_inventory"]
+                )[0]["instance"]
+            )["state"],
             "collecting",
         )
         self.assertTrue(selected["payload_frozen"])
@@ -651,11 +659,11 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.verifier()
         backup = self.root / "backup"
         self.backup(backup)
-        manifest, _original = server.validated_restore_backup(
+        _manifest, _original, inventory = server.validated_restore_backup(
             backup, server.SUBSTRATE_INTERPRETATION
         )
         self.assertEqual(
-            manifest["payload_inventory"][0]["instance"]["state"], "collecting"
+            server.object_mapping(inventory[0]["instance"])["state"], "collecting"
         )
         self.assertEqual(
             (backup / self.final.relative_to(self.state)).read_bytes(),
@@ -687,10 +695,10 @@ class PayloadLifecycleTests(unittest.TestCase):
             ),
         ):
             self.backup(backup)
-            manifest, _original = server.validated_restore_backup(
+            _manifest, _original, inventory = server.validated_restore_backup(
                 backup, server.SUBSTRATE_INTERPRETATION
             )
-            self.assertEqual(manifest["payload_inventory"][0]["instance"], original)
+            self.assertEqual(server.object_mapping(inventory[0]["instance"]), original)
             self.assertEqual(
                 (backup / self.final.relative_to(self.state)).read_bytes(), expected
             )
@@ -705,7 +713,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertTrue(selected["payload_frozen"])
         self.assertFalse(selected["accepting_writes"])
         self.assertEqual(
-            manifest["payload_inventory"][0]["instance"]["state"], "collecting"
+            server.object_mapping(inventory[0]["instance"])["state"], "collecting"
         )
         self.assertFalse(
             any("SET state=" in query for _namespace, _database, query in calls)
@@ -743,11 +751,11 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.instance.update(state="pending", digest="", payload_bytes="0")
         destination = self.root / "backup"
         self.backup(destination)
-        manifest, _original = server.validated_restore_backup(
+        _manifest, _original, inventory = server.validated_restore_backup(
             destination, server.SUBSTRATE_INTERPRETATION
         )
-        entry = manifest["payload_inventory"][0]
-        self.assertEqual(entry["instance"]["state"], "pending")
+        entry = inventory[0]
+        self.assertEqual(server.object_mapping(entry["instance"])["state"], "pending")
         self.assertEqual(entry["files"], {})
 
     def test_pending_partial_stage_is_preserved_without_native_complete_file_verification(
@@ -760,11 +768,11 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.instance.update(state="pending", digest="", payload_bytes="0")
         destination = self.root / "backup"
         self.backup(destination)
-        manifest, _original = server.validated_restore_backup(
+        _manifest, _original, inventory = server.validated_restore_backup(
             destination, server.SUBSTRATE_INTERPRETATION
         )
         self.assertEqual(
-            manifest["payload_inventory"][0]["instance"]["state"], "pending"
+            server.object_mapping(inventory[0]["instance"])["state"], "pending"
         )
         self.assertEqual(
             (destination / self.staging.relative_to(self.state)).read_bytes(),
@@ -1070,11 +1078,14 @@ class PayloadLifecycleTests(unittest.TestCase):
             patch.object(server, "all_contexts_drained"),
         ):
             server.retire_partial_payload_target(self.state, self.config, {})
-        retired = server.config_for(self.state)["derived_rebuild_pending"][
-            "retired_payloads"
-        ][0]
+        pending = server.object_mapping(
+            server.config_for(self.state)["derived_rebuild_pending"]
+        )
+        retired = server.object_inventory(pending["retired_payloads"])[0]
         self.assertEqual(retired["owners"], [self.owner])
-        self.assertEqual(retired["inventory"][0]["instance"], self.instance)
+        self.assertEqual(
+            server.object_inventory(retired["inventory"])[0]["instance"], self.instance
+        )
         self.assertTrue(self.final.is_file())
 
     def test_catalog_instance_locks_are_preserved_live_and_excluded_from_backup(
@@ -1094,13 +1105,15 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.verifier()
         backup = self.root / "backup"
         self.backup(backup)
-        manifest, _original = server.validated_restore_backup(
+        _manifest, _original, inventory = server.validated_restore_backup(
             backup, server.SUBSTRATE_INTERPRETATION
         )
-        self.assertFalse(any("/.locks/" in name for name in manifest["files"]))
+        self.assertFalse(
+            any("/.locks/" in name for name in server.object_mapping(_manifest["files"]))
+        )
         self.assertEqual({lock: lock.stat().st_ino for lock in identities}, identities)
         self.assertEqual(
-            {entry["instance"]["state"] for entry in manifest["payload_inventory"]},
+            {server.object_mapping(entry["instance"])["state"] for entry in inventory},
             {"sealed", "collected"},
         )
         restored = self.root / "restored"
@@ -1181,7 +1194,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.verifier()
         backup = self.root / "backup"
         self.backup(backup)
-        manifest, _original = server.validated_restore_backup(
+        _manifest, _original, inventory = server.validated_restore_backup(
             backup, server.SUBSTRATE_INTERPRETATION
         )
         selected = server.fresh_database_identity(self.config)
@@ -1191,7 +1204,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             "namespace": self.config["namespace"],
             "database": self.config["database"],
             "payload_incarnation": self.config["payload_incarnation"],
-            "payload_inventory": manifest["payload_inventory"],
+            "payload_inventory": inventory,
         }
         server.write_json(self.state / "config.json", selected)
         unknown = locks / (str(uuid.uuid4()) + ".lock")
@@ -1216,10 +1229,144 @@ class PayloadLifecycleTests(unittest.TestCase):
             server.cleanup_retired_payloads(self.state, selected, {})
         self.assertFalse(payload_files.root(self.state, self.config).exists())
         self.assertTrue(
-            server.config_for(self.state)["derived_rebuild_pending"][
-                "payload_cleanup_done"
-            ]
+            server.object_mapping(
+                server.config_for(self.state)["derived_rebuild_pending"]
+            )["payload_cleanup_done"]
         )
+
+    def test_restore_rejects_malformed_last_inventory_entry_before_receiver_effects(
+        self,
+    ) -> None:
+        self.owner["drained"] = True
+        self.verifier()
+        backup = self.root / "backup"
+        self.backup(backup)
+        manifest = server.read_json(backup / "backup.json")
+        inventory = server.object_inventory(manifest["payload_inventory"])
+        receiver = self.root / "malformed-receiver"
+        invalid_values: tuple[object, ...] = (None, {}, "invalid")
+        for invalid in invalid_values:
+            manifest["payload_inventory"] = [*inventory, invalid]
+            server.write_json(backup / "backup.json", manifest)
+            with (
+                self.subTest(invalid=invalid),
+                patch.object(server, "lifecycle_reservation") as reservation,
+                patch.object(server.shutil, "copy2") as copy,
+                self.assertRaises(server.SupervisorError),
+            ):
+                server.restore(backup, receiver, server.SUBSTRATE_INTERPRETATION)
+            reservation.assert_not_called()
+            copy.assert_not_called()
+            self.assertFalse(receiver.exists())
+            self.assertEqual(
+                (backup / self.final.relative_to(self.state)).read_bytes(),
+                self.final.read_bytes(),
+            )
+
+    def test_cleanup_preflights_every_placement_before_any_deletion(self) -> None:
+        digest, extent = payload_files.checked_file(self.final)
+        entry: dict[str, object] = {
+            "context": ".",
+            "database": self.config["database"],
+            "payload_incarnation": self.config["payload_incarnation"],
+            "instance": dict(self.instance),
+            "files": {
+                str(self.final.relative_to(self.state)): {
+                    "sha256": digest,
+                    "bytes": extent,
+                }
+            },
+        }
+        for case in (
+            "target-member",
+            "retired-member",
+            "inventory-member",
+            "instance-object",
+            "files-object",
+            "path-prefix",
+            "unknown-file",
+            "symlink",
+            "held-lock",
+        ):
+            selected = server.fresh_database_identity(self.config)
+            retired = server.fresh_database_identity(self.config)
+            retired_root = payload_files.root(self.state, retired)
+            retired_root.mkdir(parents=True)
+            pending: dict[str, object] = {
+                "kind": "rebuild",
+                "namespace": self.config["namespace"],
+                "database": self.config["database"],
+                "payload_incarnation": self.config["payload_incarnation"],
+                "payload_inventory": [entry],
+            }
+            retirement: dict[str, object] = {
+                "payload_incarnation": retired["payload_incarnation"],
+                "database": retired["database"],
+                "owners": [{"drained": True}],
+                "inventory": [entry],
+            }
+            pending["retired_payloads"] = [retirement]
+            if case == "target-member":
+                pending["payload_targets"] = [retired, None]
+            elif case == "retired-member":
+                pending["retired_payloads"] = [retirement, None]
+            elif case == "inventory-member":
+                retirement["inventory"] = [entry, None]
+            elif case == "instance-object":
+                retirement["inventory"] = [entry, {"instance": None, "files": {}}]
+            elif case == "files-object":
+                retirement["inventory"] = [entry, {**entry, "files": None}]
+            elif case == "path-prefix":
+                retirement["inventory"] = [
+                    entry,
+                    {**entry, "files": {"wrong/" + self.final.name: {}}},
+                ]
+            elif case == "unknown-file":
+                (retired_root / "unknown").write_bytes(b"retained")
+            elif case == "symlink":
+                (retired_root / "unknown").symlink_to(self.final)
+            selected["derived_rebuild_pending"] = pending
+            server.write_json(self.state / "config.json", selected)
+            before = (self.state / "config.json").read_bytes()
+            if case == "held-lock":
+                locks = retired_root / ".locks"
+                locks.mkdir()
+                lock = locks / (self.key + ".lock")
+                lock.write_bytes(b"")
+                lock.chmod(0o600)
+                descriptor = os.open(lock, os.O_RDONLY)
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            else:
+                descriptor = None
+            try:
+                with (
+                    self.subTest(case=case),
+                    patch.object(server, "database_present", return_value=True),
+                    patch.object(
+                        server, "maintenance_query", return_value={"value": True}
+                    ),
+                    self.assertRaisesRegex(
+                        server.SupervisorError,
+                        {
+                            "target-member": "metadata object",
+                            "retired-member": "metadata object",
+                            "inventory-member": "metadata object",
+                            "instance-object": "metadata object",
+                            "files-object": "metadata object",
+                            "path-prefix": "invalid path",
+                            "unknown-file": "Unknown retired payload content",
+                            "symlink": "must not traverse symlinks",
+                            "held-lock": "synchronization locks retained",
+                        }[case],
+                    ),
+                ):
+                    server.cleanup_retired_payloads(self.state, selected, {})
+            finally:
+                if descriptor is not None:
+                    os.close(descriptor)
+            self.assertEqual(self.final.read_bytes(), b'{"seed":true}')
+            self.assertTrue(retired_root.exists())
+            self.assertEqual((self.state / "config.json").read_bytes(), before)
 
     def test_replaced_pid_is_death_but_exact_live_pid_is_not(self) -> None:
         self.assertFalse(payload_files.owner_dead(self.owner))

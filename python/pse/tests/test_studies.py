@@ -18,10 +18,16 @@ from pse.contracts.documents import (
     BoundaryDiagnostic,
     ControllerOperation,
     ObservationContracts,
+    SelectedStudyVariant,
+    SourceChoice,
+    SourceDelta,
     StudyDetailDemand,
+    StudyInputsLazy,
     StudyMemberDemandVariable,
     StudyOutputDemandCompact,
+    StudyOutputDemandFull,
     StudyRequest,
+    StudyVariants,
     WorkLimits,
 )
 from pse.contracts.enums import (
@@ -1208,15 +1214,6 @@ def test_capped_related_root_study_charges_prediction_and_screening(
 def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_science(
     inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    from pse.contracts.documents import (
-        SelectedStudyVariant,
-        SourceChoice,
-        SourceDelta,
-        StudyInputsLazy,
-        StudyOutputDemandFull,
-        StudyVariants,
-    )
-
     runtime = canonical_substrate.runtime(inspection_settings)
     package, case = _package(runtime)
     variants = StudyVariants(

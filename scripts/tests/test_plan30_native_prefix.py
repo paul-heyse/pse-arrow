@@ -64,7 +64,7 @@ class PreparedKluTests(unittest.TestCase):
         prefix_record = record.call_args_list[0].args[1]
         assert not (prefix_record["managed"])
         assert (set(prefix_record["files"])) == (set(cache.KLU_FILES))
-        self.assertEqual(actual["PSE_KLU_PROVIDER_RECEIPT"], "")
+        assert actual["PSE_KLU_PROVIDER_RECEIPT"] == ""
 
     def test_missing_consumed_file_refuses_instead_of_preparing(self) -> None:
         (self.prefix / "lib/libklu.a").unlink()
@@ -92,9 +92,7 @@ class PreparedKluTests(unittest.TestCase):
         assert (
             (actual["SUITESPARSE_INCLUDE_DIR"]) == (self.env["SUITESPARSE_INCLUDE_DIR"])
         )
-        self.assertEqual(
-            actual["PSE_KLU_PROVIDER_RECEIPT"], str(self.prefix / ".complete.json")
-        )
+        assert actual["PSE_KLU_PROVIDER_RECEIPT"] == str(self.prefix / ".complete.json")
 
     def test_managed_generation_exports_only_its_qualified_receipt(self) -> None:
         identity = {"fixture": "qualified-klu"}
@@ -113,13 +111,11 @@ class PreparedKluTests(unittest.TestCase):
         }
         with patch.object(operation, "admit") as record:
             actual = operation.environment(["klu"], env)
-        self.assertTrue(record.call_args_list[0].args[1]["managed"])
-        self.assertEqual(
-            actual["PSE_KLU_PROVIDER_RECEIPT"], str(prefix / ".complete.json")
-        )
-        self.assertEqual(
-            record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"],
-            str(prefix / ".complete.json"),
+        assert record.call_args_list[0].args[1]["managed"]
+        assert actual["PSE_KLU_PROVIDER_RECEIPT"] == str(prefix / ".complete.json")
+        assert (
+            record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"]
+            == str(prefix / ".complete.json")
         )
         self.prepare.assert_not_called()
 
@@ -140,19 +136,16 @@ class PreparedKluTests(unittest.TestCase):
         ):
             actual = operation.environment(["klu"], env)
         observed = record.call_args_list[0].args[1]
-        self.assertFalse(observed["managed"])
-        self.assertEqual(
-            observed["files"]["lib/libklu.a"],
-            cache.digest(self.prefix / "lib/libklu.a"),
+        assert not observed["managed"]
+        assert observed["files"]["lib/libklu.a"] == cache.digest(
+            self.prefix / "lib/libklu.a"
         )
-        self.assertNotEqual(
-            observed["files"]["lib/libklu.a"], receipt["files"]["lib/libklu.a"]
+        assert observed["files"]["lib/libklu.a"] != receipt["files"]["lib/libklu.a"]
+        assert actual["PSE_KLU_PROVIDER_RECEIPT"] == ""
+        assert (
+            record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"] == ""
         )
-        self.assertEqual(actual["PSE_KLU_PROVIDER_RECEIPT"], "")
-        self.assertEqual(
-            record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"], ""
-        )
-        self.assertIn("refused PSE_KLU_PROVIDER_RECEIPT", refused.getvalue())
+        assert "refused PSE_KLU_PROVIDER_RECEIPT" in refused.getvalue()
         self.prepare.assert_not_called()
 
     def test_prior_managed_admission_returns_truth_without_reobserving_bytes(
@@ -167,7 +160,7 @@ class PreparedKluTests(unittest.TestCase):
                 side_effect=AssertionError("qualified immutable bytes reobserved"),
             ),
         ):
-            self.assertTrue(cache.admit_external(self.prefix, cache.KLU_FILES))
+            assert cache.admit_external(self.prefix, cache.KLU_FILES)
 
     def test_corrupt_owned_completed_generation_refuses_without_preparation(
         self,

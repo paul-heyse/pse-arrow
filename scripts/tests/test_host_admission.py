@@ -442,7 +442,12 @@ class HostAdmissionTests(unittest.TestCase):
             (service / "server-process.json").unlink(missing_ok=True)
 
             def readiness(
-                *_args: object, **_kwargs: object
+                *_args: object,
+                case: str = case,
+                current_launch: dict[str, object] = current_launch,
+                current_manager: dict[str, str] = current_manager,
+                phase: surreal_server.Readiness = phase,
+                **_kwargs: object,
             ) -> surreal_server.ServiceObservation:
                 if case == "changed-launch":
                     surreal_server.write_json(

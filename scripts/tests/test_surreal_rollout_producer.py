@@ -163,6 +163,63 @@ class DesignCutoverTests(unittest.TestCase):
         )
         return "planned"
 
+    def test_cutover_rejects_malformed_last_native_member_before_publication_effects(
+        self,
+    ) -> None:
+        for case in ("entities", "steps", "files"):
+            candidate = self.folder.parent / case / "database"
+            producer.empty_snapshots(candidate)
+            (candidate / "schema/canonical.surql").write_bytes(self.new)
+            before = {
+                name: (candidate / "snapshots" / name).read_bytes()
+                for name in ("schema_snapshot.json", "catalog_snapshot.json")
+            }
+
+            def malformed_beta(
+                binary: Path, folder: Path, *arguments: str, case: str = case
+            ) -> str:
+                result = self.beta(binary, folder, *arguments)
+                if case == "entities":
+                    catalog = json.loads(
+                        (folder / "snapshots/catalog_snapshot.json").read_text()
+                    )
+                    catalog["entities"].append(None)
+                    producer.write_json(
+                        folder / "snapshots/catalog_snapshot.json", catalog
+                    )
+                else:
+                    manifest = folder / "rollouts/native_v6.toml"
+                    descriptor = (
+                        '{path="schema/canonical.surql",hash="'
+                        + producer.sha(self.new)
+                        + '"}'
+                    )
+                    files = "[" + descriptor + (",7]" if case == "files" else "]")
+                    step = '{kind="apply_files",phase="start",files=' + files + "}"
+                    steps = "[" + step + (",7]" if case == "steps" else "]")
+                    manifest.write_text('id="native_v6"\nsteps=' + steps + "\n")
+                return result
+
+            with (
+                self.subTest(case=case),
+                patch.object(producer, "beta", side_effect=malformed_beta),
+                self.assertRaises(producer.ProducerError),
+            ):
+                producer.plan_design_cutover(
+                    self.binary, candidate, "6" * 64, {"target_schema_hash": "old"}
+                )
+            self.assertFalse((candidate / "rollouts/native_v6").exists())
+            self.assertEqual(
+                (candidate / "schema/canonical.surql").read_bytes(), self.new
+            )
+            self.assertEqual(
+                {
+                    name: (candidate / "snapshots" / name).read_bytes()
+                    for name in before
+                },
+                before,
+            )
+
     def test_explicit_cutover_keeps_historical_bytes_and_native_final_identity(
         self,
     ) -> None:
@@ -251,7 +308,7 @@ class DesignCutoverTests(unittest.TestCase):
         def entity(kind: str, name: str, digest: str) -> dict[str, str]:
             return {"kind": kind, "name": name, "statement_hash": digest}
 
-        native = {
+        native: dict[str, object] = {
             "steps": [
                 {
                     "id": "apply",
@@ -261,14 +318,14 @@ class DesignCutoverTests(unittest.TestCase):
                 }
             ]
         }
-        old = {
+        old: dict[str, object] = {
             "version": 2,
             "entities": [
                 entity("table", "sample", "old"),
                 entity("user", "secret", "old"),
             ],
         }
-        new = {
+        new: dict[str, object] = {
             "version": 2,
             "entities": [
                 entity("table", "sample", "new"),

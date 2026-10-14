@@ -57,6 +57,7 @@ def measure(output: Path, selected: str) -> None:
         SolveSettings,
         StartPolicyFresh,
         StudyCompilerProfile,
+        StudyInputsExplicit,
         StudyOutputDemandFull,
         StudyPoint,
         StudyPointPolicy,
@@ -222,25 +223,27 @@ def measure(output: Path, selected: str) -> None:
             definition = package.admit_study(
                 StudyRequest(
                     output=StudyOutputDemandFull(),
-                    points=tuple(
-                        StudyPoint(
-                            operation=OperationRequestDeclaredCase(
-                                request=CaseOperation(
-                                    case=cases[name].to_hex(),
-                                    route=ModelingAnalysisRoute.STEADY,
-                                    settings=settings,
-                                )
-                            ),
-                            preparation=preparation,
-                            overlay=overlay,
-                            policy=StudyPointPolicy(
-                                key=index,
-                                dependencies=(),
-                                start=StartPolicyFresh(),
-                                attempt_limit=1,
-                            ),
-                        )
-                        for index, overlay in enumerate(overlays)
+                    inputs=StudyInputsExplicit(
+                        points=tuple(
+                            StudyPoint(
+                                operation=OperationRequestDeclaredCase(
+                                    request=CaseOperation(
+                                        case=cases[name].to_hex(),
+                                        route=ModelingAnalysisRoute.STEADY,
+                                        settings=settings,
+                                    )
+                                ),
+                                preparation=preparation,
+                                overlay=overlay,
+                                policy=StudyPointPolicy(
+                                    key=index,
+                                    dependencies=(),
+                                    start=StartPolicyFresh(),
+                                    attempt_limit=1,
+                                ),
+                            )
+                            for index, overlay in enumerate(overlays)
+                        ),
                     ),
                 )
             )

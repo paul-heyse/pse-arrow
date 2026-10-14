@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Public live simulation uses actual native samples and independent cursor ownership."""
+"""Public live simulation uses native samples and independent cursor ownership."""
 
 import asyncio
 import math
@@ -113,7 +113,8 @@ def test_live_samples_keep_attempt_identity_and_joined_value_retention(
                 assert event.produced_samples == len(SAMPLES)
                 assert event.completed_time == 1
                 assert event.termination == "completed"
-                assert event.checks_complete and event.checks_satisfied
+                assert event.checks_complete
+                assert event.checks_satisfied
                 assert event.result() is None
             elif event.kind == "selected":
                 assert event.accuracy_attempt == 0
@@ -165,7 +166,8 @@ def test_live_samples_keep_attempt_identity_and_joined_value_retention(
     modes = pa.table(result.table("runtime.modeling_trajectory_modes"))
     assert modes.column("time").to_pylist() == SAMPLES
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
-    assert checks and all(row["satisfied"] for row in checks)
+    assert checks
+    assert all(row["satisfied"] for row in checks)
 
 
 @pytest.mark.component

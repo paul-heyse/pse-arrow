@@ -253,12 +253,12 @@ def owner_dead(owner: Mapping[str, object]) -> bool:
     boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
     if boot != owner["boot"]:
         return True
-    namespace = os.readlink("/proc/self/ns/pid")
+    namespace = str(Path("/proc/self/ns/pid").readlink())
     if namespace != owner["pid_namespace"]:
         raise PayloadError("File owner PID namespace cannot be authenticated")
     process = Path("/proc") / str(pid)
     try:
-        actual_namespace = os.readlink(process / "ns/pid")
+        actual_namespace = str((process / "ns/pid").readlink())
         actual_start = (process / "stat").read_text().rsplit(")", 1)[1].split()[19]
     except FileNotFoundError:
         # A missing stat with an extant process directory is a racing or unknown observation.

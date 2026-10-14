@@ -65,13 +65,16 @@ class Cargo:
 
 class ScopedValidationTests(unittest.TestCase):
     def test_resolution_retains_full_cargo_profile_and_target_payload(self) -> None:
-        selected = graph([unit("pure")])
-        selected["units"][0]["profile"] = {
+        selected_unit = unit("pure")
+        selected_unit["profile"] = {
             "opt_level": "3",
             "panic": "unwind",
             "debug_assertions": False,
         }
-        selected["units"][0]["target"]["crate_types"] = ["rlib"]
+        target = selected_unit["target"]
+        assert isinstance(target, dict)
+        target["crate_types"] = ["rlib"]
+        selected = graph([selected_unit])
         result = resolve(
             ["cargo", "test", "-p", "pure"], run=Cargo([package("pure")], selected)
         )

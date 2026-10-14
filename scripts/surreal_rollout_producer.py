@@ -259,6 +259,18 @@ def empty_snapshots(folder: Path) -> None:
     )
 
 
+def object_mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        raise ProducerError("Expected a string-keyed native metadata object")
+    return value
+
+
+def object_inventory(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise ProducerError("Expected a native metadata inventory")
+    return [object_mapping(item) for item in value]
+
+
 def cutover_steps(
     native: dict[str, object], source: dict[str, object], target: dict[str, object]
 ) -> list[dict[str, object]]:
@@ -270,7 +282,7 @@ def cutover_steps(
         if catalog.get("version") != 2:
             raise ProducerError("Design-phase cutover requires beta.6 native catalogs")
         result: dict[tuple[str, str, str], dict[str, object]] = {}
-        for entity in cast("list[dict[str, object]]", catalog["entities"]):
+        for entity in object_inventory(catalog.get("entities")):
             key = (
                 str(entity["kind"]),
                 str(entity.get("scope", "")),
@@ -282,7 +294,7 @@ def cutover_steps(
         return result
 
     old, new = entities(source), entities(target)
-    native_steps = cast("list[dict[str, object]]", native["steps"])
+    native_steps = object_inventory(native.get("steps"))
     apply = [step for step in native_steps if step["kind"] == "apply_files"]
     if len(apply) != 1 or apply[0]["phase"] != "start":
         raise ProducerError("Native bootstrap did not freeze exactly one target schema")
@@ -389,16 +401,27 @@ def plan_design_cutover(
     manifests = list((bootstrap / "rollouts").glob("*.toml"))
     if len(manifests) != 1:
         raise ProducerError("Native bootstrap did not produce exactly one rollout")
-    spec = tomllib.loads(manifests[0].read_text())
-    identity = spec["id"]
+    spec = object_mapping(tomllib.loads(manifests[0].read_text()))
+    identity = spec.get("id")
+    if (
+        not isinstance(identity, str)
+        or not identity
+        or Path(identity).name != identity
+        or identity in {".", ".."}
+    ):
+        raise ProducerError("Invalid native rollout identity")
     owned = candidate / "rollouts" / identity
     if owned.exists() or (candidate / "rollouts" / manifests[0].name).exists():
         raise ProducerError("Design-phase rollout identity already exists")
-    owned.mkdir(parents=True)
-    source = json.loads((candidate / "snapshots/catalog_snapshot.json").read_text())
-    target = json.loads((bootstrap / "snapshots/catalog_snapshot.json").read_text())
-    spec["steps"] = cutover_steps(spec, source, target)
-    if spec["steps"][0]["files"] != [
+    source = object_mapping(
+        json.loads((candidate / "snapshots/catalog_snapshot.json").read_text())
+    )
+    target = object_mapping(
+        json.loads((bootstrap / "snapshots/catalog_snapshot.json").read_text())
+    )
+    steps = cutover_steps(spec, source, target)
+    spec["steps"] = steps
+    if steps[0]["files"] != [
         {
             "path": "schema/canonical.surql",
             "hash": sha((candidate / "schema/canonical.surql").read_bytes()),
@@ -408,18 +431,24 @@ def plan_design_cutover(
             "Native bootstrap target differs from exact generated schema"
         )
     spec["source_schema_hash"] = head["target_schema_hash"]
-    for step in spec["steps"]:
+    frozen_copies: list[tuple[Path, Path]] = []
+    for step in steps:
         if step["kind"] == "apply_files":
-            for frozen in step["files"]:
-                relative = Path(frozen["path"])
+            for frozen in object_inventory(step.get("files")):
+                path, digest = frozen.get("path"), frozen.get("hash")
+                if not isinstance(path, str) or not isinstance(digest, str):
+                    raise ProducerError("Invalid native frozen file descriptor")
+                relative = Path(path)
                 if relative.is_absolute() or ".." in relative.parts:
                     raise ProducerError("Native frozen path escapes rollout")
                 original = bootstrap / "rollouts" / identity / relative
-                if sha(original.read_bytes()) != frozen["hash"]:
+                if sha(original.read_bytes()) != digest:
                     raise ProducerError("Native frozen target bytes changed")
-                destination = owned / relative
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(original, destination)
+                frozen_copies.append((original, owned / relative))
+    owned.mkdir(parents=True)
+    for original, destination in frozen_copies:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(original, destination)
     for name in ("schema_snapshot.json", "catalog_snapshot.json"):
         (owned / "snapshots").mkdir(exist_ok=True)
         shutil.copyfile(candidate / "snapshots" / name, owned / "snapshots" / name)
@@ -491,7 +520,8 @@ def publish(
                 empty_snapshots(candidate)
             (candidate / "schema/canonical.surql").write_bytes(schema)
             if design_phase_v6_cutover:
-                assert head is not None
+                if head is None:
+                    raise ProducerError("Design-phase cutover requires a predecessor")
                 manifest = plan_design_cutover(binary, candidate, schema_digest, head)
             else:
                 before = set((candidate / "rollouts").glob("*.toml"))
