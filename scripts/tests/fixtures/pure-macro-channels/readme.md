@@ -7,9 +7,9 @@ scripts/pse-env --recipe-default-class compile -- python3 scripts/tests/fixtures
 ```
 
 This isolated, locked Rust fixture compiles the actual patched owners and existing
-Pest generator. It exercises normal token pasting, literal/multiple inline grammar
+Pest generator in both debug and release. It exercises normal token pasting, literal/multiple inline grammar
 parsing, Python literal behavior and upstream py_literal unit tests. Six actual
-compiler invocations must refuse generated environment selectors across all three
+compiler invocations in each profile must refuse generated environment selectors across all three
 Paste entries, direct/generated Pest file attributes and a nonliteral inline
 expression. The environment selector is present, so refusal is the owner guard,
 not a missing environment value. The grammar file is deliberately absent; a

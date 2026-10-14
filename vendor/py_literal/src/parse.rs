@@ -14,7 +14,6 @@ use std::fmt;
 use std::num::ParseFloatError;
 use std::str::FromStr;
 
-#[cfg(debug_assertions)]
 #[derive(Parser)]
 // Sole grammar authority: exact published 0.4.0 grammar text, now an inline input.
 #[grammar_inline = r####"start = { SOI ~ value ~ EOI }

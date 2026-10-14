@@ -25,12 +25,13 @@ def main() -> None:
     common = ["cargo", "--locked", "--offline", "--manifest-path", str(manifest)]
     # Only this standalone fixture's ordinary target directory is used.
     # The enclosing pse-env scope owns command resources and cancellation.
-    for selection in ([], ["-p", "py_literal"]):
-        subprocess.run(
-            [common[0], "test", *common[1:], "--lib", *selection],
-            cwd=root,
-            check=True,
-        )
+    for profile in ([], ["--release"]):
+        for selection in ([], ["-p", "py_literal"]):
+            subprocess.run(
+                [common[0], "test", *common[1:], "--lib", *profile, *selection],
+                cwd=root,
+                check=True,
+            )
     environment = dict(os.environ, PSE_GUARDED_MACRO_PRESENT="selected")
     cases = {
         "paste-env-paste": "pse tokens-only Paste: environment selectors are unsupported",
@@ -40,19 +41,22 @@ def main() -> None:
         "pest-generated-file": "pse tokens-only Pest: file grammars are unsupported",
         "pest-inline-expression": "pse tokens-only Pest: grammar_inline requires a string literal",
     }
-    for name, diagnostic in cases.items():
-        result = subprocess.run(
-            [common[0], "check", *common[1:], "--features", "compile-refusal", "--bin", name],
-            cwd=root,
-            env=environment,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode == 0 or diagnostic not in result.stderr:
-            raise RuntimeError(f"{name}: expected guard refusal, got {result.returncode}\n{result.stderr}")
-        print(f"{name}: refused by actual guarded owner", flush=True)
-    print("Pure macro controls passed: normal parsing, upstream literal tests, six compiler refusals.")
+    for profile in ([], ["--release"]):
+        mode = "release" if profile else "debug"
+        for name, diagnostic in cases.items():
+            result = subprocess.run(
+                [common[0], "check", *common[1:], *profile, "--features", "compile-refusal", "--bin", name],
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0 or diagnostic not in result.stderr:
+                raise RuntimeError(f"{mode} {name}: expected guard refusal, got {result.returncode}\n{result.stderr}")
+            print(f"{mode} {name}: refused by actual guarded owner", flush=True)
+    print("Pure macro controls passed in debug and release: normal parsing, upstream literal tests, six compiler refusals each.")
+
 
 
 if __name__ == "__main__":

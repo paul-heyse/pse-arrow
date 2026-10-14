@@ -25,3 +25,7 @@ the isolated compiler-control dependency graph without another workspace.
 The existing empty-set formatting panic test explicitly discards its expected
 return value to satisfy the pinned compiler's must-use warning; its expected
 panic and production formatting behavior are unchanged.
+
+The removed include constant's `cfg(debug_assertions)` attribute is removed with
+it; the inline parser declaration remains present in both debug and release.
+The compiler-control fixture exercises both profiles.
