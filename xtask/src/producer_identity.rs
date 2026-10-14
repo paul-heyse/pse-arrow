@@ -2167,10 +2167,11 @@ fn executable_artifact_aliases(artifact: &Path) -> Result<Vec<PathBuf>> {
 
 /// sccache 0.17 excludes `--out-dir` from its Rust key and restores the cached
 /// compiler dep-info alongside current outputs without rewriting its local rule
-/// targets. Admit only a Cargo profile-directory relocation: the entire unit
-/// suffix, including package/fingerprint/output names, must stay identical.
+/// targets. Admit only output-directory relocation: the entire Cargo unit suffix,
+/// including package/fingerprint/output names, must stay identical. Cached rules
+/// can retain a former checkout or external build directory as well as a profile.
 /// Source prerequisites are never relocated by this output-only association.
-fn cargo_profile_dep_info_linkage(
+fn cargo_cached_dep_info_linkage(
     unit: &Unit,
     root: &Path,
     candidate: &Path,
@@ -2231,17 +2232,27 @@ fn cargo_profile_dep_info_linkage(
         return false;
     }
     outputs.iter().any(|output| {
-        let Ok(relative) = output.strip_prefix(&target) else {
-            return false;
-        };
-        let mut parts = relative.components();
-        let Some(std::path::Component::Normal(previous_profile)) = parts.next() else {
-            return false;
-        };
-        if previous_profile == profile || parts.as_path() != dep_suffix {
+        if !output.is_absolute()
+            || !output.ends_with(dep_suffix)
+            || output.components().any(|part| {
+                matches!(
+                    part,
+                    std::path::Component::CurDir | std::path::Component::ParentDir
+                )
+            })
+        {
             return false;
         }
-        let previous = target.join(previous_profile);
+        let mut previous = output.as_path();
+        for _ in dep_suffix.components() {
+            let Some(parent) = previous.parent() else {
+                return false;
+            };
+            previous = parent;
+        }
+        if previous == current {
+            return false;
+        }
         outputs.contains(&previous.join(artifact_suffix))
     })
 }
@@ -2321,7 +2332,7 @@ fn artifact_dep_info(
                     // itself as an output; accepting the aggregate imports unrelated
                     // provenance scans into this compilation unit's scientific key.
                     if ((outputs.contains(&candidate) && outputs.contains(&artifact))
-                        || cargo_profile_dep_info_linkage(
+                        || cargo_cached_dep_info_linkage(
                             unit, root, &candidate, &artifact, &outputs,
                         ))
                         && inputs.contains(&unit.target.src_path)
@@ -5486,55 +5497,63 @@ mod tests {
     }
 
     #[test]
-    fn producer_cached_dep_info_preserves_unit_suffix_across_profiles() {
+    fn producer_cached_dep_info_preserves_unit_suffix_across_output_roots() {
         let directory = tempfile::tempdir().unwrap();
         let root = directory.path();
         let (unit, message, candidate) = cached_profile_artifact_fixture(root);
-        let old = root.join("target/debug/build/producer/123/out");
         let consumed = root.join("target/debug/build/native-input/456/out/generated.rs");
-        let text = format!(
-            "{}: {} {}\n{}: {} {}\n",
-            old.join("producer-123.d").display(),
-            unit.target.src_path.display(),
-            consumed.display(),
-            old.join("libproducer-123.rlib").display(),
-            unit.target.src_path.display(),
-            consumed.display(),
-        );
-        fs::write(&candidate, &text).unwrap();
-        let graph = UnitGraph {
-            version: 1,
-            roots: vec![0],
-            units: vec![unit.clone()],
-        };
-        assert_eq!(
-            artifact_dep_info(&unit, &graph, std::slice::from_ref(&message), root).unwrap(),
-            Some(vec![candidate.clone()])
-        );
-        // Cached rule targets describe the former output directory. Consumed
-        // source paths, including generated inputs there, retain their meaning.
-        assert_eq!(fs::read_to_string(&candidate).unwrap(), text);
-        let inputs = parse_dep_info(&text).unwrap();
-        assert!(inputs.contains(&consumed));
-        assert!(
-            !inputs.contains(&root.join("target/producer/build/native-input/456/out/generated.rs"))
-        );
-        let mut wrong_profile = message.clone();
-        wrong_profile["profile"]["opt_level"] = serde_json::json!("3");
-        assert!(
-            artifact_dep_info(&unit, &graph, &[wrong_profile], root)
-                .unwrap()
-                .is_none()
-        );
-        let mut wrong_platform = graph;
-        let mut other = unit.clone();
-        other.platform = Some("other-target".into());
-        wrong_platform.units.push(other);
-        assert!(
-            artifact_dep_info(&unit, &wrong_platform, &[message], root)
-                .unwrap()
-                .is_none()
-        );
+        for old in [
+            root.join("target/debug/build/producer/123/out"),
+            root.join("external-cache/project/debug/build/producer/123/out"),
+            root.join("removed-worktree/target/debug/build/producer/123/out"),
+        ] {
+            assert!(!old.exists());
+            let text = format!(
+                "{}: {} {}\n{}: {} {}\n",
+                old.join("producer-123.d").display(),
+                unit.target.src_path.display(),
+                consumed.display(),
+                old.join("libproducer-123.rlib").display(),
+                unit.target.src_path.display(),
+                consumed.display(),
+            );
+            fs::write(&candidate, &text).unwrap();
+            let graph = UnitGraph {
+                version: 1,
+                roots: vec![0],
+                units: vec![unit.clone()],
+            };
+            assert_eq!(
+                artifact_dep_info(&unit, &graph, std::slice::from_ref(&message), root).unwrap(),
+                Some(vec![candidate.clone()])
+            );
+            // Cached rule targets describe the former output directory. Consumed
+            // source paths, including generated inputs there, retain their meaning.
+            assert_eq!(fs::read_to_string(&candidate).unwrap(), text);
+            let inputs = parse_dep_info(&text).unwrap();
+            assert!(inputs.contains(&consumed));
+            assert!(
+                !inputs.contains(
+                    &root.join("target/producer/build/native-input/456/out/generated.rs")
+                )
+            );
+            let mut wrong_profile = message.clone();
+            wrong_profile["profile"]["opt_level"] = serde_json::json!("3");
+            assert!(
+                artifact_dep_info(&unit, &graph, &[wrong_profile], root)
+                    .unwrap()
+                    .is_none()
+            );
+            let mut wrong_platform = graph;
+            let mut other = unit.clone();
+            other.platform = Some("other-target".into());
+            wrong_platform.units.push(other);
+            assert!(
+                artifact_dep_info(&unit, &wrong_platform, std::slice::from_ref(&message), root)
+                    .unwrap()
+                    .is_none()
+            );
+        }
     }
 
     #[test]
@@ -5567,7 +5586,7 @@ mod tests {
             ),
             (
                 outside.join("producer-123.d"),
-                outside.join("libproducer-123.rlib"),
+                previous.join("libproducer-123.rlib"),
             ),
             (
                 previous.join("producer-123.d"),

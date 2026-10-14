@@ -271,3 +271,30 @@ quiesced/stopped. No caches, fixture data, unrelated allocations or evidence wer
 the full assessment, manual scientific recovery/signal controls, native/powerset checks
 and selected measurements have not run in this execution. Complete the focused startup
 tests, source-finalization and producer-install order above before assembled qualification.
+
+The namespace repair and final producer-linked install now pass; fresh metadata independently
+confirms the reviewed buildinfo source/helper contexts for all three roles. Complete Python
+site snapshots retain 7,053 members with no additions/removals and only installer `RECORD`
+and `uv_cache.json` content changes. Import helper bytes, modes, link/hardlink topology and
+570 absence premises remain unchanged. The source-reviewed final Python declaration binds
+that actual namespace; the original declarations and prior receipts remain unchanged. The
+installer's stale `direct_url.json` RECORD row is explained by its post-install editable URL
+rewrite; actual URL bytes are unchanged. No old metadata text or atomic snapshot is invented.
+
+The first repaired actual runtime capture completes and emits a receipt, settling the metadata
+bound failure. It remains ineligible: four Paste/Pest review refusals plus 146 dep-info
+association refusals. All 146 have matching actual Cargo contexts, source prerequisites and
+paired compiler rules, but those rules retain external-cache or former-worktree output roots.
+The pending xtask repair recognizes output-only directory relocation with an identical full
+unit suffix and one common old prefix for both outputs. It preserves all prerequisites,
+source/context/ambiguity and aggregate-file checks. Independent source review found no material
+issue. **Tested:** the actual binary route `just test-package xtask --bin xtask` passed three
+selected cached-output/shared-context controls and four selected artifact/parsing regression
+controls, zero failures. The initial library-only route was refused before any test bodies.
+
+This last repair changes only xtask. The preserved Python and runtime selected graphs contain
+no xtask unit, so their compiled sources and the installed extension do not require another
+install; fresh captures and imported byte association remain required. The worker includes
+xtask and will rebuild. Retain the final Python site review only while its actual premises
+remain unchanged. Source-finalization/rebuild precedes renewed actual captures, then actual
+macro caller review and the full assessment. G1–G4 remain open.
