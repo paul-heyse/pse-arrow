@@ -3406,10 +3406,9 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             .release_artifact_intent(&artifact, "audit", &staging_owner)
             .await
             .unwrap();
-        for read in &inputs {
+        for read in inputs {
             read.release().await.unwrap();
         }
-        drop(inputs);
         // Both exact protected selections are open before any native owner is
         // released, and remain open throughout all sixteen real publications.
         fixture.signal("release.json");

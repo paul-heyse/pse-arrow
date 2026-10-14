@@ -598,7 +598,7 @@ mod tests {
                 retired = true;
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
         assert!(retired);
         for artifact in [trajectory, endpoint] {
