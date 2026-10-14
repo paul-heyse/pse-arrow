@@ -15,6 +15,14 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [implementation friction and Codex effectiveness review](reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md)
+examines the final October 14 implementation interval and its operational logs. It traces
+startup ownership, local preparation and replay work, producer assurance and capture lifetimes,
+and command diagnostics. Its proposed corrections and rule impacts await a separately authorized
+follow-up plan; it does not restart or close Plan 38's qualification campaign. The
+[observed episodes](evidence/implementation-friction-and-codex-effectiveness-2026-10-14/observed-episodes.md)
+retain the historical evidence boundaries and route to the independent assessment.
+
 The [independent efficiency and solver target audit](reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md)
 assesses every finding and principal/nested rule impact in the consolidated review. It supports
 local immutable preparation and a common solver-policy seam while correcting existing-capability
