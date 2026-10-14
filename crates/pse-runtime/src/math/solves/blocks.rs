@@ -877,8 +877,8 @@ impl MathService {
                         &prepared.boundaries[index].boundary,
                         Some(&report),
                         &prepared.original.numerics.policy,
-                    ) {
-                        if wave_error.is_none() {
+                    )
+                        && wave_error.is_none() {
                             component_observation =
                                 Some(super::super::strategy::observe_native(&report));
                             failure_cause = Some(cause);
@@ -889,7 +889,6 @@ impl MathService {
                                 .into(),
                             );
                         }
-                    }
                     components.push((index, report));
                     completed[index] = true;
                 }

@@ -448,35 +448,6 @@ fn supervised_with_cancel(
     }
 }
 
-#[cfg(test)]
-mod cancellation_tests {
-    #[tokio::test]
-    async fn replay_parent_cancellation_reaches_pending_supervisor_and_keeps_drain_owned() {
-        let parent = crate::CancelSource::new();
-        let native = pse_columnar::flight::FlightCancellation::default();
-        let flight = native.clone();
-        let (observed, cancellation) = tokio::sync::oneshot::channel();
-        let (release, drain) = tokio::sync::oneshot::channel();
-        let task = tokio::spawn(super::supervised_with_cancel(
-            async move {
-                flight.cancelled().await;
-                observed.send(()).unwrap();
-                drain.await.unwrap();
-            },
-            move || native.cancel(),
-            Some(parent.clone()),
-        ));
-        parent.cancel();
-        cancellation.await.unwrap();
-        assert!(
-            !task.is_finished(),
-            "the supervisor must own drain after cancellation"
-        );
-        release.send(()).unwrap();
-        task.await.unwrap();
-    }
-}
-
 impl super::ModelingSimulation {
     /// Start the authored simulation through the shared joined run and durable lifecycle.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
@@ -683,13 +654,11 @@ impl super::ModelingSimulation {
                             sender.send_replace(Some(Arc::new(refused)));
                             return;
                         }
-                        if live_receiver.is_some() && let Some(attempt) = durable.as_mut() {
-                            if let Err(error) = attempt.begin_live_samples() {
-                                if let Some(subscriber) = &subscriber {
+                        if live_receiver.is_some() && let Some(attempt) = durable.as_mut()
+                            && let Err(error) = attempt.begin_live_samples()
+                                && let Some(subscriber) = &subscriber {
                                     super::live_simulation::deliver(subscriber, super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)), &cancel, deadline).await;
                                 }
-                            }
-                        }
                         let finished = handle.finish();
                         tokio::pin!(finished);
                         let mut joined = None;
@@ -1608,5 +1577,34 @@ mod modeling_failure_tests {
             pse_model::generated::enums::NativeRunState::Unattempted
         );
         assert!(runs[2].error.is_none());
+    }
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    #[tokio::test]
+    async fn replay_parent_cancellation_reaches_pending_supervisor_and_keeps_drain_owned() {
+        let parent = crate::CancelSource::new();
+        let native = pse_columnar::flight::FlightCancellation::default();
+        let flight = native.clone();
+        let (observed, cancellation) = tokio::sync::oneshot::channel();
+        let (release, drain) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(super::supervised_with_cancel(
+            async move {
+                flight.cancelled().await;
+                observed.send(()).unwrap();
+                drain.await.unwrap();
+            },
+            move || native.cancel(),
+            Some(parent.clone()),
+        ));
+        parent.cancel();
+        cancellation.await.unwrap();
+        assert!(
+            !task.is_finished(),
+            "the supervisor must own drain after cancellation"
+        );
+        release.send(()).unwrap();
+        task.await.unwrap();
     }
 }

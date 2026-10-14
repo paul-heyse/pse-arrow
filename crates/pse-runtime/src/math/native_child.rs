@@ -339,10 +339,6 @@ impl MathService {
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "the existing implicit problem factory needs original source, coordinates, dimensions and bounded compilation controls"
-)]
 fn compile_problem(
     body: &AdmittedBody,
     unknowns: &[Unknown],

@@ -672,11 +672,11 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let original = sources("package minimal_named {param a:Scalar=1;}");
         let package = runtime
-            .package_from_sources(&[original.clone()], physical.clone(), &cancel)
+            .package_from_sources(std::slice::from_ref(&original), physical.clone(), &cancel)
             .await
             .unwrap();
         let no_op = package
-            .reload_from_parent(&[original.clone()], &cancel)
+            .reload_from_parent(std::slice::from_ref(&original), &cancel)
             .await
             .unwrap();
         assert_eq!(no_op.revision_id(), package.revision_id());
@@ -737,7 +737,7 @@ mod tests {
         );
         let package = runtime
             .package_from_sources(
-                &[original.clone()],
+                std::slice::from_ref(&original),
                 crate::workflow::tests::physical(),
                 &cancel,
             )
@@ -848,7 +848,7 @@ mod tests {
         let original = sources("package minimal_named {param a:Scalar=1;}");
         let package = runtime
             .package_from_sources(
-                &[original.clone()],
+                std::slice::from_ref(&original),
                 crate::workflow::tests::physical(),
                 &cancel,
             )
@@ -877,7 +877,7 @@ mod tests {
         };
         runtime.clear_program_cache();
         let loaded = older
-            .reload_from_parent(&[original.clone()], &cancel)
+            .reload_from_parent(std::slice::from_ref(&original), &cancel)
             .await
             .unwrap();
         assert_eq!(loaded.revision.identity, older.revision.identity);

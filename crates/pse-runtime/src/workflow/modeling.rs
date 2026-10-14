@@ -227,6 +227,7 @@ impl ModelingPackage {
             _lease: self.runtime.shared.math().reserve(
                 "modeling:package-admission",
                 size_of::<PackageAdmission>()
+                    + 2 * size_of::<usize>()
                     + 256
                     + self
                         .providers
@@ -241,15 +242,15 @@ impl ModelingPackage {
 impl Runtime {
     pub(crate) fn package_from_admission(
         &self,
-        admitted: PackageAdmission,
+        admitted: Arc<PackageAdmission>,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
             held_preparation: None,
             runtime: self.clone(),
-            revision: admitted.revision,
-            accelerators: admitted.accelerators,
-            providers: admitted.providers,
+            revision: admitted.revision.clone(),
+            accelerators: admitted.accelerators.clone(),
+            providers: admitted.providers.clone(),
             quantities: physical.quantities.clone(),
             physical,
         })
@@ -527,7 +528,12 @@ impl Runtime {
         loader: Option<&pse_admission::authoring_driver::document::OwnedDocumentSet>,
     ) -> Result<ModelingPackage, WorkflowError> {
         let revision = canonical::persist(
-            self, rows, &physical, scope, &documents, &sources, &fits, None, loader,
+            self,
+            canonical::CanonicalIngress {
+                rows, physical: &physical, physical_scope: scope,
+                documents: &documents, sources: &sources, fits: &fits, loader,
+            },
+            None,
         )
         .await?;
         self.package_from_revision(revision, physical, providers)

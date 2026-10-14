@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Finite owner-affine experiment lanes; the existing runtime owns active admission.
-use super::oracle::{Demand, ExperimentProducts, evaluate_experiment};
+use super::oracle::{Demand, ExperimentProducts, ExperimentWorkers, evaluate_experiment};
 use super::*;
 use native::{ProblemError, solve::Execution};
 use std::{
@@ -147,9 +147,11 @@ impl ExperimentTeam {
                                         &request.x,
                                         request.demand,
                                         &execution,
-                                        &mut steady[ei],
-                                        #[cfg(feature = "solver-diffsol")]
-                                        &mut transient[ei],
+                                        ExperimentWorkers {
+                                            steady: &mut steady[ei],
+                                            #[cfg(feature = "solver-diffsol")]
+                                            transient: &mut transient[ei],
+                                        },
                                         previous.as_deref(),
                                     )
                                 };

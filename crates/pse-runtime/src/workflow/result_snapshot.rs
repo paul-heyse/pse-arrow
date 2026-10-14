@@ -75,7 +75,8 @@ impl ResultSnapshot {
         let mut positions = BTreeMap::new();
         let mut after = None;
         let mut previous = None;
-        while start < end {
+        if start < end {
+            loop {
             // Each bounded RPC page has its own prepaid temporary response scope.
             // Transfer its exact retained strings/rows before growing inventories.
             let response = Arc::new(
@@ -156,6 +157,7 @@ impl ResultSnapshot {
             }
             if finished {
                 break;
+            }
             }
         }
         Ok(Self(Arc::new(SnapshotInner {

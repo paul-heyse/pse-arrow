@@ -516,17 +516,21 @@ async fn context(
     }
     decode(context.payload.as_slice())
 }
+pub(super) struct CanonicalIngress<'a> {
+    pub(super) rows: Vec<Declaration>,
+    pub(super) physical: &'a super::PhysicalContext,
+    pub(super) physical_scope: PhysicalScope,
+    pub(super) documents: &'a pse_modeling::document::DocumentInventory,
+    pub(super) sources: &'a pse_admission::authoring_driver::document::Batches,
+    pub(super) fits: &'a super::super::fitting::FitDeclarations,
+    pub(super) loader: Option<&'a pse_admission::authoring_driver::document::OwnedDocumentSet>,
+}
 pub(super) async fn persist(
     runtime: &Runtime,
-    rows: Vec<Declaration>,
-    physical: &super::PhysicalContext,
-    physical_scope: PhysicalScope,
-    documents: &pse_modeling::document::DocumentInventory,
-    sources: &pse_admission::authoring_driver::document::Batches,
-    fits: &super::super::fitting::FitDeclarations,
+    ingress: CanonicalIngress<'_>,
     previous: Option<&SourceRevision>,
-    loader: Option<&pse_admission::authoring_driver::document::OwnedDocumentSet>,
 ) -> Result<SourceRevision, WorkflowError> {
+    let CanonicalIngress { rows, physical, physical_scope, documents, sources, fits, loader } = ingress;
     use pse_relations::columnar::RelationRow;
     let bytes = rows
         .owned_bytes()
@@ -831,6 +835,13 @@ struct SourceIndex {
     roots_complete: bool,
     versions: BTreeMap<String, String>,
     record_sources: BTreeMap<DeclarationId, DeclarationId>,
+}
+struct LocalSelection {
+    index: SourceIndex,
+    physical: PhysicalScope,
+    documents: pse_modeling::document::DocumentInventory,
+    leases: Vec<Arc<pse_columnar::AllocationLease>>,
+    dependencies: LocalSourcePremises,
 }
 impl SourceIndex {
     fn insert(&mut self, (row, fields): SourcePayload) -> Result<(), WorkflowError> {
@@ -1589,7 +1600,7 @@ impl ModelingPackage {
             }
         }
         let generation = math.modeling_cache.generation();
-        let (index, physical, documents, leases, dependencies) =
+        let LocalSelection { index, physical, documents, leases, dependencies } =
             self.select_local(roots, cancel)?;
         let dependencies = Arc::new(dependencies);
         let extent = dependencies
@@ -1778,16 +1789,7 @@ impl ModelingPackage {
         &self,
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
-    ) -> Result<
-        (
-            SourceIndex,
-            PhysicalScope,
-            pse_modeling::document::DocumentInventory,
-            Vec<Arc<pse_columnar::AllocationLease>>,
-            LocalSourcePremises,
-        ),
-        WorkflowError,
-    > {
+    ) -> Result<LocalSelection, WorkflowError> {
         let source = &self.revision.admitted;
         let mut premises = LocalSourcePremises::default();
         let physical_object = premises
@@ -2046,271 +2048,7 @@ impl ModelingPackage {
                 .insert(object.logical.clone(), object.version.clone());
             leases.push(lease);
         }
-        Ok((index, physical, documents, leases, premises))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    fn parse(source: &str) -> Vec<Declaration> {
-        pse_authoring::language::parse(
-            source,
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            Default::default(),
-        )
-        .unwrap()
-    }
-    #[test]
-    fn complete_namespace_inventory_resolves_nearer_names_without_leaf_or_import_probes() {
-        let rows = parse(
-            "package p {param x:Scalar=9; def D {param x:Scalar=2; var y:Scalar; eq e:y==x;} }",
-        );
-        let root = rows
-            .iter()
-            .find(|row| row.name == "D")
-            .unwrap()
-            .declaration_id;
-        let equation = rows
-            .iter()
-            .find(|row| row.name == "e")
-            .unwrap()
-            .declaration_id;
-        let inner = rows
-            .iter()
-            .find(|row| row.name == "x" && row.parent_id == Some(root))
-            .unwrap()
-            .declaration_id;
-        let mut index = SourceIndex::default();
-        for row in rows {
-            index.insert((row, None)).unwrap();
-        }
-        index.scopes.insert(root);
-        index.requests.clear();
-        assert_eq!(
-            index.resolve_name(equation, "x"),
-            Lookup::Found(vec![inner])
-        );
-        assert_eq!(index.member_candidates(root, "missing"), Lookup::Absent);
-        assert_eq!(index.imported(root, "missing"), Lookup::Absent);
-        assert!(!index.needs_name(Some(root), "missing"));
-        assert!(!index.needs_name(Some(root), "x"));
-        assert!(
-            index.requests.is_empty(),
-            "complete inventories and grammar leaves need no negative re-probe"
-        );
-    }
-
-    #[tokio::test]
-    async fn local_source_admission_and_selection_need_no_store() {
-        let runtime = crate::workflow::tests::runtime();
-        assert!(matches!(
-            runtime.canonical(),
-            Err(WorkflowError::RecordingUnavailable)
-        ));
-        let rows = parse(
-            "package p {param a:Scalar=1;param b:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}",
-        );
-        let root = rows
-            .iter()
-            .find(|r| r.name == "Root")
-            .unwrap()
-            .declaration_id;
-        let package = runtime
-            .modeling_package(rows.clone(), crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        assert!(package.canonical_revision().is_none());
-        let selected = package
-            .checked_selection(&[root], &crate::CancelSource::new())
-            .await
-            .unwrap();
-        let declarations = selected.admission.revision.declarations();
-        assert!(declarations.iter().any(|r| r.name == "a"));
-        assert!(!declarations.iter().any(|r| r.name == "b"));
-        assert_eq!(&*package.declarations().await.unwrap(), rows.as_slice());
-        let same = runtime
-            .modeling_package(rows, package.physical.clone())
-            .await
-            .unwrap();
-        assert_ne!(same.revision_id(), package.revision_id());
-        assert_ne!(same.revision.lineage_id(), package.revision.lineage_id());
-        let reused = same
-            .checked_selection(&[root], &crate::CancelSource::new())
-            .await
-            .unwrap();
-        assert!(Arc::ptr_eq(&selected.admission, &reused.admission));
-    }
-    #[tokio::test]
-    async fn local_siblings_branch_and_cancel_keeps_previous_head() {
-        let runtime = crate::workflow::tests::runtime();
-        let package = runtime
-            .modeling_package(
-                parse("package p {param a:Scalar=1;}"),
-                crate::workflow::tests::physical(),
-            )
-            .await
-            .unwrap();
-        let left = parse("package p {param a:Scalar=2;}");
-        let right = parse("package p {param a:Scalar=3;}");
-        let (left, right) = tokio::join!(
-            package.with_declarations(left),
-            package.with_declarations(right)
-        );
-        let left = left.unwrap();
-        let right = right.unwrap();
-        assert_ne!(left.revision_id(), right.revision_id());
-        assert_ne!(left.revision.lineage_id(), right.revision.lineage_id());
-        assert!(
-            left.revision.lineage_id() == package.revision.lineage_id()
-                || right.revision.lineage_id() == package.revision.lineage_id()
-        );
-        assert_eq!(
-            &*package.declarations().await.unwrap(),
-            parse("package p {param a:Scalar=1;}").as_slice()
-        );
-        let before = left.revision.head.lock().unwrap().revision.clone();
-        let cancel = crate::CancelSource::new();
-        cancel.cancel();
-        assert!(
-            left.with_delta(
-                crate::workflow::SourceDelta {
-                    parent: left.revision_id().into(),
-                    ..Default::default()
-                },
-                &cancel
-            )
-            .await
-            .is_err()
-        );
-        assert_eq!(left.revision.head.lock().unwrap().revision, before);
-    }
-    #[tokio::test]
-    async fn local_exact_premises_reject_payload_collision_and_new_shadow() {
-        let runtime = crate::workflow::tests::runtime();
-        let package = runtime
-            .modeling_package(
-                parse("package p {param a:Scalar=1;def Root {var x:Scalar;eq e:x==a;}}"),
-                crate::workflow::tests::physical(),
-            )
-            .await
-            .unwrap();
-        let root = package
-            .declarations()
-            .await
-            .unwrap()
-            .iter()
-            .find(|r| r.name == "Root")
-            .unwrap()
-            .declaration_id;
-        let selected = package
-            .checked_selection(&[root], &crate::CancelSource::new())
-            .await
-            .unwrap();
-        let object = package
-            .revision
-            .admitted
-            .objects
-            .values()
-            .find(|o| o.name == "a")
-            .unwrap();
-        let mut forged = object.edit();
-        let replacement = parse("package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}")
-            .into_iter()
-            .find(|r| r.name == "a")
-            .unwrap();
-        forged.version.as_mut().unwrap().payload =
-            payload(&(replacement, None::<FieldSpans>)).unwrap().into();
-        // Keep its correspondence key deliberately unchanged: full equality refuses reuse.
-        let forged_owner =
-            AdmittedModelRevision::apply(&runtime, Some(&package.revision.admitted), &[forged])
-                .unwrap();
-        assert!(!selected.admission.dependencies.matches(&forged_owner));
-        let shadow = package
-            .with_declarations(parse(
-                "package p {param a:Scalar=1;def Root {param a:Scalar=4;var x:Scalar;eq e:x==a;}}",
-            ))
-            .await
-            .unwrap();
-        assert!(
-            !selected
-                .admission
-                .dependencies
-                .matches(&shadow.revision.admitted)
-        );
-        let current = shadow
-            .checked_selection(&[root], &crate::CancelSource::new())
-            .await
-            .unwrap();
-        assert_ne!(
-            selected.admission.dependencies,
-            current.admission.dependencies
-        );
-    }
-    #[cfg(feature = "canonical-tests")]
-    #[tokio::test]
-    async fn durable_source_ack_conflict_and_disconnected_owned_compute() {
-        let runtime = crate::workflow::tests::durable_runtime();
-        let package = runtime
-            .modeling_package(
-                parse("package p {param a:Scalar=1;def Root {var x:Scalar;eq e:x==a;}}"),
-                crate::workflow::tests::physical(),
-            )
-            .await
-            .unwrap();
-        let root = package
-            .declarations()
-            .await
-            .unwrap()
-            .iter()
-            .find(|r| r.name == "Root")
-            .unwrap()
-            .declaration_id;
-        let origin = package.canonical_revision().unwrap().clone();
-        let imported = runtime
-            .modeling_revision(origin.clone(), package.physical.clone(), BTreeMap::new())
-            .await
-            .unwrap();
-        assert_ne!(imported.revision_id(), package.revision_id());
-        assert_eq!(imported.revision.identity, package.revision.identity);
-        let changed = package
-            .with_declarations(parse(
-                "package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}",
-            ))
-            .await
-            .unwrap();
-        let conflict = imported
-            .with_declarations(parse(
-                "package p {param a:Scalar=3;def Root {var x:Scalar;eq e:x==a;}}",
-            ))
-            .await
-            .unwrap_err();
-        assert!(
-            matches!(
-                conflict,
-                WorkflowError::Canonical(
-                    pse_operations::canonical::CanonicalError::SourceEditRefused { .. }
-                )
-            ),
-            "head conflict is proved refusal: {conflict}"
-        );
-        assert_eq!(imported.canonical_revision().unwrap(), &origin);
-        runtime.canonical_store().unwrap().close();
-        assert!(
-            changed
-                .checked_selection(&[root], &crate::CancelSource::new())
-                .await
-                .is_ok()
-        );
-        assert!(
-            changed
-                .with_declarations(parse(
-                    "package p {param a:Scalar=4;def Root {var x:Scalar;eq e:x==a;}}"
-                ))
-                .await
-                .is_err()
-        );
+        Ok(LocalSelection { index, physical, documents, leases, dependencies: premises })
     }
 }
 
@@ -2734,5 +2472,269 @@ impl Runtime {
         let admitted = AdmittedModelRevision::apply(self, None, &edits)?;
         let revision = SourceRevision::admitted(admitted, identity, None, None)?;
         self.package_from_revision(revision, physical, providers)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn parse(source: &str) -> Vec<Declaration> {
+        pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap()
+    }
+    #[test]
+    fn complete_namespace_inventory_resolves_nearer_names_without_leaf_or_import_probes() {
+        let rows = parse(
+            "package p {param x:Scalar=9; def D {param x:Scalar=2; var y:Scalar; eq e:y==x;} }",
+        );
+        let root = rows
+            .iter()
+            .find(|row| row.name == "D")
+            .unwrap()
+            .declaration_id;
+        let equation = rows
+            .iter()
+            .find(|row| row.name == "e")
+            .unwrap()
+            .declaration_id;
+        let inner = rows
+            .iter()
+            .find(|row| row.name == "x" && row.parent_id == Some(root))
+            .unwrap()
+            .declaration_id;
+        let mut index = SourceIndex::default();
+        for row in rows {
+            index.insert((row, None)).unwrap();
+        }
+        index.scopes.insert(root);
+        index.requests.clear();
+        assert_eq!(
+            index.resolve_name(equation, "x"),
+            Lookup::Found(vec![inner])
+        );
+        assert_eq!(index.member_candidates(root, "missing"), Lookup::Absent);
+        assert_eq!(index.imported(root, "missing"), Lookup::Absent);
+        assert!(!index.needs_name(Some(root), "missing"));
+        assert!(!index.needs_name(Some(root), "x"));
+        assert!(
+            index.requests.is_empty(),
+            "complete inventories and grammar leaves need no negative re-probe"
+        );
+    }
+
+    #[tokio::test]
+    async fn local_source_admission_and_selection_need_no_store() {
+        let runtime = crate::workflow::tests::runtime();
+        assert!(matches!(
+            runtime.canonical(),
+            Err(WorkflowError::RecordingUnavailable)
+        ));
+        let rows = parse(
+            "package p {param a:Scalar=1;param b:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}",
+        );
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows.clone(), crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        assert!(package.canonical_revision().is_none());
+        let selected = package
+            .checked_selection(&[root], &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let declarations = selected.admission.revision.declarations();
+        assert!(declarations.iter().any(|r| r.name == "a"));
+        assert!(!declarations.iter().any(|r| r.name == "b"));
+        assert_eq!(&*package.declarations().await.unwrap(), rows.as_slice());
+        let same = runtime
+            .modeling_package(rows, package.physical.clone())
+            .await
+            .unwrap();
+        assert_ne!(same.revision_id(), package.revision_id());
+        assert_ne!(same.revision.lineage_id(), package.revision.lineage_id());
+        let reused = same
+            .checked_selection(&[root], &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(Arc::ptr_eq(&selected.admission, &reused.admission));
+    }
+    #[tokio::test]
+    async fn local_siblings_branch_and_cancel_keeps_previous_head() {
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime
+            .modeling_package(
+                parse("package p {param a:Scalar=1;}"),
+                crate::workflow::tests::physical(),
+            )
+            .await
+            .unwrap();
+        let left = parse("package p {param a:Scalar=2;}");
+        let right = parse("package p {param a:Scalar=3;}");
+        let (left, right) = tokio::join!(
+            package.with_declarations(left),
+            package.with_declarations(right)
+        );
+        let left = left.unwrap();
+        let right = right.unwrap();
+        assert_ne!(left.revision_id(), right.revision_id());
+        assert_ne!(left.revision.lineage_id(), right.revision.lineage_id());
+        assert!(
+            left.revision.lineage_id() == package.revision.lineage_id()
+                || right.revision.lineage_id() == package.revision.lineage_id()
+        );
+        assert_eq!(
+            &*package.declarations().await.unwrap(),
+            parse("package p {param a:Scalar=1;}").as_slice()
+        );
+        let before = left.revision.head.lock().unwrap().revision.clone();
+        let cancel = crate::CancelSource::new();
+        cancel.cancel();
+        assert!(
+            left.with_delta(
+                crate::workflow::SourceDelta {
+                    parent: left.revision_id().into(),
+                    ..Default::default()
+                },
+                &cancel
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(left.revision.head.lock().unwrap().revision, before);
+    }
+    #[tokio::test]
+    async fn local_exact_premises_reject_payload_collision_and_new_shadow() {
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime
+            .modeling_package(
+                parse("package p {param a:Scalar=1;def Root {var x:Scalar;eq e:x==a;}}"),
+                crate::workflow::tests::physical(),
+            )
+            .await
+            .unwrap();
+        let root = package
+            .declarations()
+            .await
+            .unwrap()
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let selected = package
+            .checked_selection(&[root], &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let object = package
+            .revision
+            .admitted
+            .objects
+            .values()
+            .find(|o| o.name == "a")
+            .unwrap();
+        let mut forged = object.edit();
+        let replacement = parse("package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}")
+            .into_iter()
+            .find(|r| r.name == "a")
+            .unwrap();
+        forged.version.as_mut().unwrap().payload =
+            payload(&(replacement, None::<FieldSpans>)).unwrap().into();
+        // Keep its correspondence key deliberately unchanged: full equality refuses reuse.
+        let forged_owner =
+            AdmittedModelRevision::apply(&runtime, Some(&package.revision.admitted), &[forged])
+                .unwrap();
+        assert!(!selected.admission.dependencies.matches(&forged_owner));
+        let shadow = package
+            .with_declarations(parse(
+                "package p {param a:Scalar=1;def Root {param a:Scalar=4;var x:Scalar;eq e:x==a;}}",
+            ))
+            .await
+            .unwrap();
+        assert!(
+            !selected
+                .admission
+                .dependencies
+                .matches(&shadow.revision.admitted)
+        );
+        let current = shadow
+            .checked_selection(&[root], &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert_ne!(
+            selected.admission.dependencies,
+            current.admission.dependencies
+        );
+    }
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn durable_source_ack_conflict_and_disconnected_owned_compute() {
+        let runtime = crate::workflow::tests::durable_runtime();
+        let package = runtime
+            .modeling_package(
+                parse("package p {param a:Scalar=1;def Root {var x:Scalar;eq e:x==a;}}"),
+                crate::workflow::tests::physical(),
+            )
+            .await
+            .unwrap();
+        let root = package
+            .declarations()
+            .await
+            .unwrap()
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let origin = package.canonical_revision().unwrap().clone();
+        let imported = runtime
+            .modeling_revision(origin.clone(), package.physical.clone(), BTreeMap::new())
+            .await
+            .unwrap();
+        assert_ne!(imported.revision_id(), package.revision_id());
+        assert_eq!(imported.revision.identity, package.revision.identity);
+        let changed = package
+            .with_declarations(parse(
+                "package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}",
+            ))
+            .await
+            .unwrap();
+        let conflict = imported
+            .with_declarations(parse(
+                "package p {param a:Scalar=3;def Root {var x:Scalar;eq e:x==a;}}",
+            ))
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                conflict,
+                WorkflowError::Canonical(
+                    pse_operations::canonical::CanonicalError::SourceEditRefused { .. }
+                )
+            ),
+            "head conflict is proved refusal: {conflict}"
+        );
+        assert_eq!(imported.canonical_revision().unwrap(), &origin);
+        runtime.canonical_store().unwrap().close();
+        assert!(
+            changed
+                .checked_selection(&[root], &crate::CancelSource::new())
+                .await
+                .is_ok()
+        );
+        assert!(
+            changed
+                .with_declarations(parse(
+                    "package p {param a:Scalar=4;def Root {var x:Scalar;eq e:x==a;}}"
+                ))
+                .await
+                .is_err()
+        );
     }
 }

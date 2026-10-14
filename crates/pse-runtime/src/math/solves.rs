@@ -743,7 +743,7 @@ impl PreparedSolve {
                 .as_ref()
                 .map(|outputs| outputs.identity)
         };
-        if base.state != routing::AssessmentState::Ready
+        let different = base.state != routing::AssessmentState::Ready
             || base.refusal.is_some()
             || !base.evidence.is_empty()
             || !base.artifacts.is_empty()
@@ -781,15 +781,10 @@ impl PreparedSolve {
             || leaf.task_admission.is_some()
             || leaf.point_accuracy.is_some()
             || leaf.composition.is_some()
-            || !leaf.automatic_products.is_empty()
-        {
-            return Ok(false);
-        }
+            || !leaf.automatic_products.is_empty();
         #[cfg(feature = "solver-kinsol")]
-        if leaf.causal_supplier.is_some() {
-            return Ok(false);
-        }
-        Ok(true)
+        let different = different || leaf.causal_supplier.is_some();
+        Ok(!different)
     }
     pub(crate) fn advice_cohort(
         &self,

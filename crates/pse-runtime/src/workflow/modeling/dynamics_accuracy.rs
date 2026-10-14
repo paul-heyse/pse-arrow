@@ -23,6 +23,12 @@ use pse_model::generated::enums::{AccuracyGoalSubject, NumericalAccuracyClass};
 use pse_model::strategy::SemanticProductKey;
 
 #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+struct ChargedDynamicAttempt {
+    outcome: Result<(native::Report, checks::SampleChecks), ProblemError>,
+    charge: pse_model::strategy::WorkCharge,
+}
+
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
 pub(super) fn task_admission(
     scope: pse_kernels::ExecutionScope,
 ) -> Arc<crate::math::strategy::admission::TaskAdmission> {
@@ -2081,13 +2087,7 @@ impl ModelingSimulation {
         let mut integrate = |profile: &native::Profile,
                              occurrence: i64,
                              ratio: f64|
-         -> Result<
-            (
-                Result<(native::Report, checks::SampleChecks), ProblemError>,
-                pse_model::strategy::WorkCharge,
-            ),
-            ProblemError,
-        > {
+         -> Result<ChargedDynamicAttempt, ProblemError> {
             progress.push(pse_backend_native::solve::Event {
                 phase: "accuracy.dynamic.comparator".into(),
                 elapsed: started.elapsed(),
@@ -2110,13 +2110,12 @@ impl ModelingSimulation {
                 occurrence as u64,
                 scope,
                 progress.clone(),
-                *retention,
-                observer,
+                SampleCapture { retention: *retention, observer },
             );
             let charge = complete_dynamic_attempt(&admission, self.key, occurrence as u64)?;
-            Ok((outcome, charge))
+            Ok(ChargedDynamicAttempt { outcome, charge })
         };
-        let (other_outcome, other_charge) = match integrate(&contrast, 1, 0.5) {
+        let ChargedDynamicAttempt { outcome: other_outcome, charge: other_charge } = match integrate(&contrast, 1, 0.5) {
             Ok(result) => result,
             Err(error) => {
                 let rows = self.optional_accuracy_failure(error)?;
@@ -2194,7 +2193,7 @@ impl ModelingSimulation {
             }
         };
         // Retain the admitted result until its replacement has passed original checks.
-        let (refined_outcome, refined_charge) = match integrate(&refined_controls, 2, ratio) {
+        let ChargedDynamicAttempt { outcome: refined_outcome, charge: refined_charge } = match integrate(&refined_controls, 2, ratio) {
             Ok(result) => result,
             Err(error) => {
                 let rows = self.optional_accuracy_failure(error)?;

@@ -865,15 +865,13 @@ async fn actual_convex_advice_inputs_are_nonrecursive_and_refuse_unestablished_b
         &prepared.solve.profile.composition,
         &prepared.solve.numerical_strategy().start,
         &candidates,
-        &Default::default(),
-        None,
-        pse_model::strategy::WorkObservation {
+                super::super::strategy::AutoProgress { attempted: &Default::default(), last: None, work: pse_model::strategy::WorkObservation {
             attempts: 0,
             evaluations: None,
             iterations: None,
             factorizations: None,
             proof_steps: None,
-        },
+        } },
         false,
         Some(&baseline.cohort),
     );
@@ -1171,15 +1169,13 @@ async fn actual_pounce_observed_recovery_precedes_unobserved_profiles() {
         &prepared.solve.profile.composition,
         &prepared.solve.numerical_strategy().start,
         &candidates,
-        &std::collections::BTreeSet::from([0]),
-        Some(&last),
-        pse_model::strategy::WorkObservation {
+                super::super::strategy::AutoProgress { attempted: &std::collections::BTreeSet::from([0]), last: Some(&last), work: pse_model::strategy::WorkObservation {
             attempts: 1,
             evaluations: None,
             iterations: None,
             factorizations: None,
             proof_steps: None,
-        },
+        } },
         false,
         None,
     );

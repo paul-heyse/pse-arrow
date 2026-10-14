@@ -1300,7 +1300,7 @@ pub struct ReplayPreparedNode {
     pub requested_screened_start: Option<ReplayScreenedStart>,
     /// Exact actual postconstructor ordering, starts, branch and limits.
     pub declaration: Option<NumericalStrategy>,
-    /// Exact ordered preprepared automatic inventory, including every Original profile.
+    /// Exact ordered automatic inventory prepared in advance, including every Original profile.
     pub automatic: Vec<ReplayPreparedProduct>,
     /// Exact ordered declared product inventory.
     pub rungs: Vec<ReplayPreparedProduct>,

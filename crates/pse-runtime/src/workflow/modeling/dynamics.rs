@@ -32,6 +32,12 @@ use pse_model::generated::enums::{NumericalSource, NumericalTarget};
 use pse_model::generated::identities::RunId;
 use std::{collections::BTreeSet, sync::Arc};
 
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+pub(super) struct SampleCapture<'a> {
+    retention: native::SampleRetention,
+    observer: &'a mut Option<Box<dyn SimulationSampleObserver>>,
+}
+
 /// Completed attempt metadata is independent of output persistence and final selection.
 #[derive(Clone, Debug)]
 pub struct SimulationSampleAttempt {
@@ -945,9 +951,9 @@ impl ModelingSimulation {
         attempt: u64,
         scope: &pse_kernels::ExecutionScope,
         progress: Arc<pse_backend_native::solve::Progress>,
-        retention: native::SampleRetention,
-        observer: &mut Option<Box<dyn SimulationSampleObserver>>,
+        capture: SampleCapture<'_>,
     ) -> Result<(native::Report, checks::SampleChecks), ProblemError> {
+        let SampleCapture { retention, observer } = capture;
         let controls = pse_backend_native::solve::Controls {
             time_limit: profile.time_limit,
             ..Default::default()
@@ -1133,8 +1139,7 @@ impl ModelingSimulation {
                     0,
                     &scope,
                     progress.clone(),
-                    retention,
-                    &mut observer,
+                    SampleCapture { retention, observer: &mut observer },
                 );
                 let mut accuracy_charges = Vec::new();
                 if let Some(admission) = &accuracy_admission {

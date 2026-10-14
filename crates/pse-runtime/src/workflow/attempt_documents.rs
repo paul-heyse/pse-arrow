@@ -400,7 +400,7 @@ impl RunResult {
                     crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
                     _ => None,
                 })
-                .or_else(|| match &self.report {
+                .or(match &self.report {
                     Ok(RunReport::Fit(report)) => report.solve.as_ref(),
                     #[cfg(feature = "solver-diffsol")]
                     Ok(RunReport::Shooting(report)) => report.solve.as_ref(),

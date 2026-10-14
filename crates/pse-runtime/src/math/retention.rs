@@ -47,7 +47,7 @@ impl CacheKey for Key {
 #[derive(Clone)]
 enum Product {
     Numerics(numerics::RetainedPolicy),
-    Package(crate::workflow::PackageAdmission),
+    Package(Arc<crate::workflow::PackageAdmission>),
     ParsedFields(Arc<pse_modeling::expression::occurrences::ParsedFields>),
     Ingress(Arc<crate::workflow::modeling::RetainedIngress>),
     Selected(Arc<Vec<Arc<crate::workflow::modeling::SelectedAdmission>>>),
@@ -66,7 +66,7 @@ impl CacheValue for Product {
         size_of::<Self>()
             .saturating_add(128)
             .saturating_add(match self {
-                Self::Package(p) => p.retained_bytes(),
+                Self::Package(p) => p.retained_bytes().saturating_add(2 * size_of::<usize>()),
                 Self::Numerics(policy) => policy.bytes,
                 Self::ParsedFields(fields) => fields.retained_bytes(),
                 Self::Ingress(ingress) => ingress.retained_bytes(),
@@ -565,7 +565,7 @@ impl ModelingCache {
     pub(crate) fn package(
         &self,
         key: AdmittedClosureHash,
-    ) -> Option<crate::workflow::PackageAdmission> {
+    ) -> Option<Arc<crate::workflow::PackageAdmission>> {
         match self.get(&Key::Package(key))? {
             Product::Package(p) => Some(p),
             _ => None,
@@ -577,7 +577,7 @@ impl ModelingCache {
         key: AdmittedClosureHash,
         p: crate::workflow::PackageAdmission,
     ) {
-        self.put(generation, Key::Package(key), Product::Package(p));
+        self.put(generation, Key::Package(key), Product::Package(Arc::new(p)));
     }
     pub(super) fn report(&self, active_loads: usize) -> pse_engine::cache_service::CacheReport {
         pse_engine::cache_service::CacheReport {
@@ -654,6 +654,47 @@ mod pressure_tests {
     use super::*;
     use crate::math::{artifacts::Key as ArtifactKey, tests};
     use datafusion::execution::memory_pool::MemoryConsumer;
+    #[tokio::test]
+    async fn package_cache_weights_pointee_and_retains_escaped_owner_after_clear() {
+        let runtime = crate::workflow::tests::runtime();
+        let service = runtime.shared.math();
+        let pool = runtime.shared.pool();
+        let rows = pse_authoring::language::parse(
+            "package p { def Root { var x: Scalar; eq e:x==1; } }",
+            pse_ids::SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let count = rows.len();
+        let physical = crate::workflow::tests::physical();
+        let package = runtime.modeling_package(rows, physical.clone()).await.unwrap();
+        let admission = package.admission().unwrap();
+        let payload = admission.retained_bytes();
+        service.clear_program_cache();
+        let generation = service.modeling_cache.generation();
+        let key = AdmittedClosureHash::from_id(pse_ids::ContentHash::from_bytes([41; 32]));
+        service.modeling_cache.retain_package(generation, key, admission);
+        let escaped = service.modeling_cache.package(key).unwrap();
+        let alias = service.modeling_cache.package(key).unwrap();
+        assert!(Arc::ptr_eq(&escaped, &alias), "lookups share the complete admission owner");
+        drop(alias);
+        let weight = entry_weight(&Key::Package(key), &Product::Package(escaped.clone())).unwrap();
+        assert!(weight >= payload + 2 * size_of::<usize>(), "the cache must charge the pointee and Arc header");
+        assert_eq!(service.modeling_cache.entries.memory_used(), weight);
+        drop(package);
+        service.clear_program_cache();
+        assert!(service.modeling_cache.package(key).is_none());
+        // A late publication from the previous generation cannot repopulate the cache.
+        service.modeling_cache.retain_package(generation, key, escaped.as_ref().clone());
+        assert!(service.modeling_cache.package(key).is_none());
+        let rebuilt = runtime.package_from_admission(escaped.clone(), physical).unwrap();
+        assert_eq!(rebuilt.declarations().await.unwrap().len(), count);
+        drop(rebuilt);
+        service.clear_program_cache();
+        let held = pool.reserved();
+        drop(escaped);
+        assert!(pool.reserved() < held, "the escaped admission pins allocation leases until its last owner drops");
+    }
     fn key(value: u8) -> ArtifactKey {
         ArtifactKey::Artifact(pse_ids::ContentHash::from_bytes([value; 32]))
     }

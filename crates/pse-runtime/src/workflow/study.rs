@@ -582,13 +582,11 @@ impl Runtime {
                     for selected in &lazy.variants.selected {
                         if let pse_model::study::StartPolicy::Explicit { seed, .. } =
                             &selected.point.policy.start
-                        {
-                            if !admitted_seeds.contains_key(seed) {
+                            && !admitted_seeds.contains_key(seed) {
                                 let selected_seed =
                                     creation_input(cancel, operations.seed(*seed)).await?;
                                 admitted_seeds.insert(*seed, selected_seed);
                             }
-                        }
                     }
                 }
                 drop(seed_preparation);

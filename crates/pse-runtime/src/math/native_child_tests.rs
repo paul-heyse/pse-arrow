@@ -30,10 +30,7 @@ fn portable_registry_declarations_roundtrip_and_changed_context_is_distinct() {
     let changed = serde_json::to_vec(&wire).unwrap();
     assert_ne!(digest(&bytes), digest(&changed));
     let builder: pse_quantity::QuantityRegistryBuilder = serde_json::from_slice(&changed).unwrap();
-    match builder.build() {
-        Ok(other) => assert_ne!(other, registry),
-        Err(_) => {}
-    }
+    if let Ok(other) = builder.build() { assert_ne!(other, registry) }
 }
 
 fn source() -> PortableRootSource {
@@ -228,6 +225,7 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
 }
 
 #[test]
+#[expect(clippy::exit, reason = "the child-process death control deliberately exits with code 17 to test supervision")]
 fn private_native_fake_process() {
     let Ok(mode) = std::env::var("PSE_PRIVATE_NATIVE_TEST_MODE") else {
         return;

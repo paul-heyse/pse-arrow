@@ -1139,8 +1139,8 @@ async fn retained_preparation_basis(
     let key = math
         .basis_key(&selected.admission, root, instance, bindings, limits)
         .unwrap();
-    let basis = math.modeling_cache.basis(&key);
-    basis
+
+    math.modeling_cache.basis(&key)
 }
 
 #[tokio::test]

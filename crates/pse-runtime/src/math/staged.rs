@@ -1413,9 +1413,7 @@ impl NativeSession {
                 request,
                 &declaration.start,
                 &candidates,
-                &Default::default(),
-                None,
-                work,
+                super::strategy::AutoProgress { attempted: &Default::default(), last: None, work },
                 false,
                 None,
             );
@@ -2723,9 +2721,7 @@ mod admission_tests {
             &request,
             &declaration.start,
             &[],
-            &Default::default(),
-            Some(&last),
-            result.work,
+                strategy::AutoProgress { attempted: &Default::default(), last: Some(&last), work: result.work },
             false,
             None,
         ) else {

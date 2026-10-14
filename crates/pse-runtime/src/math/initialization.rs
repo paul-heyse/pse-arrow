@@ -308,8 +308,8 @@ pub(super) fn conditional_contract_route(
     facts.prepared_derivatives = prepared_order;
     let rows = &contract.rows;
     let normalization =
-        pse_math::normalization::Normalization::from_policy(numerics, &structure.variables, &rows)?;
-    let tolerances = Tolerances::from_policy(numerics, &structure.variables, &rows)?;
+        pse_math::normalization::Normalization::from_policy(numerics, &structure.variables, rows)?;
+    let tolerances = Tolerances::from_policy(numerics, &structure.variables, rows)?;
     let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
     native::routing::Requirements {
         table: &execution::LINKED,
@@ -3103,17 +3103,17 @@ mod tests {
                 policy: StartPolicy::NoPriorStart, recovery: Vec::new(),
             };
             assert!(matches!(strategy::next_automatic(&Default::default(), &starts,
-                std::slice::from_ref(&recovery), &BTreeSet::new(), Some(&last),
-                pse_model::strategy::WorkObservation {
+                std::slice::from_ref(&recovery),
+                strategy::AutoProgress { attempted: &BTreeSet::new(), last: Some(&last), work: pse_model::strategy::WorkObservation {
                     attempts: 1, evaluations: Some(0), iterations: Some(0),
                     factorizations: Some(0), proof_steps: Some(0),
-                }, false, None), strategy::AutoDecision::Stop { .. }),
+                } }, false, None), strategy::AutoDecision::Stop { .. }),
                 "the default single execution cannot silently admit recovery");
             assert!(matches!(strategy::next_automatic(&request, &starts, &[recovery],
-                &BTreeSet::new(), Some(&last), pse_model::strategy::WorkObservation {
+                strategy::AutoProgress { attempted: &BTreeSet::new(), last: Some(&last), work: pse_model::strategy::WorkObservation {
                     attempts: 1, evaluations: Some(0), iterations: Some(0),
                     factorizations: Some(0), proof_steps: Some(0),
-                }, false, None),
+                } }, false, None),
                 strategy::AutoDecision::Dispatch { candidate: 0 }));
             assert!(matches!(outcome, super::super::solves::Outcome::Native(_)),
                 "the forged native observation must retain its original report");
