@@ -423,12 +423,12 @@ fn action(
     if let Some(predecessor) = waiting {
         return Ok(ActionKind::Wait(WaitReason::Dependency { predecessor }));
     }
-    if let StartPolicy::Continuation(edge) = &point.start {
-        if !predecessor_settled(policies, get_fact(snapshot, edge.predecessor)?, cancelled)? {
-            return Ok(ActionKind::Wait(WaitReason::Dependency {
-                predecessor: edge.predecessor,
-            }));
-        }
+    if let StartPolicy::Continuation(edge) = &point.start
+        && !predecessor_settled(policies, get_fact(snapshot, edge.predecessor)?, cancelled)?
+    {
+        return Ok(ActionKind::Wait(WaitReason::Dependency {
+            predecessor: edge.predecessor,
+        }));
     }
     let seed_need = match (point.seed_need, fact.admitted_seed_need) {
         (_, Some(SeedNeed::Pending)) => {

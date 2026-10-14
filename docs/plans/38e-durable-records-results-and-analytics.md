@@ -204,7 +204,7 @@ allowed independent caller minting to race its last-owner check; both now join u
 physical admission owner.
 
 Actual recovery exposed assumptions that pure mocks missed: `reset-failed` can refuse a
-fresh/collected unit, intermediate UPDATEs return records, and deadline functions return
+fresh/collected unit, intermediate `UPDATE` statements return records, and deadline functions return
 booleans. Maintenance now proves exact fresh terminal absence, and SQL suppresses/binds
 intermediate output while retaining the strict single ACK and original deadline. CLI and
 reciprocal imports share one lifecycle authority. Validation opens protected file reads with

@@ -178,17 +178,13 @@ impl ProtectedFile {
 }
 impl Read for ProtectedFile {
     fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
-        self.process
-            .require_current()
-            .map_err(std::io::Error::other)?;
+        self.process.require_current_io()?;
         self.file.read(bytes)
     }
 }
 impl Seek for ProtectedFile {
     fn seek(&mut self, position: SeekFrom) -> std::io::Result<u64> {
-        self.process
-            .require_current()
-            .map_err(std::io::Error::other)?;
+        self.process.require_current_io()?;
         self.file.seek(position)
     }
 }
@@ -234,8 +230,8 @@ impl ProcessIdentity {
             group_inode: None,
         };
         let cgroups = std::fs::read_to_string("/proc/self/cgroup").map_err(configuration)?;
-        if let Some(group) = cgroups.lines().find_map(|line| line.strip_prefix("0::")) {
-            if let Some(unit) = Path::new(group)
+        if let Some(group) = cgroups.lines().find_map(|line| line.strip_prefix("0::"))
+            && let Some(unit) = Path::new(group)
                 .components()
                 .filter_map(|part| part.as_os_str().to_str())
                 .find(|part| {
@@ -281,12 +277,23 @@ impl ProcessIdentity {
                 identity.unit = Some(unit.into());
                 identity.group = Some(control.into());
                 identity.group_inode = Some(inode);
-            }
         }
         Ok(identity)
     }
+    fn is_current(&self) -> bool {
+        self.pid == std::process::id()
+    }
+    fn require_current_io(&self) -> std::io::Result<()> {
+        if !self.is_current() {
+            // Inherited handles must also refuse in a post-fork child. A simple
+            // error kind allocates nothing; formatting a CanonicalError or boxing
+            // it in io::Error could acquire an inherited allocator lock.
+            return Err(std::io::ErrorKind::Other.into());
+        }
+        Ok(())
+    }
     fn require_current(&self) -> Result<(), CanonicalError> {
-        if self.pid != std::process::id() {
+        if !self.is_current() {
             return Err(configuration(
                 "inherited file capability requires independent process registration",
             ));
@@ -577,7 +584,9 @@ impl CanonicalStore {
         let mut inspection=bounded_query(self.db.query("RETURN SELECT key,state,storage_incarnation FROM ONLY type::record('canonical_file_instances',$key);").bind(("key",instance.to_owned()))).await?;
         let mut inspected=inspection.take::<Option<Object>>(0)?.ok_or_else(||configuration("physical collection instance unavailable"))?;
         if text(&mut inspected,"key")?!=instance||text(&mut inspected,"storage_incarnation")?!=self.files.incarnation{return Err(CanonicalError::OperationReused);}
-        let state=text(&mut inspected,"state")?;if state=="collected"{return Ok(());}if !["attached","abandoned","collecting"].contains(&state.as_str()){return Err(configuration("original file publication remains unresolved"));}
+        let state=text(&mut inspected,"state")?;
+        if state=="collected"{return Ok(());}
+        if !["attached","abandoned","collecting"].contains(&state.as_str()){return Err(configuration("original file publication remains unresolved"));}
         self.registered_file_owner().await?;
         let _lock=lock_instance(&self.files.root,instance).await?;
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
@@ -828,6 +837,77 @@ fn publish_locked(
     Ok(())
 }
 
+impl CanonicalStore {
+    pub(crate) async fn admit_manifest_ticket(
+        &self,
+        kind: &str,
+        selection: &str,
+        result: Option<(&str, &str, &str)>,
+        protection: &str,
+    ) -> Result<(), CanonicalError> {
+        let owner = self.registered_file_owner().await?;
+        let mut row = Object::new();
+        row.insert("key", protection.to_owned());
+        row.insert("kind", kind.to_owned());
+        row.insert("selection", selection.to_owned());
+        row.insert("owner", owner);
+        row.insert("storage_incarnation", self.files.incarnation.clone());
+        row.insert("released", false);
+        if let Some((run, attempt, manifest)) = result {
+            row.insert("run", run.to_owned());
+            row.insert("attempt", attempt.to_owned());
+            row.insert("manifest", manifest.to_owned());
+        }
+        let mut response=self.protected_query(&format!("file-ticket:{protection}"),crate::canonical::QueryEffect::Mutation,"canonical_files::admit_ticket",||Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::ticket($pse_rpc_expires_at,$row); COMMIT;").bind(("row",row.clone())))).await?;
+        let mut saved = last_object(&mut response)?;
+        saved.remove("id");
+        if saved != row {
+            return Err(CanonicalError::OperationReused);
+        }
+        Ok(())
+    }
+    pub(crate) async fn file_descriptor(
+        &self,
+        batch: &pse_model::generated::runtime::canonical_result_batches::Row,
+    ) -> Result<FileDescriptor, CanonicalError> {
+        let descriptor = self.descriptor_for_instance(&batch.file_instance).await?;
+        if descriptor.digest != batch.file_digest
+            || descriptor.bytes != batch.payload_bytes
+            || descriptor.schema != batch.schema
+            || descriptor.encoding != batch.encoding
+        {
+            return Err(configuration(
+                "logical file descriptor differs from sealed instance",
+            ));
+        }
+        FileBatch {
+            file: descriptor.clone(),
+            index: batch.file_batch_index,
+        }
+        .validate()?;
+        Ok(descriptor)
+    }
+    pub(crate) async fn descriptor_for_instance(
+        &self,
+        instance: &str,
+    ) -> Result<FileDescriptor, CanonicalError> {
+        self.files.require_current()?;
+        let mut response=bounded_query(self.db.query("BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'admitted file physical instance unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut row = last_object(&mut response)?;
+        let descriptor = FileDescriptor {
+            instance: text(&mut row, "key")?,
+            digest: text(&mut row, "digest")?,
+            bytes: codec::decode_uint(codec::required(&mut row, "payload_bytes")?)?,
+            encoding: text(&mut row, "encoding")?,
+            batch_count: codec::decode_uint(codec::required(&mut row, "batch_count")?)?,
+            schema: text(&mut row, "schema")?,
+            interpretation: text(&mut row, "interpretation")?,
+        };
+        descriptor.validate()?;
+        Ok(descriptor)
+    }
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
@@ -976,18 +1056,29 @@ mod tests {
             _owner: Arc::new(()),
             process: ProcessIdentity::current().unwrap(),
         };
-        // SAFETY: no application locks or asynchronous tasks cross this test's
-        // fork; the child checks cached PID before IO and uses _exit directly.
+        // SAFETY: the child only queries its PID, inspects simple allocation-free
+        // I/O errors and calls _exit. It does not access the file, allocate,
+        // format diagnostics, or run Rust teardown after inheriting other threads.
         let child = unsafe { libc::fork() };
         assert!(child >= 0);
         if child == 0 {
             let mut byte = [0u8; 1];
-            let refused = file.read(&mut byte).is_err();
-            unsafe { libc::_exit(if refused { 0 } else { 1 }) };
+            let read_refused = matches!(file.read(&mut byte), Err(error) if error.kind() == std::io::ErrorKind::Other);
+            let seek_refused = matches!(file.seek(SeekFrom::Start(0)), Err(error) if error.kind() == std::io::ErrorKind::Other);
+            // SAFETY: this is the child returned by fork. Terminate without
+            // touching inherited Rust owners or running their destructors.
+            unsafe { libc::_exit(if read_refused && seek_refused { 0 } else { 1 }) };
         }
         let mut status = 0;
-        assert_eq!(unsafe { libc::waitpid(child, &mut status, 0) }, child);
+        // SAFETY: child is the positive PID returned by our fork; status is
+        // exclusively borrowed writable storage for this parent's wait.
+        let waited = unsafe { libc::waitpid(child, &mut status, 0) };
+        assert_eq!(waited, child);
         assert_eq!(status, 0);
+        let mut parent_byte = [0u8; 1];
+        assert_eq!(file.read(&mut parent_byte).unwrap(), 1);
+        assert_eq!(parent_byte[0], bytes[0]);
+        assert_eq!(file.seek(SeekFrom::Start(0)).unwrap(), 0);
         drop(file);
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -1122,77 +1213,6 @@ mod tests {
         )
         .unwrap();
         std::fs::remove_dir_all(root).unwrap();
-    }
-}
-
-impl CanonicalStore {
-    pub(crate) async fn admit_manifest_ticket(
-        &self,
-        kind: &str,
-        selection: &str,
-        result: Option<(&str, &str, &str)>,
-        protection: &str,
-    ) -> Result<(), CanonicalError> {
-        let owner = self.registered_file_owner().await?;
-        let mut row = Object::new();
-        row.insert("key", protection.to_owned());
-        row.insert("kind", kind.to_owned());
-        row.insert("selection", selection.to_owned());
-        row.insert("owner", owner);
-        row.insert("storage_incarnation", self.files.incarnation.clone());
-        row.insert("released", false);
-        if let Some((run, attempt, manifest)) = result {
-            row.insert("run", run.to_owned());
-            row.insert("attempt", attempt.to_owned());
-            row.insert("manifest", manifest.to_owned());
-        }
-        let mut response=self.protected_query(&format!("file-ticket:{protection}"),crate::canonical::QueryEffect::Mutation,"canonical_files::admit_ticket",||Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::ticket($pse_rpc_expires_at,$row); COMMIT;").bind(("row",row.clone())))).await?;
-        let mut saved = last_object(&mut response)?;
-        saved.remove("id");
-        if saved != row {
-            return Err(CanonicalError::OperationReused);
-        }
-        Ok(())
-    }
-    pub(crate) async fn file_descriptor(
-        &self,
-        batch: &pse_model::generated::runtime::canonical_result_batches::Row,
-    ) -> Result<FileDescriptor, CanonicalError> {
-        let descriptor = self.descriptor_for_instance(&batch.file_instance).await?;
-        if descriptor.digest != batch.file_digest
-            || descriptor.bytes != batch.payload_bytes
-            || descriptor.schema != batch.schema
-            || descriptor.encoding != batch.encoding
-        {
-            return Err(configuration(
-                "logical file descriptor differs from sealed instance",
-            ));
-        }
-        FileBatch {
-            file: descriptor.clone(),
-            index: batch.file_batch_index,
-        }
-        .validate()?;
-        Ok(descriptor)
-    }
-    pub(crate) async fn descriptor_for_instance(
-        &self,
-        instance: &str,
-    ) -> Result<FileDescriptor, CanonicalError> {
-        self.files.require_current()?;
-        let mut response=bounded_query(self.db.query("BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'admitted file physical instance unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
-        let mut row = last_object(&mut response)?;
-        let descriptor = FileDescriptor {
-            instance: text(&mut row, "key")?,
-            digest: text(&mut row, "digest")?,
-            bytes: codec::decode_uint(codec::required(&mut row, "payload_bytes")?)?,
-            encoding: text(&mut row, "encoding")?,
-            batch_count: codec::decode_uint(codec::required(&mut row, "batch_count")?)?,
-            schema: text(&mut row, "schema")?,
-            interpretation: text(&mut row, "interpretation")?,
-        };
-        descriptor.validate()?;
-        Ok(descriptor)
     }
 }
 
@@ -1587,3 +1607,4 @@ mod catalog_controls {
         store.remove_isolated_fixture().await.unwrap();
     }
 }
+

@@ -1833,14 +1833,16 @@ impl CanonicalStore {
     fn seal_final_fixture_owner(&self) -> bool {
         self.db.access.physical.seal_if_final_fixture(|| {
             #[cfg(any(test, feature = "test-support"))]
-            if self
-                .fixture_lifetime
-                .as_ref()
-                .is_some_and(|lifetime| Arc::strong_count(lifetime) > 1)
             {
-                return false;
+                !self
+                    .fixture_lifetime
+                    .as_ref()
+                    .is_some_and(|lifetime| Arc::strong_count(lifetime) > 1)
             }
-            true
+            #[cfg(not(any(test, feature = "test-support")))]
+            {
+                true
+            }
         })
     }
     /// Drain a registered fixture locally; runner disposition owns disposal.
