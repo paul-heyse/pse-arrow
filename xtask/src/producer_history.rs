@@ -308,13 +308,16 @@ fn validate(directory: &Path) -> Result<Index> {
         ensure!(file_digest(&directory.join(name))? == *expected, "historical child stream changed");
     }
     if let Some(path) = &index.legacy_evidence {
+        for name in ["build.stdout", "build.stderr", "build.status.json", "unit-graph.stdout", "unit-graph.arguments.json", "metadata.stdout"] {
+            ensure!(index.streams.contains_key(name), "historical exact raw context member missing: {name}");
+        }
         let original = index.members.get(path).context("historical exact Cargo context evidence missing")?;
         let evidence: serde_json::Value = serde_json::from_slice(&protected_bytes(directory, original)?)?;
         ensure!(evidence["unit_graph"] == serde_json::to_value(&index.graph)?, "historical selected unit graph differs from exact build context");
         ensure!(evidence["arguments"].as_array().is_some_and(|arguments| !arguments.is_empty()) && evidence["success"] == true,
             "historical exact build invocation missing");
-        let raw_graph: serde_json::Value = serde_json::from_slice(&fs::read(directory.join("unit-graph.stdout"))?)?;
-        ensure!(raw_graph == evidence["unit_graph"], "historical raw unit graph differs");
+        let raw_graph: UnitGraph = serde_json::from_slice(&fs::read(directory.join("unit-graph.stdout"))?)?;
+        ensure!(serde_json::to_value(raw_graph)? == evidence["unit_graph"], "historical raw unit graph differs");
         let _: Vec<String> = serde_json::from_slice(&fs::read(directory.join("unit-graph.arguments.json"))?)?;
         let _: cargo_metadata::Metadata = serde_json::from_slice(&fs::read(directory.join("metadata.stdout"))?)?;
     }
@@ -430,6 +433,8 @@ fn validate(directory: &Path) -> Result<Index> {
     let scientific = serde_json::to_value(&index.receipt)?;
     deployment_identity::verify_scientific_producer_identity(&scientific)?;
     if let Some(association) = &index.receipt.deployment {
+        ensure!(association.producer_identity == index.receipt.identity && Some(&association.selected_root) == index.receipt.selected_root.as_ref(),
+            "historical deployment producer/root differs");
         ensure!(index.members.get(&association.built_artifact.path).is_some_and(|member| member.original == association.built_artifact), "historical role artifact association missing");
         for file in &association.files {
             ensure!(index.members.get(&file.path).is_some_and(|member| member.original == *file), "historical consumed original observation missing");
