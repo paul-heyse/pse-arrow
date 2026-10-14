@@ -76,6 +76,11 @@ struct Library {
 /// Build the Sundials code vendor with sundials-sys.
 fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
     println!("cargo:rerun-if-changed=vendor");
+    // SundialsSetupConfig.cmake exports CI metadata or a CMake timestamp through
+    // public SUN_JOB_* macros. CMake's timestamp also consumes epoch/timezone.
+    for name in ["CI_JOB_ID", "CI_JOB_STARTED_AT", "SOURCE_DATE_EPOCH", "TZ"] {
+        println!("cargo:rerun-if-env-changed={}", name);
+    }
     // This directory is consumed by CMake only on the bundled SUNDIALS path.
     if let Some(dir) = &klu.lib {
         println!("cargo:rerun-if-changed={}", dir);

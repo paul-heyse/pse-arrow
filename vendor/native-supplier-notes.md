@@ -47,6 +47,10 @@ The three patched build scripts make these corrections:
   SuiteSparse `DEP_*` metadata only with `klu`; the KLU library directory is observed
   when CMake consumes it. Cargo-generated `DEP_*` values do not receive caller-env
   rerun directives: upstream dependency/metadata invalidation carries those values.
+  Every bundled-build route also observes present or absent `CI_JOB_ID`,
+  `CI_JOB_STARTED_AT`, `SOURCE_DATE_EPOCH` and `TZ`: CMake uses those inputs for the
+  public `SUN_JOB_*` metadata macros. Successful standalone-provider builds do not
+  consume those inputs and do not emit their watches.
 - Diffsol's optional `sundials` build branch observes its SUNDIALS options and both
   selected providers' directories. Its local C benchmark tree is observed because
   compiled translation units also include local headers and other C sources.
@@ -93,6 +97,15 @@ Do not mutate shared installations, clean Cargo artifacts or vary global flags.
 6. Exercise the optional Diffsol SUNDIALS branch separately. For feature branches
    that do not consume these external options, verify their directives are absent
    and changing an unused provider option leaves that supplier unit fresh.
+7. For bundled SUNDIALS, hold the Cargo unit and private provider fixed, set
+   `SOURCE_DATE_EPOCH=0` and `TZ=UTC`, and establish the unchanged fresh control.
+   Change each of the four metadata inputs separately, including absence/presence
+   of the CI overrides. Confirm the supplier reruns and the generated config header
+   and bindings reflect the selected CI value or timestamp. Hold CI overrides
+   absent while checking epoch/timezone changes. Restore the original environment
+   and establish freshness again. On a successful standalone-provider branch,
+   verify these watches are absent and changing an unused metadata input leaves
+   the supplier fresh.
 
 These are build freshness controls; numerical solver/runtime qualification is a
 separate integration obligation.
