@@ -4778,15 +4778,46 @@ def start(
 
 def reset_maintenance_failure_window(state: Path, config: dict[str, object], deadline: float) -> None:
     """Intentional terminal maintenance launches do not spend the crash restart budget."""
-    require_maintenance_owner(state, config)
-    all_contexts_drained(state)
-    observed = service_readiness(state, config, deadline=deadline)
-    if observed.phase is not Readiness.ACTIONABLE_ABSENT:
-        raise SupervisorError("Maintenance failure-window reset requires the exact drained terminal service")
-    remaining(deadline)
-    reset = systemctl("reset-failed", unit_name(state), check=False)
-    if reset.returncode:
-        raise SupervisorError("Exact owned maintenance failure-window reset was refused")
+    with lifecycle_deadline(deadline) as selected_deadline:
+        assert selected_deadline is not None
+        require_maintenance_owner(state, config)
+        all_contexts_drained(state)
+        observed = service_readiness(state, config, deadline=selected_deadline)
+        if observed.phase is not Readiness.ACTIONABLE_ABSENT:
+            raise SupervisorError("Maintenance failure-window reset requires the exact drained terminal service")
+        remaining(selected_deadline)
+        reset = systemctl("reset-failed", unit_name(state), check=False)
+        if reset.returncode:
+            # A newly materialized or collected unit can refuse reset-failed
+            # because no executed invocation/failure window exists. Reauthenticate
+            # that exact absence; other manager refusals remain fatal.
+            selected = config_for(state, deadline=selected_deadline)
+            require_maintenance_owner(state, selected)
+            all_contexts_drained(state)
+            absent = service_readiness(state, selected, deadline=selected_deadline)
+            manager = systemctl("show", "--property=LoadState", "--property=ActiveState",
+                "--property=ControlGroup", "--property=InvocationID", unit_name(state), check=False)
+            fields = dict(line.split("=", 1) for line in manager.stdout.splitlines() if "=" in line)
+            if (
+                selected != config
+                or absent.phase is not Readiness.ACTIONABLE_ABSENT
+                or absent.state != state
+                or absent.unit != unit_name(state)
+                or absent.instance_id != config["instance_id"]
+                or absent.listener_owned
+                or manager.returncode
+                or fields.get("LoadState") not in {"loaded", "not-found"}
+                or fields.get("ActiveState") != "inactive"
+                or fields.get("ControlGroup") != ""
+                or fields.get("InvocationID") != ""
+                or any(absent.manager.get(key) != fields.get(key) for key in (
+                    "ActiveState", "ControlGroup", "InvocationID"
+                ))
+                or config_for(state, deadline=selected_deadline) != selected
+            ):
+                raise SupervisorError("Exact owned maintenance failure-window reset was refused")
+            require_maintenance_owner(state, selected)
+            remaining(selected_deadline)
 
 
 def _start(

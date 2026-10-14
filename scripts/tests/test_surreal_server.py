@@ -6831,7 +6831,55 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         ):
             self.bind_maintenance_listener(config)
             server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
-        manager.assert_called_once_with("reset-failed", server.unit_name(self.state), check=False)
+        self.assertEqual(manager.call_args_list[0], call("reset-failed", server.unit_name(self.state), check=False))
+        self.assertFalse(any(arguments.args[0] == "start" for arguments in manager.call_args_list))
+
+    def test_collected_initial_maintenance_reset_refusal_reauthenticates_exact_absence(self) -> None:
+        config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
+        fields = {"LoadState": "loaded", "ActiveState": "inactive", "ControlGroup": "", "InvocationID": ""}
+        absent = server.ServiceObservation(server.Readiness.ACTIONABLE_ABSENT, self.state, config["instance_id"], server.unit_name(self.state), "never-started unit", manager=fields)
+        def manager(*arguments: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess([], 1 if arguments[0] == "reset-failed" else 0, "\n".join(key + "=" + value for key, value in fields.items()), "")
+        deadline = time.monotonic() + 30
+        with server.lifecycle_reservation(self.state), patch.object(server, "all_contexts_drained") as drain, patch.object(server, "service_readiness", return_value=absent) as readiness, patch.object(server, "require_maintenance_owner", wraps=server.require_maintenance_owner) as authority, patch.object(server, "systemctl", side_effect=manager) as operations:
+            self.bind_maintenance_listener(config)
+            server.reset_maintenance_failure_window(self.state, config, deadline)
+            self.assertEqual(drain.call_count, 2)
+            self.assertEqual(authority.call_count, 3)
+            self.assertTrue(all(arguments.kwargs["deadline"] == deadline for arguments in readiness.call_args_list))
+            self.assertFalse(any(arguments.args[0] == "start" for arguments in operations.call_args_list))
+
+    def test_maintenance_reset_absence_fallback_refuses_unknown_or_surviving_lifetime(self) -> None:
+        config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
+        for case in ("manager-error", "active", "group", "invocation", "missing-invocation", "foreign-owner", "changed-config", "changed-readiness"):
+            fields = {"LoadState": "loaded", "ActiveState": "inactive", "ControlGroup": "", "InvocationID": ""}
+            if case == "active":
+                fields["ActiveState"] = "active"
+            elif case == "group":
+                fields["ControlGroup"] = "/surviving-group"
+            elif case == "invocation":
+                fields["InvocationID"] = "a" * 32
+            elif case == "missing-invocation":
+                fields.pop("InvocationID")
+            absent = server.ServiceObservation(server.Readiness.ACTIONABLE_ABSENT, self.state, config["instance_id"], server.unit_name(self.state), "controlled absence", manager=fields)
+            def manager(*arguments: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+                if arguments[0] == "reset-failed":
+                    if case == "foreign-owner":
+                        marker = server.read_json(self.state / ".maintenance-listener.json")
+                        server.write_json(self.state / ".maintenance-listener.json", {**marker, "instance_id": "other"})
+                    elif case == "changed-config":
+                        server.write_json(self.state / "config.json", {**config, "resident": not config.get("resident", False)})
+                    return subprocess.CompletedProcess([], 1, "", "")
+                return subprocess.CompletedProcess([], 1 if case == "manager-error" else 0, "\n".join(key + "=" + value for key, value in fields.items()), "")
+            with self.subTest(case=case), server.lifecycle_reservation(self.state), patch.object(server, "all_contexts_drained"), patch.object(server, "service_readiness", side_effect=[absent, readiness_fixture(server.Readiness.STARTING)] if case == "changed-readiness" else None, return_value=absent), patch.object(server, "systemctl", side_effect=manager) as operations:
+                server.write_json(self.state / "config.json", config)
+                self.bind_maintenance_listener(config)
+                with self.assertRaises(server.SupervisorError):
+                    server.reset_maintenance_failure_window(self.state, config, time.monotonic() + 30)
+                self.assertFalse(any(arguments.args[0] == "start" for arguments in operations.call_args_list))
+                # Restore fixture metadata before the enclosing normal drain.
+                server.write_json(self.state / "config.json", config)
+                self.bind_maintenance_listener(config)
 
     def test_maintenance_launch_has_no_restart_bootstrap_or_readiness_mutation(
         self,
