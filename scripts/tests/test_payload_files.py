@@ -60,7 +60,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         if "$marker=SELECT" in body:
             return {"payload_incarnation": self.config["payload_incarnation"], "interpretation": self.config["interpretation"]}
         if "drain_owner" in body:
-            expected = json.loads(body.split(",", 1)[1].removesuffix(");"))
+            expected = json.loads(body.split(",", 1)[1].removesuffix(");").replace("<decimal>", ""))
             for owner in self.owners:
                 if owner["key"] == expected["key"]:
                     owner["drained"] = True

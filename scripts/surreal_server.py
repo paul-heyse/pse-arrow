@@ -5405,10 +5405,17 @@ def payload_expiry() -> int:
 def payload_pages(state: Path, config: dict[str, object], table: str) -> Generator[list[dict[str, object]], None, None]:
     if table not in {"canonical_file_owners", "canonical_file_instances"}:
         raise SupervisorError("Unknown file inventory table")
+    columns = (
+        "key,issuing_store,storage_incarnation,boot,pid_namespace,<string>pid AS pid,start,invocation,unit,group,"
+        "(IF group_inode=NONE {NONE} ELSE {<string>group_inode}) AS group_inode,drained"
+        if table == "canonical_file_owners" else
+        "key,intent,request_digest,owner,owner_kind,selection,issuing_store,storage_incarnation,digest,"
+        "<string>payload_bytes AS payload_bytes,encoding,<string>batch_count AS batch_count,schema,interpretation,state"
+    )
     after = ""
     while True:
         value = payload_query(state, config,
-            f"LET $rows=SELECT * FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; RETURN $rows;")
+            f"LET $rows=SELECT {columns} FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; RETURN $rows;")
         if not isinstance(value, list) or len(value) > 64:
             raise SupervisorError("Invalid bounded file catalog inventory")
         rows: list[dict[str, object]] = []
@@ -5483,9 +5490,23 @@ def reap_payload_owners(state: Path, config: dict[str, object], *, require_all: 
                     raise SupervisorError("File owner drain is unobservable; admission remains closed") from error
                 counts["unknown"] += 1
                 continue
-            expected = {key: value for key, value in row.items() if key != "id"}
+            fields: list[str] = []
+            for key, value in row.items():
+                if key == "id":
+                    continue
+                if key in {"pid", "group_inode"}:
+                    # JSON administrative transport does not retain native
+                    # Decimal kind. Reconstruct only declared unsigned fields.
+                    text_value = str(value)
+                    if not text_value.isascii() or not text_value.isdecimal():
+                        raise SupervisorError("File owner unsigned identity is invalid")
+                    encoded = "<decimal>" + json.dumps(text_value)
+                else:
+                    encoded = json.dumps(value)
+                fields.append(json.dumps(key) + ":" + encoded)
+            expected_sql = "{" + ",".join(fields) + "}"
             acknowledged = payload_query(state, config,
-                f"RETURN fn::pse_files_v1::drain_owner({payload_expiry()},{json.dumps(expected)});")
+                f"RETURN fn::pse_files_v1::drain_owner({payload_expiry()},{expected_sql});")
             if acknowledged is not True:
                 if require_all:
                     raise SupervisorError("Exact file owner drain was not acknowledged")
