@@ -257,35 +257,29 @@ mod tests {
     }
 
     #[test]
-    fn real_interval_route_matches_certified_roots_including_near_critical_endpoints() {
+    fn real_interval_route_matches_known_roots_including_near_critical_endpoints() {
+        // Explicit factorizations supply the root counts and values independently
+        // of the isolation/refinement route used by the production fallback.
+        let near_zero = 1.0 / 1_073_741_824.0;
         let fixtures = [
-            vec![(-6).into(), 11.into(), (-6).into(), 1.into()],
-            vec![(-2).into(), 0.into(), 1.into()],
-            vec![(-2).into(), 1.into()],
-            vec![0.into(), 0.into(), 0.into(), 1.into()],
-            vec![
-                0.into(),
-                Rational::from((-1, 1_i64 << 60)),
-                0.into(),
-                1.into(),
-            ],
-            vec![(-1).into(), 3.into(), (-3).into(), 1.into()],
+            (vec![(-6).into(), 11.into(), (-6).into(), 1.into()], vec![1.0, 2.0, 3.0]),
+            (vec![(-2).into(), 0.into(), 1.into()], vec![-2.0_f64.sqrt(), 2.0_f64.sqrt()]),
+            (vec![(-2).into(), 1.into()], vec![2.0]),
+            (vec![0.into(), 0.into(), 0.into(), 1.into()], vec![0.0]),
+            (
+                vec![0.into(), Rational::from((-1, 1_i64 << 60)), 0.into(), 1.into()],
+                vec![-near_zero, 0.0, near_zero],
+            ),
+            (vec![(-1).into(), 3.into(), (-3).into(), 1.into()], vec![1.0]),
         ];
         let cancel = Arc::new(AtomicBool::new(false));
-        let precision = Rational::from((1_i64, 1_i64 << 54));
-        for coefficients in fixtures {
+        for (coefficients, expected) in fixtures {
             let poly = polynomial(coefficients);
             let mut actual = real_points(&poly, &cancel).unwrap();
-            let mut reference = poly
-                .isolate_real_roots()
-                .into_iter()
-                .map(|(root, _)| root.refined(&precision).enclosure().center().re.to_f64())
-                .collect::<Vec<_>>();
             actual.sort_by(f64::total_cmp);
-            reference.sort_by(f64::total_cmp);
-            assert_eq!(actual.len(), reference.len());
-            for (actual, reference) in actual.into_iter().zip(reference) {
-                assert!((actual - reference).abs() <= 1e-14 * reference.abs().max(1.0));
+            assert_eq!(actual.len(), expected.len());
+            for (actual, expected) in actual.into_iter().zip(expected) {
+                assert!((actual - expected).abs() <= 1e-14 * expected.abs().max(1.0));
             }
         }
     }

@@ -1,7 +1,7 @@
 ---
 title: Qualification and direct target cutover
-status: draft
-date: 2026-10-13
+status: in-progress
+date: 2026-10-14
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
 scenario_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
@@ -23,8 +23,8 @@ The combined acceptance checks in G0–G4 are **Proposed**, baseline zero permit
 
 | Packet | Prerequisite and delivered boundary | State |
 |---|---|---|
-| <a id="g0"></a>G0 | Accepted rule rows plus concrete selected target. Install each required ADR/design/register/binding amendment before dependent implementation; record actual available contracts, not acceptance by proposal | Planned |
-| <a id="g1"></a>G1 | All selected functional slices/consumers migrated, investigations dispositioned. Assemble policy/preparation/transport/result/recovery consumer acceptance and remove replaced mechanisms | Planned |
+| <a id="g0"></a>G0 | Accepted rule rows plus concrete selected target. Install each required ADR/design/register/binding amendment before dependent implementation; record actual available contracts, not acceptance by proposal | In progress |
+| <a id="g1"></a>G1 | All selected functional slices/consumers migrated, investigations dispositioned. Assemble policy/preparation/transport/result/recovery consumer acceptance and remove replaced mechanisms | In progress |
 | <a id="g2"></a>G2 | Working selected native/scientific profiles and actual build/environment. Qualify affected solver/recycle/dynamics/fitting/physical/reference scope with independent oracles | Planned |
 | <a id="g3"></a>G3 | Functional scope complete and actual installed/worker/prefix closure. Run selected integration/component/Python/native/performance and scope-end hygiene/manual checks, repair failures | Planned |
 | <a id="g4"></a>G4 | G1–G3 complete plus explicit support/deferral decisions. Reconcile all adopted contributions, evidence labels and new plan Outcome; keep later existing-plan/status/index reconciliation separately scoped | Planned |
@@ -33,7 +33,7 @@ G0 applies per dependency, not an all-series implementation barrier. G1–G3 are
 
 ## G0 — Decisions and real prerequisites
 
-The coordinator records all 27 accepted boundaries. I-E1 final topology/deployment, I-C1 reset/width, I-C2 methods and I-C4 sparse tier still produce concrete choices. A selected binding/crate/major-family/Python/hashing/commit/metadata/governance change follows its actual ADR/review route; ordinary compatible dependency updates do not inherit an approval ceremony. Required accepted ADR changes supersede records rather than rewriting them, with architecture revision through the established route. No such existing-owner edit occurs during this authoring request.
+The coordinator records all 27 accepted boundaries. The completed 38c/38e investigation outcomes settle I-E1 topology/deployment and I-C1/I-C2/I-C4 reset, methods and sparse support. ADR-0183–0188 and architecture revisions 160–167 install the reviewed target; formal ADR status remains proposed pending the decision-PR route. A selected binding/crate/major-family/Python/hashing/commit/metadata/governance change follows its actual ADR/review route; ordinary compatible dependency updates do not inherit an approval ceremony. Required accepted ADR changes supersede records rather than rewriting them, with architecture revision through the established route.
 
 The governing dependency is the specific meaning/capability consumed: working local admitted bundle, actual native compatibility/reset, complete request/permission/observation, exact ack/manifest/reader or real dependency/binary identity. A designed interface alone does not establish that production consumers can use it. If an investigation changes a shared premise, update the new owning target/dependents and obtain a concrete decision when beyond accepted fences before code relies on it. Do not fit the target to current rules or silently bypass them.
 
@@ -160,3 +160,20 @@ actual lock refusal, exact child cleanup and library-owned order reporting.
 campaigns remain at their existing owners. This work does not close whole-series findings or
 resume stopped campaigns. Existing storage data, unrelated allocations and warm caches retain
 their ownership; the maintainer separately ran `cargo clean` to make space during verification.
+
+## Execution checkpoint — 2026-10-14
+
+The maintainer authorized G0–G4 execution, including strict actual producer captures and
+representative end-to-end measurements. The initial tree is clean at `2b854c807`; completed
+38a–38f outcomes supply the selected implementation and support decisions. Coverage and
+independent scientific-oracle review are in progress; current producer input completeness
+must be established before strict capture. The prior static repairs retain their bounded
+passing evidence and do not close assembled acceptance.
+
+Ordinary correctness-extension checks and parity precede the final producer-linked install.
+Manual signal and scientific recovery controls use separate owned v6 fixtures. Measurements
+use a separate reference state with matching development-worker functional prerequisites;
+they report actual reference-host conditions rather than timing-lane isolation. Root owns
+tracked plans, integration, shared contracts and serial workload execution. Source reviewers
+write only ignored advice artifacts. Existing primary state, other active plans, stopped
+campaigns, unrelated allocations and warm build artifacts retain their ownership.
