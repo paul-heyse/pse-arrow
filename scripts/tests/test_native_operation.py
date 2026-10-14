@@ -4014,5 +4014,91 @@ class DrainObservationTests(unittest.TestCase):
         self.assertFalse(result.complete)
 
 
+class ManagerObservationTests(unittest.TestCase):
+    def test_runtime_selection_is_pure_and_preserves_off_and_authority(self) -> None:
+        environment = {
+            "MKL_CBWR": "AUTO", "OMP_NUM_THREADS": "8", "OMP_PLACES": "off",
+            operation.OFF_MARKER: "MKL_NUM_THREADS", "CUSTOM": "preserved",
+        }
+        with (
+            patch.object(cache, "runtime_env", return_value={"MKL_CBWR": "COMPATIBLE", "OMP_PLACES": "sockets"}) as runtime,
+            patch.object(cache, "solver", side_effect=AssertionError("provider preparation")),
+            patch.object(cache, "admit_external", side_effect=AssertionError("provider admission")),
+            patch.object(cache, "compiler_env", side_effect=AssertionError("compiler preparation")),
+            patch.object(operation, "admit", side_effect=AssertionError("capability admission")),
+            patch("sys.stderr", new_callable=io.StringIO) as errors,
+        ):
+            selected = operation.runtime_selection(["solver"], environment, root=Path("/selected"))
+        runtime.assert_called_once_with(Path("/selected/docker/solvers/Dockerfile"))
+        self.assertEqual(environment["MKL_CBWR"], "AUTO")
+        self.assertEqual(selected["MKL_CBWR"], "COMPATIBLE")
+        self.assertEqual(selected["OMP_NUM_THREADS"], "8")
+        self.assertEqual(selected["OPENBLAS_NUM_THREADS"], "1")
+        self.assertEqual(selected["CUSTOM"], "preserved")
+        self.assertNotIn("OMP_PLACES", selected)
+        self.assertNotIn("MKL_NUM_THREADS", selected)
+        self.assertEqual(selected[operation.OFF_MARKER], "MKL_NUM_THREADS,OMP_PLACES")
+        self.assertEqual(errors.getvalue(), "")
+
+    def test_unit_properties_validate_structure_and_preserve_absence(self) -> None:
+        properties = "InvocationID=abc\nControlGroup=/owned\nLoadState=loaded\nActiveState=active\n"
+        with patch.object(operation, "manager_observation", return_value=properties) as query:
+            observed = operation.unit_observation("pse-owned.scope")
+        self.assertEqual(observed["InvocationID"], "abc")
+        self.assertEqual(query.call_args.args[-1], "pse-owned.scope")
+        for invalid in (
+            properties + "malformed\n",
+            properties + "InvocationID=other\n",
+            properties.replace("InvocationID=abc\n", ""),
+            properties.replace("LoadState=loaded", "LoadState="),
+        ):
+            with (
+                self.subTest(invalid=invalid),
+                patch.object(operation, "manager_observation", return_value=invalid),
+                self.assertRaises(ValueError),
+            ):
+                operation.unit_observation("pse-owned.scope")
+        absent = "InvocationID=\nControlGroup=\nLoadState=not-found\nActiveState=inactive\n"
+        with patch.object(operation, "manager_observation", return_value=absent):
+            self.assertEqual(operation.unit_observation("pse-gone.scope")["LoadState"], "not-found")
+
+    def test_manager_failure_reports_bounded_stderr_and_selected_endpoint(self) -> None:
+        endpoint = {"XDG_RUNTIME_DIR": "/selected/runtime", "DBUS_SESSION_BUS_ADDRESS": "unix:path=/selected/bus", "SECRET": "must-not-appear"}
+        for failure in (
+            subprocess.CompletedProcess([], 1, stdout="", stderr="prefix-" + "x" * 5000 + "hidden-suffix"),
+            FileNotFoundError("systemctl missing"),
+            subprocess.TimeoutExpired("systemctl", 10, stderr=b"timed-out-detail"),
+        ):
+            with (
+                self.subTest(failure=failure),
+                patch.object(operation, "manager_control_environment", return_value=endpoint),
+                patch.object(operation.subprocess, "run", **(
+                    {"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure}
+                )),
+                self.assertRaises((ValueError, subprocess.TimeoutExpired)) as refused,
+            ):
+                operation.unit_observation("pse-owned.scope")
+            message = str(refused.exception)
+            self.assertIn("/selected/runtime", message)
+            self.assertIn("/selected/bus", message)
+            self.assertNotIn("SECRET", message)
+            self.assertNotIn("must-not-appear", message)
+            self.assertNotIn("hidden-suffix", message)
+            self.assertLess(len(message), 4600)
+            if isinstance(failure, subprocess.CompletedProcess):
+                self.assertIn("prefix-", message)
+                self.assertIn("[truncated]", message)
+
+    def test_manager_explicit_clock_remains_original_through_timeout(self) -> None:
+        failure = subprocess.TimeoutExpired("systemctl", 0.5)
+        with (
+            patch.object(operation.time, "monotonic", side_effect=[100.0, 101.0]),
+            patch.object(operation.subprocess, "run", side_effect=failure) as query,
+            self.assertRaises(operation.DeadlineExpiredError),
+        ):
+            operation.unit_observation("pse-owned.scope", deadline=100.5)
+        self.assertEqual(query.call_args.kwargs["timeout"], 0.5)
+
+
 if __name__ == "__main__":
     unittest.main()

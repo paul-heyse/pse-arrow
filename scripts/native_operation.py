@@ -164,21 +164,38 @@ def manager_control_environment() -> dict[str, str]:
     return {**os.environ, **pse_env.manager_environment()}
 
 
-def unit_observation(unit: str, *, deadline: float | None = None) -> dict[str, str]:
+def _manager_detail(value: str | bytes | None, limit: int) -> str:
+    raw = value.encode() if isinstance(value, str) else value or b""
+    suffix = " [truncated]" if len(raw) > limit else ""
+    return raw[:limit].decode(errors="replace").strip() + suffix
+
+
+def _manager_endpoint(environment: Mapping[str, str]) -> str:
+    return ", ".join(
+        f"{name}={_manager_detail(environment.get(name), 256)}"
+        for name in ("XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
+    )
+
+
+class ManagerObservationTimeout(subprocess.TimeoutExpired):
+    """A manager timeout retaining its selected endpoint and bounded diagnostics."""
+
+    def __init__(self, error: subprocess.TimeoutExpired, context: str) -> None:
+        super().__init__(error.cmd, error.timeout, stderr=_manager_detail(error.stderr, 4096))
+        self.context = context
+
+    def __str__(self) -> str:
+        return f"{super().__str__()} ({self.context}); stderr: {self.stderr or '(empty)'}"
+
+
+def manager_observation(*arguments: str, deadline: float | None = None) -> str:
+    """Read the selected user manager without preparation or execution admission."""
     environment = manager_control_environment()
+    context = _manager_endpoint(environment)
     timeout = 10 if deadline is None else min(10, admission_remaining(deadline))
     try:
         result = subprocess.run(
-            [
-                "systemctl",
-                "--user",
-                "show",
-                "--property=InvocationID",
-                "--property=ControlGroup",
-                "--property=LoadState",
-                "--property=ActiveState",
-                unit,
-            ],
+            ["systemctl", "--user", *arguments],
             check=False,
             capture_output=True,
             text=True,
@@ -190,14 +207,44 @@ def unit_observation(unit: str, *, deadline: float | None = None) -> dict[str, s
             raise DeadlineExpiredError(
                 "native operation original observation clock expired"
             ) from error
-        raise
+        raise ManagerObservationTimeout(error, context) from error
+    except OSError as error:
+        raise ValueError(
+            f"systemctl {arguments[0]} unavailable ({context}): {type(error).__name__}: {error}"
+        ) from error
     if deadline is not None:
         admission_remaining(deadline)
     if result.returncode:
-        raise ValueError("native operation unit observation unavailable")
-    return dict(
-        line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
+        detail = _manager_detail(result.stderr, 4096) or "(empty)"
+        raise ValueError(
+            f"systemctl {arguments[0]} failed ({result.returncode}; {context}); stderr: {detail}"
+        )
+    return result.stdout
+
+
+def unit_observation(
+    unit: str, *, deadline: float | None = None, properties: tuple[str, ...] = ()
+) -> dict[str, str]:
+    requested = tuple(dict.fromkeys((
+        "InvocationID", "ControlGroup", "LoadState", "ActiveState", *properties
+    )))
+    value = manager_observation(
+        "show", *(f"--property={key}" for key in requested), unit, deadline=deadline
     )
+    context = _manager_endpoint(manager_control_environment())
+    fields: dict[str, str] = {}
+    for line in value.splitlines():
+        if "=" not in line:
+            raise ValueError(f"malformed systemctl properties for {unit} ({context})")
+        key, observed = line.split("=", 1)
+        if key in fields:
+            raise ValueError(f"duplicate systemctl property {key} for {unit} ({context})")
+        fields[key] = observed
+    if any(key not in fields for key in requested) or not all(
+        fields.get(key) for key in ("LoadState", "ActiveState")
+    ):
+        raise ValueError(f"incomplete systemctl properties for {unit} ({context})")
+    return fields
 
 
 def scope_owner(*, deadline: float | None = None) -> ScopeOwner | None:
@@ -1469,6 +1516,38 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         write_json(Path(timing), receipt)
 
 
+def runtime_selection(
+    requested: list[str], env: Mapping[str, str], *, root: Path = ROOT
+) -> dict[str, str]:
+    """Select runtime defaults and explicit removals without preparing a provider."""
+    from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
+
+    result = dict(env)
+    off = {name for name in result.get(OFF_MARKER, "").split(",") if name}
+    for name in OVERRIDABLE:
+        if result.get(name) == "off":
+            off.add(name)
+        elif name in result:
+            off.discard(name)
+    if any(kind in requested for kind in ("solver", "uno", "petsc")):
+        for name, value in cache.runtime_env(root / "docker/solvers/Dockerfile").items():
+            if name in AUTHORITATIVE:
+                result[name] = value
+            elif name not in off:
+                result.setdefault(name, value)
+    for name in THREAD_VARIABLES:
+        if name not in off:
+            result.setdefault(name, "1")
+    for name in off:
+        result.pop(name, None)
+    if off:
+        result[OFF_MARKER] = ",".join(sorted(off))
+    else:
+        result.pop(OFF_MARKER, None)
+    result.pop("CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER", None)
+    return result
+
+
 def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
     from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
     from scripts import (  # noqa: PLC0415 -- owner cycle
@@ -1484,12 +1563,11 @@ def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         )
         else env.copy()
     )
-    off = {name for name in result.get(OFF_MARKER, "").split(",") if name}
-    for name in OVERRIDABLE:
-        if result.get(name) == "off":
-            off.add(name)
-        elif name in result:
-            off.discard(name)
+    selected_runtime = runtime_selection(requested, result)
+    for name in AUTHORITATIVE:
+        if name in selected_runtime and selected_runtime[name] != result.get(name):
+            enforce(result, name, selected_runtime[name])
+    result = selected_runtime
     if "solver" in requested or "uno" in requested or "petsc" in requested:
         if result.get("IPOPT_DIR"):
             prefix = Path(result["IPOPT_DIR"])
@@ -1501,13 +1579,6 @@ def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         result["LD_LIBRARY_PATH"] = cache.prepend_library_path(
             str(prefix / "lib"), result
         )
-        for name, value in cache.runtime_env(
-            ROOT / "docker/solvers/Dockerfile"
-        ).items():
-            if name in AUTHORITATIVE:
-                enforce(result, name, value)
-            elif name not in off:
-                result.setdefault(name, value)
     if "klu" in requested:
         include_value = result.get("SUITESPARSE_INCLUDE_DIR")
         library_value = result.get("SUITESPARSE_LIBRARY_DIR")
@@ -1557,16 +1628,6 @@ def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
             result["LD_LIBRARY_PATH"] = cache.prepend_library_path(
                 f"{result[variable]}/lib", result
             )
-    for name in THREAD_VARIABLES:
-        if name not in off:
-            result.setdefault(name, "1")
-    for name in off:
-        result.pop(name, None)
-    if off:
-        result[OFF_MARKER] = ",".join(sorted(off))
-    else:
-        result.pop(OFF_MARKER, None)
-    result.pop("CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER", None)
     for capability in requested:
         # Thread budgets do not change what is prepared, so a nested caller may
         # choose another one without disturbing the operation's admission.

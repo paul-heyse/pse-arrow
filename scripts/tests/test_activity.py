@@ -18,12 +18,15 @@ from scripts import activity
 
 class ActivityTests(unittest.TestCase):
     def observe(
-        self, responses: list[object], *, structured: bool = True
+        self, responses: list[object], *, structured: bool = True,
+        selection: list[str] | None = None
     ) -> tuple[int, str, str]:
         output = io.StringIO()
         errors = io.StringIO()
         with (
-            patch.object(activity, "systemctl", side_effect=responses),
+            patch.object(
+                activity.native_operation, "manager_observation", side_effect=responses
+            ),
             patch.object(
                 activity,
                 "build_processes",
@@ -45,7 +48,10 @@ class ActivityTests(unittest.TestCase):
             contextlib.redirect_stdout(output),
             contextlib.redirect_stderr(errors),
         ):
-            status = activity.main(["--json"] if structured else [])
+            arguments = ["--json"] if structured else []
+            for unit in selection or []:
+                arguments.extend(("--unit", unit))
+            status = activity.main(arguments)
         return (
             status,
             output.getvalue(),
@@ -81,7 +87,7 @@ class ActivityTests(unittest.TestCase):
                 self.assertTrue(result["observation_errors"])
 
     def test_partial_disappearance_retains_other_unit(self) -> None:
-        properties = "MemoryCurrent=0\nCPUUsageNSec=0\nActiveEnterTimestampMonotonic=0\nControlGroup=/g\nSlice=pse.slice\nLoadState=loaded\nActiveState=active\n"
+        properties = "InvocationID=abc\nMemoryCurrent=0\nCPUUsageNSec=0\nActiveEnterTimestampMonotonic=0\nControlGroup=/g\nSlice=pse.slice\nLoadState=loaded\nActiveState=active\n"
         status, output, _ = self.observe(
             [
                 '[{"unit":"pse-first.scope","active":"active"},{"unit":"pse-gone.scope","active":"active"}]',
@@ -139,6 +145,73 @@ class ActivityTests(unittest.TestCase):
         self.assertNotIn("no pse-* units", output)
         self.assertIn("units unavailable", errors)
         self.assertIn("cargo check", output)
+
+    def test_selected_units_bypass_global_listing_and_deduplicate_in_order(self) -> None:
+        fields = {
+            "InvocationID": "abc", "ControlGroup": "/g", "LoadState": "loaded",
+            "ActiveState": "active", "MemoryCurrent": "0", "CPUUsageNSec": "0",
+            "ActiveEnterTimestampMonotonic": "0", "Slice": "pse.slice",
+        }
+        with (
+            patch.object(activity, "systemctl", side_effect=AssertionError("global list")),
+            patch.object(activity.native_operation, "unit_observation", return_value=fields) as observe,
+        ):
+            status, output, _ = self.observe(
+                [], selection=["pse-z.scope", "pse-a.service", "pse-z.scope"]
+            )
+        result = json.loads(output)
+        self.assertEqual(status, 0)
+        self.assertEqual(result["unit_selection"], ["pse-z.scope", "pse-a.service"])
+        self.assertEqual([call.args[0] for call in observe.call_args_list], result["unit_selection"])
+        self.assertTrue(result["units_available"])
+        self.assertEqual(result["units"][0]["InvocationID"], "abc")
+
+    def test_selected_partial_failure_preserves_healthy_unit_and_independent_results(self) -> None:
+        properties = "InvocationID=abc\nControlGroup=/g\nLoadState=loaded\nActiveState=active\nMemoryCurrent=0\nCPUUsageNSec=0\nActiveEnterTimestampMonotonic=0\nSlice=pse.slice\n"
+        for failure in (
+            properties.replace("LoadState=loaded", "LoadState=not-found"),
+            properties.replace("LoadState=loaded\n", ""),
+            properties + "invalid-property\n",
+            ValueError("missing manager"),
+        ):
+            with self.subTest(failure=failure):
+                status, output, _ = self.observe(
+                    [failure, properties], selection=["pse-gone.scope", "pse-good.scope"]
+                )
+                result = json.loads(output)
+                self.assertEqual(status, 1)
+                self.assertFalse(result["units_available"])
+                self.assertEqual([unit["unit"] for unit in result["units"]], ["pse-good.scope"])
+                self.assertEqual(result["build_processes"][0]["pid"], 42)
+                self.assertIn("pse-gone.scope unavailable", result["observation_errors"][0])
+
+    def test_selection_rejects_nonidentities_before_observation(self) -> None:
+        for unit in ("--all", "pse-*.scope", "pse-x.scope ", "pse-x\n.scope", "x.service", "pse-x.slice", "pse-.scope"):
+            with (
+                self.subTest(unit=unit),
+                patch.object(activity, "units", side_effect=AssertionError("observation")),
+                contextlib.redirect_stderr(io.StringIO()),
+                self.assertRaises(SystemExit) as refused,
+            ):
+                activity.main(["--unit", unit])
+            self.assertEqual(refused.exception.code, 2)
+
+    def test_independent_failures_do_not_change_selected_unit_completeness(self) -> None:
+        fields = {"InvocationID": "abc", "ControlGroup": "/g", "LoadState": "loaded", "ActiveState": "active"}
+        for owner, name in ((activity, "build_processes"), (activity.pse_env, "limits")):
+            output = io.StringIO()
+            with (
+                patch.object(activity.native_operation, "unit_observation", return_value=fields),
+                patch.object(activity, "build_processes", return_value=[]),
+                patch.object(activity.pse_env, "limits", return_value=[]),
+                patch.object(owner, name, side_effect=OSError("independent unavailable")),
+                contextlib.redirect_stdout(output),
+            ):
+                status = activity.main(["--json", "--unit", "pse-healthy.scope"])
+            result = json.loads(output.getvalue())
+            self.assertEqual(status, 1)
+            self.assertTrue(result["units_available"])
+            self.assertEqual(result["units"][0]["unit"], "pse-healthy.scope")
 
 
 if __name__ == "__main__":

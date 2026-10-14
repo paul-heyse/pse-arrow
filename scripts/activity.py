@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -22,23 +23,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import pse_env  # noqa: E402 -- direct-script path routing
+from scripts import native_operation, pse_env  # noqa: E402 -- direct-script path routing
 
 BUILD_TOOLS = {"cargo", "rustc", "cargo-nextest", "clippy-driver", "rustdoc", "maturin"}
 
 
 def systemctl(*args: str) -> str:
-    result = subprocess.run(
-        ["systemctl", "--user", *args],
-        env={**os.environ, **pse_env.manager_environment()},
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=10,
-    )
-    if result.returncode:
-        raise ValueError(f"systemctl {args[0]} failed ({result.returncode})")
-    return result.stdout
+    return native_operation.manager_observation(*args)
+
+
+def selected_unit(value: str) -> str:
+    if not re.fullmatch(r"pse-[A-Za-z0-9_.:-]+\.(?:service|scope)", value):
+        raise argparse.ArgumentTypeError("expected an exact pse-* service or scope unit")
+    return value
 
 
 def parse_units(value: str) -> list[dict[str, str]]:
@@ -55,45 +52,31 @@ def parse_units(value: str) -> list[dict[str, str]]:
     return listed
 
 
-def parse_properties(value: str, properties: tuple[str, ...]) -> dict[str, str]:
-    """Reject incomplete or disappeared observations without losing other units."""
-    lines = value.splitlines()
-    if any("=" not in line for line in lines):
-        raise ValueError("malformed systemctl unit properties")
-    fields = dict(line.split("=", 1) for line in lines)
-    if any(key not in fields for key in properties):
-        raise ValueError("incomplete systemctl unit properties")
-    if fields["LoadState"] == "not-found":
-        raise ValueError("unit disappeared during observation")
-    return fields
-
-
-def units() -> tuple[list[dict[str, str]] | None, list[str]]:
+def units(selection: list[str] | None = None) -> tuple[list[dict[str, str]] | None, list[str]]:
     """Keep a failed list distinct from an empty list, and retain partial results."""
     errors = []
-    try:
-        listed = parse_units(
-            systemctl("list-units", "pse-*", "--all", "--no-pager", "--output=json")
-        )
-    except (OSError, ValueError, subprocess.SubprocessError) as error:
-        return None, [f"units unavailable: {type(error).__name__}: {error}"]
+    if selection is None:
+        try:
+            listed = parse_units(
+                systemctl("list-units", "pse-*", "--all", "--no-pager", "--output=json")
+            )
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            return None, [f"units unavailable: {type(error).__name__}: {error}"]
+        names = [unit["unit"] for unit in listed]
+    else:
+        names = selection
     found = []
     properties = (
         "MemoryCurrent",
         "CPUUsageNSec",
         "ActiveEnterTimestampMonotonic",
-        "ControlGroup",
         "Slice",
-        "LoadState",
-        "ActiveState",
     )
-    for unit in listed:
-        name = unit["unit"]
+    for name in names:
         try:
-            fields = parse_properties(
-                systemctl("show", name, *(f"--property={key}" for key in properties)),
-                properties,
-            )
+            fields = native_operation.unit_observation(name, properties=properties)
+            if fields["LoadState"] == "not-found":
+                raise ValueError("unit disappeared during observation")
             found.append({"unit": name, "active": fields["ActiveState"], **fields})
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             errors.append(f"{name} unavailable: {type(error).__name__}: {error}")
@@ -152,8 +135,12 @@ def build_processes(root: Path) -> list[tuple[int, str, str, str]]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="structured output")
+    parser.add_argument(
+        "--unit", action="append", type=selected_unit, help="observe only this exact pse-* service or scope (repeatable)"
+    )
     args = parser.parse_args(argv)
-    observed, errors = units()
+    selection = list(dict.fromkeys(args.unit)) if args.unit is not None else None
+    observed, errors = units(selection)
     units_available = observed is not None and not errors
     try:
         builds = build_processes(ROOT)
@@ -172,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(
                 {
                     "units": observed,
+                    "unit_selection": selection,
                     "units_available": units_available,
                     "observation_errors": errors,
                     "build_processes": [

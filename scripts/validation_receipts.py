@@ -173,7 +173,11 @@ def _reuse_guarded(
 
         with test_resources.reference_report(origin, consumer):
             origin_report = origin / "checks.json"
-            origin_digest = check.get("origin_digest", digest(origin_report))
+            origin_digest = (
+                check["origin_digest"]
+                if "origin_digest" in check
+                else digest(origin_report)
+            )
             if digest(origin_report) != origin_digest:
                 raise ValueError("changed original report")
             # Preserve syntax validation of the authenticated original report.

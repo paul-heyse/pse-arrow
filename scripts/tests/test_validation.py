@@ -1361,6 +1361,33 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             use(self.output, {"src": "new"}, {}, scope, set(), {"test"}, "reviewed")
 
+    def test_reuse_checks_recorded_digest_and_preserves_missing_and_null_meanings(self) -> None:
+        scope = [asdict(Gate("test"))]
+        check = {
+            "gate": "test", "invocation": scope[0], "status": "passed",
+            "inputs": validation.input_identity("unknown", {"src": "old"}, {}),
+        }
+        receipt = {
+            "version": 5, "input_coverage": True, "checks": [check], "scope": scope,
+        }
+        origin = self.root / "build" / "origin"
+        self.seal_origin(origin, receipt)
+        origin_digest = validation_receipts.digest(origin / "checks.json")
+        for meaning in ("recorded", "missing", "null"):
+            parent = self.root / "build" / meaning
+            inherited = {**check, "origin": str(origin)}
+            if meaning != "missing":
+                inherited["origin_digest"] = origin_digest if meaning == "recorded" else None
+            self.seal_origin(parent, {**receipt, "checks": [inherited]})
+            with patch.object(validation_receipts, "digest", wraps=validation_receipts.digest) as digest:
+                if meaning == "null":
+                    with self.assertRaisesRegex(ValueError, "changed original report"):
+                        validation_receipts.reuse_checks(parent, {"src": "old"}, {}, scope, {"test"}, set(), None)
+                else:
+                    retained = validation_receipts.reuse_checks(parent, {"src": "old"}, {}, scope, {"test"}, set(), None)
+                    self.assertEqual(retained[0]["origin_digest"], origin_digest)
+                self.assertEqual(digest.call_count, 2 if meaning == "missing" else 1)
+
     def test_scoped_inputs_exclude_prose_but_keep_relevant_file_identity(self) -> None:
         before = {
             "crates/pse-runtime/src/lib.rs": "a",
