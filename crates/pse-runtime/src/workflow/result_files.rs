@@ -109,6 +109,16 @@ pub(super) fn batch_extent(batch: &RecordBatch) -> Result<usize, ResultBlockErro
             .ok_or_else(|| invalid("file body size overflow"))
     })
 }
+
+pub(super) fn schema_extent(schema: &SchemaRef) -> Result<usize, ResultBlockError> {
+    let fields = schema.fields().iter().try_fold(0usize, |bytes, field| {
+        bytes.checked_add(field.size()).ok_or_else(|| invalid("file schema size overflow"))
+    })?;
+    schema.metadata().iter().try_fold(fields, |bytes, (key, value)| {
+        bytes.checked_add(key.capacity()).and_then(|bytes| bytes.checked_add(value.capacity()))
+            .and_then(|bytes| bytes.checked_add(128)).ok_or_else(|| invalid("file schema metadata overflow"))
+    })
+}
 fn splittable(error: &ResultBlockError) -> bool {
     matches!(error, ResultBlockError::Invalid("file body exceeds bound" | "field value bound"))
         || matches!(error, ResultBlockError::Arrow(datafusion::arrow::error::ArrowError::IoError(message, _)) if message == "sealed result file limit")

@@ -121,11 +121,12 @@ impl ResultSnapshot {
         // Prepay physical integrity reads, footer verification, native body and
         // alignment copies before opening the file or invoking Arrow.
         let bytes = usize::try_from(descriptor.payload_bytes).map_err(|_| contract("file byte extent"))?;
-        owner.try_grow(bytes.saturating_mul(4).saturating_add(64 * 1024)).map_err(pse_engine::EngineError::from)?;
+        let schema_bytes = result_files::schema_extent(&self.0.schema)?;
+        owner.try_grow(bytes.saturating_mul(4).saturating_add(schema_bytes.saturating_mul(4)).saturating_add(64 * 1024)).map_err(pse_engine::EngineError::from)?;
         let mut cache = self.0.cache.lock().await;
         if cache.as_ref().is_none_or(|cached| cached.instance != descriptor.file_instance) {
             let metadata = MemoryConsumer::new("canonical:result-file-footer-cache").register(&self.0.runtime.shared.pool());
-            metadata.try_grow(bytes.saturating_mul(2).saturating_add(64 * 1024)).map_err(pse_engine::EngineError::from)?;
+            metadata.try_grow(bytes.saturating_mul(2).saturating_add(schema_bytes.saturating_mul(4)).saturating_add(64 * 1024)).map_err(pse_engine::EngineError::from)?;
             let file = self.0.runtime.canonical_store()?.open_result_file(&self.0.read, descriptor).await?;
             let count = usize::try_from(file.descriptor().batch_count).map_err(|_| contract("file batch count extent"))?;
             let reader = result_files::open_file_reader(file, &self.schema(), Some(count))?;
