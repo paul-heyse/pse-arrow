@@ -822,4 +822,12 @@ mod canonical_artifact_tests {
         assert!(response.take::<Vec<Object>>(1).unwrap().is_empty());
         store.remove_isolated_fixture().await.unwrap();
     }
+    #[tokio::test]
+    async fn canonical_artifact_unread_block_survives_logical_caller_close_and_clone_release(){
+        let (store,revision)=fixture().await;let (intent,blocks)=content(&store,&revision,"user","close-owner").await;
+        let saved=store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","close-owner").await.unwrap();
+        let read=store.read_artifact(&saved.key).await.unwrap();let remaining=read.clone();read.release().await.unwrap();store.close();
+        let block=remaining.block(0).await.unwrap();assert_eq!(block.payload,blocks[0].payload);remaining.release().await.unwrap();store.remove_isolated_fixture().await.unwrap();
+    }
+
 }

@@ -304,7 +304,7 @@ fn instance_lock_file(root:&Path,instance:&str)->Result<File,CanonicalError>{
     uuid::Uuid::parse_str(instance).map_err(configuration)?;
     let directory=root.join(".locks");std::fs::create_dir_all(&directory).map_err(configuration)?;
     use std::os::unix::fs::OpenOptionsExt;
-    let file=OpenOptions::new().read(true).write(true).create(true).truncate(false).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(directory.join(format!("{instance}.lock"))).map_err(configuration)?;
+    let file=OpenOptions::new().read(true).write(true).create(true).truncate(false).mode(0o600).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(directory.join(format!("{instance}.lock"))).map_err(configuration)?;
     if !file.metadata().map_err(configuration)?.is_file(){return Err(configuration("physical instance lock is not a regular file"));}
     require_single_link(&file)?;file.sync_all().map_err(configuration)?;File::open(directory).and_then(|file|file.sync_all()).map_err(configuration)?;Ok(file)
 }
@@ -346,7 +346,7 @@ fn publish_locked(root:&Path,descriptor:&FileDescriptor,bytes:&[u8],lock:&Instan
     }
     let staging=pending.join(format!("{}.pending",descriptor.instance));
     use std::os::unix::fs::OpenOptionsExt;
-    let mut file=match OpenOptions::new().write(true).read(true).create_new(true).open(&staging){Ok(file)=>file,Err(error) if error.kind()==std::io::ErrorKind::AlreadyExists=>OpenOptions::new().read(true).write(true).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(&staging).map_err(configuration)?,Err(error)=>return Err(configuration(error))};
+    let mut file=match OpenOptions::new().write(true).read(true).create_new(true).mode(0o600).open(&staging){Ok(file)=>file,Err(error) if error.kind()==std::io::ErrorKind::AlreadyExists=>OpenOptions::new().read(true).write(true).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(&staging).map_err(configuration)?,Err(error)=>return Err(configuration(error))};
     let written=file.metadata().map_err(configuration)?.len();
     if written>bytes.len() as u64{return Err(CanonicalError::OperationReused);}
     let mut buffer=[0u8;65536];let mut checked=0usize;
@@ -493,4 +493,24 @@ mod catalog_controls {
         let other=CanonicalStore::connect(&{let mut options=CanonicalOptions::from_state(store.deployment_state()).unwrap();options.database=store.database().to_owned();options}).await.unwrap();other.open().await.unwrap();assert!(other.recover_file_intent(&intent).await.is_err());other.disconnect().await.unwrap();
         assert!(store.settle_file_intent(&intent).await.is_err());store.remove_isolated_fixture().await.unwrap();
     }
+    #[tokio::test]
+    async fn canonical_file_effects_hold_physical_drain_across_filesystem_and_catalog_completion(){
+        let (store,revision)=fixture().await;let fence=run(&store,revision).await;let bytes=b"[1,2,3]";
+        let intent=store.reserve_result_file(&fence,"paused-original",&crate::canonical_execution::result_payload_digest(bytes)).await.unwrap();
+        let pause=EffectPause{kind:"seal",ready:Arc::new(tokio::sync::Notify::new()),resume:Arc::new(tokio::sync::Notify::new())};
+        let publisher=store.clone();let submitted=intent.clone();let gate=pause.clone();
+        let pending=tokio::spawn(FILE_EFFECT_PAUSE.scope(gate,async move{publisher.seal_file(&submitted,bytes,OPAQUE_JSON,0,"").await}));
+        tokio::time::timeout(std::time::Duration::from_secs(30),pause.ready.notified()).await.unwrap();
+        assert!(store.files.path(intent.instance()).unwrap().exists());
+        assert!(matches!(store.disconnect().await,Err(CanonicalError::ConnectionBusy{..})));
+        store.close();assert!(matches!(store.seal_file(&intent,bytes,OPAQUE_JSON,0,"").await,Err(CanonicalError::CallerClosed)));
+        pause.resume.notify_one();let sealed=pending.await.unwrap().unwrap();verify_payload_file(&store.files.path(intent.instance()).unwrap(),sealed.descriptor()).unwrap();store.disconnect().await.unwrap();
+        let mut options=CanonicalOptions::from_state(store.deployment_state()).unwrap();options.database=store.database().to_owned();let peer=CanonicalStore::connect(&options).await.unwrap();peer.open().await.unwrap();
+        peer.close_result_ingestion(&fence,"close-original").await.unwrap();assert!(peer.settle_file_intent(&intent).await.unwrap());
+        let pause=EffectPause{kind:"collect",ready:Arc::new(tokio::sync::Notify::new()),resume:Arc::new(tokio::sync::Notify::new())};let collector=peer.clone();let instance=intent.instance().to_owned();let gate=pause.clone();
+        let pending=tokio::spawn(FILE_EFFECT_PAUSE.scope(gate,async move{collector.collect_file(&instance).await}));
+        tokio::time::timeout(std::time::Duration::from_secs(30),pause.ready.notified()).await.unwrap();assert!(peer.files.path(intent.instance()).unwrap().exists());assert!(matches!(peer.disconnect().await,Err(CanonicalError::ConnectionBusy{..})));
+        peer.close();assert!(matches!(peer.collect_file(intent.instance()).await,Err(CanonicalError::CallerClosed)));pause.resume.notify_one();pending.await.unwrap().unwrap();assert!(!peer.files.path(intent.instance()).unwrap().exists());peer.disconnect().await.unwrap();store.remove_isolated_fixture().await.unwrap();
+    }
+
 }

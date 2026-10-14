@@ -1360,3 +1360,15 @@ async fn canonical_conflict_rebuild_releases_local_turn_and_keeps_original_clock
     );
     server.abort();
 }
+
+#[tokio::test]
+async fn canonical_closed_file_caller_cannot_start_publication_or_collection(){
+    let (store,mut received,server)=canonical_read_barrier_peer().await;
+    let instance=uuid::Uuid::new_v4().to_string();
+    let intent:crate::canonical_files::FilePublicationIntent=serde_json::from_value(serde_json::json!({"instance":instance,"intent":"original-file","request_digest":"0".repeat(64),"owner":"original-owner","storage_incarnation":store.files.incarnation})).unwrap();
+    let path=store.files.path(intent.instance()).unwrap();store.close();
+    assert!(matches!(store.seal_file(&intent,b"[1]",crate::canonical_files::OPAQUE_JSON,0,"").await,Err(crate::canonical::CanonicalError::CallerClosed)));
+    assert!(matches!(store.collect_file(intent.instance()).await,Err(crate::canonical::CanonicalError::CallerClosed)));
+    assert!(!path.exists());assert!(received.try_recv().is_err());
+    store.db.disconnect().await.unwrap();tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();assert!(received.try_recv().is_err());
+}
