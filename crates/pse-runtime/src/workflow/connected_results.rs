@@ -1218,7 +1218,7 @@ mod canonical_connected_results_server_unit {
         assert!(cleanup.forget_run_results("decoded-owner").await.is_err(), "unexecuted native plan retains future unread files");
         let queried = datafusion::physical_plan::collect(plan.clone(), task).await.unwrap();
         assert_eq!(queried.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
-        let values = queried[0].column(0).as_any().downcast_ref::<datafusion::arrow::array::Float64Array>().unwrap();
+        let values = queried[0].column(0).as_any().downcast_ref::<Float64Array>().unwrap();
         assert_eq!(values.value(0).to_bits(), 273.15f64.to_bits());
         drop(queried);
         drop(plan);

@@ -6,8 +6,6 @@ use super::{Runtime, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer};
 use pse_operations::canonical_artifacts::{Artifact, ArtifactLocator};
 use pse_relations::columnar::RelationRow;
-#[cfg(all(test, feature = "canonical-tests"))]
-use std::time::Duration;
 
 /// A bounded original recovery document is a settlement capability, never a reader.
 #[derive(Clone, Debug)]
