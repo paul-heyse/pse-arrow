@@ -978,11 +978,13 @@ class ValidationTests(unittest.TestCase):
 
     def test_python_producer_profile_keeps_native_dev_graph(self) -> None:
         gates = {gate.name: gate for gate in comprehensive("producer")}
-        self.assertEqual(gates["py-sync-native-correctness"].args, ("producer",))
-        self.assertEqual(gates["py-sync-native-correctness"].profile, "producer")
+        self.assertNotIn("py-sync-native-correctness", gates)
+        self.assertEqual(gates["producer-deployment"].profile, "producer")
+        self.assertEqual(gates["producer-deployment"].dependencies, ())
+        self.assertEqual(gates["python-stubs"].dependencies, ("producer-deployment",))
         self.assertEqual(
             gates["native-python"].dependencies,
-            ("py-sync-native-correctness", "python-deployment-association"),
+            ("producer-deployment", "python-deployment-association"),
         )
         self.assertEqual(
             gates["native-test"].args,
@@ -1082,13 +1084,12 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(record["selected"], [{"class": "pse-runtime", "name": name}])
         self.assertEqual(record["status"], "failed")
 
-    def test_producer_deployment_is_ordered_after_install_before_consumers(
+    def test_producer_deployment_owns_installation_before_consumers(
         self,
     ) -> None:
         gates = comprehensive("producer")
         positions = {gate.name: index for index, gate in enumerate(gates)}
         for prerequisite, consumer in (
-            ("py-sync-native-correctness", "producer-deployment"),
             ("producer-deployment", "python-deployment-association"),
             ("python-deployment-association", "native-deployment-association"),
             ("python-deployment-association", "native-test"),

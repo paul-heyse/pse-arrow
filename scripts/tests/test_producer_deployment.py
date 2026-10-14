@@ -28,6 +28,9 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         self.output = self.root / "evidence"
         self.environment = {}
+        cargo = patch.object(deployment.producer_cargo, "cargo_executable", return_value="/selected/cargo")
+        cargo.start()
+        self.addCleanup(cargo.stop)
         self.native = self.root / "native-library"
         self.native.write_bytes(b"actual native input fixture")
         self.python_native = self.root / "python-native-library"
@@ -83,6 +86,18 @@ class ProducerDeploymentTests(unittest.TestCase):
         ) -> subprocess.CompletedProcess[bytes | str]:
             self.assertEqual(cwd, self.root)
             self.assertIsInstance(text, bool)
+            if command[:2] == ["uv", "sync"]:
+                return subprocess.CompletedProcess(command, 0)
+            if Path(command[0]).name == "maturin":
+                selected = deployment.read_object(Path(env[deployment.producer_cargo.CAPTURE]))
+                options = selected["capture_options"]
+                if not isinstance(options, list):
+                    raise TypeError("installer must select its actual capture options")
+                command = ["just", "producer-identity", *options]
+                env = {**self.environment, "PYO3_BUILD_EXTENSION_MODULE": "1"}
+                for name, value in deployment.producer_cargo.effective_environment(env).items():
+                    command.extend(("--environment", f"{name}={value}"))
+                (self.output / "python-installer-cargo.status.json").write_text(json.dumps({"returncode": 0, "sealed": True}))
             if "verify-deployment-artifact" in command:
                 self.assertTrue(text)
                 self.assertTrue(capture_output)
@@ -184,6 +199,10 @@ class ProducerDeploymentTests(unittest.TestCase):
         commands = [
             call.args[0] for call in run.call_args_list if call.args[0][0] == "just"
         ]
+        self.assertEqual(len(commands), 2)  # Python is selected by Maturin's child.
+        options = deployment.read_object(self.output / "python-installer-cargo.json")["capture_options"]
+        self.assertIsInstance(options, list)
+        commands.append(["just", "producer-identity", *options])
         self.assertEqual(
             [command[command.index("--package") + 1] for command in commands],
             ["pse-runtime", "xtask", "pse-py"],
@@ -206,15 +225,17 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertNotIn("--refresh-executors", command)
             self.assertNotIn("--outer-source", command)
             self.assertNotIn("--outer-build", command)
-            self.assertIn("TZ=UTC", command)
-            self.assertIn("SOURCE_DATE_EPOCH=0", command)
-            self.assertIn("CFLAGS_x86_64_unknown_linux_gnu=-O2", command)
-            self.assertIn("LLVM_CONFIG_PATH=selected-llvm", command)
-            self.assertIn("PSE_SCCACHE_BINARY=selected-cache-binary", command)
             if name == "python":
-                self.assertIn("PYO3_BUILD_EXTENSION_MODULE=1", command)
-                self.assertIn(f"PYO3_CONFIG_FILE={self.python_native}", command)
+                self.assertNotIn("--environment", command)
+                installer = next(call for call in run.call_args_list if Path(call.args[0][0]).name == "maturin")
+                self.assertEqual(installer.kwargs["env"]["PYO3_CONFIG_FILE"], str(self.python_native))
+                self.assertEqual(installer.kwargs["env"]["CARGO"], str(self.root / "scripts/producer-cargo"))
             else:
+                self.assertIn("TZ=UTC", command)
+                self.assertIn("SOURCE_DATE_EPOCH=0", command)
+                self.assertIn("CFLAGS_x86_64_unknown_linux_gnu=-O2", command)
+                self.assertIn("LLVM_CONFIG_PATH=selected-llvm", command)
+                self.assertIn("PSE_SCCACHE_BINARY=selected-cache-binary", command)
                 self.assertFalse(
                     any(
                         item.startswith("PYO3_BUILD_EXTENSION_MODULE=")
@@ -392,7 +413,10 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "worker receipt has the wrong"),
         ):
             deployment.capture(self.root, self.output, self.environment)
-        self.assertEqual(run.call_count, 3)
+        self.assertEqual(
+            [Path(call.args[0][0]).name for call in run.call_args_list],
+            ["just", "just", "uv", "maturin"],
+        )
         self.assertTrue((self.output / "deployment-error.log").is_file())
 
     def test_artifact_replacement_and_historical_shape_refuse_before_role_decoding(
@@ -621,6 +645,12 @@ class ProducerDeploymentTests(unittest.TestCase):
                 association["built_artifact"],
                 deployment.file_observation(original),
             )
+            installation = deployment.read_object(self.output / "python-installation.json")
+            self.assertEqual(installation["raw_artifact"], deployment.file_observation(original))
+            self.assertEqual(installation["installed_artifact"], deployment.file_observation(installed))
+            transformation = installation["transformation"]
+            self.assertIsInstance(transformation, dict)
+            self.assertEqual(transformation["replayed_sha256"], deployment.file_observation(installed)["sha256"])
             path.write_text(json.dumps(receipt))
             subprocess.run(
                 ["patchelf", "--add-needed", "unreviewed.so", str(installed)],

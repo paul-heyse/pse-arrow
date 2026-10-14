@@ -83,6 +83,17 @@ def execution_environment(
     }
 
 
+def develop_command(root: Path, mode: str, profile: str) -> list[str]:
+    """The actual Maturin correctness installer selection shared by strict capture."""
+    if mode not in {"dev", "native"}:
+        raise ValueError("correctness extension mode must be dev or native")
+    return [
+        str(root / ".venv/bin/maturin"), "develop", "--uv", "--profile", profile,
+        "--locked", "--features",
+        "force-validate,native-solvers" if mode == "native" else "force-validate",
+    ]
+
+
 def sync(mode: str, profile: str = "dev") -> int:
     """Build the explicitly validated correctness extension before test collection."""
     if mode == "auto":
@@ -102,16 +113,7 @@ def sync(mode: str, profile: str = "dev") -> int:
     environment = {**os.environ, "VIRTUAL_ENV": str(ROOT / ".venv")}
     commands = [
         ["uv", "sync", "--locked", "--no-install-project"],
-        [
-            str(ROOT / ".venv/bin/maturin"),
-            "develop",
-            "--uv",
-            "--profile",
-            profile,
-            "--locked",
-            "--features",
-            "force-validate,native-solvers" if mode == "native" else "force-validate",
-        ],
+        develop_command(ROOT, mode, profile),
         [
             "cargo",
             "run",

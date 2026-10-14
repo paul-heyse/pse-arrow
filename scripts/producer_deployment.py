@@ -22,6 +22,9 @@ from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias
 
+from scripts import producer_cargo, python_extension
+from scripts.producer_cargo import EFFECTIVE_ENVIRONMENT as DECLARED_ENVIRONMENT
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -39,34 +42,6 @@ ROLES: tuple[ProducerRole, ...] = (
         "cdylib",
         ("--cdylib-manifest", "crates/pse-py/Cargo.toml"),
     ),
-)
-# Explicit compiler/tool inputs, never arbitrary environment or credentials.
-DECLARED_ENVIRONMENT = (
-    "CFLAGS_x86_64_unknown_linux_gnu",
-    "CXXFLAGS_x86_64_unknown_linux_gnu",
-    "CC_ENABLE_DEBUG_OUTPUT",
-    "SOURCE_DATE_EPOCH",
-    "TZ",
-    "RUSTFMT",
-    "LIBCLANG_PATH",
-    "CLANG_NO_DEFAULT_CONFIG",
-    "PYO3_CONFIG_FILE",
-    "PYO3_PYTHON",
-    "RUSTC_WRAPPER",
-    "PSE_SCCACHE_BINARY",
-    "RUSTC_WORKSPACE_WRAPPER",
-    "PSE_NATIVE_COMPILER_CACHE",
-    "PYO3_BUILD_EXTENSION_MODULE",
-    "PSE_LLVM_PREFIX",
-    "CLANG_PATH",
-    "LLVM_CONFIG_PATH",
-    "BINDGEN_EXTRA_CLANG_ARGS",
-    "RUSTFLAGS",
-    "CARGO_ENCODED_RUSTFLAGS",
-    "CFLAGS",
-    "CXXFLAGS",
-    "CPPFLAGS",
-    "LDFLAGS",
 )
 
 
@@ -262,6 +237,7 @@ def bind_python_artifact(
     original = Path(str(built["path"]))
     verify_artifact(root, path, original, environment)
     installed = file_observation(imported)
+    transformation: dict[str, object] = {"kind": "identical-bytes"}
     if installed["sha256"] != built["sha256"]:
         evidence = read_object(output / "python-build-evidence.json")
         messages = [
@@ -323,16 +299,26 @@ def bind_python_artifact(
                 ],
                 check=True,
             )
-            if file_observation(replay)["sha256"] != installed["sha256"]:
+            replayed = file_observation(replay)["sha256"]
+            if replayed != installed["sha256"]:
                 raise ValueError(
                     "Imported extension differs beyond the admitted RPATH-only transformation"
                 )
+            transformation = {
+                "kind": "maturin-rpath-only", "original_rpath": old,
+                "installed_rpath": actual, "appended_rpaths": appended,
+                "replayed_sha256": replayed,
+            }
     association = receipt["deployment"]
     if not isinstance(association, dict):
         raise TypeError("Python deployment association absent")
     association["artifact"] = installed
     path.write_text(json.dumps(receipt, indent=2) + "\n")
     verify_artifact(root, path, imported, environment)
+    producer_cargo.write_new(output / "python-installation.json", {
+        "version": 1, "raw_artifact": built, "installed_artifact": installed,
+        "transformation": transformation,
+    })
 
 
 def validate_receipt(output: Path, role: ProducerRole) -> dict[str, object]:
@@ -478,17 +464,13 @@ def capture(
     output = (output if output.is_absolute() else root / output).resolve()
     env = dict(os.environ if environment is None else environment)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.mkdir()  # A previous successful or failed capture cannot be overwritten.
+    output.mkdir(mode=0o700)  # Never overwrite successful or failed capture evidence.
     try:
         inputs = reviewed_inputs(root, env)
         for role in ROLES:
             name, package, _, _, target_args = role
             role_env = dict(env)
-            # Replay Maturin's actual PyO3 extension linking selection; a Rust
-            # library/worker build does not inherit that Python-only switch.
-            if name == "python":
-                role_env["PYO3_BUILD_EXTENSION_MODULE"] = "1"
-            else:
+            if name != "python":
                 role_env.pop("PYO3_BUILD_EXTENSION_MODULE", None)
                 # The installed extension's explicit PyO3 configuration belongs
                 # to its capture, not to the independent Rust library/worker.
@@ -519,17 +501,34 @@ def capture(
             for path in files:
                 command.extend(("--native-input", str(path)))
             for key in DECLARED_ENVIRONMENT:
-                if key in role_env:
+                if name != "python" and key in role_env:
                     command.extend(("--environment", f"{key}={role_env[key]}"))
             with (output / f"{name}.log").open("xb") as log:
-                result = subprocess.run(
-                    command,
-                    cwd=root,
-                    env=role_env,
-                    stdout=log,
-                    stderr=subprocess.STDOUT,
-                    check=False,
-                )
+                if name == "python":
+                    # Maturin selects the only Python realization. Its actual Cargo
+                    # child is observed and sealed before packaging can continue.
+                    installer_env = producer_cargo.configure(root, output, command[2:], role_env)
+                    installer_env["VIRTUAL_ENV"] = str(root / ".venv")
+                    result = subprocess.run(
+                        ["uv", "sync", "--locked", "--no-install-project"],
+                        cwd=root, env=role_env, stdout=log, stderr=subprocess.STDOUT, check=False,
+                    )
+                    require_capture_success(name, result.returncode)
+                    result = subprocess.run(
+                        python_extension.develop_command(root, "native", "producer"),
+                        cwd=root, env=installer_env, stdout=log, stderr=subprocess.STDOUT, check=False,
+                    )
+                    require_capture_success(name, result.returncode)
+                    if not (output / "python-installer-cargo.status.json").is_file():
+                        raise ValueError("Maturin did not consume the selected Cargo observer")
+                    status = read_object(output / "python-installer-cargo.status.json")
+                    if status.get("returncode") != 0 or status.get("sealed") is not True:
+                        raise ValueError("Maturin actual Cargo child lacks completed capture")
+                else:
+                    result = subprocess.run(
+                        command, cwd=root, env=role_env, stdout=log,
+                        stderr=subprocess.STDOUT, check=False,
+                    )
             require_capture_success(name, result.returncode)
             validate_receipt(output, role)
         bind_python_artifact(root, output, env)
