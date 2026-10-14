@@ -194,6 +194,8 @@ impl CanonicalStore {
     }
     pub(crate) async fn reserve_artifact_file(&self,artifact:&str,operation:&str,request_digest:&str)->Result<FilePublicationIntent,CanonicalError>{self.reserve_file("artifact",artifact,operation,request_digest,None).await}
     async fn reserve_file(&self,kind:&str,selection:&str,operation:&str,request_digest:&str,fence:Option<&AttemptFence>)->Result<FilePublicationIntent,CanonicalError>{
+        let activity=self.admit_activity()?;
+        activity.scope(async {
         self.ensure_writes()?;let owner=self.registered_file_owner().await?;
         if operation.is_empty()||operation.len()>4096||request_digest.len()!=64{return Err(configuration("file original intent malformed"));}
         let mut row=Object::new();row.insert("key",uuid::Uuid::new_v4().to_string());row.insert("intent",operation.to_owned());row.insert("request_digest",request_digest.to_owned());row.insert("owner",owner.clone());row.insert("owner_kind",kind.to_owned());row.insert("selection",selection.to_owned());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("digest",String::new());row.insert("payload_bytes",codec::encode_uint(0)?);row.insert("encoding",String::new());row.insert("batch_count",codec::encode_uint(0)?);row.insert("schema",String::new());row.insert("interpretation",crate::generated::surreal::INTERPRETATION);row.insert("state","pending");
@@ -201,20 +203,26 @@ impl CanonicalStore {
         let mut saved=last_object(&mut response)?;
         let original=FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner:text(&mut saved,"owner")?,storage_incarnation:text(&mut saved,"storage_incarnation")?};
         if original.owner!=owner {self.recover_file_intent(&original).await}else{Ok(original)}
+        }).await
     }
     /// Recover only custody of the original file effect after authenticated old
     /// owner drain. Original writer/creation permission is never renewed.
     pub async fn recover_file_intent(&self,original:&FilePublicationIntent)->Result<FilePublicationIntent,CanonicalError>{
+        let activity=self.admit_activity()?;
+        activity.scope(async {
         self.files.require_current()?;let owner=self.registered_file_owner().await?;
         let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::recover_intent($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected)).bind(("owner",owner.clone())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let mut saved=last_object(&mut response)?;
         Ok(FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner,storage_incarnation:self.files.incarnation.clone()})
+        }).await
     }
     /// Complete an opaque bounded native file after original intent reservation.
     /// Runtime validates native IPC/schema before this boundary; Operations
     /// verifies storage bytes, flush and no-replace publication before sealing.
     pub async fn seal_file(&self,intent:&FilePublicationIntent,bytes:&[u8],encoding:&str,batch_count:u64,schema:&str)->Result<SealedFile,CanonicalError>{
+        let activity=self.admit_activity()?;
+        activity.scope(async {
         self.files.require_current()?; self.ensure_writes()?;
         if intent.storage_incarnation!=self.files.incarnation || intent.owner!=self.registered_file_owner().await?{return Err(configuration("file intent actual owner differs"));}
         let descriptor=FileDescriptor{instance:intent.instance.clone(),digest:crate::canonical_execution::result_payload_digest(bytes),bytes:bytes.len() as u64,encoding:encoding.into(),batch_count,schema:schema.into(),interpretation:crate::generated::surreal::INTERPRETATION.into()};descriptor.validate()?;
@@ -224,6 +232,7 @@ impl CanonicalStore {
         let saved=last_object(&mut response)?;
         if saved.get("digest")!=Some(&Value::String(descriptor.digest.clone())){return Err(CanonicalError::OperationReused);}
         Ok(SealedFile{descriptor,intent:intent.clone()})
+        }).await
     }
     pub(crate) fn open_physical_file(&self,descriptor:FileDescriptor,owner:Arc<dyn std::fmt::Debug+Send+Sync>)->Result<ProtectedFile,CanonicalError>{
         self.files.require_current()?; descriptor.validate()?;
@@ -233,21 +242,27 @@ impl CanonicalStore {
     /// Settle only this original unpublished storage intent after actual owner
     /// drain and original writer/creation closure. Unknown remains protected.
     pub async fn settle_file_intent(&self,original:&FilePublicationIntent)->Result<bool,CanonicalError>{
+        let activity=self.admit_activity()?;
+        activity.scope(async {
         self.files.require_current()?;
         let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::settle_intent($pse_rpc_expires_at,$expected,$incarnation); COMMIT;").bind(("expected",expected)).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let index=response.num_statements().saturating_sub(2);response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)
+        }).await
     }
     /// Resume an exact admitted collection. Physical unlink follows irreversible
     /// catalog collecting state; a lost final reply cannot permit ABA reuse.
     pub async fn collect_file(&self,instance:&str)->Result<(),CanonicalError>{
-        self.files.require_current()?;let path=self.files.path(instance)?;
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+        self.files.require_current()?;self.registered_file_owner().await?;let path=self.files.path(instance)?;
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let row=last_object(&mut response)?;if row.get("state")==Some(&Value::String("collected".into())){return Ok(());}
         match std::fs::remove_file(&path){Ok(())=>File::open(path.parent().ok_or_else(||configuration("file parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
         let pending=self.files.root.join(".pending").join(format!("{instance}.pending"));
         match std::fs::remove_file(&pending){Ok(())=>File::open(pending.parent().ok_or_else(||configuration("staging parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
         bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collected($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;Ok(())
+        }).await
     }
 }
 /// Verify one offline inventory member without database access or effects.
