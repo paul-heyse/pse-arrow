@@ -298,3 +298,28 @@ install; fresh captures and imported byte association remain required. The worke
 xtask and will rebuild. Retain the final Python site review only while its actual premises
 remain unchanged. Source-finalization/rebuild precedes renewed actual captures, then actual
 macro caller review and the full assessment. G1–G4 remain open.
+
+The repaired actual runtime capture removes all 146 cached-output association refusals.
+Independent actual compiler-input reviews reproduce the runtime, worker and Python
+Paste/Pest caller bases, including generated inputs and selected grammar guards. The six
+exact caller grants are added without changing owner/helper reviews or granting other
+callers. These source reviews do not establish native completeness or artifact association.
+
+Subsequent captures expose two distinct environment changes. The worker's ambient PATH
+included another checkout's shim directory; explicitly selecting the prior reviewed PATH
+through the ordinary environment route preserves the intended search context. Python then
+detects actual system updates: libudev/loader-cache bytes and the `/usr/include` namespace
+changed, while Python site contents and its selected environment remain unchanged. Package
+logs identify systemd/libudev and Node updates, but no complete old header-member snapshot
+exists, so an exact historical header delta is not claimed. Fresh source-backed native and
+configuration reviews must precede renewed eligible all-role captures.
+
+An operator-probe mistake selected empty compiler-cache wrappers before native preparation,
+unnecessarily starting a different provider build. The exact owned launcher was authenticated
+and interrupted; its normal cleanup drained its allocation. Partial outputs and unrelated
+owners were preserved. The corrected route selects supported explicit provider paths and
+lets a fresh native owner authenticate them and derive receipts. Its PATH probe passes
+without rebuilding providers; no historical operation token is copied. The maintainer's
+partition removal leaves approximately 228 GiB free at this checkpoint, resolving the disk
+block. The full assessment, scientific recovery/signal controls and selected measurements
+still have not run; G1–G4 remain open.
