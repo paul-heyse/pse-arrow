@@ -529,30 +529,40 @@ mod tests {
         let package = root.join("model");
         let captures = directory.path().join("captures");
         fs::create_dir_all(package.join("src/bin")).unwrap();
+        fs::create_dir_all(root.join("emitter/src")).unwrap();
         fs::create_dir(&captures).unwrap();
-        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers=['model']\nresolver='3'\n").unwrap();
-        fs::write(package.join("Cargo.toml"), "[package]\nname='p39-history-fixture'\nversion='0.1.0'\nedition='2024'\n[lib]\ncrate-type=['cdylib']\n[features]\npython-context=[]\n").unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers=['model','emitter']\nresolver='3'\n").unwrap();
+        fs::write(root.join("emitter/Cargo.toml"), "[package]\nname='p39-history-emitter'\nversion='0.1.0'\nedition='2024'\n[lib]\nproc-macro=true\n").unwrap();
+        fs::write(root.join("emitter/src/lib.rs"), "extern crate proc_macro;\n#[proc_macro] pub fn identity(input: proc_macro::TokenStream) -> proc_macro::TokenStream { input }\n").unwrap();
+        fs::write(package.join("Cargo.toml"), "[package]\nname='p39-history-fixture'\nversion='0.1.0'\nedition='2024'\n[lib]\ncrate-type=['cdylib']\n[features]\npython-context=[]\n[dependencies]\np39-history-emitter={path='../emitter',version='=0.1.0'}\n").unwrap();
         fs::write(package.join("build.rs"), r#"fn main() {
             let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
             std::fs::write(out.join("generated.rs"), "pub fn generated_value() -> u32 { 7 }\n").unwrap();
             println!("cargo:rerun-if-changed=build.rs");
         }"#).unwrap();
-        fs::write(package.join("src/lib.rs"), "include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\"));\n").unwrap();
-        fs::write(package.join("src/bin/worker.rs"), "include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\"));\nfn main() { assert_eq!(generated_value(), 7); }\n").unwrap();
+        fs::write(package.join("src/lib.rs"), "p39_history_emitter::identity!(include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\")));\n").unwrap();
+        fs::write(package.join("src/bin/worker.rs"), "p39_history_emitter::identity!(include!(concat!(env!(\"OUT_DIR\"), \"/generated.rs\")));\nfn main() { assert_eq!(generated_value(), 7); }\n").unwrap();
         let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         fs::copy(repository.join("rust-toolchain.toml"), root.join("rust-toolchain.toml")).unwrap();
         cargo_output(&root, &["generate-lockfile".into(), "--offline".into()]).unwrap();
+        let metadata: cargo_metadata::Metadata = serde_json::from_slice(&cargo_output(&root, &["metadata".into(), "--format-version=1".into(), "--offline".into()]).unwrap()).unwrap();
+        let emitter = metadata.packages.iter().find(|package| package.name.as_str() == "p39-history-emitter").unwrap().id.to_string();
         let worker_evidence = captures.join("worker.json");
         let options = ProducerOptions {
             workspace_root: root.clone(), package: "p39-history-fixture".into(), profile: "dev".into(), target: None,
             production_target: ProducerTarget::Binary("worker".into()), features: Vec::new(), no_default_features: false,
             dep_info: Vec::new(), declared_inputs: Vec::new(), native_inputs: Vec::new(), declared_environment: BTreeMap::new(),
-            declarations: InputDeclarations { capture_actual_build: true, actual_build_evidence: Some(worker_evidence.clone()), ..Default::default() },
+            declarations: InputDeclarations {
+                capture_actual_build: true, actual_build_evidence: Some(worker_evidence.clone()),
+                proc_macros: BTreeMap::from([(emitter, BuildScriptInputs { reviewed_callers: Some(Vec::new()), ..Default::default() })]),
+                ..Default::default()
+            },
         };
         let worker = run(&options).unwrap();
         // This is a real historical capture, deliberately not an arbitrary-I/O
         // qualification of the fixture build script, host compiler or native ABI.
         assert!(!worker.persistent_reuse_eligible);
+        assert!(worker.reviewed_owner_sources.keys().any(|name| name.starts_with("macro-caller-inputs:")));
         let evidence = captures.join("worker.json.closure");
         let worker_index: Index = serde_json::from_slice(&fs::read(evidence.join("index.json")).unwrap()).unwrap();
         let dep_info: Vec<_> = worker_index.associations.values().flatten().cloned().collect();
