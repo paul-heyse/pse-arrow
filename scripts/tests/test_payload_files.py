@@ -84,6 +84,133 @@ class PayloadLifecycleTests(unittest.TestCase):
         server.write_json(self.state / "config.json", self.config)
         return path
 
+    def validation_profile(self) -> None:
+        self.config.update(accepting_writes=False, admission="validation_required", payload_frozen=True)
+        server.write_json(self.state / "config.json", self.config)
+        self.owners = []
+
+    def validator_owner(self, *, live: bool = False) -> None:
+        owner = dict(self.owner)
+        if not live:
+            owner["boot"] = str(uuid.uuid4())
+        self.owners = [owner]
+        self.events.append("validator")
+        selected = server.config_for(self.state)
+        self.assertFalse(selected["accepting_writes"])
+        self.assertEqual(selected["admission"], "validation_required")
+        self.assertTrue(selected["payload_frozen"])
+
+    def validation_controls(self) -> None:
+        for replacement in (
+            patch.object(server, "payload_query", side_effect=self.query),
+            patch.object(server, "start", side_effect=lambda *_args, **_kwargs: self.events.append("start-closed")),
+            patch.object(server, "stop", side_effect=lambda *_args: self.events.append("stop")),
+            patch.object(server, "all_contexts_drained", side_effect=lambda *_args: self.events.append("managed-drain")),
+            patch.object(server, "validate_interpretation"),
+            patch.object(server, "public_status", return_value={}),
+        ):
+            replacement.start()
+            self.addCleanup(replacement.stop)
+
+    def test_gated_validation_admits_file_reads_without_writers_or_gc_then_recloses_and_drains(self) -> None:
+        self.validation_profile()
+        self.validation_controls()
+        def validator(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+            self.validator_owner()
+            return subprocess.CompletedProcess([], 0)
+        with patch.object(server.subprocess, "run", side_effect=validator):
+            server.validate(self.state, self.config, server.SUBSTRATE_INTERPRETATION, ["validator"])
+        opened = next(i for i, event in enumerate(self.events) if "SET frozen=false,gc_frozen=true" in event)
+        frozen = next(i for i, event in enumerate(self.events) if "fn::pse_files_v1::freeze(" in event)
+        drained = next(i for i, event in enumerate(self.events) if "drain_owner(" in event)
+        self.assertLess(opened, self.events.index("validator"))
+        self.assertLess(self.events.index("validator"), frozen)
+        self.assertLess(frozen, drained)
+        self.assertLess(drained, self.events.index("stop"))
+        self.assertIn("!$gate.frozen OR !$gate.gc_frozen", self.events[opened])
+        self.assertIn("$marker.payload_incarnation", self.events[opened])
+        self.assertIn("$gate.storage_incarnation", self.events[opened])
+        self.assertIn("$marker.interpretation", self.events[opened])
+        self.assertTrue(self.owners[0]["drained"])
+        selected = server.config_for(self.state)
+        self.assertFalse(selected["accepting_writes"])
+        self.assertTrue(selected["payload_frozen"])
+        self.assertEqual(selected["admission"], "quiesced")
+
+    def test_failed_or_timed_out_validation_recloses_and_authenticates_drain(self) -> None:
+        self.validation_profile()
+        self.validation_controls()
+        for timed_out in (False, True):
+            self.validation_profile()
+            self.events.clear()
+            def validator(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+                self.validator_owner()
+                if timed_out:
+                    raise subprocess.TimeoutExpired("validator", 120)
+                return subprocess.CompletedProcess([], 1)
+            expected = subprocess.TimeoutExpired if timed_out else server.SupervisorError
+            with self.subTest(timed_out=timed_out), patch.object(server.subprocess, "run", side_effect=validator), self.assertRaises(expected):
+                server.validate(self.state, self.config, server.SUBSTRATE_INTERPRETATION, ["validator"])
+            frozen = next(i for i, event in enumerate(self.events) if "fn::pse_files_v1::freeze(" in event)
+            drained = next(i for i, event in enumerate(self.events) if "drain_owner(" in event)
+            self.assertLess(frozen, drained)
+            self.assertLess(drained, self.events.index("stop"))
+            self.assertTrue(self.owners[0]["drained"])
+            self.assertEqual(server.config_for(self.state)["admission"], "validation_required")
+
+    def test_validator_exit_does_not_bypass_live_unknown_or_managed_descendant_owner(self) -> None:
+        self.validation_profile()
+        self.validation_controls()
+        for case in ("live", "unknown", "managed-descendant"):
+            self.validation_profile()
+            self.events.clear()
+            def validator(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+                self.validator_owner(live=case != "managed-descendant")
+                if case == "unknown":
+                    self.owners[0]["pid_namespace"] = "pid:[unknown]"
+                elif case == "managed-descendant":
+                    self.owners[0].update(boot=self.owner["boot"], pid="2147483647", start="original-dead-parent", invocation="owned-managed-invocation")
+                return subprocess.CompletedProcess([], 0)
+            with self.subTest(case=case), patch.object(server.subprocess, "run", side_effect=validator), patch.object(server, "managed_file_owner_drained", return_value=False), self.assertRaises(server.SupervisorError):
+                server.validate(self.state, self.config, server.SUBSTRATE_INTERPRETATION, ["validator"])
+            self.assertTrue(any("fn::pse_files_v1::freeze(" in event for event in self.events))
+            self.assertNotIn("stop", self.events)
+            self.assertFalse(self.owners[0]["drained"])
+            self.assertEqual(server.config_for(self.state)["admission"], "validation_required")
+
+    def test_validation_refuses_writer_permission_or_missing_freeze_before_start(self) -> None:
+        self.validation_profile()
+        for field, value in (("accepting_writes", True), ("payload_frozen", False)):
+            selected = {**self.config, field: value}
+            with self.subTest(field=field), patch.object(server, "start") as start, self.assertRaises(server.SupervisorError):
+                server.validate(self.state, selected, server.SUBSTRATE_INTERPRETATION, ["validator"])
+            start.assert_not_called()
+
+    def test_unacknowledged_validation_read_opening_recloses_without_dispatch(self) -> None:
+        self.validation_profile()
+        self.validation_controls()
+        def query(state: Path, config: dict[str, object], body: str) -> object:
+            value = self.query(state, config, body)
+            return False if "SET frozen=false,gc_frozen=true" in body else value
+        with patch.object(server, "payload_query", side_effect=query), patch.object(server.subprocess, "run") as child, self.assertRaisesRegex(server.SupervisorError, "not acknowledged"):
+            server.validate(self.state, self.config, server.SUBSTRATE_INTERPRETATION, ["validator"])
+        child.assert_not_called()
+        self.assertTrue(any("fn::pse_files_v1::freeze(" in event for event in self.events))
+        self.assertIn("stop", self.events)
+        self.assertEqual(server.config_for(self.state)["admission"], "validation_required")
+
+    def test_unacknowledged_validation_read_closure_prevents_stop_or_success(self) -> None:
+        self.validation_profile()
+        self.validation_controls()
+        def query(state: Path, config: dict[str, object], body: str) -> object:
+            value = self.query(state, config, body)
+            return False if "fn::pse_files_v1::freeze(" in body else value
+        with patch.object(server, "payload_query", side_effect=query), patch.object(server.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)), self.assertRaisesRegex(server.SupervisorError, "closure was not acknowledged"):
+            server.validate(self.state, self.config, server.SUBSTRATE_INTERPRETATION, ["validator"])
+        self.assertNotIn("stop", self.events)
+        self.assertFalse(any("canonical_file_owners" in event for event in self.events))
+        self.assertEqual(server.config_for(self.state)["admission"], "validation_required")
+
     def test_setup_selects_fresh_incarnation_and_open_refuses_missing_identity(self) -> None:
         self.assertEqual(str(uuid.UUID(self.config["payload_incarnation"])), self.config["payload_incarnation"])
         old = dict(self.config)

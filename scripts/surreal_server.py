@@ -7173,11 +7173,54 @@ def restore(source: Path, state: Path, interpretation: str, verifier: Path | Non
         return recover_maintenance(state, [])
 
 
+def validation_payload_reads(
+    state: Path, config: dict[str, object], interpretation: str
+) -> None:
+    """Admit validator file readers atomically while application writes/GC stay closed."""
+    selected = config_for(state)
+    if (
+        selected.get("accepting_writes") is not False
+        or selected.get("admission") != "validation_required"
+        or selected.get("payload_frozen") is not True
+        or selected.get("derived_rebuild_pending")
+        or selected.get("surrealkit_rollout_pending")
+        or selected.get("interpretation") != interpretation
+        or any(selected.get(key) != config.get(key) for key in (
+            "instance_id", "namespace", "database", "payload_incarnation"
+        ))
+    ):
+        raise SupervisorError("Validator file reads require the exact closed restored profile")
+    expiry = payload_expiry()
+    incarnation = json.dumps(config["payload_incarnation"])
+    acknowledged = payload_query(state, config,
+        f"fn::pse_execution_v1::deadline({expiry}); "
+        "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
+        "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
+        f"IF $gate=NONE OR $gate.storage_incarnation!={incarnation} OR !$gate.frozen OR !$gate.gc_frozen "
+        f"OR $marker=NONE OR $marker.payload_incarnation!={incarnation} OR $marker.interpretation!={json.dumps(interpretation)} "
+        "{ THROW 'validator requires exact frozen restored placement'; }; "
+        "UPDATE ONLY canonical_file_admission:current SET frozen=false,gc_frozen=true; "
+        f"fn::pse_execution_v1::deadline({expiry}); RETURN true;")
+    if acknowledged is not True:
+        raise SupervisorError("Validator file-read admission was not acknowledged")
+
+
+def close_validation_payload_reads(state: Path, config: dict[str, object]) -> None:
+    """Reclose before authenticating actual validator owners and managed descendants."""
+    if payload_query(state, config,
+        f"RETURN fn::pse_files_v1::freeze({payload_expiry()},{json.dumps(config['payload_incarnation'])});") is not True:
+        raise SupervisorError("Validator file-read closure was not acknowledged")
+    all_contexts_drained(state)
+    reap_payload_owners(state, config, require_all=True)
+
+
 def validate(
     state: Path, config: dict[str, object], interpretation: str, command: list[str]
 ) -> dict[str, object]:
     if (
         config["admission"] != "validation_required"
+        or config.get("accepting_writes") is not False
+        or config.get("payload_frozen") is not True
         or config.get("derived_rebuild_pending")
         or config.get("surrealkit_rollout_pending")
         or config["interpretation"] != interpretation
@@ -7192,6 +7235,8 @@ def validate(
     # The validator owns exact values/schema/operation identities; no check is inferred from /health.
     try:
         validate_interpretation(state, config, interpretation)
+        all_contexts_drained(state)
+        validation_payload_reads(state, config, interpretation)
         result = subprocess.run(
             command,
             env=environment,
@@ -7205,6 +7250,9 @@ def validate(
                 "Restored database semantic validation failed; admission remains closed"
             )
     finally:
+        # Even an unacknowledged admission transaction or timed-out validator
+        # remains protected until file admission is closed and exact owners drain.
+        close_validation_payload_reads(state, config)
         stop(state, config)
     config["admission"] = "quiesced"
     write_json(state / "config.json", config)

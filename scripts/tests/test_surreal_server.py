@@ -5712,6 +5712,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "start"),
             patch.object(server, "stop"),
+            patch.object(server, "payload_query", return_value=True),
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "reap_payload_owners", return_value={"recovered": 0, "live": 0, "unknown": 0}),
             patch.object(
                 server,
                 "validate_interpretation",
