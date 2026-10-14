@@ -55,6 +55,8 @@ class ProducerCargoTests(unittest.TestCase):
             **self.environment, "PYO3_PYTHON": "/actual/python", "PYO3_ENVIRONMENT_SIGNATURE": "cpython-3.14-64bit",
             "PYTHON_SYS_EXECUTABLE": "/actual/python", "PYO3_BUILD_EXTENSION_MODULE": "1",
             "RUSTC_WRAPPER": "", "IPOPT_DIR": "/actual/solver", "SYMBOLICA_LICENSE": "never-observed",
+            "CARGO_BUILD_JOBS": "2", "CARGO_TERM_COLOR": "always",
+            "CARGO_REGISTRIES_PRIVATE_TOKEN": "never-observed-registry-token",
         }
 
         def capture(command: list[str], *, cwd: Path, env: dict[str, str]) -> int:
@@ -66,6 +68,8 @@ class ProducerCargoTests(unittest.TestCase):
             self.assertIn("PYO3_PYTHON=/actual/python", command)
             self.assertIn("RUSTC_WRAPPER=", command)
             self.assertIn("IPOPT_DIR=/actual/solver", command)
+            self.assertIn("CARGO_BUILD_JOBS=2", command)
+            self.assertIn("CARGO_TERM_COLOR=always", command)
             self.assertNotIn("never-observed", " ".join(command))
             self.seal()
             return 0
@@ -75,6 +79,8 @@ class ProducerCargoTests(unittest.TestCase):
         actual = json.loads(self.configuration.with_suffix(".observation.json").read_text())
         self.assertEqual(actual["arguments"], self.arguments)
         self.assertEqual(actual["effective_environment"]["PYTHON_SYS_EXECUTABLE"], "/actual/python")
+        self.assertEqual(actual["effective_environment"]["CARGO_BUILD_JOBS"], "2")
+        self.assertEqual(actual["effective_environment"]["CARGO_TERM_COLOR"], "always")
         self.assertNotIn("never-observed", json.dumps(actual))
         self.assertEqual(json.loads(self.configuration.with_suffix(".status.json").read_text()), {"returncode": 0, "sealed": True})
         with (
