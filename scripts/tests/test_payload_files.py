@@ -104,10 +104,16 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertTrue(any("freeze" in event for event in self.events))
         self.assertLess(next(i for i, event in enumerate(self.events) if "freeze" in event), max(i for i, event in enumerate(self.events) if event == "managed-drain"))
 
-    def test_dead_owner_is_exactly_drained_and_backup_preserves_sealed_and_staging(self) -> None:
+    def test_dead_owner_is_exactly_drained_and_backup_reconciles_exact_staging_alias(self) -> None:
         self.owner["boot"] = str(uuid.uuid4())
         self.staging.parent.mkdir(parents=True)
-        self.staging.write_bytes(b"unresolved stage")
+        self.final.chmod(0o600)
+        os.link(self.final, self.staging)
+        locks = payload_files.root(self.state, self.config) / ".locks"
+        locks.mkdir()
+        lock = locks / (self.key + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
         self.verifier()
         destination = self.root / "backup"
         self.backup(destination)
@@ -116,8 +122,83 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertTrue(any("drain_owner" in event for event in self.events))
         self.assertLess(next(i for i, event in enumerate(self.events) if "canonical_file_instances" in event), self.events.index("stop"))
         self.assertEqual((destination / self.final.relative_to(self.state)).read_bytes(), self.final.read_bytes())
-        self.assertEqual((destination / self.staging.relative_to(self.state)).read_bytes(), self.staging.read_bytes())
+        self.assertFalse(self.staging.exists())
+        self.assertFalse((destination / self.staging.relative_to(self.state)).exists())
+        self.assertEqual(self.final.stat().st_nlink, 1)
         self.assertEqual(manifest["payload_inventory"][0]["instance"]["state"], "sealed")
+
+    def test_pending_publication_alias_is_reconciled_without_fabricating_acknowledgment(self) -> None:
+        self.owner["boot"] = str(uuid.uuid4())
+        self.instance.update(state="pending", digest="", payload_bytes="0", encoding="", batch_count="0", schema="")
+        self.final.chmod(0o600)
+        self.staging.parent.mkdir()
+        os.link(self.final, self.staging)
+        locks = payload_files.root(self.state, self.config) / ".locks"
+        locks.mkdir()
+        lock = locks / (self.key + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
+        lock_inode = lock.stat().st_ino
+        backup = self.root / "backup"
+        self.backup(backup)
+        manifest, _original = server.validated_restore_backup(backup, server.SUBSTRATE_INTERPRETATION)
+        self.assertEqual(manifest["payload_inventory"][0]["instance"], self.instance)
+        self.assertEqual(self.instance["state"], "pending")
+        self.assertEqual(self.instance["digest"], "")
+        self.assertEqual(self.instance["payload_bytes"], "0")
+        self.assertFalse(self.staging.exists())
+        self.assertEqual(self.final.stat().st_nlink, 1)
+        self.assertEqual(lock.stat().st_ino, lock_inode)
+        restored = self.root / "restored"
+        with self.fixture.native_maintenance():
+            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+        selected = server.config_for(restored)
+        final, pending = payload_files.instance_paths(restored, selected, self.key)
+        self.assertEqual(final.read_bytes(), self.final.read_bytes())
+        self.assertFalse(pending.exists())
+        self.assertEqual(manifest["payload_inventory"][0]["instance"]["state"], "pending")
+
+    def test_frozen_alias_reconciliation_refuses_unknown_aliases_and_held_locks(self) -> None:
+        self.owner["drained"] = True
+        self.final.chmod(0o600)
+        self.staging.parent.mkdir()
+        locks = payload_files.root(self.state, self.config) / ".locks"
+        locks.mkdir()
+        lock = locks / (self.key + ".lock")
+        external = self.root / "external-alias"
+        for case in ("different-inode", "external-alias", "symlink", "nonprivate", "missing-lock", "held-lock"):
+            with self.subTest(case=case):
+                self.final.chmod(0o600)
+                os.link(self.final, self.staging)
+                if case != "missing-lock":
+                    lock.write_bytes(b"")
+                    lock.chmod(0o600)
+                if case == "different-inode":
+                    self.staging.unlink()
+                    self.staging.write_bytes(b"different stage")
+                    self.staging.chmod(0o600)
+                elif case == "external-alias":
+                    os.link(self.final, external)
+                elif case == "symlink":
+                    self.staging.unlink()
+                    self.staging.symlink_to(self.final)
+                elif case == "nonprivate":
+                    self.final.chmod(0o644)
+                if case == "held-lock":
+                    with lock.open("r+b") as holder:
+                        fcntl.flock(holder.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        with self.assertRaisesRegex(server.SupervisorError, "staging alias reconciliation refused"):
+                            self.backup(self.root / ("backup-" + case))
+                else:
+                    with self.assertRaisesRegex(server.SupervisorError, "staging alias reconciliation refused"):
+                        self.backup(self.root / ("backup-" + case))
+                self.assertTrue(self.final.exists())
+                self.assertTrue(self.staging.exists() or self.staging.is_symlink())
+                self.staging.unlink()
+                if external.exists():
+                    external.unlink()
+                if lock.exists():
+                    lock.unlink()
 
     def test_missing_sealed_file_refuses_completion(self) -> None:
         self.owner["drained"] = True

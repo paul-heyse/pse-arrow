@@ -5587,6 +5587,10 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
                 state_value = row.get("state")
                 if state_value not in {"pending", "sealed", "attached", "abandoned", "collecting", "collected"}:
                     raise SupervisorError("Unknown file instance state")
+                try:
+                    payload_files.reconcile_frozen_alias(state, selected, row["key"])
+                except (payload_files.PayloadError, OSError) as error:
+                    raise SupervisorError("Frozen payload staging alias reconciliation refused") from error
                 required = state_value in {"sealed", "attached"}
                 if required and not final.is_file():
                     raise SupervisorError("Required sealed file is missing; backup cannot complete")

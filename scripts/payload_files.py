@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import fcntl
 import hashlib
 import os
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Generator, Mapping
 
 
 class PayloadError(ValueError):
@@ -66,6 +67,33 @@ def checked_file(path: Path) -> tuple[str, int]:
         return digest.hexdigest(), before.st_size
 
 
+@contextlib.contextmanager
+def instance_lock(path: Path) -> Generator[None, None, None]:
+    """Observe and hold an existing exact private lock inode, without creating one."""
+    if any(part.is_symlink() for part in (path, *path.parents)):
+        raise PayloadError("Payload instance lock must not traverse symlinks")
+    initial = path.lstat()
+    if not stat.S_ISREG(initial.st_mode):
+        raise PayloadError("Payload instance lock must be a private empty regular file")
+    descriptor = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or stat.S_IMODE(before.st_mode) != 0o600 or before.st_nlink != 1 or before.st_size != 0:
+            raise PayloadError("Payload instance lock must be a private empty regular file")
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise PayloadError("Payload instance lock still has a live operational borrower") from error
+        after = path.lstat()
+        if (before.st_dev, before.st_ino, before.st_mode, before.st_uid, before.st_nlink, before.st_size) != (after.st_dev, after.st_ino, after.st_mode, after.st_uid, after.st_nlink, after.st_size):
+            raise PayloadError("Payload instance lock changed during validation")
+        yield
+    finally:
+        # Closing releases only this observer's flock. The persistent inode is
+        # retained throughout the live storage incarnation.
+        os.close(descriptor)
+
+
 def recognized_locks(directory: Path, instances: set[str]) -> set[Path]:
     """Validate persistent operational locks without copying or replacing their inodes."""
     locks = directory / ".locks"
@@ -82,27 +110,48 @@ def recognized_locks(directory: Path, instances: set[str]) -> set[Path]:
     for path in locks.iterdir():
         if path not in expected or path.is_symlink():
             raise PayloadError("Unknown payload instance lock retained; inventory refused")
-        initial = path.lstat()
-        if not stat.S_ISREG(initial.st_mode):
-            raise PayloadError("Payload instance lock must be a private empty regular file")
-        descriptor = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
-        try:
-            before = os.fstat(descriptor)
-            if not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or stat.S_IMODE(before.st_mode) != 0o600 or before.st_nlink != 1 or before.st_size != 0:
-                raise PayloadError("Payload instance lock must be a private empty regular file")
-            try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as error:
-                raise PayloadError("Payload instance lock still has a live operational borrower") from error
-            after = path.lstat()
-            if (before.st_dev, before.st_ino, before.st_mode, before.st_uid, before.st_nlink, before.st_size) != (after.st_dev, after.st_ino, after.st_mode, after.st_uid, after.st_nlink, after.st_size):
-                raise PayloadError("Payload instance lock changed during validation")
+        with instance_lock(path):
             recognized.add(path)
-        finally:
-            # Closing releases only this observer's flock; the persistent inode
-            # remains authoritative throughout its live storage incarnation.
-            os.close(descriptor)
     return recognized
+
+
+def reconcile_frozen_alias(state: Path, selected: Mapping[str, object], key: object) -> bool:
+    """After authenticated freeze/drain, settle only the exact hard-link crash residue."""
+    final, pending = instance_paths(state, selected, key)
+    try:
+        final.lstat()
+        pending.lstat()
+    except FileNotFoundError:
+        return False
+    lock = root(state, selected) / ".locks" / (incarnation(key) + ".lock")
+    with instance_lock(lock):
+        if any(path.is_symlink() for path in (final, *final.parents, pending, *pending.parents)):
+            raise PayloadError("Published staging alias must not traverse symlinks")
+        published = final.lstat()
+        staging = pending.lstat()
+        for observed in (published, staging):
+            if not stat.S_ISREG(observed.st_mode) or observed.st_uid != os.getuid() or stat.S_IMODE(observed.st_mode) != 0o600 or observed.st_nlink != 2:
+                raise PayloadError("Published staging alias lost its exact private two-link identity")
+        if (published.st_dev, published.st_ino) != (staging.st_dev, staging.st_ino):
+            raise PayloadError("Published staging alias has a different inode")
+        descriptor = os.open(final, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        try:
+            observed = os.fstat(descriptor)
+            if (observed.st_dev, observed.st_ino, observed.st_nlink) != (published.st_dev, published.st_ino, 2) or pending.lstat() != staging:
+                raise PayloadError("Published staging alias changed before reconciliation")
+            pending.unlink()
+            parent = os.open(pending.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(parent)
+            finally:
+                os.close(parent)
+            after = os.fstat(descriptor)
+            visible = final.lstat()
+            if (after.st_dev, after.st_ino, after.st_nlink) != (published.st_dev, published.st_ino, 1) or (visible.st_dev, visible.st_ino) != (after.st_dev, after.st_ino):
+                raise PayloadError("Published file retained an unknown alias after reconciliation")
+        finally:
+            os.close(descriptor)
+    return True
 
 
 def owner_dead(owner: Mapping[str, object]) -> bool:
