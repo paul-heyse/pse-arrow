@@ -571,6 +571,8 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
 /// Strict installer adapter: the actual selected Cargo child is captured in the
 /// same operation. Unsupported arguments refuse before any build/refresh effects.
 pub(crate) fn run_observed(options: &ProducerOptions, arguments: &[String]) -> Result<ProducerIdentity> {
+    ensure!(options.declarations.capture_actual_build && options.declarations.actual_build_evidence.is_some(),
+        "observed installer requires actual build capture and protected evidence output");
     validate_observed_arguments(options, arguments)?;
     run_selected(options, Some(arguments))
 }
@@ -652,9 +654,13 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
     let lock_before = fs::read(root.join("Cargo.lock"))?;
     let manifest_before = fs::read(root.join("Cargo.toml"))?;
     let configuration_before = configuration_state(&root)?;
-    let graph: UnitGraph =
-        serde_json::from_slice(&cargo_output(&root, &observed_arguments.map_or_else(|| unit_graph_arguments(options), observed_graph_arguments))?)
-            .context("selected Cargo unit graph")?;
+    let graph_arguments = observed_arguments.map_or_else(|| unit_graph_arguments(options), observed_graph_arguments);
+    let graph_bytes = cargo_output(&root, &graph_arguments)?;
+    if let Some(directory) = &evidence_directory {
+        fs::write(directory.join("unit-graph.stdout"), &graph_bytes)?;
+        fs::write(directory.join("unit-graph.arguments.json"), serde_json::to_vec(&graph_arguments)?)?;
+    }
+    let graph: UnitGraph = serde_json::from_slice(&graph_bytes).context("selected Cargo unit graph")?;
     ensure!(
         graph.version == 1,
         "unsupported Cargo unit graph version {}",
@@ -663,7 +669,7 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
     validate_production_root(&graph, &options.production_target)?;
     // Metadata names package roots, while the unit graph alone determines features
     // and closure. --all-features only makes optional package metadata available.
-    let metadata: cargo_metadata::Metadata = serde_json::from_slice(&cargo_output(
+    let metadata_bytes = cargo_output(
         &root,
         &[
             "metadata".into(),
@@ -672,7 +678,11 @@ fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>
             "--offline".into(),
             "--all-features".into(),
         ],
-    )?)?;
+    )?;
+    if let Some(directory) = &evidence_directory {
+        fs::write(directory.join("metadata.stdout"), &metadata_bytes)?;
+    }
+    let metadata: cargo_metadata::Metadata = serde_json::from_slice(&metadata_bytes)?;
     let packages: BTreeMap<String, cargo_metadata::Package> = metadata
         .packages
         .into_iter()
@@ -937,6 +947,8 @@ fn native_caller_environment(
         "SUITESPARSE_LIBRARY_DIR",
         "GMP_MPFR_SYS_CACHE",
         "PYO3_PYTHON",
+        "PYTHON_SYS_EXECUTABLE",
+        "PYO3_BUILD_EXTENSION_MODULE",
         "PYO3_CONFIG_FILE",
         "PYO3_ENVIRONMENT_SIGNATURE",
         "PYO3_NO_PYTHON",
@@ -954,6 +966,13 @@ fn native_caller_environment(
         "_PYTHON_PROJECT_BASE",
         "_PYTHON_SYSCONFIGDATA_NAME",
         "_PYTHON_SYSCONFIGDATA_PATH",
+        "_PYTHON_HOST_PLATFORM",
+        "VIRTUAL_ENV",
+        "SDKROOT",
+        "MACOSX_DEPLOYMENT_TARGET",
+        "CARGO_BUILD_TARGET",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "RUSTFLAGS",
     ]
     .into_iter()
     .map(str::to_owned)
@@ -4485,6 +4504,10 @@ mod tests {
         let arguments = vec!["rustc".into(), "--lib".into(), "--crate-type".into(), "cdylib".into(), "--message-format=json-render-diagnostics".into(),
             "--manifest-path".into(), directory.path().join("Cargo.toml").to_string_lossy().into_owned(), "--profile".into(), "producer".into(),
             "--features".into(), "force-validate,native-solvers".into(), "--locked".into(), "--color=always".into()];
+        assert!(run_observed(&options, &arguments).unwrap_err().to_string().contains("actual build capture"));
+        let mut missing_output = options.clone();
+        missing_output.declarations.capture_actual_build = true;
+        assert!(run_observed(&missing_output, &arguments).is_err());
         validate_observed_arguments(&options, &arguments).unwrap();
         let graph = observed_graph_arguments(&arguments);
         assert!(graph.contains(&"--unit-graph".into()));

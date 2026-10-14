@@ -50,6 +50,7 @@ struct Index {
     purpose: String,
     workspace_root: PathBuf,
     context: serde_json::Value,
+    legacy_evidence: Option<PathBuf>,
     graph: UnitGraph,
     receipt: ProducerIdentity,
     declarations: InputDeclarations,
@@ -122,6 +123,8 @@ pub(super) fn prepare(
 ) -> Result<()> {
     fs::create_dir(directory.join("members"))?;
     let mut members = BTreeMap::new();
+    let legacy_evidence = options.declarations.actual_build_evidence.as_ref().map(|path| absolute(root, path));
+    if let Some(path) = &legacy_evidence { retain(directory, path, &mut members)?; }
     let mut associations = BTreeMap::new();
     let mut artifact_aliases = BTreeMap::new();
     let mut package_sources = BTreeMap::new();
@@ -210,7 +213,7 @@ pub(super) fn prepare(
         }))
     }).collect::<Result<_>>()?;
     let mut streams = BTreeMap::new();
-    for name in ["build.stdout", "build.stderr", "build.status.json", "refresh.stdout", "refresh.stderr", "refresh.status.json"] {
+    for name in ["build.stdout", "build.stderr", "build.status.json", "refresh.stdout", "refresh.stderr", "refresh.status.json", "unit-graph.stdout", "unit-graph.arguments.json", "metadata.stdout"] {
         let path = directory.join(name);
         if path.try_exists()? { streams.insert(name.into(), file_digest(&path)?); }
     }
@@ -221,6 +224,7 @@ pub(super) fn prepare(
             "target": options.target, "production_target": options.production_target,
             "features": options.features, "no_default_features": options.no_default_features,
             "caller_environment": native_caller_environment(options)?}),
+        legacy_evidence,
         graph: graph.clone(), receipt: receipt.clone(), declarations: options.declarations.clone(),
         pest_grammars: options.declarations.proc_macros.iter().map(|(key, value)| (key.clone(), value.pest_grammars.clone())).collect(),
         package_sources, associations, artifact_aliases, members, namespaces, absences, streams,
@@ -290,8 +294,19 @@ fn validate(directory: &Path) -> Result<Index> {
             "historical member missing or changed: {}", path.display());
     }
     for (name, expected) in &index.streams {
-        ensure!(["build.stdout", "build.stderr", "build.status.json", "refresh.stdout", "refresh.stderr", "refresh.status.json"].contains(&name.as_str()), "unknown historical stream");
+        ensure!(["build.stdout", "build.stderr", "build.status.json", "refresh.stdout", "refresh.stderr", "refresh.status.json", "unit-graph.stdout", "unit-graph.arguments.json", "metadata.stdout"].contains(&name.as_str()), "unknown historical stream");
         ensure!(file_digest(&directory.join(name))? == *expected, "historical child stream changed");
+    }
+    if let Some(path) = &index.legacy_evidence {
+        let original = index.members.get(path).context("historical exact Cargo context evidence missing")?;
+        let evidence: serde_json::Value = serde_json::from_slice(&protected_bytes(directory, original)?)?;
+        ensure!(evidence["unit_graph"] == serde_json::to_value(&index.graph)?, "historical selected unit graph differs from exact build context");
+        ensure!(evidence["arguments"].as_array().is_some_and(|arguments| !arguments.is_empty()) && evidence["success"] == true,
+            "historical exact build invocation missing");
+        let raw_graph: serde_json::Value = serde_json::from_slice(&fs::read(directory.join("unit-graph.stdout"))?)?;
+        ensure!(raw_graph == evidence["unit_graph"], "historical raw unit graph differs");
+        let _: Vec<String> = serde_json::from_slice(&fs::read(directory.join("unit-graph.arguments.json"))?)?;
+        let _: cargo_metadata::Metadata = serde_json::from_slice(&fs::read(directory.join("metadata.stdout"))?)?;
     }
     let status: serde_json::Value = serde_json::from_slice(&fs::read(directory.join("build.status.json"))?)?;
     ensure!(status["success"] == true && status["stream_errors"] == serde_json::json!([]), "historical child did not complete successfully");
@@ -478,7 +493,7 @@ mod tests {
         let namespace = namespace_observation(&original, 64).unwrap();
         let index = Index {
             version: 1, purpose: "historical fixture only".into(), workspace_root: original.clone(), context: serde_json::json!({}),
-            graph, receipt, declarations: InputDeclarations::default(), pest_grammars: BTreeMap::new(), package_sources: BTreeMap::new(),
+            legacy_evidence: None, graph, receipt, declarations: InputDeclarations::default(), pest_grammars: BTreeMap::new(), package_sources: BTreeMap::new(),
             associations: BTreeMap::from([(0, vec![dep_info])]), artifact_aliases: BTreeMap::new(), members,
             namespaces: BTreeMap::from([(original.clone(), Namespace { identity: namespace.identity, entries: namespace.entries,
                 aliases: namespace.aliases.into_iter().collect(), raw_coverage: "inventory-only".into() })]),
