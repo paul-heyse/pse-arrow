@@ -493,6 +493,8 @@ mod catalog_controls {
         drop(unread);store.result_read_drain.drain().await.unwrap();store.forget_run_results(fence.run()).await.unwrap();
         loop{if store.reclaim_result_page(fence.run()).await.unwrap().complete{break;}}
         store.collect_file(&file.descriptor().instance).await.unwrap();assert!(!store.files.path(&file.descriptor().instance).unwrap().exists());
+        assert!(store.seal_file(&intent,bytes,OPAQUE_JSON,0,"").await.is_err());assert!(store.recover_file_intent(&intent).await.is_err());
+        assert!(!store.files.path(intent.instance()).unwrap().exists());assert!(!store.files.root.join(".pending").join(format!("{}.pending",intent.instance())).exists());
         let peer=CanonicalStore::connect(&{let mut options=CanonicalOptions::from_state(store.deployment_state()).unwrap();options.database=store.database().to_owned();options}).await.unwrap();peer.open().await.unwrap();assert!(peer.read_results(fence.run(),fence.attempt()).await.unwrap_err().to_string().contains("retired"));peer.disconnect().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
