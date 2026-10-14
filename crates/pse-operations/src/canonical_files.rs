@@ -220,7 +220,11 @@ impl CanonicalStore {
     pub async fn recover_file_intent(&self,original:&FilePublicationIntent)->Result<FilePublicationIntent,CanonicalError>{
         let activity=self.admit_activity()?;
         activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
-        self.files.require_current()?;let owner=self.registered_file_owner().await?;
+        self.files.require_current()?;
+        let mut inspection=bounded_query(self.db.query("RETURN SELECT * FROM ONLY type::record('canonical_file_instances',$key);").bind(("key",original.instance.clone()))).await?;
+        let mut inspected=inspection.take::<Option<Object>>(0)?.ok_or_else(||configuration("original physical intent unavailable"))?;
+        if text(&mut inspected,"intent")?!=original.intent||text(&mut inspected,"request_digest")?!=original.request_digest||text(&mut inspected,"storage_incarnation")?!=self.files.incarnation{return Err(CanonicalError::OperationReused);}
+        let owner=self.registered_file_owner().await?;
         let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::recover_intent($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected)).bind(("owner",owner.clone())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let mut saved=last_object(&mut response)?;
@@ -242,6 +246,7 @@ impl CanonicalStore {
         let activity=self.admit_activity()?;
         activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
         self.files.require_current()?; self.ensure_writes()?;
+        self.physical_intent_open(intent).await?;
         if intent.storage_incarnation!=self.files.incarnation || intent.owner!=self.registered_file_owner().await?{return Err(configuration("file intent actual owner differs"));}
         let descriptor=FileDescriptor{instance:intent.instance.clone(),digest:crate::canonical_execution::result_payload_digest(bytes),bytes:bytes.len() as u64,encoding:encoding.into(),batch_count,schema:schema.into(),interpretation:crate::generated::surreal::INTERPRETATION.into()};descriptor.validate()?;
         if encoding==OPAQUE_JSON {let _:serde_json::Value=serde_json::from_slice(bytes).map_err(configuration)?;}
@@ -281,7 +286,12 @@ impl CanonicalStore {
     pub async fn collect_file(&self,instance:&str)->Result<(),CanonicalError>{
         let activity=self.admit_activity()?;
         activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
-        self.files.require_current()?;self.registered_file_owner().await?;let path=self.files.path(instance)?;
+        self.files.require_current()?;let path=self.files.path(instance)?;
+        let mut inspection=bounded_query(self.db.query("RETURN SELECT key,state,storage_incarnation FROM ONLY type::record('canonical_file_instances',$key);").bind(("key",instance.to_owned()))).await?;
+        let mut inspected=inspection.take::<Option<Object>>(0)?.ok_or_else(||configuration("physical collection instance unavailable"))?;
+        if text(&mut inspected,"key")?!=instance||text(&mut inspected,"storage_incarnation")?!=self.files.incarnation{return Err(CanonicalError::OperationReused);}
+        let state=text(&mut inspected,"state")?;if state=="collected"{return Ok(());}if !["attached","abandoned","collecting"].contains(&state.as_str()){return Err(configuration("original file publication remains unresolved"));}
+        self.registered_file_owner().await?;
         let _lock=lock_instance(&self.files.root,instance).await?;
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let row=last_object(&mut response)?;if row.get("state")==Some(&Value::String("collected".into())){return Ok(());}
@@ -498,6 +508,16 @@ mod catalog_controls {
         assert!(store.seal_file(&intent,bytes,OPAQUE_JSON,0,"").await.is_err());assert!(store.recover_file_intent(&intent).await.is_err());
         assert!(!store.files.path(intent.instance()).unwrap().exists());assert!(!store.files.root.join(".pending").join(format!("{}.pending",intent.instance())).exists());
         let peer=CanonicalStore::connect(&{let mut options=CanonicalOptions::from_state(store.deployment_state()).unwrap();options.database=store.database().to_owned();options}).await.unwrap();peer.open().await.unwrap();assert!(peer.read_results(fence.run(),fence.attempt()).await.unwrap_err().to_string().contains("retired"));peer.disconnect().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_files_unknown_collection_and_forged_intent_leave_no_physical_residue(){
+        let (store,_revision)=fixture().await;assert!(!store.files.root.exists());
+        let original=FilePublicationIntent{instance:uuid::Uuid::new_v4().to_string(),intent:"forged-original".into(),request_digest:crate::canonical_execution::result_payload_digest(b"[1]"),owner:uuid::Uuid::new_v4().to_string(),storage_incarnation:store.files.incarnation.clone()};
+        assert!(store.collect_file(original.instance()).await.is_err());
+        assert!(store.seal_file(&original,b"[1]",OPAQUE_JSON,0,"").await.is_err());
+        assert!(store.recover_file_intent(&original).await.is_err());
+        assert!(!store.files.root.exists());assert!(store.files.owner.lock().await.is_none());
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]

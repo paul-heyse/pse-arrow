@@ -31,7 +31,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::original($rpc_expiry:int,$intent:object) ->
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
     LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$intent.key) FOR UPDATE;
     IF $guard=NONE OR $intent.key!='pse.artifact.v1:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'artifact original settlement authority unavailable'; };
-    IF $row!=NONE AND object::remove($row,['id','active','retiring'])!=object::remove($intent,['active','retiring']) { THROW 'artifact recovery requires exact original intent'; };
+    IF $row!=NONE AND object::remove($row,['id','active','retiring'])!=object::remove($intent,['id','active','retiring']) { THROW 'artifact recovery requires exact original intent'; };
     IF $guard.incarnation!=$intent.primary_authority AND $row=NONE { THROW 'historical artifact settlement receipt unavailable'; };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $guard;
 };
@@ -164,11 +164,8 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     IF $row!=NONE AND ($row.creation_request_digest!=$intent.creation_request_digest OR $row.creation_expires_at!=$intent.creation_expires_at) { THROW 'artifact settlement requires original intent'; };
     LET $reads=SELECT key FROM canonical_artifact_reads WHERE artifact=$intent.key ORDER BY key LIMIT 64;
     FOR $read IN $reads {
-        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$read.key) FOR UPDATE;
-        IF $pin!=NONE AND !$pin.released AND ($pin.expires_at>time::micros() OR fn::pse_files_v1::ticket_open($rpc_expiry,$read.key)) { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-        LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$intent.primary_problem,$read.key,false);
-        IF time::micros()<$grant.grant_deadline { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-        fn::pse_retention_v1::settle_protection($rpc_expiry,$intent.primary_problem,$read.key);
+        LET $settlement=fn::pse_retention_v1::settle_protection($rpc_expiry,$intent.primary_problem,$read.key);
+        IF !$settlement.complete { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
         DELETE ONLY type::record('canonical_artifact_reads',$read.key);
     };
     IF array::len($reads)=64 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };

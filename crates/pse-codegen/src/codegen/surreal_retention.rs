@@ -12,13 +12,37 @@ const FUNCTIONS: &str = r#"
 // Continued renewals register the exact pin and therefore invalidate a stale
 // settlement decision. The monotone floor remains after physical cleanup.
 DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem:string,$key:string) -> object {
-    LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$problem,$key,false);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $parts=string::split($key,':');
+    IF array::len($parts)!=4 OR $parts[0]!='pse.protection.v2' OR string::len($parts[1])!=36 OR string::len($parts[2])!=36 OR <int>$parts[3]<=0 { THROW 'protection settlement immutable grant binding'; };
+    LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem) FOR UPDATE;
+    IF $authority=NONE { THROW 'protection settlement authority unavailable'; };
     LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$key) FOR UPDATE;
+    IF $pin!=NONE AND ($pin.problem!=$problem OR $pin.grant_deadline!=<int>$parts[3] OR $pin.grant_nonce!=$parts[2] OR $pin.authority_incarnation!=$parts[1]) { THROW 'protection settlement requires original grant'; };
+    IF fn::pse_files_v1::ticket_open($rpc_expiry,$key) { RETURN {complete:false,waiting:true}; };
+    IF $authority.incarnation!=$parts[1] {
+        // A rotated authority closes old acquisition, but is not evidence that
+        // an arbitrary absent grant ever belonged to this problem. Persisted
+        // pins, or exact persisted read/header associations, supply that proof.
+        IF $pin=NONE {
+            LET $artifact_read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$key) FOR UPDATE;
+            LET $artifact=IF $artifact_read=NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_artifacts',$artifact_read.artifact) FOR UPDATE };
+            LET $result_read=SELECT * FROM ONLY type::record('canonical_result_protections',$key) FOR UPDATE;
+            LET $run=IF $result_read=NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_runs',$result_read.run) };
+            IF ($artifact=NONE OR $artifact.primary_problem!=$problem) AND ($run=NONE OR $run.problem!=$problem) { THROW 'historical protection original receipt unavailable'; };
+        } ELSE {
+            // Retain the exact terminal grant as its lost-reply receipt. Released
+            // pins retain no source/result bytes and cannot reacquire authority.
+            UPDATE ONLY type::record('canonical_protections',$key) SET released=true,expires_at=0;
+        };
+        DELETE ONLY type::record('canonical_result_protections',$key);
+        fn::pse_execution_v1::deadline($rpc_expiry);
+        RETURN {complete:true,waiting:false};
+    };
+    LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$problem,$key,false);
     IF time::micros()<$grant.grant_deadline { RETURN {complete:false,waiting:true}; };
-    IF $pin!=NONE AND ($pin.problem!=$problem OR $pin.grant_deadline!=$grant.grant_deadline OR $pin.grant_nonce!=$grant.grant_nonce OR $pin.authority_incarnation!=$grant.authority_incarnation) { THROW 'protection settlement requires original grant'; };
     IF $pin!=NONE AND !$pin.released AND $pin.expires_at>time::micros() { RETURN {complete:false,waiting:true}; };
     UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET protection_closed_through=math::max([protection_closed_through ?? 0dec,<decimal>$grant.grant_deadline]);
-    IF fn::pse_files_v1::ticket_open($rpc_expiry,$key) { THROW 'strong read ticket remains admitted'; };
     DELETE ONLY type::record('canonical_result_protections',$key);
     DELETE ONLY type::record('canonical_protections',$key);
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -79,7 +103,7 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:ob
     IF $guard=NONE OR ($guard.incarnation!=$intent.primary_authority AND $header=NONE) { THROW 'analysis settlement authority unavailable'; };
     IF $intent.key!='pse.analysis.v2:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'analysis settlement key binding'; };
     IF $guard.incarnation=$intent.primary_authority AND time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-    IF $header!=NONE AND object::remove($header,['id','active','retiring'])!=object::remove($intent,['active','retiring']) { THROW 'analysis settlement requires exact original occurrence'; };
+    IF $header!=NONE AND object::remove($header,['id','active','retiring'])!=object::remove($intent,['id','active','retiring']) { THROW 'analysis settlement requires exact original occurrence'; };
     IF $header!=NONE AND !$header.retiring { UPDATE ONLY type::record('canonical_analyses',$intent.key) SET retiring=true; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $edges=SELECT key FROM canonical_analysis_edges WHERE analysis=$intent.key LIMIT 1;
     LET $nodes=SELECT key FROM canonical_analysis_nodes WHERE analysis=$intent.key LIMIT 1;
