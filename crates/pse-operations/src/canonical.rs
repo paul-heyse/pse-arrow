@@ -743,6 +743,7 @@ pub struct CanonicalStore {
     activation_db: Arc<CanonicalClient>,
     connection_options: CanonicalOptions,
     state_path: PathBuf,
+    pub(crate) files: Arc<crate::canonical_files::FileSession>,
     database: String,
     namespace: String,
     issuing_store: Arc<std::sync::OnceLock<String>>,
@@ -998,6 +999,7 @@ impl CanonicalStore {
             activation_db,
             connection_options: options.clone(),
             state_path: options.state_path.clone(),
+            files: Arc::new(crate::canonical_files::FileSession::from_state(&options.state_path, &options.database)?),
             database: options.database.clone(),
             namespace: options.namespace.clone(),
             issuing_store: Arc::default(),
@@ -1131,7 +1133,8 @@ impl CanonicalStore {
             .activation_db
             .query(initialization_statement())
             .bind(("interpretation", wire::INTERPRETATION))
-            .bind(("schema_digest", wire::SCHEMA_DIGEST));
+            .bind(("schema_digest", wire::SCHEMA_DIGEST))
+            .bind(("payload_incarnation", self.files.incarnation.clone()));
         tokio::time::timeout(ACTIVATION_REQUEST_TIMEOUT, query.into_future())
             .await
             .map_err(|_| CanonicalError::Timeout)
@@ -1163,6 +1166,7 @@ impl CanonicalStore {
                 return Err(CanonicalError::Configuration("canonical store has no issuing-store identity; regenerate the selected owned store".into()));
             }
             let marker = wire::decode_canonical_interpretations(marker)?;
+            if marker.payload_incarnation != self.files.incarnation { return Err(CanonicalError::Configuration("selected payload incarnation differs from catalog; regenerate or restore explicitly".into())); }
             if uuid::Uuid::parse_str(&marker.issuing_store).is_err() {
                 return Err(CanonicalError::Configuration("persistent issuing store identity is invalid".into()));
             }
@@ -1898,7 +1902,7 @@ impl CanonicalStore {
 
 fn initialization_statement() -> String {
     format!(
-        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, issuing_store = <string>rand::uuid::v4();\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\nCOMMIT;",
+        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\nCOMMIT;",
         wire::SCHEMA
     )
 }

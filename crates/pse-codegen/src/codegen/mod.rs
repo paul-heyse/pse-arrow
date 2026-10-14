@@ -30,6 +30,7 @@ mod surreal;
 mod surreal_analyses;
 mod surreal_artifacts;
 mod surreal_execution;
+mod surreal_files;
 mod surreal_history;
 mod surreal_retention;
 mod surreal_studies;

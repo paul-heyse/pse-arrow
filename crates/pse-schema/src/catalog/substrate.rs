@@ -11,10 +11,12 @@ use crate::{
 use arrow_schema::DataType;
 
 /// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v5";
+pub const INTERPRETATION: &str = "pse.substrate.v6";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
-pub const RESULT_BLOCK_BYTES: usize = 512 * 1024;
+pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
+/// Preferred physical native IPC packing extent, flushed at acknowledgement boundaries.
+pub const RESULT_FILE_TARGET_BYTES: usize = 16 * 1024 * 1024;
 /// Native CBOR index/descriptor envelope admission per append.
 pub const RESULT_INDEX_BYTES: usize = 128 * 1024;
 /// Complete uncompressed native WebSocket message admission.
@@ -56,6 +58,13 @@ macro_rules! indexes {
     };
 }
 indexes! {
+    file_intent: canonical_file_instances [intent] true,
+    file_instance_owner: canonical_file_instances [owner, state, key] false,
+    file_borrower_instance: canonical_file_borrowers [instance, released, key] false,
+    file_borrower_owner: canonical_file_borrowers [owner_kind, owner, key] false,
+    file_owner_active: canonical_file_owners [drained, key] false,
+    manifest_ticket_selection: canonical_manifest_tickets [kind, selection, released, key] false,
+    manifest_ticket_owner: canonical_manifest_tickets [owner, released, key] false,
     guard_incarnation: canonical_guards [incarnation] true,
     membership_selection: canonical_memberships [problem, scope, name, from_sequence] false,
     membership_active: canonical_memberships [problem, to_sequence] false,
@@ -166,8 +175,34 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("interpretation", text()),
                 column("schema_digest", text()),
                 column("issuing_store", text()),
+                column("payload_incarnation", text()),
             ],
             "Installed schema, codec and structural operation interpretation.",
+        ),
+        (
+            "canonical_file_admission",
+            vec![column("key", text()), column("storage_incarnation", text()), column("frozen", flag()), column("gc_frozen", flag())],
+            "Selected file placement incarnation and jointly locked admission/collection freeze; ordinary opening never provisions missing placement.",
+        ),
+        (
+            "canonical_file_owners",
+            vec![column("key", text()), column("issuing_store", text()), column("storage_incarnation", text()), column("boot", text()), column("pid_namespace", text()), column("pid", uint()), column("start", text()), column("invocation", text()).optional(), column("drained", flag())],
+            "Authenticated actual Linux process owner; boot, PID namespace, PID and start bind every file capability. Silence and finite deadlines never prove drain.",
+        ),
+        (
+            "canonical_file_instances",
+            vec![column("key", text()), column("intent", text()), column("request_digest", text()), column("owner", text()), column("owner_kind", text()), column("selection", text()), column("issuing_store", text()), column("storage_incarnation", text()), column("digest", text()), column("payload_bytes", uint()), column("encoding", text()), column("batch_count", uint()), column("schema", text()), column("interpretation", text()), column("state", text())],
+            "Never-reused physical file instance reserved before file work. Original unresolved intent protects pending/sealed publication; collecting and collected are irreversible.",
+        ),
+        (
+            "canonical_file_borrowers",
+            vec![column("key", text()), column("instance", text()), column("owner_kind", text()), column("owner", text()), column("released", flag())],
+            "Independent exact physical-file borrower and permanent released attribution; logical result/artifact lifetimes arbitrate with collection under the instance guard.",
+        ),
+        (
+            "canonical_manifest_tickets",
+            vec![column("key", text()), column("kind", text()), column("selection", text()), column("run", text()).optional(), column("attempt", text()).optional(), column("manifest", text()).optional(), column("owner", text()), column("storage_incarnation", text()), column("released", flag())],
+            "Nonexpiring exact immutable selection read ticket covering future unread files; only actual authenticated owner death or completed reader drain releases it.",
         ),
         (
             "canonical_problems",
