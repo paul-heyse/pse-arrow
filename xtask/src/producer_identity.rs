@@ -473,14 +473,83 @@ struct StreamedChild {
     stream_errors: Vec<String>,
 }
 
+#[derive(Clone, Copy)]
+enum ChildPipeForwarding {
+    Raw,
+    RenderedCompilerMessages,
+}
+
+// This is a live diagnostic projection, not validation of the evidence stream.
+// Oversized/malformed lines remain byte-exact in the spool and are interpreted
+// by the final Cargo parser. A preview never grants success or completeness.
+const LIVE_COMPILER_MESSAGE_BYTES: usize = 1 << 20;
+
+#[derive(Default)]
+struct CompilerMessageLines {
+    pending: Vec<u8>,
+    discard_line: bool,
+}
+
+fn forward_child_bytes(
+    forward: &std::sync::Mutex<&mut (dyn std::io::Write + Send)>,
+    bytes: &[u8],
+) -> std::io::Result<()> {
+    let mut sink = forward.lock().map_err(|_| std::io::Error::other("child diagnostic writer poisoned"))?;
+    sink.write_all(bytes)?;
+    sink.flush()
+}
+
+impl CompilerMessageLines {
+    fn forward_line(
+        &self,
+        forward: &std::sync::Mutex<&mut (dyn std::io::Write + Send)>,
+    ) -> std::io::Result<()> {
+        if self.discard_line { return Ok(()); }
+        let Ok(message) = serde_json::from_slice::<serde_json::Value>(&self.pending) else {
+            return Ok(());
+        };
+        if message["reason"] == "compiler-message"
+            && let Some(rendered) = message["message"]["rendered"].as_str()
+        {
+            forward_child_bytes(forward, rendered.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn push(
+        &mut self,
+        bytes: &[u8],
+        forward: &std::sync::Mutex<&mut (dyn std::io::Write + Send)>,
+    ) -> std::io::Result<()> {
+        for part in bytes.split_inclusive(|byte| *byte == b'\n') {
+            if !self.discard_line {
+                if part.len() > LIVE_COMPILER_MESSAGE_BYTES.saturating_sub(self.pending.len()) {
+                    self.pending.clear();
+                    self.discard_line = true;
+                } else {
+                    self.pending.extend_from_slice(part);
+                }
+            }
+            if part.ends_with(b"\n") {
+                self.forward_line(forward)?;
+                self.pending.clear();
+                self.discard_line = false;
+            }
+        }
+        Ok(())
+    }
+}
+
 fn drain_child_pipe(
     mut source: impl std::io::Read,
     mut spool: fs::File,
-    mut forward: Option<&mut (dyn std::io::Write + Send)>,
+    mut forward: Option<&std::sync::Mutex<&mut (dyn std::io::Write + Send)>>,
+    mode: ChildPipeForwarding,
 ) -> std::io::Result<Vec<String>> {
     use std::io::Write;
     let mut errors = Vec::new();
     let mut spool_failed = false;
+    let mut lines = CompilerMessageLines::default();
     let mut bytes = [0u8; 65_536];
     loop {
         let count = match source.read(&mut bytes) {
@@ -498,13 +567,23 @@ fn drain_child_pipe(
                 spool_failed = true;
             }
         }
-        if let Some(sink) = forward.as_mut() {
-            if let Err(error) = sink.write_all(&bytes[..count]).and_then(|()| sink.flush()) {
+        if let Some(sink) = forward {
+            let result = match mode {
+                ChildPipeForwarding::Raw => forward_child_bytes(sink, &bytes[..count]),
+                ChildPipeForwarding::RenderedCompilerMessages => lines.push(&bytes[..count], sink),
+            };
+            if let Err(error) = result {
                 errors.push(format!("child diagnostic forwarding: {error}"));
                 // Still drain the pipe. A broken observer cannot deadlock the child.
                 forward = None;
             }
         }
+    }
+    if let Some(sink) = forward
+        && matches!(mode, ChildPipeForwarding::RenderedCompilerMessages)
+        && let Err(error) = lines.forward_line(sink)
+    {
+        errors.push(format!("child diagnostic forwarding: {error}"));
     }
     spool.sync_all()?;
     Ok(errors)
@@ -537,12 +616,24 @@ fn streamed_child(
     let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
     let stdout = child.stdout.take().context("child stdout pipe")?;
     let stderr = child.stderr.take().context("child stderr pipe")?;
+    // Ordinary Cargo puts rendered compiler diagnostics inside stdout JSON.
+    // Both that projection and raw stderr reach the same existing observer;
+    // serialize writes rather than borrowing it independently on two threads.
+    let forward = std::sync::Mutex::new(forward);
     let (status, out, err) = std::thread::scope(|scope| {
         let out = scope.spawn(|| {
-            let mut sink = std::io::stdout();
-            drain_child_pipe(stdout, stdout_file, if mirror_stdout { Some(&mut sink) } else { None })
+            if mirror_stdout {
+                // Maturin consumes/renders this exact JSON itself. Do not render
+                // it again on the human stream or contaminate its JSON input.
+                let mut sink = std::io::stdout();
+                let stdout_forward: &mut (dyn std::io::Write + Send) = &mut sink;
+                let stdout_forward = std::sync::Mutex::new(stdout_forward);
+                drain_child_pipe(stdout, stdout_file, Some(&stdout_forward), ChildPipeForwarding::Raw)
+            } else {
+                drain_child_pipe(stdout, stdout_file, Some(&forward), ChildPipeForwarding::RenderedCompilerMessages)
+            }
         });
-        let err = scope.spawn(|| drain_child_pipe(stderr, stderr_file, Some(forward)));
+        let err = scope.spawn(|| drain_child_pipe(stderr, stderr_file, Some(&forward), ChildPipeForwarding::Raw));
         let status = child.wait();
         (status, out.join(), err.join())
     });
@@ -4477,6 +4568,72 @@ mod tests {
         assert_eq!(fs::read(directory.path().join("live.stdout")).unwrap(), output.stdout);
         assert!(parse_cargo_messages(&output.stdout).is_err());
         assert!(directory.path().join("live.status.json").is_file());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn producer_streamed_child_renders_cargo_stdout_diagnostic_before_exit() {
+        struct Acknowledge { path: PathBuf, bytes: Vec<u8> }
+        impl std::io::Write for Acknowledge {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.bytes.extend_from_slice(bytes);
+                if self.bytes.windows(b"actual compiler cause".len()).any(|part| part == b"actual compiler cause") {
+                    fs::write(&self.path, b"rendered before child exit")?;
+                }
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let mut sink = Acknowledge { path: directory.path().join("ack"), bytes: Vec::new() };
+        let diagnostic = serde_json::json!({"reason": "compiler-message", "message": {"rendered": "actual compiler cause\n"}}).to_string();
+        let finished = r#"{"reason":"build-finished","success":true}"#;
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", r#"printf '%s\n' "$1"; n=0; while [ ! -f "$2" ]; do n=$((n+1)); [ "$n" -lt 200 ] || exit 9; sleep 0.01; done; printf 'generic Cargo trailer' >&2; printf '%s\n' "$3""#, "child"]);
+        command.arg(&diagnostic).arg(&sink.path).arg(finished);
+        let output = streamed_child(&mut command, Some(directory.path()), "cargo-live", false, &mut sink).unwrap();
+        assert!(output.status.success());
+        assert!(output.stream_errors.is_empty());
+        assert_eq!(sink.bytes, b"actual compiler cause\ngeneric Cargo trailer");
+        assert_eq!(output.stdout, format!("{diagnostic}\n{finished}\n").as_bytes());
+        assert_eq!(fs::read(directory.path().join("cargo-live.stdout")).unwrap(), output.stdout);
+        assert_eq!(parse_cargo_messages(&output.stdout).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn producer_streamed_child_rendering_recovers_after_split_oversized_and_malformed_lines() {
+        struct Pieces(std::collections::VecDeque<std::io::Cursor<Vec<u8>>>);
+        impl std::io::Read for Pieces {
+            fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+                while let Some(piece) = self.0.front_mut() {
+                    let count = std::io::Read::read(piece, buffer)?;
+                    if count != 0 { return Ok(count); }
+                    self.0.pop_front();
+                }
+                Ok(0)
+            }
+        }
+        let mut oversized = serde_json::to_vec(&serde_json::json!({"reason": "compiler-message", "message": {"rendered": "x".repeat(LIVE_COMPILER_MESSAGE_BYTES + 100)}})).unwrap();
+        oversized.push(b'\n');
+        let pieces = vec![
+            b"arbitrary stdout text\n".to_vec(), oversized,
+            br#"{"reason":"compiler-"#.to_vec(),
+            br#"message","message":{"rendered":"split cause\n"}}"#.to_vec(),
+            b"\nnot JSON\n{\"reason\":\"compiler-message\"".to_vec(),
+        ];
+        let expected = pieces.concat();
+        let source = Pieces(pieces.into_iter().map(std::io::Cursor::new).collect());
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("stdout");
+        let mut sink = Vec::<u8>::new();
+        let observer: &mut (dyn std::io::Write + Send) = &mut sink;
+        let observer = std::sync::Mutex::new(observer);
+        let errors = drain_child_pipe(source, fs::File::create(&path).unwrap(), Some(&observer), ChildPipeForwarding::RenderedCompilerMessages).unwrap();
+        drop(observer);
+        assert!(errors.is_empty());
+        assert_eq!(sink, b"split cause\n");
+        assert_eq!(fs::read(path).unwrap(), expected);
+        assert!(parse_cargo_messages(&expected).is_err(), "live projection cannot validate malformed evidence");
     }
 
     #[cfg(unix)]
