@@ -1,0 +1,74 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+      
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_HOME: ${{ github.workspace }}/.cargo
+  RUSTFLAGS: -D warnings -A unused-imports
+  RUSTDOCFLAGS: -D warnings
+  RUST_BACKTRACE: full
+
+jobs:
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update stable --no-self-update
+      - run: rustc -Vv
+      - run: cargo fmt --all -- --check
+
+  unit-tests:
+    name: Tests - ${{ matrix.os }} - ${{ matrix.toolchain }} - ${{ matrix.vendor }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+        matrix:
+          toolchain:
+            - stable
+          os:
+            - ubuntu-latest
+            - macos-latest
+          include:
+            - toolchain: beta
+              os: ubuntu-latest
+            - toolchain: nightly
+              os: ubuntu-latest
+          vendor: [true, false]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - uses: actions/cache@v3.3.2
+      with:
+        path: |
+          ${{ env.CARGO_HOME }}
+          target
+        key: unit-test-${{ runner.os }}-${{ matrix.toolchain}}-${{ matrix.vendor }}
+    - name: Install BLAS (ubuntu)
+      if: matrix.os == 'ubuntu-latest' && matrix.vendor == true
+      run: sudo apt-get install libblas-dev liblapack-dev libopenblas-dev
+    - name: Install Homebrew (macos)
+      if: matrix.os == 'macos-latest' && matrix.vendor == false
+      uses: Homebrew/actions/setup-homebrew@master
+    - name: Install suitesparse (macos)
+      if: matrix.os == 'macos-latest' && matrix.vendor == false
+      run: brew install suite-sparse
+    - name: Install suitesparse (ubuntu)
+      if: matrix.os == 'ubuntu-latest' && matrix.vendor == false
+      run: sudo apt-get install libsuitesparse-dev
+    - name: Set up Rust
+      run: rustup default ${{ matrix.toolchain }} && rustup update ${{ matrix.toolchain }} --no-self-update && rustup component add clippy
+    - name: Rust version
+      run: rustc -Vv
+    - name: Run tests (build_vendor)
+      if : matrix.vendor == true
+      run: cargo test --features build_vendor --verbose 
+    - name : Run tests (no build_vendor)
+      if : matrix.vendor == false
+      run: cargo test --verbose

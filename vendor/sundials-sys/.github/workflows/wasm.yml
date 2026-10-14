@@ -1,0 +1,13 @@
+name: WASM Build & Test
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test
+    steps:
+    - uses: actions/checkout@master
+    - run: git submodule init
+    - run: git submodule update
+    - run: rustup target add wasm32-unknown-unknown
+    - run: cargo build
+    - run: cargo test
