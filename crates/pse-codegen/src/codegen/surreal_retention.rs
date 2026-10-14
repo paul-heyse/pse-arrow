@@ -30,6 +30,10 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem
             LET $result_read=SELECT * FROM ONLY type::record('canonical_result_protections',$key) FOR UPDATE;
             LET $run=IF $result_read=NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_runs',$result_read.run) };
             IF ($artifact=NONE OR $artifact.primary_problem!=$problem) AND ($run=NONE OR $run.problem!=$problem) { THROW 'historical protection original receipt unavailable'; };
+            LET $revision_key=IF $artifact!=NONE AND $artifact.primary_problem=$problem { $artifact.revision } ELSE { $run.revision };
+            LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$revision_key);
+            IF $revision=NONE OR $revision.problem!=$problem { THROW 'historical protection original revision unavailable'; };
+            CREATE ONLY type::record('canonical_protections',$key) SET key=$key,problem=$problem,revision=$revision.key,sequence=$revision.sequence,expires_at=0,released=true,grant_deadline=<int>$parts[3],grant_nonce=$parts[2],authority_incarnation=$parts[1];
         } ELSE {
             // Retain the exact terminal grant as its lost-reply receipt. Released
             // pins retain no source/result bytes and cannot reacquire authority.

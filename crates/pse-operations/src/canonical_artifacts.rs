@@ -831,6 +831,31 @@ mod canonical_artifact_tests {
     }
 
     #[tokio::test]
+    async fn canonical_historical_absent_pin_receipt_survives_artifact_association_cleanup(){
+        let (store,revision)=fixture().await;let (intent,blocks)=content(&store,&revision,"user","absent-pin").await;
+        store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","absent-pin").await.unwrap();
+        // Issue a short original acquisition window before any read effects,
+        // using the same transaction as public protection acquisition.
+        let mut clock=bounded_query(store.db.query("RETURN time::micros()+500000;")).await.unwrap();let deadline=codec::decode_int(clock.take(0).unwrap()).unwrap();
+        let grant=format!("pse.protection.v2:{}:{}:{deadline}",intent.primary_authority,uuid::Uuid::new_v4());
+        bounded_query(store.db.query(crate::canonical::ACQUIRE_PROTECTION).bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone())).bind(("key",grant.clone())).bind(("lifetime",1_000_000i64))).await.unwrap();
+        bounded_query(store.db.query("BEGIN; RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection); COMMIT;").bind(("key",intent.key.clone())).bind(("protection",grant.clone()))).await.unwrap();
+        bounded_query(store.db.query(crate::canonical::RELEASE_PROTECTION).bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone())).bind(("sequence",codec::encode_uint(revision.sequence).unwrap())).bind(("protection",grant.clone()))).await.unwrap();
+        loop {let mut clock=bounded_query(store.db.query("RETURN time::micros();")).await.unwrap();if codec::decode_int(clock.take(0).unwrap()).unwrap()>=deadline{break;}tokio::time::sleep(std::time::Duration::from_millis(10)).await;}
+        assert!(store.settle_protection_grant(&revision.problem,&grant).await.unwrap());
+        let mut absent=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_protections',$key);").bind(("key",grant.clone()))).await.unwrap();assert!(absent.take::<Option<Object>>(0).unwrap().is_none());
+        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET incarnation=$authority,protection_closed_through=31dec;").bind(("problem",revision.problem.clone())).bind(("authority",uuid::Uuid::new_v4().to_string()))).await.unwrap();
+        // The first historical settlement can lose its acknowledgement. Cleanup
+        // of the association cannot erase the original grant's replay receipt.
+        assert!(store.settle_protection_grant(&revision.problem,&grant).await.unwrap());
+        store.release_artifact(&intent.key,"user","absent-pin").await.unwrap();let mut complete=false;for _ in 0..8{complete=store.collect_artifact(&intent).await.unwrap();if complete{break;}}assert!(complete);
+        let mut cleared=bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_artifact_reads',$key);").bind(("key",grant.clone()))).await.unwrap();assert!(cleared.take::<Option<Object>>(0).unwrap().is_none());
+        assert!(store.settle_protection_grant(&revision.problem,&grant).await.unwrap());
+        let mut floor=bounded_query(store.db.query("RETURN (SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem)).protection_closed_through;").bind(("problem",revision.problem.clone()))).await.unwrap();assert_eq!(codec::decode_uint(floor.take(0).unwrap()).unwrap(),31);
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
     async fn canonical_historical_artifact_cleanup_retains_exact_receipt_without_advancing_new_floor(){
         let (store,revision)=fixture().await;let (intent,blocks)=content(&store,&revision,"user","historical").await;
         store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","historical").await.unwrap();
