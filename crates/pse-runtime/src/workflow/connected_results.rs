@@ -1194,8 +1194,13 @@ mod canonical_connected_results_server_unit {
         let state = snapshot.session_state();
         assert!(state.scalar_functions().contains_key("pse_checked_value"), "query retains registry-bound native functions");
         let context = datafusion::execution::context::SessionContext::new_with_state(state);
-        context.register_table("frozen", snapshot.table_provider()).unwrap();
-        let dataframe = context.sql("SELECT real, step FROM frozen WHERE real > 0 ORDER BY step LIMIT 1").await.unwrap();
+        // Model state intentionally creates no default catalog/schema. Bind
+        // this provider directly without mutating the model's shared catalogs.
+        let dataframe = context.read_table(snapshot.table_provider()).unwrap()
+            .filter(datafusion::prelude::col("real").gt(datafusion::prelude::lit(0.0))).unwrap()
+            .select_columns(&["real", "step"]).unwrap()
+            .sort(vec![datafusion::prelude::col("step").sort(true, false)]).unwrap()
+            .limit(0, Some(1)).unwrap();
         let plan = dataframe.create_physical_plan().await.unwrap();
         let task = context.task_ctx();
         drop(snapshot);
