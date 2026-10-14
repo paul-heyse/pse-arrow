@@ -106,6 +106,9 @@ class ProducerDeploymentTests(unittest.TestCase):
                 )
             if command[:2] == ["uv", "sync"]:
                 return subprocess.CompletedProcess(command, 0)
+            if command[:2] == ["cargo", "build"]:
+                self.assertEqual(command[2:], ["-p", "xtask", "--bin", "xtask", "--no-default-features", "--locked"])
+                return subprocess.CompletedProcess(command, 0)
             if "producer-preparation-begin" in command:
                 selection = json.loads(
                     Path(command[command.index("--selection") + 1]).read_text()
@@ -256,7 +259,8 @@ class ProducerDeploymentTests(unittest.TestCase):
         ]
         all_commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(all_commands[0], ["uv", "sync", "--locked", "--no-install-project"])
-        self.assertIn("producer-preparation-begin", all_commands[1])
+        self.assertEqual(all_commands[1][:2], ["cargo", "build"])
+        self.assertIn("producer-preparation-begin", all_commands[2])
         self.assertTrue((self.output / "preparation/COMPLETE").is_file())
         self.assertEqual(len(commands), 2)  # Python is selected by Maturin's child.
         options = deployment.read_object(self.output / "python-installer-cargo.json")[
@@ -508,7 +512,7 @@ class ProducerDeploymentTests(unittest.TestCase):
                 for call in run.call_args_list
                 if "producer-history-verify" not in call.args[0]
             ],
-            ["uv", "xtask", "just", "just", "maturin"],
+            ["uv", "cargo", "xtask", "just", "just", "maturin"],
         )
         self.assertTrue((self.output / "deployment-error.log").is_file())
 
@@ -737,7 +741,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "actual producer capture failed"),
         ):
             deployment.capture(self.root, self.output, self.environment)
-        self.assertEqual(run.call_count, 3)
+        self.assertEqual(run.call_count, 4)
         self.assertIn("source changed", (self.output / "runtime.log").read_text())
         self.assertTrue((self.output / "preparation/FAILED").is_file())
 

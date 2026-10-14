@@ -566,6 +566,13 @@ def begin_preparation(
     selection = directory / "selection.json"
     producer_cargo.write_new(selection, selections)
     with (directory / "preparation.log").open("xb") as log:
+        # Preserve the existing capture-tool bootstrap boundary: cargo run would
+        # inject launcher-local loader selections into the observed operation.
+        result = subprocess.run(["cargo", "build", "-p", "xtask", "--bin", "xtask",
+            "--no-default-features", "--locked"], cwd=root, env=dict(environment),
+            stdout=log, stderr=subprocess.STDOUT, check=False,
+            **producer_cargo.preparation_child_arguments(environment))
+        require_capture_success("preparation tool", result.returncode)
         result = subprocess.run([str(root / "target/debug/xtask"),
             "producer-preparation-begin", "--selection", str(selection),
             "--directory", str(directory), "--owner-pid", str(owner_pid),
