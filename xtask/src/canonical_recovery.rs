@@ -153,6 +153,7 @@ async fn seed_retained_science(
         "user",
         "recovery-fixture",
     );
+    let artifact_intent = artifact.clone();
     let artifact = store
         .persist_artifact(
             &artifact,
@@ -196,6 +197,12 @@ async fn seed_retained_science(
         .release_artifact(&artifact.key, "user", "recovery-fixture")
         .await?;
     ensure!(analysis.active && artifact.active, "retained science was not admitted");
+    let refusal = store
+        .collect_artifact(&artifact_intent)
+        .await
+        .err()
+        .context("analysis future artifact input had no retained obligation")?;
+    ensure!(format!("{refusal:?}").contains("artifact has retained obligations"), "artifact collection refused for a different reason: {refusal}");
     Ok(serde_json::to_vec(&RetainedScience {
         analysis: serde_json::to_vec(
             &pse_operations::generated::surreal::encode_canonical_analyses(&analysis)?,
