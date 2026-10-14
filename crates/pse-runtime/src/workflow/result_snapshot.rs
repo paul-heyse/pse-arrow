@@ -55,47 +55,51 @@ impl ResultSnapshot {
         set: &str, schema: SchemaRef, start: u64, end: u64,
     ) -> Result<Self, WorkflowError> {
         use pse_model::HeapUsage;
-        let owner = Arc::new(MemoryConsumer::new("canonical:result-snapshot-inventory").register(&runtime.shared.pool()));
-        owner.try_grow(READ_BYTES).map_err(pse_engine::EngineError::from)?;
-        let (files, blocks) = pse_operations::canonical::response_ownership_scope(owner.clone(), async {
-            let files = runtime.canonical_store()?.result_file_batches(&read, set).await?;
-            let mut blocks = Vec::new();
-            let mut after = None;
-            loop {
+        let owner = MemoryConsumer::new("canonical:result-snapshot-inventory").register(&runtime.shared.pool());
+        owner.try_grow(size_of::<SnapshotInner>() + read.retained_bytes()?).map_err(pse_engine::EngineError::from)?;
+        let mut batches = BTreeMap::new();
+        let mut blocks = Vec::new();
+        let mut positions = BTreeMap::new();
+        let mut after = None;
+        let mut previous = None;
+        while start < end {
+            // Each bounded RPC page has its own prepaid temporary response scope.
+            // Transfer its exact retained strings/rows before growing inventories.
+            let response = Arc::new(MemoryConsumer::new("canonical:result-snapshot-page").register(&runtime.shared.pool()));
+            response.try_grow(READ_BYTES).map_err(pse_engine::EngineError::from)?;
+            let (page, descriptors) = pse_operations::canonical::response_ownership_scope(response.clone(), async {
                 let page = runtime.canonical_store()?.result_block_page(
                     &read, set, &relation.to_string(), "0", start, end, after,
                 ).await?;
-                let finished = page.len() < 64;
-                after = page.last().map(|block| block.ordinal);
-                blocks.extend(page);
-                if finished { break; }
+                let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
+                let descriptors = runtime.canonical_store()?.result_file_batch_descriptors(&read, set, &ordinals).await?;
+                Ok::<_, WorkflowError>((page, descriptors))
+            }).await?;
+            if page.len() != descriptors.len() { return Err(contract("snapshot descriptor coverage differs")); }
+            let finished = page.len() < 64;
+            after = page.last().map(|block| block.ordinal);
+            let bytes = page.iter().zip(&descriptors).try_fold(0usize, |bytes, (block, batch)| {
+                bytes.checked_add(size_of::<Block>() + block.heap_bytes() + block.key.capacity() + 128
+                    + size_of::<FileBatch>() + batch.heap_bytes() + batch.key.capacity() + 128)
+                    .ok_or_else(|| contract("snapshot inventory extent"))
+            })?;
+            owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+            blocks.try_reserve_exact(page.len()).map_err(|_| contract("snapshot inventory allocation refused"))?;
+            for (block, batch) in page.into_iter().zip(descriptors) {
+                if batch.key != block.batch || batch.ordinal != block.ordinal || batch.row_count != block.rows
+                    || batch.digest != block.payload_digest || batch.payload_bytes != block.payload_bytes
+                    || previous.is_some_and(|end| block.start < end) {
+                    return Err(contract("snapshot logical coverage differs"));
+                }
+                previous = Some(block.end);
+                positions.insert(block.key.clone(), blocks.len());
+                if batches.insert(batch.key.clone(), batch).is_some() { return Err(contract("duplicate frozen file batch")); }
+                blocks.push(block);
             }
-            Ok::<_, WorkflowError>((files, blocks))
-        }).await?;
-        let mut retained = size_of::<SnapshotInner>() + read.retained_bytes()?;
-        let mut batches = BTreeMap::new();
-        for batch in files {
-            retained = retained.checked_add(size_of::<FileBatch>() + batch.heap_bytes() + 128)
-                .ok_or_else(|| contract("snapshot inventory extent"))?;
-            if batches.insert(batch.key.clone(), batch).is_some() { return Err(contract("duplicate frozen file batch")); }
+            if finished { break; }
         }
-        let mut previous = None;
-        let mut positions = BTreeMap::new();
-        for (position, block) in blocks.iter().enumerate() {
-            positions.insert(block.key.clone(), position);
-            retained = retained.checked_add(size_of::<Block>() + block.heap_bytes() + block.key.capacity() + 128)
-                .ok_or_else(|| contract("snapshot block inventory extent"))?;
-            let batch = batches.get(&block.batch).ok_or_else(|| contract("snapshot block outside frozen inventory"))?;
-            if batch.ordinal != block.ordinal || batch.row_count != block.rows
-                || previous.is_some_and(|end| block.start < end) {
-                return Err(contract("snapshot logical coverage differs"));
-            }
-            previous = Some(block.end);
-        }
-        if retained > owner.size() { return Err(contract("snapshot inventory exceeds admitted capacity")); }
-        let retained = owner.split(retained);
         Ok(Self(Arc::new(SnapshotInner {runtime: runtime.clone(), read, relation, schema,
-            batches, blocks, positions, start, end, admission: runtime.admission_context(), cache: tokio::sync::Mutex::new(None), _owner: retained})))
+            batches, blocks, positions, start, end, admission: runtime.admission_context(), cache: tokio::sync::Mutex::new(None), _owner: owner})))
     }
     /// Exact registry relation schema, including its original metadata.
     pub fn schema(&self) -> SchemaRef { self.0.schema.clone() }
@@ -184,8 +188,8 @@ impl PartitionStream for SnapshotPartition {
                     if lower >= upper { continue; }
                     let batch = snapshot.read_block(block, &cancel).await.map_err(pse_columnar::external)?;
                     let batch = batch.checked_export(&cancel).map_err(pse_columnar::external)?;
-                    let count = usize::try_from(upper-lower).map_err(pse_columnar::external)?;
-                    let offset = usize::try_from(lower-block.start).map_err(pse_columnar::external)?;
+                    let count = usize::try_from(upper-lower).map_err(|_| pse_columnar::external(contract("snapshot selected row extent")))?;
+                    let offset = usize::try_from(lower-block.start).map_err(|_| pse_columnar::external(contract("snapshot selected row offset")))?;
                     let batch = batch.slice(offset, count);
                     return Ok(Some((batch, (snapshot, index, cancel, pool_matches))));
                 }

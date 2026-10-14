@@ -4,7 +4,9 @@
 //! Exact canonical result selections streamed one independently decoded blob at
 //! a time. Row coordinates select recorded coverage; missing ranges stay missing.
 
-use super::{Runtime, WorkflowError, contract, result_blocks, result_files};
+use super::{Runtime, WorkflowError, contract, result_blocks};
+#[cfg(test)]
+use super::result_files;
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{
     CancellationToken, MemoryConsumer, MemoryReservation,

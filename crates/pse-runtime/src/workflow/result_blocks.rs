@@ -6,7 +6,7 @@
 
 use datafusion::arrow::{
     array::ArrayData,
-    datatypes::{DataType, Schema, SchemaRef},
+    datatypes::{DataType, Schema},
     ipc::{self, writer::StreamWriter},
     record_batch::RecordBatch,
 };
