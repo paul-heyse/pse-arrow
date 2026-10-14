@@ -381,6 +381,11 @@ impl BoundModel {
     pub fn registry(&self) -> &Arc<Registry> {
         &self.0.native.registry
     }
+    /// Clone the actual registry-bound native state, retaining its configured
+    /// functions, extension types, instrumentation and deployment resources.
+    pub fn native_state(&self) -> SessionState {
+        self.0.native.context.state()
+    }
     /// Stable native admission owner, initialized before this binding was returned.
     pub fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
         self.0.native.validation_context()

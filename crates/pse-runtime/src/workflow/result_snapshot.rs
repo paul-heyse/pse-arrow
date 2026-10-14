@@ -107,7 +107,7 @@ impl ResultSnapshot {
     pub fn selection(&self) -> &ResultRead { &self.0.read }
     pub(super) fn blocks(&self) -> &[Block] { &self.0.blocks }
     /// Existing configured native state, including its functions and shared pool.
-    pub fn session_state(&self) -> SessionState { self.0.runtime.sessions().native_state().clone() }
+    pub fn session_state(&self) -> SessionState { self.0.runtime.bound_model().native_state() }
     /// A native provider over this frozen inventory; no directory discovery.
     pub fn table_provider(&self) -> Arc<dyn TableProvider> { Arc::new(SnapshotProvider(self.clone())) }
 
