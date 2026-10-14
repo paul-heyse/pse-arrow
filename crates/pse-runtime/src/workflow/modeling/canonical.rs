@@ -2692,6 +2692,155 @@ mod tests {
             current.admission.dependencies
         );
     }
+    /// G1 composes real durable publication/execution with disconnected local replay.
+    /// Requires the canonical fixture server and linked KINSOL; no storage fallback.
+    #[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+    #[tokio::test]
+    async fn solve_durable_replay_after_publication_close_requires_explicit_local_receiver() {
+        use crate::workflow::{Durability, RunDurability, RunReport, RunResult};
+        use pse_backend_native::solve::{Backend, SolverSelection};
+        use pse_relations::generated::enums::NumericalTarget;
+
+        fn assert_original_root(result: &RunResult) {
+            assert!(result.usable(), "{:?}", result.report());
+            assert_eq!(result.assessments().len(), 1);
+            assert!(result.assessments()[0].permits_result);
+            let RunReport::Modeling(steps) = result.report().unwrap() else {
+                panic!("expected the original algebraic root result")
+            };
+            assert_eq!(steps.len(), 1);
+            let step = &steps[0];
+            assert!(step.accepted);
+            let crate::math::solves::Outcome::Native(native) = &step.outcome else {
+                panic!("the nonlinear equation requires actual native execution")
+            };
+            assert_eq!(native.backend, Backend::Kinsol);
+            let model = &step.prepared.model.model.compiled().model;
+            let variable = model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path.rsplit('.').next() == Some("x"))
+                .unwrap()
+                .id;
+            let equation = model
+                .equations
+                .iter()
+                .find(|row| row.lineage.path.rsplit('.').next() == Some("balance"))
+                .unwrap()
+                .id;
+            let numerics = step.prepared.solve.numerics();
+            let variable_budget = crate::workflow::tests::engineering_target(
+                numerics,
+                NumericalTarget::Variable,
+                variable,
+            )
+            .budget;
+            let residual_budget = crate::workflow::tests::engineering_target(
+                numerics,
+                NumericalTarget::Row,
+                equation,
+            )
+            .budget;
+            let x = step.values.scalars[&variable];
+            // Independent expected positive root and original equation, not replayed output.
+            assert!((x - 2.).abs() <= variable_budget, "x={x}");
+            assert!((x * x - 4.).abs() <= residual_budget, "x={x}");
+        }
+
+        let runtime = crate::workflow::tests::durable_runtime();
+        let rows = parse(
+            "package p {def Root {param p:Scalar=4;var x:Scalar;eq balance:x*x==p;annotation start x(1);}}",
+        );
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        assert!(package.canonical_revision().is_some());
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                pse_kernels::DerivativeOrder::First,
+                crate::workflow::tests::compiler_profile(),
+                crate::math::solves::SolverProfile {
+                    selection: SolverSelection::Explicit(Backend::Kinsol),
+                    ..crate::workflow::tests::profile()
+                },
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let original = prepared.start().unwrap().wait().await.unwrap();
+        assert_original_root(&original);
+        let RunDurability::Durable(record) = original.durability() else {
+            panic!("the source run must acknowledge real durable recording")
+        };
+        assert!(record.attempt.is_ok(), "{:?}", record.attempt);
+        assert!(record.manifest.is_some());
+        assert!(original.canonical_run_key().is_some());
+        assert!(original.canonical_attempt_key().is_some());
+        let replay = original.replay();
+        let document = replay.document().unwrap();
+        assert_eq!(document.sources.len(), 1);
+        assert_eq!(document.case_constructors.len(), 1);
+        assert!(!document.native_attempts.is_empty());
+
+        // Close the actual publication/recording owner, retaining its owned scientific closure.
+        runtime.canonical_store().unwrap().close();
+        let refusal = runtime
+            .start_modeling(vec![prepared.clone()], false, &crate::CancelSource::new())
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                refusal,
+                WorkflowError::Canonical(pse_operations::canonical::CanonicalError::CallerClosed)
+            ),
+            "{refusal}"
+        );
+        // Synchronous refusal precedes a RunHandle/native dispatch; there is no success to wait for.
+        assert!(matches!(runtime.durability(), Durability::Durable(_)));
+
+        let local =
+            Runtime::from_shared_local(runtime.shared.clone(), runtime.model.clone()).unwrap();
+        assert!(matches!(local.durability(), Durability::Ephemeral));
+        assert!(matches!(
+            local.canonical(),
+            Err(WorkflowError::RecordingUnavailable)
+        ));
+        let sources = replay.reconstruct_sources(&local).unwrap();
+        assert_eq!(sources.len(), 1);
+        assert!(sources[0].canonical_revision().is_none());
+        assert_eq!(
+            serde_json::to_value(sources[0].replay_source().unwrap()).unwrap(),
+            serde_json::to_value(&document.sources[0]).unwrap(),
+            "the receiver admits the complete exact retained source closure",
+        );
+        let restored = document.case_constructors[0]
+            .reconstruct(&sources[0], &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert_eq!(
+            restored.solve.original_identity().unwrap(),
+            prepared.solve.original_identity().unwrap()
+        );
+        let fresh = restored.start().unwrap().wait().await.unwrap();
+        assert_ne!(fresh.run_id, original.run_id);
+        assert_original_root(&fresh);
+        assert!(!fresh.replay().document().unwrap().native_attempts.is_empty());
+        assert!(matches!(fresh.durability(), RunDurability::Ephemeral));
+        assert!(fresh.canonical_run_key().is_none());
+        assert!(fresh.canonical_attempt_key().is_none());
+    }
     #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn durable_source_ack_conflict_and_disconnected_owned_compute() {
