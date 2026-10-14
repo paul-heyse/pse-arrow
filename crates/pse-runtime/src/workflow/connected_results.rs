@@ -1202,6 +1202,7 @@ mod canonical_connected_results_server_unit {
             .sort(vec![datafusion::prelude::col("step").sort(true, false)]).unwrap()
             .limit(0, Some(1)).unwrap();
         let plan = dataframe.create_physical_plan().await.unwrap();
+        drop(dataframe); // The unexecuted physical plan now owns this query's snapshot.
         let task = context.task_ctx();
         drop(snapshot);
         drop(context);
