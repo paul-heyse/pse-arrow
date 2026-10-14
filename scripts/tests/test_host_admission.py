@@ -329,6 +329,88 @@ class HostAdmissionTests(unittest.TestCase):
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(owner.nonce, ledger["owners"])
 
+    def unadmitted_service_fixture(self) -> tuple[host.Allocation, Path, str, dict[str, object], dict[str, str]]:
+        owner, service, unit = self.storage_process_fixture()
+        (service / "server-process.json").unlink()
+        launch = surreal_server.read_json(service / "service-launch.json")
+        launch.update(deadline=time.monotonic() + 30, supervisor_generation={}, server_generation={}, service_class="functional", server_memory_bytes=host.GIB)
+        surreal_server.write_json(service / "service-launch.json", launch)
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["owners"][owner.nonce]["units"][unit] = {}
+            ledger["owners"][owner.nonce]["released"] = True
+        config: dict[str, object] = {"instance_id": "original", "service_supervisor": {}, "server": {}, "resources": {"server_memory_bytes": host.GIB}}
+        manager = {"LoadState": "loaded", "ActiveState": "inactive", "ControlGroup": "", "InvocationID": ""}
+        return owner, service, unit, config, manager
+
+    def test_exact_never_admitted_materialized_storage_launch_reconciles_normally(self) -> None:
+        owner, service, unit, config, manager = self.unadmitted_service_fixture()
+        launch = surreal_server.read_json(service / "service-launch.json")
+        absent = surreal_server.ServiceObservation(surreal_server.Readiness.ACTIONABLE_ABSENT, service, "original", unit, "no process was admitted", manager=manager)
+        with patch.object(surreal_server, "config_for", return_value=config), patch.object(surreal_server, "service_readiness", return_value=absent), patch.object(host.operation, "unit_observation", return_value=manager):
+            host.reconcile(self.directory, resume_parked=False)
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertNotIn(owner.nonce, ledger["owners"])
+        self.assertFalse((service / "server-process.json").exists())
+        self.assertEqual(surreal_server.read_json(service / "service-launch.json"), launch)
+
+    def test_never_admitted_materialized_launch_requires_exact_stable_absence(self) -> None:
+        owner, service, unit, config, manager = self.unadmitted_service_fixture()
+        launch = surreal_server.read_json(service / "service-launch.json")
+        with host.allocation_metadata(self.directory) as ledger:
+            original = dict(ledger["owners"][owner.nonce])
+        for case in ("bound-record", "bound-launch", "wrong-generation", "active", "group", "invocation", "missing-invocation", "listener", "wrong-state", "wrong-unit", "wrong-instance", "changed-manager", "changed-config", "changed-launch", "process-appeared", "manager-timeout"):
+            selected = {**original, "units": {unit: {}}}
+            current_launch = dict(launch)
+            current_config = dict(config)
+            current_manager = dict(manager)
+            phase = surreal_server.Readiness.ACTIONABLE_ABSENT
+            if case == "bound-record":
+                selected["units"] = {unit: {"group": "/owned-store", "inode": 123, "invocation": "a" * 32}}
+            elif case == "bound-launch":
+                current_launch["binding"] = {"group": "/owned-store"}
+            elif case == "wrong-generation":
+                current_launch["generation"] = "other"
+            elif case == "active":
+                current_manager["ActiveState"] = "active"
+            elif case == "group":
+                current_manager["ControlGroup"] = "/unknown-group"
+            elif case == "invocation":
+                current_manager["InvocationID"] = "a" * 32
+            elif case == "missing-invocation":
+                current_manager.pop("InvocationID")
+            elif case == "listener":
+                phase = surreal_server.Readiness.MISMATCH
+            surreal_server.write_json(service / "service-launch.json", current_launch)
+            (service / "server-process.json").unlink(missing_ok=True)
+            def readiness(*_args: object, **_kwargs: object) -> surreal_server.ServiceObservation:
+                if case == "changed-launch":
+                    surreal_server.write_json(service / "service-launch.json", {**current_launch, "deadline": 1.0})
+                elif case == "process-appeared":
+                    surreal_server.write_json(service / "server-process.json", {"unexpected": "retained receipt"})
+                return surreal_server.ServiceObservation(phase, service if case != "wrong-state" else service / "other", "original" if case != "wrong-instance" else "other", unit if case != "wrong-unit" else "other.service", "controlled absent proof", manager=current_manager, listener_owned=case == "listener")
+            observation_effect = (
+                subprocess.TimeoutExpired("controlled-manager", 1) if case == "manager-timeout" else
+                [current_manager, current_manager, {**current_manager, "ActiveState": "active"}] if case == "changed-manager" else None
+            )
+            with self.subTest(case=case), patch.object(surreal_server, "config_for", return_value=current_config, side_effect=[current_config, {**current_config, "instance_id": "changed"}] if case == "changed-config" else None), patch.object(surreal_server, "service_readiness", side_effect=readiness), patch.object(host.operation, "unit_observation", return_value=current_manager, side_effect=observation_effect):
+                self.assertFalse(host.service_processes_drained(selected, self.directory / owner.nonce))
+            with host.allocation_metadata(self.directory) as ledger:
+                self.assertIn(owner.nonce, ledger["owners"])
+            if case == "process-appeared":
+                self.assertEqual(surreal_server.read_json(service / "server-process.json"), {"unexpected": "retained receipt"})
+
+    def test_never_admitted_materialized_launch_forwards_original_drain_clock(self) -> None:
+        owner, service, unit, config, manager = self.unadmitted_service_fixture()
+        with host.allocation_metadata(self.directory) as ledger:
+            record = dict(ledger["owners"][owner.nonce])
+        absent = surreal_server.ServiceObservation(surreal_server.Readiness.ACTIONABLE_ABSENT, service, "original", unit, "controlled absent proof", manager=manager)
+        deadline = time.monotonic() + 2
+        with patch.object(surreal_server, "config_for", return_value=config) as configuration, patch.object(surreal_server, "service_readiness", return_value=absent) as readiness, patch.object(host.operation, "unit_observation", return_value=manager) as observe:
+            self.assertTrue(host.service_processes_drained(record, self.directory / owner.nonce, deadline=deadline))
+        self.assertTrue(all(call.kwargs["deadline"] == deadline for call in observe.call_args_list))
+        self.assertTrue(all(call.kwargs["deadline"] == deadline for call in configuration.call_args_list))
+        readiness.assert_called_once_with(service, config, deadline=deadline)
+
     def test_failed_unbound_restart_retains_receipts_and_requires_complete_drain(
         self,
     ) -> None:

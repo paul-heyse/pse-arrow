@@ -669,6 +669,54 @@ def group_identity(group: str) -> int | None:
         return None
 
 
+def unadmitted_service_launch_drained(
+    state: Path, unit: str, launch: dict[str, object],
+    *, deadline: float | None = None,
+) -> bool:
+    """Authenticate a materialized initial launch that never admitted a process."""
+    from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
+
+    if "binding" in launch:
+        return False
+    config = surreal_server.config_for(state, deadline=deadline)
+    if surreal_server.storage_launch(state, config, deadline=deadline) != launch:
+        return False
+    observed = operation.unit_observation(
+        unit, **({"deadline": deadline} if deadline is not None else {})
+    )
+    if (
+        observed.get("LoadState") != "loaded"
+        or observed.get("ActiveState") not in {"inactive", "failed"}
+        or observed.get("ControlGroup") != ""
+        or observed.get("InvocationID") != ""
+    ):
+        return False
+    readiness = surreal_server.service_readiness(state, config, deadline=deadline)
+    if (
+        readiness.phase is not surreal_server.Readiness.ACTIONABLE_ABSENT
+        or readiness.state != state
+        or readiness.unit != unit
+        or readiness.instance_id != launch.get("generation")
+        or readiness.listener_owned
+        or any(readiness.manager.get(key) != observed.get(key) for key in (
+            "ActiveState", "ControlGroup", "InvocationID"
+        ))
+        or surreal_server.config_for(state, deadline=deadline) != config
+        or surreal_server.read_json(state / "service-launch.json", deadline=deadline) != launch
+        or operation.unit_observation(
+            unit, **({"deadline": deadline} if deadline is not None else {})
+        ) != observed
+    ):
+        return False
+    # A concurrent admission or unexpected receipt must keep the allocation held.
+    # Recheck the exact missing path after all selection/manager observations.
+    try:
+        surreal_server.read_json(state / "server-process.json", deadline=deadline)
+    except FileNotFoundError:
+        return True
+    return False
+
+
 def service_processes_drained(
     record: Mapping[str, object],
     allocation: Path | None,
@@ -801,9 +849,10 @@ def service_processes_drained(
             except FileNotFoundError:
                 pass
         except FileNotFoundError:
-            # Registration precedes the launch. An unbound, nonexistent unit
-            # with no recorded child has no admitted storage process to retain.
-            if units[unit] or (launch is not None and "binding" in launch):
+            # Registration precedes the launch. No bound lifetime can use this
+            # missing-process proof; a materialized initial unit needs exact
+            # selection and repeated terminal/absence observations as well.
+            if units[unit] or not isinstance(units[unit], dict) or (launch is not None and "binding" in launch):
                 return False
             try:
                 (state / "server-process.json").read_text()
@@ -816,7 +865,14 @@ def service_processes_drained(
                     )
                     if observed.get("LoadState") == "not-found":
                         continue
-                except (OSError, ValueError, subprocess.SubprocessError):
+                    if launch is not None and unadmitted_service_launch_drained(
+                        state, unit, launch, deadline=deadline
+                    ):
+                        continue
+                except (
+                    OSError, ValueError, TypeError, KeyError,
+                    subprocess.SubprocessError, surreal_server.SupervisorError,
+                ):
                     pass
             except OSError:
                 pass
