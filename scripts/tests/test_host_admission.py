@@ -839,6 +839,7 @@ class HostAdmissionTests(unittest.TestCase):
             "owner": surreal_server.OWNER,
             "profile_version": 2,
             "instance_id": "parked-reference",
+            "payload_incarnation": "11111111-1111-4111-8111-111111111111",
             "port": 18240,
             "endpoint": "ws://127.0.0.1:18240",
             "namespace": "pse",

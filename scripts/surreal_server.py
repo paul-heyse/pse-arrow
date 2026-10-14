@@ -45,6 +45,12 @@ from typing import TYPE_CHECKING
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+# CLI and immutable direct-script launches share one lifecycle/clock authority
+# with reciprocal imports by host_admission; a second module would see this
+# process's live reservation as a competing owner.
+if __name__ == "__main__":
+    sys.modules["scripts.surreal_server"] = sys.modules[__name__]
+
 from scripts import (
     host_admission,
     native_operation,

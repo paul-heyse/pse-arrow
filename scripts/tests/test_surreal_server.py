@@ -5337,6 +5337,37 @@ class SurrealSupervisorTests(unittest.TestCase):
             child.communicate("release\n", timeout=5)
             self.assertEqual(child.returncode, 0)
 
+    def test_cli_and_direct_script_share_reciprocal_lifecycle_module(self) -> None:
+        program = """
+import argparse
+import runpy
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+def selected(*_args, **_kwargs):
+    from scripts import surreal_server
+    from scripts import host_admission
+    active = sys.modules['__main__']
+    assert surreal_server is active, 'reciprocal supervisor import split lifecycle authority'
+    active._LIFECYCLE.state = Path('/exact-owned-maintenance')
+    active._STARTUP.deadline = 123.0
+    assert surreal_server._LIFECYCLE.state == Path('/exact-owned-maintenance')
+    assert surreal_server._STARTUP.deadline == 123.0
+    active.dispatch = lambda _args: 0
+    return argparse.Namespace()
+
+with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
+    if sys.argv[1] == 'module':
+        runpy.run_module('scripts.surreal_server', run_name='__main__', alter_sys=True)
+    else:
+        runpy.run_path(sys.argv[2], run_name='__main__')
+"""
+        for route in ("module", "direct-script"):
+            with self.subTest(route=route):
+                result = subprocess.run([sys.executable, "-c", program, route, str(server.SCRIPT)], cwd=server.SCRIPT.parents[1], capture_output=True, text=True, timeout=15, check=False)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_cli_surfaces_safe_cleanup_notes_preserving_primary_error(self) -> None:
         for failure in (
             server.DeadlineExpiredError("original admission expired"),
