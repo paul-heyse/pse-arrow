@@ -17,7 +17,7 @@ This companion owns combined acceptance for [Plan 38](38-efficiency-and-solver-t
 
 Historical Plan 36 is stopped. Its latest ordinary-native assessment remains failed (3,455 passing bodies/five failures), managed Python evidence remains interrupted/incomplete, and later focused seal/creation/reclaim controls retain their exact scope. Previous setup/native Python/feature results precede later source/artifact changes. Plan 37's completed bounded lifecycle basis does not qualify Plan 36 or this new target. No old campaign is resumed by authoring; Plans 28/32 and other status owners remain untouched.
 
-All checks below are **Proposed**, baseline zero permitted failures. Source/manual assessment is **Interface-checked**, not Tested or Measured. Authoring/building the documentation is not numerical/product qualification. No current full-product scientific claim is made.
+The combined acceptance checks in G0–G4 are **Proposed**, baseline zero permitted failures. Source/manual assessment is **Interface-checked**, not Tested or Measured. The scoped static-check checkpoint below records its separately executed subset. Authoring/building the documentation is not numerical/product qualification. No current full-product scientific claim is made.
 
 ## Packets and readiness
 
@@ -90,3 +90,73 @@ Reconcile F01–F14/AU01/AU02, supporting A01–A09, old 36/F01–F29/A01–A05 
 Confirm concrete accepted amendments installed, every selected consumer migrated, no replaced production path remains and G1–G3 actual relevant scope passes. Findings shared across packages close only from combined evidence; ADR acceptance and source presence remain separate. Record remaining limitations and what was not run/examined. Existing Plan 28/32/other campaign statuses are unchanged; later reconciliation waits until this series is fully executed and separately authorized.
 
 The final new plan Outcome records **What was built**, **A mistake made and corrected**, and **Deviations from the plan, deliberate**, with Proposed/Interface-checked/Implemented/Tested/Measured labels attached to their actual claims and named test/benchmark conditions. Completion evidence belongs to these new owners; avoid per-command rerun diaries. Enduring architecture/rationale follows the accepted execution decision route; other existing-plan/status/index updates remain the requested post-execution follow-up.
+
+## Static-check remediation — 2026-10-14
+
+The maintainer authorized review and implementation of the current Clippy, typing and related
+static failures. This is a bounded G3 contribution; combined G1–G4 acceptance remains planned.
+
+**Implemented:** handwritten benchmark/conformance/Python consumers use current profile controls,
+fallible recording access, explicit study inputs, file descriptors and typed artifact locators.
+Recorded-origin fixtures require an actual revision before origin teardown. The analysis benchmark
+checks artifact rows against independent responses outside timed traversal. Private runtime records
+preserve source leases, attempt charges, optional-feature refusals, pagination and backpressure.
+Cached package admissions share an Arc with explicit header/payload accounting. Inherited file
+reads and seeks reject before allocation or I/O; their error kind remains `Other`, with a generic
+I/O diagnostic, while registration retains its typed diagnostic. Cleanup validates all placements
+before deletion and rechecks each exact placement immediately before removal.
+
+**Implemented:** the remaining lint repairs keep their global rules. Narrow SQL/test exceptions
+identify their fixed identifier/value or deliberate internal-fixture authority. R-11 records the
+maintainer's retained diagnostic plan-byte contract and next review date. Generated replay
+descriptions were republished with `just codegen`; record fields and numerical methods retain
+their contracts. Owned worktrees were integrated and removed.
+
+**Interface-checked:** independent review covered root/native, runtime and Python changes plus
+the fixture follow-ups. Direct inspection of the pinned Diffsol tableau establishes its reported
+Tsit45 order as 4; the native order assertion now tests that value while retaining the independent
+vessel trajectory and sensitivity comparisons.
+
+**Tested**, local Linux, pinned toolchain/libraries, baseline zero failures:
+
+| Command | Selected scope and mode | Result |
+|---|---|---|
+| `just unit-package pse-operations 'canonical_files::tests::'` | Explicit Arrow validation; file protocol, actual inherited read/seek refusal and parent usability | 10 passed |
+| `just unit-package pse-model study_policy` | Pure study dependency/start policy | 17 passed |
+| `just unit-native-capability-package pse-runtime native-solvers solver,klu,isolation,uno,petsc` with the runtime filter below | Linked, explicitly validated cache ownership, policy/advice, live backpressure/cancellation and transient fitting | 59 passed |
+| `just unit-native-capability-package pse-backend-native native-solvers solver,klu,isolation,uno,petsc` with the backend filter below | Linked native defaults, quarantine, reset/restarts, dynamics and adjoint comparisons | 8 passed |
+| `just unit-native-capability-package pse-ipopt-sys link solver 'test(sequence_bound_update_) \| test(same_tnlp_sequence_)'` | Linked callback/bound-update/reoptimization controls | 4 passed |
+| `scripts/pse-env -- .venv/bin/python -m unittest` with the tooling modules below | Local lifecycle, cleanup/restore/rollout, host admission, selection and native-prefix controls | 384 passed |
+| `scripts/pse-env --recipe-default-class light --native=solver -- .venv/bin/python -m pytest python/pse/tests/test_generated_contracts.py python/pse/tests/test_studies.py -k 'generated_contracts or campaign_constructs_current_explicit_study_input_variant' -m unit -n 0 --basetemp /tmp/pse-static-repair-pytest-owned -q` | Existing installed linked correctness extension; Python contract/constructor scope | 29 passed, 20 deselected |
+
+Runtime filter:
+`test(package_cache_weights_pointee) | test(strategy::tests::) | test(live_subscription_close_detaches_and_backpressure_cancel_joins_native_owner) | test(actual_convex_advice_) | test(p09_tests)`.
+Backend filter:
+`test(injected_free_failure_exposes_typed_cause) | test(nested_defaults_refuse_domain) | test(probe_observes_fresh_thread) | test(authorized_recycle_restarts_screen) | test(reused_native_counters_do_not_repeat) | test(sdirk_matches_bdf_on_vessel) | test(native_step_observations_preserve_segment) | test(idas_adjoint_gradient_equals_forward)`.
+The tooling modules are `scripts.tests.test_payload_files`, `scripts.tests.test_surreal_rollout_producer`,
+`scripts.tests.test_host_admission`, `scripts.tests.test_arrow_validation`, `scripts.tests.test_plan30_routing`,
+`scripts.tests.test_plan30_native_prefix`, `scripts.tests.test_surrealkit_maintenance` and
+`scripts.tests.test_surreal_server`. Native correctness commands used the existing isolated test-resource
+registry; no canonical service was started. Unselected Rust tests retain their separate scope.
+
+**Tested:** `PSE_TEST_RESOURCE_STATE=/tmp/pse38e-resources-5aLWFeeA just hygiene` completed all
+28 checks with zero failures, including strict all-target workspace Clippy in default and
+no-default-feature modes, Python typing/Ruff/import checks, generated-output drift and rustdoc.
+The local assessment is `build/assessment/20261014T094822.855502Z-hygiene-4032684-e68b9d/`.
+`PSE_TEST_RESOURCE_STATE=/tmp/pse38e-resources-5aLWFeeA just lint-solver-contracts` also passes
+strict all-target workspace Clippy with linked Python, conformance and benchmark features.
+These Clippy checks use `-D warnings` without a lint cap. Typing reports zero diagnostics with the three existing intentional
+invalid-input/read-only test suppressions. The installed extension's public API was unchanged;
+these Python tests do not establish current-source assembled Python/native qualification.
+
+**A mistake made and corrected:** the first campaign migration still used the removed `points`
+keyword inside the explicit input variant. A real constructor test now exercises the corrected
+factory. Verification also exposed stale adjoint-demand and pre-cancelled-construction fixtures,
+a deadline test dependent on scheduling, an unreaped fixture child, and the wrong order inferred
+from the Tsit45 name. Repairs preserve analytic/rank comparisons, cancellation at both boundaries,
+actual lock refusal, exact child cleanup and library-owned order reporting.
+
+**Deliberate limits:** full scientific/reference/parity/performance and assembled recovery/result
+campaigns remain at their existing owners. This work does not close whole-series findings or
+resume stopped campaigns. Existing storage data, unrelated allocations and warm caches retain
+their ownership; the maintainer separately ran `cargo clean` to make space during verification.

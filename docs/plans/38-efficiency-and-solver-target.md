@@ -385,3 +385,14 @@ Owned 38f changes are integrated on main, editing worktrees are removed and its
 private service is drained/quiesced at handoff. Retained data/evidence and unrelated
 allocations keep their original ownership and outcomes. The completed companion
 remains available to the active qualification reader rather than being retired early.
+
+## Execution checkpoint — Static remediation, 2026-10-14
+
+The maintainer authorized repair of the current Clippy, Python typing and related static failures.
+[38g's scoped static-check checkpoint](38g-qualification-and-cutover.md#static-check-remediation--2026-10-14)
+owns the implementation, selected verification, corrected fixture assumptions and qualification
+limits. Handwritten consumers now use current contracts; runtime ownership/control-flow repairs
+and conservative lifecycle validation are integrated. Worker worktrees are removed.
+
+Combined assembled/scientific/reference/performance qualification and G4 disposition remain
+separately scoped in 38g. Existing Plan 28/32 work and stopped campaigns retain their prior status.
