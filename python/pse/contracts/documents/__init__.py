@@ -6493,7 +6493,7 @@ class ReplayPreparedGraph(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 class ReplayPreparedNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One original input and its exact full requested policy, before any native dispatch."""
 
-    #: Exact ordered preprepared automatic inventory, including every Original profile.
+    #: Exact ordered automatic inventory prepared in advance, including every Original profile.
     automatic: tuple[ReplayPreparedProduct, ...]
     #: Exact actual postconstructor ordering, starts, branch and limits.
     declaration: NumericalStrategy | None = None

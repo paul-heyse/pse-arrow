@@ -6173,7 +6173,7 @@
       "description": "One original input and its exact full requested policy, before any native dispatch.",
       "properties": {
         "automatic": {
-          "description": "Exact ordered preprepared automatic inventory, including every Original profile.",
+          "description": "Exact ordered automatic inventory prepared in advance, including every Original profile.",
           "items": {
             "$ref": "#/$defs/ReplayPreparedProduct"
           },
