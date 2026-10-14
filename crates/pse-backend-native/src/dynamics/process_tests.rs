@@ -179,7 +179,9 @@ fn sdirk_matches_bdf_on_vessel() {
         assert!(last.outputs[0] > 3.0 && last.outputs[0] < 4.0, "{last:?}");
         let mut methods = vec![(DiffsolMethod::TrBdf2, 2), (DiffsolMethod::Esdirk34, 3)];
         if !dae {
-            methods.push((DiffsolMethod::Tsit45, 5));
+            // Diffsol's Tsit45 tableau declares order 4; the scheme name is not
+            // the contract for its reported current order.
+            methods.push((DiffsolMethod::Tsit45, 4));
         }
         for (method, expected_order) in methods {
             let mut p = vessel_profile(dae);
