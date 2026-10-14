@@ -125,6 +125,41 @@ class PayloadLifecycleTests(unittest.TestCase):
             self.backup(self.root / "backup")
         self.assertNotIn("stop", self.events)
 
+    def test_collector_crash_after_unlink_preserves_tombstone_through_backup_restore(self) -> None:
+        self.owner["boot"] = str(uuid.uuid4())
+        self.instance["state"] = "collecting"
+        self.final.unlink()
+        backup = self.root / "backup"
+        self.backup(backup)
+        manifest, _original = server.validated_restore_backup(backup, server.SUBSTRATE_INTERPRETATION)
+        entry = manifest["payload_inventory"][0]
+        self.assertEqual(entry["instance"]["state"], "collecting")
+        self.assertEqual(entry["files"], {})
+        self.assertTrue(self.owner["drained"])
+        restored = self.root / "restored"
+        with self.fixture.native_maintenance() as calls:
+            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+        selected = server.config_for(restored)
+        final, staging = payload_files.instance_paths(restored, selected, self.key)
+        self.assertFalse(final.exists())
+        self.assertFalse(staging.exists())
+        self.assertEqual(server.read_json(backup / "backup.json")["payload_inventory"][0]["instance"]["state"], "collecting")
+        self.assertTrue(selected["payload_frozen"])
+        self.assertFalse(selected["accepting_writes"])
+        self.assertFalse(any("SET state=" in query for _namespace, _database, query in calls))
+
+    def test_collecting_bytes_still_present_are_verified_and_copied(self) -> None:
+        self.owner["drained"] = True
+        self.instance["state"] = "collecting"
+        with self.assertRaisesRegex(server.SupervisorError, "payload-verifier"):
+            self.backup(self.root / "backup")
+        self.verifier()
+        backup = self.root / "backup"
+        self.backup(backup)
+        manifest, _original = server.validated_restore_backup(backup, server.SUBSTRATE_INTERPRETATION)
+        self.assertEqual(manifest["payload_inventory"][0]["instance"]["state"], "collecting")
+        self.assertEqual((backup / self.final.relative_to(self.state)).read_bytes(), self.final.read_bytes())
+
     def test_pending_absence_remains_unresolved_without_inventing_file_completion(self) -> None:
         self.owner["drained"] = True
         self.final.unlink()

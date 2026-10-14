@@ -5351,7 +5351,19 @@ def payload_verifier(path: Path) -> dict[str, object]:
 
 def verify_payload_inventory(state: Path, config: dict[str, object], inventory: list[dict[str, object]]) -> None:
     """Delegate canonical content hashing to the existing native identity owner."""
-    selected = [entry for entry in inventory if object_mapping(entry["instance"]).get("state") in {"sealed", "attached", "collecting"}]
+    selected = []
+    for entry in inventory:
+        instance = object_mapping(entry["instance"])
+        state_value = instance.get("state")
+        # Collection is irreversible: a dead collector may have unlinked the
+        # file before recording its final catalog acknowledgment. Its absent
+        # bytes remain an unresolved deletion, never reconstructed science.
+        collecting_bytes = state_value == "collecting" and any(
+            Path(name).name == str(instance["key"]) + ".sealed"
+            for name in object_mapping(entry["files"])
+        )
+        if state_value in {"sealed", "attached"} or collecting_bytes:
+            selected.append(entry)
     if not selected:
         return
     verifier = object_mapping(config.get("payload_verifier", {}))
@@ -5575,7 +5587,7 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
                 state_value = row.get("state")
                 if state_value not in {"pending", "sealed", "attached", "abandoned", "collecting", "collected"}:
                     raise SupervisorError("Unknown file instance state")
-                required = state_value in {"sealed", "attached", "collecting"}
+                required = state_value in {"sealed", "attached"}
                 if required and not final.is_file():
                     raise SupervisorError("Required sealed file is missing; backup cannot complete")
                 files: dict[str, object] = {}
@@ -5585,7 +5597,7 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
                             digest, extent = payload_files.checked_file(path)
                         except (payload_files.PayloadError, OSError) as error:
                             raise SupervisorError("File inventory failed private content validation") from error
-                        if path == final and required and str(extent) != str(row.get("payload_bytes")):
+                        if path == final and state_value in {"sealed", "attached", "collecting"} and str(extent) != str(row.get("payload_bytes")):
                             raise SupervisorError("Sealed file extent differs from its catalog")
                         files[str(path.relative_to(state))] = {"sha256": digest, "bytes": extent}
                 entry["files"] = files
@@ -5634,7 +5646,7 @@ def validate_payload_inventory(source: Path, config: dict[str, object], value: o
             raise SupervisorError(str(error)) from error
         allowed = {str(path.relative_to(source)) for path in (final, pending)}
         files = object_mapping(entry.get("files"))
-        if row.get("state") in {"sealed", "attached", "collecting"} and str(final.relative_to(source)) not in files:
+        if row.get("state") in {"sealed", "attached"} and str(final.relative_to(source)) not in files:
             raise SupervisorError("Backup omits a required sealed file")
         if not set(files) <= allowed or seen.intersection(files):
             raise SupervisorError("Backup file-tier placement is ambiguous")
