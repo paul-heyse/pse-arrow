@@ -7,7 +7,7 @@ use native::{
     NlpOracle,
     solve::{Backend, Execution},
 };
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Parameter estimates use the frozen physical target. Dynamic derivative actions
 /// are empirical physical-output comparisons, not certified endpoint-error bounds.
@@ -557,16 +557,28 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
                             &intercepts,
                         ),
                     );
-                    // The gradient fit's own integrations carry no sensitivities.
+                    // Inspect the adjoint result before requesting a response upgrade.
                     if derivatives == FitDerivatives::Gradient {
+                        let point = oracle.point.as_ref().unwrap();
+                        assert!(point.achieved.adjoint && !point.achieved.responses);
+                        assert!(point.adjoint.is_some());
+                        assert!(!point.trajectories.is_empty());
+                        assert!(point.trajectories.values().all(|report| {
+                            !report.samples.is_empty() && report.samples.iter().all(|sample| {
+                                sample.state_sensitivities.is_empty()
+                                    && sample.output_sensitivities.is_empty()
+                            })
+                        }));
+                        // An explicit response request independently reruns forward sensitivities.
                         let point = oracle.evaluate(&[x]).unwrap();
-                        assert!(
-                            point
-                                .trajectories
-                                .values()
-                                .flat_map(|r| &r.samples)
-                                .all(|s| s.output_sensitivities.is_empty())
-                        );
+                        assert!(point.achieved.responses && !point.achieved.adjoint);
+                        assert!(point.adjoint.is_none());
+                        assert!(!point.trajectories.is_empty());
+                        assert!(point.trajectories.values().all(|report| {
+                            !report.samples.is_empty() && report.samples.iter().all(|sample| {
+                                !sample.output_sensitivities.is_empty()
+                            })
+                        }));
                     }
                 }
                 // The rank rerun forms the response Jacobian with forward sensitivities.
@@ -987,12 +999,25 @@ async fn transient_fit_deadline_is_time_limit() {
         crate::workflow::diagnostics::observed(&error, pse_diagnostics::DiagnosticStage::Fit).class,
         pse_model::diagnostic::BoundaryClass::ResourceLimit
     );
-    // Cancellation of the attempt is a cancellation.
+    // A pre-cancelled attempt refuses native worker construction.
     let cancelled = Execution::new(
         Arc::new(AtomicBool::new(true)),
         &problem.profile.solver.controls,
     );
-    let mut oracle = FitOracle::new(problem, cancelled).unwrap();
+    let error = match FitOracle::new(problem.clone(), cancelled) {
+        Err(error) => error,
+        Ok(_) => panic!("pre-cancelled fit must refuse worker construction"),
+    };
+    assert!(matches!(error, ProblemError::Cancelled), "{error:?}");
+    assert_eq!(
+        native::callback::classify(&error),
+        native::callback::Failure::Stopped(native::solve::Termination::Cancelled)
+    );
+    // Cancellation after construction still stops evaluation as a cancellation.
+    let flag = Arc::new(AtomicBool::new(false));
+    let active = Execution::new(flag.clone(), &problem.profile.solver.controls);
+    let mut oracle = FitOracle::new(problem, active).unwrap();
+    flag.store(true, Ordering::Release);
     let error = oracle.objective(&[2.]).unwrap_err();
     assert!(matches!(error, ProblemError::Cancelled), "{error:?}");
     assert_eq!(
