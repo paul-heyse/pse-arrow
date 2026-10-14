@@ -207,7 +207,7 @@ pub fn decode_result_file(bytes: &[u8], expected: SchemaRef, rows: usize) -> Res
     read_file_batch(Cursor::new(bytes), expected, 0, rows)
 }
 pub(super) fn decode_owned_result_file(bytes: Buffer, expected: SchemaRef, index: usize, rows: usize) -> Result<RecordBatch, ResultBlockError> {
-    read_file_batch(Cursor::new(bytes), expected, index, rows)
+    read_file_batch(Cursor::new(bytes.as_slice()), expected, index, rows)
 }
 
 #[cfg(test)]
