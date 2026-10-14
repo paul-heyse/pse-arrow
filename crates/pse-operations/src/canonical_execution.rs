@@ -2114,6 +2114,8 @@ pub struct AppendReceipt {
     pub digest: String,
     /// Actual admitted row coverage.
     pub row_count: u64,
+    /// Exact framed physical instance, native index, codec and schema binding.
+    pub file_binding: String,
 }
 /// Authenticated successful append or exact operation settlement. Not constructible
 /// from a descriptor, serialized input or a copied public receipt.
@@ -2140,6 +2142,7 @@ pub struct ResultBlockAppend {
     item: Object,
     extent: usize,
     _owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+    payload: ResultPayload,
 }
 impl ResultBlockAppend {
     /// Prepare one block only after admitting the copied metadata/encoder extent.
@@ -2207,15 +2210,13 @@ impl ResultBlockAppend {
         if name.len() > 128 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let payload_bytes = payload.as_slice().len();
+        let payload_bytes = payload.byte_len();
         let set_key = result_set_key(&fence.attempt, name);
         let key = result_batch_key(&fence.attempt, &set_key, ordinal);
-        let ResultPayload {
-            bytes: payload,
-            digest,
-            owner: payload_owner,
-        } = payload;
-        let owner = owner.or(payload_owner);
+        let digest = payload.digest.clone();
+        let owner = owner.or(payload.owner.clone());
+        let file = payload.file.as_ref().map(|file| file.descriptor().clone());
+        let file_index = payload.file_index;
         let set = ResultSet {
             key: set_key.clone(),
             attempt: fence.attempt.clone(),
@@ -2230,8 +2231,14 @@ impl ResultBlockAppend {
             result_set: set_key.clone(),
             ordinal,
             digest: digest.clone(),
-            payload,
             row_count,
+            file_binding: String::new(),
+            file_instance: file.as_ref().map(|f|f.instance.clone()).unwrap_or_default(),
+            file_digest: digest.clone(),
+            file_batch_index: file_index,
+            payload_bytes: payload_bytes as u64,
+            schema: file.as_ref().map(|f|f.schema.clone()).unwrap_or_default(),
+            encoding: payload.encoding().to_owned(),
         };
         if let Some(block) = block
             && (block.key != key
@@ -2399,6 +2406,7 @@ impl ResultBlockAppend {
                 ordinal: batch.ordinal,
                 digest: batch.digest,
                 row_count: batch.row_count,
+                file_binding: batch.file_binding,
             },
             fence: fence.clone(),
             name: name.into(),
@@ -2437,6 +2445,7 @@ impl ResultBlockAppend {
             item,
             extent,
             _owner: owner,
+            payload,
         })
     }
     fn expected_response(&self) -> Result<Object, CanonicalError> {
@@ -2448,6 +2457,7 @@ impl ResultBlockAppend {
         row.insert("ordinal", canonical_codec::encode_uint(ack.ordinal)?);
         row.insert("digest", Value::String(ack.digest.clone()));
         row.insert("row_count", canonical_codec::encode_uint(ack.row_count)?);
+        row.insert("file_binding",Value::String(ack.file_binding.clone()));
         row.insert("request", Value::Bytes(Bytes::from(ack.request.clone())));
         Ok(row)
     }
@@ -2530,6 +2540,7 @@ impl ReceiptProof {
             row.insert("ordinal", canonical_codec::encode_uint(batch.ordinal)?);
             row.insert("digest", Value::String(batch.digest.clone()));
             row.insert("rows", canonical_codec::encode_uint(batch.row_count)?);
+            row.insert("file_binding",Value::String(batch.file_binding.clone()));
         }
         Ok(row)
     }
@@ -2650,7 +2661,8 @@ impl ResultAcknowledgments {
         set.digest
             .str(&batch.key)
             .str(&batch.digest)
-            .u64(batch.row_count);
+            .u64(batch.row_count)
+            .str(&batch.file_binding);
         set.next = next;
         set.rows = rows;
         set.last = Some(proof);
@@ -2879,6 +2891,8 @@ pub struct ResultPayload {
     bytes: pse_model::Bytes,
     digest: String,
     owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+    file: Option<crate::canonical_files::SealedFile>,
+    file_index: u64,
 }
 impl ResultPayload {
     /// Consume native storage and calculate its integrity digest once.
@@ -2891,6 +2905,8 @@ impl ResultPayload {
             bytes: bytes.into(),
             digest,
             owner: None,
+            file: None,
+            file_index: 0,
         })
     }
     /// Consume bytes only after their actual encoder/transport allowance is charged.
@@ -2903,6 +2919,18 @@ impl ResultPayload {
         payload.owner = Some(owner);
         Ok(payload)
     }
+    /// Bind an already complete file member without copying its physical bytes.
+    pub fn from_sealed(file: crate::canonical_files::SealedFile, index: u64) -> Result<Self, CanonicalError> {
+        file.batch(index)?;
+        Ok(Self { bytes: Vec::new().into(), digest: file.descriptor().digest.clone(), owner: None, file: Some(file), file_index: index })
+    }
+    /// Carry the caller's actual prepaid encoder and metadata allowance.
+    pub fn from_sealed_owned(file: crate::canonical_files::SealedFile, index: u64, owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<Self, CanonicalError> {
+        let mut payload=Self::from_sealed(file,index)?; payload.owner=Some(owner); Ok(payload)
+    }
+    /// Complete physical extent, independent of whether bytes remain resident.
+    pub fn byte_len(&self) -> u64 { self.file.as_ref().map(|f|f.descriptor().bytes).unwrap_or(self.bytes.len() as u64) }
+    fn encoding(&self) -> &str { self.file.as_ref().map(|f|f.descriptor().encoding.as_str()).unwrap_or_else(||if serde_json::from_slice::<serde_json::Value>(self.bytes.as_slice()).is_ok(){crate::canonical_files::OPAQUE_JSON}else{crate::canonical_files::OPAQUE_BYTES}) }
     /// Exact immutable bytes; no mutable alias or digest setter is exposed.
     pub fn as_slice(&self) -> &[u8] {
         self.bytes.as_slice()
@@ -2914,13 +2942,11 @@ impl ResultPayload {
 }
 /// Verify a bounded exact batch before decoding its scientific contents.
 pub fn validate_result_batch(batch: &ResultBatch) -> Result<(), CanonicalError> {
-    bounded(batch.payload.as_slice(), RESULT_BATCH_BYTES)?;
     if batch.key != result_batch_key(&batch.attempt, &batch.result_set, batch.ordinal)
-        || batch.digest != result_payload_digest(batch.payload.as_slice())
-    {
-        return Err(CanonicalError::Configuration(
-            "result batch integrity or coordinate mismatch".into(),
-        ));
+        || batch.digest != batch.file_digest || batch.payload_bytes == 0 || batch.payload_bytes > RESULT_BATCH_BYTES as u64
+        || uuid::Uuid::parse_str(&batch.file_instance).is_err()
+        || (batch.encoding != crate::canonical_files::ARROW_IPC_FILE && batch.file_batch_index != 0) {
+        return Err(CanonicalError::Configuration("result batch file identity or coordinate mismatch".into()));
     }
     Ok(())
 }
@@ -3872,8 +3898,9 @@ impl CanonicalStore {
         outputs: &[ResultOutput],
     ) -> Result<AppendAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let prepared = ResultBlockAppend::prepare(fence, operation, name, ordinal, payload,
+            let mut prepared = ResultBlockAppend::prepare(fence, operation, name, ordinal, payload,
                 row_count, block, row_indexes, outputs, None)?;
+            self.prepare_result_file(fence,&mut prepared).await?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
             let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || {
@@ -3903,17 +3930,35 @@ impl CanonicalStore {
             Ok(prepared.acknowledgment)
         }).await
     }
+    async fn prepare_result_file(&self, fence:&AttemptFence, item:&mut ResultBlockAppend) -> Result<(),CanonicalError> {
+        let sealed=match item.payload.file.as_ref() { Some(file)=>file.clone(), None=>{
+            let mut hash=FramedHasher::new(Frame::CanonicalPayloadV1);hash.str("pse.file.original-append.v1").part(&item.acknowledgment.request);
+            let intent=self.reserve_result_file(fence,&format!("file:{}",item.acknowledgment.operation),&hash.finish_hash().to_hex()).await?;
+            self.seal_file(&intent,item.payload.as_slice(),item.payload.encoding(),0,"").await?
+        }};
+        let mut batch=wire::decode_canonical_result_batches(match item.item.get("batch"){Some(Value::Object(batch))=>batch.clone(),_=>return Err(CanonicalError::IncompleteResponse)})?;
+        batch.file_instance=sealed.descriptor().instance.clone(); batch.file_digest=sealed.descriptor().digest.clone(); batch.file_batch_index=item.payload.file_index; batch.payload_bytes=sealed.descriptor().bytes; batch.schema=sealed.descriptor().schema.clone();batch.encoding=sealed.descriptor().encoding.clone();
+        let mut physical=FramedHasher::new(Frame::CanonicalPayloadV1);physical.str("pse.execution.file-binding.v1").str(&batch.file_instance).str(&batch.file_digest).u64(batch.file_batch_index).str(&batch.encoding).str(&batch.schema);
+        // The original semantic request is stable before file work; its final
+        // append receipt additionally seals the complete physical coordinates.
+        batch.file_binding=physical.finish_hash().to_hex();
+        item.acknowledgment.receipt.file_binding=batch.file_binding.clone();
+        let request=json(&(&item.acknowledgment.request,&batch.file_binding))?;
+        item.acknowledgment.request=request.clone();item.item.insert("request",Value::Bytes(Bytes::from(request)));item.item.insert("batch",Value::Object(wire::encode_canonical_result_batches(&batch)?));item.extent=result_metadata_extent(&Value::Object(item.item.clone()))?;item.payload.file=Some(sealed);Ok(())
+    }
     /// Submit multiple original immutable blocks in one server transaction.
     /// All actual per-block receipts are validated before any opaque ACK escapes.
     /// Uncertain transport settles every exact operation under this original clock.
     pub async fn append_result_blocks(
         &self,
         fence: &AttemptFence,
-        items: Vec<ResultBlockAppend>,
+        mut items: Vec<ResultBlockAppend>,
     ) -> Result<Vec<AppendAck>, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            validate_append_group(fence, &items)?;
+            for item in &mut items { self.prepare_result_file(fence,item).await?; }
             validate_append_group(fence, &items)?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             let owners = std::sync::Arc::new(items.iter().filter_map(|item| item._owner.clone()).collect::<Vec<_>>());
@@ -4302,7 +4347,7 @@ impl CanonicalStore {
                 let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
                 digest.str("pse.execution.batch-selection.v1");
                 while next < set.next_ordinal {
-                    let mut page=bounded_query(self.db.query("SELECT key,attempt,result_set,ordinal,digest,row_count FROM canonical_result_batches WHERE result_set=$set AND ordinal >= $next ORDER BY ordinal LIMIT 64;").bind(("set",set.key.clone())).bind(("next",canonical_codec::encode_uint(next)?))).await?;
+                    let mut page=bounded_query(self.db.query("SELECT key,attempt,result_set,ordinal,digest,row_count,file_binding FROM canonical_result_batches WHERE result_set=$set AND ordinal >= $next ORDER BY ordinal LIMIT 64;").bind(("set",set.key.clone())).bind(("next",canonical_codec::encode_uint(next)?))).await?;
                     let batches: Vec<Object> = page.take(0)?;
                     if batches.is_empty() {
                         return Err(CanonicalError::Configuration(
@@ -4340,7 +4385,8 @@ impl CanonicalStore {
                                 "closed result batch coverage mismatch".into(),
                             ));
                         }
-                        digest.str(&key).str(&payload_digest).u64(rows);
+                        let binding=canonical_codec::decode_string(canonical_codec::required(&mut batch,"file_binding")?)?;
+                        digest.str(&key).str(&payload_digest).u64(rows).str(&binding);
                         row_count = row_count
                             .checked_add(rows)
                             .ok_or(CanonicalError::PayloadLimit)?;
@@ -4647,6 +4693,7 @@ mod canonical_result_admission_unit {
                 ordinal,
                 digest: result_payload_digest(bytes),
                 row_count: rows,
+                file_binding: "synthetic-file-binding".into(),
             },
             fence: fence.clone(),
             name: name.into(),
@@ -4876,20 +4923,13 @@ mod canonical_result_admission_unit {
             payload.digest(),
             result_payload_digest(&0.0f64.to_bits().to_be_bytes())
         );
-        let ResultPayload { bytes, digest, .. } = payload;
+        let digest=payload.digest().to_owned();
         let mut batch = ResultBatch {
-            key: result_batch_key("attempt", "set", 0),
-            attempt: "attempt".into(),
-            result_set: "set".into(),
-            ordinal: 0,
-            digest,
-            payload: bytes,
-            row_count: 1,
+            key: result_batch_key("attempt", "set", 0), attempt: "attempt".into(),result_set:"set".into(),ordinal:0,digest:digest.clone(),row_count:1,
+            file_binding:"synthetic".into(),file_instance:uuid::Uuid::new_v4().to_string(),file_digest:digest,file_batch_index:0,payload_bytes:payload.byte_len(),schema:String::new(),encoding:crate::canonical_files::OPAQUE_BYTES.into(),
         };
         validate_result_batch(&batch).unwrap();
-        let mut bytes = batch.payload.into_vec();
-        bytes[0] ^= 1;
-        batch.payload = bytes.into();
+        batch.file_batch_index=1;
         assert!(validate_result_batch(&batch).is_err());
         assert!(matches!(
             ResultPayload::new(vec![0; RESULT_BATCH_BYTES + 1]),

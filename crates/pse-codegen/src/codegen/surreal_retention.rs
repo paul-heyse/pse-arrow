@@ -18,6 +18,7 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem
     IF $pin!=NONE AND ($pin.problem!=$problem OR $pin.grant_deadline!=$grant.grant_deadline OR $pin.grant_nonce!=$grant.grant_nonce OR $pin.authority_incarnation!=$grant.authority_incarnation) { THROW 'protection settlement requires original grant'; };
     IF $pin!=NONE AND !$pin.released AND $pin.expires_at>time::micros() { RETURN {complete:false,waiting:true}; };
     UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET protection_closed_through=math::max([protection_closed_through ?? 0dec,<decimal>$grant.grant_deadline]);
+    IF fn::pse_files_v1::ticket_open($rpc_expiry,$key) { THROW 'strong read ticket remains admitted'; };
     DELETE ONLY type::record('canonical_result_protections',$key);
     DELETE ONLY type::record('canonical_protections',$key);
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -101,10 +102,10 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
     LET $live=SELECT key FROM canonical_attempts WHERE run=$run AND terminal=false LIMIT 1;
     IF array::len($live)!=0 OR ($header.terminal_attempt=NONE AND (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$run))=NONE) { THROW 'run recovery must finish before retirement'; };
     LET $reader_page=SELECT key FROM canonical_result_protections WHERE run=$run AND type::record('canonical_protections',key).released=false ORDER BY key LIMIT 64;
-    LET $readers=$reader_page.filter(|$reader|type::record('canonical_protections',$reader.key).expires_at>time::micros());
+    LET $readers=$reader_page.filter(|$reader|type::record('canonical_protections',$reader.key).expires_at>time::micros() OR fn::pse_files_v1::ticket_open($rpc_expiry,$reader.key));
     FOR $reader IN $reader_page {
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$reader.key) FOR UPDATE;
-        IF $pin!=NONE AND !$pin.released AND $pin.expires_at<=time::micros() { UPDATE ONLY type::record('canonical_protections',$reader.key) SET released=true; };
+        IF $pin!=NONE AND !$pin.released AND $pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$reader.key) { UPDATE ONLY type::record('canonical_protections',$reader.key) SET released=true; };
     };
     IF array::len($readers)!=0 { THROW 'run results have protected readers'; };
     IF array::len($reader_page)=64 { RETURN {pending:true}; };
@@ -154,7 +155,7 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
             LET $remaining_row_indexes=SELECT key FROM canonical_result_rows WHERE batch=$batch LIMIT 1;
             LET $remaining_outputs=SELECT key FROM canonical_result_block_outputs WHERE batch=$batch LIMIT 1;
             LET $deleted=array::len($remaining_row_indexes)=0 AND array::len($remaining_outputs)=0;
-            IF $deleted { DELETE ONLY type::record('canonical_result_blocks',$batch); DELETE ONLY type::record('canonical_result_batches',$batch); };
+            IF $deleted { fn::pse_files_v1::release_borrower($rpc_expiry,'result:'+$batch); DELETE ONLY type::record('canonical_result_blocks',$batch); DELETE ONLY type::record('canonical_result_batches',$batch); };
             LET $rpc_result = {complete:false,batches:IF $deleted {1dec} ELSE {0dec},indexes:<decimal>(array::len($row_indexes)+array::len($outputs)),sets:0dec};
             fn::pse_execution_v1::deadline($rpc_expiry);
             RETURN $rpc_result;

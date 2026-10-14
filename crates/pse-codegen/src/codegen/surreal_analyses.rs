@@ -57,7 +57,7 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
         LET $artifact=fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
         LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$input.protection);
-        IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$artifact.revision OR $read=NONE OR $read.artifact!=$input.artifact OR $input.analysis!=$row.key { THROW 'analysis artifact input not admitted'; };
+        IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$input.protection)) OR $pin.revision!=$artifact.revision OR $read=NONE OR $read.artifact!=$input.artifact OR $input.analysis!=$row.key { THROW 'analysis artifact input not admitted'; };
         LET $selected=SELECT revision FROM canonical_roots WHERE owner_kind='artifact' AND owner=$input.artifact LIMIT 66;
         IF array::len($selected)=0 OR array::len($selected)>65 OR array::len(array::complement($selected.revision,$sources.revision))!=0 { THROW 'analysis omitted artifact source'; };
     };

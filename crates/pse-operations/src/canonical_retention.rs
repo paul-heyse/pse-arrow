@@ -348,9 +348,9 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
     LET $pin_page=SELECT key,expires_at FROM canonical_protections WHERE problem=$problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence AND released=false ORDER BY key LIMIT 64;
     FOR $pin_key IN $pin_page {
         SELECT * FROM ONLY type::record('canonical_protections',$pin_key.key) FOR UPDATE;
-        IF $pin_key.expires_at<=time::micros() { UPDATE ONLY type::record('canonical_protections',$pin_key.key) SET released=true; };
+        IF $pin_key.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin_key.key) { UPDATE ONLY type::record('canonical_protections',$pin_key.key) SET released=true; };
     };
-    LET $pins=$pin_page.filter(|$pin|$pin.expires_at>time::micros());
+    LET $pins=$pin_page.filter(|$pin|$pin.expires_at>time::micros() OR fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin.key));
     IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 {
         {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
     } ELSE IF array::len($pin_page)=64 {

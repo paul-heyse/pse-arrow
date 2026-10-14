@@ -12,6 +12,7 @@ use std::{
     },
     time::Duration,
 };
+use surrealdb::types::Object;
 use surrealdb::{Surreal, engine::remote::ws::Client, opt::RequestContext};
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -48,6 +49,8 @@ pub(crate) async fn response_ownership_scope<F: Future>(
 }
 
 /// Capture before spawning: Tokio tasks do not inherit the submitting scope.
+pub(crate) fn current_response_owner() -> Option<Arc<dyn std::fmt::Debug + Send + Sync>> { RESPONSE_OWNER.try_with(Arc::clone).ok() }
+
 pub(crate) fn inherit_response_ownership<F: Future>(future: F) -> impl Future<Output = F::Output> {
     let owner = RESPONSE_OWNER.try_with(Arc::clone).ok();
     async move {
@@ -357,6 +360,15 @@ impl CanonicalClient {
         }
     }
 
+    /// Restricted terminal cleanup owned by PhysicalLifetime after admission and
+    /// continuing work have drained. This is not a general bypass for queries.
+    pub(crate) async fn drain_file_owner(&self,expected:Object)->Result<(),super::CanonicalError>{
+        let deadline=original_deadline(self.budget);
+        let expiry=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().saturating_add(deadline.saturating_duration_since(tokio::time::Instant::now()));
+        let expiry=i64::try_from(expiry.as_micros()).map_err(|_|super::CanonicalError::PayloadLimit)?;
+        let response=self.client.query("BEGIN; RETURN fn::pse_files_v1::drain_owner($expiry,$expected); COMMIT;").bind(("expiry",expiry)).bind(("expected",expected)).request_context(RequestContext::control(deadline.into_std())).await?;
+        response.check()?;Ok(())
+    }
     pub(crate) async fn disconnect(&self) -> Result<(), surrealdb::Error> {
         self.client.disconnect().await
     }

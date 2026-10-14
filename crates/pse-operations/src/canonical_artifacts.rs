@@ -18,10 +18,34 @@ use std::time::Duration;
 use surrealdb::types::Object;
 
 pub use pse_model::generated::runtime::{
-    canonical_artifact_blocks::Row as ArtifactBlock,
     canonical_artifact_obligations::Row as ArtifactObligation,
     canonical_artifacts::Row as Artifact,
 };
+
+/// Materialized artifact member. The catalog stores only its sealed file binding.
+#[derive(Clone, Debug)]
+pub struct ArtifactBlock {
+    /// Original immutable artifact member identity.
+    pub key:String,
+    /// Independent artifact occurrence.
+    pub artifact:String,
+    /// Original member ordinal.
+    pub ordinal:u64,
+    /// Scientific relation or opaque capsule label.
+    pub relation:String,
+    /// Original exact copied bytes.
+    pub payload:pse_model::Bytes,
+    /// Exact copied encoding digest.
+    pub digest:String,
+    /// Producer encoding provenance, distinct from copied digest.
+    pub original_digest:String,
+    /// Original row coverage.
+    pub rows:u64,
+    allocation:Option<std::sync::Arc<dyn std::fmt::Debug+Send+Sync>>,
+}
+impl PartialEq for ArtifactBlock { fn eq(&self,other:&Self)->bool{self.key==other.key&&self.artifact==other.artifact&&self.ordinal==other.ordinal&&self.relation==other.relation&&self.payload==other.payload&&self.digest==other.digest&&self.original_digest==other.original_digest&&self.rows==other.rows} }
+impl Eq for ArtifactBlock {}
+impl SemanticFrame for ArtifactBlock {fn frame(&self,hash:&mut FramedHasher){hash.str(&self.key).str(&self.artifact).u64(self.ordinal).str(&self.relation).part(self.payload.as_slice()).str(&self.digest).str(&self.original_digest).u64(self.rows);}}
 
 /// A copied block locator retains scientific row and field coordinates, not a producer read.
 #[derive(
@@ -85,6 +109,7 @@ pub fn artifact_block(
         digest: hash.finish_hash().to_hex(),
         original_digest: original_digest.into(),
         rows,
+        allocation:None,
     }
 }
 
@@ -183,10 +208,15 @@ impl ArtifactRead {
             let mut response=protected_query("canonical_artifacts::read",||Ok(self.store.db.query("BEGIN; RETURN fn::pse_artifact_v1::read($pse_rpc_expires_at,$key,$protection,$ordinal); COMMIT;")
                 .bind(("key",self.header.key.clone())).bind(("protection",self.selection.key().to_owned())).bind(("ordinal",value.clone())))).await?;
             let row=wire::decode_canonical_artifact_blocks(object(&mut response)?)?;
-            if row.artifact!=self.header.key || row.ordinal!=ordinal || row.payload.len()>wire::RESULT_BLOCK_BYTES { return Err(invalid("artifact block coordinate differs")); }
-            let copied=artifact_block(&row.artifact,row.ordinal,&row.relation,row.payload.to_vec(),&row.original_digest,row.rows);
+            if row.artifact!=self.header.key || row.ordinal!=ordinal || row.payload_bytes>wire::RESULT_BLOCK_BYTES as u64 { return Err(invalid("artifact block coordinate differs")); }
+            let descriptor=self.store.descriptor_for_instance(&row.file_instance).await?;
+            if descriptor.digest!=row.file_digest||descriptor.bytes!=row.payload_bytes||descriptor.encoding!=row.encoding||descriptor.schema!=row.schema||row.file_batch_index!=0{return Err(invalid("artifact sealed file binding differs"));}
+            use std::io::Read;
+            let mut file=self.store.open_physical_file(descriptor,std::sync::Arc::new(self.clone()))?;
+            let mut bytes=Vec::with_capacity(row.payload_bytes as usize);file.read_to_end(&mut bytes).map_err(|error|invalid(&error.to_string()))?;
+            let mut copied=artifact_block(&row.artifact,row.ordinal,&row.relation,bytes,&row.original_digest,row.rows);
             if copied.key!=row.key || copied.digest!=row.digest { return Err(invalid("artifact copied encoding digest differs")); }
-            Ok(row)
+            copied.allocation=crate::canonical::transport::current_response_owner();Ok(copied)
         }).await
     }
 }
@@ -262,7 +292,12 @@ impl CanonicalStore {
                 let row=wire::encode_canonical_artifacts(header)?;
                 protected_query("canonical_artifacts::begin",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,$inputs); COMMIT;").bind(("row",row.clone())).bind(("sources",roots.clone())).bind(("inputs",selected.clone())))).await?;
                 for block in blocks {
-                    let row=wire::encode_canonical_artifact_blocks(block)?;
+                    let intent=self.reserve_artifact_file(&header.key,&format!("artifact-file:{}",block.key),&header.creation_request_digest).await?;
+                    let encoding=if serde_json::from_slice::<serde_json::Value>(block.payload.as_slice()).is_ok(){crate::canonical_files::OPAQUE_JSON}else{crate::canonical_files::OPAQUE_BYTES};
+                    let sealed=self.seal_file(&intent,block.payload.as_slice(),encoding,0,"").await?;
+                    let descriptor=sealed.descriptor();
+                    let stored=pse_model::generated::runtime::canonical_artifact_blocks::Row{key:block.key.clone(),artifact:block.artifact.clone(),ordinal:block.ordinal,relation:block.relation.clone(),file_instance:descriptor.instance.clone(),file_digest:descriptor.digest.clone(),file_batch_index:0,payload_bytes:descriptor.bytes,schema:descriptor.schema.clone(),encoding:descriptor.encoding.clone(),digest:block.digest.clone(),original_digest:block.original_digest.clone(),rows:block.rows};
+                    let row=wire::encode_canonical_artifact_blocks(&stored)?;
                     protected_query("canonical_artifacts::append",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::append($pse_rpc_expires_at,$key,$block); COMMIT;").bind(("key",header.key.clone())).bind(("block",row.clone())))).await?;
                 }
                 let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&header.key,owner_kind,owner))?;
@@ -294,6 +329,7 @@ impl CanonicalStore {
             let mut response=protected_query("canonical_artifacts::acquire",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection); COMMIT;").bind(("key",key.to_owned())).bind(("protection",selection.key().to_owned())))).await?;
             let actual=wire::decode_canonical_artifacts(object(&mut response)?)?;
             if actual!=header { return Err(invalid("artifact changed during acquisition")); }
+            self.admit_manifest_ticket("artifact",key,None,selection.key()).await?;
             Ok(ArtifactRead { store:self.clone(),header,selection })
         }).await
     }

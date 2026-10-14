@@ -775,6 +775,7 @@ impl CanonicalStore {
 
     /// Admit a real operation before its first native or canonical effect.
     pub fn admit_activity(&self) -> Result<ConnectionActivity, CanonicalError> {
+        self.files.require_current()?;
         self.db.access.admit()
     }
 
@@ -835,12 +836,13 @@ impl CanonicalStore {
         let readers = self.result_read_drain.clone();
         let ordinary = self.db.clone();
         let activation = self.activation_db.clone();
+        let files=self.files.clone();
         self.db
             .access
             .physical
             .close(
                 move || async move { readers.close_and_drain().await },
-                move || async move { ordinary.disconnect().await.map_err(Into::into) },
+                move || async move { if let Some(owner)=files.registered_owner().await {ordinary.drain_file_owner(owner).await?;} ordinary.disconnect().await.map_err(Into::into) },
                 move || async move { activation.disconnect().await.map_err(Into::into) },
             )
             .await
@@ -1588,7 +1590,7 @@ impl CanonicalStore {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision().problem, QueryEffect::Read, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
+        let mut response = self.protected_query(&selection.revision().problem, QueryEffect::Read, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -2056,7 +2058,7 @@ pub(crate) fn checked(
 pub(crate) const PROTECTED_BEGIN: &str = r#"BEGIN;
 SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection) FOR UPDATE;
-IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR $pin.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };
+IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR ($pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection)) { THROW 'immutable selection protection expired'; };
 LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$protection,false);
 IF $pin.grant_deadline!=$grant.grant_deadline OR $pin.grant_nonce!=$grant.grant_nonce OR $pin.authority_incarnation!=$grant.authority_incarnation { THROW 'immutable selection grant differs'; };
 LET $result_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$protection) FOR UPDATE;
@@ -4755,6 +4757,7 @@ pub(crate) const RELEASE_PROTECTION: &str = r#"BEGIN;
             LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection) FOR UPDATE;
             IF $pin != NONE AND ($pin.key != $protection OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence) { THROW 'immutable selection protection identity differs'; };
             IF !$grant.closed OR $pin!=NONE { UPSERT type::record('canonical_protections', $protection) SET key = $protection, problem = $problem, revision = $revision, sequence = $sequence, expires_at = 0, released = true, grant_deadline=$grant.grant_deadline, grant_nonce=$grant.grant_nonce, authority_incarnation=$grant.authority_incarnation; };
+            fn::pse_files_v1::release_ticket($pse_rpc_expires_at,$protection);
             fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             COMMIT;"#;
 

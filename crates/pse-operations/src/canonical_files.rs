@@ -122,7 +122,7 @@ impl Read for ProtectedFile{fn read(&mut self,bytes:&mut[u8])->std::io::Result<u
 impl Seek for ProtectedFile{fn seek(&mut self,position:SeekFrom)->std::io::Result<u64>{self.process.require_current().map_err(std::io::Error::other)?;self.file.seek(position)}}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ProcessIdentity {boot:String,pid_namespace:String,pid:u32,start:String,invocation:Option<String>}
+pub(crate) struct ProcessIdentity {boot:String,pid_namespace:String,pid:u32,start:String,invocation:Option<String>,unit:Option<String>,group:Option<String>,group_inode:Option<u64>}
 impl ProcessIdentity {
     fn current()->Result<Self,CanonicalError>{
         let boot=std::fs::read_to_string("/proc/sys/kernel/random/boot_id").map_err(configuration)?.trim().to_owned();
@@ -130,16 +130,31 @@ impl ProcessIdentity {
         let (_,tail)=process.rsplit_once(')').ok_or_else(||configuration("process stat identity malformed"))?;
         let start=tail.split_whitespace().nth(19).ok_or_else(||configuration("process start identity absent"))?.to_owned();
         let pid_namespace=std::fs::read_link("/proc/self/ns/pid").map_err(configuration)?.to_string_lossy().into_owned();
-        Ok(Self{boot,pid_namespace,pid:std::process::id(),start,invocation:std::env::var("INVOCATION_ID").ok()})
+        let mut identity=Self{boot,pid_namespace,pid:std::process::id(),start,invocation:None,unit:None,group:None,group_inode:None};
+        let cgroups=std::fs::read_to_string("/proc/self/cgroup").map_err(configuration)?;
+        if let Some(group)=cgroups.lines().find_map(|line|line.strip_prefix("0::")) {
+            if let Some(unit)=Path::new(group).components().filter_map(|part|part.as_os_str().to_str()).find(|part|(part.starts_with("pse-surreal-worker-")||part.starts_with("pse-native-"))&&(part.ends_with(".scope")||part.ends_with(".service"))) {
+                let output=std::process::Command::new("systemctl").args(["--user","show",unit,"--property=InvocationID,ControlGroup","--no-pager"]).output().map_err(configuration)?;
+                if !output.status.success(){return Err(configuration("managed file owner invocation unavailable"));}
+                let fields=String::from_utf8(output.stdout).map_err(configuration)?;
+                let invocation=fields.lines().find_map(|line|line.strip_prefix("InvocationID=")).ok_or_else(||configuration("managed file owner invocation absent"))?;
+                let control=fields.lines().find_map(|line|line.strip_prefix("ControlGroup=")).ok_or_else(||configuration("managed file owner control group absent"))?;
+                if invocation.len()!=32||!invocation.bytes().all(|b|b.is_ascii_hexdigit())||!(group==control||group.starts_with(&format!("{control}/"))){return Err(configuration("managed file owner invocation differs"));}
+                use std::os::unix::fs::MetadataExt;
+                let inode=std::fs::metadata(Path::new("/sys/fs/cgroup").join(control.trim_start_matches('/'))).map_err(configuration)?.ino();
+                identity.invocation=Some(invocation.into());identity.unit=Some(unit.into());identity.group=Some(control.into());identity.group_inode=Some(inode);
+            }
+        }
+        Ok(identity)
     }
-    fn require_current(&self)->Result<(),CanonicalError>{if *self!=Self::current()?{return Err(configuration("inherited file capability requires independent process registration"));}Ok(())}
+    fn require_current(&self)->Result<(),CanonicalError>{if self.pid!=std::process::id(){return Err(configuration("inherited file capability requires independent process registration"));}Ok(())}
 }
 #[derive(Debug)]
 pub(crate) struct FileSession {
     pub(crate) incarnation:String,
     root:PathBuf,
     process:ProcessIdentity,
-    owner:tokio::sync::Mutex<Option<String>>,
+    owner:tokio::sync::Mutex<Option<Object>>,
 }
 impl FileSession {
     pub(crate) fn from_state(state:&Path,database:&str)->Result<Self,CanonicalError>{
@@ -150,6 +165,7 @@ impl FileSession {
         Ok(Self{root:state.join("payloads").join(&placement.payload_incarnation).join(database),incarnation:placement.payload_incarnation,process:ProcessIdentity::current()?,owner:tokio::sync::Mutex::new(None)})
     }
     pub(crate) fn require_current(&self)->Result<(),CanonicalError>{self.process.require_current()}
+    pub(crate) async fn registered_owner(&self)->Option<Object>{self.owner.lock().await.clone()}
     fn path(&self,instance:&str)->Result<PathBuf,CanonicalError>{uuid::Uuid::parse_str(instance).map_err(configuration)?;Ok(self.root.join("instances").join(format!("{instance}.sealed")))}
 }
 fn configuration(error:impl std::fmt::Display)->CanonicalError{CanonicalError::Configuration(error.to_string())}
@@ -160,11 +176,13 @@ impl CanonicalStore {
     pub(crate) async fn registered_file_owner(&self)->Result<String,CanonicalError>{
         self.files.require_current()?;
         let mut owner=self.files.owner.lock().await;
-        if let Some(owner)=owner.as_ref(){return Ok(owner.clone());}
-        let key=uuid::Uuid::new_v4().to_string(); let process=&self.files.process; let mut row=Object::new();
+        if let Some(owner)=owner.as_ref(){return Ok(codec::decode_string(owner.get("key").cloned().ok_or(CanonicalError::IncompleteResponse)?)?);}
+        let process=&self.files.process;
+        let key=uuid::Uuid::new_v4().to_string(); let mut row=Object::new();
         row.insert("key",key.clone());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("boot",process.boot.clone());row.insert("pid_namespace",process.pid_namespace.clone());row.insert("pid",codec::encode_uint(u64::from(process.pid))?);row.insert("start",process.start.clone());row.insert("drained",false);if let Some(invocation)=&process.invocation{row.insert("invocation",invocation.clone());}
+        if let Some(unit)=&process.unit{row.insert("unit",unit.clone());}if let Some(group)=&process.group{row.insert("group",group.clone());}if let Some(inode)=process.group_inode{row.insert("group_inode",codec::encode_uint(inode)?);}
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",row.clone()))).await?;
-        let mut saved=last_object(&mut response)?;saved.remove("id");if saved!=row{return Err(CanonicalError::OperationReused);} *owner=Some(key.clone());Ok(key)
+        let mut saved=last_object(&mut response)?;saved.remove("id");if saved!=row{return Err(CanonicalError::OperationReused);} *owner=Some(row);Ok(key)
     }
     /// Reserve original result publication before file creation. Repeating the
     /// same intent selects its original physical instance without new science.
@@ -196,7 +214,7 @@ impl CanonicalStore {
     }
     pub(crate) fn open_physical_file(&self,descriptor:FileDescriptor,owner:Arc<dyn std::fmt::Debug+Send+Sync>)->Result<ProtectedFile,CanonicalError>{
         self.files.require_current()?; descriptor.validate()?;
-        let mut file=File::open(self.files.path(&descriptor.instance)?).map_err(configuration)?;validate_file(&mut file,&descriptor)?;
+        let mut file=open_regular(&self.files.path(&descriptor.instance)?)?;validate_file(&mut file,&descriptor)?;
         Ok(ProtectedFile{file,descriptor,_owner:owner,process:self.files.process.clone()})
     }
     /// Resume an exact admitted collection. Physical unlink follows irreversible
@@ -208,6 +226,14 @@ impl CanonicalStore {
         match std::fs::remove_file(&path){Ok(())=>File::open(path.parent().ok_or_else(||configuration("file parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
         bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collected($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;Ok(())
     }
+}
+/// Verify one offline inventory member without database access or effects.
+/// The selected path must name a regular file directly; symlinks are refused.
+pub fn verify_payload_file(path:&Path,descriptor:&FileDescriptor)->Result<(),CanonicalError>{descriptor.validate()?;let mut file=open_regular(path)?;validate_file(&mut file,descriptor)}
+fn open_regular(path:&Path)->Result<File,CanonicalError>{
+    use std::os::unix::fs::OpenOptionsExt;
+    let file=OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(path).map_err(configuration)?;
+    if !file.metadata().map_err(configuration)?.is_file(){return Err(configuration("sealed payload is not a regular file"));}Ok(file)
 }
 fn validate_file(file:&mut File,descriptor:&FileDescriptor)->Result<(),CanonicalError>{
     if file.metadata().map_err(configuration)?.len()!=descriptor.bytes{return Err(configuration("sealed file length differs"));}
@@ -252,4 +278,24 @@ mod tests {
     fn inherited_actual_process_identity_cannot_use_file_capability(){let mut identity=ProcessIdentity::current().unwrap();identity.pid=identity.pid.wrapping_add(1);assert!(identity.require_current().is_err());}
     #[test]
     fn original_partial_staging_is_not_replaced_or_advertised_complete(){let root=std::env::temp_dir().join(format!("pse-partial-control-{}",uuid::Uuid::new_v4()));let bytes=b"[1,2,3]";let file=descriptor(bytes);std::fs::create_dir_all(root.join(".pending")).unwrap();let staging=root.join(".pending").join(format!("{}.pending",file.instance));std::fs::write(&staging,b"[1,").unwrap();assert!(publish(&root,&file,bytes).is_err());assert_eq!(std::fs::read(staging).unwrap(),b"[1,");assert!(!root.join("instances").join(format!("{}.sealed",file.instance)).exists());std::fs::remove_dir_all(root).unwrap();}
+}
+
+impl CanonicalStore {
+    pub(crate) async fn admit_manifest_ticket(&self,kind:&str,selection:&str,result:Option<(&str,&str,&str)>,protection:&str)->Result<(),CanonicalError>{
+        let owner=self.registered_file_owner().await?;let mut row=Object::new();row.insert("key",protection.to_owned());row.insert("kind",kind.to_owned());row.insert("selection",selection.to_owned());row.insert("owner",owner);row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("released",false);
+        if let Some((run,attempt,manifest))=result{row.insert("run",run.to_owned());row.insert("attempt",attempt.to_owned());row.insert("manifest",manifest.to_owned());}
+        let mut response=self.protected_query(&format!("file-ticket:{protection}"),crate::canonical::QueryEffect::Mutation,"canonical_files::admit_ticket",||Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::ticket($pse_rpc_expires_at,$row); COMMIT;").bind(("row",row.clone())))).await?;
+        let mut saved=last_object(&mut response)?;saved.remove("id");if saved!=row{return Err(CanonicalError::OperationReused);}Ok(())
+    }
+    pub(crate) async fn file_descriptor(&self,batch:&pse_model::generated::runtime::canonical_result_batches::Row)->Result<FileDescriptor,CanonicalError>{
+        let descriptor=self.descriptor_for_instance(&batch.file_instance).await?;
+        if descriptor.digest!=batch.file_digest||descriptor.bytes!=batch.payload_bytes||descriptor.schema!=batch.schema||descriptor.encoding!=batch.encoding{return Err(configuration("logical file descriptor differs from sealed instance"));}
+        FileBatch{file:descriptor.clone(),index:batch.file_batch_index}.validate()?;Ok(descriptor)
+    }
+    pub(crate) async fn descriptor_for_instance(&self,instance:&str)->Result<FileDescriptor,CanonicalError>{
+        self.files.require_current()?;
+        let mut response=bounded_query(self.db.query("BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'admitted file physical instance unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut row=last_object(&mut response)?;
+        let descriptor=FileDescriptor{instance:text(&mut row,"key")?,digest:text(&mut row,"digest")?,bytes:codec::decode_uint(codec::required(&mut row,"payload_bytes")?)?,encoding:text(&mut row,"encoding")?,batch_count:codec::decode_uint(codec::required(&mut row,"batch_count")?)?,schema:text(&mut row,"schema")?,interpretation:text(&mut row,"interpretation")?};descriptor.validate()?;Ok(descriptor)
+    }
 }

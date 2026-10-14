@@ -67,7 +67,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:
         fn::pse_artifact_v1::producer($rpc_expiry,$input);
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
         LET $selected=SELECT * FROM ONLY type::record('canonical_result_protections',$input.protection);
-        IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $selected=NONE OR $selected.run!=$input.run OR $selected.attempt!=$input.attempt OR $selected.manifest!=$input.manifest { THROW 'artifact exact producer protection absent'; };
+        IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$input.protection)) OR $selected=NONE OR $selected.run!=$input.run OR $selected.attempt!=$input.attempt OR $selected.manifest!=$input.manifest { THROW 'artifact exact producer protection absent'; };
         LET $actual=SELECT revision FROM canonical_run_sources WHERE run=$input.run LIMIT 66;
         IF array::len($actual)=0 OR array::len($actual)>65 OR array::len(array::complement($actual.revision,$sources.revision))!=0 { THROW 'artifact actual source omitted'; };
     };
@@ -77,7 +77,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:
     FOR $input IN $inputs {
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
         IF $pin=NONE OR $pin.released { THROW 'artifact transfer protection unavailable'; };
-        fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at);
+        IF !fn::pse_files_v1::ticket_open($rpc_expiry,$input.protection) { fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at); };
     };
     fn::pse_execution_v1::lease($rpc_expiry,<int>$row.creation_expires_at);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $row;
@@ -85,10 +85,10 @@ DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:
 DEFINE FUNCTION fn::pse_artifact_v1::append($rpc_expiry:int,$key:string,$block:object) -> bool {
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$key) FOR UPDATE;
-    IF $row=NONE OR $row.retiring OR $block.artifact!=$key OR $block.ordinal>=$row.block_count OR bytes::len($block.payload)>524288 OR string::len($block.digest)!=64 { THROW 'artifact block admission'; };
+    IF $row=NONE OR $row.retiring OR $block.artifact!=$key OR $block.ordinal>=$row.block_count OR $block.payload_bytes>33554432dec OR string::len($block.digest)!=64 { THROW 'artifact block admission'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_artifact_blocks',$block.key);
     IF $old!=NONE { IF object::remove($old,['id'])!=$block { THROW 'immutable artifact block changed'; }; }
-    ELSE { IF $row.active { THROW 'artifact content sealed'; }; CREATE ONLY type::record('canonical_artifact_blocks',$block.key) CONTENT $block; };
+    ELSE { IF $row.active { THROW 'artifact content sealed'; }; fn::pse_files_v1::attach($rpc_expiry,$block,'artifact',$key,'artifact:'+$block.key); CREATE ONLY type::record('canonical_artifact_blocks',$block.key) CONTENT $block; };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::activate($rpc_expiry:int,$key:string,$obligation:object) -> object {
@@ -100,7 +100,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::activate($rpc_expiry:int,$key:string,$oblig
     LET $inputs=SELECT * FROM canonical_artifact_staging_inputs WHERE artifact=$key ORDER BY key LIMIT 65;
     IF array::len($inputs)>64 { THROW 'artifact input bound'; };
     FOR $input IN $inputs { fn::pse_artifact_v1::producer($rpc_expiry,$input); };
-    LET $coverage=SELECT count() AS n, math::sum(bytes::len(payload)) AS bytes FROM canonical_artifact_blocks WHERE artifact=$key GROUP ALL;
+    LET $coverage=SELECT count() AS n, math::sum(payload_bytes) AS bytes FROM canonical_artifact_blocks WHERE artifact=$key GROUP ALL;
     IF $coverage[0].n!=$row.block_count OR $coverage[0].bytes!=$row.payload_bytes { THROW 'artifact content incomplete'; };
     fn::pse_artifact_v1::attach($rpc_expiry,$key,$obligation,false);
     DELETE $inputs.id;
@@ -147,10 +147,10 @@ DEFINE FUNCTION fn::pse_artifact_v1::read($rpc_expiry:int,$key:string,$protectio
     LET $row=fn::pse_artifact_v1::available($rpc_expiry,$key);
     LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$protection) FOR UPDATE;
     LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$protection);
-    IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$row.revision OR $read=NONE OR $read.artifact!=$key { THROW 'artifact read grant unavailable'; };
+    IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$protection)) OR $pin.revision!=$row.revision OR $read=NONE OR $read.artifact!=$key { THROW 'artifact read grant unavailable'; };
     LET $blocks=SELECT * FROM canonical_artifact_blocks WHERE artifact=$key AND ordinal=$ordinal LIMIT 1;
     IF array::len($blocks)!=1 { THROW 'artifact block unavailable'; };
-    fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at);
+    IF !fn::pse_files_v1::ticket_open($rpc_expiry,$protection) { fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at); };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $blocks[0];
 };
 DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> object {
@@ -162,7 +162,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     LET $reads=SELECT key FROM canonical_artifact_reads WHERE artifact=$intent.key ORDER BY key LIMIT 64;
     FOR $read IN $reads {
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$read.key) FOR UPDATE;
-        IF $pin!=NONE AND !$pin.released AND $pin.expires_at>time::micros() { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+        IF $pin!=NONE AND !$pin.released AND ($pin.expires_at>time::micros() OR fn::pse_files_v1::ticket_open($rpc_expiry,$read.key)) { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
         LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$intent.primary_problem,$read.key,false);
         IF time::micros()<$grant.grant_deadline { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
         fn::pse_retention_v1::settle_protection($rpc_expiry,$intent.primary_problem,$read.key);
@@ -171,8 +171,8 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     IF array::len($reads)=64 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     IF $row!=NONE { UPDATE ONLY type::record('canonical_artifacts',$intent.key) SET retiring=true; };
     IF time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-    LET $blocks=SELECT id FROM canonical_artifact_blocks WHERE artifact=$intent.key ORDER BY ordinal LIMIT 64;
-    IF array::len($blocks)!=0 { DELETE $blocks.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    LET $blocks=SELECT id,key FROM canonical_artifact_blocks WHERE artifact=$intent.key ORDER BY ordinal LIMIT 64;
+    IF array::len($blocks)!=0 { FOR $block IN $blocks { fn::pse_files_v1::release_borrower($rpc_expiry,'artifact:'+$block.key); }; DELETE $blocks.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $inputs=SELECT id,run FROM canonical_artifact_staging_inputs WHERE artifact=$intent.key ORDER BY key LIMIT 64;
     FOR $input IN $inputs { fn::pse_execution_v1::result_creator($rpc_expiry,$input.run); };
     IF array::len($inputs)!=0 { DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
