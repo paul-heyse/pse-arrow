@@ -242,6 +242,42 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertEqual(manifest["payload_inventory"][0]["instance"]["state"], "collecting")
         self.assertEqual((backup / self.final.relative_to(self.state)).read_bytes(), self.final.read_bytes())
 
+    def test_abandoned_unsealed_collector_crash_preserves_unknown_bytes_through_restore(self) -> None:
+        self.owner["boot"] = str(uuid.uuid4())
+        # Reservation -> authentic abandonment -> collecting changes state only.
+        # The collector dies before unlink, without any scientific seal ACK.
+        self.instance.update(state="collecting", digest="", payload_bytes="0", encoding="", batch_count="0", schema="")
+        original = dict(self.instance)
+        expected = self.final.read_bytes()
+        backup = self.root / "backup"
+        with patch.object(server, "payload_verifier", side_effect=AssertionError("unsealed bytes must not fabricate canonical verification")):
+            self.backup(backup)
+            manifest, _original = server.validated_restore_backup(backup, server.SUBSTRATE_INTERPRETATION)
+            self.assertEqual(manifest["payload_inventory"][0]["instance"], original)
+            self.assertEqual((backup / self.final.relative_to(self.state)).read_bytes(), expected)
+            self.assertTrue(self.owner["drained"])
+            restored = self.root / "restored"
+            with self.fixture.native_maintenance() as calls:
+                server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+        selected = server.config_for(restored)
+        final, staging = payload_files.instance_paths(restored, selected, self.key)
+        self.assertEqual(final.read_bytes(), expected)
+        self.assertFalse(staging.exists())
+        self.assertTrue(selected["payload_frozen"])
+        self.assertFalse(selected["accepting_writes"])
+        self.assertEqual(manifest["payload_inventory"][0]["instance"]["state"], "collecting")
+        self.assertFalse(any("SET state=" in query for _namespace, _database, query in calls))
+
+    def test_collecting_partial_descriptor_cannot_claim_unsealed_exemption(self) -> None:
+        self.owner["drained"] = True
+        self.instance.update(state="collecting", digest="", payload_bytes="0", encoding="", batch_count="0", schema="")
+        for field, value in (("digest", "a" * 64), ("encoding", "opaque-json-v1"), ("batch_count", "1"), ("schema", "nonempty")):
+            with self.subTest(field=field):
+                self.instance[field] = value
+                with self.assertRaisesRegex(server.SupervisorError, "extent differs"):
+                    self.backup(self.root / ("backup-" + field))
+                self.instance[field] = "0" if field == "batch_count" else ""
+
     def test_pending_absence_remains_unresolved_without_inventing_file_completion(self) -> None:
         self.owner["drained"] = True
         self.final.unlink()

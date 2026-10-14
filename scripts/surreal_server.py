@@ -5364,6 +5364,17 @@ def payload_verifier(path: Path) -> dict[str, object]:
     return {"binary": str(path), "sha256": file_digest(path)}
 
 
+def unsealed_payload_descriptor(instance: dict[str, object]) -> bool:
+    """Exact reserved descriptor before any seal ACK; never a scientific digest."""
+    return (
+        instance.get("digest") == ""
+        and str(instance.get("payload_bytes")) == "0"
+        and instance.get("encoding") == ""
+        and str(instance.get("batch_count")) == "0"
+        and instance.get("schema") == ""
+    )
+
+
 def verify_payload_inventory(state: Path, config: dict[str, object], inventory: list[dict[str, object]]) -> None:
     """Delegate canonical content hashing to the existing native identity owner."""
     selected = []
@@ -5373,7 +5384,7 @@ def verify_payload_inventory(state: Path, config: dict[str, object], inventory: 
         # Collection is irreversible: a dead collector may have unlinked the
         # file before recording its final catalog acknowledgment. Its absent
         # bytes remain an unresolved deletion, never reconstructed science.
-        collecting_bytes = state_value == "collecting" and any(
+        collecting_bytes = state_value == "collecting" and not unsealed_payload_descriptor(instance) and any(
             Path(name).name == str(instance["key"]) + ".sealed"
             for name in object_mapping(entry["files"])
         )
@@ -5620,7 +5631,7 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
                             digest, extent = payload_files.checked_file(path)
                         except (payload_files.PayloadError, OSError) as error:
                             raise SupervisorError("File inventory failed private content validation") from error
-                        if path == final and state_value in {"sealed", "attached", "collecting"} and str(extent) != str(row.get("payload_bytes")):
+                        if path == final and (state_value in {"sealed", "attached"} or (state_value == "collecting" and not unsealed_payload_descriptor(row))) and str(extent) != str(row.get("payload_bytes")):
                             raise SupervisorError("Sealed file extent differs from its catalog")
                         files[str(path.relative_to(state))] = {"sha256": digest, "bytes": extent}
                 entry["files"] = files
