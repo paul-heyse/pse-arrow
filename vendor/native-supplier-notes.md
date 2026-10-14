@@ -54,10 +54,20 @@ The three patched build scripts make these corrections:
 - Diffsol's optional `sundials` build branch observes its SUNDIALS options and both
   selected providers' directories. Its local C benchmark tree is observed because
   compiled translation units also include local headers and other C sources.
-- Each bindgen builder adds `CargoCallbacks` alongside the existing `IgnoreMacros`
+- Each bindgen builder observes Cargo inputs alongside the existing `IgnoreMacros`
   and, where present, `ParseSignedConstants` callbacks. These callbacks append;
-  upstream custom callbacks never replaced another callback. Included headers and
-  bindgen-observed environment options now participate in Cargo freshness.
+  upstream custom callbacks never replaced another callback. `CargoCallbacks`,
+  directly or through the SUNDIALS delegate below, observes included headers and
+  bindgen environment options for Cargo freshness.
+- SUNDIALS replaces the blanket Cargo callback with a delegating callback that
+  omits headers in this invocation's CMake-installed include namespace. Those
+  headers are generated outputs; watching their post-start writes invalidates an
+  otherwise unchanged next build. Both lexical and canonical containment must
+  identify that namespace, so external aliases and paths escaping it remain
+  watched. Successful standalone-provider builds have no generated namespace and
+  retain every included-header watch. Environment callbacks still delegate to
+  bindgen, while the bundled source-tree, wrapper, KLU/provider directory and
+  explicit metadata environment watches retain their existing input roles.
 - SuiteSparse/SUNDIALS bindgen parsing uses `-fno-builtin` to preserve header
   `size_t` typedef identity instead of Clang builtin integer prototypes. This
   corrects the pinned nightly's runtime-symbol warnings without disabling a lint
@@ -106,6 +116,10 @@ Do not mutate shared installations, clean Cargo artifacts or vary global flags.
    and establish freshness again. On a successful standalone-provider branch,
    verify these watches are absent and changing an unused metadata input leaves
    the supplier fresh.
+   For the bundled branch, compare the emitted header watch set: headers inside
+   its own generated include namespace must be absent, while external system and
+   KLU header watches remain. Repeat unchanged after restoring the baseline;
+   generated header writes must not cause an additional supplier rerun.
 
 These are build freshness controls; numerical solver/runtime qualification is a
 separate integration obligation.

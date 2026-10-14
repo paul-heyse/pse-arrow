@@ -71,6 +71,39 @@ struct Library {
     inc: Option<String>,
     /// Location of the library.
     lib: Option<String>,
+    /// Headers produced by this build's CMake invocation, rather than a provider.
+    generated_include: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+struct CargoInputs {
+    generated_include: Option<PathBuf>,
+}
+
+impl bindgen::callbacks::ParseCallbacks for CargoInputs {
+    fn include_file(&self, filename: &str) {
+        let generated = self.generated_include.as_ref().is_some_and(|include| {
+            let Ok(canonical_include) = include.canonicalize() else {
+                return false;
+            };
+            let header = Path::new(filename);
+            // Keep external aliases watched, even when their target is generated.
+            if !header.starts_with(include) && !header.starts_with(&canonical_include) {
+                return false;
+            }
+            // A symlink or parent component escaping the output namespace is an input.
+            header
+                .canonicalize()
+                .is_ok_and(|path| path.starts_with(&canonical_include))
+        });
+        if !generated {
+            bindgen::callbacks::ParseCallbacks::include_file(&bindgen::CargoCallbacks, filename);
+        }
+    }
+
+    fn read_env_var(&self, key: &str) {
+        bindgen::callbacks::ParseCallbacks::read_env_var(&bindgen::CargoCallbacks, key);
+    }
 }
 
 /// Build the Sundials code vendor with sundials-sys.
@@ -130,12 +163,22 @@ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
     let dst = config.build();
     let dst_disp = dst.display();
     let lib_loc = Some(format!("{}/lib", dst_disp));
-    let inc_dir = Some(format!("{}/include", dst_disp));
-    (Library { inc: inc_dir, lib: lib_loc }, library_type)
+    let generated_include = dst.join("include");
+    let inc_dir = Some(generated_include.display().to_string());
+    (
+        Library {
+            inc: inc_dir,
+            lib: lib_loc,
+            generated_include: Some(generated_include),
+        },
+        library_type,
+    )
 }
 
-fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenError>
-{
+fn generate_bindings(
+    inc_dirs: &[Option<String>],
+    generated_include: Option<PathBuf>,
+) -> Result<Bindings, BindgenError> {
     macro_rules! define {
         ($a:tt, $b:tt) => {
             format!(
@@ -168,7 +211,9 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
             define!("nvecopenmp", OPENMP),
             define!("nvecpthreads", PTHREADS),
         ])
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        // CMake-installed headers are outputs. Watching them would make a
+        // timestamp-changing build invalidate itself after Cargo starts it.
+        .parse_callbacks(Box::new(CargoInputs { generated_include }))
         .parse_callbacks(Box::new(ParseSignedConstants))
         .parse_callbacks(Box::new(IgnoreMacros::new()))
         .generate()
@@ -224,16 +269,17 @@ fn main() {
         Library {
             inc: env::var("DEP_SUITESPARSE_SUITESPARSE_INCLUDE").ok(),
             lib: env::var("DEP_SUITESPARSE_SUITESPARSE_LIB").ok(),
+            generated_include: None,
         }
     } else {
-        Library { inc: None, lib: None }
+        Library { inc: None, lib: None, generated_include: None }
     };
     if let Some(dir) = &klu.inc {
         println!("cargo:rerun-if-changed={}", dir);
     }
 
     // First, we build the SUNDIALS library, with requested modules with CMake
-    let mut sundials = Library { inc: None, lib: None };
+    let mut sundials = Library { inc: None, lib: None, generated_include: None };
     let mut library_type = "dylib";
     if cfg!(any(feature = "build_libraries", target_family = "wasm")) {
         (sundials, library_type) = build_vendor_sundials(&klu);
@@ -264,7 +310,10 @@ fn main() {
         .join("bindings.rs");
     let mut build_vendor = true;
     let mut sundials_version_major = 0;
-    if let Ok(bindings) = generate_bindings(&[sundials.inc, klu.inc.clone()]) {
+    if let Ok(bindings) = generate_bindings(
+        &[sundials.inc, klu.inc.clone()],
+        sundials.generated_include,
+    ) {
         write_bindings_if_changed(&bindings, &bindings_rs)
             .expect("Couldn't write file bindings.rs!");
         if let Some(v) = get_sundials_version_major(&bindings_rs) {
@@ -279,7 +328,10 @@ fn main() {
     }
     if build_vendor {
         (sundials, library_type) = build_vendor_sundials(&klu);
-        if let Ok(bindings) = generate_bindings(&[sundials.inc, klu.inc.clone()]) {
+        if let Ok(bindings) = generate_bindings(
+            &[sundials.inc, klu.inc.clone()],
+            sundials.generated_include,
+        ) {
             write_bindings_if_changed(&bindings, &bindings_rs)
                 .expect("Couldn't write file bindings.rs!");
             sundials_version_major = get_sundials_version_major(&bindings_rs)
