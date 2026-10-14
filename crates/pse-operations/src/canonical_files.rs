@@ -188,7 +188,9 @@ impl CanonicalStore {
         self.files.require_current()?;
         let mut owner=self.files.owner.lock().await;
         if let Some(owner)=owner.as_ref(){return Ok(codec::decode_string(owner.get("key").cloned().ok_or(CanonicalError::IncompleteResponse)?)?);}
-        let process=&self.files.process;
+        // Capture managed scope at actual registration, after any connection
+        // setup. Subsequent IO uses only the immutable process PID fence.
+        let process=ProcessIdentity::current()?;
         let key=uuid::Uuid::new_v4().to_string(); let mut row=Object::new();
         row.insert("key",key.clone());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("boot",process.boot.clone());row.insert("pid_namespace",process.pid_namespace.clone());row.insert("pid",codec::encode_uint(u64::from(process.pid))?);row.insert("start",process.start.clone());row.insert("drained",false);if let Some(invocation)=&process.invocation{row.insert("invocation",invocation.clone());}
         if let Some(unit)=&process.unit{row.insert("unit",unit.clone());}if let Some(group)=&process.group{row.insert("group",group.clone());}if let Some(inode)=process.group_inode{row.insert("group_inode",codec::encode_uint(inode)?);}
