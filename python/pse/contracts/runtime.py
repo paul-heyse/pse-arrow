@@ -200,13 +200,18 @@ class RuntimeCanonicalArtifactBlocksRow:
     artifact: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     relation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    payload: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    file_instance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    file_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    file_batch_index: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    payload_bytes: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    schema: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    encoding: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     original_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     rows: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.artifact), v.scalar_key(self.ordinal), v.scalar_key(self.relation), v.scalar_key(self.payload), v.scalar_key(self.digest), v.scalar_key(self.original_digest), v.scalar_key(self.rows),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.artifact), v.scalar_key(self.ordinal), v.scalar_key(self.relation), v.scalar_key(self.file_instance), v.scalar_key(self.file_digest), v.scalar_key(self.file_batch_index), v.scalar_key(self.payload_bytes), v.scalar_key(self.schema), v.scalar_key(self.encoding), v.scalar_key(self.digest), v.scalar_key(self.original_digest), v.scalar_key(self.rows),))
 
 
 @attrs.frozen(kw_only=True)
@@ -421,10 +426,13 @@ class RuntimeCanonicalFileOwnersRow:
     pid: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     start: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     invocation: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    unit: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    group: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    group_inode: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
     drained: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.issuing_store), v.scalar_key(self.storage_incarnation), v.scalar_key(self.boot), v.scalar_key(self.pid_namespace), v.scalar_key(self.pid), v.scalar_key(self.start), v.optional_key(v.scalar_key)(self.invocation), v.scalar_key(self.drained),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.issuing_store), v.scalar_key(self.storage_incarnation), v.scalar_key(self.boot), v.scalar_key(self.pid_namespace), v.scalar_key(self.pid), v.scalar_key(self.start), v.optional_key(v.scalar_key)(self.invocation), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.group), v.optional_key(v.scalar_key)(self.group_inode), v.scalar_key(self.drained),))
 
 
 @attrs.frozen(kw_only=True)
@@ -713,11 +721,17 @@ class RuntimeCanonicalResultBatchesRow:
     result_set: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    payload: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     row_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    file_binding: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    file_instance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    file_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    file_batch_index: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    payload_bytes: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    schema: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    encoding: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.attempt), v.scalar_key(self.result_set), v.scalar_key(self.ordinal), v.scalar_key(self.digest), v.scalar_key(self.payload), v.scalar_key(self.row_count),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.attempt), v.scalar_key(self.result_set), v.scalar_key(self.ordinal), v.scalar_key(self.digest), v.scalar_key(self.row_count), v.scalar_key(self.file_binding), v.scalar_key(self.file_instance), v.scalar_key(self.file_digest), v.scalar_key(self.file_batch_index), v.scalar_key(self.payload_bytes), v.scalar_key(self.schema), v.scalar_key(self.encoding),))
 
 
 @attrs.frozen(kw_only=True)

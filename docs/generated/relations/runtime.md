@@ -195,7 +195,12 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `artifact` | `Utf8` | false | `payload` | — | — |
 | `ordinal` | `UInt64` | false | `payload` | — | — |
 | `relation` | `Utf8` | false | `payload` | — | — |
-| `payload` | `Binary` | false | `payload` | — | — |
+| `file_instance` | `Utf8` | false | `payload` | — | — |
+| `file_digest` | `Utf8` | false | `payload` | — | — |
+| `file_batch_index` | `UInt64` | false | `payload` | — | — |
+| `payload_bytes` | `UInt64` | false | `payload` | — | — |
+| `schema` | `Utf8` | false | `payload` | — | — |
+| `encoding` | `Utf8` | false | `payload` | — | — |
 | `digest` | `Utf8` | false | `payload` | — | — |
 | `original_digest` | `Utf8` | false | `payload` | — | — |
 | `rows` | `UInt64` | false | `payload` | — | — |
@@ -416,6 +421,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `pid` | `UInt64` | false | `payload` | — | — |
 | `start` | `Utf8` | false | `payload` | — | — |
 | `invocation` | `Utf8` | true | `payload` | — | — |
+| `unit` | `Utf8` | true | `payload` | — | — |
+| `group` | `Utf8` | true | `payload` | — | — |
+| `group_inode` | `UInt64` | true | `payload` | — | — |
 | `drained` | `Boolean` | false | `payload` | — | — |
 
 ## `canonical_guards`
@@ -708,8 +716,14 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `result_set` | `Utf8` | false | `payload` | — | — |
 | `ordinal` | `UInt64` | false | `payload` | — | — |
 | `digest` | `Utf8` | false | `payload` | — | — |
-| `payload` | `Binary` | false | `payload` | — | — |
 | `row_count` | `UInt64` | false | `payload` | — | — |
+| `file_binding` | `Utf8` | false | `payload` | — | — |
+| `file_instance` | `Utf8` | false | `payload` | — | — |
+| `file_digest` | `Utf8` | false | `payload` | — | — |
+| `file_batch_index` | `UInt64` | false | `payload` | — | — |
+| `payload_bytes` | `UInt64` | false | `payload` | — | — |
+| `schema` | `Utf8` | false | `payload` | — | — |
+| `encoding` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_result_block_outputs`
 

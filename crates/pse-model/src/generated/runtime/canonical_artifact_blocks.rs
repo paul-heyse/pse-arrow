@@ -17,8 +17,18 @@ pub struct RuntimeCanonicalArtifactBlocksRow {
     pub r#ordinal: u64,
     ///relation
     pub r#relation: String,
-    ///payload
-    pub r#payload: crate::Bytes,
+    ///file_instance
+    pub r#file_instance: String,
+    ///file_digest
+    pub r#file_digest: String,
+    ///file_batch_index
+    pub r#file_batch_index: u64,
+    ///payload_bytes
+    pub r#payload_bytes: u64,
+    ///schema
+    pub r#schema: String,
+    ///encoding
+    pub r#encoding: String,
     ///digest
     pub r#digest: String,
     ///original_digest
@@ -32,7 +42,20 @@ impl crate::SemanticEq for RuntimeCanonicalArtifactBlocksRow {
             && crate::SemanticEq::semantic_eq(&self.r#artifact, &other.r#artifact)
             && crate::SemanticEq::semantic_eq(&self.r#ordinal, &other.r#ordinal)
             && crate::SemanticEq::semantic_eq(&self.r#relation, &other.r#relation)
-            && crate::SemanticEq::semantic_eq(&self.r#payload, &other.r#payload)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#file_instance,
+                &other.r#file_instance,
+            )
+            && crate::SemanticEq::semantic_eq(&self.r#file_digest, &other.r#file_digest)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#file_batch_index,
+                &other.r#file_batch_index,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#payload_bytes,
+                &other.r#payload_bytes,
+            ) && crate::SemanticEq::semantic_eq(&self.r#schema, &other.r#schema)
+            && crate::SemanticEq::semantic_eq(&self.r#encoding, &other.r#encoding)
             && crate::SemanticEq::semantic_eq(&self.r#digest, &other.r#digest)
             && crate::SemanticEq::semantic_eq(
                 &self.r#original_digest,
@@ -57,8 +80,18 @@ impl crate::SemanticFrame for RuntimeCanonicalArtifactBlocksRow {
         crate::SemanticFrame::frame(&self.r#ordinal, hash);
         hash.str(stringify!(r#relation));
         crate::SemanticFrame::frame(&self.r#relation, hash);
-        hash.str(stringify!(r#payload));
-        crate::SemanticFrame::frame(&self.r#payload, hash);
+        hash.str(stringify!(r#file_instance));
+        crate::SemanticFrame::frame(&self.r#file_instance, hash);
+        hash.str(stringify!(r#file_digest));
+        crate::SemanticFrame::frame(&self.r#file_digest, hash);
+        hash.str(stringify!(r#file_batch_index));
+        crate::SemanticFrame::frame(&self.r#file_batch_index, hash);
+        hash.str(stringify!(r#payload_bytes));
+        crate::SemanticFrame::frame(&self.r#payload_bytes, hash);
+        hash.str(stringify!(r#schema));
+        crate::SemanticFrame::frame(&self.r#schema, hash);
+        hash.str(stringify!(r#encoding));
+        crate::SemanticFrame::frame(&self.r#encoding, hash);
         hash.str(stringify!(r#digest));
         crate::SemanticFrame::frame(&self.r#digest, hash);
         hash.str(stringify!(r#original_digest));
@@ -74,7 +107,12 @@ impl crate::HeapUsage for RuntimeCanonicalArtifactBlocksRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#artifact))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#ordinal))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#relation))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#file_instance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#file_digest))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#file_batch_index))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload_bytes))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schema))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#encoding))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#digest))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#original_digest))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rows))

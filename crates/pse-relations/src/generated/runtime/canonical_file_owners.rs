@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    126u8, 56u8, 186u8, 29u8, 46u8, 102u8, 108u8, 19u8, 107u8, 136u8, 153u8, 201u8,
-    150u8, 16u8, 210u8, 141u8, 167u8, 172u8, 185u8, 235u8, 203u8, 62u8, 105u8, 210u8,
-    71u8, 75u8, 77u8, 25u8, 55u8, 196u8, 72u8, 9u8,
+    24u8, 27u8, 124u8, 143u8, 105u8, 130u8, 26u8, 69u8, 204u8, 178u8, 48u8, 27u8, 53u8,
+    227u8, 136u8, 156u8, 247u8, 67u8, 102u8, 52u8, 202u8, 174u8, 253u8, 25u8, 79u8, 96u8,
+    87u8, 143u8, 62u8, 106u8, 43u8, 112u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalFileOwnersRow {
     fn append(
@@ -52,7 +52,16 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalFileOwnersRow {
             &self.r#invocation,
             children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#drained, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#unit, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#group, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#group_inode,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#drained,
+            children[11usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -73,7 +82,16 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalFileOwnersRow {
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -118,8 +136,26 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalFileOwnersRow {
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#drained: <bool as crate::columnar::ArrowValue>::read(
+            r#unit: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#group: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#group_inode: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#drained: <bool as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
                 index,
             )?,
         })
@@ -198,7 +234,13 @@ impl crate::columnar::RelationRow for RuntimeCanonicalFileOwnersRow {
             &self.r#invocation,
             columns[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#drained, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#unit, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#group, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#group_inode,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#drained, columns[11usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -234,10 +276,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalFileOwnersRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        18_432_usize + size_of::<Self::Builder>()
+        24_576_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        144usize
+        192usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -282,6 +324,39 @@ impl crate::columnar::RelationRow for RuntimeCanonicalFileOwnersRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            if let Some(value) = (self.r#unit).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#group).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#group_inode).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         Ok(bytes)
@@ -294,7 +369,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -337,8 +412,23 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "drained",
+        name: "unit",
         position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "group",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "group_inode",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "drained",
+        position: 11usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -359,8 +449,14 @@ pub mod columns {
     pub const START: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///invocation
     pub const INVOCATION: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///unit
+    pub const UNIT: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///group
+    pub const GROUP: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///group_inode
+    pub const GROUP_INODE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///drained
-    pub const DRAINED: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const DRAINED: crate::columnar::ColumnReference = super::COLUMNS[11usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -376,6 +472,9 @@ pub struct RuntimeCanonicalFileOwnersView<'a> {
     pid_column: &'a arrow_array::UInt64Array,
     start_column: &'a arrow_array::StringArray,
     invocation_column: &'a arrow_array::StringArray,
+    unit_column: &'a arrow_array::StringArray,
+    group_column: &'a arrow_array::StringArray,
+    group_inode_column: &'a arrow_array::UInt64Array,
     drained_column: &'a arrow_array::BooleanArray,
 }
 impl<'a> RuntimeCanonicalFileOwnersView<'a> {
@@ -445,9 +544,18 @@ impl<'a> RuntimeCanonicalFileOwnersView<'a> {
             invocation_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(7usize).as_ref())?,
+            unit_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
+            group_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(9usize).as_ref())?,
+            group_inode_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(10usize).as_ref())?,
             drained_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -564,6 +672,42 @@ impl<'a> RuntimeCanonicalFileOwnersView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "unit",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn unit_column(&self) -> &'a arrow_array::StringArray {
+        self.unit_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "unit", "`.")]
+    pub fn unit_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "group",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn group_column(&self) -> &'a arrow_array::StringArray {
+        self.group_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "group", "`.")]
+    pub fn group_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "group_inode",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn group_inode_column(&self) -> &'a arrow_array::UInt64Array {
+        self.group_inode_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "group_inode", "`.")]
+    pub fn group_inode_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "drained",
         "`, including its offsets and validity bitmap.",
     )]
@@ -572,7 +716,7 @@ impl<'a> RuntimeCanonicalFileOwnersView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "drained", "`.")]
     pub fn drained_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -604,6 +748,12 @@ impl<'a> RuntimeCanonicalFileOwnersView<'a> {
             r#start: crate::columnar::ArrowValue::read(self.start_column, index)?,
             r#invocation: crate::columnar::ArrowValue::read(
                 self.invocation_column,
+                index,
+            )?,
+            r#unit: crate::columnar::ArrowValue::read(self.unit_column, index)?,
+            r#group: crate::columnar::ArrowValue::read(self.group_column, index)?,
+            r#group_inode: crate::columnar::ArrowValue::read(
+                self.group_inode_column,
                 index,
             )?,
             r#drained: crate::columnar::ArrowValue::read(self.drained_column, index)?,

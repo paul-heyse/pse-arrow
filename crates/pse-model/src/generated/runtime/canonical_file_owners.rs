@@ -25,6 +25,12 @@ pub struct RuntimeCanonicalFileOwnersRow {
     pub r#start: String,
     ///invocation
     pub r#invocation: Option<String>,
+    ///unit
+    pub r#unit: Option<String>,
+    ///group
+    pub r#group: Option<String>,
+    ///group_inode
+    pub r#group_inode: Option<u64>,
     ///drained
     pub r#drained: bool,
 }
@@ -45,6 +51,9 @@ impl crate::SemanticEq for RuntimeCanonicalFileOwnersRow {
             ) && crate::SemanticEq::semantic_eq(&self.r#pid, &other.r#pid)
             && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
             && crate::SemanticEq::semantic_eq(&self.r#invocation, &other.r#invocation)
+            && crate::SemanticEq::semantic_eq(&self.r#unit, &other.r#unit)
+            && crate::SemanticEq::semantic_eq(&self.r#group, &other.r#group)
+            && crate::SemanticEq::semantic_eq(&self.r#group_inode, &other.r#group_inode)
             && crate::SemanticEq::semantic_eq(&self.r#drained, &other.r#drained)
     }
 }
@@ -73,6 +82,12 @@ impl crate::SemanticFrame for RuntimeCanonicalFileOwnersRow {
         crate::SemanticFrame::frame(&self.r#start, hash);
         hash.str(stringify!(r#invocation));
         crate::SemanticFrame::frame(&self.r#invocation, hash);
+        hash.str(stringify!(r#unit));
+        crate::SemanticFrame::frame(&self.r#unit, hash);
+        hash.str(stringify!(r#group));
+        crate::SemanticFrame::frame(&self.r#group, hash);
+        hash.str(stringify!(r#group_inode));
+        crate::SemanticFrame::frame(&self.r#group_inode, hash);
         hash.str(stringify!(r#drained));
         crate::SemanticFrame::frame(&self.r#drained, hash);
     }
@@ -88,6 +103,9 @@ impl crate::HeapUsage for RuntimeCanonicalFileOwnersRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#pid))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#invocation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#group))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#group_inode))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#drained))
     }
 }

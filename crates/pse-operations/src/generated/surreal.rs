@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v6";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "af5faa5bca97136a1f0e655675b8dd7e3dbf2e2657e3ce83738a05dc692c2e62";
+pub const SCHEMA_DIGEST: &str = "f8a14be59f988f38eaa124368c21890ba39f36b22c738e204d460c9d6a435d17";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -405,7 +405,32 @@ pub fn encode_canonical_artifact_blocks(
             crate::canonical_codec::encode_string(row.r#relation.clone())?,
         );
     object
-        .insert("payload", crate::canonical_codec::encode_bytes(row.r#payload.clone())?);
+        .insert(
+            "file_instance",
+            crate::canonical_codec::encode_string(row.r#file_instance.clone())?,
+        );
+    object
+        .insert(
+            "file_digest",
+            crate::canonical_codec::encode_string(row.r#file_digest.clone())?,
+        );
+    object
+        .insert(
+            "file_batch_index",
+            crate::canonical_codec::encode_uint(row.r#file_batch_index)?,
+        );
+    object
+        .insert(
+            "payload_bytes",
+            crate::canonical_codec::encode_uint(row.r#payload_bytes)?,
+        );
+    object
+        .insert("schema", crate::canonical_codec::encode_string(row.r#schema.clone())?);
+    object
+        .insert(
+            "encoding",
+            crate::canonical_codec::encode_string(row.r#encoding.clone())?,
+        );
     object
         .insert("digest", crate::canonical_codec::encode_string(row.r#digest.clone())?);
     object
@@ -437,8 +462,23 @@ pub fn decode_canonical_artifact_blocks(
         r#relation: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "relation")?,
         )?,
-        r#payload: crate::canonical_codec::decode_bytes(
-            crate::canonical_codec::required(&mut object, "payload")?,
+        r#file_instance: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "file_instance")?,
+        )?,
+        r#file_digest: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "file_digest")?,
+        )?,
+        r#file_batch_index: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "file_batch_index")?,
+        )?,
+        r#payload_bytes: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "payload_bytes")?,
+        )?,
+        r#schema: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "schema")?,
+        )?,
+        r#encoding: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "encoding")?,
         )?,
         r#digest: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "digest")?,
@@ -1408,6 +1448,15 @@ pub fn encode_canonical_file_owners(
         object
             .insert("invocation", crate::canonical_codec::encode_string(value.clone())?);
     }
+    if let Some(value) = &row.r#unit {
+        object.insert("unit", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &row.r#group {
+        object.insert("group", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &row.r#group_inode {
+        object.insert("group_inode", crate::canonical_codec::encode_uint(*value)?);
+    }
     object.insert("drained", crate::canonical_codec::encode_boolean(row.r#drained)?);
     Ok(object)
 }
@@ -1444,6 +1493,18 @@ pub fn decode_canonical_file_owners(
         r#invocation: match object.remove("invocation") {
             None | Some(surrealdb::types::Value::None) => None,
             Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#unit: match object.remove("unit") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#group: match object.remove("group") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#group_inode: match object.remove("group_inode") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_uint(value)?),
         },
         r#drained: crate::canonical_codec::decode_boolean(
             crate::canonical_codec::required(&mut object, "drained")?,
@@ -2808,9 +2869,39 @@ pub fn encode_canonical_result_batches(
     object.insert("ordinal", crate::canonical_codec::encode_uint(row.r#ordinal)?);
     object
         .insert("digest", crate::canonical_codec::encode_string(row.r#digest.clone())?);
-    object
-        .insert("payload", crate::canonical_codec::encode_bytes(row.r#payload.clone())?);
     object.insert("row_count", crate::canonical_codec::encode_uint(row.r#row_count)?);
+    object
+        .insert(
+            "file_binding",
+            crate::canonical_codec::encode_string(row.r#file_binding.clone())?,
+        );
+    object
+        .insert(
+            "file_instance",
+            crate::canonical_codec::encode_string(row.r#file_instance.clone())?,
+        );
+    object
+        .insert(
+            "file_digest",
+            crate::canonical_codec::encode_string(row.r#file_digest.clone())?,
+        );
+    object
+        .insert(
+            "file_batch_index",
+            crate::canonical_codec::encode_uint(row.r#file_batch_index)?,
+        );
+    object
+        .insert(
+            "payload_bytes",
+            crate::canonical_codec::encode_uint(row.r#payload_bytes)?,
+        );
+    object
+        .insert("schema", crate::canonical_codec::encode_string(row.r#schema.clone())?);
+    object
+        .insert(
+            "encoding",
+            crate::canonical_codec::encode_string(row.r#encoding.clone())?,
+        );
     Ok(object)
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
@@ -2837,11 +2928,29 @@ pub fn decode_canonical_result_batches(
         r#digest: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "digest")?,
         )?,
-        r#payload: crate::canonical_codec::decode_bytes(
-            crate::canonical_codec::required(&mut object, "payload")?,
-        )?,
         r#row_count: crate::canonical_codec::decode_uint(
             crate::canonical_codec::required(&mut object, "row_count")?,
+        )?,
+        r#file_binding: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "file_binding")?,
+        )?,
+        r#file_instance: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "file_instance")?,
+        )?,
+        r#file_digest: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "file_digest")?,
+        )?,
+        r#file_batch_index: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "file_batch_index")?,
+        )?,
+        r#payload_bytes: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "payload_bytes")?,
+        )?,
+        r#schema: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "schema")?,
+        )?,
+        r#encoding: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "encoding")?,
         )?,
     };
     if let Some(native_id) = native_id {

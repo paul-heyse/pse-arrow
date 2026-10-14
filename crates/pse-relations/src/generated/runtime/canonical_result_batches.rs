@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    79u8, 243u8, 134u8, 157u8, 54u8, 196u8, 151u8, 16u8, 88u8, 208u8, 251u8, 212u8,
-    172u8, 23u8, 135u8, 54u8, 197u8, 25u8, 133u8, 47u8, 238u8, 105u8, 138u8, 196u8, 11u8,
-    50u8, 45u8, 165u8, 155u8, 235u8, 187u8, 8u8,
+    6u8, 131u8, 72u8, 9u8, 72u8, 99u8, 254u8, 162u8, 70u8, 114u8, 162u8, 108u8, 177u8,
+    39u8, 222u8, 183u8, 74u8, 13u8, 51u8, 199u8, 252u8, 10u8, 205u8, 162u8, 91u8, 205u8,
+    109u8, 209u8, 243u8, 169u8, 202u8, 176u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalResultBatchesRow {
     fn append(
@@ -40,10 +40,34 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalResultBatchesRow {
         )?;
         crate::columnar::ArrowValue::append(&self.r#ordinal, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#digest, children[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#payload, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#row_count,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#file_binding,
             children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#file_instance,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#file_digest,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#file_batch_index,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#payload_bytes,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#schema, children[11usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#encoding,
+            children[12usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -60,10 +84,18 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalResultBatchesRow {
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <u64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
-        <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
-            children[5usize].as_mut(),
+        <u64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(
+            children[11usize].as_mut(),
         )?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(
+            children[12usize].as_mut(),
+        )?;
         output.append(false);
         Ok(())
     }
@@ -94,12 +126,36 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalResultBatchesRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#payload: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
+            r#row_count: <u64 as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#row_count: <u64 as crate::columnar::ArrowValue>::read(
+            r#file_binding: <String as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#file_instance: <String as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#file_digest: <String as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#file_batch_index: <u64 as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#payload_bytes: <u64 as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#schema: <String as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#encoding: <String as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -166,10 +222,34 @@ impl crate::columnar::RelationRow for RuntimeCanonicalResultBatchesRow {
         )?;
         crate::columnar::ArrowValue::append(&self.r#ordinal, columns[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#digest, columns[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#payload, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#row_count,
+            columns[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#file_binding,
             columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#file_instance,
+            columns[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#file_digest,
+            columns[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#file_batch_index,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#payload_bytes,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#schema, columns[11usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#encoding,
+            columns[12usize].as_mut(),
         )?;
         Ok(())
     }
@@ -206,10 +286,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalResultBatchesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        14_336_usize + size_of::<Self::Builder>()
+        26_624_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        112usize
+        208usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -235,11 +315,35 @@ impl crate::columnar::RelationRow for RuntimeCanonicalResultBatchesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#payload).len())?,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#file_binding).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#file_instance).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#file_digest).len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#schema).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#encoding).len())?,
         )?;
         Ok(bytes)
     }
@@ -251,7 +355,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -279,13 +383,43 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "payload",
+        name: "row_count",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "row_count",
+        name: "file_binding",
         position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "file_instance",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "file_digest",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "file_batch_index",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "payload_bytes",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "schema",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "encoding",
+        position: 12usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -300,10 +434,22 @@ pub mod columns {
     pub const ORDINAL: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///digest
     pub const DIGEST: crate::columnar::ColumnReference = super::COLUMNS[4usize];
-    ///payload
-    pub const PAYLOAD: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///row_count
-    pub const ROW_COUNT: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const ROW_COUNT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///file_binding
+    pub const FILE_BINDING: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///file_instance
+    pub const FILE_INSTANCE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///file_digest
+    pub const FILE_DIGEST: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///file_batch_index
+    pub const FILE_BATCH_INDEX: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///payload_bytes
+    pub const PAYLOAD_BYTES: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///schema
+    pub const SCHEMA: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///encoding
+    pub const ENCODING: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -316,8 +462,14 @@ pub struct RuntimeCanonicalResultBatchesView<'a> {
     result_set_column: &'a arrow_array::StringArray,
     ordinal_column: &'a arrow_array::UInt64Array,
     digest_column: &'a arrow_array::StringArray,
-    payload_column: &'a arrow_array::BinaryArray,
     row_count_column: &'a arrow_array::UInt64Array,
+    file_binding_column: &'a arrow_array::StringArray,
+    file_instance_column: &'a arrow_array::StringArray,
+    file_digest_column: &'a arrow_array::StringArray,
+    file_batch_index_column: &'a arrow_array::UInt64Array,
+    payload_bytes_column: &'a arrow_array::UInt64Array,
+    schema_column: &'a arrow_array::StringArray,
+    encoding_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalResultBatchesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -377,12 +529,30 @@ impl<'a> RuntimeCanonicalResultBatchesView<'a> {
             digest_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(4usize).as_ref())?,
-            payload_column: crate::columnar::array::<
-                arrow_array::BinaryArray,
-            >(batch.column(5usize).as_ref())?,
             row_count_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
+            >(batch.column(5usize).as_ref())?,
+            file_binding_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(6usize).as_ref())?,
+            file_instance_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
+            file_digest_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
+            file_batch_index_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(9usize).as_ref())?,
+            payload_bytes_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(10usize).as_ref())?,
+            schema_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(11usize).as_ref())?,
+            encoding_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -459,18 +629,6 @@ impl<'a> RuntimeCanonicalResultBatchesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "payload",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn payload_column(&self) -> &'a arrow_array::BinaryArray {
-        self.payload_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "payload", "`.")]
-    pub fn payload_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
         "row_count",
         "`, including its offsets and validity bitmap.",
     )]
@@ -479,7 +637,91 @@ impl<'a> RuntimeCanonicalResultBatchesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "row_count", "`.")]
     pub fn row_count_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "file_binding",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn file_binding_column(&self) -> &'a arrow_array::StringArray {
+        self.file_binding_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "file_binding", "`.")]
+    pub fn file_binding_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "file_instance",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn file_instance_column(&self) -> &'a arrow_array::StringArray {
+        self.file_instance_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "file_instance", "`.")]
+    pub fn file_instance_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "file_digest",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn file_digest_column(&self) -> &'a arrow_array::StringArray {
+        self.file_digest_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "file_digest", "`.")]
+    pub fn file_digest_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "file_batch_index",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn file_batch_index_column(&self) -> &'a arrow_array::UInt64Array {
+        self.file_batch_index_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "file_batch_index", "`.")]
+    pub fn file_batch_index_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "payload_bytes",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn payload_bytes_column(&self) -> &'a arrow_array::UInt64Array {
+        self.payload_bytes_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "payload_bytes", "`.")]
+    pub fn payload_bytes_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "schema",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn schema_column(&self) -> &'a arrow_array::StringArray {
+        self.schema_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "schema", "`.")]
+    pub fn schema_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "encoding",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn encoding_column(&self) -> &'a arrow_array::StringArray {
+        self.encoding_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "encoding", "`.")]
+    pub fn encoding_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -501,8 +743,32 @@ impl<'a> RuntimeCanonicalResultBatchesView<'a> {
             )?,
             r#ordinal: crate::columnar::ArrowValue::read(self.ordinal_column, index)?,
             r#digest: crate::columnar::ArrowValue::read(self.digest_column, index)?,
-            r#payload: crate::columnar::ArrowValue::read(self.payload_column, index)?,
-            r#row_count: crate::columnar::ArrowValue::read(self.row_count_column, index)?,
+            r#row_count: crate::columnar::ArrowValue::read(
+                self.row_count_column,
+                index,
+            )?,
+            r#file_binding: crate::columnar::ArrowValue::read(
+                self.file_binding_column,
+                index,
+            )?,
+            r#file_instance: crate::columnar::ArrowValue::read(
+                self.file_instance_column,
+                index,
+            )?,
+            r#file_digest: crate::columnar::ArrowValue::read(
+                self.file_digest_column,
+                index,
+            )?,
+            r#file_batch_index: crate::columnar::ArrowValue::read(
+                self.file_batch_index_column,
+                index,
+            )?,
+            r#payload_bytes: crate::columnar::ArrowValue::read(
+                self.payload_bytes_column,
+                index,
+            )?,
+            r#schema: crate::columnar::ArrowValue::read(self.schema_column, index)?,
+            r#encoding: crate::columnar::ArrowValue::read(self.encoding_column, index)?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
