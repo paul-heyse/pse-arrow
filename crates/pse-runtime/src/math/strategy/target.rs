@@ -165,7 +165,11 @@ pub(crate) fn callable<T>(
             &request,
             &declaration.start,
             &candidates,
-                strategy::AutoProgress { attempted: &attempted, last: last.as_ref(), work: admission.observation()? },
+            strategy::AutoProgress {
+                attempted: &attempted,
+                last: last.as_ref(),
+                work: admission.observation()?,
+            },
             false,
             None,
         );

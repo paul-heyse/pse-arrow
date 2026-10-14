@@ -2110,12 +2110,18 @@ impl ModelingSimulation {
                 occurrence as u64,
                 scope,
                 progress.clone(),
-                SampleCapture { retention: *retention, observer },
+                SampleCapture {
+                    retention: *retention,
+                    observer,
+                },
             );
             let charge = complete_dynamic_attempt(&admission, self.key, occurrence as u64)?;
             Ok(ChargedDynamicAttempt { outcome, charge })
         };
-        let ChargedDynamicAttempt { outcome: other_outcome, charge: other_charge } = match integrate(&contrast, 1, 0.5) {
+        let ChargedDynamicAttempt {
+            outcome: other_outcome,
+            charge: other_charge,
+        } = match integrate(&contrast, 1, 0.5) {
             Ok(result) => result,
             Err(error) => {
                 let rows = self.optional_accuracy_failure(error)?;
@@ -2193,7 +2199,10 @@ impl ModelingSimulation {
             }
         };
         // Retain the admitted result until its replacement has passed original checks.
-        let ChargedDynamicAttempt { outcome: refined_outcome, charge: refined_charge } = match integrate(&refined_controls, 2, ratio) {
+        let ChargedDynamicAttempt {
+            outcome: refined_outcome,
+            charge: refined_charge,
+        } = match integrate(&refined_controls, 2, ratio) {
             Ok(result) => result,
             Err(error) => {
                 let rows = self.optional_accuracy_failure(error)?;

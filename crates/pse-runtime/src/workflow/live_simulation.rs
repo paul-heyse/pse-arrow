@@ -214,11 +214,9 @@ impl Observer {
         execution.check()?;
         match self.sender.try_send(event) {
             Ok(()) => Ok(()),
-            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
-                Err(ProblemError::internal(
-                    "live simulation recording supervisor disappeared",
-                ))
-            }
+            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => Err(ProblemError::internal(
+                "live simulation recording supervisor disappeared",
+            )),
             Err(tokio::sync::mpsc::error::TrySendError::Full(returned)) => {
                 event = returned;
                 super::with_simulation_sample_wait(execution, || {
@@ -414,7 +412,10 @@ mod tests {
     async fn prepared_on(runtime: Runtime) -> ModelingSimulation {
         prepared_with_time_limit(runtime, Duration::from_secs(300)).await
     }
-    #[expect(clippy::unwrap_used, reason = "the fixture must contain valid authored dynamics and prepare its declared Root")]
+    #[expect(
+        clippy::unwrap_used,
+        reason = "the fixture must contain valid authored dynamics and prepare its declared Root"
+    )]
     async fn prepared_with_time_limit(
         runtime: Runtime,
         time_limit: Duration,
@@ -569,10 +570,12 @@ mod tests {
             "cancelled native owner joined before publication"
         );
         loop {
-            if let LiveSimulationEvent::Joined(result) = tokio::time::timeout(Duration::from_secs(10), cursor.next())
-                .await
-                .unwrap()
-                .unwrap() {
+            if let LiveSimulationEvent::Joined(result) =
+                tokio::time::timeout(Duration::from_secs(10), cursor.next())
+                    .await
+                    .unwrap()
+                    .unwrap()
+            {
                 assert!(Arc::ptr_eq(&result, &settled));
                 break;
             }

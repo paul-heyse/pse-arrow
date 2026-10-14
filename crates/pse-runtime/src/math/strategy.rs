@@ -88,7 +88,11 @@ pub(crate) fn next_automatic(
     inherited: bool,
     advice_cohort: Option<&pse_model::strategy::advice::AdviceCohort>,
 ) -> AutoDecision {
-    let AutoProgress { attempted, last, work } = progress;
+    let AutoProgress {
+        attempted,
+        last,
+        work,
+    } = progress;
     if let Err(error) = request.validate() {
         return AutoDecision::Stop {
             cause: Some(Arc::new(ProblemError::Contract(error.to_string()))),
@@ -1700,7 +1704,11 @@ fn run_inner<T>(
             &request,
             &strategy.start,
             &[],
-                AutoProgress { attempted: &BTreeSet::new(), last: Some(&pending), work },
+            AutoProgress {
+                attempted: &BTreeSet::new(),
+                last: Some(&pending),
+                work,
+            },
             actual_facts.inherited,
             None,
         );

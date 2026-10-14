@@ -5268,7 +5268,9 @@ class SurrealSupervisorTests(unittest.TestCase):
 
                     with (
                         patch.object(server.time, "monotonic", clock),
-                        patch.object(operation.fcntl, "flock", side_effect=observed_flock),
+                        patch.object(
+                            operation.fcntl, "flock", side_effect=observed_flock
+                        ),
                         patch.object(
                             operation, "owner_record", return_value=parent
                         ) as discover,

@@ -113,10 +113,9 @@ class PreparedKluTests(unittest.TestCase):
             actual = operation.environment(["klu"], env)
         assert record.call_args_list[0].args[1]["managed"]
         assert actual["PSE_KLU_PROVIDER_RECEIPT"] == str(prefix / ".complete.json")
-        assert (
-            record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"]
-            == str(prefix / ".complete.json")
-        )
+        assert record.call_args_list[-1].args[1]["inputs"][
+            "PSE_KLU_PROVIDER_RECEIPT"
+        ] == str(prefix / ".complete.json")
         self.prepare.assert_not_called()
 
     def test_unmanaged_stale_receipt_never_exports_provider_authority(self) -> None:
@@ -143,7 +142,8 @@ class PreparedKluTests(unittest.TestCase):
         assert observed["files"]["lib/libklu.a"] != receipt["files"]["lib/libklu.a"]
         assert actual["PSE_KLU_PROVIDER_RECEIPT"] == ""
         assert (
-            record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"] == ""
+            record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"]
+            == ""
         )
         assert "refused PSE_KLU_PROVIDER_RECEIPT" in refused.getvalue()
         self.prepare.assert_not_called()

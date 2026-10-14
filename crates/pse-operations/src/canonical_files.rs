@@ -238,45 +238,45 @@ impl ProcessIdentity {
                     (part.starts_with("pse-surreal-worker-") || part.starts_with("pse-native-"))
                         && (part.ends_with(".scope") || part.ends_with(".service"))
                 })
+        {
+            let output = std::process::Command::new("systemctl")
+                .args([
+                    "--user",
+                    "show",
+                    unit,
+                    "--property=InvocationID,ControlGroup",
+                    "--no-pager",
+                ])
+                .output()
+                .map_err(configuration)?;
+            if !output.status.success() {
+                return Err(configuration("managed file owner invocation unavailable"));
+            }
+            let fields = String::from_utf8(output.stdout).map_err(configuration)?;
+            let invocation = fields
+                .lines()
+                .find_map(|line| line.strip_prefix("InvocationID="))
+                .ok_or_else(|| configuration("managed file owner invocation absent"))?;
+            let control = fields
+                .lines()
+                .find_map(|line| line.strip_prefix("ControlGroup="))
+                .ok_or_else(|| configuration("managed file owner control group absent"))?;
+            if invocation.len() != 32
+                || !invocation.bytes().all(|b| b.is_ascii_hexdigit())
+                || !(group == control || group.starts_with(&format!("{control}/")))
             {
-                let output = std::process::Command::new("systemctl")
-                    .args([
-                        "--user",
-                        "show",
-                        unit,
-                        "--property=InvocationID,ControlGroup",
-                        "--no-pager",
-                    ])
-                    .output()
-                    .map_err(configuration)?;
-                if !output.status.success() {
-                    return Err(configuration("managed file owner invocation unavailable"));
-                }
-                let fields = String::from_utf8(output.stdout).map_err(configuration)?;
-                let invocation = fields
-                    .lines()
-                    .find_map(|line| line.strip_prefix("InvocationID="))
-                    .ok_or_else(|| configuration("managed file owner invocation absent"))?;
-                let control = fields
-                    .lines()
-                    .find_map(|line| line.strip_prefix("ControlGroup="))
-                    .ok_or_else(|| configuration("managed file owner control group absent"))?;
-                if invocation.len() != 32
-                    || !invocation.bytes().all(|b| b.is_ascii_hexdigit())
-                    || !(group == control || group.starts_with(&format!("{control}/")))
-                {
-                    return Err(configuration("managed file owner invocation differs"));
-                }
-                use std::os::unix::fs::MetadataExt;
-                let inode = std::fs::metadata(
-                    Path::new("/sys/fs/cgroup").join(control.trim_start_matches('/')),
-                )
-                .map_err(configuration)?
-                .ino();
-                identity.invocation = Some(invocation.into());
-                identity.unit = Some(unit.into());
-                identity.group = Some(control.into());
-                identity.group_inode = Some(inode);
+                return Err(configuration("managed file owner invocation differs"));
+            }
+            use std::os::unix::fs::MetadataExt;
+            let inode = std::fs::metadata(
+                Path::new("/sys/fs/cgroup").join(control.trim_start_matches('/')),
+            )
+            .map_err(configuration)?
+            .ino();
+            identity.invocation = Some(invocation.into());
+            identity.unit = Some(unit.into());
+            identity.group = Some(control.into());
+            identity.group_inode = Some(inode);
         }
         Ok(identity)
     }
@@ -1607,4 +1607,3 @@ mod catalog_controls {
         store.remove_isolated_fixture().await.unwrap();
     }
 }
-

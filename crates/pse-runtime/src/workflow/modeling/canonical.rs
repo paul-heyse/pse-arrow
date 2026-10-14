@@ -530,7 +530,15 @@ pub(super) async fn persist(
     ingress: CanonicalIngress<'_>,
     previous: Option<&SourceRevision>,
 ) -> Result<SourceRevision, WorkflowError> {
-    let CanonicalIngress { rows, physical, physical_scope, documents, sources, fits, loader } = ingress;
+    let CanonicalIngress {
+        rows,
+        physical,
+        physical_scope,
+        documents,
+        sources,
+        fits,
+        loader,
+    } = ingress;
     use pse_relations::columnar::RelationRow;
     let bytes = rows
         .owned_bytes()
@@ -1600,8 +1608,13 @@ impl ModelingPackage {
             }
         }
         let generation = math.modeling_cache.generation();
-        let LocalSelection { index, physical, documents, leases, dependencies } =
-            self.select_local(roots, cancel)?;
+        let LocalSelection {
+            index,
+            physical,
+            documents,
+            leases,
+            dependencies,
+        } = self.select_local(roots, cancel)?;
         let dependencies = Arc::new(dependencies);
         let extent = dependencies
             .retained_bytes()
@@ -2048,7 +2061,13 @@ impl ModelingPackage {
                 .insert(object.logical.clone(), object.version.clone());
             leases.push(lease);
         }
-        Ok(LocalSelection { index, physical, documents, leases, dependencies: premises })
+        Ok(LocalSelection {
+            index,
+            physical,
+            documents,
+            leases,
+            dependencies: premises,
+        })
     }
 }
 

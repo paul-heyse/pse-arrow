@@ -564,10 +564,11 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
                         assert!(point.adjoint.is_some());
                         assert!(!point.trajectories.is_empty());
                         assert!(point.trajectories.values().all(|report| {
-                            !report.samples.is_empty() && report.samples.iter().all(|sample| {
-                                sample.state_sensitivities.is_empty()
-                                    && sample.output_sensitivities.is_empty()
-                            })
+                            !report.samples.is_empty()
+                                && report.samples.iter().all(|sample| {
+                                    sample.state_sensitivities.is_empty()
+                                        && sample.output_sensitivities.is_empty()
+                                })
                         }));
                         // An explicit response request independently reruns forward sensitivities.
                         let point = oracle.evaluate(&[x]).unwrap();
@@ -575,9 +576,11 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
                         assert!(point.adjoint.is_none());
                         assert!(!point.trajectories.is_empty());
                         assert!(point.trajectories.values().all(|report| {
-                            !report.samples.is_empty() && report.samples.iter().all(|sample| {
-                                !sample.output_sensitivities.is_empty()
-                            })
+                            !report.samples.is_empty()
+                                && report
+                                    .samples
+                                    .iter()
+                                    .all(|sample| !sample.output_sensitivities.is_empty())
                         }));
                     }
                 }
@@ -1828,16 +1831,10 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         let passes = oracle.transient_passes;
         oracle.objective(&[-0.]).unwrap();
         assert_eq!(oracle.transient_passes, (passes.0 + 1, passes.1));
-        oracle
-            .execution
-            .cancel
-            .store(true, std::sync::atomic::Ordering::Release);
+        oracle.execution.cancel.store(true, Ordering::Release);
         assert!(oracle.gradient(&[-0.], &mut first).is_err());
         assert!(oracle.point.is_none());
-        oracle
-            .execution
-            .cancel
-            .store(false, std::sync::atomic::Ordering::Release);
+        oracle.execution.cancel.store(false, Ordering::Release);
         // Candidate bits participate in the key; invalid values retire the cache.
         assert!(oracle.gradient(&[f64::NAN], &mut first).is_err());
         assert!(oracle.point.is_none());
@@ -2471,10 +2468,7 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
             oracle.team.as_ref().unwrap().test_constructions(),
             vec![1, 1]
         );
-        oracle
-            .execution
-            .cancel
-            .store(true, std::sync::atomic::Ordering::Release);
+        oracle.execution.cancel.store(true, Ordering::Release);
         assert!(oracle.objective(&[1.0]).is_err());
         assert!(oracle.point.is_none());
     })

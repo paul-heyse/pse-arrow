@@ -77,87 +77,87 @@ impl ResultSnapshot {
         let mut previous = None;
         if start < end {
             loop {
-            // Each bounded RPC page has its own prepaid temporary response scope.
-            // Transfer its exact retained strings/rows before growing inventories.
-            let response = Arc::new(
-                MemoryConsumer::new("canonical:result-snapshot-page")
-                    .register(&runtime.shared.pool()),
-            );
-            response
-                .try_grow(READ_BYTES)
-                .map_err(pse_engine::EngineError::from)?;
-            let (page, descriptors) = pse_operations::canonical::response_ownership_scope(
-                Arc::new((read.clone(), response.clone())),
-                async {
-                    let page = runtime
-                        .canonical_store()?
-                        .result_block_page(
-                            &read,
-                            set,
-                            &relation.to_string(),
-                            "0",
-                            start,
-                            end,
-                            after,
-                        )
-                        .await?;
-                    let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
-                    let descriptors = runtime
-                        .canonical_store()?
-                        .result_file_batch_descriptors(&read, set, &ordinals)
-                        .await?;
-                    Ok::<_, WorkflowError>((page, descriptors))
-                },
-            )
-            .await?;
-            if page.len() != descriptors.len() {
-                return Err(contract("snapshot descriptor coverage differs"));
-            }
-            let finished = page.len() < 64;
-            after = page.last().map(|block| block.ordinal);
-            let bytes =
-                page.iter()
-                    .zip(&descriptors)
-                    .try_fold(0usize, |bytes, (block, batch)| {
-                        bytes
-                            .checked_add(
-                                size_of::<Block>()
-                                    + block.heap_bytes()
-                                    + block.key.capacity()
-                                    + 128
-                                    + size_of::<FileBatch>()
-                                    + batch.heap_bytes()
-                                    + batch.key.capacity()
-                                    + 128,
+                // Each bounded RPC page has its own prepaid temporary response scope.
+                // Transfer its exact retained strings/rows before growing inventories.
+                let response = Arc::new(
+                    MemoryConsumer::new("canonical:result-snapshot-page")
+                        .register(&runtime.shared.pool()),
+                );
+                response
+                    .try_grow(READ_BYTES)
+                    .map_err(pse_engine::EngineError::from)?;
+                let (page, descriptors) = pse_operations::canonical::response_ownership_scope(
+                    Arc::new((read.clone(), response.clone())),
+                    async {
+                        let page = runtime
+                            .canonical_store()?
+                            .result_block_page(
+                                &read,
+                                set,
+                                &relation.to_string(),
+                                "0",
+                                start,
+                                end,
+                                after,
                             )
-                            .ok_or_else(|| contract("snapshot inventory extent"))
-                    })?;
-            owner
-                .try_grow(bytes)
-                .map_err(pse_engine::EngineError::from)?;
-            blocks
-                .try_reserve_exact(page.len())
-                .map_err(|_| contract("snapshot inventory allocation refused"))?;
-            for (block, batch) in page.into_iter().zip(descriptors) {
-                if batch.key != block.batch
-                    || batch.ordinal != block.ordinal
-                    || batch.row_count != block.rows
-                    || batch.digest != block.payload_digest
-                    || batch.payload_bytes != block.payload_bytes
-                    || previous.is_some_and(|end| block.start < end)
-                {
-                    return Err(contract("snapshot logical coverage differs"));
+                            .await?;
+                        let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
+                        let descriptors = runtime
+                            .canonical_store()?
+                            .result_file_batch_descriptors(&read, set, &ordinals)
+                            .await?;
+                        Ok::<_, WorkflowError>((page, descriptors))
+                    },
+                )
+                .await?;
+                if page.len() != descriptors.len() {
+                    return Err(contract("snapshot descriptor coverage differs"));
                 }
-                previous = Some(block.end);
-                positions.insert(block.key.clone(), blocks.len());
-                if batches.insert(batch.key.clone(), batch).is_some() {
-                    return Err(contract("duplicate frozen file batch"));
+                let finished = page.len() < 64;
+                after = page.last().map(|block| block.ordinal);
+                let bytes =
+                    page.iter()
+                        .zip(&descriptors)
+                        .try_fold(0usize, |bytes, (block, batch)| {
+                            bytes
+                                .checked_add(
+                                    size_of::<Block>()
+                                        + block.heap_bytes()
+                                        + block.key.capacity()
+                                        + 128
+                                        + size_of::<FileBatch>()
+                                        + batch.heap_bytes()
+                                        + batch.key.capacity()
+                                        + 128,
+                                )
+                                .ok_or_else(|| contract("snapshot inventory extent"))
+                        })?;
+                owner
+                    .try_grow(bytes)
+                    .map_err(pse_engine::EngineError::from)?;
+                blocks
+                    .try_reserve_exact(page.len())
+                    .map_err(|_| contract("snapshot inventory allocation refused"))?;
+                for (block, batch) in page.into_iter().zip(descriptors) {
+                    if batch.key != block.batch
+                        || batch.ordinal != block.ordinal
+                        || batch.row_count != block.rows
+                        || batch.digest != block.payload_digest
+                        || batch.payload_bytes != block.payload_bytes
+                        || previous.is_some_and(|end| block.start < end)
+                    {
+                        return Err(contract("snapshot logical coverage differs"));
+                    }
+                    previous = Some(block.end);
+                    positions.insert(block.key.clone(), blocks.len());
+                    if batches.insert(batch.key.clone(), batch).is_some() {
+                        return Err(contract("duplicate frozen file batch"));
+                    }
+                    blocks.push(block);
                 }
-                blocks.push(block);
-            }
-            if finished {
-                break;
-            }
+                if finished {
+                    break;
+                }
             }
         }
         Ok(Self(Arc::new(SnapshotInner {

@@ -228,7 +228,11 @@ async fn engineering_refinement_original_success_stops_catalog_without_promoting
             &request,
             &declaration.start,
             &[],
-                AutoProgress { attempted: &BTreeSet::new(), last: Some(&last), work: charge(0).observed },
+            AutoProgress {
+                attempted: &BTreeSet::new(),
+                last: Some(&last),
+                work: charge(0).observed
+            },
             false,
             None
         ),
@@ -1387,7 +1391,11 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
             &request,
             &start,
             &candidates,
-                AutoProgress { attempted: &BTreeSet::new(), last: None, work },
+            AutoProgress {
+                attempted: &BTreeSet::new(),
+                last: None,
+                work
+            },
             false,
             None
         ),
@@ -1408,7 +1416,11 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
             &request,
             &start,
             &candidates,
-                AutoProgress { attempted: &BTreeSet::new(), last: Some(&refused), work },
+            AutoProgress {
+                attempted: &BTreeSet::new(),
+                last: Some(&refused),
+                work
+            },
             false,
             None
         ),
@@ -1421,7 +1433,11 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
             &request,
             &start,
             &candidates,
-                AutoProgress { attempted: &attempted, last: None, work },
+            AutoProgress {
+                attempted: &attempted,
+                last: None,
+                work
+            },
             false,
             None
         ),
@@ -1460,7 +1476,11 @@ fn automatic_hard_terminal_veto_cannot_be_reversed_by_original_satisfaction() {
                 &request,
                 &starts,
                 &[],
-                AutoProgress { attempted: &BTreeSet::new(), last: Some(&last), work },
+                AutoProgress {
+                    attempted: &BTreeSet::new(),
+                    last: Some(&last),
+                    work
+                },
                 false,
                 None
             ),
@@ -1505,7 +1525,11 @@ async fn automatic_preparation_is_named_and_its_execution_requires_remaining_all
         &request,
         &start,
         &candidates,
-                AutoProgress { attempted: &BTreeSet::new(), last: None, work },
+        AutoProgress {
+            attempted: &BTreeSet::new(),
+            last: None,
+            work,
+        },
         false,
         None,
     );
@@ -1526,7 +1550,11 @@ async fn automatic_preparation_is_named_and_its_execution_requires_remaining_all
         &constrained,
         &start,
         &candidates,
-                AutoProgress { attempted: &BTreeSet::new(), last: None, work },
+        AutoProgress {
+            attempted: &BTreeSet::new(),
+            last: None,
+            work,
+        },
         false,
         None,
     );
@@ -1541,7 +1569,11 @@ async fn automatic_preparation_is_named_and_its_execution_requires_remaining_all
             &constrained,
             &start,
             &candidates,
-                AutoProgress { attempted: &BTreeSet::new(), last: None, work },
+            AutoProgress {
+                attempted: &BTreeSet::new(),
+                last: None,
+                work
+            },
             false,
             None
         ),
@@ -1748,7 +1780,11 @@ async fn abandoned_block_native_refusal_reaches_direct_through_production_projec
                 &CompositionRequest::default(),
                 &declaration.start,
                 &candidates,
-                AutoProgress { attempted: &BTreeSet::from([0]), last: Some(&last), work: failed.work },
+                AutoProgress {
+                    attempted: &BTreeSet::from([0]),
+                    last: Some(&last),
+                    work: failed.work
+                },
                 false,
                 None
             ),
@@ -1783,7 +1819,11 @@ async fn abandoned_block_native_refusal_reaches_direct_through_production_projec
                 &CompositionRequest::default(),
                 &declaration.start,
                 &candidates,
-                AutoProgress { attempted: &BTreeSet::from([0]), last: Some(&last), work: failed.work },
+                AutoProgress {
+                    attempted: &BTreeSet::from([0]),
+                    last: Some(&last),
+                    work: failed.work
+                },
                 false,
                 None
             ),
@@ -2043,7 +2083,11 @@ async fn effective_original_failure_controls_commit_auto_and_explicit_terminal_p
                 &CompositionRequest::default(),
                 &declaration.start,
                 &candidates,
-                AutoProgress { attempted: &BTreeSet::from([0]), last: Some(&last), work: result.work },
+                AutoProgress {
+                    attempted: &BTreeSet::from([0]),
+                    last: Some(&last),
+                    work: result.work
+                },
                 false,
                 None
             ),
@@ -2287,10 +2331,8 @@ async fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_bin
         matches!(next_automatic(&request,&start,std::slice::from_ref(&candidate),
                 AutoProgress { attempted: &BTreeSet::from([0]), last: Some(&last), work },false, None),AutoDecision::Exhausted {cause:Some(actual)} if Arc::ptr_eq(&actual,&cause))
     );
-    assert!(
-        matches!(next_automatic(&request,&start,&[candidate],
-                AutoProgress { attempted: &BTreeSet::new(), last: Some(&last), work },false, None),AutoDecision::Stop {cause:Some(actual)} if matches!(actual.as_ref(),ProblemError::Limit {..}))
-    );
+    assert!(matches!(next_automatic(&request,&start,&[candidate],
+                AutoProgress { attempted: &BTreeSet::new(), last: Some(&last), work },false, None),AutoDecision::Stop {cause:Some(actual)} if matches!(actual.as_ref(),ProblemError::Limit {..})));
     let qualified = AutoObservation {
         awaiting_assessment: false,
         native: Observation::Converged,
@@ -2302,7 +2344,11 @@ async fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_bin
             &request,
             &start,
             &[],
-                AutoProgress { attempted: &BTreeSet::new(), last: Some(&qualified), work },
+            AutoProgress {
+                attempted: &BTreeSet::new(),
+                last: Some(&qualified),
+                work
+            },
             false,
             None
         ),
@@ -2404,7 +2450,11 @@ fn automatic_advice_requires_actual_cohort_and_preserves_declared_or_missing_evi
             request,
             &starts,
             &candidates,
-                AutoProgress { attempted: &BTreeSet::new(), last: None, work },
+            AutoProgress {
+                attempted: &BTreeSet::new(),
+                last: None,
+                work,
+            },
             false,
             actual,
         )

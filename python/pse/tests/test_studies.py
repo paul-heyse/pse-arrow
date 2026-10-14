@@ -11,6 +11,7 @@ from pathlib import Path
 import msgspec
 import pyarrow as pa
 import pytest
+from scripts import thermodynamic_campaign
 
 import pse
 from pse import codec
@@ -54,7 +55,6 @@ from pse.tests.managed_study_fixture import (
 )
 from pse.tests.study_fixtures import assignment, physical_ids, point
 from pse.tests.study_fixtures import request as study_request
-from scripts import thermodynamic_campaign
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).

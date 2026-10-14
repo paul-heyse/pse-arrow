@@ -1277,7 +1277,11 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     steps: &mut usize,
     output: &mut SampleOutput<'_>,
 ) -> Result<(Option<usize>, Vec<f64>), ProblemError> {
-    let SegmentContext { stop, boundaries, observation } = segment;
+    let SegmentContext {
+        stop,
+        boundaries,
+        observation,
+    } = segment;
     s.set_stop_time(stop).map_err(native)?;
     loop {
         shared.check();

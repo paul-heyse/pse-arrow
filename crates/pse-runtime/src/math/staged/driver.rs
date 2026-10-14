@@ -529,7 +529,11 @@ impl<D: Dispatch> StepDriver<'_, D> {
                 &constrained,
                 &declaration.start,
                 &candidates,
-                math::strategy::AutoProgress { attempted: &attempted, last: last_observation.as_ref(), work: ledger.observation()? },
+                math::strategy::AutoProgress {
+                    attempted: &attempted,
+                    last: last_observation.as_ref(),
+                    work: ledger.observation()?,
+                },
                 inherited,
                 advice_cohort.as_ref(),
             );

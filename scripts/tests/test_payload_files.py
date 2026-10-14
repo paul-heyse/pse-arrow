@@ -530,9 +530,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         _manifest, _original, inventory = server.validated_restore_backup(
             backup, server.SUBSTRATE_INTERPRETATION
         )
-        self.assertEqual(
-            server.object_mapping(inventory[0]["instance"]), self.instance
-        )
+        self.assertEqual(server.object_mapping(inventory[0]["instance"]), self.instance)
         self.assertEqual(self.instance["state"], "pending")
         self.assertEqual(self.instance["digest"], "")
         self.assertEqual(self.instance["payload_bytes"], "0")
@@ -1109,7 +1107,9 @@ class PayloadLifecycleTests(unittest.TestCase):
             backup, server.SUBSTRATE_INTERPRETATION
         )
         self.assertFalse(
-            any("/.locks/" in name for name in server.object_mapping(_manifest["files"]))
+            any(
+                "/.locks/" in name for name in server.object_mapping(_manifest["files"])
+            )
         )
         self.assertEqual({lock: lock.stat().st_ino for lock in identities}, identities)
         self.assertEqual(

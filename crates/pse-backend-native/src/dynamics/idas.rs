@@ -3249,7 +3249,12 @@ pub(super) fn integrate_with_samples(
     output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
     let (report, _, _) = attempt(
-        NumericalRequest { oracle, profile: p, integration, directions: &[] },
+        NumericalRequest {
+            oracle,
+            profile: p,
+            integration,
+            directions: &[],
+        },
         cancel,
         progress,
         output,
@@ -3590,7 +3595,12 @@ fn backward_route(
         observer: &mut observer,
     };
     let (mut report, outcome, checkpoints) = attempt(
-        NumericalRequest { oracle, profile: p, integration, directions },
+        NumericalRequest {
+            oracle,
+            profile: p,
+            integration,
+            directions,
+        },
         cancel,
         progress,
         &mut output,
@@ -3649,7 +3659,12 @@ fn attempt<T>(
     output: &mut SampleOutput<'_>,
     after: impl FnOnce(&mut Session<'_>, &Report) -> Result<T, ProblemError>,
 ) -> (Report, Option<T>, usize) {
-    let NumericalRequest { oracle, profile: p, integration, directions } = request;
+    let NumericalRequest {
+        oracle,
+        profile: p,
+        integration,
+        directions,
+    } = request;
     let execution = Execution {
         cancel,
         started: Instant::now(),

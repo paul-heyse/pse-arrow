@@ -4795,7 +4795,9 @@ def reset_maintenance_failure_window(
     """Intentional terminal maintenance launches do not spend the crash restart budget."""
     with lifecycle_deadline(deadline) as selected_deadline:
         if selected_deadline is None:
-            raise SupervisorError("Maintenance failure-window reset requires a deadline")
+            raise SupervisorError(
+                "Maintenance failure-window reset requires a deadline"
+            )
         require_maintenance_owner(state, config)
         all_contexts_drained(state)
         observed = service_readiness(state, config, deadline=selected_deadline)
@@ -6689,7 +6691,9 @@ def retired_payload_cleanup_files(
         return None
     actual = {path for path in directory.rglob("*") if path.is_file()}
     if not actual <= expected:
-        raise SupervisorError("Unknown retired payload content retained; cleanup refused")
+        raise SupervisorError(
+            "Unknown retired payload content retained; cleanup refused"
+        )
     return directory, actual
 
 
@@ -6734,9 +6738,7 @@ def cleanup_retired_payloads(
     for retired in object_inventory(pending.get("retired_payloads", [])):
         owners = retired.get("owners")
         retired_inventory = object_inventory(retired.get("inventory"))
-        if any(
-            owner.get("drained") is not True for owner in object_inventory(owners)
-        ):
+        if any(owner.get("drained") is not True for owner in object_inventory(owners)):
             raise SupervisorError(
                 "Retired payload target lost its authenticated drain inventory"
             )

@@ -530,8 +530,13 @@ impl Runtime {
         let revision = canonical::persist(
             self,
             canonical::CanonicalIngress {
-                rows, physical: &physical, physical_scope: scope,
-                documents: &documents, sources: &sources, fits: &fits, loader,
+                rows,
+                physical: &physical,
+                physical_scope: scope,
+                documents: &documents,
+                sources: &sources,
+                fits: &fits,
+                loader,
             },
             None,
         )

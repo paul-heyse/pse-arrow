@@ -953,7 +953,10 @@ impl ModelingSimulation {
         progress: Arc<pse_backend_native::solve::Progress>,
         capture: SampleCapture<'_>,
     ) -> Result<(native::Report, checks::SampleChecks), ProblemError> {
-        let SampleCapture { retention, observer } = capture;
+        let SampleCapture {
+            retention,
+            observer,
+        } = capture;
         let controls = pse_backend_native::solve::Controls {
             time_limit: profile.time_limit,
             ..Default::default()
@@ -1139,7 +1142,10 @@ impl ModelingSimulation {
                     0,
                     &scope,
                     progress.clone(),
-                    SampleCapture { retention, observer: &mut observer },
+                    SampleCapture {
+                        retention,
+                        observer: &mut observer,
+                    },
                 );
                 let mut accuracy_charges = Vec::new();
                 if let Some(admission) = &accuracy_admission {

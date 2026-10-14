@@ -195,15 +195,19 @@ async fn original_artifact_evidence(
                 let expected = &responses[start + index];
                 assert_eq!(&row, expected);
                 row.frame(&mut retained);
-                assert!(evidence.insert(
-                    ArtifactLocator {
-                        artifact: key.clone(),
-                        block: ordinal,
-                        row: Some(index as u64),
-                        field: Some("value".into()),
-                    },
-                    (expected.output_id, expected.parameter_id),
-                ).is_none());
+                assert!(
+                    evidence
+                        .insert(
+                            ArtifactLocator {
+                                artifact: key.clone(),
+                                block: ordinal,
+                                row: Some(index as u64),
+                                field: Some("value".into()),
+                            },
+                            (expected.output_id, expected.parameter_id),
+                        )
+                        .is_none()
+                );
             }
             start = start.checked_add(view.len()).unwrap();
         }
@@ -983,10 +987,7 @@ async fn retire(runtime: &Runtime, expected: &Expected) {
             }
         }
         loop {
-            match store
-                .forget_run_results(&expected.run)
-                .await
-            {
+            match store.forget_run_results(&expected.run).await {
                 Ok(()) => break,
                 Err(error)
                     if error

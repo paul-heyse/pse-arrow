@@ -877,18 +877,16 @@ impl MathService {
                         &prepared.boundaries[index].boundary,
                         Some(&report),
                         &prepared.original.numerics.policy,
-                    )
-                        && wave_error.is_none() {
-                            component_observation =
-                                Some(super::super::strategy::observe_native(&report));
-                            failure_cause = Some(cause);
-                            wave_error = Some(
-                                ProblemError::Unsupported(
-                                    "conditional block candidate refused".into(),
-                                )
+                    ) && wave_error.is_none()
+                    {
+                        component_observation =
+                            Some(super::super::strategy::observe_native(&report));
+                        failure_cause = Some(cause);
+                        wave_error = Some(
+                            ProblemError::Unsupported("conditional block candidate refused".into())
                                 .into(),
-                            );
-                        }
+                        );
+                    }
                     components.push((index, report));
                     completed[index] = true;
                 }
