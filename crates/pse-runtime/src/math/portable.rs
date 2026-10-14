@@ -758,6 +758,7 @@ impl super::MathService {
                     let size = metadata.len();
                     receiving_checkpoint(&flag, Some(deadline))?;
                     usize::try_from(size)
+                        .map(|size| (size, 0))
                         .map_err(|_| PortableError::Qualification("receipt extent overflow".into()))
                 },
             )
@@ -812,7 +813,15 @@ impl super::MathService {
                     }
                 };
                 checkpoint().map_err(observation_error)?;
-                Ok(StartupDeploymentObservation { outer, producer })
+                let observation = StartupDeploymentObservation { outer, producer };
+                // The receipt, namespace and parsing scratch have died on this native
+                // owner. Only this observation and its two shared payload allocations
+                // escape; the inline hashes/producer are included in the value size.
+                let retained = size_of::<StartupDeploymentObservation>()
+                    + observation.outer.git_sha.capacity()
+                    + size_of::<pse_columnar::Leased<StartupDeploymentObservation>>()
+                    + 4 * size_of::<usize>();
+                Ok((observation, retained))
             })
             .await?;
         Ok(Arc::new(pse_columnar::Leased::new(
@@ -928,13 +937,17 @@ async fn startup_observation_job<T: Send + 'static>(
     bytes: usize,
     deadline: std::time::Instant,
     driver: &crate::CancelSource,
-    work: impl FnOnce(Arc<AtomicBool>) -> Result<T, PortableError> + Send + 'static,
+    work: impl FnOnce(Arc<AtomicBool>) -> Result<(T, usize), PortableError> + Send + 'static,
 ) -> Result<(T, Arc<pse_columnar::AllocationLease>), PortableError> {
     let control = pse_columnar::flight::FlightCancellation::default();
     let operation =
         service.job_retained_scoped(1, bytes, control.clone(), Some(deadline), move |flag| {
-            // Retain the preflight envelope until the observation's last consumer.
-            Ok((work(flag), bytes))
+            // Keep the complete work envelope through native join, then transfer
+            // only the result's escaped extent without release/reacquisition.
+            match work(flag) {
+                Ok((value, retained)) => Ok((Ok(value), retained)),
+                Err(error) => Ok((Err(error), 0)),
+            }
         });
     tokio::pin!(operation);
     let result = tokio::select! {
@@ -1826,6 +1839,9 @@ mod portable_frame_tests {
         .await
         .unwrap();
         assert!(local.producer.is_none());
+        let local_retained = local_service.pool.reserved() - local_baseline;
+        assert!(local_retained > local.outer.git_sha.capacity());
+        assert!(local_retained < OBSERVATION_WORK_BYTES);
         drop(local);
         assert_eq!(local_service.pool.reserved(), local_baseline);
         assert!(
@@ -1862,7 +1878,7 @@ mod portable_frame_tests {
         assert!(observed.outer.source.is_none());
         assert_eq!(observed.outer.git_sha, "source-unavailable");
         assert!(observed.producer.is_none());
-        assert!(service.pool.reserved() > baseline);
+        assert_eq!(service.pool.reserved() - baseline, local_retained);
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
         assert_eq!(service.cpu.available_permits(), service.cores);
         let escaped = observed.clone();
@@ -1889,6 +1905,59 @@ mod portable_frame_tests {
     }
 
     #[tokio::test]
+    async fn deployment_startup_transfers_only_escaped_result_after_native_join() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let driver = crate::CancelSource::new();
+        let deadline = std::time::Instant::now() + ReplayAdmission::STARTUP_OBSERVATION_LIMIT;
+        let (entered, witness) = tokio::sync::oneshot::channel();
+        let (release, gate) = std::sync::mpsc::channel();
+        let mut observation = Box::pin(startup_observation_job(
+            &service,
+            OBSERVATION_WORK_BYTES,
+            deadline,
+            &driver,
+            move |_| {
+                let escaped = Vec::<u8>::with_capacity(127);
+                let retained = escaped.capacity();
+                entered.send(()).unwrap();
+                gate.recv().unwrap();
+                Ok((escaped, retained))
+            },
+        ));
+        assert!(futures_util::poll!(observation.as_mut()).is_pending());
+        witness.await.unwrap();
+        assert!(service.pool.reserved() - baseline >= OBSERVATION_WORK_BYTES);
+        release.send(()).unwrap();
+        let (escaped, owner) = observation.await.unwrap();
+        assert_eq!(service.pool.reserved() - baseline, escaped.capacity());
+        assert_eq!(owner.size(), escaped.capacity());
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        let consumer = owner.clone();
+        drop(owner);
+        drop(escaped);
+        assert_eq!(service.pool.reserved() - baseline, consumer.size());
+        drop(consumer);
+        assert_eq!(service.pool.reserved(), baseline);
+
+        // The receipt-size preflight returns a scalar, so none of its complete
+        // native allowance remains reserved during the next admitted operation.
+        let (extent, owner) = startup_observation_job(
+            &service,
+            OBSERVATION_WORK_BYTES,
+            deadline,
+            &driver,
+            |_| Ok((172_usize, 0)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(extent, 172);
+        assert_eq!(owner.size(), 0);
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+
+    #[tokio::test]
     async fn deployment_startup_preserves_original_expiry_before_native_work() {
         let service = super::super::tests::service();
         let driver = crate::CancelSource::new();
@@ -1903,7 +1972,7 @@ mod portable_frame_tests {
                 &driver,
                 move |_| {
                     calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    Ok(())
+                    Ok(((), 0))
                 }
             )
             .await
@@ -1931,7 +2000,7 @@ mod portable_frame_tests {
                 entered.send(()).unwrap();
                 gate.recv().unwrap();
                 receiving_checkpoint(&flag, Some(deadline))?;
-                Ok(())
+                Ok(((), 0))
             },
         ));
         assert!(futures_util::poll!(observe.as_mut()).is_pending());
@@ -1977,7 +2046,7 @@ mod portable_frame_tests {
                     entered.send(()).unwrap();
                     gate.recv().unwrap();
                     receiving_checkpoint(&flag, Some(deadline))?;
-                    Ok(())
+                    Ok(((), 0))
                 },
             ));
             assert!(futures_util::poll!(observe.as_mut()).is_pending());

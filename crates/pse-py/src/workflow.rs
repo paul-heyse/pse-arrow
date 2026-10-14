@@ -683,12 +683,22 @@ impl NativeRuntime {
             }
         };
         verify_loaded()?;
+        let checkpoint = || {
+            stop.checkpoint().map_err(|_| {
+                native::WorkflowError::Math(pse_runtime::math::MathRuntimeError::Cancelled)
+            })
+        };
+        checkpoint()?;
         let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
             &configured.substrate,
             configured.database.as_deref(),
         )?;
         let store = pse_operations::canonical::CanonicalStore::connect(&options).await?;
+        checkpoint()?;
         store.open().await?;
+        checkpoint()?;
+        // `startup` retains only the escaped observation, including through a
+        // slow or failed store open; native receipt/namespace scratch has drained.
         self.inner.with_canonical(native::CanonicalDeployment::new(
             store,
             native::OuterAttestation {
