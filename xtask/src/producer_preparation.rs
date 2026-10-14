@@ -161,10 +161,74 @@ pub(crate) fn begin(root: &Path, directory: &Path, selections: Vec<ProducerOptio
         families, configuration, sources, manifest, lock, compiled:BTreeMap::new() })
 }
 
+fn executor_bases(options: &ProducerOptions, root: &Path, graph: &UnitGraph,
+    packages: &BTreeMap<String, cargo_metadata::Package>) -> Result<BTreeMap<String,String>> {
+    let keys=unit_keys(graph,root)?;
+    let sources=selected_source_state(graph,packages)?;
+    let mut bases=BTreeMap::new();
+    let mut native_options = options.clone();
+    native_options.package.clear();
+    native_options.production_target = ProducerTarget::Library;
+    native_options.features.clear();
+    native_options.no_default_features = false;
+    let native_basis = (native_review_basis(&native_options,root)?,
+        options.declarations.native_inputs_complete,
+        options.declarations.native_reviewed_source.clone(),
+        options.declarations.native_environment.clone());
+    let caller_environment = native_caller_environment(options)?;
+    let catalogs = options.declarations.review_catalogs.iter().map(|path|
+        Ok((path.clone(),bytes_hash(&absolute(root,path))?))).collect::<Result<Vec<_>>>()?;
+    for index in selected_indices(graph)? {
+        let unit=&graph.units[index];
+        if unit.mode != "build" || !unit.target.kind.iter().any(|kind| kind == "custom-build" || kind == "proc-macro") { continue; }
+        let mut normalized = options.clone();
+        normalized.package = unit.pkg_id.clone();
+        normalized.production_target = ProducerTarget::Library;
+        normalized.features = unit.features.clone();
+        normalized.no_default_features = false;
+        // Common native/search state is observed once for this capture,
+        // rather than rehashing every large namespace for every executor.
+        normalized.native_inputs.clear();
+        normalized.declarations.native_environment.clear();
+        normalized.declarations.native_namespaces.clear();
+        normalized.declarations.native_absent_files.clear();
+        normalized.declarations.native_absent_environment_prefixes.clear();
+        normalized.declarations.review_catalogs.clear();
+        // Review the dependency-complete executable closure, rather than the
+        // unrelated role's package/target as though it were executable input.
+        let mut closure = graph.clone();
+        closure.roots = vec![index];
+        let owners = selected_indices(&closure)?.into_iter().map(|i| graph.units[i].pkg_id.clone()).collect::<BTreeSet<_>>();
+        normalized.declarations.build_scripts.retain(|owner, _| owners.contains(owner) || owners.iter().any(|id| logical_package(id, root) == *owner));
+        normalized.declarations.proc_macros.retain(|owner, _| owners.contains(owner) || owners.iter().any(|id| logical_package(id, root) == *owner));
+        let basis = hash_parts(&[b"finite-preparation-executor.v1", &serde_json::to_vec(&(
+            &keys[&index], executable_closure_basis(graph,index,&sources,&keys)?,
+            reviewed_input_state(&normalized,root)?, &native_basis, &caller_environment, &catalogs,
+            &normalized.declarations.configuration_executors,
+            &normalized.declarations.build_scripts, &normalized.declarations.proc_macros))?]);
+        bases.insert(keys[&index].clone(),basis);
+    }
+    Ok(bases)
+}
+
+fn verify_compilation(prior: &Compilation, verified: &mut BTreeSet<PathBuf>) -> Result<()> {
+    ensure!(bytes_hash(&prior.evidence)? == prior.evidence_hash,
+        "preceding compilation evidence changed");
+    for output in &prior.outputs { output.verify()?; }
+    if verified.insert(prior.premises.clone()) {
+        ensure!(bytes_hash(&prior.premises)? == prior.premises_hash,
+            "preparation consumed premises changed");
+        let association: deployment_identity::DeploymentAssociation = serde_json::from_slice(&fs::read(&prior.premises)?)?;
+        association.verify_current(&association.artifact.path)?;
+    }
+    Ok(())
+}
+
 pub(super) struct Capture {
     directory: PathBuf,
     state: State,
     pending: BTreeMap<String, Compilation>,
+    bases: BTreeMap<String,String>,
     _lock: File,
     done: bool,
 }
@@ -193,7 +257,7 @@ impl Capture {
             "preparation target guard changed");
         write_new(&directory.join("in-progress.json"), &serde_json::json!({"pid":std::process::id(),
             "package":options.package,"evidence":options.declarations.actual_build_evidence}))?;
-        let capture = Self { directory, state, pending:BTreeMap::new(), _lock:lock, done:false };
+        let mut capture = Self { directory, state, pending:BTreeMap::new(), bases:BTreeMap::new(), _lock:lock, done:false };
         let state = &capture.state;
         ensure!(state.profile == options.profile && state.target == options.target,
             "actual child selects another preparation target/profile");
@@ -206,31 +270,34 @@ impl Capture {
         for (id, source) in selected_source_state(graph, packages)? {
             ensure!(state.sources.get(&id) == Some(&source), "actual child source is outside preparation baseline");
         }
+        // Cargo can execute a cached build script while deciding what to rebuild.
+        // Reject known substituted executors and changed consumed premises before
+        // giving the actual child any effects, then check them again afterward.
+        let bases=executor_bases(options,root,graph,packages)
+            .context("preparation premises or original outputs changed")?;
+        let mut verified=BTreeSet::new();
+        for (key,basis) in &bases {
+            if let Some(prior)=capture.state.compiled.get(key) {
+                ensure!(prior.basis == *basis, "preparation premises or original outputs changed");
+                verify_compilation(prior,&mut verified)
+                    .context("preparation premises or original outputs changed")?;
+            }
+        }
+        capture.bases=bases;
         Ok(Some(capture))
     }
 
     pub(super) fn validate(&mut self, options: &ProducerOptions, root: &Path, graph: &UnitGraph,
         packages: &BTreeMap<String, cargo_metadata::Package>, messages: &[serde_json::Value], identity: &ProducerIdentity) -> Result<()> {
         let keys = unit_keys(graph, root)?;
-        let sources = selected_source_state(graph, packages)?;
+        let bases=executor_bases(options,root,graph,packages)?;
+        ensure!(bases == self.bases, "preparation premises or original outputs changed during child build");
         let evidence = absolute(root, options.declarations.actual_build_evidence.as_ref().context("actual preparation evidence")?);
         let premises = evidence.with_extension("preparation-premises.json");
         write_new(&premises, &deployment_association(options,root,graph,messages,identity)?)?;
         let premises_hash = bytes_hash(&premises)?;
         let mut verified = BTreeSet::new();
         let mut preceding = BTreeMap::new();
-        let mut native_options = options.clone();
-        native_options.package.clear();
-        native_options.production_target = ProducerTarget::Library;
-        native_options.features.clear();
-        native_options.no_default_features = false;
-        let native_basis = (native_review_basis(&native_options,root)?,
-            options.declarations.native_inputs_complete,
-            options.declarations.native_reviewed_source.clone(),
-            options.declarations.native_environment.clone());
-        let caller_environment = native_caller_environment(options)?;
-        let catalogs = options.declarations.review_catalogs.iter().map(|path|
-            Ok((path.clone(),bytes_hash(&absolute(root,path))?))).collect::<Result<Vec<_>>>()?;
         for index in selected_indices(graph)? {
             let unit = &graph.units[index];
             // run-custom-build output association is captured separately by the
@@ -239,31 +306,7 @@ impl Capture {
             let artifacts = messages.iter().filter(|message| artifact_matches(unit, message)).collect::<Vec<_>>();
             ensure!(artifacts.len() == 1, "executor lacks an unambiguous exact compilation association");
             let message = artifacts[0];
-            let mut normalized = options.clone();
-            normalized.package = unit.pkg_id.clone();
-            normalized.production_target = ProducerTarget::Library;
-            normalized.features = unit.features.clone();
-            normalized.no_default_features = false;
-            // Common native/search state is observed once for this capture,
-            // rather than rehashing every large namespace for every executor.
-            normalized.native_inputs.clear();
-            normalized.declarations.native_environment.clear();
-            normalized.declarations.native_namespaces.clear();
-            normalized.declarations.native_absent_files.clear();
-            normalized.declarations.native_absent_environment_prefixes.clear();
-            normalized.declarations.review_catalogs.clear();
-            // Review the dependency-complete executable closure, rather than the
-            // unrelated role's package/target as though it were executable input.
-            let mut closure = graph.clone();
-            closure.roots = vec![index];
-            let owners = selected_indices(&closure)?.into_iter().map(|i| graph.units[i].pkg_id.clone()).collect::<BTreeSet<_>>();
-            normalized.declarations.build_scripts.retain(|owner, _| owners.contains(owner) || owners.iter().any(|id| logical_package(id, root) == *owner));
-            normalized.declarations.proc_macros.retain(|owner, _| owners.contains(owner) || owners.iter().any(|id| logical_package(id, root) == *owner));
-            let basis = hash_parts(&[b"finite-preparation-executor.v1", &serde_json::to_vec(&(
-                &keys[&index], executable_closure_basis(graph,index,&sources,&keys)?,
-                reviewed_input_state(&normalized,root)?, &native_basis, &caller_environment, &catalogs,
-                &normalized.declarations.configuration_executors,
-                &normalized.declarations.build_scripts, &normalized.declarations.proc_macros))?]);
+            let basis = bases[&keys[&index]].clone();
             let names = message["filenames"].as_array().context("executor output files missing")?;
             let mut outputs = names.iter().map(|name| deployment_identity::FileObservation::capture(
                 &absolute(root, Path::new(name.as_str().context("executor output name")?))).map_err(anyhow::Error::from))
@@ -279,15 +322,12 @@ impl Capture {
                     ensure!(prior.basis == basis && prior.outputs == outputs
                         && bytes_hash(&prior.evidence)? == prior.evidence_hash,
                         "Fresh executor preparation premises or original outputs changed");
-                    for output in &prior.outputs { output.verify()?; }
+                    verify_compilation(prior,&mut verified)
+                        .context("preparation premises or original outputs changed")?;
                     preceding.insert(prior.evidence.clone(), serde_json::json!({
                         "compilation": prior, "actual_build_evidence":serde_json::from_slice::<serde_json::Value>(&fs::read(&prior.evidence)?)?,
                         "original_premises":serde_json::from_slice::<serde_json::Value>(&fs::read(&prior.premises)?)?}));
-                    if verified.insert(prior.premises.clone()) {
-                        ensure!(bytes_hash(&prior.premises)? == prior.premises_hash, "preparation consumed premises changed");
-                        let association: deployment_identity::DeploymentAssociation = serde_json::from_slice(&fs::read(&prior.premises)?)?;
-                        association.verify_current(&association.artifact.path)?;
-                    }
+
                 }
                 None => anyhow::bail!("executor compilation has no actual Fresh state"),
             }
@@ -445,6 +485,9 @@ mod tests {
         second.native_inputs.push(native);
         assert!(run(&second).unwrap_err().to_string().contains("premises or original outputs changed"));
         assert!(fixture.directory.join("FAILED").is_file());
+        assert!(!fixture.evidence.join("changed-native.json").exists());
+        assert!(!fixture.evidence.join("changed-native.json.closure/build.status.json").exists());
+        assert!(!fixture.evidence.join("changed-native.json.closure/build.stdout").exists());
     }
 
     #[test]
@@ -459,6 +502,9 @@ mod tests {
         second.declarations.native_absent_files.push(absent);
         assert!(run(&second).unwrap_err().to_string().contains("premises or original outputs changed"));
         assert!(fixture.directory.join("FAILED").is_file());
+        assert!(!fixture.evidence.join("changed-absence.json").exists());
+        assert!(!fixture.evidence.join("changed-absence.json.closure/build.status.json").exists());
+        assert!(!fixture.evidence.join("changed-absence.json.closure/build.stdout").exists());
     }
 
     #[test]
@@ -470,6 +516,9 @@ mod tests {
         fs::write(&compiled.outputs[0].path,b"substituted executor bytes").unwrap();
         assert!(run(&fixture.selection("changed-output")).unwrap_err().to_string().contains("premises or original outputs changed"));
         assert!(fixture.directory.join("FAILED").is_file());
+        assert!(!fixture.evidence.join("changed-output.json").exists());
+        assert!(!fixture.evidence.join("changed-output.json.closure/build.status.json").exists());
+        assert!(!fixture.evidence.join("changed-output.json.closure/build.stdout").exists());
     }
 
     #[test]
