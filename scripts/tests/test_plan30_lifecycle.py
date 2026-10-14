@@ -191,7 +191,7 @@ class Plan30LifecycleTests(unittest.TestCase):
                 for table in ("canonical_file_owners", "canonical_file_instances")
             ):
                 return []
-            self.fail(f"Unexpected empty payload catalog query: {body}")
+            raise AssertionError(f"Unexpected empty payload catalog query: {body}")
 
         with (
             patch.object(server, "start", side_effect=start),

@@ -1196,6 +1196,52 @@ class TestResourceTests(unittest.TestCase):
         self.assertTrue((directory / "run.log").exists())
         self.assertTrue(resources.resource_status(resource)["references"])
 
+    def test_report_borrow_without_overall_deadline_survives_long_read(self) -> None:
+        for retained in (False, True):
+            with self.subTest(retained=retained):
+                resource, directory = self.report(f"long-read-{retained}")
+                now = [100.0]
+                consumer = self.root / "consumer"
+                guard = (
+                    resources.reference_report(directory, consumer)
+                    if retained
+                    else resources.borrow_report(directory)
+                )
+                with patch.object(
+                    resources.time, "monotonic", side_effect=lambda: now[0]
+                ):
+                    with guard:
+                        now[0] += 6.0
+                        self.assertTrue(resources.resource_status(resource)["borrows"])
+                    record = resources.resource_status(resource)
+                self.assertEqual(record["borrows"], {})
+                self.assertEqual(bool(record["references"]), retained)
+
+    def test_report_borrow_preserves_explicit_deadline_after_long_read(self) -> None:
+        for retained in (False, True):
+            with self.subTest(retained=retained):
+                resource, directory = self.report(f"bounded-read-{retained}")
+                now = [100.0]
+                consumer = self.root / "consumer"
+                guard = (
+                    resources.reference_report(directory, consumer, deadline=105.0)
+                    if retained
+                    else resources.borrow_report(directory, deadline=105.0)
+                )
+                with (
+                    patch.object(
+                        resources.time, "monotonic", side_effect=lambda: now[0]
+                    ),
+                    self.assertRaisesRegex(
+                        resources.host.AdmissionError, "deadline exhausted"
+                    ),
+                    guard,
+                ):
+                    now[0] += 6.0
+                record = resources.resource_status(resource)
+                self.assertTrue(record["borrows"])
+                self.assertEqual(record["references"], {})
+
     def test_report_compaction_preserves_receipt_and_unknown_history(self) -> None:
         directory = self.root / "build" / "owned"
         directory.mkdir(parents=True)

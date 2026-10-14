@@ -243,22 +243,20 @@ class NativeOperationTests(unittest.TestCase):
         )
         self.assertTrue(unit.startswith("pse-cmd-"))
         self.addCleanup(self.settle_entry_fixture, base, unit, allocation)
-        launcher = "\n".join(
-            [
-                "import os,sys; from pathlib import Path",
-                "from scripts import native_operation as n,host_admission as h",
-                "base=Path(sys.argv[1]); unit=sys.argv[2]",
-                "allocation=h.inherit(os.environ); assert allocation is not None",
-                "observed=n.unit_observation(unit); group=n.process_group(os.getpid())",
-                "assert observed['LoadState']=='loaded' and observed['ControlGroup']==group",
-                "assert n.scope_owner() is None",
-                "inode=h.group_identity(group); assert type(inode) is int",
-                "n.write_json(base/'entry-launcher.json',{'pid':os.getpid(),'start':n.start_identity(os.getpid()),'allocation':os.environ[h.MARKER],'scope_inode':inode,'scope':{'unit':unit,'group':group,'invocation':observed['InvocationID']}})",
-                "environment=dict(os.environ)",
-                "for name in (h.MARKER,n.MARKER,'PSE_NATIVE_HANDOFF','PSE_ADMISSION_DEADLINE'): environment.pop(name,None)",
-                "if sys.argv[3]=='0':\n for name in ('XDG_RUNTIME_DIR','DBUS_SESSION_BUS_ADDRESS'): environment.pop(name,None)",
-                "os.execvpe(sys.argv[4],sys.argv[4:],environment)",
-            ]
+        launcher = (
+            "import os,sys; from pathlib import Path\n"
+            "from scripts import native_operation as n,host_admission as h\n"
+            "base=Path(sys.argv[1]); unit=sys.argv[2]\n"
+            "allocation=h.inherit(os.environ); assert allocation is not None\n"
+            "observed=n.unit_observation(unit); group=n.process_group(os.getpid())\n"
+            "assert observed['LoadState']=='loaded' and observed['ControlGroup']==group\n"
+            "assert n.scope_owner() is None\n"
+            "inode=h.group_identity(group); assert type(inode) is int\n"
+            "n.write_json(base/'entry-launcher.json',{'pid':os.getpid(),'start':n.start_identity(os.getpid()),'allocation':os.environ[h.MARKER],'scope_inode':inode,'scope':{'unit':unit,'group':group,'invocation':observed['InvocationID']}})\n"
+            "environment=dict(os.environ)\n"
+            "for name in (h.MARKER,n.MARKER,'PSE_NATIVE_HANDOFF','PSE_ADMISSION_DEADLINE'): environment.pop(name,None)\n"
+            "if sys.argv[3]=='0':\n for name in ('XDG_RUNTIME_DIR','DBUS_SESSION_BUS_ADDRESS'): environment.pop(name,None)\n"
+            "os.execvpe(sys.argv[4],sys.argv[4:],environment)"
         )
         return [
             *prefix,
@@ -478,7 +476,7 @@ class NativeOperationTests(unittest.TestCase):
 
     def assert_fixture_scope(
         self,
-        owner: Mapping[str, str],
+        owner: operation.ScopeOwner | Mapping[str, str],
         *,
         live: bool = True,
         deadline: float | None = None,
@@ -1996,6 +1994,7 @@ class NativeOperationTests(unittest.TestCase):
                     stderr=subprocess.STDOUT,
                 )
                 owners = []
+                entry = None
                 try:
                     parent = self.await_file(base / "composer-ready.json", process)
                     owners.append(parent["scope"])
@@ -2023,13 +2022,13 @@ class NativeOperationTests(unittest.TestCase):
                     self.assertEqual(
                         operation.process_group(child["opaque"]), owners[1]["group"]
                     )
-                    recipient = (
-                        parent["pid"]
-                        if target == "composer"
-                        else entry["pid"]
-                        if target == "entry"
-                        else parent["owner"]["pid"]
-                    )
+                    if target == "composer":
+                        recipient = parent["pid"]
+                    elif target == "entry":
+                        assert entry is not None
+                        recipient = entry["pid"]
+                    else:
+                        recipient = parent["owner"]["pid"]
                     os.kill(recipient, signum)
                     process.wait(timeout=20)
                     normalized = (
@@ -2064,6 +2063,7 @@ class NativeOperationTests(unittest.TestCase):
                         self.await_drain({"scope": owner})
                     self.assert_parent_scope_unchanged()
                     if target == "entry":
+                        assert entry is not None
                         self.await_drain({"scope": entry["scope"]})
                         native_allocation = Path(parent["allocation"])
                         with pse_env.host.allocation_metadata(

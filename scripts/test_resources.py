@@ -789,8 +789,7 @@ def report_resource(directory: Path, *, deadline: float | None = None) -> str | 
 def borrow_report(
     directory: Path, *, deadline: float | None = None
 ) -> Generator[None, None, None]:
-    """Protect a bounded display read without creating a retained dependency."""
-    deadline = resource_store.clock(deadline)
+    """Protect a display read; preserve an optional caller-wide deadline."""
     resource = report_resource(directory, deadline=deadline)
     if resource is None:
         yield  # Historical unknown reports cannot be reclaimed by this owner.
@@ -806,8 +805,7 @@ def reference_report(
     *,
     deadline: float | None = None,
 ) -> Generator[None, None, None]:
-    """Borrow a registered origin before reading; transfer protection before release."""
-    deadline = resource_store.clock(deadline)
+    """Borrow before reading; transfer protection under the optional caller deadline."""
     resource = report_resource(directory, deadline=deadline)
     if resource is None:
         raise ResourceError(
