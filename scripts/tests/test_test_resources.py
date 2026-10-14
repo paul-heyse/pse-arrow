@@ -1208,7 +1208,7 @@ class TestResourceTests(unittest.TestCase):
                     else resources.borrow_report(directory)
                 )
                 with patch.object(
-                    resources.time, "monotonic", side_effect=lambda: now[0]
+                    resources.time, "monotonic", side_effect=lambda now=now: now[0]
                 ):
                     with guard:
                         now[0] += 6.0
@@ -1230,7 +1230,7 @@ class TestResourceTests(unittest.TestCase):
                 )
                 with (
                     patch.object(
-                        resources.time, "monotonic", side_effect=lambda: now[0]
+                        resources.time, "monotonic", side_effect=lambda now=now: now[0]
                     ),
                     self.assertRaisesRegex(
                         resources.host.AdmissionError, "deadline exhausted"
