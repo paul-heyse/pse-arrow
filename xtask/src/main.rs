@@ -85,6 +85,8 @@ enum Cmd {
         output: PathBuf,
     },
     ProducerIdentity(Box<ProducerIdentityArgs>),
+    /// Verify protected historical role evidence; grants no current admission.
+    ProducerHistoryVerify { directory: PathBuf },
     /// Verify a reviewed provider association without Cargo discovery or building.
     VerifyNativeProvider {
         #[arg(long)]
@@ -187,6 +189,9 @@ struct ProducerIdentityArgs {
     /// Private actual build/unit/command evidence for source review, not a grant.
     #[arg(long)]
     build_evidence: Option<PathBuf>,
+    /// Exact Cargo argv selected by the strict installer child observer.
+    #[arg(long)]
+    observed_cargo_arguments: Option<PathBuf>,
     /// Refresh only selected build-script/proc-macro packages with Cargo clean
     /// in the selected profile before guarded actual capture.
     #[arg(long)]
@@ -258,6 +263,11 @@ fn main() -> Result<()> {
             producer_identity::verify_deployment_artifact(&receipt, &artifact)
         }
         Cmd::ObserveDeployment { output } => producer_identity::observe_deployment(&root, &output),
+        Cmd::ProducerHistoryVerify { directory } => {
+            let result = producer_identity::verify_historical_evidence(&directory)?;
+            println!("{}", serde_json::to_string(&result)?);
+            Ok(())
+        }
         Cmd::ProducerIdentity(args) => {
             let ProducerIdentityArgs {
                 package,
@@ -274,6 +284,7 @@ fn main() -> Result<()> {
                 environment,
                 declarations,
                 build_evidence,
+                observed_cargo_arguments,
                 refresh_executors,
                 output,
             } = *args;
@@ -295,7 +306,7 @@ fn main() -> Result<()> {
                 declarations.actual_build_evidence = Some(path);
             }
             declarations.refresh_executors |= refresh_executors;
-            let identity = producer_identity::run(&producer_identity::ProducerOptions {
+            let options = producer_identity::ProducerOptions {
                 workspace_root: root,
                 package,
                 profile,
@@ -312,9 +323,15 @@ fn main() -> Result<()> {
                 native_inputs: native_input,
                 declared_environment,
                 declarations,
-            })?;
+            };
+            let observed_arguments = observed_cargo_arguments.as_ref().map(|path| {
+                Ok::<Vec<String>, anyhow::Error>(serde_json::from_slice(&std::fs::read(path)?)?)
+            }).transpose()?;
+            let identity = if let Some(arguments) = &observed_arguments {
+                producer_identity::run_observed(&options, arguments)?
+            } else { producer_identity::run(&options)? };
             producer_identity::write_if_changed(&output, &identity)?;
-            println!(
+            eprintln!(
                 "producer identity {}: persistent reuse eligible={}",
                 identity.identity, identity.persistent_reuse_eligible
             );

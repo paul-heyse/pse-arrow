@@ -10,6 +10,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[path = "producer_history.rs"]
+mod history;
+pub(crate) use history::verify_historical_evidence;
+
 use anyhow::{Context, Result, ensure};
 use pse_ids::{EncodingHasher, Frame, FramedHasher};
 use quote::ToTokens;
@@ -51,7 +55,7 @@ pub(crate) struct BuildScriptInputs {
     pest_grammars: Vec<PestGrammarInput>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct PestGrammarInput {
     caller: String,
     preferred: PathBuf,
@@ -452,7 +456,175 @@ pub(crate) fn unit_graph_arguments(options: &ProducerOptions) -> Vec<String> {
     args
 }
 
+/// Drains both child pipes while preserving their original bytes. Stream files are
+/// created before launch, so a killed capture leaves partial evidence rather than
+/// losing everything buffered inside Command::output. The outer admitted process
+/// owner remains responsible for descendant cancellation and scope drain.
+struct StreamedChild {
+    status: std::process::ExitStatus,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+    stream_errors: Vec<String>,
+}
+
+fn drain_child_pipe(
+    mut source: impl std::io::Read,
+    mut spool: fs::File,
+    mut forward: Option<&mut (dyn std::io::Write + Send)>,
+) -> std::io::Result<Vec<String>> {
+    use std::io::Write;
+    let mut errors = Vec::new();
+    let mut bytes = [0u8; 65_536];
+    loop {
+        let count = match source.read(&mut bytes) {
+            Ok(0) => break,
+            Ok(count) => count,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) => {
+                errors.push(format!("child pipe read: {error}"));
+                break;
+            }
+        };
+        if let Err(error) = spool.write_all(&bytes[..count]).and_then(|()| spool.flush()) {
+            errors.push(format!("child spool write: {error}"));
+        }
+        if let Some(sink) = forward.as_mut() {
+            if let Err(error) = sink.write_all(&bytes[..count]).and_then(|()| sink.flush()) {
+                errors.push(format!("child diagnostic forwarding: {error}"));
+                // Still drain the pipe. A broken observer cannot deadlock the child.
+                forward = None;
+            }
+        }
+    }
+    spool.sync_all()?;
+    Ok(errors)
+}
+
+fn streamed_child(
+    command: &mut Command,
+    evidence: Option<&Path>,
+    label: &str,
+    mirror_stdout: bool,
+    forward: &mut (dyn std::io::Write + Send),
+) -> Result<StreamedChild> {
+    use std::process::Stdio;
+    let temporary = tempfile::tempdir()?;
+    let directory = evidence.unwrap_or(temporary.path());
+    let stdout_path = directory.join(format!("{label}.stdout"));
+    let stderr_path = directory.join(format!("{label}.stderr"));
+    let open = |path: &Path| -> std::io::Result<fs::File> {
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        options.open(path)
+    };
+    let stdout_file = open(&stdout_path)?;
+    let stderr_file = open(&stderr_path)?;
+    let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let stdout = child.stdout.take().context("child stdout pipe")?;
+    let stderr = child.stderr.take().context("child stderr pipe")?;
+    let (status, out, err) = std::thread::scope(|scope| {
+        let out = scope.spawn(|| {
+            let mut sink = std::io::stdout();
+            drain_child_pipe(stdout, stdout_file, if mirror_stdout { Some(&mut sink) } else { None })
+        });
+        let err = scope.spawn(|| drain_child_pipe(stderr, stderr_file, Some(forward)));
+        let status = child.wait();
+        (status, out.join(), err.join())
+    });
+    let status = status.context("waiting for selected child")?;
+    let mut stream_errors = Vec::new();
+    for joined in [out, err] {
+        match joined {
+            Ok(Ok(errors)) => stream_errors.extend(errors),
+            Ok(Err(error)) => stream_errors.push(error.to_string()),
+            Err(_) => stream_errors.push("child stream reader panicked".into()),
+        }
+    }
+    fs::write(
+        directory.join(format!("{label}.status.json")),
+        serde_json::to_vec(&serde_json::json!({
+            "success": status.success(), "code": status.code(),
+            "status": status.to_string(), "stream_errors": stream_errors,
+        }))?,
+    )?;
+    Ok(StreamedChild {
+        status,
+        stdout: fs::read(stdout_path)?,
+        stderr: fs::read(stderr_path)?,
+        stream_errors,
+    })
+}
+
 pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
+    run_selected(options, None)
+}
+
+/// Strict installer adapter: the actual selected Cargo child is captured in the
+/// same operation. Unsupported arguments refuse before any build/refresh effects.
+pub(crate) fn run_observed(options: &ProducerOptions, arguments: &[String]) -> Result<ProducerIdentity> {
+    validate_observed_arguments(options, arguments)?;
+    run_selected(options, Some(arguments))
+}
+
+fn validate_observed_arguments(options: &ProducerOptions, arguments: &[String]) -> Result<()> {
+    let ProducerTarget::Cdylib(manifest) = &options.production_target else {
+        anyhow::bail!("observed installer capture requires selected cdylib");
+    };
+    ensure!(arguments.first().map(String::as_str) == Some("rustc"), "observed installer requires Cargo rustc");
+    let mut values = BTreeMap::new();
+    let mut switches = BTreeSet::new();
+    let mut index = 1;
+    while index < arguments.len() {
+        let argument = &arguments[index];
+        let (name, inline) = argument.split_once('=').map_or((argument.as_str(), None), |(name,value)| (name, Some(value)));
+        if ["--lib", "--locked", "--offline", "--no-default-features"].contains(&name) {
+            ensure!(inline.is_none() && switches.insert(name.to_owned()), "repeated/invalid observed Cargo switch: {name}");
+        } else {
+            ensure!(["--manifest-path", "--profile", "--features", "--target", "--crate-type", "--message-format", "--color"].contains(&name), "unsupported observed Cargo argument: {name}");
+            let value = if let Some(value) = inline { value.to_owned() } else {
+                index += 1;
+                arguments.get(index).context("observed Cargo argument requires value")?.clone()
+            };
+            ensure!(!value.is_empty() && values.insert(name.to_owned(), value).is_none(), "repeated/empty observed Cargo argument: {name}");
+        }
+        index += 1;
+    }
+    ensure!(switches.contains("--lib") && switches.contains("--locked"), "observed Cargo requires locked library selection");
+    ensure!(values.get("--crate-type").map(String::as_str) == Some("cdylib"), "observed Cargo crate type differs");
+    ensure!(matches!(values.get("--message-format").map(String::as_str), Some("json-render-diagnostics") | Some("json")), "observed Cargo requires JSON diagnostics");
+    ensure!(values.get("--profile") == Some(&options.profile), "observed Cargo profile differs");
+    ensure!(values.get("--target") == options.target.as_ref(), "observed Cargo target differs");
+    ensure!(switches.contains("--no-default-features") == options.no_default_features, "observed Cargo default features differ");
+    let features = values.get("--features").into_iter().flat_map(|value| value.split([',', ' '])).filter(|value| !value.is_empty()).collect::<BTreeSet<_>>();
+    ensure!(features == options.features.iter().map(String::as_str).collect(), "observed Cargo features differ");
+    let actual = values.get("--manifest-path").context("observed Cargo manifest missing")?;
+    ensure!(absolute(&options.workspace_root, Path::new(actual)).canonicalize()? == absolute(&options.workspace_root, manifest).canonicalize()?, "observed Cargo manifest differs");
+    if let Some(color) = values.get("--color") {
+        ensure!(["auto", "always", "never"].contains(&color.as_str()), "unsupported observed Cargo color");
+    }
+    Ok(())
+}
+
+fn observed_graph_arguments(arguments: &[String]) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut index = 0;
+    while index < arguments.len() {
+        let name = arguments[index].split('=').next().unwrap();
+        if ["--message-format", "--color"].contains(&name) {
+            if !arguments[index].contains('=') { index += 1; }
+        } else { result.push(arguments[index].clone()); }
+        index += 1;
+    }
+    result.extend(["--unit-graph".into(), "-Zunstable-options".into()]);
+    result
+}
+
+fn run_selected(options: &ProducerOptions, observed_arguments: Option<&[String]>) -> Result<ProducerIdentity> {
     ensure!(
         options.declarations.actual_build_evidence.is_none()
             || options.declarations.capture_actual_build,
@@ -462,11 +634,20 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
         .workspace_root
         .canonicalize()
         .context("producer workspace root")?;
+    eprintln!("producer capture: selecting configuration and compilation units");
+    let evidence_directory = options.declarations.actual_build_evidence.as_ref().map(|path| {
+        let mut directory = absolute(&root, path).into_os_string();
+        directory.push(".closure");
+        PathBuf::from(directory)
+    });
+    if let Some(directory) = &evidence_directory {
+        fs::create_dir(directory).context("create new protected capture evidence (never overwrite)")?;
+    }
     let lock_before = fs::read(root.join("Cargo.lock"))?;
     let manifest_before = fs::read(root.join("Cargo.toml"))?;
     let configuration_before = configuration_state(&root)?;
     let graph: UnitGraph =
-        serde_json::from_slice(&cargo_output(&root, &unit_graph_arguments(options))?)
+        serde_json::from_slice(&cargo_output(&root, &observed_arguments.map_or_else(|| unit_graph_arguments(options), observed_graph_arguments))?)
             .context("selected Cargo unit graph")?;
     ensure!(
         graph.version == 1,
@@ -519,12 +700,12 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
             for family in &families {
                 arguments.extend(["--package".into(), family.clone()]);
             }
-            let output = Command::new("cargo")
-                .current_dir(&root)
-                .args(&arguments)
-                .output()?;
-            use std::io::Write;
-            std::io::stderr().write_all(&output.stderr)?;
+            eprintln!("producer capture: refreshing selected executor families");
+            let output = streamed_child(
+                Command::new("cargo").current_dir(&root).args(&arguments),
+                evidence_directory.as_deref(), "refresh", false, &mut std::io::stderr(),
+            )?;
+            ensure!(output.stream_errors.is_empty(), "executor refresh stream failure: {:?}", output.stream_errors);
             ensure!(
                 output.status.success(),
                 "selected executor family refresh failed: {}",
@@ -548,20 +729,20 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
     let sources_before = selected_source_state(&graph, &packages)?;
     let mut observed_build_outputs = BTreeMap::new();
     let messages = if options.declarations.capture_actual_build {
-        let mut arguments = unit_graph_arguments(options);
-        arguments
-            .retain(|argument| !matches!(argument.as_str(), "--unit-graph" | "-Zunstable-options"));
-        arguments.push("--message-format=json".into());
-        let output = Command::new("cargo")
-            .current_dir(&root)
-            .args(&arguments)
-            .output()
-            .context("running selected Cargo production build")?;
-        let messages = if output.status.success() {
-            parse_cargo_messages(&output.stdout)?
-        } else {
-            Vec::new()
-        };
+        let arguments = observed_arguments.map_or_else(|| {
+            let mut arguments = unit_graph_arguments(options);
+            arguments.retain(|argument| !matches!(argument.as_str(), "--unit-graph" | "-Zunstable-options"));
+            arguments.push("--message-format=json".into());
+            arguments
+        }, <[String]>::to_vec);
+        eprintln!("producer capture: building selected production target");
+        let output = streamed_child(
+            Command::new("cargo").current_dir(&root).args(&arguments),
+            evidence_directory.as_deref(), "build", observed_arguments.is_some(), &mut std::io::stderr(),
+        ).context("running selected Cargo production build")?;
+        // Preserve stream/status evidence even when successful Cargo emitted malformed JSON.
+        let parsed = parse_cargo_messages(&output.stdout);
+        let messages = parsed.as_ref().cloned().unwrap_or_default();
         if options.declarations.actual_build_evidence.is_some() && output.status.success() {
             observed_build_outputs = selected_build_output_observations(&messages, &root)?;
         }
@@ -591,11 +772,13 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
                 }),
             )?;
         }
+        ensure!(output.stream_errors.is_empty(), "selected Cargo stream failure: {:?}", output.stream_errors);
         ensure!(
             output.status.success(),
             "selected Cargo command failed: {}",
             String::from_utf8_lossy(&output.stderr)
         );
+        parsed?;
         for package in &refreshed_executors {
             let artifacts: Vec<_> = messages
                 .iter()
@@ -672,6 +855,10 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
             });
         }
     }
+    if let Some(directory) = &evidence_directory {
+        eprintln!("producer capture: protecting selected role artifact and consumed evidence");
+        history::prepare(directory, options, &root, &graph, &packages, &messages, &identity)?;
+    }
     ensure!(
         configuration_state(&root)? == configuration_before,
         "Cargo configuration/executables changed during producer capture; capture again from one deployment baseline"
@@ -693,6 +880,10 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
             selected_build_output_observations(&messages, &root)? == observed_build_outputs,
             "selected build output evidence changed during producer capture"
         );
+    }
+    if let Some(directory) = &evidence_directory {
+        eprintln!("producer capture: sealing consistent historical evidence");
+        history::seal(directory)?;
     }
     Ok(identity)
 }
@@ -1480,6 +1671,21 @@ fn macro_caller_input_basis(
     root: &Path,
     declaration: Option<&BuildScriptInputs>,
 ) -> Result<Option<String>> {
+    macro_caller_input_basis_with_reader(graph, macro_index, keys, associated, actual_associated, root, declaration, |path| {
+        if path.try_exists()? { Ok(Some(fs::read(path)?)) } else { Ok(None) }
+    })
+}
+
+fn macro_caller_input_basis_with_reader(
+    graph: &UnitGraph,
+    macro_index: usize,
+    keys: &BTreeMap<usize, String>,
+    associated: &BTreeMap<usize, Vec<PathBuf>>,
+    actual_associated: &BTreeSet<usize>,
+    root: &Path,
+    declaration: Option<&BuildScriptInputs>,
+    mut read: impl FnMut(&Path) -> Result<Option<Vec<u8>>>,
+) -> Result<Option<String>> {
     let mut callers = BTreeSet::from([macro_index]);
     loop {
         let previous = callers.len();
@@ -1522,7 +1728,7 @@ fn macro_caller_input_basis(
         };
         let mut consumed = BTreeMap::new();
         for path in paths {
-            let text = fs::read_to_string(absolute(root, path))?;
+            let text = String::from_utf8(read(&absolute(root, path))?.context("historical caller dep-info absent")?)?;
             for input in parse_dep_info(&text)? {
                 let path = absolute(root, &input);
                 let name = path.strip_prefix(root).map_or_else(
@@ -1531,7 +1737,7 @@ fn macro_caller_input_basis(
                 );
                 consumed.insert(
                     name,
-                    hash_parts(&[b"raw-macro-caller-input", &fs::read(path)?]),
+                    hash_parts(&[b"raw-macro-caller-input", &read(&path)?.context("historical caller input absent")?]),
                 );
             }
             for line in text.lines().filter(|line| line.starts_with("# env-dep:")) {
@@ -1561,11 +1767,7 @@ fn macro_caller_input_basis(
                     |_| path.to_string_lossy().into_owned(),
                     |relative| format!("workspace/{}", relative.display()),
                 );
-                let bytes = if path.try_exists()? {
-                    Some(fs::read(path)?)
-                } else {
-                    None
-                };
+                let bytes = read(path)?;
                 grammar_candidates.insert(
                     name,
                     hash_parts(&[b"reviewed-pest-candidate", &serde_json::to_vec(&bytes)?]),
@@ -1828,6 +2030,7 @@ fn namespace_alias_identity(aliases: &BTreeMap<(u64, u64), BTreeSet<PathBuf>>) -
 struct NamespaceObservation {
     identity: String,
     aliases: BTreeMap<(u64, u64), BTreeSet<PathBuf>>,
+    entries: BTreeMap<String, serde_json::Value>,
 }
 
 /// Exact bounded search namespace evidence. Unlike Rust package source traversal,
@@ -1846,6 +2049,7 @@ fn namespace_observation(root: &Path, entry_limit: usize) -> Result<NamespaceObs
     let mut pending = vec![root.to_path_buf()];
     let mut visited = BTreeSet::new();
     let mut entries = BTreeMap::new();
+    let mut inventory = BTreeMap::new();
     let mut content_extent = 0u64;
     let mut aliases = BTreeMap::<(u64, u64), BTreeSet<PathBuf>>::new();
     while let Some(path) = pending.pop() {
@@ -1857,6 +2061,7 @@ fn namespace_observation(root: &Path, entry_limit: usize) -> Result<NamespaceObs
         let metadata = match fs::symlink_metadata(&path) {
             Ok(metadata) => metadata,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                inventory.insert(label.clone(), serde_json::json!({"absent": true}));
                 entries.insert(label, hash_parts(&[b"namespace-absence"]));
                 continue;
             }
@@ -1968,6 +2173,11 @@ fn namespace_observation(root: &Path, entry_limit: usize) -> Result<NamespaceObs
                 path.display()
             );
         };
+        inventory.insert(label.clone(), serde_json::json!({
+            "kind": kind, "mode_frame": mode, "target_mode_frame": target_mode,
+            "link": link, "content_frame": content,
+            "raw_coverage": "inventory-only; consumed file bytes retained separately",
+        }));
         entries.insert(
             label,
             hash_parts(&[
@@ -1987,6 +2197,7 @@ fn namespace_observation(root: &Path, entry_limit: usize) -> Result<NamespaceObs
             namespace_alias_identity(&aliases)?.as_bytes(),
         ]),
         aliases,
+        entries: inventory,
     })
 }
 
@@ -4193,6 +4404,66 @@ pub(crate) fn write_if_changed(path: &Path, identity: &ProducerIdentity) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn producer_streamed_child_forwards_before_exit_and_preserves_raw_bytes() {
+        struct Acknowledge { path: PathBuf, bytes: Vec<u8> }
+        impl std::io::Write for Acknowledge {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.bytes.extend_from_slice(bytes);
+                fs::write(&self.path, b"observed before child exit")?;
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let mut sink = Acknowledge { path: directory.path().join("ack"), bytes: Vec::new() };
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", r#"printf 'live diagnostic' >&2; n=0; while [ ! -f "$1" ]; do n=$((n+1)); [ "$n" -lt 200 ] || exit 9; sleep 0.01; done; printf '\000\377{\"reason\":\"build-finished\"}'"#, "child"]);
+        command.arg(&sink.path);
+        let output = streamed_child(&mut command, Some(directory.path()), "live", false, &mut sink).unwrap();
+        assert!(output.status.success());
+        assert_eq!(sink.bytes, b"live diagnostic");
+        assert_eq!(&output.stdout[..2], &[0, 255]);
+        assert_eq!(fs::read(directory.path().join("live.stdout")).unwrap(), output.stdout);
+        assert!(parse_cargo_messages(&output.stdout).is_err());
+        assert!(directory.path().join("live.status.json").is_file());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn producer_streamed_child_preserves_nonzero_and_cancelled_partial_output() {
+        let directory = tempfile::tempdir().unwrap();
+        for (label, script) in [("failed", "printf partial; printf failure >&2; exit 7"), ("cancelled", "printf partial; printf stopping >&2; kill -TERM $$")] {
+            let mut sink = Vec::new();
+            let output = streamed_child(Command::new("/bin/sh").args(["-c", script]), Some(directory.path()), label, false, &mut sink).unwrap();
+            assert!(!output.status.success());
+            assert_eq!(output.stdout, b"partial");
+            assert_eq!(sink, output.stderr);
+            assert_eq!(fs::read(directory.path().join(format!("{label}.stdout"))).unwrap(), b"partial");
+            let status: serde_json::Value = serde_json::from_slice(&fs::read(directory.path().join(format!("{label}.status.json"))).unwrap()).unwrap();
+            assert_eq!(status["success"], false);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn producer_streamed_child_drains_after_observer_failure_and_descendant_pipe() {
+        struct Broken;
+        impl std::io::Write for Broken {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> { Err(std::io::Error::other("observer closed")) }
+            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "(sleep 0.05; printf descendant; printf diagnostics >&2) & exit 0"]);
+        let output = streamed_child(&mut command, Some(directory.path()), "drain", false, &mut Broken).unwrap();
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"descendant");
+        assert_eq!(output.stderr, b"diagnostics");
+        assert!(output.stream_errors.iter().any(|error| error.contains("observer closed")));
+    }
 
     #[test]
     fn producer_reviewed_disabled_executor_refuses_present_or_unknown_selector() {
