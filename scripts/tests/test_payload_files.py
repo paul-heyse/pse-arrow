@@ -378,6 +378,37 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertTrue(server.config_for(self.state)["accepting_writes"])
         self.assertFalse(any("freeze" in event or "thaw" in event for event in self.events))
 
+    def test_native_owner_projection_null_optionals_recover_as_exact_absent_fields(self) -> None:
+        expected = {**self.owner, "boot": str(uuid.uuid4())}
+        projected = {**expected, "group": None, "group_inode": None, "invocation": None, "unit": None}
+        acknowledgments = []
+
+        def query(_state: Path, _config: dict[str, object], body: str) -> object:
+            if "LET $rows=SELECT" in body:
+                after = json.loads(body.split("key>", 1)[1].split(" ORDER BY", 1)[0])
+                return [dict(projected)] if not after else []
+            self.assertIn("drain_owner", body)
+            self.assertIn('"pid":<decimal>', body)
+            original = json.loads(body.split(",", 1)[1].removesuffix(");").replace("<decimal>", ""))
+            acknowledgments.append(original)
+            return True
+
+        with patch.object(server, "payload_query", side_effect=query):
+            counts = server.reap_payload_owners(self.state, self.config, require_all=False)
+        self.assertEqual(counts, {"recovered": 1, "live": 0, "unknown": 0})
+        self.assertEqual(acknowledgments, [expected])
+        self.assertEqual(projected["group_inode"], None)
+
+    def test_owner_projection_normalizes_only_declared_optional_null_fields(self) -> None:
+        projected = {**self.owner, "group_inode": None, "unknown_field": None, "issuing_store": None}
+        with patch.object(server, "payload_query", side_effect=[[projected], []]):
+            pages = list(server.payload_pages(self.state, self.config, "canonical_file_owners"))
+        self.assertNotIn("group_inode", pages[0][0])
+        self.assertIn("unknown_field", pages[0][0])
+        self.assertIsNone(pages[0][0]["unknown_field"])
+        self.assertIn("issuing_store", pages[0][0])
+        self.assertIsNone(pages[0][0]["issuing_store"])
+
     def test_owner_recovery_refuses_stale_catalog_or_unowned_listener_without_reaping(self) -> None:
         with (
             patch.object(server, "owns_listener", return_value=True),

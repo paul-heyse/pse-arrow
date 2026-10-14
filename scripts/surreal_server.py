@@ -5433,6 +5433,10 @@ def payload_pages(state: Path, config: dict[str, object], table: str) -> Generat
         rows: list[dict[str, object]] = []
         for raw in value:
             row = object_mapping(raw)
+            if table == "canonical_file_owners":
+                # Explicit SELECT projections encode absent native option fields
+                # as JSON null. Restore their canonical absent-field shape only.
+                row = {name: field for name, field in row.items() if not (name in {"group", "group_inode", "invocation", "unit"} and field is None)}
             key = row.get("key")
             if not isinstance(key, str) or key <= after:
                 raise SupervisorError("File inventory cursor did not advance")
