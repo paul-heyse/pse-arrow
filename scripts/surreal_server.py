@@ -5604,6 +5604,13 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
                 # Missing/unsealed pending output remains unresolved in both metadata and bytes.
                 inventory.append(entry)
     expected_files = {name for entry in inventory for name in object_mapping(entry["files"])}
+    for context in contexts:
+        keys = {str(object_mapping(entry["instance"])["key"]) for entry in inventory if entry["context"] == str(context.relative_to(state))}
+        try:
+            locks = payload_files.recognized_locks(payload_files.root(state, config_for(context)), keys)
+        except (payload_files.PayloadError, OSError) as error:
+            raise SupervisorError("Payload synchronization lock inventory failed") from error
+        expected_files.update(str(path.relative_to(state)) for path in locks)
     actual_files = {str(path.relative_to(state)) for context in contexts for path in payload_files.root(state, config_for(context)).rglob("*") if path.is_file() or path.is_symlink()}
     if actual_files != expected_files:
         raise SupervisorError("Unknown payload bytes refuse complete backup inventory")
@@ -6410,6 +6417,11 @@ def cleanup_retired_payloads(state: Path, config: dict[str, object], credentials
                 expected.add(sealed if name.endswith(".sealed") else staging)
         if any(path.is_symlink() for path in (directory, *directory.parents)) or any(path.is_symlink() for path in directory.rglob("*")):
             raise SupervisorError("Retired payload root must not traverse symlinks")
+        keys = {str(object_mapping(object_mapping(entry)["instance"])["key"]) for entry in placement_inventory}
+        try:
+            expected.update(payload_files.recognized_locks(directory, keys))
+        except (payload_files.PayloadError, OSError) as error:
+            raise SupervisorError("Retired payload synchronization locks retained; cleanup refused") from error
         actual = {path for path in directory.rglob("*") if path.is_file()}
         if not actual <= expected:
             raise SupervisorError("Unknown retired payload content retained; cleanup refused")

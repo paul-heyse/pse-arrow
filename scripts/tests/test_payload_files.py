@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import subprocess
@@ -342,6 +343,114 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertEqual(retired["owners"], [self.owner])
         self.assertEqual(retired["inventory"][0]["instance"], self.instance)
         self.assertTrue(self.final.is_file())
+
+    def test_catalog_instance_locks_are_preserved_live_and_excluded_from_backup(self) -> None:
+        self.owner["drained"] = True
+        collected = {**self.instance, "key": str(uuid.uuid4()), "state": "collected"}
+        self.instances.append(collected)
+        locks = payload_files.root(self.state, self.config) / ".locks"
+        locks.mkdir()
+        identities = {}
+        for instance in self.instances:
+            lock = locks / (instance["key"] + ".lock")
+            lock.write_bytes(b"")
+            lock.chmod(0o600)
+            identities[lock] = lock.stat().st_ino
+        self.verifier()
+        backup = self.root / "backup"
+        self.backup(backup)
+        manifest, _original = server.validated_restore_backup(backup, server.SUBSTRATE_INTERPRETATION)
+        self.assertFalse(any("/.locks/" in name for name in manifest["files"]))
+        self.assertEqual({lock: lock.stat().st_ino for lock in identities}, identities)
+        self.assertEqual({entry["instance"]["state"] for entry in manifest["payload_inventory"]}, {"sealed", "collected"})
+        restored = self.root / "restored"
+        with self.fixture.native_maintenance():
+            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+        selected = server.config_for(restored)
+        self.assertNotEqual(selected["payload_incarnation"], self.config["payload_incarnation"])
+        self.assertFalse((payload_files.root(restored, selected) / ".locks").exists())
+        self.assertEqual({lock: lock.stat().st_ino for lock in identities}, identities)
+
+    def test_unknown_malformed_and_nonprivate_instance_locks_refuse_backup(self) -> None:
+        self.owner["drained"] = True
+        locks = payload_files.root(self.state, self.config) / ".locks"
+        locks.mkdir()
+        for case in ("unknown", "malformed", "contents", "permissions", "symlink", "directory", "fifo"):
+            with self.subTest(case=case):
+                name = (str(uuid.uuid4()) if case == "unknown" else self.key) + ".lock"
+                if case == "malformed":
+                    name = "malformed.lock"
+                lock = locks / name
+                if case == "symlink":
+                    lock.symlink_to(self.final)
+                elif case == "directory":
+                    lock.mkdir()
+                elif case == "fifo":
+                    os.mkfifo(lock, 0o600)
+                else:
+                    lock.write_bytes(b"unexpected bytes" if case == "contents" else b"")
+                    lock.chmod(0o644 if case == "permissions" else 0o600)
+                with self.assertRaisesRegex(server.SupervisorError, "synchronization lock inventory"):
+                    self.backup(self.root / ("backup-" + case))
+                self.assertTrue(lock.exists() or lock.is_symlink())
+                self.assertTrue(self.final.is_file())
+                if case == "directory":
+                    lock.rmdir()
+                else:
+                    lock.unlink()
+
+    def test_still_held_instance_lock_refuses_backup_after_catalog_owner_drain(self) -> None:
+        self.owner["drained"] = True
+        locks = payload_files.root(self.state, self.config) / ".locks"
+        locks.mkdir()
+        lock = locks / (self.key + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
+        with lock.open("r+b") as holder:
+            fcntl.flock(holder.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with self.assertRaisesRegex(server.SupervisorError, "synchronization lock inventory"):
+                self.backup(self.root / "backup")
+        self.assertTrue(lock.exists())
+        self.assertTrue(self.final.exists())
+
+    def test_whole_old_root_cleanup_removes_only_known_catalog_locks(self) -> None:
+        self.owner["drained"] = True
+        locks = payload_files.root(self.state, self.config) / ".locks"
+        locks.mkdir()
+        known = locks / (self.key + ".lock")
+        known.write_bytes(b"")
+        known.chmod(0o600)
+        self.verifier()
+        backup = self.root / "backup"
+        self.backup(backup)
+        manifest, _original = server.validated_restore_backup(backup, server.SUBSTRATE_INTERPRETATION)
+        selected = server.fresh_database_identity(self.config)
+        selected["derived_rebuild_pending"] = {
+            "kind": "rebuild", "phase": "disposing", "namespace": self.config["namespace"],
+            "database": self.config["database"], "payload_incarnation": self.config["payload_incarnation"],
+            "payload_inventory": manifest["payload_inventory"],
+        }
+        server.write_json(self.state / "config.json", selected)
+        unknown = locks / (str(uuid.uuid4()) + ".lock")
+        unknown.write_bytes(b"")
+        unknown.chmod(0o600)
+        with (
+            patch.object(server, "database_present", return_value=True),
+            patch.object(server, "maintenance_query", return_value={"value": True}),
+            self.assertRaisesRegex(server.SupervisorError, "synchronization locks retained"),
+        ):
+            server.cleanup_retired_payloads(self.state, selected, {})
+        self.assertTrue(known.exists())
+        self.assertTrue(unknown.exists())
+        self.assertTrue(self.final.exists())
+        unknown.unlink()
+        with (
+            patch.object(server, "database_present", return_value=True),
+            patch.object(server, "maintenance_query", return_value={"value": True}),
+        ):
+            server.cleanup_retired_payloads(self.state, selected, {})
+        self.assertFalse(payload_files.root(self.state, self.config).exists())
+        self.assertTrue(server.config_for(self.state)["derived_rebuild_pending"]["payload_cleanup_done"])
 
     def test_replaced_pid_is_death_but_exact_live_pid_is_not(self) -> None:
         self.assertFalse(payload_files.owner_dead(self.owner))

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import os
 import re
@@ -63,6 +64,45 @@ def checked_file(path: Path) -> tuple[str, int]:
         if identity(before) != identity(after) or identity(path.lstat()) != identity(after):
             raise PayloadError("Payload file changed during inventory")
         return digest.hexdigest(), before.st_size
+
+
+def recognized_locks(directory: Path, instances: set[str]) -> set[Path]:
+    """Validate persistent operational locks without copying or replacing their inodes."""
+    locks = directory / ".locks"
+    if any(path.is_symlink() for path in (locks, *locks.parents)):
+        raise PayloadError("Payload lock directory must not traverse symlinks")
+    try:
+        observed = locks.stat()
+    except FileNotFoundError:
+        return set()
+    if not stat.S_ISDIR(observed.st_mode) or observed.st_uid != os.getuid():
+        raise PayloadError("Payload lock directory lost its private ownership")
+    expected = {locks / (incarnation(instance) + ".lock") for instance in instances}
+    recognized: set[Path] = set()
+    for path in locks.iterdir():
+        if path not in expected or path.is_symlink():
+            raise PayloadError("Unknown payload instance lock retained; inventory refused")
+        initial = path.lstat()
+        if not stat.S_ISREG(initial.st_mode):
+            raise PayloadError("Payload instance lock must be a private empty regular file")
+        descriptor = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+        try:
+            before = os.fstat(descriptor)
+            if not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or stat.S_IMODE(before.st_mode) != 0o600 or before.st_nlink != 1 or before.st_size != 0:
+                raise PayloadError("Payload instance lock must be a private empty regular file")
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise PayloadError("Payload instance lock still has a live operational borrower") from error
+            after = path.lstat()
+            if (before.st_dev, before.st_ino, before.st_mode, before.st_uid, before.st_nlink, before.st_size) != (after.st_dev, after.st_ino, after.st_mode, after.st_uid, after.st_nlink, after.st_size):
+                raise PayloadError("Payload instance lock changed during validation")
+            recognized.add(path)
+        finally:
+            # Closing releases only this observer's flock; the persistent inode
+            # remains authoritative throughout its live storage incarnation.
+            os.close(descriptor)
+    return recognized
 
 
 def owner_dead(owner: Mapping[str, object]) -> bool:
