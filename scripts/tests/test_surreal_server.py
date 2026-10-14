@@ -6065,6 +6065,41 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             ):
                 server.rotate_source_authorities(self.state, config, {})
 
+    def test_payload_rehome_mutations_keep_sole_acknowledgment_across_same_intent_retry(self) -> None:
+        backup = self.backup_fixture()
+        original = server.config_for(self.state)
+        selected = server.fresh_database_identity(original)
+        selected["derived_rebuild_pending"] = {
+            "backup": str(backup), "backup_digest": server.file_digest(backup / "backup.json"),
+            "kind": "current-restore", "phase": "copy",
+        }
+        server.write_json(self.state / "config.json", selected)
+        bodies: list[str] = []
+        page = 0
+        key = "11111111-1111-4111-8111-111111111111"
+        def sql(_state: Path, _config: dict[str, object], _credentials: dict[str, object], body: str) -> tuple[str, subprocess.CompletedProcess[str]]:
+            nonlocal page
+            bodies.append(body)
+            value: object = True
+            if "LET $value={count:" in body:
+                value = {"count": 1, "after": key} if page % 2 == 0 else {"count": 0, "after": ""}
+                page += 1
+            # Pinned UPDATE defaults RETURN AFTER. Intermediate mutation rows
+            # would violate the unchanged strict one-ACK production decoder.
+            extra = [{"id": "unexpected-mutation-result"} for statement in body.split(";")
+                     if "UPDATE ONLY" in statement and "RETURN NONE" not in statement]
+            nonce = "exact-maintenance-output-contract"
+            return nonce, subprocess.CompletedProcess([], 0, json.dumps([None, *extra, {"maintenance": nonce, "value": value}, None]), "")
+        with patch.object(server, "maintenance_sql", side_effect=sql):
+            for _retry in range(2):
+                server.rehome_restored_payloads(self.state, selected, {})
+        self.assertTrue(any("UPDATE ONLY canonical_interpretations:current" in body for body in bodies))
+        self.assertTrue(any("UPDATE ONLY canonical_file_admission:current" in body for body in bodies))
+        self.assertTrue(any("UPDATE ONLY $row.id" in body for body in bodies))
+        self.assertEqual(server.object_mapping(server.config_for(self.state)["derived_rebuild_pending"])["phase"], "copy")
+        self.assertEqual(server.config_for(self.state)["payload_incarnation"], selected["payload_incarnation"])
+        self.assertTrue(server.config_for(self.state)["payload_frozen"])
+
     def test_maintenance_query_requires_exact_ack_and_keeps_secrets_out_of_arguments(
         self,
     ) -> None:

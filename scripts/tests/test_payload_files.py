@@ -139,6 +139,26 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertTrue(selected["payload_frozen"])
         self.assertEqual(selected["admission"], "quiesced")
 
+    def test_validation_read_mutation_returns_only_exact_administrative_ack(self) -> None:
+        self.validation_profile()
+        def administrative(_state: Path, query: str, _deadline: float, **_kwargs: object) -> list[dict[str, object]]:
+            self.assertTrue(query.startswith("BEGIN; "))
+            self.assertTrue(query.endswith(" COMMIT;"))
+            self.assertIn("SET frozen=false,gc_frozen=true", query)
+            mutation = next(statement for statement in query.split(";") if "UPDATE ONLY" in statement)
+            # Real UPDATE defaults RETURN AFTER; the exact-one-result wrapper
+            # rejects the extra record unless the emitter suppresses it.
+            return [
+                {"status": "OK", "result": None if "RETURN NONE" in mutation else {"id": "canonical_file_admission:current"}},
+                {"status": "OK", "result": True},
+            ]
+        with patch.object(server, "administrative_query", side_effect=administrative):
+            server.validation_payload_reads(self.state, self.config, server.SUBSTRATE_INTERPRETATION)
+        selected = server.config_for(self.state)
+        self.assertFalse(selected["accepting_writes"])
+        self.assertTrue(selected["payload_frozen"])
+        self.assertEqual(selected["admission"], "validation_required")
+
     def test_failed_or_timed_out_validation_recloses_and_authenticates_drain(self) -> None:
         self.validation_profile()
         self.validation_controls()

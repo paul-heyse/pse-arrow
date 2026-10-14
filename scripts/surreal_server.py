@@ -6196,7 +6196,7 @@ def rotate_source_authorities(
             "LET $rows=SELECT * FROM canonical_guards WHERE string::starts_with(key,'retention:') AND key>"  # noqa: S608 -- Cursor is encoded as a JSON string.
             + json.dumps(after)
             + " ORDER BY key LIMIT 64; "
-            "FOR $row IN $rows { UPDATE ONLY $row.id SET incarnation=<string>rand::uuid::v4(),generation=generation+1dec; }; "
+            "FOR $row IN $rows { UPDATE ONLY $row.id SET incarnation=<string>rand::uuid::v4(),generation=generation+1dec RETURN NONE; }; "
             "LET $value={count:array::len($rows),after:array::last($rows.key) ?? ''};",
         )
         value = object_mapping(response.get("value"))
@@ -6661,7 +6661,7 @@ def rehome_restored_payloads(state: Path, config: dict[str, object], credentials
             "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
             f"IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored file gate mismatch'; }}; "
             f"LET $rows=SELECT * FROM canonical_file_instances WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; "
-            f"FOR $row IN $rows {{ IF $row.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored instance mismatch'; }}; UPDATE ONLY $row.id SET storage_incarnation={json.dumps(new_incarnation)}; }}; "
+            f"FOR $row IN $rows {{ IF $row.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored instance mismatch'; }}; UPDATE ONLY $row.id SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; }}; "
             "LET $value={count:array::len($rows),after:array::last($rows.key) ?? ''};")
         value = object_mapping(response.get("value"))
         count, cursor = value.get("count"), value.get("after")
@@ -6673,8 +6673,8 @@ def rehome_restored_payloads(state: Path, config: dict[str, object], credentials
     response = maintenance_query(state, config, credentials,
         "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
         f"IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored file gate mismatch'; }}; "
-        f"UPDATE ONLY canonical_interpretations:current SET payload_incarnation={json.dumps(new_incarnation)}; "
-        f"UPDATE ONLY canonical_file_admission:current SET storage_incarnation={json.dumps(new_incarnation)}; LET $value=true;")
+        f"UPDATE ONLY canonical_interpretations:current SET payload_incarnation={json.dumps(new_incarnation)} RETURN NONE; "
+        f"UPDATE ONLY canonical_file_admission:current SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; LET $value=true;")
     if response.get("value") is not True:
         raise SupervisorError("Restored file incarnation was not acknowledged")
     config["payload_frozen"] = True
@@ -7236,7 +7236,7 @@ def validation_payload_reads(
         f"IF $gate=NONE OR $gate.storage_incarnation!={incarnation} OR !$gate.frozen OR !$gate.gc_frozen "
         f"OR $marker=NONE OR $marker.payload_incarnation!={incarnation} OR $marker.interpretation!={json.dumps(interpretation)} "
         "{ THROW 'validator requires exact frozen restored placement'; }; "
-        "UPDATE ONLY canonical_file_admission:current SET frozen=false,gc_frozen=true; "
+        "UPDATE ONLY canonical_file_admission:current SET frozen=false,gc_frozen=true RETURN NONE; "
         f"fn::pse_execution_v1::deadline({expiry}); RETURN true;")
     if acknowledged is not True:
         raise SupervisorError("Validator file-read admission was not acknowledged")
