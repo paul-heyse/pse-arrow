@@ -271,9 +271,7 @@ class NativeOperationTests(unittest.TestCase):
             *command,
         ]
 
-    def settle_fixture_scope(
-        self, record: FixtureScope, *, deadline: float
-    ) -> None:
+    def settle_fixture_scope(self, record: FixtureScope, *, deadline: float) -> None:
         if operation.drained(record, deadline=deadline).complete:
             return
         owner = record["scope"]
@@ -349,7 +347,8 @@ class NativeOperationTests(unittest.TestCase):
                 candidate: FixtureEntry = json.loads(launcher_path.read_text())
                 self.assertEqual(candidate["scope"]["unit"], unit)
                 self.assertEqual(
-                    candidate["allocation"], str(allocation.directory / allocation.nonce)
+                    candidate["allocation"],
+                    str(allocation.directory / allocation.nonce),
                 )
                 entry = candidate
                 self.signal_fixture_entry(entry, deadline=deadline)

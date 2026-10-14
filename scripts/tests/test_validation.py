@@ -1638,6 +1638,7 @@ class ValidationTests(unittest.TestCase):
                 patch.object(
                     native_tests.pse_env, "default_test_width", return_value=1
                 ),
+                patch("scripts.native_operation.scope_owner", return_value=None),
                 patch("scripts.native_operation.run", side_effect=run),
             ):
                 self.assertEqual(native_tests.main(), 0)

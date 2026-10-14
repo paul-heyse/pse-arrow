@@ -323,3 +323,42 @@ without rebuilding providers; no historical operation token is copied. The maint
 partition removal leaves approximately 228 GiB free at this checkpoint, resolving the disk
 block. The full assessment, scientific recovery/signal controls and selected measurements
 still have not run; G1–G4 remain open.
+
+The first assembled producer assessment now has terminal evidence: 36 gates passed,
+four failed and six were blocked; enclosing reference-fixture quiesce/stop and host
+allocation release succeeded. All three fresh actual producer captures are eligible
+with no review refusals. Deployment nevertheless refuses the installed Python artifact's
+RPATH transformation, correctly blocking the dependent native/installed-Python journeys.
+The captured and installed ELF files are preserved before any reinstall. Four unit-local
+native output directories differ. Source inspection also establishes that pinned Maturin
+uses its explicit generated PyO3 stable-ABI configuration, whereas the capture used
+discovery. The prior installer and strict capture used different wrapper selections;
+the unavailable complete prior child invocation prevents attributing the directory
+differences uniquely to either cause. The next install and capture select the same empty
+wrappers and exact generated `PYO3_CONFIG_FILE`, with a source-reviewed Python-only file
+guard. Actual transformed-byte association remains decisive.
+
+The other failures are repaired within their owning tests. The Rust safety comment is
+moved immediately before its unsafe expression. Tooling fixtures now supply current
+payload incarnation, finite quota, canonical invocation and controlled width/scope
+premises. Real-entry tests leave the enclosing native scope through an authenticated
+ordinary fixture, then exercise the actual entry and a distinct native allocation.
+Independent review identified failure-path cleanup gaps; pidfd signaling, exact bound
+scope settlement, explicit release refusal and independent wrapper reap/log close now
+cover those paths while preserving unresolved evidence and all production safeguards.
+The fixture worktree is merged and removed. **Tested:** both new pure cleanup controls
+and the focused Python terminal-evidence control pass. The scoped runner at
+`build/acceptance/38g-20261014T151916Z/static-fixture-repair` runs the actual
+`just clippy-default`, `just clippy-no-default` and `just setup-test-report` gates under
+the selected native reference operation; all three pass against zero failures, including
+all 1,064 tooling tests. The intermediate tooling run exposed one further mocked scope
+premise, which is corrected rather than relaxing admission. These results settle those
+three failed gates, not the failed deployment or blocked product acceptance.
+
+Next: finalize formatting and the changed tooling's static checks; install the producer
+extension under the aligned explicit configuration; review the resulting Python site and
+current caller/native/configuration inputs; then rerun fresh deployment and imported-byte
+association before native/managed/Python acceptance. Scientific recovery/signal controls,
+the separately qualified development-context measurements and G4 reconciliation remain
+outstanding. The original assessment and original declarations retain their actual scope
+and failures; no current assembled pass is claimed.

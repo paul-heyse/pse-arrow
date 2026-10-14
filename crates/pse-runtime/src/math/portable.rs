@@ -1828,8 +1828,8 @@ mod portable_frame_tests {
         assert!(local.producer.is_none());
         drop(local);
         assert_eq!(local_service.pool.reserved(), local_baseline);
-        // SAFETY: this controlled receipt explicitly refuses producer eligibility.
         assert!(
+            // SAFETY: this controlled receipt explicitly refuses producer eligibility.
             unsafe {
                 local_service.observe_deployment_runtime(
                     artifact.clone(),
