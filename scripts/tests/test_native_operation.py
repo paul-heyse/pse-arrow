@@ -18,7 +18,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -36,6 +36,17 @@ from scripts import (
 from scripts import native_cache as cache
 from scripts import native_operation as operation
 from scripts import native_pipeline_cache as pipeline
+
+
+class FixtureScope(TypedDict):
+    scope: operation.ScopeOwner
+    scope_inode: int
+
+
+class FixtureEntry(FixtureScope):
+    pid: int
+    start: str
+    allocation: str
 
 
 def drain_fixture(complete: bool) -> operation.DrainObservation:
@@ -91,6 +102,7 @@ class NativeOperationTests(unittest.TestCase):
         isolated.start()
         self.addCleanup(isolated.stop)
         self.fixture_units: set[str] = set()
+        self.settled_entry_fixtures: set[Path] = set()
         self.fixture_parent_scope = operation.scope_owner()
         self.fixture_parent_group = operation.process_group(os.getpid())
 
@@ -182,6 +194,7 @@ class NativeOperationTests(unittest.TestCase):
         environment: dict[str, str],
         *,
         native: bool = True,
+        cleanup: bool = True,
     ) -> list[str]:
         self.assert_parent_scope_unchanged()
         # These zero-capability fixtures own disposable generations and may kill
@@ -194,7 +207,8 @@ class NativeOperationTests(unittest.TestCase):
         allocation = pse_env.host.inherit(environment)
         self.assertIsNotNone(allocation, "fixture must own its host allocation")
         assert allocation is not None
-        self.addCleanup(allocation.release)
+        if cleanup:
+            self.addCleanup(allocation.release)
         self.assertTrue(prefix, "independent fixture requires the local user manager")
         self.assertIn(f"MemoryMax={512 * (1 << 20)}", prefix)
         unit = next(
@@ -219,14 +233,16 @@ class NativeOperationTests(unittest.TestCase):
         # any enclosing assessment's native scope through a real ordinary scope;
         # only its authenticated child drops that fixture's inherited authority.
         # Both light allocations remain charged in the real host ledger.
-        prefix = self.fixture_command([], environment, native=False)
+        prefix = self.fixture_command([], environment, native=False, cleanup=False)
+        allocation = pse_env.host.inherit(environment)
+        assert allocation is not None
         unit = next(
             argument.removeprefix("--unit=")
             for argument in prefix
             if argument.startswith("--unit=")
         )
         self.assertTrue(unit.startswith("pse-cmd-"))
-        self.addCleanup(self.kill_scope, unit)
+        self.addCleanup(self.settle_entry_fixture, base, unit, allocation)
         launcher = "\n".join(
             [
                 "import os,sys; from pathlib import Path",
@@ -236,7 +252,8 @@ class NativeOperationTests(unittest.TestCase):
                 "observed=n.unit_observation(unit); group=n.process_group(os.getpid())",
                 "assert observed['LoadState']=='loaded' and observed['ControlGroup']==group",
                 "assert n.scope_owner() is None",
-                "n.write_json(base/'entry-launcher.json',{'pid':os.getpid(),'start':n.start_identity(os.getpid()),'allocation':os.environ[h.MARKER],'scope':{'unit':unit,'group':group,'invocation':observed['InvocationID']}})",
+                "inode=h.group_identity(group); assert type(inode) is int",
+                "n.write_json(base/'entry-launcher.json',{'pid':os.getpid(),'start':n.start_identity(os.getpid()),'allocation':os.environ[h.MARKER],'scope_inode':inode,'scope':{'unit':unit,'group':group,'invocation':observed['InvocationID']}})",
                 "environment=dict(os.environ)",
                 "for name in (h.MARKER,n.MARKER,'PSE_NATIVE_HANDOFF','PSE_ADMISSION_DEADLINE'): environment.pop(name,None)",
                 "if sys.argv[3]=='0':\n for name in ('XDG_RUNTIME_DIR','DBUS_SESSION_BUS_ADDRESS'): environment.pop(name,None)",
@@ -254,16 +271,220 @@ class NativeOperationTests(unittest.TestCase):
             *command,
         ]
 
-    def assert_parent_scope_unchanged(self) -> None:
+    def settle_fixture_scope(
+        self, record: FixtureScope, *, deadline: float
+    ) -> None:
+        if operation.drained(record, deadline=deadline).complete:
+            return
+        owner = record["scope"]
+        self.fixture_units.add(owner["unit"])
+        self.assert_fixture_scope(owner, live=False, deadline=deadline)
+        self.assertIs(type(record.get("scope_inode")), int)
+        self.assertEqual(
+            host_admission.group_identity(owner["group"]), record["scope_inode"]
+        )
+        observed = operation.unit_observation(owner["unit"], deadline=deadline)
+        self.assertEqual(observed["LoadState"], "loaded")
+        self.assertEqual(observed["ControlGroup"], owner["group"])
+        self.assertEqual(observed["InvocationID"], owner["invocation"])
+        result = subprocess.run(
+            [
+                "systemctl",
+                "--user",
+                "kill",
+                "--kill-whom=all",
+                "--signal=SIGKILL",
+                owner["unit"],
+            ],
+            env=surreal_server.systemd_environment(),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=host_admission.remaining(deadline, 5),
+        )
+        if result.returncode:
+            self.assertTrue(
+                operation.drained(record, deadline=deadline).complete,
+                f"Fixture kill failed ({result.returncode}): {result.stderr}",
+            )
+        while not operation.drained(record, deadline=deadline).complete:
+            time.sleep(min(0.02, host_admission.remaining(deadline, 0.02)))
+
+    def signal_fixture_entry(self, entry: FixtureEntry, *, deadline: float) -> None:
+        owner = entry["scope"]
+        self.assert_fixture_scope(owner, live=False, deadline=deadline)
+        descriptor = None
+        try:
+            descriptor = os.pidfd_open(entry["pid"])
+            if (
+                operation.start_identity(entry["pid"]) == entry["start"]
+                and operation.process_group(entry["pid"]) == owner["group"]
+                and host_admission.group_identity(owner["group"])
+                == entry["scope_inode"]
+            ):
+                observed = operation.unit_observation(owner["unit"], deadline=deadline)
+                if (
+                    observed.get("ControlGroup") == owner["group"]
+                    and observed.get("InvocationID") == owner["invocation"]
+                ):
+                    signal.pidfd_send_signal(descriptor, signal.SIGTERM)
+        except (FileNotFoundError, ProcessLookupError):
+            pass  # A vanished process grants no PID signal authority.
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+
+    def settle_entry_fixture(
+        self, base: Path, unit: str, allocation: host_admission.Allocation
+    ) -> None:
+        if base in self.settled_entry_fixtures:
+            return
+        deadline = time.monotonic() + 45
+        errors: list[str] = []
+        entry: FixtureEntry | None = None
+        ordinary: host_admission.AllocationRecord | None = None
+        launcher_path = base / "entry-launcher.json"
+        if launcher_path.exists():
+            try:
+                candidate: FixtureEntry = json.loads(launcher_path.read_text())
+                self.assertEqual(candidate["scope"]["unit"], unit)
+                self.assertEqual(
+                    candidate["allocation"], str(allocation.directory / allocation.nonce)
+                )
+                entry = candidate
+                self.signal_fixture_entry(entry, deadline=deadline)
+                grace = min(deadline, time.monotonic() + 12)
+                while (
+                    time.monotonic() < grace
+                    and not operation.drained(entry, deadline=grace).complete
+                ):
+                    time.sleep(0.02)
+            except Exception as error:  # Continue independent authenticated cleanup.
+                errors.append(f"entry signal: {type(error).__name__}: {error}")
+        try:
+            snapshot = host_admission.readonly_snapshot(
+                allocation.directory, deadline=deadline
+            )
+            ordinary = snapshot["owners"].get(allocation.nonce)
+            if ordinary is not None:
+                binding = ordinary["units"][unit]
+                if binding:
+                    self.settle_fixture_scope(
+                        {
+                            "scope": {
+                                "unit": unit,
+                                "group": binding["group"],
+                                "invocation": binding["invocation"],
+                            },
+                            "scope_inode": binding["inode"],
+                        },
+                        deadline=deadline,
+                    )
+        except Exception as error:
+            errors.append(f"ordinary drain: {type(error).__name__}: {error}")
+        # The real ledger grants authority only for allocations created by this
+        # launcher's exact lifetime. An unproved drain remains a cleanup failure.
+        owned: dict[str, host_admission.AllocationRecord] = {}
+        try:
+            snapshot = host_admission.readonly_snapshot(
+                allocation.directory, deadline=deadline
+            )
+            if entry is not None:
+                owned = {
+                    nonce: owner
+                    for nonce, owner in snapshot["owners"].items()
+                    if nonce != allocation.nonce
+                    and owner["boot"] == host_admission.boot()
+                    and owner["pid"] == entry["pid"]
+                    and owner["start"] == entry["start"]
+                }
+            records = {
+                str(path): operation._record(path)  # noqa: SLF001 -- retain exact private fixture operation evidence
+                for path in (base / ".operations").glob("*.json")
+            }
+            operation.write_json(
+                base / "entry-cleanup.json",
+                {
+                    "entry": entry,
+                    "ordinary_allocation": ordinary,
+                    "allocations": owned,
+                    "operations": records,
+                    "previous": json.loads((base / "entry-cleanup.json").read_text())
+                    if (base / "entry-cleanup.json").exists()
+                    else None,
+                },
+            )
+        except Exception as error:
+            errors.append(f"ownership snapshot: {type(error).__name__}: {error}")
+        for nonce, owner in owned.items():
+            for selected_unit, binding in owner["units"].items():
+                if not binding:
+                    continue  # Release itself verifies any unbound launch is absent.
+                try:
+                    self.settle_fixture_scope(
+                        {
+                            "scope": {
+                                "unit": selected_unit,
+                                "group": binding["group"],
+                                "invocation": binding["invocation"],
+                            },
+                            "scope_inode": binding["inode"],
+                        },
+                        deadline=deadline,
+                    )
+                except Exception as error:
+                    errors.append(
+                        f"{selected_unit} drain: {type(error).__name__}: {error}"
+                    )
+            native_allocation = host_admission.Allocation(
+                allocation.directory,
+                nonce,
+                host_admission.Profile(
+                    owner["class"],
+                    owner["memory"],
+                    owner["lane"],
+                    owner["slots"],
+                    tuple(owner["cores"]),
+                    owner["exclusive"],
+                ),
+                owner["deadline"],
+            )
+            try:
+                self.assertTrue(
+                    native_allocation.release(deadline=deadline),
+                    f"Fixture allocation {nonce} remains charged; evidence at {base}",
+                )
+            except Exception as error:
+                errors.append(f"{nonce} release: {type(error).__name__}: {error}")
+        try:
+            self.assertTrue(
+                allocation.release(deadline=deadline),
+                f"Ordinary fixture remains charged; evidence at {base}",
+            )
+        except Exception as error:
+            errors.append(f"ordinary release: {type(error).__name__}: {error}")
+        self.assertEqual(errors, [], f"Retained fixture cleanup evidence: {base}")
+        self.settled_entry_fixtures.add(base)
+
+    def assert_parent_scope_unchanged(self, *, deadline: float | None = None) -> None:
         self.assertEqual(
             operation.process_group(os.getpid()), self.fixture_parent_group
         )
-        self.assertEqual(operation.scope_owner(), self.fixture_parent_scope)
+        observed = (
+            operation.scope_owner()
+            if deadline is None
+            else operation.scope_owner(deadline=deadline)
+        )
+        self.assertEqual(observed, self.fixture_parent_scope)
 
     def assert_fixture_scope(
-        self, owner: Mapping[str, str], *, live: bool = True
+        self,
+        owner: Mapping[str, str],
+        *,
+        live: bool = True,
+        deadline: float | None = None,
     ) -> None:
-        self.assert_parent_scope_unchanged()
+        self.assert_parent_scope_unchanged(deadline=deadline)
         self.assertIn(owner["unit"], self.fixture_units)
         self.assertNotEqual(owner["group"], self.fixture_parent_group)
         self.assertFalse(owner["group"].startswith(self.fixture_parent_group + "/"))
@@ -275,7 +496,11 @@ class NativeOperationTests(unittest.TestCase):
                 owner["invocation"], self.fixture_parent_scope["invocation"]
             )
         if live:
-            observed = operation.unit_observation(owner["unit"])
+            observed = (
+                operation.unit_observation(owner["unit"])
+                if deadline is None
+                else operation.unit_observation(owner["unit"], deadline=deadline)
+            )
             self.assertEqual(observed["LoadState"], "loaded")
             self.assertEqual(observed["ControlGroup"], owner["group"])
             self.assertEqual(observed["InvocationID"], owner["invocation"])
@@ -354,6 +579,133 @@ class NativeOperationTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "only a minted fixture"):
                 self.kill_scope(owner["unit"])
             manager.assert_not_called()
+
+    def test_entry_cleanup_lost_pid_authority_never_signals_replacement(self) -> None:
+        unit = "pse-cmd-" + "a" * 32 + ".scope"
+        self.fixture_units.add(unit)
+        entry: FixtureEntry = {
+            "pid": 12345,
+            "start": "original-start",
+            "allocation": "/fixture/allocation",
+            "scope": {"unit": unit, "group": "/fixture", "invocation": "b" * 32},
+            "scope_inode": 123,
+        }
+        for vanished_before_open in (False, True):
+            with (
+                self.subTest(vanished_before_open=vanished_before_open),
+                patch.object(self, "assert_parent_scope_unchanged"),
+                patch.object(
+                    os,
+                    "pidfd_open",
+                    side_effect=ProcessLookupError if vanished_before_open else None,
+                    return_value=7,
+                ),
+                patch.object(
+                    operation, "start_identity", side_effect=FileNotFoundError
+                ),
+                patch.object(signal, "pidfd_send_signal") as forwarded,
+                patch.object(os, "close") as close,
+            ):
+                self.signal_fixture_entry(entry, deadline=time.monotonic() + 1)
+                forwarded.assert_not_called()
+                if vanished_before_open:
+                    close.assert_not_called()
+                else:
+                    close.assert_called_once_with(7)
+
+    def test_entry_cleanup_refused_release_retains_sibling_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            ordinary_unit = "pse-cmd-" + "a" * 32 + ".scope"
+            native_unit = "pse-native-" + "b" * 32 + ".scope"
+            profile = host_admission.Profile("light", 512 << 20, "light", 1, (8,))
+            allocation = host_admission.Allocation(
+                base / "ledger", "c" * 32, profile, time.monotonic() + 30
+            )
+            entry: FixtureEntry = {
+                "pid": 12345,
+                "start": "fixture-start",
+                "allocation": str(allocation.directory / allocation.nonce),
+                "scope": {
+                    "unit": ordinary_unit,
+                    "group": "/ordinary",
+                    "invocation": "d" * 32,
+                },
+                "scope_inode": 123,
+            }
+            operation.write_json(base / "entry-launcher.json", entry)
+            (base / ".operations").mkdir()
+            operation_record = {
+                "version": operation.VERSION,
+                "scope": None,
+                "admissions": {},
+                "generations": [],
+            }
+            operation.write_json(base / ".operations/owner.json", operation_record)
+            native: host_admission.AllocationRecord = {
+                "boot": "fixture-boot",
+                "pid": entry["pid"],
+                "start": entry["start"],
+                "class": profile.name,
+                "memory": profile.memory,
+                "lane": profile.lane,
+                "slots": profile.slots,
+                "cores": list(profile.cores),
+                "exclusive": False,
+                "deadline": allocation.deadline,
+                "units": {
+                    native_unit: {
+                        "group": "/native",
+                        "invocation": "e" * 32,
+                        "inode": 456,
+                    }
+                },
+            }
+            ordinary: host_admission.AllocationRecord = {
+                **native,
+                "pid": os.getpid(),
+                "start": "parent-start",
+                "units": {
+                    ordinary_unit: {
+                        "group": "/ordinary",
+                        "invocation": "d" * 32,
+                        "inode": 123,
+                    }
+                },
+            }
+            with (
+                patch.object(self, "signal_fixture_entry"),
+                patch.object(self, "settle_fixture_scope") as settle,
+                patch.object(operation, "drained", return_value=drain_fixture(True)),
+                patch.object(host_admission, "boot", return_value="fixture-boot"),
+                patch.object(
+                    host_admission,
+                    "readonly_snapshot",
+                    return_value={
+                        "version": 1,
+                        "owners": {
+                            allocation.nonce: ordinary,
+                            "f" * 32: native,
+                            "0" * 32: {**native, "pid": entry["pid"] + 1},
+                        },
+                    },
+                ),
+                patch.object(
+                    host_admission.Allocation, "release", return_value=False
+                ) as release,
+                self.assertRaisesRegex(AssertionError, "Retained fixture cleanup"),
+            ):
+                self.settle_entry_fixture(base, ordinary_unit, allocation)
+            self.assertEqual(settle.call_count, 2)
+            self.assertEqual(release.call_count, 2)
+            self.assertNotIn(base, self.settled_entry_fixtures)
+            evidence = json.loads((base / "entry-cleanup.json").read_text())
+            self.assertEqual(evidence["allocations"], {"f" * 32: native})
+            self.assertEqual(evidence["entry"], entry)
+            self.assertEqual(
+                evidence["operations"][str(base / ".operations/owner.json")],
+                operation_record,
+            )
 
     def kill_scope(self, unit: str) -> None:
         self.assert_parent_scope_unchanged()
@@ -1629,6 +1981,13 @@ class NativeOperationTests(unittest.TestCase):
                     )
                 else:
                     command = self.fixture_command(command, environment)
+                fixture_allocation = pse_env.host.inherit(environment)
+                assert fixture_allocation is not None
+                fixture_unit = next(
+                    argument.removeprefix("--unit=")
+                    for argument in command
+                    if argument.startswith("--unit=")
+                )
                 log = (base / "fixture.log").open("w")
                 process = subprocess.Popen(
                     command,
@@ -1719,25 +2078,22 @@ class NativeOperationTests(unittest.TestCase):
                         "retain fixture evidence until exact allocation release",
                     )
                 finally:
-                    if target == "entry" and process.poll() is None:
-                        launcher_path = base / "entry-launcher.json"
-                        if launcher_path.exists():
-                            launcher = json.loads(launcher_path.read_text())
-                            self.assert_fixture_scope(launcher["scope"], live=False)
-                            if operation.start_identity(launcher["pid"]) == launcher[
-                                "start"
-                            ]:
-                                with contextlib.suppress(ProcessLookupError):
-                                    os.kill(launcher["pid"], signal.SIGTERM)
-                                with contextlib.suppress(subprocess.TimeoutExpired):
-                                    process.wait(timeout=15)
-                            self.kill_scope(launcher["scope"]["unit"])
-                    for owner in reversed(owners):
-                        self.kill_scope(owner["unit"])
-                    if process.poll() is None:
-                        process.kill()
-                    process.wait(timeout=10)
-                    log.close()
+                    try:
+                        if target == "entry":
+                            self.settle_entry_fixture(
+                                base, fixture_unit, fixture_allocation
+                            )
+                        else:
+                            with contextlib.ExitStack() as cleanup:
+                                for owner in owners:
+                                    cleanup.callback(self.kill_scope, owner["unit"])
+                    finally:
+                        try:
+                            if process.poll() is None:
+                                process.kill()
+                            process.wait(timeout=10)
+                        finally:
+                            log.close()
 
     def test_selected_workload_preserves_observer_cap_without_environment_authority(
         self,
