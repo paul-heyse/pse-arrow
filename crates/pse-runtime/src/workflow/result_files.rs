@@ -254,11 +254,6 @@ pub fn decode_result_file(bytes: &[u8], expected: SchemaRef, rows: usize) -> Res
     if preflight(&mut cursor, &expected)? != 1 { return Err(invalid("standalone file has extra batches")); }
     read_file_batch(Cursor::new(bytes), expected, 0, rows)
 }
-/// Decode an exact logical member of one completed packed file.
-pub fn decode_result_file_batch(bytes: &[u8], expected: SchemaRef, index: usize, rows: usize) -> Result<RecordBatch, ResultBlockError> {
-    read_file_batch(Cursor::new(bytes), expected, index, rows)
-}
-
 /// Backpressured file ingestion. Every visitor receives a completed native file;
 /// no unsealed prefix or unrelated future producer is needed for its ACK.
 pub async fn visit_result_files_async<F, Fut, E>(batch: &RecordBatch, mut visitor: F) -> Result<(), E>
