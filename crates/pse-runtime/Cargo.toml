@@ -57,6 +57,7 @@ native-solvers = [
 ]
 
 [dependencies]
+async-trait.workspace = true
 egobox-ego.workspace = true
 egobox-moe.workspace = true
 egobox-gp.workspace = true

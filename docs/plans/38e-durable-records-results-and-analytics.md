@@ -2,7 +2,7 @@
 title: Durable records, results and analytics
 status: draft
 date: 2026-10-13
-adrs: []
+adrs: [ADR-0187]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
 doc_owner: docs/plans/38-efficiency-and-solver-target.md
 doc_topics: [architecture, storage, validation]
@@ -93,3 +93,8 @@ A selected direct cutover drains authentic owners/processes/effects, regenerates
 I-E1 public/deployment/topology and I-E2 reader/file/backup investigations produce concrete choices, retained obligations, affected APIs, exact library evidence and required amendments. Optional binary seed transport, read coalescing and journal discovery choose a fitting exact representation/access path or retain the existing one with a demand trigger. No probe is mandated merely because an old inquiry listed one. Current candidate/commit/access-plan questions can be settled with isolated owned fixtures, never override another owner's service.
 
 Targeted compile/unit controls accompany changed declarations/effects and actual generator regeneration. G1–G3 own assembled native/Python/restore/query/scientific scope after functional work. An immutable fact model, prototype or component pass alone does not qualify the selected lifecycle composition.
+
+
+## Execution checkpoint — 2026-10-13
+
+The maintainer selected SurrealDB coordination plus immutable files and the existing process-crash/restart guarantee, then authorized all E1–E5 execution. ADR-0187 and architecture revision 165 install the concrete target; the focused target review accepts the proposed design, separately from implementation. Same-host independent writers, automatic recording and strong admitted reads are preserved. IPC files replace result transport fragmentation; JSON seeds stay JSON. Operations owns file/catalog lifecycle and strong tickets, Runtime owns scientific codecs/snapshot consumers, supervisor tooling owns offline inventory/drain/restore. All functional packets remain in progress until actual integration and targeted controls pass; 38f and assembled 38g qualification remain open. Existing disposable data may regenerate after authentic drain; the quiesced primary profile and other owners are preserved.

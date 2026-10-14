@@ -344,6 +344,8 @@ qualification basis for the admitted profiles is
 
 ## 19. Cases, results and analytics
 
+> Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; Plan38e target): existing Python tables/streams/export/live consumers migrate to sealed payloads and strong snapshots; Rust snapshot providers preserve the existing DataFusion SQL/functions/resource context. No new Python query product is selected.
+
 > Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
 
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md),
@@ -1080,6 +1082,8 @@ a withheld input withholds it as `upstream_withheld`, naming that input and its 
 only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
+
+> Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; Plan38e target): existing Python tables/streams/export/live consumers migrate to sealed payloads and strong snapshots; Rust snapshot providers preserve the existing DataFusion SQL/functions/resource context. No new Python query product is selected.
 
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 

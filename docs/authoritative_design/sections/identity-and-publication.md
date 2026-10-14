@@ -451,6 +451,8 @@ observations in process; a durable storage failure never falls back to ephemeral
 
 ### 20.1 Canonical durable relations
 
+> Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; maintainer-authorized Plan38e target).
+
 The former Delta durable-relation mechanism is retired. This section identity remains the
 persistence pointer: canonical source/result admission is owned by
 [§20.2](#section-20-2), lifetime and reclamation by [§20.4](#section-20-4), and execution by
@@ -467,14 +469,7 @@ lookup key and compiler physical-context identity.
 Immutable revision receipts remain attributable after explicit source reclamation; range
 markers prevent those receipts from reopening removed content.
 
-**Results.** Registry-admitted Arrow rows are stored once in independent uncompressed IPC
-blocks of at most 512 KiB, including schema, one record batch and explicit end marker.
-Framing, schema and layout preflight precede decoder allocation; compression, dictionaries
-and unsupported layouts refuse. Row splitting preserves exact scientific values and schema
-but cannot make an indivisible oversized schema fit the transport purpose. These are
-per-operation bounds, not a claim that total trajectory size, process RSS or provider
-buffering fits one blob. Seed and completion owners use their own exact bounded chunk
-codecs under the same admitted result-set membership.
+**Plan38e target — results.** Registry-admitted Arrow rows use completed uncompressed IPC files in the selected private state's `payloads/<payload_incarnation>/<database>/` root. Compatible batches share one file only within an attempt, relation, schema and interpretation. Packing targets 16 MiB and has a 32 MiB hard encoded-file bound; demanded acknowledgements and live-prefix boundaries flush immediately rather than waiting for unrelated work. Logical descriptors retain original ordering/coordinates and bind unique file instance, encoding digest, batch index, schema and interpretation. JSON seed/completion owners retain their exact declared codecs through the same opaque file tier. File framing/layout/integrity admission precedes decoder allocation; neither file completion nor a submitted write is a catalog acknowledgement. Current implementation and qualified coverage belong to Plan38e until cutover is complete.
 
 Sparse scalar indexes and dense output descriptors reference the original IPC batch and
 row/field coordinates; they do not replace it with a second scientific payload. Finite
@@ -486,6 +481,10 @@ covers solve variables/constraints, fit parameters/observations and simulation s
 values. Unsupported scientific output fields refuse explicitly.
 
 ### 20.2 Exact coherent publication
+
+> Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; Plan38e target).
+
+**File publication.** Reserve the original intent and unique physical instance before filesystem work. Finish, validate, synchronize and publish without replacement before transactionally attaching the exact descriptor, references and receipt under current permission. Unresolved intents retain their physical objects. A collecting instance never revives and its path is never reused; delayed unlink cannot target a replacement. Deduplication checks bytes as well as digest/encoding. Semantic content, occurrence, interpretation and physical placement remain distinct. Logical descriptors omit absolute roots and storage incarnation; only closed restore rehomes physical placement, while owner capabilities bind the selected incarnation.
 
 The visibility boundary is canonical admission of an exact closed descriptor. Neither
 staging bytes nor observing a prefix establishes coherent membership or scientific success.
@@ -621,13 +620,7 @@ identity, problem, revision and owner are checked against server receipts rather
 caller-supplied sequence claims. Explicit forgetting of default history does not release
 independent roots.
 
-Read acquisition, renewal, admission and reclamation share the retention guard. Every
-continued protected source/result database read requires a live exact protection; expiration or reclamation refuses
-rather than recovering bytes from an old cache. Result reads additionally protect the exact
-run/attempt/manifest. Final-drop release uses the captured executor, with finite server
-expiry bounding shutdown bookkeeping. Decoded copied Arrow arrays retain their allocation
-owner and can remain usable after reader drop and database reclamation; their final drop
-releases the memory charge. Buffer ownership is not a database lease.
+Source admission/renewal and reclamation retain their finite exact permission guards. The Plan38e result-read target instead owns a nonexpiring exact manifest ticket protecting metadata and every future unread file until actual drain. Reader admission and retirement/collection share transactional arbitration. File owners register against store/storage incarnation and Linux boot, PID namespace, PID and process start; supervised workers also bind their invocation. Children register before using payload capabilities. Reaping requires authenticated exact death/drain, never silence or lease expiry; unknown remains protective. Plans, partitions, retries and read-ahead retain the ticket. Close seals admission and joins file/transport/release work; failed release remains observable and protective. Decoded copied arrays retain their real allocation owners independently of durable protection.
 
 **Independent scientific artifacts (ADR-0182, proposed; Plan37 target).** Scientific
 owners admit small copied seed capsules and selected artifact-owned bounded IPC copies.
@@ -693,6 +686,8 @@ A fresh valid occurrence remains creatable, including identical scientific conte
 header alone cannot establish settlement of an unknown original grant. After full settlement
 there is no analysis-owned header, graph, input, root, protection, guard, admission, cleanup,
 retirement or audit payload. Partial cleanup is restartable from its retiring header.
+
+**Plan38e file lifetime target (ADR-0187, proposed).** Artifact occurrences, independent analysis obligations, historical runs, unresolved publication intents and exact read tickets retain their sufficient file closure independently. Occurrence retirement, history-detail release and physical collection are separate transitions. Original creation/replay floors fence late acquisition; collection never infers authority from age, size or content equality. Native DataFusion providers consume exact frozen file lists under these tickets and the existing SQL/function/resource context; a directory listing is not a snapshot.
 
 **Local export.** Exact checked reads finish, the IPC stream finishes and the file is
 synchronized before final publication. Interrupted staging remains `.incomplete`; the final
@@ -973,8 +968,7 @@ invent the summary conclusion.
 > placement and actual readback are L7 prerequisites, not RSS guarantees.
 
 **Operational limits.** The target deployment is authenticated local native WebSocket with native
-RocksDB and finite server/native-worker allocations. Backup drains managed work and copies
-a stopped coherent database; it is an operator lifecycle, not an online export lease.
+RocksDB and finite server/native-worker allocations. The Plan38e backup target closes admission and excludes GC before freezing its catalog, drains authenticated file owners and managed work, and copies the stopped database together with its exact required file closure. Acknowledged unpublished/incomplete data and unresolved intents are included; legitimately absent/unsealed staging remains unresolved. Missing required sealed files fail closure. Completion is published last. Restore validates inventory, integrity and interpretation under a fresh root/incarnation/credentials before activation; old-root cleanup still requires authentic drain. This is an offline operator lifecycle.
 These implemented contracts do not claim power-loss durability, remote deployment support,
 assembled worker/reopen/backup qualification, capacity measurements or comprehensive scientific
 qualification. Current acceptance and remaining work belong to the
