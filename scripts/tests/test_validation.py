@@ -1635,6 +1635,9 @@ class ValidationTests(unittest.TestCase):
                     },
                 ),
                 patch.object(native_tests.time, "time", return_value=1),
+                patch.object(
+                    native_tests.pse_env, "default_test_width", return_value=1
+                ),
                 patch("scripts.native_operation.run", side_effect=run),
             ):
                 self.assertEqual(native_tests.main(), 0)

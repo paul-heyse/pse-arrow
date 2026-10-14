@@ -177,7 +177,11 @@ class NativeOperationTests(unittest.TestCase):
         }
 
     def fixture_command(
-        self, command: list[str], environment: dict[str, str]
+        self,
+        command: list[str],
+        environment: dict[str, str],
+        *,
+        native: bool = True,
     ) -> list[str]:
         self.assert_parent_scope_unchanged()
         # These zero-capability fixtures own disposable generations and may kill
@@ -186,7 +190,7 @@ class NativeOperationTests(unittest.TestCase):
         # Only command construction sees this test-isolation premise. The real
         # child observes and validates its actual unit and invocation normally.
         with patch.object(operation, "scope_owner", return_value=None):
-            prefix = pse_env.placement(environment, native=True)
+            prefix = pse_env.placement(environment, native=native)
         allocation = pse_env.host.inherit(environment)
         self.assertIsNotNone(allocation, "fixture must own its host allocation")
         assert allocation is not None
@@ -202,6 +206,53 @@ class NativeOperationTests(unittest.TestCase):
             self.assertNotEqual(unit, self.fixture_parent_scope["unit"])
         self.fixture_units.add(unit)
         return [*prefix, *command]
+
+    def entry_fixture_command(
+        self,
+        base: Path,
+        command: list[str],
+        environment: dict[str, str],
+        *,
+        inherited_manager: bool = True,
+    ) -> list[str]:
+        # The actual entry must acquire its own native allocation. First leave
+        # any enclosing assessment's native scope through a real ordinary scope;
+        # only its authenticated child drops that fixture's inherited authority.
+        # Both light allocations remain charged in the real host ledger.
+        prefix = self.fixture_command([], environment, native=False)
+        unit = next(
+            argument.removeprefix("--unit=")
+            for argument in prefix
+            if argument.startswith("--unit=")
+        )
+        self.assertTrue(unit.startswith("pse-cmd-"))
+        self.addCleanup(self.kill_scope, unit)
+        launcher = "\n".join(
+            [
+                "import os,sys; from pathlib import Path",
+                "from scripts import native_operation as n,host_admission as h",
+                "base=Path(sys.argv[1]); unit=sys.argv[2]",
+                "allocation=h.inherit(os.environ); assert allocation is not None",
+                "observed=n.unit_observation(unit); group=n.process_group(os.getpid())",
+                "assert observed['LoadState']=='loaded' and observed['ControlGroup']==group",
+                "assert n.scope_owner() is None",
+                "n.write_json(base/'entry-launcher.json',{'pid':os.getpid(),'start':n.start_identity(os.getpid()),'allocation':os.environ[h.MARKER],'scope':{'unit':unit,'group':group,'invocation':observed['InvocationID']}})",
+                "environment=dict(os.environ)",
+                "for name in (h.MARKER,n.MARKER,'PSE_NATIVE_HANDOFF','PSE_ADMISSION_DEADLINE'): environment.pop(name,None)",
+                "if sys.argv[3]=='0':\n for name in ('XDG_RUNTIME_DIR','DBUS_SESSION_BUS_ADDRESS'): environment.pop(name,None)",
+                "os.execvpe(sys.argv[4],sys.argv[4:],environment)",
+            ]
+        )
+        return [
+            *prefix,
+            sys.executable,
+            "-c",
+            launcher,
+            str(base),
+            unit,
+            "1" if inherited_manager else "0",
+            *command,
+        ]
 
     def assert_parent_scope_unchanged(self) -> None:
         self.assertEqual(
@@ -269,6 +320,14 @@ class NativeOperationTests(unittest.TestCase):
             patch.object(pse_env, "manager_available", return_value=True),
             patch.object(pse_env, "manager_environment", return_value={}),
             patch.object(pse_env, "limits", return_value=[]),
+            patch.object(pse_env, "cpu_ceiling", return_value=1.0),
+            patch.object(
+                os,
+                "sched_getaffinity",
+                return_value=set(
+                    host_admission.cpu_set(host_admission.select("light").cores)
+                ),
+            ),
         ):
             environment = self.fixture_environment(Path("/disposable-fixture"))
             command = self.fixture_command(["fixture", "literal argument"], environment)
@@ -277,6 +336,7 @@ class NativeOperationTests(unittest.TestCase):
             self.assertNotIn(owner["unit"], self.fixture_units)
             self.assertEqual(operation.scope_owner(), owner)
             self.assertEqual(pse_env.placement(environment, native=True), [])
+            self.assertEqual(environment["NEXTEST_TEST_THREADS"], "1")
 
     def test_fixture_cleanup_refuses_enclosing_scope(self) -> None:
         owner = {
@@ -1378,7 +1438,8 @@ class NativeOperationTests(unittest.TestCase):
                     "raise SystemExit(code)",
                 ]
             )
-            result = subprocess.run(
+            command = self.entry_fixture_command(
+                base,
                 [
                     str(cache.ROOT / "scripts/pse-env"),
                     "--native=",
@@ -1388,6 +1449,10 @@ class NativeOperationTests(unittest.TestCase):
                     composer,
                     str(base),
                 ],
+                environment,
+            )
+            result = subprocess.run(
+                command,
                 cwd=cache.ROOT,
                 env=environment,
                 capture_output=True,
@@ -1397,6 +1462,9 @@ class NativeOperationTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             completed = self.await_file(base / "completed.json")
+            entry = self.await_file(base / "entry-launcher.json")
+            self.assert_fixture_scope(entry["scope"], live=False)
+            self.assertNotEqual(entry["allocation"], completed["allocation"])
             path = Path(completed["invocation"])
             evidence = json.loads(path.with_suffix(".terminal.json").read_text())
             self.assertEqual(evidence["exit_code"], 0)
@@ -1417,6 +1485,10 @@ class NativeOperationTests(unittest.TestCase):
             allocation = Path(completed["allocation"])
             with pse_env.host.allocation_metadata(allocation.parent) as ledger:
                 self.assertNotIn(allocation.name, ledger["owners"])
+            self.await_drain({"scope": entry["scope"]})
+            outer_allocation = pse_env.host.inherit(environment)
+            assert outer_allocation is not None
+            self.assertTrue(outer_allocation.release())
             self.assert_parent_scope_unchanged()
 
     def test_real_unacknowledged_composer_is_killed_without_fabricated_terminal(
@@ -1516,9 +1588,6 @@ class NativeOperationTests(unittest.TestCase):
                 base = Path(directory)
                 environment = self.fixture_environment(base)
                 environment["PSE_TEST_RESOURCE_STATE"] = str(base / "registry")
-                if not inherited_manager:
-                    environment.pop("XDG_RUNTIME_DIR", None)
-                    environment.pop("DBUS_SESSION_BUS_ADDRESS", None)
                 opaque = "import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); signal.signal(signal.SIGINT,signal.SIG_IGN); time.sleep(30)"
                 workload = "\n".join(
                     [
@@ -1534,9 +1603,9 @@ class NativeOperationTests(unittest.TestCase):
                 composer = "\n".join(
                     [
                         "import os,sys; from pathlib import Path",
-                        "from scripts import native_operation as n,test_run,test_resources as r",
+                        "from scripts import native_operation as n,test_run,test_resources as r,host_admission as h",
                         "base=Path(sys.argv[1]); path=r.invocation('python',[{'name':'control.py::test_case'}])",
-                        "n.write_json(base/'composer-ready.json',{'scope':n.scope_owner(),'pid':os.getpid(),'owner':n._record(n.owner_record()),'invocation':str(path)})",
+                        "n.write_json(base/'composer-ready.json',{'scope':n.scope_owner(),'pid':os.getpid(),'owner':n._record(n.owner_record()),'invocation':str(path),'allocation':os.environ[h.MARKER]})",
                         f"code=test_run.execute_selected(path,[sys.executable,'-c',{workload!r},str(base)],os.environ,path.with_suffix('.xml'),selected=[{{'nodeid':'control.py::test_case'}}])",
                         "n.write_json(base/'composer-finished.json',{'code':code})",
                         "raise SystemExit(code)",
@@ -1551,7 +1620,14 @@ class NativeOperationTests(unittest.TestCase):
                     composer,
                     str(base),
                 ]
-                if target != "entry":
+                if target == "entry":
+                    command = self.entry_fixture_command(
+                        base,
+                        command,
+                        environment,
+                        inherited_manager=inherited_manager,
+                    )
+                else:
                     command = self.fixture_command(command, environment)
                 log = (base / "fixture.log").open("w")
                 process = subprocess.Popen(
@@ -1564,10 +1640,23 @@ class NativeOperationTests(unittest.TestCase):
                 owners = []
                 try:
                     parent = self.await_file(base / "composer-ready.json", process)
+                    owners.append(parent["scope"])
+                    self.fixture_units.add(parent["scope"]["unit"])
                     child = self.await_file(base / "workload-ready.json", process)
-                    owners = [parent["scope"], child["record"]["scope"]]
+                    owners.append(child["record"]["scope"])
                     if target == "entry":
-                        self.fixture_units.add(owners[0]["unit"])
+                        entry = self.await_file(base / "entry-launcher.json", process)
+                        self.assert_fixture_scope(entry["scope"])
+                        self.assertNotEqual(entry["allocation"], parent["allocation"])
+                        self.assertEqual(
+                            operation.start_identity(entry["pid"]), entry["start"]
+                        )
+                        self.assertIn(
+                            str(cache.ROOT / "scripts/pse_env.py").encode(),
+                            Path(f"/proc/{entry['pid']}/cmdline")
+                            .read_bytes()
+                            .split(b"\0"),
+                        )
                     self.fixture_units.add(owners[1]["unit"])
                     for owner in owners:
                         self.assert_fixture_scope(owner)
@@ -1579,7 +1668,7 @@ class NativeOperationTests(unittest.TestCase):
                     recipient = (
                         parent["pid"]
                         if target == "composer"
-                        else process.pid
+                        else entry["pid"]
                         if target == "entry"
                         else parent["owner"]["pid"]
                     )
@@ -1616,14 +1705,33 @@ class NativeOperationTests(unittest.TestCase):
                     for owner in owners:
                         self.await_drain({"scope": owner})
                     self.assert_parent_scope_unchanged()
-                    if target != "entry":
-                        allocation = pse_env.host.inherit(environment)
-                        assert allocation is not None
-                        self.assertTrue(
-                            allocation.release(),
-                            "retain fixture evidence until exact allocation release",
-                        )
+                    if target == "entry":
+                        self.await_drain({"scope": entry["scope"]})
+                        native_allocation = Path(parent["allocation"])
+                        with pse_env.host.allocation_metadata(
+                            native_allocation.parent
+                        ) as ledger:
+                            self.assertNotIn(native_allocation.name, ledger["owners"])
+                    allocation = pse_env.host.inherit(environment)
+                    assert allocation is not None
+                    self.assertTrue(
+                        allocation.release(),
+                        "retain fixture evidence until exact allocation release",
+                    )
                 finally:
+                    if target == "entry" and process.poll() is None:
+                        launcher_path = base / "entry-launcher.json"
+                        if launcher_path.exists():
+                            launcher = json.loads(launcher_path.read_text())
+                            self.assert_fixture_scope(launcher["scope"], live=False)
+                            if operation.start_identity(launcher["pid"]) == launcher[
+                                "start"
+                            ]:
+                                with contextlib.suppress(ProcessLookupError):
+                                    os.kill(launcher["pid"], signal.SIGTERM)
+                                with contextlib.suppress(subprocess.TimeoutExpired):
+                                    process.wait(timeout=15)
+                            self.kill_scope(launcher["scope"]["unit"])
                     for owner in reversed(owners):
                         self.kill_scope(owner["unit"])
                     if process.poll() is None:
@@ -3280,6 +3388,7 @@ child.wait()
                 {
                     "owner": surreal_server.OWNER,
                     "profile_version": 2,
+                    "payload_incarnation": "438a990a-7e1e-4cc8-b49a-f603b53de398",
                     "websocket_max_message_bytes": surreal_server.MESSAGE_BYTES,
                     "max_message_bytes": surreal_server.MESSAGE_BYTES,
                     "resources": surreal_server.reference_resources(),

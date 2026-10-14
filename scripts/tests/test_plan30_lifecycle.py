@@ -56,6 +56,7 @@ class Plan30LifecycleTests(unittest.TestCase):
             "owner": server.OWNER,
             "profile_version": 2,
             "instance_id": "owned",
+            "payload_incarnation": "da1483f4-e88f-47b5-b2be-67a358f795bb",
             "port": 18240,
             "endpoint": "ws://127.0.0.1:18240",
             "namespace": "pse",
@@ -160,6 +161,44 @@ class Plan30LifecycleTests(unittest.TestCase):
             path,
             {"pid": os.getpid(), "start": native_operation.start_identity(os.getpid())},
         )
+
+    @contextlib.contextmanager
+    def empty_payload_catalog(self) -> Generator[None, None, None]:
+        # These copy/restore controls have a toy database, with no file payloads
+        # or running listener. Keep the real freeze and drain preflight; supply
+        # only the validation listener and its exact empty-catalog responses.
+        expiry = 90_000_000
+
+        def start(
+            state: Path, config: dict[str, object], *, validation: bool = False
+        ) -> None:
+            assert state == self.state
+            assert validation
+            assert config["payload_frozen"]
+            assert not config["accepting_writes"]
+
+        def query(state: Path, config: dict[str, object], body: str) -> object:
+            assert state == self.state
+            if body == (
+                f"RETURN fn::pse_files_v1::freeze({expiry},"
+                f"{json.dumps(config['payload_incarnation'])});"
+            ):
+                return True
+            if body.startswith("LET $rows=SELECT ") and any(
+                body.endswith(
+                    f' FROM {table} WHERE key>"" ORDER BY key LIMIT 64; RETURN $rows;'
+                )
+                for table in ("canonical_file_owners", "canonical_file_instances")
+            ):
+                return []
+            self.fail(f"Unexpected empty payload catalog query: {body}")
+
+        with (
+            patch.object(server, "start", side_effect=start),
+            patch.object(server, "payload_expiry", return_value=expiry),
+            patch.object(server, "payload_query", side_effect=query),
+        ):
+            yield
 
     def test_frozen_cache_entrypoint_requires_its_execution_mode(self) -> None:
         generation = self.generation()
@@ -975,7 +1014,7 @@ class Plan30LifecycleTests(unittest.TestCase):
             "obsolete live process receipt"
         )
         backup = self.root / "backup"
-        with server.lifecycle_reservation(self.state):
+        with self.empty_payload_catalog(), server.lifecycle_reservation(self.state):
             server.backup(self.state, self.config, backup)
         self.state.rename(self.root / "original-unavailable")
         restored = self.root / "restored"
@@ -1016,7 +1055,8 @@ class Plan30LifecycleTests(unittest.TestCase):
         server.write_json(self.state / "config.json", self.config)
         self.context()
         backup = self.root / "backup"
-        server.backup(self.state, self.config, backup)
+        with self.empty_payload_catalog():
+            server.backup(self.state, self.config, backup)
         inventory = {
             str(path.relative_to(backup)): path.read_bytes()
             for path in backup.rglob("*")
@@ -1042,7 +1082,8 @@ class Plan30LifecycleTests(unittest.TestCase):
         }
         server.write_json(self.state / "config.json", self.config)
         backup = self.root / "backup"
-        server.backup(self.state, self.config, backup)
+        with self.empty_payload_catalog():
+            server.backup(self.state, self.config, backup)
         (backup / ".generations" / generation.name / "bin/pse-worker").write_bytes(
             b"changed"
         )

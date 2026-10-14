@@ -28,6 +28,14 @@ from scripts import (
 
 class Plan30RoutingTests(unittest.TestCase):
     def setUp(self) -> None:
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if name not in {native_operation.MARKER, "PSE_NATIVE_HANDOFF"}
+        }
+        isolated = patch.dict(os.environ, environment, clear=True)
+        isolated.start()
+        self.addCleanup(isolated.stop)
         composition = patch.object(
             native_tests,
             "correctness_resolution",
@@ -77,7 +85,7 @@ class Plan30RoutingTests(unittest.TestCase):
         }
         self.provenance = self.root / "native.json"
         self.selection = self.root / "selected.json"
-        self.invocation = self.root / "invocation.json"
+        self.invocation: Path
         self.inventory = {
             "rust-suites": {
                 "unit": {
@@ -128,20 +136,8 @@ class Plan30RoutingTests(unittest.TestCase):
         return execution, [call.args[0] for call in run.call_args_list]
 
     def declaration(self, owner: str = "assessment") -> None:
-        self.invocation.write_text(
-            json.dumps(
-                {
-                    "version": 1,
-                    "nonce": "a" * 32,
-                    "kind": "rust",
-                    "selected": test_run.rust_selected(self.inventory),
-                    "terminal_owner": owner,
-                }
-            )
-        )
-        self.invocation.chmod(0o600)
-        test_resources.storage().create_invocation(
-            test_resources.read_invocation(self.invocation)
+        self.invocation = test_resources.invocation(
+            "rust", test_run.rust_selected(self.inventory), terminal_owner=owner
         )
 
     def test_ordinary_metadata_never_adds_managed_features(self) -> None:
@@ -310,6 +306,7 @@ class Plan30RoutingTests(unittest.TestCase):
     ) -> None:
         self.declaration("runner")
         with (
+            patch.object(native_operation, "scope_owner", return_value=None),
             patch.object(native_operation, "run", return_value=0) as execution,
             patch.object(test_run.validation, "compose_terminal"),
             patch.object(test_run, "finish", return_value=True) as finish,
@@ -481,6 +478,7 @@ class Plan30RoutingTests(unittest.TestCase):
     def test_standalone_observer_finalizes_existing_runner_invocation(self) -> None:
         self.declaration("runner")
         with (
+            patch.object(native_operation, "scope_owner", return_value=None),
             patch.object(native_operation, "run", return_value=0),
             patch.object(test_run.validation, "compose_terminal"),
             patch.object(test_run, "finish", return_value=True) as finish,
