@@ -119,3 +119,104 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "FeOS contributors"
 SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+# Imported native suppliers: these entries come after the repository defaults so
+# imported documentation, metadata and sources retain upstream terms. The sys
+# wrapper license does not relicense the native sources it packages.
+[[annotations]]
+path = ["vendor/suitesparse-sys/**"]
+precedence = "override"
+SPDX-FileCopyrightText = ["Martin Robinson", "Richard Lincoln"]
+SPDX-License-Identifier = "MIT"
+
+# SuiteSparse is heterogeneous (BSD, LGPL, GPL, Apache and third-party terms).
+# This collection preserves the upstream compilation and packaged component
+# licenses; individual components keep their original per-file notices and scope.
+[[annotations]]
+path = ["vendor/suitesparse-sys/vendor/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "SuiteSparse contributors and third-party copyright holders identified in the retained source notices"
+SPDX-License-Identifier = "LicenseRef-SuiteSparse-Upstream"
+
+[[annotations]]
+path = ["vendor/sundials-sys/**"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2018 Jason K Dark", "sundials-sys contributors"]
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = ["vendor/sundials-sys/vendor/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2002-2024 Lawrence Livermore National Security and Southern Methodist University"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = [
+  "vendor/sundials-sys/vendor/.gitlab/spack_packages/sundials/package.py",
+  "vendor/sundials-sys/vendor/.gitlab/spack_packages/netlib-lapack/package.py",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2013-2022 Lawrence Livermore National Security, LLC and other Spack Project Developers"
+SPDX-License-Identifier = "Apache-2.0 OR MIT"
+
+[[annotations]]
+path = ["vendor/diffsol/**", "vendor/diffsol-la/**", "vendor/diffsol-nl/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "Martin Robinson and Diffsol contributors"
+SPDX-License-Identifier = "MIT"
+
+# These are imported SUNDIALS example bodies; the small C wrappers beside them
+# remain under Diffsol's MIT license.
+[[annotations]]
+path = [
+  "vendor/diffsol/benches/sundials/cvRoberts_block_klu_v5.c",
+  "vendor/diffsol/benches/sundials/cvRoberts_block_klu_v6_7.c",
+  "vendor/diffsol/benches/sundials/idaFoodWeb_bnd_v5.c",
+  "vendor/diffsol/benches/sundials/idaFoodWeb_bnd_v6_7.c",
+  "vendor/diffsol/benches/sundials/idaHeat2d_klu_v5.c",
+  "vendor/diffsol/benches/sundials/idaHeat2d_klu_v6_7.c",
+  "vendor/diffsol/benches/sundials/idaRoberts_dns_v5.c",
+  "vendor/diffsol/benches/sundials/idaRoberts_dns_v6_7.c",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2002-2023 Lawrence Livermore National Security and Southern Methodist University"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# MIT Rust implementations also contain retained BSD-licensed SUNDIALS reference
+# text. Both sets of terms remain applicable to their respective portions.
+[[annotations]]
+path = [
+  "vendor/diffsol/src/ode_equations/test_models/robertson.rs",
+  "vendor/diffsol/src/ode_equations/test_models/robertson_ode.rs",
+  "vendor/diffsol/src/ode_equations/test_models/robertson_ode_with_sens.rs",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Martin Robinson and Diffsol contributors",
+  "2002-2023 Lawrence Livermore National Security and Southern Methodist University",
+]
+SPDX-License-Identifier = "MIT AND BSD-3-Clause"
+
+[[annotations]]
+path = ["vendor/suitesparse-sys/build.rs", "vendor/diffsol/build.rs"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Martin Robinson and upstream contributors",
+  "2026 Paul Heyse (build freshness corrections)",
+]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["vendor/sundials-sys/build.rs"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2018 Jason K Dark and sundials-sys contributors",
+  "2026 Paul Heyse (build freshness corrections)",
+]
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = ["vendor/suitesparse-sys/.gitattributes"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Paul Heyse"
+SPDX-License-Identifier = "MIT"

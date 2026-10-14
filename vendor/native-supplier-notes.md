@@ -29,6 +29,11 @@ the repository's direct dependencies. No dependency override table is needed.
 All upstream feature selections and numerical Rust/C sources are preserved.
 Two SuiteSparse files retain their published CRLF bytes through a local
 `.gitattributes` exception to the repository's LF normalization policy.
+`REUSE.toml` records wrapper licenses separately from native trees. SuiteSparse's
+native terms are collected in `LICENSES/LicenseRef-SuiteSparse-Upstream.txt`, which
+retains the upstream compilation and packaged component/third-party license texts;
+each component keeps its own terms and per-file notices. SUNDIALS's Spack files and
+Diffsol's imported SUNDIALS examples/reference text retain their specific licenses.
 
 The three patched build scripts make these corrections:
 
