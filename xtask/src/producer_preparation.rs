@@ -219,6 +219,15 @@ impl Capture {
         let premises_hash = bytes_hash(&premises)?;
         let mut verified = BTreeSet::new();
         let mut preceding = BTreeMap::new();
+        let mut native_options = options.clone();
+        native_options.package.clear();
+        native_options.production_target = ProducerTarget::Library;
+        native_options.features.clear();
+        native_options.no_default_features = false;
+        let native_basis = native_review_basis(&native_options,root)?;
+        let caller_environment = native_caller_environment(options)?;
+        let catalogs = options.declarations.review_catalogs.iter().map(|path|
+            Ok((path.clone(),bytes_hash(&absolute(root,path))?))).collect::<Result<Vec<_>>>()?;
         for index in selected_indices(graph)? {
             let unit = &graph.units[index];
             // run-custom-build output association is captured separately by the
@@ -232,6 +241,14 @@ impl Capture {
             normalized.production_target = ProducerTarget::Library;
             normalized.features = unit.features.clone();
             normalized.no_default_features = false;
+            // Common native/search state is observed once for this capture,
+            // rather than rehashing every large namespace for every executor.
+            normalized.native_inputs.clear();
+            normalized.declarations.native_environment.clear();
+            normalized.declarations.native_namespaces.clear();
+            normalized.declarations.native_absent_files.clear();
+            normalized.declarations.native_absent_environment_prefixes.clear();
+            normalized.declarations.review_catalogs.clear();
             // Review the dependency-complete executable closure, rather than the
             // unrelated role's package/target as though it were executable input.
             let mut closure = graph.clone();
@@ -241,8 +258,7 @@ impl Capture {
             normalized.declarations.proc_macros.retain(|owner, _| owners.contains(owner) || owners.iter().any(|id| logical_package(id, root) == *owner));
             let basis = hash_parts(&[b"finite-preparation-executor.v1", &serde_json::to_vec(&(
                 &keys[&index], executable_closure_basis(graph,index,&sources,&keys)?,
-                reviewed_input_state(&normalized,root)?, native_caller_environment(&normalized)?,
-                native_namespace_state(&normalized,root)?, native_environment_prefix_state(&normalized)?,
+                reviewed_input_state(&normalized,root)?, &native_basis, &caller_environment, &catalogs,
                 &normalized.declarations.build_scripts, &normalized.declarations.proc_macros))?]);
             let names = message["filenames"].as_array().context("executor output files missing")?;
             let mut outputs = names.iter().map(|name| deployment_identity::FileObservation::capture(
@@ -326,9 +342,9 @@ mod tests {
             let evidence = scratch.path().join("evidence");
             fs::create_dir_all(root.join("src/bin")).unwrap();
             fs::create_dir(&evidence).unwrap();
-            fs::write(root.join("Cargo.toml"), "[package]\nname='cohort-fixture'\nversion='0.1.0'\nedition='2024'\n[features]\nalternate=[]\n").unwrap();
+            fs::write(root.join("Cargo.toml"), "[package]\nname='cohort-fixture'\nversion='0.1.0'\nedition='2024'\n[features]\nalternate=[]\nfail=[]\n").unwrap();
             fs::write(root.join("build.rs"), "fn main(){let p=std::path::PathBuf::from(std::env::var_os(\"OUT_DIR\").unwrap());std::fs::write(p.join(\"generated.rs\"),\"pub fn value()->u32{1}\").unwrap();println!(\"cargo:rerun-if-changed=build.rs\");}").unwrap();
-            fs::write(root.join("src/lib.rs"), "include!(concat!(env!(\"OUT_DIR\"),\"/generated.rs\"));").unwrap();
+            fs::write(root.join("src/lib.rs"), "#[cfg(feature=\"fail\")] compile_error!(\"selected child fails\");include!(concat!(env!(\"OUT_DIR\"),\"/generated.rs\"));").unwrap();
             fs::write(root.join("src/bin/worker.rs"), "fn main(){assert_eq!(cohort_fixture::value(),1);}").unwrap();
             let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
             fs::copy(repository.join("rust-toolchain.toml"),root.join("rust-toolchain.toml")).unwrap();
@@ -407,5 +423,70 @@ mod tests {
         assert!(run(&fixture.selection("changed")).unwrap_err().to_string().contains("source is outside"));
         assert!(fixture.directory.join("FAILED").is_file());
         assert!(!fixture.evidence.join("changed.json").exists());
+    }
+
+    #[test]
+    fn producer_preparation_changed_native_input_cannot_reuse_fresh_executor() {
+        let fixture=Fixture::new();
+        let native=fixture.evidence.join("native-input");
+        fs::write(&native,b"first native selection").unwrap();
+        let mut first=fixture.selection("first");
+        first.native_inputs.push(native.clone());
+        run(&first).unwrap();
+        fs::write(&native,b"different native selection").unwrap();
+        let mut second=fixture.selection("changed-native");
+        second.native_inputs.push(native);
+        assert!(run(&second).unwrap_err().to_string().contains("premises or original outputs changed"));
+        assert!(fixture.directory.join("FAILED").is_file());
+    }
+
+    #[test]
+    fn producer_preparation_changed_absence_cannot_reuse_fresh_executor() {
+        let fixture=Fixture::new();
+        let absent=fixture.evidence.join("previously-absent");
+        let mut first=fixture.selection("first");
+        first.declarations.native_absent_files.push(absent.clone());
+        run(&first).unwrap();
+        fs::write(&absent,b"now present").unwrap();
+        let mut second=fixture.selection("changed-absence");
+        second.declarations.native_absent_files.push(absent);
+        assert!(run(&second).unwrap_err().to_string().contains("premises or original outputs changed"));
+        assert!(fixture.directory.join("FAILED").is_file());
+    }
+
+    #[test]
+    fn producer_preparation_changed_original_executor_output_refuses() {
+        let fixture=Fixture::new();
+        run(&fixture.selection("first")).unwrap();
+        let state:State=serde_json::from_slice(&fs::read(fixture.directory.join("state.json")).unwrap()).unwrap();
+        let compiled=state.compiled.values().next().unwrap();
+        fs::write(&compiled.outputs[0].path,b"substituted executor bytes").unwrap();
+        assert!(run(&fixture.selection("changed-output")).unwrap_err().to_string().contains("premises or original outputs changed"));
+        assert!(fixture.directory.join("FAILED").is_file());
+    }
+
+    #[test]
+    fn producer_preparation_unenrolled_family_refuses_before_child_build() {
+        let fixture=Fixture::new();
+        let path=fixture.directory.join("state.json");
+        let mut state:State=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        state.families.clear();
+        fs::write(path,serde_json::to_vec(&state).unwrap()).unwrap();
+        assert!(run(&fixture.selection("unknown-family")).unwrap_err().to_string().contains("unrefreshed executor family"));
+        assert!(!fixture.evidence.join("unknown-family.json").exists());
+        assert!(fixture.directory.join("FAILED").is_file());
+    }
+
+    #[test]
+    fn producer_preparation_failed_child_cannot_enroll_or_resume() {
+        let fixture=Fixture::new();
+        run(&fixture.selection("first")).unwrap();
+        let before=fs::read(fixture.directory.join("state.json")).unwrap();
+        let mut failed=fixture.selection("failed-child");
+        failed.features=vec!["fail".into()];
+        assert!(run(&failed).unwrap_err().to_string().contains("Cargo command failed"));
+        assert_eq!(fs::read(fixture.directory.join("state.json")).unwrap(),before);
+        assert!(fixture.directory.join("FAILED").is_file());
+        assert!(run(&fixture.selection("retry")).unwrap_err().to_string().contains("terminal"));
     }
 }
