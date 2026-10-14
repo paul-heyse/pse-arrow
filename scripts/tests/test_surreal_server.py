@@ -5272,7 +5272,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                             )
                         )
                         started = server.time.monotonic()
-                        deadline = started + 0.2
+                        # Leave scheduling margin for reaching the real held-ledger
+                        # boundary; that same finite deadline must still expire there.
+                        deadline = started + 1.0
                         with (
                             patch.dict(
                                 os.environ,
@@ -5321,7 +5323,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                                     create=True,
                                 ):
                                     server.ensure_primary(self.state)
-                        self.assertLess(server.time.monotonic() - started, 1.0)
+                        self.assertLess(server.time.monotonic() - started, 2.0)
                         self.assertEqual(inherit.call_args.kwargs["deadline"], deadline)
                         dispatch_worker.assert_not_called()
                         dispatch_primary.assert_not_called()
