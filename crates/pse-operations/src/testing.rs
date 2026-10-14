@@ -387,7 +387,10 @@ pub fn canonical_fixture_peer(
     owner: &crate::canonical::CanonicalStore,
     options: &crate::canonical::CanonicalOptions,
 ) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
-    let lifetime = owner.fixture_lifetime.as_ref().ok_or_else(|| {
+    // Pin the complete fixture membership while the owner's admission is open,
+    // before connection setup can race the final resource-drain decision.
+    let borrowed_owner=owner.independent_caller()?;
+    let lifetime = borrowed_owner.fixture_lifetime.as_ref().ok_or_else(|| {
         crate::canonical::CanonicalError::Configuration(
             "fixture peer requires registered owner".into(),
         )
@@ -400,7 +403,7 @@ pub fn canonical_fixture_peer(
     let peer = lifetime.execute(crate::canonical::CanonicalStore::connect(options))?;
     lifetime.execute(peer.open())?;
     lifetime.retain_peer(peer.clone())?;
-    peer.borrow_fixture(owner)
+    peer.borrow_fixture(&borrowed_owner)
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]

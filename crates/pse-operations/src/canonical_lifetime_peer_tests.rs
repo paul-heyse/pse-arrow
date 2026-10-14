@@ -258,3 +258,41 @@ async fn final_fixture_teardown_seals_admission_and_joins_actual_response_work()
     drop(activity);tokio::time::timeout(Duration::from_secs(2),cleanup).await.unwrap().unwrap();
     tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();assert!(received.try_recv().is_err());
 }
+
+async fn decision_wire_fixture(mut store:crate::canonical::CanonicalStore)->crate::canonical::CanonicalStore {
+    static EXECUTOR:std::sync::OnceLock<tokio::runtime::Runtime>=std::sync::OnceLock::new();
+    let executor=EXECUTOR.get_or_init(||tokio::runtime::Builder::new_current_thread().build().unwrap());
+    let lifetime=Arc::new(crate::testing::FixtureLifetime::new(store.clone(),executor,"wire-decision-only".into()));
+    // No service resource was allocated. Exercise the real fixture membership
+    // and final decision while keeping fallback registry publication disabled.
+    *lifetime.removed.lock().await=true;
+    store.fixture_lifetime=Some(lifetime);store
+}
+
+#[tokio::test]
+async fn independent_fixture_caller_mint_finishes_before_final_borrower_decision(){
+    let (store,mut received,server)=super::tests::canonical_read_barrier_peer().await;
+    let store=Arc::new(decision_wire_fixture(store).await);let barrier=Arc::new(std::sync::Barrier::new(2));
+    let issuer=store.clone();let paused=barrier.clone();
+    let mint=std::thread::spawn(move||{crate::canonical::lifetime::pause_next_caller_mint(paused);issuer.independent_caller().unwrap()});
+    barrier.wait();
+    // Pause precisely after Open was validated but before fixture Arc cloning.
+    // The final decision must be excluded throughout this old race window.
+    let admission_held=store.db.access.physical.caller_mint_holds_admission();
+    barrier.wait();let borrower=mint.join().unwrap();assert!(admission_held);
+    assert!(!store.seal_final_fixture_owner(),"the completely constructed caller is a registered fixture borrower");
+    drop(store.admit_activity().unwrap());drop(borrower);
+    assert!(store.seal_final_fixture_owner());store.drain_fixture_connection().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();assert!(received.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn final_fixture_decision_fences_independent_mint_and_clones_remain_closed_aliases(){
+    let (store,mut received,server)=super::tests::canonical_read_barrier_peer().await;
+    let store=decision_wire_fixture(store).await;assert!(store.seal_final_fixture_owner());
+    assert!(matches!(store.independent_caller(),Err(CanonicalError::ConnectionUnavailable)));
+    let closed_alias=store.clone();assert!(matches!(closed_alias.admit_activity(),Err(CanonicalError::ConnectionUnavailable)));
+    assert!(store.seal_final_fixture_owner(),"a closed alias cannot undo the original final decision");
+    store.drain_fixture_connection().await.unwrap();drop(closed_alias);
+    tokio::time::timeout(Duration::from_secs(2),server).await.unwrap().unwrap();assert!(received.try_recv().is_err());
+}

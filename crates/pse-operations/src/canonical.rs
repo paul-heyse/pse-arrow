@@ -770,7 +770,7 @@ impl CanonicalStore {
     /// Construct independent caller authority over this still-open connection pair.
     /// Ordinary cloning preserves the existing caller instead.
     pub fn independent_caller(&self) -> Result<Self, CanonicalError> {
-        Ok(self.with_access(self.db.access.independent()?))
+        self.db.access.independent_with(|access|self.with_access(access))
     }
 
     /// Admit a real operation before its first native or canonical effect.
@@ -1814,6 +1814,14 @@ impl CanonicalStore {
             self.disconnect().await
         }).await
     }
+    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    fn seal_final_fixture_owner(&self)->bool {
+        self.db.access.physical.seal_if_final_fixture(|| {
+            #[cfg(any(test, feature = "test-support"))]
+            if self.fixture_lifetime.as_ref().is_some_and(|lifetime|Arc::strong_count(lifetime)>1){return false;}
+            true
+        })
+    }
     /// Drain a registered fixture locally; runner disposition owns disposal.
     #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
@@ -1833,13 +1841,9 @@ impl CanonicalStore {
             return Ok(());
         }
         within_clock(deadline, self.result_read_drain.drain()).await?;
-        #[cfg(any(test, feature = "test-support"))]
-        if self
-            .fixture_lifetime
-            .as_ref()
-            .is_some_and(|lifetime| Arc::strong_count(lifetime) > 1)
-        {
-            // Remaining borrowers own the eventual Drop/drain publication.
+        if !self.seal_final_fixture_owner() {
+            // Remaining registered borrowers own eventual drain. Minting an
+            // independent caller cannot pass between this decision and seal.
             return Ok(());
         }
         within_clock(deadline, self.drain_fixture_connection()).await?;

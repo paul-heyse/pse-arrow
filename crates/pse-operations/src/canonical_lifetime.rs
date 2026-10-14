@@ -13,6 +13,13 @@ tokio::task_local! {
     static CONTINUATION: ConnectionActivity;
 }
 
+#[cfg(test)]
+thread_local! {
+    static MINT_PAUSE:std::cell::RefCell<Option<Arc<std::sync::Barrier>>>=const{std::cell::RefCell::new(None)};
+}
+#[cfg(test)]
+pub(crate) fn pause_next_caller_mint(barrier:Arc<std::sync::Barrier>){MINT_PAUSE.with(|pause|*pause.borrow_mut()=Some(barrier));}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Phase {
     Open,
@@ -137,20 +144,18 @@ impl ConnectionAccess {
             ..self.clone()
         })
     }
-    pub(crate) fn independent(&self) -> Result<Self, CanonicalError> {
-        let state = self
-            .physical
-            .state
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if state.phase != Phase::Open {
-            return Err(CanonicalError::ConnectionUnavailable);
-        }
-        Ok(Self {
-            physical: self.physical.clone(),
-            caller: Arc::default(),
-            continuation: None,
-        })
+    /// Finish construction (including fixture membership) under the same lock
+    /// that decides final ownership and seals physical admission. The callback
+    /// must only construct aliases; it must not re-enter activity admission.
+    pub(crate) fn independent_with<T>(&self,mint:impl FnOnce(Self)->T)->Result<T,CanonicalError> {
+        let state=self.physical.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.phase!=Phase::Open{return Err(CanonicalError::ConnectionUnavailable);}
+        #[cfg(test)]
+        MINT_PAUSE.with(|pause| {
+            let barrier=pause.borrow_mut().take();
+            if let Some(barrier)=barrier{barrier.wait();barrier.wait();}
+        });
+        Ok(mint(Self{physical:self.physical.clone(),caller:Arc::default(),continuation:None}))
     }
     pub(crate) fn close_caller(&self) {
         let _state = self
@@ -192,6 +197,21 @@ impl Drop for CloseOwner {
     }
 }
 impl PhysicalLifetime {
+    /// The fixture association is counted while independent minting is excluded.
+    /// Ordinary clones preserve the same caller: those racing after this seal
+    /// are closed aliases and cannot admit new work or restore open authority.
+    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    pub(crate) fn seal_if_final_fixture(&self,is_final:impl FnOnce()->bool)->bool {
+        let mut state=self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.phase!=Phase::Open{return true;}
+        if !is_final(){return false;}
+        state.phase=Phase::Closing;
+        true
+    }
+    #[cfg(test)]
+    pub(crate) fn caller_mint_holds_admission(&self)->bool{
+        matches!(self.state.try_lock(),Err(std::sync::TryLockError::WouldBlock))
+    }
     fn complete(&self, round: &CloseRound, outcome: Result<(), CanonicalError>) {
         let mut state = self
             .state
@@ -351,7 +371,7 @@ mod tests {
     async fn caller_aliases_close_together_but_continuation_and_independent_caller_survive() {
         let caller = ConnectionAccess::default();
         let escaped = caller.clone();
-        let other = caller.independent().unwrap();
+        let other = caller.independent_with(|access|access).unwrap();
         let activity = caller.admit().unwrap();
         caller.close_caller();
         assert!(matches!(escaped.admit(), Err(CanonicalError::CallerClosed)));
