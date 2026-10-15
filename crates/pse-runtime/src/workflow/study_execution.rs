@@ -120,6 +120,10 @@ impl super::Runtime {
         &self, definition: &StudyDefinition, maximum_points: usize, cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
         super::study::creation_checkpoint(cancel)?;
+        if maximum_points == 0 || maximum_points > super::MAXIMUM_STUDY_POINTS || definition.point_count() > maximum_points {
+            return Err(super::contract("bounded recorded study extent"));
+        }
+        definition.validate_roles()?;
         let activity = self.admit_activity()?;
         activity.scope(async {
             let physical = self.physical_source(&definition.physical, cancel).await?;

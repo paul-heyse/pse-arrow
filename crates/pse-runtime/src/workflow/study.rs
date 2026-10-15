@@ -2517,6 +2517,8 @@ impl super::ModelingPackage {
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<LocalStudy, WorkflowError> {
+        let activity = self.runtime.admit_activity()?;
+        activity.scope(async {
         let science = match inputs {
             super::StudyInputs::Explicit(points) => self.admit_study_points(points, output, cancel).await?,
             super::StudyInputs::Lazy(variants) => {
@@ -2533,6 +2535,7 @@ impl super::ModelingPackage {
             }
         };
         Ok(LocalStudy { package: self.clone(), science })
+        }).await
     }
     pub(in crate::workflow) async fn admit_one_study_point(
         &self,
