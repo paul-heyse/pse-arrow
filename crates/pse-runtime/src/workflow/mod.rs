@@ -93,7 +93,7 @@ pub use pse_model::generated::{
 };
 pub use study::{
     MAXIMUM_STUDY_POINTS, PackageSources, PointAttemptOutcome, PointOutcome, PointStatus,
-    StudyCancel, StudyDefinition, StudyHandle, StudyPlan, StudyPoint, StudyPointDefinition,
+    AdmittedStudy, LocalStudy, StudyCancel, StudyDefinition, StudyHandle, StudyPlan, StudyPoint, StudyPointDefinition,
     StudyPointPolicy, StudyRequest, StudyResults, StudyStatus,
 };
 pub use study_operations::{

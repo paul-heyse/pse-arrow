@@ -10,6 +10,7 @@ use std::{collections::BTreeMap, sync::Arc};
 /// Immutable physical declarations retaining their actual admitted source rows.
 #[derive(Clone, Debug)]
 pub struct PhysicalContext {
+    pub(super) documents: Option<pse_admission::authoring_driver::document::OwnedDocumentSet>,
     pub(crate) quantities: Arc<QuantityRegistry>,
     pub(crate) preconditions: Arc<PhysicalPreconditions>,
     pub(crate) sources: BTreeMap<pse_schema::model::RelationKey, FieldCheckedBatch>,
@@ -35,6 +36,7 @@ impl PhysicalContext {
         let preconditions = inventory.compiler_preconditions();
         let key = pse_compiler::workspace::physical_identity(&quantities, &preconditions);
         Self {
+            documents: None,
             quantities,
             preconditions,
             key,
@@ -150,6 +152,7 @@ impl PhysicalContext {
                 })?;
         let (inventory, sources, package) = admitted.into_parts();
         let mut context = Self::admitted(inventory);
+        context.documents = Some(documents.clone());
         context.package = package;
         context.sources = sources;
         Ok(context)

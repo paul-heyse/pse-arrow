@@ -128,11 +128,10 @@ impl Drop for ManagedReceiver {
 
 async fn definition(
     package: &ModelingPackage,
-    sources: &workflow::PackageSources,
     physical: &workflow::PhysicalContext,
     values: &[f64],
     parallel: bool,
-) -> workflow::StudyDefinition {
+) -> workflow::LocalStudy {
     let root = package
         .declarations()
         .await
@@ -207,12 +206,7 @@ async fn definition(
         })
         .collect();
     let admitted = package
-        .admit_study_sources(
-            &sources.physical,
-            &points,
-            &workflow::StudyOutputDemand::Full {},
-            &audit::cancel_source(),
-        )
+        .admit_study(&workflow::StudyInputs::Explicit((&points).to_vec()), &workflow::StudyOutputDemand::Full {}, &audit::cancel_source())
         .await
         .unwrap();
     assert_eq!(
@@ -480,9 +474,10 @@ pub(super) fn measure(
                 let started=Instant::now();
                 let physical=support::physical(&runtime,&owner,&sources).await;
                 let package=runtime.modeling_from_documents(&support::admitted_documents(&owner,&sources.modeling),physical.clone(),&cancel).await.unwrap();
-                let definition=definition(&package,&sources,&physical,&values,independent).await;
+                let definition=definition(&package,&physical,&values,independent).await;
                 assert!(definition.points.iter().all(|point| point.operation.preparation.compiler.optimization.cores == 1),
                     "reference comparison retains one construction core per occurrence");
+                let recorded_definition = if durable_mode || managed { Some(runtime.record_study(&definition, &cancel).await.unwrap()) } else { None };
                 let admission=started.elapsed();
                 drop(setup_stage);
                 let _execution_stage=audit::stage("study_dispatch_execution_and_results");
@@ -497,7 +492,7 @@ pub(super) fn measure(
                 let mut worker_passes=Vec::new();
                 let (elapsed,submission,submission_counts,worker_counts,result_read_seconds,outcomes,metrics) = if durable_mode {
                     let start=Instant::now();
-                    let handle=runtime.start_defined_study(sources.physical.clone(),definition.clone(),&cancel).await.unwrap();
+                    let handle=runtime.start_recorded_study(recorded_definition.clone().unwrap(),&cancel).await.unwrap();
                     let submission=start.elapsed();
                     let submission_counts=support::counts(before,owner.runtime.math().preparations());
                     let worker_before=owner.runtime.math().preparations();
@@ -534,7 +529,7 @@ pub(super) fn measure(
                     // admission and complete retained study are both inside this clock.
                     // Keep one large public study future on the heap. Separate
                     // audit/ordinary awaits must not duplicate it in this harness frame.
-                    let study=Box::pin(package.study(&definition,occurrences,&cancel));
+                    let study=Box::pin(runtime.execute_study(recorded_definition.as_ref().unwrap(),occurrences,&cancel));
                     let report=if audit::enabled() {
                         study.await.unwrap()
                     } else {
@@ -567,7 +562,7 @@ pub(super) fn measure(
                 let peak=owner.runtime.observation_peak_bytes();
                 let rss=owner.runtime.report().unwrap().process_peak_rss_bytes;
                 let retained=pool.reserved();
-                let record=json!({"runtime_profile":runtime_profile,"receiving_profile":receiving_profile,"seconds":{"database_setup":database_setup.as_secs_f64(),"source_and_definition_admission":admission.as_secs_f64(),"execution_total":elapsed.as_secs_f64(),"submission":submission.as_secs_f64(),"result_read":result_read_seconds},"admission_preparations":admission_counts,"submission_preparations":submission_counts,"worker_preparations":worker_counts,"execution_preparations":execution_counts,"admission_phases":admission_phases,"execution_phases":execution_phases,"worker_passes":worker_passes,"outcomes":outcomes,"point_metrics":metrics,"numerical_observations":numerical.json(),"definition":definition,"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,"retained_runtime_bytes":retained});
+                let record=json!({"runtime_profile":runtime_profile,"receiving_profile":receiving_profile,"seconds":{"database_setup":database_setup.as_secs_f64(),"source_and_definition_admission":admission.as_secs_f64(),"execution_total":elapsed.as_secs_f64(),"submission":submission.as_secs_f64(),"result_read":result_read_seconds},"admission_preparations":admission_counts,"submission_preparations":submission_counts,"worker_preparations":worker_counts,"execution_preparations":execution_counts,"admission_phases":admission_phases,"execution_phases":execution_phases,"worker_passes":worker_passes,"outcomes":outcomes,"point_metrics":metrics,"numerical_observations":numerical.json(),"definition":recorded_definition.map_or_else(|| json!({"modeling_revision":definition.modeling_revision,"points":definition.points,"variants":definition.variants}), |recorded| json!(recorded)),"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,"retained_runtime_bytes":retained});
                 drop(package); drop(physical);
                 let mut record=record;
                 record["admission_constructions"]=admission_constructions;

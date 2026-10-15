@@ -405,15 +405,7 @@ async fn scoped_study_admission_preserves_individual_point_bindings() {
         points.push(submitted);
     }
     let definition = package
-        .admit_study_points(
-            super::super::PhysicalSource {
-                revision: "explicit-ephemeral-fixture".into(),
-                identity: ContentHash::from_bytes([0; 32]),
-            },
-            &points,
-            &crate::workflow::StudyOutputDemand::Full {},
-            &CancelSource::new(),
-        )
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&points).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
         .await
         .unwrap();
     assert_eq!(definition.points.len(), 2);
@@ -457,15 +449,7 @@ async fn scoped_study_admission_transitions_from_declared_case_to_horizon() {
     )));
     horizon.policy.key = OccurrenceKey(1);
     let definition = package
-        .admit_study_points(
-            super::super::PhysicalSource {
-                revision: "explicit-ephemeral-fixture".into(),
-                identity: ContentHash::from_bytes([0; 32]),
-            },
-            &[declared, horizon],
-            &crate::workflow::StudyOutputDemand::Full {},
-            &CancelSource::new(),
-        )
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&[declared, horizon]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
         .await
         .unwrap();
     assert_eq!(definition.points.len(), 2);
@@ -560,23 +544,14 @@ async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOpera
 async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
     let (package, case) = plant().await;
     let definition = package
-        .admit_study_points(
-            super::super::PhysicalSource {
-                revision: "explicit-ephemeral-fixture".into(),
-                identity: ContentHash::from_bytes([0; 32]),
-            },
-            &[point(OperationRequest::Simulation(SimulationOperation {
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(OperationRequest::Simulation(SimulationOperation {
                 case,
                 profile: None,
-            }))],
-            &crate::workflow::StudyOutputDemand::Full {},
-            &CancelSource::new(),
-        )
+            }))]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
         .await
         .unwrap();
-    let decoded: super::super::StudyDefinition =
-        serde_json::from_slice(&serde_json::to_vec(&definition).unwrap()).unwrap();
-    let p = &decoded.points[0];
+    let p: super::super::StudyPointDefinition =
+        serde_json::from_slice(&serde_json::to_vec(&definition.points[0]).unwrap()).unwrap();
     assert_eq!(p.policy.seed_need, SeedNeed::NotNeeded);
     assert!(matches!(
         package
@@ -609,15 +584,7 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
         },
     });
     let definition = package
-        .admit_study_points(
-            super::super::PhysicalSource {
-                revision: "explicit-ephemeral-fixture".into(),
-                identity: ContentHash::from_bytes([0; 32]),
-            },
-            &[point(request)],
-            &crate::workflow::StudyOutputDemand::Full {},
-            &CancelSource::new(),
-        )
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(request)]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
         .await
         .unwrap();
     let p = &definition.points[0];
@@ -636,15 +603,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let (package, case) = plant().await;
     let request = horizon(&package, case).await;
     let definition = package
-        .admit_study_points(
-            super::super::PhysicalSource {
-                revision: "explicit-ephemeral-fixture".into(),
-                identity: ContentHash::from_bytes([0; 32]),
-            },
-            &[point(OperationRequest::Horizon(Box::new(request.clone())))],
-            &crate::workflow::StudyOutputDemand::Full {},
-            &CancelSource::new(),
-        )
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(OperationRequest::Horizon(Box::new(request.clone())))]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
         .await
         .unwrap();
     let p = &definition.points[0];
@@ -661,15 +620,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let mut equivalent = request.clone();
     equivalent.inputs[0].initial = quantity(&package, 353.15, "Temperature", "K");
     let other = package
-        .admit_study_points(
-            super::super::PhysicalSource {
-                revision: "explicit-ephemeral-fixture".into(),
-                identity: ContentHash::from_bytes([0; 32]),
-            },
-            &[point(OperationRequest::Horizon(Box::new(equivalent)))],
-            &crate::workflow::StudyOutputDemand::Full {},
-            &CancelSource::new(),
-        )
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(OperationRequest::Horizon(Box::new(equivalent)))]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
         .await
         .unwrap();
     assert_eq!(
@@ -685,15 +636,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let mut wrong = request;
     wrong.inputs[0].initial = quantity(&package, 1., "Time", "s");
     let error = package
-        .admit_study_points(
-            super::super::PhysicalSource {
-                revision: "explicit-ephemeral-fixture".into(),
-                identity: ContentHash::from_bytes([0; 32]),
-            },
-            &[point(OperationRequest::Horizon(Box::new(wrong)))],
-            &crate::workflow::StudyOutputDemand::Full {},
-            &CancelSource::new(),
-        )
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(OperationRequest::Horizon(Box::new(wrong)))]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
         .await
         .unwrap_err();
     assert_eq!(

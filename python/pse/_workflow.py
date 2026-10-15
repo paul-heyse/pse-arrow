@@ -21,7 +21,7 @@ from pse._build import (
     _NativeRuntime,
 )
 from pse._inspection import TableStream
-from pse._modeling import ModelingPackage
+from pse._modeling import LocalStudy, ModelingPackage, StudyReport
 from pse._runs import (
     PreparedOperation,
     ProgressStream,
@@ -43,6 +43,8 @@ from pse.contracts.documents import (
     RunControls,
     SolveSettings,
     SourceSettlement,
+    StudyDefinition,
+    StudyRunControls,
 )
 from pse.contracts.identities import (
     SolutionId,
@@ -330,6 +332,23 @@ class Runtime:
     def progress(self, run: str, attempt: str) -> ProgressStream:
         """Read the exact terminal attempt's bounded recorded event history."""
         return ProgressStream(self._handle.progress(run, attempt))
+
+    def record_study(self, local: LocalStudy) -> StudyDefinition:
+        """Publish exact retained inputs and return a portable recorded definition."""
+        return codec.decode_json(self._handle.record_study(local._handle), StudyDefinition)
+
+    def execute_study(
+        self, definition: StudyDefinition, *, controls: StudyRunControls | None = None
+    ) -> StudyReport:
+        """Join recorded durable execution and retain its original result report."""
+        return StudyReport(self._handle.execute_study(
+            codec.encode_json(definition),
+            controls=None if controls is None else codec.encode_json(controls),
+        ))
+
+    def start_study(self, definition: StudyDefinition) -> StudyHandle:
+        """Start durable workers from a genuinely recorded portable definition."""
+        return StudyHandle(self._handle.start_study(codec.encode_json(definition)))
 
     def study(self, study_id: StudyId) -> StudyHandle:
         """Return a handle on a durable study of this runtime's store."""

@@ -98,7 +98,7 @@ pub(super) fn from_documents(
         owner: runtime.owner.clone(),
         inner,
         limits: Default::default(),
-        physical_sources: Some(physical.documents.clone()),
+
     })
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -107,20 +107,17 @@ pub(crate) struct NativeModelingPackage {
     owner: Arc<runtime::Runtime>,
     inner: native::ModelingPackage,
     limits: pse_modeling::Limits,
-    /// Shared whole physical prerequisite; modeling sources live only in the canonical store.
-    physical_sources: Option<Arc<BTreeMap<String, Vec<u8>>>>,
 }
 impl NativeModelingPackage {
     pub(super) fn from_revision(
         owner: Arc<runtime::Runtime>,
         inner: native::ModelingPackage,
-        physical_sources: Arc<BTreeMap<String, Vec<u8>>>,
     ) -> Self {
         Self {
             owner,
             inner,
             limits: Default::default(),
-            physical_sources: Some(physical_sources),
+
         }
     }
 }
@@ -222,7 +219,7 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-            physical_sources: self.physical_sources.clone(),
+
         })
     }
     fn with_delta(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
@@ -243,7 +240,7 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-            physical_sources: self.physical_sources.clone(),
+
         })
     }
     fn reload_from_parent(
@@ -266,7 +263,7 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-            physical_sources: self.physical_sources.clone(),
+
         })
     }
     fn with_fit_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
@@ -289,7 +286,7 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-            physical_sources: self.physical_sources.clone(),
+
         })
     }
 
@@ -329,7 +326,7 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner: self.inner.clone(),
             limits: limits.limits,
-            physical_sources: None,
+
         }
     }
 
@@ -711,99 +708,27 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    /// Admit the generated request once under this immutable selected revision.
-    fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<Vec<u8>> {
+    /// Admit local scientific intent without publication prerequisites.
+    fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<NativeLocalStudy> {
         let request = documents::decode_versioned::<native::StudyRequest, 6>(
-            py,
-            "operation",
-            request,
-            self.owner.shared.budget().math.workspace_bytes,
+            py, "operation", request, self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let physical = self.physical_sources.as_deref().ok_or_else(|| {
-            invalid(
-                py,
-                "study admission requires its admitted physical source documents",
-            )
-        })?;
         let cancel = CancelSource::new();
-        let definition = blocking(
-            py,
-            &self.owner,
-            self.inner.admit_study_input_sources(
-                physical,
-                &request.inputs,
-                &request.output,
-                &cancel,
-            ),
-            || cancel.cancel(),
-        )?;
-        documents::encode(py, &definition)
+        let inner = blocking(py, &self.owner,
+            self.inner.admit_study(&request.inputs, &request.output, &cancel),
+            || cancel.cancel())?;
+        Ok(NativeLocalStudy { inner, owner: self.owner.clone() })
     }
-    /// Execute the same admitted document accepted by the durable adapter.
-    #[pyo3(signature=(definition, *, controls=None))]
-    fn study(
-        &self,
-        py: Python<'_>,
-        definition: &[u8],
-        controls: Option<&[u8]>,
-    ) -> PyResult<NativeStudyReport> {
+    /// Execute using the owned admitted model and physical context.
+    #[pyo3(signature=(local, *, controls=None))]
+    fn study(&self, py: Python<'_>, local: &NativeLocalStudy, controls: Option<&[u8]>) -> PyResult<NativeStudyReport> {
         let native::StudyRunControls { maximum_points } = documents::controls(
-            py,
-            "study",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let definition = documents::study_definition(
-            py,
-            definition,
-            self.owner.shared.budget().math.workspace_bytes,
+            py, "study", controls, self.owner.shared.budget().math.workspace_bytes,
         )?;
         let cancel = CancelSource::new();
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner.study(&definition, maximum_points, &cancel),
-            || cancel.cancel(),
-        )?;
-        Ok(NativeStudyReport {
-            inner: Arc::new(inner),
-            owner: self.owner.clone(),
-        })
-    }
-    /// Persist the admitted document and reopen its exact canonical modeling revision.
-    #[pyo3(signature=(runtime, definition))]
-    fn start_study(
-        &self,
-        py: Python<'_>,
-        runtime: &NativeRuntime,
-        definition: &[u8],
-    ) -> PyResult<NativeStudyHandle> {
-        let definition = documents::study_definition(
-            py,
-            definition,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let physical_sources = self.physical_sources.as_ref().ok_or_else(|| {
-            invalid(
-                py,
-                "a durable study requires the shared physical source prerequisite",
-            )
-        })?;
-        let cancel = CancelSource::new();
-        let inner = blocking(
-            py,
-            &runtime.owner,
-            runtime.inner.start_defined_study(
-                physical_sources.as_ref().clone(),
-                definition,
-                &cancel,
-            ),
-            || cancel.cancel(),
-        )?;
-        Ok(NativeStudyHandle {
-            owner: runtime.owner.clone(),
-            inner,
-        })
+        let inner = blocking(py, &self.owner,
+            self.inner.study(&local.inner, maximum_points, &cancel), || cancel.cancel())?;
+        Ok(NativeStudyReport { inner: Arc::new(inner), owner: local.owner.clone() })
     }
     fn inspect(&self, py: Python<'_>, case_id: &str, settings: &[u8]) -> PyResult<Vec<u8>> {
         let settings = settings::solve_profile(py, settings)?;
@@ -1646,11 +1571,35 @@ impl NativeModelingInitializationAttempt {
             })
     }
 }
+/// Nonserializable retained scientific authority for a local study.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeLocalStudy {
+    pub(super) inner: native::LocalStudy,
+    pub(super) owner: Arc<runtime::Runtime>,
+}
+#[pymethods]
+impl NativeLocalStudy {
+    #[pyo3(signature=(*, controls=None))]
+    fn execute(&self, py: Python<'_>, controls: Option<&[u8]>) -> PyResult<NativeStudyReport> {
+        let native::StudyRunControls { maximum_points } = documents::controls(py, "study", controls, self.owner.shared.budget().math.workspace_bytes)?;
+        let cancel = CancelSource::new();
+        let inner = blocking(py, &self.owner, self.inner.execute(maximum_points, &cancel), || cancel.cancel())?;
+        Ok(NativeStudyReport { inner: Arc::new(inner), owner: self.owner.clone() })
+    }
+    #[getter]
+    fn points(&self, py: Python<'_>) -> PyResult<Vec<u8>> { documents::encode(py, &self.inner.points) }
+    #[getter]
+    fn variants(&self, py: Python<'_>) -> PyResult<Vec<u8>> { documents::encode(py, &self.inner.variants) }
+    #[getter]
+    fn modeling_revision(&self) -> String { self.inner.modeling_revision.clone() }
+}
+
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeStudyReport {
-    inner: Arc<native::StudyReport>,
-    owner: Arc<runtime::Runtime>,
+    pub(super) inner: Arc<native::StudyReport>,
+    pub(super) owner: Arc<runtime::Runtime>,
 }
 #[pymethods]
 impl NativeStudyReport {

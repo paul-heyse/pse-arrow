@@ -53,6 +53,7 @@ from pse._modeling import (
     ModelingPackage,
     ModelingResult,
     ModelingTrajectory,
+    LocalStudy,
     StudyReport,
 )
 from pse._runs import (
@@ -261,6 +262,7 @@ __all__ = [
     "StudyInputsExplicit",
     "StudyInputsLazy",
     "StudyPointStatus",
+    "LocalStudy",
     "StudyReport",
     "StudyResults",
     "StudyRunControls",

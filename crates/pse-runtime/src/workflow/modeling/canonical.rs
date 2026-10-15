@@ -2239,6 +2239,29 @@ impl ModelingPackage {
             .saturating_add(providers)
             .saturating_add(65536)
     }
+    /// Record retained immutable object edits in the receiving canonical store.
+    pub(in crate::workflow) async fn record_study_source(
+        &self, receiver: &Runtime, cancel: &crate::CancelSource,
+    ) -> Result<String, WorkflowError> {
+        let extent = self.revision.admitted.retained_bytes();
+        let _owner = receiver.shared.math().reserve("study:model-recording", extent)?;
+        let edits = self.revision.admitted.objects.values().map(|object| ObjectEdit {
+            logical: object.logical.clone(), scope: object.scope.clone(), name: object.name.clone(),
+            version: Some(pse_model::generated::runtime::canonical_versions::Row {
+                key: object.version.clone(), logical: object.logical.clone(), kind: object.kind.clone(),
+                payload: object.payload.clone().into(),
+                interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+            }), references: object.references.clone(),
+        }).collect::<Vec<_>>();
+        let problem = pse_operations::mint_id::<SemanticId>().to_string();
+        let operation = pse_operations::mint_id::<SemanticId>().to_string();
+        let receipt = crate::workflow::study::creation_effect(cancel, async {
+            receiver.canonical_store()?.edit(&problem, None, &operation, &edits).await
+                .map_err(|source| crate::workflow::source_settlement::source_edit_error(problem.clone(), operation.clone(), source))
+        }).await?;
+        Ok(receipt.key)
+    }
+
     /// Publish one selected immutable variant in its own occurrence-qualified source
     /// problem. The admitted base's durable and local heads are never advanced.
     pub(in crate::workflow) async fn record_study_variant(

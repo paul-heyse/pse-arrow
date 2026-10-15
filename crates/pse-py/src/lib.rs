@@ -91,7 +91,7 @@ mod _native {
             NativePreparedStrategy, NativeProgressStream, NativeRunHandle, NativeRunResult,
             NativeRuntime, NativeScientificArtifact, NativeScientificReplay, NativeStart,
             NativeStoredResult, NativeStrategyAttempt, NativeStrategyResult, NativeStudyHandle,
-            NativeStudyReport, SimulationSettings,
+            NativeLocalStudy, NativeStudyReport, SimulationSettings,
         },
     };
 

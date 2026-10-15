@@ -12,7 +12,7 @@ pub(crate) use modeling::{
     NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
     NativeModelingInitialization, NativeModelingInitializationAttempt, NativeModelingKnowledge,
     NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingPackage,
-    NativeModelingResult, NativeModelingTrajectory, NativeStudyReport,
+    NativeModelingResult, NativeModelingTrajectory, NativeLocalStudy, NativeStudyReport,
 };
 use routes::{NativeEligibility, NativeRoute};
 mod strategies;
@@ -763,7 +763,6 @@ impl NativeRuntime {
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
             inner,
-            physical.documents.clone(),
         ))
     }
     fn modeling_from_documents(
@@ -949,7 +948,6 @@ impl NativeRuntime {
         )?;
         Ok(NativePhysicalContext {
             inner,
-            documents: Arc::new(documents),
         })
     }
     /// Exact canonical run metadata through its generated one-row Arrow contract.
@@ -1472,6 +1470,37 @@ impl NativeRuntime {
         )?;
         Ok(processed)
     }
+    /// Publish retained local inputs through this runtime's configured recording sink.
+    fn record_study(&self, py: Python<'_>, local: &NativeLocalStudy) -> PyResult<Vec<u8>> {
+        let cancel = CancelSource::new();
+        let inner = blocking(py, &self.owner,
+            self.recording_operation(&cancel, |recording| async {
+                recording.record_study(&local.inner, &cancel).await
+            }), || cancel.cancel())?;
+        documents::encode(py, &inner)
+    }
+    /// Join recorded durable execution and retain the original result report.
+    #[pyo3(signature=(definition, *, controls=None))]
+    fn execute_study(&self, py: Python<'_>, definition: &[u8], controls: Option<&[u8]>) -> PyResult<NativeStudyReport> {
+        let definition = documents::study_definition(py, definition, self.owner.shared.budget().math.workspace_bytes)?;
+        let native::StudyRunControls { maximum_points } = documents::controls(py, "study", controls, self.owner.shared.budget().math.workspace_bytes)?;
+        let cancel = CancelSource::new();
+        let inner = blocking(py, &self.owner,
+            self.recording_operation(&cancel, |recording| async {
+                recording.execute_study(&definition, maximum_points, &cancel).await
+            }), || cancel.cancel())?;
+        Ok(NativeStudyReport { inner: Arc::new(inner), owner: self.owner.clone() })
+    }
+    /// Start only a genuinely recorded portable study definition.
+    fn start_study(&self, py: Python<'_>, definition: &[u8]) -> PyResult<NativeStudyHandle> {
+        let definition = documents::study_definition(py, definition, self.owner.shared.budget().math.workspace_bytes)?;
+        let cancel = CancelSource::new();
+        let inner = blocking(py, &self.owner,
+            self.recording_operation(&cancel, |recording| async {
+                recording.start_recorded_study(definition, &cancel).await
+            }), || cancel.cancel())?;
+        Ok(NativeStudyHandle { inner, owner: self.owner.clone() })
+    }
     /// A handle on a durable study of this runtime's store.
     fn study(&self, py: Python<'_>, study_id: &str) -> PyResult<NativeStudyHandle> {
         let connection_stop = CancelSource::new();
@@ -1774,9 +1803,6 @@ impl NativeScientificReplay {
 #[derive(Clone, Debug)]
 pub(crate) struct NativePhysicalContext {
     inner: native::PhysicalContext,
-    /// The authored documents it was admitted from: what a durable study stores for its
-    /// workers.
-    documents: Arc<std::collections::BTreeMap<String, Vec<u8>>>,
 }
 /// Normalize text and binary documents once, preserving the exact durable byte payload.
 pub(crate) fn document_bytes(

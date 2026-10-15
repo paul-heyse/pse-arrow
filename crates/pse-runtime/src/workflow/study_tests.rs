@@ -87,9 +87,10 @@ async fn admitted(
     };
     let points = points(find("Root"), find("Failed"), find("Fixed"));
     let definition = package
-        .admit_study_sources(&physical, &points, &StudyOutputDemand::Full {}, &cancel)
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&points).to_vec()), &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
+    let definition = runtime.record_study(&definition, &cancel).await.unwrap();
     (
         PackageSources {
             physical,
@@ -228,7 +229,7 @@ async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
         definition.points[1].binding_hash
     );
     let handle = runtime
-        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
+        .start_recorded_study(definition, &crate::CancelSource::new())
         .await
         .unwrap();
     let receipt = handle.cancel().await.unwrap();
@@ -286,7 +287,7 @@ async fn canonical_terminal_inventory_pages_once_accounts_owners_and_refuses_lat
         .map(|point| point.policy.key)
         .collect::<Vec<_>>();
     let handle = runtime
-        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
+        .start_recorded_study(definition, &crate::CancelSource::new())
         .await
         .unwrap();
     let pages = Arc::new(AtomicUsize::new(0));
@@ -490,7 +491,7 @@ async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
     );
     sources.modeling.clear();
     let handle = runtime
-        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
+        .start_recorded_study(definition, &crate::CancelSource::new())
         .await
         .unwrap();
     let before =
@@ -538,7 +539,7 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
         .await;
         definition.points[0].policy.attempt_limit = attempt_limit;
         let handle = runtime
-            .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
+            .start_recorded_study(definition, &crate::CancelSource::new())
             .await
             .unwrap();
         let key = pse_operations::canonical_studies::point_key(
@@ -693,14 +694,14 @@ async fn related_case_study_uses_secant_then_original_correction() {
     assert_eq!(study.outcomes[2].key, OccurrenceKey(3));
 }
 
-async fn related_definition(runtime: &Runtime) -> (ModelingPackage, StudyDefinition) {
+async fn related_definition(runtime: &Runtime) -> (ModelingPackage, LocalStudy) {
     related_definition_with_primal_accuracy(runtime, None).await
 }
 
 async fn related_definition_with_primal_accuracy(
     runtime: &Runtime,
     primal_absolute_tolerance: Option<f64>,
-) -> (ModelingPackage, StudyDefinition) {
+) -> (ModelingPackage, LocalStudy) {
     let (physical, modeling) = sources(CASES);
     let cancel = crate::CancelSource::new();
     let package = runtime
@@ -856,7 +857,7 @@ async fn related_definition_with_primal_accuracy(
         points.push(next);
     }
     let definition = package
-        .admit_study_sources(&physical, &points, &StudyOutputDemand::Full {}, &cancel)
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&points).to_vec()), &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     (package, definition)
@@ -871,8 +872,9 @@ async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_c
     let operations = runtime.operations().unwrap().clone();
     let (package, definition) = related_definition(&runtime).await;
     let cancel = crate::CancelSource::new();
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let study = fixture
-        .dispatch(&cancel, package.study(&definition, 3, &cancel))
+        .dispatch(&cancel, runtime.execute_study(&definition, 3, &cancel))
         .await
         .unwrap();
     assert!(
@@ -966,8 +968,9 @@ async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
         .study_page(None)
         .await
         .unwrap();
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let failure = runtime
-        .start_defined_study(physical, definition, &crate::CancelSource::new())
+        .start_recorded_study(definition, &crate::CancelSource::new())
         .await
         .unwrap_err();
     assert!(matches!(failure, WorkflowError::SeedRead(_)), "{failure:?}");
@@ -1109,19 +1112,14 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
             ..Default::default()
         };
         definition = package
-            .admit_study_input_sources(
-                &physical,
-                &StudyInputs::Lazy(StudyVariants {
+            .admit_study(&StudyInputs::Lazy(StudyVariants {
                     version: pse_model::document::Version,
                     source: OperationSource::of(&package),
                     choices: vec![SourceChoice {
                         alternatives: vec![alternative.clone(), alternative],
                     }],
                     selected,
-                }),
-                &StudyOutputDemand::Full {},
-                &cancel,
-            )
+                }), &StudyOutputDemand::Full {}, &cancel)
             .await
             .unwrap();
         assert!(definition.points.is_empty());
@@ -1139,8 +1137,9 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
         );
     }
     let policies = definition.graph().points;
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let handle = runtime
-        .start_defined_study(physical, definition.clone(), &cancel)
+        .start_recorded_study(definition.clone(), &cancel)
         .await
         .unwrap();
     if lazy {
@@ -1428,8 +1427,9 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
     let (package, mut definition) = related_definition(&runtime).await;
     definition.points.truncate(1);
     let (physical, _) = sources(CASES);
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let handle = runtime
-        .start_defined_study(physical, definition, &crate::CancelSource::new())
+        .start_recorded_study(definition, &crate::CancelSource::new())
         .await
         .unwrap();
     let key = handle.study_id().to_string();
@@ -1582,8 +1582,9 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
     let (_, mut definition) = related_definition(&runtime).await;
     definition.points.truncate(1);
     let (physical, _) = sources(CASES);
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let handle = runtime
-        .start_defined_study(physical, definition, &crate::CancelSource::new())
+        .start_recorded_study(definition, &crate::CancelSource::new())
         .await
         .unwrap();
     assert!(matches!(
@@ -1683,11 +1684,49 @@ async fn study_creation_acquisition_observes_caller_cancellation() {
 }
 
 #[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn explicit_recording_preserves_exact_retained_sources_and_lazy_selection_without_construction() {
+    let receiver = durable_runtime();
+    let local_runtime = tests::runtime_with_workspace(64 << 20);
+    let (package, explicit) = related_definition(&local_runtime).await;
+    assert!(package.canonical_revision().is_none());
+    let original = &explicit.points[0];
+    let requested = StudyPoint {
+        operation: original.operation.operation.clone(), preparation: original.operation.preparation.clone(),
+        overlay: PointOverlay::default(),
+        policy: StudyPointPolicy { key: OccurrenceKey(17), dependencies: vec![], start: StartPolicy::Fresh, attempt_limit: 1 },
+    };
+    let local = package.admit_study(&StudyInputs::Lazy(StudyVariants {
+        version: pse_model::document::Version, source: OperationSource::of(&package),
+        choices: vec![SourceChoice { alternatives: vec![SourceDelta { parent: package.revision_id().into(), removals: vec![pse_model::generated::identities::DeclarationId::from_bytes([0; 16])], ..Default::default() }] }],
+        selected: vec![SelectedStudyVariant { ordinal: 0, point: requested }],
+    }), &StudyOutputDemand::Full {}, &crate::CancelSource::new()).await.unwrap();
+    let before = local_runtime.shared.math().preparations().views;
+    assert!(matches!(local_runtime.record_study(&local, &crate::CancelSource::new()).await, Err(WorkflowError::RecordingUnavailable)));
+    let recorded = receiver.record_study(&local, &crate::CancelSource::new()).await.unwrap();
+    assert_eq!(local_runtime.shared.math().preparations().views, before);
+    assert!(recorded.points.is_empty());
+    assert_eq!(recorded.point_count(), 1);
+    let retained = recorded.variants.as_ref().unwrap();
+    assert_eq!(retained.variants.selected[0].point.policy.key, OccurrenceKey(17));
+    assert_eq!(retained.variants.choices[0].alternatives[0].parent, recorded.modeling_revision);
+    assert_ne!(recorded.modeling_revision, local.modeling_revision);
+    let (physical, _) = sources(CASES);
+    let stored = receiver.operations().unwrap().sources(&recorded.physical).await.unwrap();
+    assert_eq!(&**stored, &physical, "recording retains exact original bytes, including comments and formatting");
+    let context = receiver.physical_source(&recorded.physical, &crate::CancelSource::new()).await.unwrap();
+    let revision = receiver.canonical_store().unwrap().revision(&recorded.modeling_revision).await.unwrap().unwrap();
+    let reopened = receiver.modeling_revision(revision, context, Default::default()).await.unwrap();
+    assert_eq!(OperationSource::of(&reopened), OperationSource::of(&package));
+    assert!(package.canonical_revision().is_none(), "recording never mutates the local owner");
+    assert_eq!(local.variants.as_ref().unwrap().variants.choices[0].alternatives[0].parent, package.revision_id());
+}
+
+#[cfg(feature = "canonical-tests")]
 async fn stored_value_definition(runtime: &Runtime, count: u32) -> StudyDefinition {
-    let (_, admitted) = related_definition(runtime).await;
-    let first = &admitted.points[0];
-    StudyDefinition {
-        points: (0..count)
+    let (_, mut admitted) = related_definition(runtime).await;
+    let first = admitted.points[0].clone();
+    admitted.points = (0..count)
             .map(|index| {
                 let mut next = first.clone();
                 next.policy.key = OccurrenceKey(index);
@@ -1699,9 +1738,8 @@ async fn stored_value_definition(runtime: &Runtime, count: u32) -> StudyDefiniti
                 next.binding_hash = next.binding.identity();
                 next
             })
-            .collect(),
-        ..admitted
-    }
+            .collect();
+    runtime.record_study(&admitted, &crate::CancelSource::new()).await.unwrap()
 }
 
 #[cfg(feature = "canonical-tests")]
@@ -1715,7 +1753,7 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
     );
     let (physical, _) = sources(CASES);
     let (handle, constructions) = study_operations::counted_declared_admissions(
-        runtime.start_defined_study(physical, definition, &crate::CancelSource::new()),
+        runtime.start_recorded_study(definition, &crate::CancelSource::new()),
     )
     .await;
     let handle = handle.unwrap();
@@ -1793,7 +1831,7 @@ async fn stored_study_creation_rechecks_later_binding_source_and_seed_policy() {
         next.binding_hash = next.binding.identity();
         let (physical, _) = sources(CASES);
         let (result, constructions) = study_operations::counted_declared_admissions(
-            runtime.start_defined_study(physical, definition, &crate::CancelSource::new()),
+            runtime.start_recorded_study(definition, &crate::CancelSource::new()),
         )
         .await;
         assert!(
@@ -1821,7 +1859,7 @@ async fn stored_study_creation_replaces_basis_for_changed_descriptor_and_target_
     definition.points[2].binding_hash = definition.points[2].binding.identity();
     let (physical, _) = sources(CASES);
     let (result, constructions) = study_operations::counted_declared_admissions(
-        runtime.start_defined_study(physical, definition, &crate::CancelSource::new()),
+        runtime.start_recorded_study(definition, &crate::CancelSource::new()),
     )
     .await;
     let handle = result.unwrap();
@@ -1838,7 +1876,7 @@ async fn stored_study_creation_replaces_basis_for_changed_descriptor_and_target_
     case.settings.controls.threads = 0;
     let (physical, _) = sources(CASES);
     let (result, constructions) = study_operations::counted_declared_admissions(
-        runtime.start_defined_study(physical, definition, &crate::CancelSource::new()),
+        runtime.start_recorded_study(definition, &crate::CancelSource::new()),
     )
     .await;
     assert!(result.is_err());
@@ -1850,13 +1888,14 @@ async fn stored_study_creation_replaces_basis_for_changed_descriptor_and_target_
 
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
-async fn default_durable_study_refuses_precancelled_creation() {
+async fn recorded_durable_study_refuses_precancelled_creation() {
     let runtime = durable_runtime();
     let (package, definition) = related_definition(&runtime).await;
     let cancel = crate::CancelSource::new();
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     cancel.cancel();
     let (result, constructions) =
-        study_operations::counted_declared_admissions(package.study(&definition, 3, &cancel)).await;
+        study_operations::counted_declared_admissions(runtime.execute_study(&definition, 3, &cancel)).await;
     assert_eq!(
         result.unwrap_err().boundary_diagnostic().code,
         pse_diagnostics::DiagnosticCode::RuntimeCancelled
@@ -1876,7 +1915,7 @@ async fn stored_study_creation_observes_cancellation_during_declared_admission()
     let (physical, _) = sources(CASES);
     let (result, constructions) = study_operations::counted_declared_admissions(
         study_operations::cancel_after_declared_admission(
-            runtime.start_defined_study(physical, definition, &cancel),
+            runtime.start_recorded_study(definition, &cancel),
             cancel.clone(),
         ),
     )
@@ -1961,7 +2000,7 @@ async fn parallel_study_definition(
     runtime: &Runtime,
     count: usize,
     failing: Option<usize>,
-) -> (ModelingPackage, StudyDefinition) {
+) -> (ModelingPackage, LocalStudy) {
     let (physical, modeling) = sources(CASES);
     let cancel = crate::CancelSource::new();
     let package = runtime
@@ -2005,7 +2044,7 @@ async fn parallel_study_definition(
         })
         .collect::<Vec<_>>();
     let definition = package
-        .admit_study_sources(&physical, &points, &StudyOutputDemand::Full {}, &cancel)
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&points).to_vec()), &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     (package, definition)
@@ -2392,7 +2431,7 @@ async fn durable_worker_sixteen_cancelled_occurrences_obey_action_bound_and_drai
     })
     .await;
     let handle = runtime
-        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
+        .start_recorded_study(definition, &crate::CancelSource::new())
         .await
         .unwrap();
     handle.cancel().await.unwrap();
@@ -2915,6 +2954,7 @@ async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original
             .all(|points| points[0].binding_hash == points[1].binding_hash)
     );
     let cancel = crate::CancelSource::new();
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let control = async {
         let value = fixture.observation(|value| value["active"] == 16).await;
         let entries = value["entries"].as_array().unwrap();
@@ -2934,7 +2974,7 @@ async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original
     };
     let (report, ()) = fixture
         .dispatch(&cancel, async {
-            tokio::join!(package.study(&definition, 16, &cancel), control)
+            tokio::join!(runtime.execute_study(&definition, 16, &cancel), control)
         })
         .await;
     let report = report.unwrap();
@@ -3017,8 +3057,10 @@ async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original
 #[tokio::test]
 async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_tail() {
     let fixture = ManagedStudyFixture::start(true).await;
+    let runtime = &fixture.runtime;
     let (package, definition) = parallel_study_definition(&fixture.runtime, 20, None).await;
     let cancel = crate::CancelSource::new();
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let control = async {
         fixture.observation(|value| value["active"] == 16).await;
         cancel.cancel();
@@ -3039,7 +3081,7 @@ async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_
     };
     let (report, ()) = fixture
         .dispatch(&cancel, async {
-            tokio::join!(package.study(&definition, 20, &cancel), control)
+            tokio::join!(runtime.execute_study(&definition, 20, &cancel), control)
         })
         .await;
     let report = report.unwrap();
@@ -3174,9 +3216,10 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
 
     let (package, definition) = parallel_study_definition(runtime, 16, None).await;
     let cancel = crate::CancelSource::new();
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let published = AtomicBool::new(false);
     let science = async {
-        let report = package.study(&definition, 16, &cancel).await.unwrap();
+        let report = runtime.execute_study(&definition, 16, &cancel).await.unwrap();
         published.store(true, Ordering::Release);
         report
     };
@@ -3707,7 +3750,7 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
         points.push(next);
     }
     let definition = package
-        .admit_study_sources(&physical, &points, &StudyOutputDemand::Full {}, &cancel)
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&points).to_vec()), &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     let study = package.study(&definition, 8, &cancel).await.unwrap();
@@ -3776,12 +3819,7 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
     };
     operation.settings.backend = Some(pse_backend_native::solve::Backend::Kinsol);
     let fixed_definition = package
-        .admit_study_sources(
-            &physical,
-            &[fixed_point],
-            &StudyOutputDemand::Full {},
-            &cancel,
-        )
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&[fixed_point]).to_vec()), &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     let fixed = package.study(&fixed_definition, 1, &cancel).await.unwrap();
@@ -3832,12 +3870,7 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     operation.settings.backend = Some(pse_backend_native::solve::Backend::Kinsol);
     operation.settings.presolve = pse_backend_native::presolve::PolicyKind::Off;
     let definition = package
-        .admit_study_sources(
-            &physical,
-            &[requested],
-            &StudyOutputDemand::Full {},
-            &cancel,
-        )
+        .admit_study(&crate::workflow::StudyInputs::Explicit((&[requested]).to_vec()), &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     let PreparedStudyOperation::DeclaredCase(prepared) = definition.points[0]
@@ -4073,12 +4106,7 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
     let cancel = crate::CancelSource::new();
     let before = runtime.shared.math().preparations().views;
     let definition = package
-        .admit_study_input_sources(
-            &physical,
-            &StudyInputs::Lazy(variants),
-            &StudyOutputDemand::Full {},
-            &cancel,
-        )
+        .admit_study(&StudyInputs::Lazy(variants), &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     assert!(definition.points.is_empty());
@@ -4090,8 +4118,9 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
             .iter()
             .all(|point| point.seed_need == SeedNeed::Pending)
     );
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let handle = runtime
-        .start_defined_study(physical, definition, &cancel)
+        .start_recorded_study(definition, &cancel)
         .await
         .unwrap();
     assert_eq!(
@@ -4244,16 +4273,12 @@ async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_scienc
     let (physical, _) = sources(CASES);
     let cancel = crate::CancelSource::new();
     let definition = package
-        .admit_study_input_sources(
-            &physical,
-            &StudyInputs::Lazy(variants),
-            &StudyOutputDemand::Full {},
-            &cancel,
-        )
+        .admit_study(&StudyInputs::Lazy(variants), &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
+    let definition = runtime.record_study(&definition, &crate::CancelSource::new()).await.unwrap();
     let handle = runtime
-        .start_defined_study(physical, definition, &cancel)
+        .start_recorded_study(definition, &cancel)
         .await
         .unwrap();
     let before = runtime.shared.math().preparations().views;

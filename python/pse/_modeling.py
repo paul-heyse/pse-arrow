@@ -3,7 +3,6 @@
 """Owned generic modeling operations over registry-generated source and result rows."""
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, overload
 
 import attrs
 
@@ -27,10 +26,11 @@ from pse._build import (
     _NativeModelingPackage,
     _NativeModelingResult,
     _NativeModelingTrajectory,
+    _NativeLocalStudy,
     _NativeStudyReport,
 )
 from pse._inspection import TableStream
-from pse._runs import PreparedOperation, RunResult, StoredResult, StudyHandle
+from pse._runs import PreparedOperation, RunResult, StoredResult
 from pse._strategies import PreparedFlow, PreparedStrategy
 from pse.codec._generated import encode_declarations, encode_fits
 from pse.contracts.authored import (
@@ -61,7 +61,8 @@ from pse.contracts.documents import (
     RecycleRequest,
     SolveSettings,
     SourceDelta,
-    StudyDefinition,
+    LazyStudyDefinition,
+    StudyPointDefinition,
     StudyRequest,
     StudyRunControls,
 )
@@ -75,8 +76,32 @@ from pse.contracts.enums import (
 from pse.contracts.identities import DeclarationId, FitId, RunId
 from pse.contracts.values import ContentHash, SemanticId
 
-if TYPE_CHECKING:
-    from pse._workflow import Runtime
+@attrs.frozen
+class LocalStudy:
+    """Owned local scientific intent; recording is an explicit runtime operation."""
+
+    _handle: _NativeLocalStudy
+
+    def execute(self, *, controls: StudyRunControls | None = None) -> "StudyReport":
+        """Execute using retained owners after the originating package is released."""
+        return StudyReport(self._handle.execute(
+            controls=None if controls is None else codec.encode_json(controls)
+        ))
+
+    @property
+    def points(self) -> tuple[StudyPointDefinition, ...]:
+        """Physically admitted explicit occurrences in authored order."""
+        return codec.decode_json(self._handle.points, tuple[StudyPointDefinition, ...])
+
+    @property
+    def variants(self) -> LazyStudyDefinition | None:
+        """The retained bounded lazy input, without constructing variants."""
+        return codec.decode_json(self._handle.variants, LazyStudyDefinition | None)
+
+    @property
+    def modeling_revision(self) -> str:
+        """Attribution of the actual retained local model owner."""
+        return self._handle.modeling_revision
 
 
 @attrs.frozen
@@ -908,50 +933,21 @@ class ModelingPackage:
             )
         )
 
-    def admit_study(self, request: StudyRequest) -> StudyDefinition:
-        """Resolve physical bindings and capabilities once in this revision."""
-        return codec.decode_json(
-            self._handle.admit_study(codec.encode_json(request)), StudyDefinition
-        )
-
-    @overload
-    def study(
-        self, definition: StudyDefinition, *, controls: StudyRunControls | None = None
-    ) -> StudyReport: ...
-
-    @overload
-    def study(
-        self,
-        definition: StudyDefinition,
-        *,
-        runtime: "Runtime",
-    ) -> StudyHandle: ...
+    def admit_study(self, request: StudyRequest) -> "LocalStudy":
+        """Retain admitted scientific intent and its exact immutable source owners."""
+        return LocalStudy(self._handle.admit_study(codec.encode_json(request)))
 
     def study(
-        self,
-        definition: StudyDefinition,
-        *,
-        controls: StudyRunControls | None = None,
-        runtime: "Runtime | None" = None,
-    ) -> "StudyReport | StudyHandle":
-        """Execute admitted occurrences locally or through durable workers."""
-        if runtime is None:
-            if controls is not None and not isinstance(controls, StudyRunControls):
-                message = "local studies require StudyRunControls"
-                raise TypeError(message)
-            return StudyReport(
-                self._handle.study(
-                    codec.encode_json(definition),
-                    controls=None if controls is None else codec.encode_json(controls),
-                )
-            )
-        if controls is not None:
-            message = "durable study retries belong to each authored point policy"
+        self, local: "LocalStudy", *, controls: StudyRunControls | None = None
+    ) -> StudyReport:
+        """Execute owned local occurrences without initializing a canonical store."""
+        if controls is not None and not isinstance(controls, StudyRunControls):
+            message = "local studies require StudyRunControls"
             raise TypeError(message)
-        return StudyHandle(
-            self._handle.start_study(
-                runtime._handle,  # noqa: SLF001 - same native boundary
-                codec.encode_json(definition),
+        return StudyReport(
+            self._handle.study(
+                local._handle,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
 

@@ -272,10 +272,10 @@ def _managed_public_study_caller(directory: str, mode: str) -> None:
         CallerStarted(fixture.nonce, time.monotonic()),
     )
     if mode == "complete":
-        study = package.study(definition)
+        study = runtime.execute_study(runtime.record_study(definition))
         _assert_completed_managed_study(fixture, study, keys)
         return
-    handle = package.study(definition, runtime=runtime)
+    handle = runtime.start_study(runtime.record_study(definition))
     assert isinstance(handle, pse.StudyHandle)
     deadline = time.monotonic() + 90
     while not (fixture.directory / "cancel.json").exists():
@@ -430,10 +430,11 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
     )
     assert definition.points[0].binding_hash == definition.points[1].binding_hash
     assert [item.policy.key for item in definition.points] == [7, 11]
-    assert (
-        codec.decode_json(codec.encode_json(definition), type(definition)) == definition
-    )
-    study = package.study(definition)
+    with pytest.raises(TypeError):
+        codec.encode_json(definition)
+    recorded = runtime.record_study(definition)
+    assert codec.decode_json(codec.encode_json(recorded), type(recorded)) == recorded
+    study = runtime.execute_study(recorded)
     assert isinstance(study, pse.StudyReport)
     assert study.count == 2
     assert study.unattempted == 0
@@ -486,8 +487,8 @@ def test_compact_study_retains_selected_original_member_or_declared_empty_relati
         intent=NativeSolveIntent.FEASIBLE_POINT,
         presolve=PresolvePolicyKind.OFF,
     )
-    original = package.study(
-        package.admit_study(study_request(point(case, settings, 7)))
+    original = runtime.execute_study(
+        runtime.record_study(package.admit_study(study_request(point(case, settings, 7))))
     ).result(0)
     assert isinstance(original, pse.StoredResult)
     original_table = pa.table(original.table("runtime.solve_variables"))
@@ -512,7 +513,7 @@ def test_compact_study_retains_selected_original_member_or_declared_empty_relati
     )
     definition = package.admit_study(request)
     assert definition.points[0].operation.output == request.output
-    study = package.study(definition)
+    study = runtime.execute_study(runtime.record_study(definition))
     assert study.count == 1
     assert study.unattempted == 0
     assert study.conclusion.availability == "complete"
@@ -559,7 +560,7 @@ def test_study_unusable_predecessor_retains_refusal_without_dispatch(
             point(case, settings, 17),
         )
     )
-    study = package.study(definition)
+    study = runtime.execute_study(runtime.record_study(definition))
     assert study.unattempted == 1
     assert not study.outcome(0).scientific.usable
     failed = study.result(0)
@@ -776,7 +777,7 @@ def test_study_controller_moves_preserve_exact_typed_tuple_positions() -> None:
 @pytest.mark.component
 @pytest.mark.parametrize(
     ("operation", "version"),
-    [("admit_study", 2), ("study", 4), ("start_study", 4)],
+    [("admit_study", 2), ("start_study", 4)],
 )
 def test_native_study_version_precedes_nested_current_decode(
     inspection_settings: pse.EngineSettings,
@@ -793,12 +794,9 @@ def test_native_study_version_precedes_nested_current_decode(
     if operation == "admit_study":
         with pytest.raises(pse.InspectionError, match=pattern):
             handle.admit_study(historical)
-    elif operation == "study":
-        with pytest.raises(pse.InspectionError, match=pattern):
-            handle.study(historical)
     else:
         with pytest.raises(pse.InspectionError, match=pattern):
-            handle.start_study(runtime._handle, historical)
+            runtime._handle.start_study(historical)
 
 
 @pytest.mark.component
@@ -850,7 +848,7 @@ def test_durable_study_retains_exact_results(
             point(case, settings, 3, predecessor=2),
         )
     )
-    handle = package.study(definition, runtime=runtime)
+    handle = runtime.start_study(runtime.record_study(definition))
     status = handle.status()
     assert status.state == StudyState.OPEN
     assert all(point.attempt is None and not point.settled for point in status.points)
@@ -933,7 +931,7 @@ def test_durable_study_cancel_and_its_refusals(
             ),
         )
     )
-    handle = package.study(definition, runtime=runtime)
+    handle = runtime.start_study(runtime.record_study(definition))
     cancelled = handle.cancel()
     assert not cancelled.already_concluded
     assert cancelled.study_id == handle.study_id.to_hex()
@@ -1035,8 +1033,11 @@ def test_flash_sweep_prepares_structure_once_per_lane(
             )
         )
     )
-    study = package.study(
-        definition, controls=pse.StudyRunControls(maximum_points=len(temperatures))
+    controls = pse.StudyRunControls(maximum_points=len(temperatures))
+    study = (
+        package.study(definition, controls=controls)
+        if ephemeral
+        else runtime.execute_study(runtime.record_study(definition), controls=controls)
     )
     assert study.count == len(temperatures)
     values = []
@@ -1131,11 +1132,11 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
             limits=WorkLimits(attempts=4, evaluations=500),
         ),
     )
-    alone = package.study(package.admit_study(study_request(point(case, settings, 3))))
-    paired = package.study(
-        package.admit_study(
+    alone = runtime.execute_study(runtime.record_study(package.admit_study(study_request(point(case, settings, 3)))))
+    paired = runtime.execute_study(
+        runtime.record_study(package.admit_study(
             study_request(point(case, settings, 7), point(case, settings, 11))
-        )
+        ))
     )
     assert alone.outcome(0).scientific.usable, codec.encode_json(
         alone.outcome(0)
@@ -1161,8 +1162,8 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
             ),
         ),
     )
-    refused = package.study(
-        package.admit_study(study_request(point(case, unsupported, 13)))
+    refused = runtime.execute_study(
+        runtime.record_study(package.admit_study(study_request(point(case, unsupported, 13))))
     )
     outcome = refused.outcome(0)
     assert not outcome.scientific.usable
@@ -1194,8 +1195,8 @@ def test_capped_related_root_study_charges_prediction_and_screening(
         ),
     )
     scalar, one = _physical_ids("Scalar", "dimensionless")
-    study = package.study(
-        package.admit_study(
+    study = runtime.execute_study(
+        runtime.record_study(package.admit_study(
             study_request(
                 point(case, settings, 0),
                 point(
@@ -1207,7 +1208,7 @@ def test_capped_related_root_study_charges_prediction_and_screening(
                     assignments=(assignment("a", 9.0, scalar, one),),
                 ),
             )
-        )
+        ))
     )
     assert all(study.outcome(index).scientific.usable for index in range(2)), tuple(
         codec.encode_json(study.outcome(index)).decode() for index in range(2)
@@ -1261,6 +1262,38 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     assert retained.source == package.operation_source
     assert retained.selected[0].point.policy.key == 17
     assert retained.choices[0].alternatives[0].parent == package.canonical_revision
-    assert (
-        codec.decode_json(codec.encode_json(definition), type(definition)) == definition
+    with pytest.raises(TypeError):
+        codec.encode_json(definition)
+    recorded = runtime.record_study(definition)
+    assert codec.decode_json(codec.encode_json(recorded), type(recorded)) == recorded
+
+
+@pytest.mark.component
+def test_local_study_runs_without_store_and_retains_source_after_package_release(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings)
+    package, case = _package(runtime)
+    assert package.canonical_revision is None
+    settings = pse.SolveSettings(
+        backend=NativeBackend.KINSOL,
+        intent=NativeSolveIntent.ROOT,
+        presolve=PresolvePolicyKind.OFF,
     )
+    local = package.admit_study(study_request(point(case, settings, 7), point(case, settings, 11)))
+    assert isinstance(local, pse.LocalStudy)
+    assert local.points[0].binding_hash == local.points[1].binding_hash
+    with pytest.raises(TypeError):
+        codec.encode_json(local)
+    with pytest.raises(pse.InspectionError):
+        runtime.record_study(local)
+    del package
+    report = local.execute()
+    del local
+    assert report.count == 2
+    assert tuple(report.outcome(index).key for index in range(2)) == (7, 11)
+    for index in range(2):
+        assert report.outcome(index).scientific.usable
+        result = report.result(index)
+        assert isinstance(result, pse.RunResult)
+        _assert_scalar_root(pa.table(result.table("runtime.solve_variables")), 2.0)

@@ -4,7 +4,7 @@
 use super::modeling::assessment::Obligations;
 use super::staged::Staged;
 use super::{
-    ModelingPackage, PreparedStudyOperation, RunReport, RunRequest, RunResult, StudyDefinition,
+    ModelingPackage, PreparedStudyOperation, RunReport, RunRequest, RunResult, AdmittedStudy, LocalStudy, StudyDefinition,
     WorkflowError,
 };
 use futures_util::{FutureExt, StreamExt};
@@ -90,7 +90,7 @@ pub struct StudyReport {
     /// Execution identity; equal binding content never merges studies or occurrences.
     pub run_id: RunId,
     /// One immutable admitted definition shared by both adapters.
-    pub definition: StudyDefinition,
+    pub definition: AdmittedStudy,
     /// One terminal observation for every requested occurrence.
     pub outcomes: Vec<PointOutcome>,
     /// Original joined operation reports and their available members.
@@ -104,6 +104,7 @@ pub struct StudyReport {
     pub preparations: crate::math::PreparationCounts,
     pub(in crate::workflow) admitted_points: BTreeMap<usize, super::StudyPointDefinition>,
     pub(in crate::workflow) runtime: super::Runtime,
+    pub(in crate::workflow) _source: ModelingPackage,
     pub(in crate::workflow) _owner: Arc<dyn pse_columnar::PayloadOwner>,
 }
 impl StudyReport {
@@ -113,34 +114,47 @@ impl StudyReport {
     }
 }
 
+impl super::Runtime {
+    /// Execute and join a genuinely recorded study through the existing durable observer.
+    pub async fn execute_study(
+        &self, definition: &StudyDefinition, maximum_points: usize, cancel: &crate::CancelSource,
+    ) -> Result<StudyReport, WorkflowError> {
+        super::study::creation_checkpoint(cancel)?;
+        let activity = self.admit_activity()?;
+        activity.scope(async {
+            let physical = self.physical_source(&definition.physical, cancel).await?;
+            let revision = self.canonical_store()?.revision(&definition.modeling_revision).await?
+                .ok_or_else(|| super::contract("recorded study model revision absent"))?;
+            let package = self.modeling_revision(revision, physical, BTreeMap::new()).await?;
+            let (report, preparations) = crate::math::counted(package.study_durable(definition, maximum_points, cancel)).await;
+            let mut report = report?;
+            report.preparations = preparations;
+            Ok(report)
+        }).await
+    }
+}
+
 impl ModelingPackage {
-    /// Execute the admitted definition through existing operation owners and pure policy.
+    /// Execute local admitted science using its retained immutable owners.
     pub async fn study(
         &self,
-        definition: &StudyDefinition,
+        local: &LocalStudy,
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
+        if !self.same_replay_source(&local.package) {
+            return Err(super::contract("local study belongs to a different immutable model owner"));
+        }
         let activity = self.runtime.admit_activity()?;
-        activity
-            .scope(async {
-                let _observation = pse_diagnostics::observation::phase("study.execute");
-                let (report, preparations) = crate::math::counted(async {
-                    match self.runtime.durability() {
-                        super::Durability::Durable(_) => {
-                            self.study_durable(definition, maximum_points, cancel).await
-                        }
-                        super::Durability::Ephemeral => {
-                            self.study_inner(definition, maximum_points, cancel).await
-                        }
-                    }
-                })
-                .await;
-                let mut report = report?;
-                report.preparations = preparations;
-                Ok(report)
-            })
-            .await
+        activity.scope(async {
+            let _observation = pse_diagnostics::observation::phase("study.execute");
+            let (report, preparations) = crate::math::counted(
+                local.package.study_inner(&local.science, maximum_points, cancel)
+            ).await;
+            let mut report = report?;
+            report.preparations = preparations;
+            Ok(report)
+        }).await
     }
     async fn study_durable(
         &self,
@@ -157,15 +171,11 @@ impl ModelingPackage {
                 "bounded study extent and exact modeling revision",
             ));
         }
-        let operations = self.runtime.operations()?;
         self.runtime.ensure_managed_primary(cancel).await?;
-        let sources =
-            super::study::creation_effect(cancel, operations.sources(&definition.physical)).await?;
         let handle = self
             .runtime
-            .start_defined_study((**sources).clone(), definition.clone(), cancel)
+            .start_recorded_study(definition.clone(), cancel)
             .await?;
-        drop(sources);
         let mut cancellation_recorded = false;
         let inventory = loop {
             if cancel.token().is_cancelled() && !cancellation_recorded {
@@ -235,7 +245,7 @@ impl ModelingPackage {
         }
         Ok(StudyReport {
             run_id,
-            definition: definition.clone(),
+            definition: definition.science(),
             outcomes,
             results,
             decision,
@@ -245,12 +255,13 @@ impl ModelingPackage {
                 .retained_study_admissions(&handle.study_id().to_string())
                 .await?,
             runtime: self.runtime.clone(),
+            _source: self.clone(),
             _owner: Arc::new(owners),
         })
     }
     async fn study_inner(
         &self,
-        definition: &StudyDefinition,
+        definition: &AdmittedStudy,
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
@@ -690,6 +701,7 @@ impl ModelingPackage {
             preparations,
             admitted_points: resolved,
             runtime: self.runtime.clone(),
+            _source: self.clone(),
             _owner: Arc::new((owner, admission_owners)),
         })
     }
@@ -984,7 +996,7 @@ async fn execute_lane_inner(
 fn record_preparation_failure(
     index: usize,
     error: &WorkflowError,
-    definition: &StudyDefinition,
+    definition: &AdmittedStudy,
     facts: &mut [PointFacts],
     outcomes: &mut [PointOutcome],
 ) {
@@ -1694,11 +1706,11 @@ mod occurrence_execution_tests {
         PointOverlay, PreparationSettings, StudyPoint, StudyPointPolicy,
     };
     use pse_backend_native::solve::Backend;
-    use pse_ids::{ContentHash, SemanticId};
+    use pse_ids::SemanticId;
     use pse_model::generated::identities::DeclarationId;
     use pse_model::scalars::FiniteBound;
 
-    async fn fixture(values: &[f64]) -> (ModelingPackage, StudyDefinition) {
+    async fn fixture(values: &[f64]) -> (ModelingPackage, LocalStudy) {
         fixture_source(values, "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }", Backend::Kinsol, 1).await
     }
     async fn fixture_source(
@@ -1706,7 +1718,7 @@ mod occurrence_execution_tests {
         source: &str,
         backend: Backend,
         threads: usize,
-    ) -> (ModelingPackage, StudyDefinition) {
+    ) -> (ModelingPackage, LocalStudy) {
         fixture_source_typed(values, source, backend, threads, "Scalar", "1").await
     }
     async fn fixture_source_typed(
@@ -1716,7 +1728,7 @@ mod occurrence_execution_tests {
         threads: usize,
         quantity_name: &str,
         unit_symbol: &str,
-    ) -> (ModelingPackage, StudyDefinition) {
+    ) -> (ModelingPackage, LocalStudy) {
         fixture_source_with_presolve(
             values,
             source,
@@ -1736,7 +1748,7 @@ mod occurrence_execution_tests {
         quantity_name: &str,
         unit_symbol: &str,
         presolve: pse_backend_native::presolve::PolicyKind,
-    ) -> (ModelingPackage, StudyDefinition) {
+    ) -> (ModelingPackage, LocalStudy) {
         let settings = crate::math::settings::SolveSettings {
             backend: Some(backend),
             presolve,
@@ -1759,7 +1771,7 @@ mod occurrence_execution_tests {
         quantity_name: &str,
         unit_symbol: &str,
         settings: crate::math::settings::SolveSettings,
-    ) -> (ModelingPackage, StudyDefinition) {
+    ) -> (ModelingPackage, LocalStudy) {
         let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
         let rows = pse_authoring::language::parse(
             source,
@@ -1820,19 +1832,33 @@ mod occurrence_execution_tests {
             })
             .collect();
         let definition = package
-            .admit_study_points(
-                super::super::PhysicalSource {
-                    revision: "explicit-ephemeral-fixture".into(),
-                    identity: ContentHash::from_bytes([0; 32]),
-                },
-                &points,
-                &crate::workflow::StudyOutputDemand::Full {},
-                &crate::CancelSource::new(),
-            )
+            .admit_study(&crate::workflow::StudyInputs::Explicit((&points).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &crate::CancelSource::new())
             .await
             .unwrap();
         (package, definition)
     }
+    #[tokio::test]
+    async fn local_study_retains_actual_source_through_escaped_report_without_recording() {
+        let (package, local) = fixture(&[1., 1.]).await;
+        assert!(package.runtime.canonical_store().is_err());
+        let source = Arc::downgrade(&package.revision.admitted);
+        let runtime = package.runtime.clone();
+        let identity = super::super::OperationSource::of(&package);
+        let cancel = crate::CancelSource::new();
+        let missing = runtime.record_study(&local, &cancel).await.unwrap_err();
+        assert!(missing.to_string().contains("exact admitted physical document bytes"));
+        drop(package);
+        let report = local.execute(2, &cancel).await.unwrap();
+        assert!(report.outcomes.iter().all(|outcome| outcome.scientific.usable));
+        assert_eq!(report.definition.points[0].operation.source, identity);
+        assert_eq!(report.definition.points[0].binding_hash, report.definition.points[1].binding_hash);
+        assert_eq!(report.outcomes.iter().map(|outcome| outcome.key).collect::<Vec<_>>(), vec![OccurrenceKey(0), OccurrenceKey(1)]);
+        drop(local);
+        assert!(source.upgrade().is_some(), "escaped report retains exact scientific source");
+        drop(report);
+        assert!(source.upgrade().is_none(), "joined source owner drains with last report");
+    }
+
     #[tokio::test]
     async fn lazy_ephemeral_variants_keep_selected_order_and_original_scientific_results() {
         use crate::workflow::{
@@ -1840,6 +1866,7 @@ mod occurrence_execution_tests {
             StudyVariants,
         };
         let (package, explicit) = fixture(&[1.]).await;
+        assert!(package.runtime.canonical_store().is_err());
         let replacement = pse_authoring::language::parse(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 4+t; annotation start x(2+t); annotation check x(x > 0); } }",
             SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default(),
@@ -1884,12 +1911,7 @@ mod occurrence_execution_tests {
         };
         let before = package.runtime.shared.math().preparations().views;
         let definition = package
-            .admit_study_inputs(
-                explicit.physical,
-                &StudyInputs::Lazy(variants),
-                &crate::workflow::StudyOutputDemand::Full {},
-                &crate::CancelSource::new(),
-            )
+            .admit_study(&StudyInputs::Lazy(variants), &crate::workflow::StudyOutputDemand::Full {}, &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(package.runtime.shared.math().preparations().views, before);
@@ -2467,7 +2489,7 @@ mod occurrence_execution_tests {
 
     #[cfg(feature = "solver-pounce")]
     fn assert_pounce_occurrence(
-        definition: &StudyDefinition,
+        definition: &AdmittedStudy,
         index: usize,
         run: &RunResult,
     ) -> usize {

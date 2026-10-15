@@ -258,8 +258,8 @@ def measure(output: Path, selected: str) -> None:
                     )
                 )
             )
-            study = package.study(
-                definition,
+            study = runtime.execute_study(
+                runtime.record_study(definition),
                 controls=StudyRunControls(maximum_points=len(overlays)),
             )
             elapsed = time.perf_counter() - started
