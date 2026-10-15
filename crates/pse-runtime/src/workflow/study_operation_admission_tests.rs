@@ -32,6 +32,9 @@ fn point(operation: OperationRequest) -> StudyPoint {
     }
 }
 async fn plant() -> (ModelingPackage, DeclarationId) {
+    plant_on(super::super::tests::runtime()).await
+}
+async fn plant_on(runtime: super::super::Runtime) -> (ModelingPackage, DeclarationId) {
     let text = "package p {
       def Root {
         domain t:Time from 0{s} to 1{s};
@@ -70,7 +73,7 @@ async fn plant() -> (ModelingPackage, DeclarationId) {
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     (
-        super::super::tests::runtime()
+        runtime
             .modeling_package(rows, physical)
             .await
             .unwrap(),
@@ -738,4 +741,157 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
         error.boundary_diagnostic().rule,
         DiagnosticRule::StudyBindingPhysical
     );
+}
+
+
+/// Acknowledged durable source plus a closed real caller makes accidental recording
+/// observable as a refusal. Local science must complete with all recording effects denied.
+#[cfg(all(feature = "canonical-tests", any(feature = "solver-diffsol", feature = "solver-ipopt")))]
+async fn deny_recording_after_durable_source(package: &ModelingPackage) {
+    assert!(matches!(package.runtime.durability(), super::super::Durability::Durable(_)));
+    let origin = package.canonical_revision().unwrap();
+    let store = package.runtime.canonical_store().unwrap();
+    assert_eq!(store.revision(&origin.key).await.unwrap().unwrap().key, origin.key);
+    store.close();
+    assert!(store.admit_activity().is_err(), "the actual source/run publication caller is closed");
+    assert!(store.revision(&origin.key).await.is_err(), "the denial control also refuses a real canonical read");
+}
+
+#[cfg(all(feature = "canonical-tests", any(feature = "solver-diffsol", feature = "solver-ipopt")))]
+fn original_local_result(report: &super::super::StudyReport, index: usize) -> &RunResult {
+    let outcome = &report.outcomes[index];
+    assert!(outcome.scientific.usable, "{outcome:?}");
+    assert!(outcome.diagnostic.is_none(), "{outcome:?}");
+    let occurrence = report.results[index].as_ref().unwrap();
+    assert!(occurrence.stored_keys().is_none());
+    let super::super::StudyOccurrenceResult::Ephemeral(result) = occurrence else {
+        panic!("full local study must retain its original ephemeral result: {occurrence:?}");
+    };
+    assert!(matches!(result.durability(), super::super::RunDurability::Ephemeral));
+    assert!(result.canonical_run_key().is_none());
+    assert!(result.canonical_attempt_key().is_none());
+    assert!(result.usable(), "{:?}", result.assessments());
+    result
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
+#[tokio::test]
+async fn durable_origin_local_simulation_keeps_original_full_and_compact_results_without_recording() {
+    use super::super::{RunReport, StudyDetailDemand, StudyInputs, StudyOutputDemand};
+    let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
+    let origin = package.canonical_revision().unwrap().key.clone();
+    deny_recording_after_durable_source(&package).await;
+    let cancel = CancelSource::new();
+    let inputs = StudyInputs::Explicit(vec![point(OperationRequest::Simulation(SimulationOperation { case, profile: None }))]);
+    let full = package.admit_study(&inputs, &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    let report = package.study(&full, 1, &cancel).await.unwrap();
+    let original = original_local_result(&report, 0);
+    let RunReport::Simulation(trajectory) = original.report().unwrap() else { panic!("original simulation"); };
+    assert_eq!(trajectory.report().samples.len(), 2);
+    assert_eq!(trajectory.report().samples.last().unwrap().time, 1.0);
+    assert!((trajectory.report().samples.last().unwrap().state[0] - 1.0).abs() < 1e-8);
+
+    let compact = package.admit_study(&inputs, &StudyOutputDemand::Compact {
+        detail: StudyDetailDemand::default(), failed_detail: StudyDetailDemand::default(),
+    }, &cancel).await.unwrap();
+    let report = compact.execute(1, &cancel).await.unwrap();
+    assert!(report.outcomes[0].scientific.usable, "{:?}", report.outcomes[0]);
+    let occurrence = report.results[0].as_ref().unwrap();
+    assert!(matches!(occurrence, super::super::StudyOccurrenceResult::Compact(_)));
+    assert!(occurrence.stored_keys().is_none());
+    occurrence.completion().unwrap();
+    assert_eq!(package.canonical_revision().unwrap().key, origin, "local execution preserves its original source attribution");
+    assert!(package.runtime.canonical_store().unwrap().admit_activity().is_err());
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
+#[tokio::test]
+async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrences_without_recording() {
+    use super::super::{RunReport, SelectedStudyVariant, SourceChoice, SourceDelta, StudyInputs, StudyOutputDemand, StudyVariants};
+    let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
+    let requested = |key| {
+        let mut selected = point(OperationRequest::Simulation(SimulationOperation { case, profile: None }));
+        selected.policy.key = OccurrenceKey(key);
+        selected
+    };
+    let variants = StudyVariants {
+        version: Version, source: OperationSource::of(&package),
+        choices: vec![SourceChoice { alternatives: vec![
+            SourceDelta { parent: package.revision_id().into(), ..Default::default() },
+            // Unselected invalid science must neither construct nor publish a source.
+            SourceDelta { parent: package.revision_id().into(), removals: vec![DeclarationId::from_bytes([0; 16])], ..Default::default() },
+        ] }],
+        selected: vec![
+            SelectedStudyVariant { ordinal: 0, point: requested(23) },
+            SelectedStudyVariant { ordinal: 0, point: requested(5) },
+        ],
+    };
+    deny_recording_after_durable_source(&package).await;
+    let cancel = CancelSource::new();
+    let before = package.runtime.shared.math().preparations().views;
+    let local = package.admit_study(&StudyInputs::Lazy(variants), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    assert_eq!(package.runtime.shared.math().preparations().views, before, "lazy admission does not construct selected science");
+    let report = local.execute(2, &cancel).await.unwrap();
+    assert_eq!(report.outcomes.iter().map(|outcome| outcome.key).collect::<Vec<_>>(), vec![OccurrenceKey(23), OccurrenceKey(5)]);
+    for index in 0..2 {
+        let original = original_local_result(&report, index);
+        let RunReport::Simulation(trajectory) = original.report().unwrap() else { panic!("original selected simulation"); };
+        assert_eq!(trajectory.report().samples.last().unwrap().time, 1.0);
+        assert!((trajectory.report().samples.last().unwrap().state[0] - 1.0).abs() < 1e-8);
+    }
+    assert_ne!(report.results[0].as_ref().unwrap().run_id(), report.results[1].as_ref().unwrap().run_id());
+    assert!(package.runtime.canonical_store().unwrap().admit_activity().is_err());
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn durable_origin_local_fit_keeps_original_regression_without_recording() {
+    use super::super::{RunReport, StudyInputs, StudyOutputDemand, fitting::regression};
+    use pse_backend_native::solve::{Backend, SolveIntent};
+    let package = regression::package_on(super::super::durable_tests::durable_runtime(), false, regression::declared(), [1.; 4]).await;
+    deny_recording_after_durable_source(&package).await;
+    let request = OperationRequest::Fit(FitOperation {
+        fit: super::super::tests::id(32).into(),
+        settings: FitOperationSettings {
+            solver: SolveSettings { intent: SolveIntent::Optimize, backend: Some(Backend::Ipopt), ..Default::default() },
+            simulations: BTreeMap::new(), rank_tolerance: 1e-8, max_cells: 100_000,
+            derivatives: FitDerivatives::Responses, experiment_workers: pse_model::scalar!(PositiveCount(1)), uncertainty: None,
+        },
+    });
+    let cancel = CancelSource::new();
+    let local = package.admit_study(&StudyInputs::Explicit(vec![point(request)]), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    let report = local.execute(1, &cancel).await.unwrap();
+    let original = original_local_result(&report, 0);
+    let RunReport::Fit(fit) = original.report().unwrap() else { panic!("original regression fit"); };
+    let (_, expected) = regression::analytic();
+    let candidate = fit.candidate.as_ref().unwrap();
+    assert_eq!(candidate.len(), expected.len());
+    for (actual, expected) in candidate.iter().zip(expected) { assert!((actual - expected).abs() < 1e-6); }
+    assert_eq!(fit.predictions.len(), 4);
+    assert!(fit.checks_complete);
+    assert!(package.runtime.canonical_store().unwrap().admit_activity().is_err());
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
+#[tokio::test]
+async fn durable_origin_local_horizon_keeps_original_two_step_plant_without_recording() {
+    use super::super::{HorizonDecision, StudyInputs, StudyOutputDemand};
+    let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
+    let mut request = horizon(&package, case).await;
+    request.controller = None;
+    deny_recording_after_durable_source(&package).await;
+    let cancel = CancelSource::new();
+    let local = package.admit_study(&StudyInputs::Explicit(vec![point(OperationRequest::Horizon(Box::new(request)))]), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    let report = local.execute(1, &cancel).await.unwrap();
+    let original = original_local_result(&report, 0);
+    let horizon = original.horizon().unwrap();
+    assert_eq!(horizon.completed_steps, 2);
+    assert_eq!(horizon.steps.len(), 2);
+    for (index, step) in horizon.steps.iter().enumerate() {
+        assert_eq!(step.time, index as f64 * 0.5);
+        assert_eq!(step.decision, HorizonDecision::OpenLoop);
+        assert_eq!(step.applied, vec![353.15]);
+        assert!(step.reached.iter().all(|value| value.is_finite()));
+    }
+    assert!(package.runtime.canonical_store().unwrap().admit_activity().is_err());
 }
