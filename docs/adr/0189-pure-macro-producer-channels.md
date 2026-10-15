@@ -59,7 +59,9 @@ Actual Maturin child argv/SDK/environment remains authoritative and is enrolled 
 
 Protected historical evidence remains independently reconstructible; original-path current artifact/input/namespace/environment verification is unchanged. Existing coordinated ownership and before/after checks still apply: private preparation exclusion does not make arbitrary concurrent tools harmless. The bounded independent assessment is [the preparation-operation review](../design_review/reviews/design_review_plan39-preparation-operation_2026-10-14.md). Dependent assurance code waits for that assessment. Tiny compiler fixtures establish only this mechanism; actual PSE all-role capture/install/import remains Plan39d work.
 
-### Source-qualified compiler, launcher and installation contexts
+### Source-qualified compiler, launcher and installation contexts — deferred
+
+The maintainer subsequently directed design-phase validation without proving minor environment changes or exact reproduction to this degree. This additional phase-context machinery is deferred; it is not a prerequisite for ordinary functional validation. Revisit only for a separately requested strict cross-build assurance requirement. The target review remains historical evidence, not implementation acceptance.
 
 On 2026-10-14 the maintainer accepted the concrete D0 phase-context target in Plan39d. The existing whole-role context conflates executor compilation, Maturin's prebuild Python startup and uv's later replacement of installation metadata. Preserve these as separate owned operations and evidence, rather than claiming a mutated input namespace is unchanged. This amends the prior all-consumed-inputs-unchanged realization for the explicitly checked installation transition; it does not permit arbitrary changed inputs.
 

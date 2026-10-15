@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 170
+revision: 171
 date: 2026-10-14
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 171 | 2026-10-14 | Plan39 validation scope follows maintainer design-phase steering: practical build/static/behavioral/native/Python validation; proposed phase-context proof machinery is not an ordinary validation gate (§5.3). | Explicit maintainer direction; PSE_DESIGN_EDIT=1; strict optional assurance remains separate and unqualified. |
 | 170 | 2026-10-14 | Proposed ADR-0189 / Plan39d: source-qualified executor compilation premises; separate immutable compiler/launcher evidence, authenticated installation transitions and current installed/import context (§5.3/§14.3). | Maintainer explicitly selected phase contexts; PSE_DESIGN_EDIT=1; independent phase-context target review Accept at Proposed strength; implementation/source qualification and assembled acceptance remain separate. |
 | 169 | 2026-10-14 | Plan39 remaining design within proposed ADR-0183/0189: exact revision-owned inventories and invocation-bound handoff; owned receiver rebinding and independent supplied import; finite strict preparation refresh and same-operation executor compilation (§5.3/§14.3/§14.4/§19.1). | Maintainer-authorized remaining-design execution; PSE_DESIGN_EDIT=1; independent preparation target review Accept at Proposed strength; targeted implementation checks remain distinct from explicitly deferred Plan39d qualification/measurements. |
 | 168 | 2026-10-14 | Proposed ADR-0189 / Plan39 RC01–RC02: exact local transitive source pins and guarded pure macro channels separate caller code identity from external-I/O grants; owned startup and sealed role evidence; strict Python installation consumes its actual Cargo realization (§3.1/§5.3/§14.3). | Maintainer-authorized execution and explicit guarded-owner choice; PSE_DESIGN_EDIT=1; independent bounded target review Accept at Proposed strength; selected implementation and Plan39d assembled acceptance remain distinct. |
