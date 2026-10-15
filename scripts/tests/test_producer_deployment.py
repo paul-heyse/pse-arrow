@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import shutil
 import subprocess
@@ -754,7 +755,7 @@ class ProducerDeploymentTests(unittest.TestCase):
 
         def failed(
             command: list[str], **kwargs: object
-        ) -> subprocess.CompletedProcess[bytes]:
+        ) -> subprocess.CompletedProcess[bytes | str]:
             if command[:2] != ["just", "producer-identity"]:
                 return actual(command, **kwargs)
             log = kwargs["stdout"]
@@ -773,8 +774,6 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.assertTrue((self.output / "preparation/FAILED").is_file())
 
     def test_competing_strict_operation_refuses_before_dependency_effects(self) -> None:
-        import fcntl
-
         active = self.root / "active"
         active.mkdir(mode=0o700)
         with deployment.own_preparation(self.root, active) as guard:
@@ -789,9 +788,11 @@ class ProducerDeploymentTests(unittest.TestCase):
             guard.seek(0)
             self.assertEqual(guard.read(), original)
             # A failure by a competing owner never unlocks the active lifetime.
-            with (self.root / "target/.producer-preparation.lock").open("r+b") as other:
-                with self.assertRaises(BlockingIOError):
-                    fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with (
+                (self.root / "target/.producer-preparation.lock").open("r+b") as other,
+                self.assertRaises(BlockingIOError),
+            ):
+                fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def test_actual_elf_installation_accepts_only_reviewed_rpath_replay(self) -> None:
         installed = self.root / "python/pse/_native.so"
@@ -846,7 +847,17 @@ class ProducerDeploymentTests(unittest.TestCase):
         }
         (self.output / "python-build-evidence.json").unlink()
 
-        def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+        def run(
+            command: list[str],
+            *,
+            cwd: Path | None = None,
+            env: dict[str, str] | None = None,
+            check: bool = False,
+            capture_output: bool = False,
+            text: bool = False,
+            stdout: BinaryIO | int | None = None,
+            timeout: float | None = None,
+        ) -> subprocess.CompletedProcess[bytes] | subprocess.CompletedProcess[str]:
             if "producer-history-verify" in command:
                 return subprocess.CompletedProcess(
                     command,
@@ -861,7 +872,27 @@ class ProducerDeploymentTests(unittest.TestCase):
                         }
                     ),
                 )
-            return actual_run(command, **kwargs)
+            if text:
+                return actual_run(
+                    command,
+                    cwd=cwd,
+                    env=env,
+                    check=check,
+                    capture_output=capture_output,
+                    text=True,
+                    stdout=stdout,
+                    timeout=timeout,
+                )
+            return actual_run(
+                command,
+                cwd=cwd,
+                env=env,
+                check=check,
+                capture_output=capture_output,
+                text=False,
+                stdout=stdout,
+                timeout=timeout,
+            )
 
         def observed(
             command: list[str],

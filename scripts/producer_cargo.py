@@ -31,17 +31,15 @@ PYTHON = "PSE_PRODUCER_CARGO_PYTHON"
 PREPARATION_GUARD_FD = "PSE_PRODUCER_PREPARATION_GUARD_FD"
 
 
-def preparation_child_arguments(
-    environment: Mapping[str, str],
-) -> dict[str, tuple[int, ...]]:
+def preparation_child_fds(environment: Mapping[str, str]) -> tuple[int, ...]:
     """Retain the target-local owner's lock through actual writer descendants."""
     value = environment.get(PREPARATION_GUARD_FD)
     if value is None:
-        return {}
+        return ()
     descriptor = int(value)
     if descriptor < 3 or not stat.S_ISREG(os.fstat(descriptor).st_mode):
         raise ValueError("invalid preparation lifetime descriptor")
-    return {"pass_fds": (descriptor,)}
+    return (descriptor,)
 
 
 # Effective compiler/SDK selections, never arbitrary environment or credentials.
@@ -102,6 +100,13 @@ def write_new(path: Path, value: object) -> None:
         os.fsync(output.fileno())
 
 
+def absolute_invocation_path(path: str) -> str:
+    """Normalize lexical selection without dereferencing name-dispatched proxies."""
+    # Path.resolve() would turn Cargo's rustup proxy into a rustup invocation;
+    # Path.absolute() does not normalize parent components like abspath does.
+    return os.path.abspath(path)  # noqa: PTH100 -- invocation spelling is authority
+
+
 def cargo_executable(environment: Mapping[str, str]) -> str:
     selected = shutil.which("cargo", path=environment.get("PATH", os.defpath))
     if selected is None:
@@ -113,11 +118,13 @@ def cargo_executable(environment: Mapping[str, str]) -> str:
                 "strict installer does not support an empty explicit CARGO"
             )
         chosen = shutil.which(explicit, path=environment.get("PATH", os.defpath))
-        if chosen is None or os.path.abspath(chosen) != os.path.abspath(selected):
+        if chosen is None or absolute_invocation_path(
+            chosen
+        ) != absolute_invocation_path(selected):
             raise ValueError(
                 "strict installer does not support CARGO differing from the selected PATH Cargo"
             )
-    return os.path.abspath(selected)
+    return absolute_invocation_path(selected)
 
 
 def configure(
@@ -167,7 +174,7 @@ def read_configuration(path: Path) -> dict[str, object]:
     if not isinstance(value.get("workspace_root"), str) or not isinstance(
         value.get("cargo"), str
     ):
-        raise ValueError("strict Cargo observer lacks selected executables/context")
+        raise TypeError("strict Cargo observer lacks selected executables/context")
     options = value.get("capture_options")
     if not isinstance(options, list) or any(
         not isinstance(item, str) for item in options
@@ -205,6 +212,20 @@ def require_sealed_realization(options: list[str]) -> None:
         )
 
 
+def require_unchanged_pyo3_configuration(observation: Mapping[str, object]) -> None:
+    config = observation.get("pyo3_configuration")
+    if isinstance(config, dict):
+        source = Path(str(config["original"]))
+        if (
+            str(source.resolve()) != config["canonical"]
+            or source.stat().st_mode != config["mode"]
+            or hashlib.sha256(source.read_bytes()).hexdigest() != config["sha256"]
+        ):
+            raise ValueError(
+                "actual PyO3 configuration changed during installer capture"
+            )
+
+
 def observe(arguments: list[str], environment: Mapping[str, str]) -> int:
     selected = environment.get(CAPTURE)
     if not selected:
@@ -223,14 +244,16 @@ def observe(arguments: list[str], environment: Mapping[str, str]) -> int:
         if name not in {"CARGO", CAPTURE, PYTHON}
     }
     actual_cargo = shutil.which("cargo", path=child_environment.get("PATH", os.defpath))
-    if actual_cargo is None or os.path.abspath(actual_cargo) != os.path.abspath(cargo):
+    if actual_cargo is None or absolute_invocation_path(
+        actual_cargo
+    ) != absolute_invocation_path(cargo):
         raise ValueError("actual installer PATH selects a different Cargo executable")
     if arguments and arguments[0] in {"--version", "-V", "version", "metadata"}:
         return subprocess.call(
             [cargo, *arguments],
             cwd=root,
             env=child_environment,
-            **preparation_child_arguments(environment),
+            pass_fds=preparation_child_fds(environment),
         )
     if not arguments or arguments[0] != "rustc":
         raise ValueError("unsupported actual installer Cargo command")
@@ -285,23 +308,12 @@ def observe(arguments: list[str], environment: Mapping[str, str]) -> int:
         command,
         cwd=root,
         env=child_environment,
-        **preparation_child_arguments(environment),
+        pass_fds=preparation_child_fds(environment),
     )
     if result == 0:
         try:
             require_sealed_realization(options)
-            config = observation.get("pyo3_configuration")
-            if isinstance(config, dict):
-                source = Path(str(config["original"]))
-                if (
-                    str(source.resolve()) != config["canonical"]
-                    or source.stat().st_mode != config["mode"]
-                    or hashlib.sha256(source.read_bytes()).hexdigest()
-                    != config["sha256"]
-                ):
-                    raise ValueError(
-                        "actual PyO3 configuration changed during installer capture"
-                    )
+            require_unchanged_pyo3_configuration(observation)
         except (OSError, ValueError, TypeError, KeyError) as error:
             write_new(
                 path.with_suffix(".status.json"),

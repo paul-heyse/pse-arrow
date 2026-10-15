@@ -516,6 +516,15 @@ def require_capture_success(name: str, returncode: int) -> None:
         )
 
 
+def require_installer_capture(output: Path) -> None:
+    path = output / "python-installer-cargo.status.json"
+    if not path.is_file():
+        raise ValueError("Maturin did not consume the selected Cargo observer")
+    status = read_object(path)
+    if status.get("returncode") != 0 or status.get("sealed") is not True:
+        raise ValueError("Maturin actual Cargo child lacks completed capture")
+
+
 def own_preparation(root: Path, output: Path) -> BinaryIO:
     """Exclude other strict operations before dependency setup, without host locking."""
     directory = output / "preparation"
@@ -546,10 +555,11 @@ def own_preparation(root: Path, output: Path) -> BinaryIO:
         )
         guard.flush()
         os.fsync(guard.fileno())
-        return guard
     except BaseException:
         guard.close()
         raise
+    else:
+        return guard
 
 
 def begin_preparation(
@@ -614,7 +624,7 @@ def begin_preparation(
             stdout=log,
             stderr=subprocess.STDOUT,
             check=False,
-            **producer_cargo.preparation_child_arguments(environment),
+            pass_fds=producer_cargo.preparation_child_fds(environment),
         )
         require_capture_success("preparation tool", result.returncode)
         result = subprocess.run(
@@ -635,7 +645,7 @@ def begin_preparation(
             stdout=log,
             stderr=subprocess.STDOUT,
             check=False,
-            **producer_cargo.preparation_child_arguments(environment),
+            pass_fds=producer_cargo.preparation_child_fds(environment),
         )
     require_capture_success("preparation", result.returncode)
 
@@ -668,7 +678,7 @@ def capture(
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 check=False,
-                **producer_cargo.preparation_child_arguments(env),
+                pass_fds=producer_cargo.preparation_child_fds(env),
             )
         require_capture_success("dependency setup", result.returncode)
         inputs = reviewed_inputs(root, env)
@@ -726,21 +736,10 @@ def capture(
                         stdout=log,
                         stderr=subprocess.STDOUT,
                         check=False,
-                        **producer_cargo.preparation_child_arguments(installer_env),
+                        pass_fds=producer_cargo.preparation_child_fds(installer_env),
                     )
                     require_capture_success(name, result.returncode)
-                    if not (output / "python-installer-cargo.status.json").is_file():
-                        raise ValueError(
-                            "Maturin did not consume the selected Cargo observer"
-                        )
-                    status = read_object(output / "python-installer-cargo.status.json")
-                    if (
-                        status.get("returncode") != 0
-                        or status.get("sealed") is not True
-                    ):
-                        raise ValueError(
-                            "Maturin actual Cargo child lacks completed capture"
-                        )
+                    require_installer_capture(output)
                 else:
                     result = subprocess.run(
                         command,
@@ -749,7 +748,7 @@ def capture(
                         stdout=log,
                         stderr=subprocess.STDOUT,
                         check=False,
-                        **producer_cargo.preparation_child_arguments(role_env),
+                        pass_fds=producer_cargo.preparation_child_fds(role_env),
                     )
             require_capture_success(name, result.returncode)
             validate_receipt(root, output, role, role_env)

@@ -97,7 +97,7 @@ class ProducerCargoTests(unittest.TestCase):
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                **observer.preparation_child_arguments(environment),
+                pass_fds=observer.preparation_child_fds(environment),
             )
             try:
                 self.assertIsNotNone(child.stdout)
@@ -131,8 +131,15 @@ class ProducerCargoTests(unittest.TestCase):
             "CARGO_REGISTRIES_PRIVATE_TOKEN": "never-observed-registry-token",
         }
 
-        def capture(command: list[str], *, cwd: Path, env: dict[str, str]) -> int:
+        def capture(
+            command: list[str],
+            *,
+            cwd: Path,
+            env: dict[str, str],
+            pass_fds: tuple[int, ...],
+        ) -> int:
             self.assertEqual(cwd, self.root)
+            self.assertEqual(pass_fds, ())
             self.assertEqual(
                 command[:2],
                 [str(self.root / "target/debug/xtask"), "producer-identity"],
@@ -197,9 +204,11 @@ class ProducerCargoTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unsupported actual installer"):
                 observer.observe(["build"], self.environment)
             self.assertFalse(self.configuration.with_suffix(".claim.json").exists())
-        with patch.object(observer.subprocess, "call") as run:
-            with self.assertRaisesRegex(ValueError, "different working directory"):
-                observer.observe(self.arguments, self.environment)
+        with (
+            patch.object(observer.subprocess, "call") as run,
+            self.assertRaisesRegex(ValueError, "different working directory"),
+        ):
+            observer.observe(self.arguments, self.environment)
         run.assert_not_called()
 
     def test_configuration_and_cargo_selection_refuse_unsupported_changes(self) -> None:
@@ -243,7 +252,7 @@ class ProducerCargoTests(unittest.TestCase):
         )
         cargo.chmod(0o700)
         os.link(cargo, rustc)
-        self.assertTrue(os.path.samefile(cargo, rustc))
+        self.assertTrue(cargo.samefile(rustc))
         self.assertEqual(
             subprocess.check_output([str(cargo)], text=True).strip(), "cargo"
         )
@@ -257,6 +266,26 @@ class ProducerCargoTests(unittest.TestCase):
             observer.cargo_executable({"PATH": str(directory), "CARGO": str(cargo)}),
             str(cargo),
         )
+
+    def test_symlink_proxy_preserves_selected_invocation_and_normalizes_parents(
+        self,
+    ) -> None:
+        directory = self.root / "proxy-links"
+        directory.mkdir()
+        proxy = directory / "rustup"
+        proxy.write_text("#!/bin/sh\nexit 0\n")
+        proxy.chmod(0o700)
+        cargo = directory / "cargo"
+        cargo.symlink_to(proxy)
+        self.assertEqual(
+            observer.cargo_executable(
+                {"PATH": str(directory), "CARGO": str(directory / "../proxy-links/cargo")}
+            ),
+            str(cargo),
+        )
+        self.assertNotEqual(str(cargo), str(cargo.resolve()))
+        with self.assertRaisesRegex(ValueError, "differing"):
+            observer.cargo_executable({"PATH": str(directory), "CARGO": str(proxy)})
 
     def test_nonzero_capture_retains_failure_and_cannot_claim_sealing(self) -> None:
         with (
@@ -291,7 +320,13 @@ class ProducerCargoTests(unittest.TestCase):
                     self.root, directory, self.options, os.environ
                 )
 
-                def capture(_command: list[str], **_kwargs: object) -> int:
+                def capture(
+                    _command: list[str],
+                    *,
+                    failure: str = failure,
+                    directory: Path = directory,
+                    **_kwargs: object,
+                ) -> int:
                     self.seal(eligible=failure != "ineligible")
                     complete = directory / "python-build-evidence.json.closure/COMPLETE"
                     if failure == "missing-seal":
