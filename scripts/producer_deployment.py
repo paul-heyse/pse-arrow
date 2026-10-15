@@ -521,17 +521,29 @@ def own_preparation(root: Path, output: Path) -> BinaryIO:
     directory = output / "preparation"
     directory.mkdir(mode=0o700)
     (root / "target").mkdir(exist_ok=True)
-    descriptor = os.open(root / "target/.producer-preparation.lock",
-        os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    descriptor = os.open(
+        root / "target/.producer-preparation.lock",
+        os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW,
+        0o600,
+    )
     guard = os.fdopen(descriptor, "r+b")
     try:
         fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
         owner_pid = os.getpid()
-        owner_start = Path(f"/proc/{owner_pid}/stat").read_text().rsplit(") ", 1)[1].split()[19]
+        owner_start = (
+            Path(f"/proc/{owner_pid}/stat").read_text().rsplit(") ", 1)[1].split()[19]
+        )
         guard.seek(0)
         guard.truncate()
-        guard.write(json.dumps({"directory": str(directory), "owner_pid": owner_pid,
-            "owner_start": owner_start}).encode())
+        guard.write(
+            json.dumps(
+                {
+                    "directory": str(directory),
+                    "owner_pid": owner_pid,
+                    "owner_start": owner_start,
+                }
+            ).encode()
+        )
         guard.flush()
         os.fsync(guard.fileno())
         return guard
@@ -541,8 +553,11 @@ def own_preparation(root: Path, output: Path) -> BinaryIO:
 
 
 def begin_preparation(
-    root: Path, output: Path, environment: Mapping[str, str],
-    inputs: dict[str, tuple[Path, list[Path]]], guard: BinaryIO,
+    root: Path,
+    output: Path,
+    environment: Mapping[str, str],
+    inputs: dict[str, tuple[Path, list[Path]]],
+    guard: BinaryIO,
 ) -> None:
     """Establish the selected family baseline only after dependency setup."""
     directory = output / "preparation"
@@ -557,28 +572,71 @@ def begin_preparation(
             target = {"Binary": target_args[1]}
         elif role == "python":
             target = {"Cdylib": target_args[1]}
-        selections.append({"workspace_root": str(root), "package": package,
-            "profile": "producer", "target": None, "production_target": target,
-            "features": ["native-solvers", "force-validate" if role == "python" else "pse-relations/force-validate"],
-            "no_default_features": False, "dep_info": [], "declared_inputs": [],
-            "native_inputs": [str(path) for path in files], "declared_environment": {},
-            "declarations": read_object(declaration)})
+        selections.append(
+            {
+                "workspace_root": str(root),
+                "package": package,
+                "profile": "producer",
+                "target": None,
+                "production_target": target,
+                "features": [
+                    "native-solvers",
+                    "force-validate"
+                    if role == "python"
+                    else "pse-relations/force-validate",
+                ],
+                "no_default_features": False,
+                "dep_info": [],
+                "declared_inputs": [],
+                "native_inputs": [str(path) for path in files],
+                "declared_environment": {},
+                "declarations": read_object(declaration),
+            }
+        )
     selection = directory / "selection.json"
     producer_cargo.write_new(selection, selections)
     with (directory / "preparation.log").open("xb") as log:
         # Preserve the existing capture-tool bootstrap boundary: cargo run would
         # inject launcher-local loader selections into the observed operation.
-        result = subprocess.run(["cargo", "build", "-p", "xtask", "--bin", "xtask",
-            "--no-default-features", "--locked"], cwd=root, env=dict(environment),
-            stdout=log, stderr=subprocess.STDOUT, check=False,
-            **producer_cargo.preparation_child_arguments(environment))
+        result = subprocess.run(
+            [
+                "cargo",
+                "build",
+                "-p",
+                "xtask",
+                "--bin",
+                "xtask",
+                "--no-default-features",
+                "--locked",
+            ],
+            cwd=root,
+            env=dict(environment),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=False,
+            **producer_cargo.preparation_child_arguments(environment),
+        )
         require_capture_success("preparation tool", result.returncode)
-        result = subprocess.run([str(root / "target/debug/xtask"),
-            "producer-preparation-begin", "--selection", str(selection),
-            "--directory", str(directory), "--owner-pid", str(owner_pid),
-            "--owner-start", owner_start], cwd=root, env=dict(environment),
-            stdout=log, stderr=subprocess.STDOUT, check=False,
-            **producer_cargo.preparation_child_arguments(environment))
+        result = subprocess.run(
+            [
+                str(root / "target/debug/xtask"),
+                "producer-preparation-begin",
+                "--selection",
+                str(selection),
+                "--directory",
+                str(directory),
+                "--owner-pid",
+                str(owner_pid),
+                "--owner-start",
+                owner_start,
+            ],
+            cwd=root,
+            env=dict(environment),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=False,
+            **producer_cargo.preparation_child_arguments(environment),
+        )
     require_capture_success("preparation", result.returncode)
 
 
@@ -603,9 +661,15 @@ def capture(
         # Dependency installation is an effect before the shared source/native
         # baseline; it must not invalidate an already captured Rust role.
         with (output / "dependency-setup.log").open("xb") as log:
-            result = subprocess.run(["uv", "sync", "--locked", "--no-install-project"],
-                cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, check=False,
-                **producer_cargo.preparation_child_arguments(env))
+            result = subprocess.run(
+                ["uv", "sync", "--locked", "--no-install-project"],
+                cwd=root,
+                env=env,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                check=False,
+                **producer_cargo.preparation_child_arguments(env),
+            )
         require_capture_success("dependency setup", result.returncode)
         inputs = reviewed_inputs(root, env)
         begin_preparation(root, output, env, inputs, guard)
@@ -709,7 +773,9 @@ def capture(
             env=env,
             check=True,
         )
-        producer_cargo.write_new(output / "preparation/COMPLETE", {"terminal": "complete"})
+        producer_cargo.write_new(
+            output / "preparation/COMPLETE", {"terminal": "complete"}
+        )
     except (
         OSError,
         ValueError,
@@ -721,14 +787,21 @@ def capture(
             f"{type(error).__name__}: {error}\n"
         )
         if guard is not None and not (output / "preparation/FAILED").exists():
-            producer_cargo.write_new(output / "preparation/FAILED", {"terminal": "failed"})
+            producer_cargo.write_new(
+                output / "preparation/FAILED", {"terminal": "failed"}
+            )
         raise
     finally:
         if guard is not None:
             # Interrupted ownership is terminal as well; it cannot be resumed by
             # presenting a leftover completed-role marker.
-            if not (output / "preparation/COMPLETE").exists() and not (output / "preparation/FAILED").exists():
-                producer_cargo.write_new(output / "preparation/FAILED", {"terminal": "interrupted"})
+            if (
+                not (output / "preparation/COMPLETE").exists()
+                and not (output / "preparation/FAILED").exists()
+            ):
+                producer_cargo.write_new(
+                    output / "preparation/FAILED", {"terminal": "interrupted"}
+                )
             guard.close()
     return deployment_environment(root, output)
 

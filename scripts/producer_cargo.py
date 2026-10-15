@@ -31,7 +31,9 @@ PYTHON = "PSE_PRODUCER_CARGO_PYTHON"
 PREPARATION_GUARD_FD = "PSE_PRODUCER_PREPARATION_GUARD_FD"
 
 
-def preparation_child_arguments(environment: Mapping[str, str]) -> dict[str, tuple[int, ...]]:
+def preparation_child_arguments(
+    environment: Mapping[str, str],
+) -> dict[str, tuple[int, ...]]:
     """Retain the target-local owner's lock through actual writer descendants."""
     value = environment.get(PREPARATION_GUARD_FD)
     if value is None:
@@ -40,6 +42,8 @@ def preparation_child_arguments(environment: Mapping[str, str]) -> dict[str, tup
     if descriptor < 3 or not stat.S_ISREG(os.fstat(descriptor).st_mode):
         raise ValueError("invalid preparation lifetime descriptor")
     return {"pass_fds": (descriptor,)}
+
+
 # Effective compiler/SDK selections, never arbitrary environment or credentials.
 EFFECTIVE_ENVIRONMENT = (
     "CFLAGS_x86_64_unknown_linux_gnu",
@@ -222,8 +226,12 @@ def observe(arguments: list[str], environment: Mapping[str, str]) -> int:
     if actual_cargo is None or os.path.abspath(actual_cargo) != os.path.abspath(cargo):
         raise ValueError("actual installer PATH selects a different Cargo executable")
     if arguments and arguments[0] in {"--version", "-V", "version", "metadata"}:
-        return subprocess.call([cargo, *arguments], cwd=root, env=child_environment,
-            **preparation_child_arguments(environment))
+        return subprocess.call(
+            [cargo, *arguments],
+            cwd=root,
+            env=child_environment,
+            **preparation_child_arguments(environment),
+        )
     if not arguments or arguments[0] != "rustc":
         raise ValueError("unsupported actual installer Cargo command")
     # A second build cannot replace the selected realization or its evidence.
@@ -273,8 +281,12 @@ def observe(arguments: list[str], environment: Mapping[str, str]) -> int:
     ]
     for name, value in effective.items():
         command.extend(("--environment", f"{name}={value}"))
-    result = subprocess.call(command, cwd=root, env=child_environment,
-        **preparation_child_arguments(environment))
+    result = subprocess.call(
+        command,
+        cwd=root,
+        env=child_environment,
+        **preparation_child_arguments(environment),
+    )
     if result == 0:
         try:
             require_sealed_realization(options)

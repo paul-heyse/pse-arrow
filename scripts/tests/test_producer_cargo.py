@@ -77,14 +77,26 @@ class ProducerCargoTests(unittest.TestCase):
         (closure / "index.json").write_bytes(raw)
         (closure / "COMPLETE").write_text(hashlib.sha256(raw).hexdigest())
 
-    def test_target_guard_remains_charged_until_actual_writer_descendant_exits(self) -> None:
+    def test_target_guard_remains_charged_until_actual_writer_descendant_exits(
+        self,
+    ) -> None:
         path = self.root / "target-guard"
         with path.open("w+b") as owner:
             fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            environment = {**os.environ, observer.PREPARATION_GUARD_FD: str(owner.fileno())}
+            environment = {
+                **os.environ,
+                observer.PREPARATION_GUARD_FD: str(owner.fileno()),
+            }
             child = subprocess.Popen(
-                [sys.executable, "-c", "import os,sys;os.fstat(int(os.environ['PSE_PRODUCER_PREPARATION_GUARD_FD']));print('writer-ready',flush=True);sys.stdin.buffer.read(1)"],
-                env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                [
+                    sys.executable,
+                    "-c",
+                    "import os,sys;os.fstat(int(os.environ['PSE_PRODUCER_PREPARATION_GUARD_FD']));print('writer-ready',flush=True);sys.stdin.buffer.read(1)",
+                ],
+                env=environment,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 **observer.preparation_child_arguments(environment),
             )
             try:
@@ -333,7 +345,7 @@ class ProducerCargoTests(unittest.TestCase):
         release = self.root / "release"
         tool.write_text(
             f"#!{sys.executable}\n"
-            + """import json,sys,time
+            """import json,sys,time
 from pathlib import Path
 args=sys.argv
 print('{"reason":"fixture-before-exit"}',flush=True)

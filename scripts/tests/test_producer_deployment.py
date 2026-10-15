@@ -107,16 +107,29 @@ class ProducerDeploymentTests(unittest.TestCase):
             if command[:2] == ["uv", "sync"]:
                 return subprocess.CompletedProcess(command, 0)
             if command[:2] == ["cargo", "build"]:
-                self.assertEqual(command[2:], ["-p", "xtask", "--bin", "xtask", "--no-default-features", "--locked"])
+                self.assertEqual(
+                    command[2:],
+                    [
+                        "-p",
+                        "xtask",
+                        "--bin",
+                        "xtask",
+                        "--no-default-features",
+                        "--locked",
+                    ],
+                )
                 return subprocess.CompletedProcess(command, 0)
             if "producer-preparation-begin" in command:
                 selection = json.loads(
                     Path(command[command.index("--selection") + 1]).read_text()
                 )
-                self.assertEqual([item["package"] for item in selection],
-                    [role[1] for role in deployment.ROLES])
-                self.assertEqual(Path(command[command.index("--directory") + 1]).name,
-                    "preparation")
+                self.assertEqual(
+                    [item["package"] for item in selection],
+                    [role[1] for role in deployment.ROLES],
+                )
+                self.assertEqual(
+                    Path(command[command.index("--directory") + 1]).name, "preparation"
+                )
                 return subprocess.CompletedProcess(command, 0)
             if Path(command[0]).name == "maturin":
                 selected = deployment.read_object(
@@ -126,8 +139,13 @@ class ProducerDeploymentTests(unittest.TestCase):
                 if not isinstance(options, list):
                     raise TypeError("installer must select its actual capture options")
                 command = ["just", "producer-identity", *options]
-                env = {**self.environment, "PYO3_BUILD_EXTENSION_MODULE": "1",
-                    deployment.producer_cargo.PREPARATION_GUARD_FD:env[deployment.producer_cargo.PREPARATION_GUARD_FD]}
+                env = {
+                    **self.environment,
+                    "PYO3_BUILD_EXTENSION_MODULE": "1",
+                    deployment.producer_cargo.PREPARATION_GUARD_FD: env[
+                        deployment.producer_cargo.PREPARATION_GUARD_FD
+                    ],
+                }
                 for name, value in deployment.producer_cargo.effective_environment(
                     env
                 ).items():
@@ -154,8 +172,12 @@ class ProducerDeploymentTests(unittest.TestCase):
             output = Path(command[command.index("--output") + 1])
             name = output.stem
             expected_env = dict(self.environment)
-            expected_env[deployment.producer_cargo.PREPARATION_GUARD_FD] = env[deployment.producer_cargo.PREPARATION_GUARD_FD]
-            self.assertEqual(pass_fds, (int(env[deployment.producer_cargo.PREPARATION_GUARD_FD]),))
+            expected_env[deployment.producer_cargo.PREPARATION_GUARD_FD] = env[
+                deployment.producer_cargo.PREPARATION_GUARD_FD
+            ]
+            self.assertEqual(
+                pass_fds, (int(env[deployment.producer_cargo.PREPARATION_GUARD_FD]),)
+            )
             if name == "python":
                 expected_env["PYO3_BUILD_EXTENSION_MODULE"] = "1"
             else:
@@ -258,7 +280,9 @@ class ProducerDeploymentTests(unittest.TestCase):
             call.args[0] for call in run.call_args_list if call.args[0][0] == "just"
         ]
         all_commands = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(all_commands[0], ["uv", "sync", "--locked", "--no-install-project"])
+        self.assertEqual(
+            all_commands[0], ["uv", "sync", "--locked", "--no-install-project"]
+        )
         self.assertEqual(all_commands[1][:2], ["cargo", "build"])
         self.assertIn("producer-preparation-begin", all_commands[2])
         self.assertTrue((self.output / "preparation/COMPLETE").is_file())
@@ -288,8 +312,10 @@ class ProducerDeploymentTests(unittest.TestCase):
                 else "native-solvers,pse-relations/force-validate",
             )
             self.assertNotIn("--refresh-executors", command)
-            self.assertEqual(command[command.index("--preparation") + 1],
-                str(self.output / "preparation"))
+            self.assertEqual(
+                command[command.index("--preparation") + 1],
+                str(self.output / "preparation"),
+            )
             self.assertNotIn("--outer-source", command)
             self.assertNotIn("--outer-build", command)
             if name == "python":
@@ -725,6 +751,7 @@ class ProducerDeploymentTests(unittest.TestCase):
 
     def test_failed_actual_capture_stops_and_keeps_command_log(self) -> None:
         actual = self.actual_capture()
+
         def failed(
             command: list[str], **kwargs: object
         ) -> subprocess.CompletedProcess[bytes]:
