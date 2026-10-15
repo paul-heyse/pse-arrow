@@ -791,8 +791,10 @@ fn validate(directory: &Path) -> Result<Index> {
                 &index.graph,
                 *number,
                 &keys,
-                &index.associations,
-                &actual_associated,
+                DepInfoAssociations {
+                    paths_by_unit: &index.associations,
+                    actual_units: &actual_associated,
+                },
                 root,
                 declaration.as_ref(),
                 |path| {

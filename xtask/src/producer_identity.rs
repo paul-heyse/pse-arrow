@@ -571,14 +571,13 @@ fn drain_child_pipe(
                 break;
             }
         };
-        if !spool_failed {
-            if let Err(error) = spool
+        if !spool_failed
+            && let Err(error) = spool
                 .write_all(&bytes[..count])
                 .and_then(|()| spool.flush())
-            {
-                errors.push(format!("child spool write: {error}"));
-                spool_failed = true;
-            }
+        {
+            errors.push(format!("child spool write: {error}"));
+            spool_failed = true;
         }
         if let Some(sink) = forward {
             let result = match mode {
@@ -1948,6 +1947,13 @@ fn executable_closure_basis(
     ]))
 }
 
+/// Dep-info paths and the units independently associated with actual compiler evidence.
+/// Supplied paths alone do not establish actual consumption.
+struct DepInfoAssociations<'a> {
+    paths_by_unit: &'a BTreeMap<usize, Vec<PathBuf>>,
+    actual_units: &'a BTreeSet<usize>,
+}
+
 /// Review basis for a macro's selected callers, derived from actual compiler
 /// consumption rather than a workspace inventory or declared dep-info. Reverse
 /// reachability covers macros that emit other macro invocations and their callers.
@@ -1966,8 +1972,10 @@ fn macro_caller_input_basis(
         graph,
         macro_index,
         keys,
-        associated,
-        actual_associated,
+        DepInfoAssociations {
+            paths_by_unit: associated,
+            actual_units: actual_associated,
+        },
         root,
         declaration,
         |path| {
@@ -1984,8 +1992,7 @@ fn macro_caller_input_basis_with_reader(
     graph: &UnitGraph,
     macro_index: usize,
     keys: &BTreeMap<usize, String>,
-    associated: &BTreeMap<usize, Vec<PathBuf>>,
-    actual_associated: &BTreeSet<usize>,
+    dep_info: DepInfoAssociations<'_>,
     root: &Path,
     declaration: Option<&BuildScriptInputs>,
     mut read: impl FnMut(&Path) -> Result<Option<Vec<u8>>>,
@@ -2024,10 +2031,10 @@ fn macro_caller_input_basis_with_reader(
         if unit.mode != "build" {
             continue;
         }
-        if !actual_associated.contains(&index) {
+        if !dep_info.actual_units.contains(&index) {
             return Ok(None);
         }
-        let Some(paths) = associated.get(&index).filter(|paths| !paths.is_empty()) else {
+        let Some(paths) = dep_info.paths_by_unit.get(&index).filter(|paths| !paths.is_empty()) else {
             return Ok(None);
         };
         let mut consumed = BTreeMap::new();
@@ -4865,16 +4872,17 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("stdout");
         let mut sink = Vec::<u8>::new();
-        let observer: &mut (dyn std::io::Write + Send) = &mut sink;
-        let observer = std::sync::Mutex::new(observer);
-        let errors = drain_child_pipe(
-            source,
-            fs::File::create(&path).unwrap(),
-            Some(&observer),
-            ChildPipeForwarding::RenderedCompilerMessages,
-        )
-        .unwrap();
-        drop(observer);
+        let errors = {
+            let observer: &mut (dyn std::io::Write + Send) = &mut sink;
+            let observer = std::sync::Mutex::new(observer);
+            drain_child_pipe(
+                source,
+                fs::File::create(&path).unwrap(),
+                Some(&observer),
+                ChildPipeForwarding::RenderedCompilerMessages,
+            )
+            .unwrap()
+        };
         assert!(errors.is_empty());
         assert_eq!(sink, b"split cause\n");
         assert_eq!(fs::read(path).unwrap(), expected);

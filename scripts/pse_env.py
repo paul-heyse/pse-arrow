@@ -909,7 +909,7 @@ class ProviderDescription(TypedDict):
 
 
 class PlacementDescription(TypedDict):
-    slice: str
+    slice: str | None
     resource_class: str
     memory_request: str | None
     admission: str

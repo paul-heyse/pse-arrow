@@ -437,11 +437,9 @@ fn make_edit(
                 .documents
                 .iter()
                 .any(|document| visible.contains(&document.id))
+                && let Some(documents) = encoded_by_package.get(&bundle.package.package_id.as_id())
             {
-                if let Some(documents) = encoded_by_package.get(&bundle.package.package_id.as_id())
-                {
-                    visible.extend(documents.iter().copied());
-                }
+                visible.extend(documents.iter().copied());
             }
         }
     }
