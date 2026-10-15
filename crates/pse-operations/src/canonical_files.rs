@@ -318,12 +318,36 @@ impl FileSession {
         #[derive(serde::Deserialize)]
         struct Placement {
             payload_incarnation: String,
+            endpoint: String,
+            namespace: String,
+            service_state: Option<PathBuf>,
         }
         let config = std::fs::read(state.join("config.json")).map_err(configuration)?;
         let placement: Placement = serde_json::from_slice(&config).map_err(configuration)?;
         uuid::Uuid::parse_str(&placement.payload_incarnation).map_err(configuration)?;
+        // Receiver generations own execution placement, not a second payload
+        // tier. Their writers and service-state readers use the same files.
+        let payload_state = if let Some(service) = &placement.service_state {
+            let service = service.canonicalize().map_err(configuration)?;
+            let receiver = state.canonicalize().map_err(configuration)?;
+            if !receiver.starts_with(service.join(".receivers")) {
+                return Err(configuration("payload receiver is not owned by its service"));
+            }
+            let config = std::fs::read(service.join("config.json")).map_err(configuration)?;
+            let owner: Placement = serde_json::from_slice(&config).map_err(configuration)?;
+            if owner.service_state.is_some()
+                || owner.payload_incarnation != placement.payload_incarnation
+                || owner.endpoint != placement.endpoint
+                || owner.namespace != placement.namespace
+            {
+                return Err(configuration("payload receiver storage identity differs"));
+            }
+            service
+        } else {
+            state.to_owned()
+        };
         Ok(Self {
-            root: state
+            root: payload_state
                 .join("payloads")
                 .join(&placement.payload_incarnation)
                 .join(database),
@@ -925,6 +949,63 @@ mod tests {
             schema: String::new(),
             interpretation: crate::generated::surreal::INTERPRETATION.into(),
         }
+    }
+    #[test]
+    fn receiver_payloads_are_readable_from_the_owning_service_state() {
+        use std::os::unix::fs::MetadataExt;
+        let state = std::env::temp_dir()
+            .join(format!("pse-receiver-payload-control-{}", uuid::Uuid::new_v4()));
+        let receiver = state.join(".receivers/generation/selected");
+        std::fs::create_dir_all(&receiver).unwrap();
+        let mut config = serde_json::json!({
+            "payload_incarnation": uuid::Uuid::new_v4().to_string(),
+            "endpoint": "ws://127.0.0.1:8000", "namespace": "canonical",
+        });
+        std::fs::write(
+            state.join("config.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+        config["service_state"] = serde_json::json!(state);
+        std::fs::write(
+            receiver.join("config.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+        let writer = FileSession::from_state(&receiver, "selected").unwrap();
+        let reader = FileSession::from_state(&state, "selected").unwrap();
+        let bytes = b"[1,2,3]";
+        let file = descriptor(bytes);
+        publish(&writer.root, &file, bytes).unwrap();
+        let written = writer.path(&file.instance).unwrap();
+        let selected = reader.path(&file.instance).unwrap();
+        assert_eq!(written, selected);
+        assert_eq!(
+            std::fs::metadata(&written).unwrap().ino(),
+            std::fs::metadata(&selected).unwrap().ino()
+        );
+        verify_payload_file(&selected, &file).unwrap();
+        assert_eq!(std::fs::read(selected).unwrap(), bytes);
+        assert!(!receiver.join("payloads").exists());
+        assert_ne!(
+            FileSession::from_state(&state, "other").unwrap().root,
+            writer.root
+        );
+        config["payload_incarnation"] = serde_json::json!(uuid::Uuid::new_v4().to_string());
+        std::fs::write(
+            receiver.join("config.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+        assert!(FileSession::from_state(&receiver, "selected").is_err());
+        config["service_state"] = serde_json::json!(receiver);
+        std::fs::write(
+            receiver.join("config.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+        assert!(FileSession::from_state(&receiver, "selected").is_err());
+        std::fs::remove_dir_all(state).unwrap();
     }
     #[test]
     fn sealed_publication_never_replaces_original_physical_bytes() {
