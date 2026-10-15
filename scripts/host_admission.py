@@ -685,7 +685,7 @@ def unadmitted_service_launch_drained(
     if surreal_server.storage_launch(state, config, deadline=deadline) != launch:
         return False
     observed = operation.unit_observation(
-        unit, **({"deadline": deadline} if deadline is not None else {})
+        unit, **operation.deadline_options(deadline)
     )
     if (
         observed.get("LoadState") != "loaded"
@@ -709,7 +709,7 @@ def unadmitted_service_launch_drained(
         or surreal_server.read_json(state / "service-launch.json", deadline=deadline)
         != launch
         or operation.unit_observation(
-            unit, **({"deadline": deadline} if deadline is not None else {})
+            unit, **operation.deadline_options(deadline)
         )
         != observed
     ):
@@ -811,7 +811,7 @@ def service_processes_drained(
                     return False
                 try:
                     observed = operation.unit_observation(
-                        unit, **({"deadline": deadline} if deadline is not None else {})
+                        unit, **operation.deadline_options(deadline)
                     )
                 except subprocess.SubprocessError:
                     return False
@@ -1021,7 +1021,7 @@ def drain_borrowed_services(
         },
         "released": True,
     }
-    options = {"deadline": deadline} if deadline is not None else {}
+    options = operation.deadline_options(deadline)
     if not drained(other, deadline=deadline):
         return
     for value in services:
@@ -1103,7 +1103,7 @@ def queue_parked_service(
     from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
 
     if surreal_server.config_for(
-        state, **({"deadline": deadline} if deadline is not None else {})
+        state, **operation.deadline_options(deadline)
     ).get("parked"):
         selected = str(state)
         with allocation_metadata(directory, deadline=deadline) as ledger:
@@ -1259,7 +1259,7 @@ class Allocation:
             owner,
             allocation=self.directory / self.nonce,
             explicit=True,
-            **({"deadline": deadline} if deadline is not None else {}),
+            **operation.deadline_options(deadline),
         )
         # Returning a stopped borrowed service can retire only that affiliation.
         # Judge and release the current record, including any other surviving work.
@@ -1274,7 +1274,7 @@ class Allocation:
         if not drained(
             snapshot,
             allocation=self.directory / self.nonce,
-            **({"deadline": deadline} if deadline is not None else {}),
+            **operation.deadline_options(deadline),
         ):
             with allocation_metadata(self.directory, deadline=deadline) as state:
                 if state["owners"].get(self.nonce) == owner:
@@ -1287,7 +1287,7 @@ class Allocation:
             if current == owner:
                 del state["owners"][self.nonce]
         retire_empty_allocation(
-            self, **({"deadline": deadline} if deadline is not None else {})
+            self, **operation.deadline_options(deadline)
         )
         return True
 
@@ -1671,7 +1671,7 @@ def retire_empty_allocation(
 ) -> None:
     """Release only this drained runtime cgroup, preserving every stored artifact."""
     name = allocation_slice(allocation)
-    options = {"deadline": deadline} if deadline is not None else {}
+    options = operation.deadline_options(deadline)
     observed = operation.unit_observation(name, **options)
     group = observed.get("ControlGroup", "")
     if group and not operation.populated(group):

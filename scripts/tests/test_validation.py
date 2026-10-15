@@ -1383,11 +1383,12 @@ class ValidationTests(unittest.TestCase):
         origin_digest = validation_receipts.digest(origin / "checks.json")
         for meaning in ("recorded", "missing", "null"):
             parent = self.root / "build" / meaning
-            inherited = {**check, "origin": str(origin)}
-            if meaning != "missing":
-                inherited["origin_digest"] = (
-                    origin_digest if meaning == "recorded" else None
-                )
+            origin_field = (
+                {}
+                if meaning == "missing"
+                else {"origin_digest": origin_digest if meaning == "recorded" else None}
+            )
+            inherited = {**check, "origin": str(origin), **origin_field}
             self.seal_origin(parent, {**receipt, "checks": [inherited]})
             with patch.object(
                 validation_receipts, "digest", wraps=validation_receipts.digest

@@ -33,7 +33,7 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -891,7 +891,68 @@ def native(
         )
 
 
-def build_intent(command: Sequence[str]) -> dict[str, object]:
+SelectionSource = Literal[
+    "caller", "local", "default", "compiler selection", "native selection"
+]
+
+
+class ChoiceDescription(TypedDict):
+    value: str | None
+    source: SelectionSource
+    local_unresolved: bool
+
+
+class ProviderDescription(TypedDict):
+    inputs: dict[str, ChoiceDescription]
+    reuse: str
+    effect: str
+
+
+class PlacementDescription(TypedDict):
+    slice: str
+    resource_class: str
+    memory_request: str | None
+    admission: str
+
+
+class SelectorDescription(TypedDict):
+    values: list[str | None]
+    source: Literal["explicit argv", "tool default or configuration; not resolved"]
+
+
+class BuildIntentDescription(TypedDict):
+    package: SelectorDescription
+    profile: SelectorDescription
+    features: SelectorDescription
+    target: SelectorDescription
+    manifest: SelectorDescription
+    binary: SelectorDescription
+    role: str
+    interpretation: str
+
+
+class OperationDescription(TypedDict):
+    version: Literal[1]
+    kind: Literal["operation-selection"]
+    selection_status: str
+    checkout: str
+    interpreter: str
+    python_package: str
+    path: list[str]
+    tools: dict[str, str | None]
+    compiler: dict[str, ChoiceDescription]
+    target_directory: str
+    native_capabilities: list[str] | None
+    providers: dict[str, ProviderDescription]
+    native_runtime_choices: dict[str, ChoiceDescription]
+    placement: PlacementDescription
+    command: list[str]
+    build_context: BuildIntentDescription
+    local_configuration: Literal["unresolved: not executed", "supplied", "absent"]
+    refusals: list[str]
+
+
+def build_intent(command: Sequence[str]) -> BuildIntentDescription:
     """Expose explicit selectors, without pretending to execute a tool's parser."""
 
     def selected(flags: tuple[str, ...]) -> list[str | None]:
@@ -908,7 +969,7 @@ def build_intent(command: Sequence[str]) -> dict[str, object]:
                 )
         return values
 
-    result: dict[str, object] = {}
+    selectors: dict[str, SelectorDescription] = {}
     for label, flags in (
         ("package", ("--package", "-p")),
         ("profile", ("--profile",)),
@@ -918,13 +979,13 @@ def build_intent(command: Sequence[str]) -> dict[str, object]:
         ("binary", ("--bin",)),
     ):
         values = selected(flags)
-        result[label] = {
+        selectors[label] = {
             "values": values,
             "source": "explicit argv"
             if values
             else "tool default or configuration; not resolved",
         }
-    result["role"] = (
+    role = (
         "python"
         if command and Path(command[0]).name == "maturin"
         else {
@@ -933,10 +994,16 @@ def build_intent(command: Sequence[str]) -> dict[str, object]:
             "xtask": "worker if pse-worker is selected",
         }.get(next(iter(selected(("--package", "-p"))), "") or "", "not selected")
     )
-    result["interpretation"] = (
-        "intent only; actual installer child evidence is separate"
-    )
-    return result
+    return {
+        "package": selectors["package"],
+        "profile": selectors["profile"],
+        "features": selectors["features"],
+        "target": selectors["target"],
+        "manifest": selectors["manifest"],
+        "binary": selectors["binary"],
+        "role": role,
+        "interpretation": "intent only; actual installer child evidence is separate",
+    }
 
 
 def operation_description(
@@ -949,7 +1016,7 @@ def operation_description(
     docs: bool = False,
     resource_class: str | None = None,
     recipe_default_class: str | None = None,
-) -> dict[str, object]:
+) -> OperationDescription:
     """Describe selection only: never evaluate local shell code or admit a workload.
 
     An execution owner can supply its already evaluated local mapping. Without it,
@@ -962,9 +1029,9 @@ def operation_description(
     if docs:
         env = documentation_environment(root, env)
 
-    def choice(name: str, default: str | None = None) -> dict[str, object]:
+    def choice(name: str, default: str | None = None) -> ChoiceDescription:
         value = env.get(name, default)
-        source = (
+        source: SelectionSource = (
             "caller"
             if name in caller
             else "local"
@@ -1001,7 +1068,7 @@ def operation_description(
         name: shutil.which(name, path=env.get("PATH"))
         for name in ("python", "cargo", "rustc", "maturin", "clang", "patchelf")
     }
-    providers = {}
+    providers: dict[str, ProviderDescription] = {}
     for capability in requested or []:
         providers[capability] = {
             "inputs": {

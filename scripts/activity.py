@@ -82,11 +82,15 @@ def units(
     for name in names:
         try:
             fields = native_operation.unit_observation(name, properties=properties)
-            if fields["LoadState"] == "not-found":
-                raise ValueError("unit disappeared during observation")
-            found.append({"unit": name, "active": fields["ActiveState"], **fields})
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             errors.append(f"{name} unavailable: {type(error).__name__}: {error}")
+        else:
+            if fields["LoadState"] == "not-found":
+                errors.append(
+                    f"{name} unavailable: ValueError: unit disappeared during observation"
+                )
+            else:
+                found.append({"unit": name, "active": fields["ActiveState"], **fields})
     return found, errors
 
 

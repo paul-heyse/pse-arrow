@@ -4110,11 +4110,8 @@ class ManagerObservationTests(unittest.TestCase):
                 patch.object(
                     operation.subprocess,
                     "run",
-                    **(
-                        {"side_effect": failure}
-                        if isinstance(failure, Exception)
-                        else {"return_value": failure}
-                    ),
+                    side_effect=failure if isinstance(failure, Exception) else None,
+                    return_value=None if isinstance(failure, Exception) else failure,
                 ),
                 self.assertRaises((ValueError, subprocess.TimeoutExpired)) as refused,
             ):

@@ -67,6 +67,16 @@ CAPABILITY_PATHS = {
 }
 
 
+class DeadlineOptions(TypedDict, total=False):
+    """Forward an existing clock only when its caller supplied one."""
+
+    deadline: float
+
+
+def deadline_options(deadline: float | None) -> DeadlineOptions:
+    return {"deadline": deadline} if deadline is not None else {}
+
+
 class ScopeOwner(TypedDict):
     unit: str
     group: str
@@ -270,7 +280,7 @@ def scope_owner(*, deadline: float | None = None) -> ScopeOwner | None:
             )
         )
         observed = unit_observation(
-            unit, **({"deadline": deadline} if deadline is not None else {})
+            unit, **deadline_options(deadline)
         )
         control = observed["ControlGroup"]
         invocation = observed["InvocationID"]
@@ -368,7 +378,7 @@ def drained(
                 selected, DrainPhase.POPULATED, "owned descendants remain"
             )
         observed = unit_observation(
-            owner["unit"], **({"deadline": deadline} if deadline is not None else {})
+            owner["unit"], **deadline_options(deadline)
         )
         if observed.get("LoadState") == "not-found":
             # A group can repopulate while the manager is being observed.
@@ -474,7 +484,7 @@ def owner_record(*, deadline: float | None = None, reserve: float = 0) -> Path |
             return (
                 path
                 if scope_owner(
-                    **({"deadline": deadline} if deadline is not None else {})
+                    **deadline_options(deadline)
                 )
                 == owner
                 else None
@@ -683,7 +693,7 @@ def prepare_handoff(
     deadline: float | None = None,
 ) -> Path | None:
     """Pin before launch; a dead launcher leaves a conservative pending guard."""
-    parent = owner_record(**({"deadline": deadline} if deadline is not None else {}))
+    parent = owner_record(**deadline_options(deadline))
     if parent is None and reservation is None:
         return None
     if parent is None:
@@ -846,7 +856,7 @@ def stop_foreground_handoff(
         not isinstance(owner.get(key), str) for key in ("unit", "group", "invocation")
     ):
         raise ValueError("invalid foreground scope identity")
-    options = {"deadline": deadline} if deadline is not None else {}
+    options = deadline_options(deadline)
     initial = drained(record, **options)
     if initial.complete:
         return
@@ -886,7 +896,7 @@ def cancel_foreground_handoffs(
     cancellation_deadline: float | None = None,
 ) -> None:
     """Settle only the foreground observers explicitly owned by this operation."""
-    parent = owner_record(**({"deadline": deadline} if deadline is not None else {}))
+    parent = owner_record(**deadline_options(deadline))
     if parent is None:
         return
     failures: list[str] = []
