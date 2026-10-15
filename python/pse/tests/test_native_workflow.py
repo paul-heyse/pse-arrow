@@ -333,8 +333,7 @@ def durable_runtime(
     return canonical_substrate.runtime(inspection_settings)
 
 
-@pytest.fixture
-def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
+def physical_context(runtime: pse.Runtime) -> pse.PhysicalContext:
     root = (
         Path(__file__).resolve().parents[3]
         / "tests/fixtures/packages/physical-primitives"
@@ -345,6 +344,11 @@ def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
         if path.is_file()
     }
     return runtime.physical_from_documents(documents)
+
+
+@pytest.fixture
+def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
+    return physical_context(runtime)
 
 
 def package_documents(source: str) -> dict[str, str]:
@@ -360,11 +364,17 @@ def package_documents(source: str) -> dict[str, str]:
 
 @pytest.mark.unit
 def test_contextual_accuracy_native_solve_admission_refuses_obsolete_request_version(
-    runtime: pse.Runtime, physical: pse.PhysicalContext
+    inspection_settings: pse.EngineSettings,
 ) -> None:
-    old = msgspec.structs.replace(pse.SolveSettings(), version=3)
-    with pytest.raises(pse.InspectionError, match="version"):
-        revision(runtime, physical).prepare_solve(declaration(101), old)
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        old = msgspec.structs.replace(pse.SolveSettings(), version=3)
+        with pytest.raises(pse.InspectionError, match="version"):
+            revision(runtime, physical_context(runtime)).prepare_solve(
+                declaration(101), old
+            )
+    finally:
+        runtime.close()
 
 
 @pytest.mark.integration
