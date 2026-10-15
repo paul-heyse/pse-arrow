@@ -200,7 +200,7 @@ impl ModelingPackage {
                 if delta.parent != self.revision_id() {
                     return Err(contract("source delta names a different local parent"));
                 }
-                let deadline = super::super::preparation_deadline(cancel)?;
+                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
                 let scoped = cancel.with_deadline(Some(deadline));
                 let parent = self.delta_parent(&scoped).await?;
                 self.apply_delta_parent(delta, parent, &scoped, None).await
@@ -228,7 +228,7 @@ impl ModelingPackage {
         // The descriptor already checked its original local parent token. Reconstruction
         // rebinds only after the complete immutable source/context identity agrees.
         delta.parent = self.revision_id().into();
-        let deadline = super::super::preparation_deadline(cancel)?;
+        let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
         let scoped = cancel.with_deadline(Some(deadline));
         let parent = self.delta_parent(&scoped).await?;
         self.apply_delta_parent_ordered_mode(delta, parent, &scoped, None, None, false)
@@ -675,7 +675,8 @@ impl ModelingPackage {
                     parent.physical.clone(),
                     Arc::new(inventory),
                     &self.physical.key,
-                )?;
+                    cancel,
+                ).await?;
                 for (record, supplier) in selected_source::record_sources(data.checked()) {
                     let source = &index.rows[&supplier];
                     let logical = format!("record:{record}");

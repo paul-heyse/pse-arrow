@@ -35,17 +35,23 @@ type Recorded<'o, S> = Checkpointing<Equation<'o>, Point<S>>;
 trait Counted {
     fn statistics(&self) -> &OdeSolverStatistics;
 }
-impl<'o, LS: LinearSolver<M>> Counted for diffsol::Bdf<'_, Equation<'o>, LS> {
+impl<'o, LS: LinearSolver<M>, A: diffsol::AugmentedOdeEquationsImplicit<Equation<'o>>> Counted
+    for diffsol::Bdf<'_, Equation<'o>, LS, diffsol::FaerMat<f64>, A>
+{
     fn statistics(&self) -> &OdeSolverStatistics {
         self.get_statistics()
     }
 }
-impl<'o, LS: LinearSolver<M>> Counted for diffsol::Sdirk<'_, Equation<'o>, LS> {
+impl<'o, LS: LinearSolver<M>, A: diffsol::AugmentedOdeEquationsImplicit<Equation<'o>>> Counted
+    for diffsol::Sdirk<'_, Equation<'o>, LS, diffsol::FaerMat<f64>, A>
+{
     fn statistics(&self) -> &OdeSolverStatistics {
         self.get_statistics()
     }
 }
-impl<'o> Counted for diffsol::ExplicitRk<'_, Equation<'o>> {
+impl<'o, A: AugmentedOdeEquations<Equation<'o>>> Counted
+    for diffsol::ExplicitRk<'_, Equation<'o>, diffsol::FaerMat<f64>, A>
+{
     fn statistics(&self) -> &OdeSolverStatistics {
         self.get_statistics()
     }
@@ -62,8 +68,8 @@ impl<Fw, St, Rs> Scheme<Fw, St, Rs> {
     /// The constructors, typed against one problem lifetime.
     fn new<'a, 'o: 'a, F, B>(forward: Fw, start: St, resume: Rs) -> Self
     where
-        F: OdeSolverMethod<'a, Equation<'o>>,
-        B: OdeSolverMethod<'a, Equation<'o>>,
+        F: OdeSolverMethod<'a, Equation<'o>> + Counted,
+        B: OdeSolverMethod<'a, Equation<'o>> + Counted,
         Fw: Fn(&'a Problem<'o>) -> Result<F, DiffsolError>,
         St: Fn(&'a Problem<'o>, &mut Adjoint<'a, 'o, Replay<F>>) -> Result<B::State, DiffsolError>,
         Rs: Fn(&'a Problem<'o>, B::State, Adjoint<'a, 'o, Replay<F>>) -> Result<B, DiffsolError>,
@@ -268,7 +274,7 @@ impl<'o> Passes<'_, 'o> {
     ) -> Result<(), ProblemError>
     where
         F: OdeSolverMethod<'a, Equation<'o>> + Counted,
-        B: AdjointOdeSolverMethod<'a, Equation<'o>, Replay<F>>,
+        B: AdjointOdeSolverMethod<'a, Equation<'o>, Replay<F>> + Counted,
         Fw: Fn(&'a Problem<'o>) -> Result<F, DiffsolError>,
         St: Fn(
             &'a Problem<'o>,
@@ -289,7 +295,15 @@ impl<'o> Passes<'_, 'o> {
             let start = segments.starts[k];
             *shared.columns.borrow_mut() = p.columns_at(np, start);
             let seed = shared.seed.borrow().clone();
-            let mut solver = Replay::new((scheme.forward)(problem).map_err(native)?);
+            let mut observation_owner = StepObservations::new("diffsol.adjoint.forward_record");
+            observation_owner.zero_baseline();
+            let inner =
+                crate::observation::scoped("diffsol.adjoint.forward_record.initialize", || {
+                    (scheme.forward)(problem)
+                })
+                .map_err(native)?;
+            let mut solver = Replay::new(inner, observation_owner);
+            solver.observations.publish(solver.inner.statistics());
             if r.requested_initial.is_empty() {
                 r.requested_initial = ConstantOp::call(&problem.eqn.init(), start)
                     .as_slice()
@@ -355,7 +369,7 @@ impl<'o> Passes<'_, 'o> {
         }
         let mut carried: Option<Vec<f64>> = None;
         let mut total = vec![0.0; shared.width()];
-        for (k, (checkpointing, solver, seed)) in stored.into_iter().enumerate().rev() {
+        for (k, (checkpointing, mut solver, seed)) in stored.into_iter().enumerate().rev() {
             shared.check();
             let problem = &problems[k];
             let (start, stop) = (segments.starts[k], segments.stops[k]);
@@ -371,8 +385,16 @@ impl<'o> Passes<'_, 'o> {
                     t >= start && (t < stop || (last && t <= stop))
                 })
                 .peekable();
+            // Forward recording and checkpoint replay consume different work.
+            // A replay starts from a retained native counter baseline, never zero.
+            solver.observations = StepObservations::new("diffsol.adjoint.replay");
+            solver.observations.publish(solver.inner.statistics());
             let mut adjoint = problem.adjoint_equations(vec![checkpointing], Some(solver), Some(1));
-            let mut state = (scheme.start)(problem, &mut adjoint).map_err(native)?;
+            let mut state =
+                crate::observation::scoped("diffsol.adjoint.backward.terminal_initialize", || {
+                    (scheme.start)(problem, &mut adjoint)
+                })
+                .map_err(native)?;
             if let (Some(lambda), Some(channel)) = (&carried, state.as_mut().s.first_mut()) {
                 channel.as_mut_slice().copy_from_slice(lambda);
             }
@@ -380,7 +402,15 @@ impl<'o> Passes<'_, 'o> {
             if let Some(i) = observed.next_if(|i| r.samples[*i].time >= stop) {
                 state = self.jumped::<B>(state, r, i, &weights)?;
             }
-            let mut solver = resumed(&scheme, problem, state, adjoint)?;
+            let mut backward = StepObservations::new("diffsol.adjoint.backward");
+            let mut solver = resumed(
+                &scheme,
+                problem,
+                state,
+                adjoint,
+                &mut backward,
+                "segment terminal state",
+            )?;
             let mut first = None;
             for i in observed {
                 let t = r.samples[i].time;
@@ -388,12 +418,19 @@ impl<'o> Passes<'_, 'o> {
                     first = Some(i);
                     break;
                 }
-                self.step_to(&mut solver, t)?;
+                self.step_to(&mut solver, t, &mut backward)?;
                 let (state, adjoint) = split(solver)?;
                 let state = self.jumped::<B>(state, r, i, &weights)?;
-                solver = resumed(&scheme, problem, state, adjoint)?;
+                solver = resumed(
+                    &scheme,
+                    problem,
+                    state,
+                    adjoint,
+                    &mut backward,
+                    "sample cotangent jump",
+                )?;
             }
-            self.step_to(&mut solver, start)?;
+            self.step_to(&mut solver, start, &mut backward)?;
             let (state, adjoint) = split(solver)?;
             let mut common = state.into_common();
             if let Some(i) = first {
@@ -500,10 +537,11 @@ impl<'o> Passes<'_, 'o> {
         Ok(())
     }
     /// Integrate the adjoint back to `t`.
-    fn step_to<'a, B: OdeSolverMethod<'a, Equation<'o>>>(
+    fn step_to<'a, B: OdeSolverMethod<'a, Equation<'o>> + Counted>(
         &self,
         solver: &mut B,
         t: f64,
+        observations: &mut StepObservations,
     ) -> Result<(), ProblemError>
     where
         'o: 'a,
@@ -511,7 +549,11 @@ impl<'o> Passes<'_, 'o> {
         match solver.set_stop_time(t) {
             Ok(()) => loop {
                 self.shared.check();
-                if solver.step().map_err(native)? == OdeSolverStopReason::TstopReached {
+                let result =
+                    crate::observation::scoped("diffsol.adjoint.backward.step", || solver.step());
+                observations.publish(solver.statistics());
+                publish_step(observations.role, solver, &result);
+                if result.map_err(native)? == OdeSolverStopReason::TstopReached {
                     return Ok(());
                 }
             },
@@ -532,7 +574,7 @@ impl<'o> Passes<'_, 'o> {
         observation: &mut crate::solve::NativeStepObservation,
     ) -> Result<Option<Recorded<'o, F::State>>, ProblemError>
     where
-        F: OdeSolverMethod<'a, Equation<'o>>,
+        F: OdeSolverMethod<'a, Equation<'o>> + Counted,
         'o: 'a,
     {
         let (shared, p) = (self.shared, self.p);
@@ -629,6 +671,66 @@ impl<'o> Passes<'_, 'o> {
     }
 }
 
+/// One actual solver owner/counter generation. Cloning a checkpoint solver creates
+/// a distinct producer whose inherited counters are a baseline, not new work.
+struct StepObservations {
+    role: &'static str,
+    generation: u64,
+    baseline_pending: bool,
+}
+impl Clone for StepObservations {
+    fn clone(&self) -> Self {
+        Self::new(self.role)
+    }
+}
+impl StepObservations {
+    fn new(role: &'static str) -> Self {
+        Self {
+            role,
+            generation: crate::observation::generation(),
+            baseline_pending: true,
+        }
+    }
+    fn zero_baseline(&mut self) {
+        live_statistics_for(self.role, &Default::default(), self.generation);
+        self.baseline_pending = false;
+    }
+    fn publish(&mut self, statistics: &OdeSolverStatistics) {
+        live_statistics_for(self.role, statistics, self.generation);
+        self.baseline_pending = false;
+    }
+}
+fn publish_step<'a, 'o: 'a, S: OdeSolverMethod<'a, Equation<'o>>>(
+    role: &str,
+    solver: &S,
+    result: &Result<OdeSolverStopReason<f64>, DiffsolError>,
+) {
+    let Some(context) = pse_diagnostics::observation::current() else {
+        return;
+    };
+    let returned = match result {
+        Ok(OdeSolverStopReason::RootFound(time, _)) => Some(*time),
+        Ok(_) => Some(solver.state().t),
+        Err(_) => None,
+    };
+    let observation = step_observation(solver, returned);
+    if let Ok(value) = serde_json::to_value(observation) {
+        crate::observation::structured(&format!("{role}.native_step"), &value);
+    }
+    context.gauge(
+        &format!("{role}.physical_time"),
+        "seconds",
+        solver.state().t,
+    );
+    context.boolean(
+        &format!("{role}.last_step_returned_success"),
+        result.is_ok(),
+    );
+    if result.is_err() {
+        context.count(&format!("{role}.failed_step_calls"), "count", 1);
+    }
+}
+
 /// A forward solver whose states carry the derivative of the scheme's interpolant.
 /// Diffsol's checkpoint replay records `state().dy` as each Hermite point's rate, which a
 /// BDF state keeps as its first backward difference (first-order accurate) and a fresh
@@ -639,11 +741,16 @@ impl<'o> Passes<'_, 'o> {
 struct Replay<F> {
     inner: F,
     dy: V,
+    observations: StepObservations,
 }
-impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>>> Replay<F> {
-    fn new(inner: F) -> Self {
+impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> Replay<F> {
+    fn new(inner: F, observations: StepObservations) -> Self {
         let dy = rate(&inner);
-        Self { inner, dy }
+        Self {
+            inner,
+            dy,
+            observations,
+        }
     }
     fn refresh(&mut self) {
         self.dy = rate(&self.inner);
@@ -661,7 +768,7 @@ impl<F: Counted> Counted for Replay<F> {
         self.inner.statistics()
     }
 }
-impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>>> OdeSolverMethod<'a, Equation<'o>>
+impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> OdeSolverMethod<'a, Equation<'o>>
     for Replay<F>
 {
     type State = Point<F::State>;
@@ -683,7 +790,19 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>>> OdeSolverMethod<'a, Equat
         }
     }
     fn set_state(&mut self, state: Self::State) {
-        self.inner.set_state(state.state);
+        self.observations = StepObservations::new(self.observations.role);
+        // Checkpoint restores keep native counters, so take their actual retained
+        // baseline rather than pretending a new zero native counter epoch.
+        self.observations.publish(self.inner.statistics());
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.text(
+                &format!("{}.setup_reason", self.observations.role),
+                "checkpoint state restore",
+            );
+        }
+        crate::observation::scoped("diffsol.adjoint.replay.restore", || {
+            self.inner.set_state(state.state)
+        });
         self.dy = state.dy;
     }
     fn into_state(self) -> Self::State {
@@ -714,7 +833,16 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>>> OdeSolverMethod<'a, Equat
         self.inner.mass()
     }
     fn step(&mut self) -> Result<OdeSolverStopReason<f64>, DiffsolError> {
-        let reason = self.inner.step()?;
+        if self.observations.baseline_pending {
+            self.observations.publish(self.inner.statistics());
+        }
+        let result =
+            crate::observation::scoped(&format!("{}.step", self.observations.role), || {
+                self.inner.step()
+            });
+        self.observations.publish(self.inner.statistics());
+        publish_step(self.observations.role, &self.inner, &result);
+        let reason = result?;
         self.refresh();
         Ok(reason)
     }
@@ -846,13 +974,24 @@ fn resumed<'a, 'o: 'a, F, B, Fw, St, Rs>(
     problem: &'a Problem<'o>,
     state: B::State,
     adjoint: Adjoint<'a, 'o, F>,
+    observations: &mut StepObservations,
+    reason: &'static str,
 ) -> Result<B, ProblemError>
 where
     F: OdeSolverMethod<'a, Equation<'o>>,
-    B: AdjointOdeSolverMethod<'a, Equation<'o>, F>,
+    B: AdjointOdeSolverMethod<'a, Equation<'o>, F> + Counted,
     Rs: Fn(&'a Problem<'o>, B::State, Adjoint<'a, 'o, F>) -> Result<B, DiffsolError>,
 {
-    (scheme.resume)(problem, state, adjoint)
-        .map(refresh)
-        .map_err(native)
+    *observations = StepObservations::new("diffsol.adjoint.backward");
+    observations.zero_baseline();
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.text("diffsol.adjoint.backward.setup_reason", reason);
+    }
+    let solver = crate::observation::scoped("diffsol.adjoint.backward.initialize", || {
+        (scheme.resume)(problem, state, adjoint)
+    })
+    .map(refresh)
+    .map_err(native)?;
+    observations.publish(solver.statistics());
+    Ok(solver)
 }

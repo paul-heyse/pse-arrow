@@ -42,6 +42,11 @@ typedef struct {
     void* user;
 } pse_ipopt_sequence_callbacks;
 typedef struct pse_ipopt_sequence_handle pse_ipopt_sequence_handle;
+/* Copied only on the native owner after return. A disabled or still-running task
+ * has no readable totals; unavailable doubles are placeholders, never zero work. */
+typedef struct { int32_t enabled; int32_t running; int32_t available;
+    double cpu_seconds; double system_seconds; double wall_seconds;
+    } pse_ipopt_sequence_timing;
 typedef struct { int32_t application_status; int32_t solver_status;
     int32_t iterations; int32_t reoptimized; int32_t iterations_available; int32_t barrier_available; int32_t candidate_available;
     double objective; double barrier;
@@ -49,6 +54,15 @@ typedef struct { int32_t application_status; int32_t solver_status;
     int32_t objective_evaluations; int32_t constraint_evaluations;
     int32_t gradient_evaluations; int32_t jacobian_evaluations; int32_t hessian_evaluations;
     double cpu_seconds; double system_seconds; double wall_seconds;
+    int32_t timing_data_available;
+    pse_ipopt_sequence_timing timing_overall;
+    pse_ipopt_sequence_timing timing_initialize;
+    pse_ipopt_sequence_timing timing_search_direction;
+    pse_ipopt_sequence_timing timing_trial_point;
+    pse_ipopt_sequence_timing timing_linear_scaling;
+    pse_ipopt_sequence_timing timing_symbolic_factor;
+    pse_ipopt_sequence_timing timing_numeric_factor;
+    pse_ipopt_sequence_timing timing_backsolve;
     } pse_ipopt_sequence_result;
 /* Structure and callbacks are copied and immutable; bound values may change only
  * through checked update_bounds. Rust context must

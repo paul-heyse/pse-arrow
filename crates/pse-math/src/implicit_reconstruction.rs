@@ -416,11 +416,18 @@ impl SupplierSelection {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<super::SelectedRegime, MathError> {
-        match self {
-            Self::Root(v) => v.evaluate(parameters, order, cancel),
-            Self::Regimes(v) => v.evaluate(parameters, order, cancel),
+        let result = observed!("implicit.reconstruction.selection", {
+            match self {
+                Self::Root(v) => v.evaluate(parameters, order, cancel),
+                Self::Regimes(v) => v.evaluate(parameters, order, cancel),
+            }
+        });
+        if let (Some(context), Ok(selected)) = (pse_diagnostics::observation::current(), &result) {
+            context.source_ref("implicit.reconstruction.branch", selected.id.as_bytes());
         }
+        result
     }
+
     fn refinement_deadline(&self) -> Result<std::time::Instant, MathError> {
         match self {
             Self::Root(v) => v.refinement_deadline(),
@@ -446,24 +453,41 @@ impl SupplierSelection {
         deadline: std::time::Instant,
         cancel: &Arc<AtomicBool>,
     ) -> Result<super::RootPointEvidence, MathError> {
-        match self {
-            Self::Root(v) => v.refine_point(
-                parameters,
-                unknown_scales,
-                row_scales,
-                max_cells,
-                deadline,
-                cancel,
-            ),
-            Self::Regimes(v) => v.refine_point(
-                parameters,
-                unknown_scales,
-                row_scales,
-                max_cells,
-                deadline,
-                cancel,
-            ),
+        let point_cells = self.observed_point_cells();
+        let action_cells = self.observed_action_cells();
+        let result = observed!("implicit.reconstruction.refine_point", {
+            match self {
+                Self::Root(v) => v.refine_point(
+                    parameters,
+                    unknown_scales,
+                    row_scales,
+                    max_cells,
+                    deadline,
+                    cancel,
+                ),
+                Self::Regimes(v) => v.refine_point(
+                    parameters,
+                    unknown_scales,
+                    row_scales,
+                    max_cells,
+                    deadline,
+                    cancel,
+                ),
+            }
+        });
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(
+                "implicit.proof.point_cells",
+                "proof-cells",
+                self.observed_point_cells().saturating_sub(point_cells),
+            );
+            context.count(
+                "implicit.proof.action_cells",
+                "proof-cells",
+                self.observed_action_cells().saturating_sub(action_cells),
+            );
         }
+        result
     }
     fn enclose_action_bounded(
         &mut self,
@@ -473,14 +497,31 @@ impl SupplierSelection {
         deadline: std::time::Instant,
         cancel: &Arc<AtomicBool>,
     ) -> Result<RootActionEvidence, MathError> {
-        match self {
-            Self::Root(v) => {
-                v.enclose_action_bounded(parameters, direction, max_cells, deadline, cancel)
+        let point_cells = self.observed_point_cells();
+        let action_cells = self.observed_action_cells();
+        let result = observed!("implicit.reconstruction.enclose_action_bounded", {
+            match self {
+                Self::Root(v) => {
+                    v.enclose_action_bounded(parameters, direction, max_cells, deadline, cancel)
+                }
+                Self::Regimes(v) => {
+                    v.enclose_action_bounded(parameters, direction, max_cells, deadline, cancel)
+                }
             }
-            Self::Regimes(v) => {
-                v.enclose_action_bounded(parameters, direction, max_cells, deadline, cancel)
-            }
+        });
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(
+                "implicit.proof.point_cells",
+                "proof-cells",
+                self.observed_point_cells().saturating_sub(point_cells),
+            );
+            context.count(
+                "implicit.proof.action_cells",
+                "proof-cells",
+                self.observed_action_cells().saturating_sub(action_cells),
+            );
         }
+        result
     }
     fn enclose_neighborhood(
         &mut self,
@@ -491,24 +532,41 @@ impl SupplierSelection {
         deadline: std::time::Instant,
         cancel: &Arc<AtomicBool>,
     ) -> Result<super::RootNeighborhoodEvidence, MathError> {
-        match self {
-            Self::Root(v) => v.enclose_neighborhood(
-                parameters,
-                parameter_intervals,
-                direction_intervals,
-                max_cells,
-                deadline,
-                cancel,
-            ),
-            Self::Regimes(v) => v.enclose_neighborhood(
-                parameters,
-                parameter_intervals,
-                direction_intervals,
-                max_cells,
-                deadline,
-                cancel,
-            ),
+        let point_cells = self.observed_point_cells();
+        let action_cells = self.observed_action_cells();
+        let result = observed!("implicit.reconstruction.enclose_neighborhood", {
+            match self {
+                Self::Root(v) => v.enclose_neighborhood(
+                    parameters,
+                    parameter_intervals,
+                    direction_intervals,
+                    max_cells,
+                    deadline,
+                    cancel,
+                ),
+                Self::Regimes(v) => v.enclose_neighborhood(
+                    parameters,
+                    parameter_intervals,
+                    direction_intervals,
+                    max_cells,
+                    deadline,
+                    cancel,
+                ),
+            }
+        });
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(
+                "implicit.proof.point_cells",
+                "proof-cells",
+                self.observed_point_cells().saturating_sub(point_cells),
+            );
+            context.count(
+                "implicit.proof.action_cells",
+                "proof-cells",
+                self.observed_action_cells().saturating_sub(action_cells),
+            );
         }
+        result
     }
     fn refine_numerical(
         &mut self,
@@ -675,6 +733,7 @@ impl RootSelection {
             time_limit: deadline.saturating_duration_since(std::time::Instant::now()),
             cancel,
         };
+        super::observation::request(&request);
         operation(&request)
     }
     fn evaluate(
@@ -741,7 +800,9 @@ impl RootSelection {
                 {
                     return Ok(chart.clone());
                 }
-                match self.verifier.certify_bounded(request, self.proof_limit)? {
+                match observed_proof!("implicit.proof.certify_bounded", {
+                    self.verifier.certify_bounded(request, self.proof_limit)
+                })? {
                     super::SelectionEvidence::Unique(chart) => {
                         chart.validate(request, self.verifier.identity())?;
                         Ok(chart)
@@ -770,10 +831,10 @@ impl RootSelection {
                     coverage: super::ChartChainCoverage::RootSheet,
                 };
                 chain.validate(self.verifier.identity())?;
-                match self
-                    .verifier
-                    .connect_chain_bounded(&chain, self.proof_limit)?
-                {
+                match observed_proof!("implicit.proof.connect_chain_bounded", {
+                    self.verifier
+                        .connect_chain_bounded(&chain, self.proof_limit)
+                })? {
                     super::ChartChainEvidence::Connected(_) => Ok(()),
                     super::ChartChainEvidence::Interrupted(_) => Err(MathError::Cancelled),
                     _ => Err(MathError::Domain {
@@ -834,8 +895,15 @@ impl RootSelection {
         let result =
             self.with_request(parameters, &selected.values, deadline, cancel, |request| {
                 chart.validate(request, self.verifier.identity())?;
-                self.verifier
-                    .refine_point(request, chart, unknown_scales, row_scales, max_cells)
+                observed_proof!("implicit.proof.refine_point", {
+                    self.verifier.refine_point(
+                        request,
+                        chart,
+                        unknown_scales,
+                        row_scales,
+                        max_cells,
+                    )
+                })
             })?;
         let cells = match &result {
             super::RootPointEvidence::Enclosed { proof_cells, .. }
@@ -874,8 +942,10 @@ impl RootSelection {
         let result =
             self.with_request(parameters, &selected.values, deadline, cancel, |request| {
                 chart.validate(request, self.verifier.identity())?;
-                self.verifier
-                    .enclose_action_bounded(request, chart, direction, max_cells)
+                observed_proof!("implicit.proof.enclose_action_bounded", {
+                    self.verifier
+                        .enclose_action_bounded(request, chart, direction, max_cells)
+                })
             })?;
         let cells = match &result {
             RootActionEvidence::Enclosed { proof_cells, .. }
@@ -914,13 +984,15 @@ impl RootSelection {
         let result =
             self.with_request(parameters, &selected.values, deadline, cancel, |request| {
                 chart.validate(request, self.verifier.identity())?;
-                self.verifier.enclose_neighborhood(
-                    request,
-                    chart,
-                    parameter_intervals,
-                    direction_intervals,
-                    max_cells,
-                )
+                observed_proof!("implicit.proof.enclose_neighborhood", {
+                    self.verifier.enclose_neighborhood(
+                        request,
+                        chart,
+                        parameter_intervals,
+                        direction_intervals,
+                        max_cells,
+                    )
+                })
             })?;
         let cells = match &result {
             super::RootNeighborhoodEvidence::Enclosed { proof_cells, .. }
@@ -1701,110 +1773,77 @@ impl<E> SelectedImplicitReconstruction<E> {
         demand: &AccuracyDemand,
         limits: crate::derived::RefinementLimits,
     ) -> Result<ReconstructionObservation, MathError> {
-        limits.validate()?;
-        self.check_input(x)?;
-        if direction.is_some_and(|v| v.len() != x.len() || v.iter().any(|a| !a.is_finite())) {
-            return Err(MathError::Contract(
-                "selected reconstruction direction extent/value".into(),
-            ));
-        }
-        demand
-            .validate()
-            .map_err(|e| MathError::Contract(e.to_string()))?;
-        let deadline = self.selection.refinement_deadline()?;
-        self.selection
-            .refinement_checkpoint(deadline, &self.cancel)?;
-        if let SupplierSelection::Root(root) = &mut self.selection {
-            root.proof_limit = limits.proof_cells.min(root.proof_ceiling);
-        }
-        let mut selected = self
-            .selection
-            .evaluate(x, DerivativeOrder::First, &self.cancel)?;
-        self.selection
-            .refinement_checkpoint(deadline, &self.cancel)?;
-        let scales = self
-            .unknown_columns
-            .iter()
-            .map(|c| self.normalization.variables[c.get()])
-            .collect::<Vec<_>>();
-        let rows = self
-            .contract
-            .eliminated()
-            .iter()
-            .map(|r| self.normalization.rows[r.get()])
-            .collect::<Vec<_>>();
-        let mut remaining = limits.proof_cells;
-        for round in 0..limits.rounds {
+        observed!("implicit.reconstruction.refine", {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.source_ref("implicit.accuracy.product", demand.product.as_bytes());
+                context.source_ref(
+                    "implicit.accuracy.normalization",
+                    demand.normalization.as_bytes(),
+                );
+                context.source_ref(
+                    "implicit.reconstruction.source",
+                    self.contract.source().as_bytes(),
+                );
+                context.gauge(
+                    "implicit.accuracy.allowance",
+                    "normalized-error",
+                    demand.allowance,
+                );
+                context.boolean("implicit.reconstruction.action", direction.is_some());
+            }
+            limits.validate()?;
+            self.check_input(x)?;
+            if direction.is_some_and(|v| v.len() != x.len() || v.iter().any(|a| !a.is_finite())) {
+                return Err(MathError::Contract(
+                    "selected reconstruction direction extent/value".into(),
+                ));
+            }
+            demand
+                .validate()
+                .map_err(|e| MathError::Contract(e.to_string()))?;
+            let deadline = self.selection.refinement_deadline()?;
             self.selection
                 .refinement_checkpoint(deadline, &self.cancel)?;
-            let (intervals, inverse, cells) = match self.selection.refine_point(
-                x,
-                &scales,
-                &rows,
-                remaining,
-                deadline,
-                &self.cancel,
-            )? {
-                super::RootPointEvidence::Enclosed {
-                    intervals,
-                    inverse_norm_upper,
-                    proof_cells,
-                } => (intervals, inverse_norm_upper, proof_cells),
-                super::RootPointEvidence::Interrupted { .. } => return Err(MathError::Cancelled),
-                super::RootPointEvidence::Incomplete {
-                    reason: SelectionProofRefusal::Resource,
-                    proof_cells,
-                } => {
-                    return Err(self.refusal(
-                        demand,
-                        if proof_cells >= remaining {
-                            crate::derived::RefinementRefusal::ProofCells
-                        } else {
-                            crate::derived::RefinementRefusal::Unavailable(
-                                SelectionProofRefusal::Resource,
-                            )
-                        },
-                    ));
-                }
-                super::RootPointEvidence::Incomplete { reason, .. } => {
-                    return Err(self.refusal(
-                        demand,
-                        crate::derived::RefinementRefusal::Unavailable(reason),
-                    ));
-                }
-            };
-            remaining = remaining.checked_sub(cells).ok_or_else(|| {
-                MathError::Contract("point verifier exceeded refinement allowance".into())
-            })?;
-            let mut action_uncertainty = 0.0_f64;
-            let (values, evidence) = if let Some(direction) = direction {
-                if selected.jacobian.len() != self.unknown_columns.len() * x.len() {
-                    return Err(MathError::Contract(
-                        "selected reconstruction actual IFT extent".into(),
-                    ));
-                }
-                let values = (0..self.unknown_columns.len())
-                    .map(|i| {
-                        selected.jacobian[i * x.len()..(i + 1) * x.len()]
-                            .iter()
-                            .zip(direction)
-                            .map(|(a, v)| a * v)
-                            .sum::<f64>()
-                    })
-                    .collect::<Vec<_>>();
-                let (action, cells) = match self.selection.enclose_action_bounded(
+            if let SupplierSelection::Root(root) = &mut self.selection {
+                root.proof_limit = limits.proof_cells.min(root.proof_ceiling);
+            }
+            let mut selected = self
+                .selection
+                .evaluate(x, DerivativeOrder::First, &self.cancel)?;
+            self.selection
+                .refinement_checkpoint(deadline, &self.cancel)?;
+            let scales = self
+                .unknown_columns
+                .iter()
+                .map(|c| self.normalization.variables[c.get()])
+                .collect::<Vec<_>>();
+            let rows = self
+                .contract
+                .eliminated()
+                .iter()
+                .map(|r| self.normalization.rows[r.get()])
+                .collect::<Vec<_>>();
+            let mut remaining = limits.proof_cells;
+            for round in 0..limits.rounds {
+                self.selection
+                    .refinement_checkpoint(deadline, &self.cancel)?;
+                let (intervals, inverse, cells) = match self.selection.refine_point(
                     x,
-                    direction,
+                    &scales,
+                    &rows,
                     remaining,
                     deadline,
                     &self.cancel,
                 )? {
-                    RootActionEvidence::Enclosed {
+                    super::RootPointEvidence::Enclosed {
                         intervals,
+                        inverse_norm_upper,
                         proof_cells,
-                    } => (intervals, proof_cells),
-                    RootActionEvidence::Interrupted { .. } => return Err(MathError::Cancelled),
-                    RootActionEvidence::Incomplete {
+                    } => (intervals, inverse_norm_upper, proof_cells),
+                    super::RootPointEvidence::Interrupted { .. } => {
+                        return Err(MathError::Cancelled);
+                    }
+                    super::RootPointEvidence::Incomplete {
                         reason: SelectionProofRefusal::Resource,
                         proof_cells,
                     } => {
@@ -1819,7 +1858,7 @@ impl<E> SelectedImplicitReconstruction<E> {
                             },
                         ));
                     }
-                    RootActionEvidence::Incomplete { reason, .. } => {
+                    super::RootPointEvidence::Incomplete { reason, .. } => {
                         return Err(self.refusal(
                             demand,
                             crate::derived::RefinementRefusal::Unavailable(reason),
@@ -1827,88 +1866,145 @@ impl<E> SelectedImplicitReconstruction<E> {
                     }
                 };
                 remaining = remaining.checked_sub(cells).ok_or_else(|| {
-                    MathError::Contract("action verifier exceeded refinement allowance".into())
+                    MathError::Contract("point verifier exceeded refinement allowance".into())
                 })?;
-                for (interval, scale) in action.iter().zip(&scales) {
-                    action_uncertainty = action_uncertainty
-                        .max(((interval.upper - interval.lower).next_up() / 2.0 / scale).next_up());
-                }
-                let evidence = self.accuracy(&values, &action, demand)?;
-                (values, evidence)
-            } else {
-                (
-                    selected.values.clone(),
-                    self.accuracy(&selected.values, &intervals, demand)?,
-                )
-            };
-            if evidence.satisfies(demand) {
-                self.selection
-                    .refinement_checkpoint(deadline, &self.cancel)?;
-                return Ok(ReconstructionObservation {
-                    values: self.full(direction.unwrap_or(x), &values)?,
-                    accuracy: evidence,
-                });
-            }
-            if round + 1 == limits.rounds {
-                return Err(self.refusal(demand, crate::derived::RefinementRefusal::Rounds));
-            }
-            if remaining == 0 {
-                return Err(self.refusal(demand, crate::derived::RefinementRefusal::ProofCells));
-            }
-            let mut root_allowance = demand.allowance;
-            // Action error is not inferred from K. The observed action enclosure error
-            // supplies a numerical tightening ratio only; the next action enclosure
-            // remains the sole certifier. No estimate becomes accuracy evidence.
-            if direction.is_some() {
-                root_allowance *= demand.allowance
-                    / evidence.error.ok_or_else(|| {
-                        MathError::Contract("missing action enclosure error".into())
+                let mut action_uncertainty = 0.0_f64;
+                let (values, evidence) = if let Some(direction) = direction {
+                    if selected.jacobian.len() != self.unknown_columns.len() * x.len() {
+                        return Err(MathError::Contract(
+                            "selected reconstruction actual IFT extent".into(),
+                        ));
+                    }
+                    let values = (0..self.unknown_columns.len())
+                        .map(|i| {
+                            selected.jacobian[i * x.len()..(i + 1) * x.len()]
+                                .iter()
+                                .zip(direction)
+                                .map(|(a, v)| a * v)
+                                .sum::<f64>()
+                        })
+                        .collect::<Vec<_>>();
+                    let (action, cells) = match self.selection.enclose_action_bounded(
+                        x,
+                        direction,
+                        remaining,
+                        deadline,
+                        &self.cancel,
+                    )? {
+                        RootActionEvidence::Enclosed {
+                            intervals,
+                            proof_cells,
+                        } => (intervals, proof_cells),
+                        RootActionEvidence::Interrupted { .. } => return Err(MathError::Cancelled),
+                        RootActionEvidence::Incomplete {
+                            reason: SelectionProofRefusal::Resource,
+                            proof_cells,
+                        } => {
+                            return Err(self.refusal(
+                                demand,
+                                if proof_cells >= remaining {
+                                    crate::derived::RefinementRefusal::ProofCells
+                                } else {
+                                    crate::derived::RefinementRefusal::Unavailable(
+                                        SelectionProofRefusal::Resource,
+                                    )
+                                },
+                            ));
+                        }
+                        RootActionEvidence::Incomplete { reason, .. } => {
+                            return Err(self.refusal(
+                                demand,
+                                crate::derived::RefinementRefusal::Unavailable(reason),
+                            ));
+                        }
+                    };
+                    remaining = remaining.checked_sub(cells).ok_or_else(|| {
+                        MathError::Contract("action verifier exceeded refinement allowance".into())
                     })?;
-            }
-            if !root_allowance.is_finite() || root_allowance <= 0. {
-                return Err(self.refusal(demand, crate::derived::RefinementRefusal::Precision));
-            }
-            let allowance_demand = AccuracyDemand {
-                allowance: root_allowance,
-                ..*demand
-            };
-            let residual_allowance =
-                self.backward_allowance(&selected, &allowance_demand, inverse)?;
-            let linear = if let Some(direction) = direction {
-                let slack = (demand.allowance - action_uncertainty).next_down();
-                if slack <= 0. {
+                    for (interval, scale) in action.iter().zip(&scales) {
+                        action_uncertainty = action_uncertainty.max(
+                            ((interval.upper - interval.lower).next_up() / 2.0 / scale).next_up(),
+                        );
+                    }
+                    let evidence = self.accuracy(&values, &action, demand)?;
+                    (values, evidence)
+                } else {
+                    (
+                        selected.values.clone(),
+                        self.accuracy(&selected.values, &intervals, demand)?,
+                    )
+                };
+                if evidence.satisfies(demand) {
+                    self.selection
+                        .refinement_checkpoint(deadline, &self.cancel)?;
+                    return Ok(ReconstructionObservation {
+                        values: self.full(direction.unwrap_or(x), &values)?,
+                        accuracy: evidence,
+                    });
+                }
+                if round + 1 == limits.rounds {
+                    return Err(self.refusal(demand, crate::derived::RefinementRefusal::Rounds));
+                }
+                if remaining == 0 {
+                    return Err(self.refusal(demand, crate::derived::RefinementRefusal::ProofCells));
+                }
+                let mut root_allowance = demand.allowance;
+                // Action error is not inferred from K. The observed action enclosure error
+                // supplies a numerical tightening ratio only; the next action enclosure
+                // remains the sole certifier. No estimate becomes accuracy evidence.
+                if direction.is_some() {
+                    root_allowance *= demand.allowance
+                        / evidence.error.ok_or_else(|| {
+                            MathError::Contract("missing action enclosure error".into())
+                        })?;
+                }
+                if !root_allowance.is_finite() || root_allowance <= 0. {
                     return Err(self.refusal(demand, crate::derived::RefinementRefusal::Precision));
                 }
-                let linear_demand = AccuracyDemand {
-                    allowance: slack,
+                let allowance_demand = AccuracyDemand {
+                    allowance: root_allowance,
                     ..*demand
                 };
-                Some((
-                    direction,
-                    self.backward_allowance(&selected, &linear_demand, inverse)?,
-                ))
-            } else {
-                None
-            };
-            selected = self
-                .selection
-                .refine_numerical(crate::implicit::NumericalRefinement {
-                    parameters: x,
-                    unknown_scales: &scales,
-                    row_scales: &rows,
-                    root_allowance,
-                    residual_allowance,
-                    linear,
-                    product: (
-                        demand.product,
-                        self.contract.source(),
-                        self.contract.validity(),
-                    ),
-                    deadline,
-                    cancel: &self.cancel,
-                })?;
-        }
-        Err(self.refusal(demand, crate::derived::RefinementRefusal::Rounds))
+                let residual_allowance =
+                    self.backward_allowance(&selected, &allowance_demand, inverse)?;
+                let linear = if let Some(direction) = direction {
+                    let slack = (demand.allowance - action_uncertainty).next_down();
+                    if slack <= 0. {
+                        return Err(
+                            self.refusal(demand, crate::derived::RefinementRefusal::Precision)
+                        );
+                    }
+                    let linear_demand = AccuracyDemand {
+                        allowance: slack,
+                        ..*demand
+                    };
+                    Some((
+                        direction,
+                        self.backward_allowance(&selected, &linear_demand, inverse)?,
+                    ))
+                } else {
+                    None
+                };
+                selected =
+                    self.selection
+                        .refine_numerical(crate::implicit::NumericalRefinement {
+                            parameters: x,
+                            unknown_scales: &scales,
+                            row_scales: &rows,
+                            root_allowance,
+                            residual_allowance,
+                            linear,
+                            product: (
+                                demand.product,
+                                self.contract.source(),
+                                self.contract.validity(),
+                            ),
+                            deadline,
+                            cancel: &self.cancel,
+                        })?;
+            }
+            Err(self.refusal(demand, crate::derived::RefinementRefusal::Rounds))
+        })
     }
 }
 impl<E: From<MathError> + std::fmt::Debug> ReconstructionOracle

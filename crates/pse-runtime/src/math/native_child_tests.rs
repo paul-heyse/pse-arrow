@@ -231,6 +231,10 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
     clippy::exit,
     reason = "the child-process death control deliberately exits with code 17 to test supervision"
 )]
+#[allow(
+    unsafe_code,
+    reason = "the owned child fixture invokes the private inherited-socket composition root"
+)]
 fn private_native_fake_process() {
     let Ok(mode) = std::env::var("PSE_PRIVATE_NATIVE_TEST_MODE") else {
         return;
@@ -252,7 +256,17 @@ fn private_native_fake_process() {
         .trim()
         .parse()
         .unwrap();
+    if mode == "actual" {
+        // SAFETY: this fixture owns the exact inherited socket, parent and admitted request;
+        // the production receiver performs its ordinary reconstruction and handshake checks.
+        unsafe { serve_private(attempt, parent) }.unwrap();
+        return;
+    }
+    let diagnostic = crate::observation::process_diagnostics()
+        .hub()
+        .start("native.child.fixture");
     let hello = Hello {
+        diagnostic_operation: diagnostic.context().id(),
         protocol: PROTOCOL.into(),
         attempt: if mode == "foreign" {
             SemanticId::NIL
@@ -315,6 +329,77 @@ fn fake_child(mode: &str, marker: &Path) -> NativeChild {
     let mut child = NativeChild::qualify(std::env::current_exe().unwrap(), 128 << 20).unwrap();
     child.test_mode = Some((mode.into(), marker.to_path_buf()));
     child
+}
+
+#[tokio::test]
+async fn actual_private_child_publishes_a_distinct_parent_linked_checkpoint() {
+    let directory = tempfile::tempdir().unwrap();
+    let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+    let parent = hub.start("native.parent.fixture");
+    let (service, _) = super::super::tests::service_with_policy(
+        512 << 20,
+        super::super::MathPolicy {
+            worker_bytes: 256 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
+    let child = fake_child("actual", &directory.path().join("child.pid"));
+    let (result, lease) = pse_diagnostics::observation::scope(Some(parent.context()), async {
+        service
+            .solve_portable_root(source(), child, FlightCancellation::default(), None)
+            .unwrap()
+            .finish()
+            .await
+            .unwrap()
+    })
+    .await;
+    assert!(result.refusal.is_none(), "{:?}", result.refusal);
+    assert!((result.proposal.as_ref().unwrap()[0] - 2.0).abs() < 1e-8);
+    assert!(!Path::new(&format!("/proc/{}", result.child_pid)).exists());
+    let remote = hub
+        .list(0, 128)
+        .operations
+        .iter()
+        .filter_map(|operation| hub.reader(operation.id))
+        .flat_map(|reader| reader.snapshot(Duration::from_secs(60)).children)
+        .find(|child| child.id.process_instance != hub.process_instance())
+        .unwrap()
+        .id;
+    let root = crate::observation::process_diagnostics()
+        .checkpoint_path()
+        .parent()
+        .unwrap()
+        .to_owned();
+    let path = root.join(format!(
+        "{:016x}-{:016x}.json",
+        remote.process_instance[0], remote.process_instance[1]
+    ));
+    let image = crate::observation::read_checkpoint(&path).unwrap();
+    assert!(
+        image
+            .parent
+            .is_some_and(|id| id.process_instance == hub.process_instance())
+    );
+    let operation = image
+        .operations
+        .iter()
+        .find(|operation| operation.id == remote)
+        .unwrap();
+    assert_eq!(
+        operation.outcome,
+        Some(pse_diagnostics::observation::Outcome::Completed)
+    );
+    assert!(
+        operation
+            .metrics
+            .iter()
+            .any(|metric| metric.name == "native.response.sent"
+                && metric.latest == pse_diagnostics::observation::Value::Boolean(true))
+    );
+    // This exact child is reaped; remove only its owned diagnostic checkpoint.
+    std::fs::remove_file(path).unwrap();
+    drop((result, lease));
 }
 
 #[tokio::test]

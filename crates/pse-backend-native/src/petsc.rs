@@ -527,6 +527,15 @@ unsafe extern "C" fn convergence(
     // SAFETY: valid context and writable scalar supplied by the C trampoline.
     let context = unsafe { &mut *ctx.cast::<Context<'_>>() };
     let mut observed = 0;
+    crate::observation::metrics(
+        "petsc.snes.convergence",
+        &std::collections::BTreeMap::from([
+            ("iteration".into(), Metric::Integer(iteration.into())),
+            ("xnorm".into(), Metric::Real(xnorm)),
+            ("ynorm".into(), Metric::Real(ynorm)),
+            ("fnorm".into(), Metric::Real(fnorm)),
+        ]),
+    );
     let result = context.state.evaluate("convergence", || {
         check(
             // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
@@ -800,8 +809,14 @@ pub fn solve(
         )?;
     }
     let code = {
+        crate::observation::unavailable(
+            "petsc.logging",
+            "default event logging not activated by this profile; zeroed log counters are uncollected",
+        );
         // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
-        unsafe { ffi::pse_petsc_snes_solve(snes, x) }
+        crate::observation::scoped("petsc.snes.solve", || unsafe {
+            ffi::pse_petsc_snes_solve(snes, x)
+        })
     };
     let (mut reason, mut iterations, mut evaluations, mut linear_iterations, mut norm) =
         (0, 0, 0, 0, 0.0);
@@ -855,6 +870,32 @@ pub fn solve(
         "SNESGetLinearSolveIterations".into(),
         Metric::Integer(linear_iterations.into()),
     );
+    let (mut ksp_iterations, mut ksp_reason) = (0, 0);
+    // SAFETY: SNESSolve has returned, serialized native admission retains the owned
+    // SNES/KSP and both outputs are writable local scalars of the pinned ABI.
+    let ksp_status =
+        unsafe { ffi::pse_petsc_snes_ksp_statistics(snes, &mut ksp_iterations, &mut ksp_reason) };
+    if ksp_status == 0 && ksp_reason != 0 {
+        report.metrics.insert(
+            "KSPGetConvergedReason".into(),
+            Metric::Integer(ksp_reason.into()),
+        );
+        report.metrics.insert(
+            "KSPGetIterationNumber.last_solve".into(),
+            Metric::Integer(ksp_iterations.into()),
+        );
+        if ksp_reason < 0 {
+            report.metrics.insert(
+                "KSPGetIterationNumber.failed_last_solve".into(),
+                Metric::Integer(ksp_iterations.into()),
+            );
+        }
+    } else {
+        report.metrics.insert(
+            "KSPGetIterationNumber.last_solve".into(),
+            Metric::Unavailable(UnavailableReason::NotComputed),
+        );
+    }
     report
         .metrics
         .insert("SNESGetFunctionNorm".into(), Metric::Real(norm));
@@ -1314,6 +1355,13 @@ mod tests {
     }
     #[test]
     fn trust_owner_preserves_domain_phase_causes_limits_and_terminal_lifetime() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy {
+            max_metrics: 64,
+            ..Policy::default()
+        });
+        let operation = hub.start("petsc-real-domain-trial");
+        let _entered = operation.context().enter();
         let controls = Controls::default();
         let mut oracle = LogOracle::new();
         let report = run(&mut oracle, 1.0, &controls, None).unwrap();
@@ -1329,6 +1377,29 @@ mod tests {
         assert!(report.evidence.work.iterations.is_some_and(|n| n > 0));
         assert!(report.evidence.work.evaluations.is_some_and(|n| n > 0));
         assert_eq!(report.evidence.work.factorizations, None);
+        assert!(matches!(
+            report.metrics["KSPGetIterationNumber.last_solve"],
+            Metric::Integer(_)
+        ));
+        let observed = operation.reader().snapshot(Duration::from_secs(60));
+        assert_eq!(
+            observed
+                .metrics
+                .iter()
+                .find(|m| m.name == "petsc.snes.solve.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert!(matches!(
+            observed
+                .metrics
+                .iter()
+                .find(|m| m.name == "petsc.logging")
+                .unwrap()
+                .latest,
+            Value::Unavailable(_)
+        ));
         assert!(
             !report.metrics.keys().any(|key| key.contains(".publish")),
             "publication is part of one counted callback"

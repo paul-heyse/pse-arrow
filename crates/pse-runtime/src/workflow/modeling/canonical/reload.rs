@@ -557,7 +557,7 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let deadline = super::super::preparation_deadline(cancel)?;
+                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
                 let scoped = cancel.with_deadline(Some(deadline));
                 checkpoint(&scoped)?;
                 let (package, parsed) = self.reload_protected(sources, &scoped).await?;

@@ -17,7 +17,7 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 
 ## Purpose, evidence and execution boundary
 
-This is the final execution stage of [Plan 39](39-implementation-friction-and-codex-effectiveness.md). It receives completed selected changes and investigation outcomes from 39a–c, then executes **all remaining Plan 38 scope**. It does not reopen completed 38a–f packages or resume Plan 28/32 campaigns. Actual prerequisite slices, not document publication or designed interfaces, determine readiness. New functional work uses its targeted controls; broad assembled qualification is selected here once that work is complete.
+This is the final execution stage of [Plan 39](39-implementation-friction-and-codex-effectiveness.md). It receives completed selected changes and investigation outcomes from 39a–c, then executes **remaining functional Plan 38 scope**. It does not reopen completed 38a–f packages or resume Plan 28/32 campaigns. Actual prerequisite slices, not document publication or designed interfaces, determine readiness. New functional work uses its targeted controls; broad assembled qualification is selected here once that work is complete.
 
 Baseline `36f15656d`, inspected 2026-10-14. **Interface-checked:** source, recipes, declaration files and latest 38a–g Outcomes/checkpoints were read. **Proposed:** all future qualification, repairs, measurements and cutover below. No product test, build, service, capture or measurement ran while authoring this plan.
 
@@ -25,12 +25,16 @@ The [historical 38g handoff](38g-qualification-and-cutover.md#turn-handoff--2026
 
 The original reference host is this Linux workstation. The selected persistence realization remains same-host process-crash SurrealDB arbitration plus private immutable files. Cross-host, physical power-loss, network-filesystem and online-backup guarantees remain excluded. Meaningful current borrowers and effects still require authenticated disposition even when disposable design-phase data can be regenerated.
 
+## Current scope decision
+
+The maintainer withdrew the environment/provenance proof targets on 2026-10-14. Fresh all-role strict capture, source-completeness investigations, executor-input projections, compiler/launcher/installer phase associations and exact installer/environment reproduction are excluded from Plan39 and its inherited Plan38 acceptance. These targets are eliminated, not deferred; no revisit trigger or future campaign is retained. Existing producer code/tests and runtime safeguards remain. Scientific/model/result provenance, explicit Arrow force-validation, physical correctness and truthful cancellation/drain remain required.
+
 ## Packets
 
 | Packet | Prerequisite | Delivered boundary and verification | State |
 |---|---|---|---|
 | <a id="d0"></a>D0 | Selected 39a–c functional scope complete; investigations decided; new rule changes installed before their dependent code | One current consumer/scenario selection and real readiness assessment; reconcile inherited G0 amendments/support limits without mistaking ADR status for behavior | In progress — assertion correction integrated; practical validation steering below |
-| <a id="d1"></a>D1 | D0; working protected preparation/installation boundary; RC01 guarantee explicitly selected | Current ordinary runtime/worker/Python builds, installed import and representative functional behavior; optional strict producer proof deferred by maintainer steering | Planned |
+| <a id="d1"></a>D1 | D0; ordinary native worker and correctness Python build/install available | Current ordinary runtime/worker/Python builds, installed import and representative functional behavior; strict environment/provenance proof targets withdrawn by maintainer | Planned |
 | <a id="d2"></a>D2 | D1; current owned v6 fixtures and working selected consumers | Assembled native, managed and installed-Python journeys across all eight inherited families and new review scenarios; exposed defects repaired and replacement closure checked | Planned |
 | <a id="d3"></a>D3 | D2 and actual scientific/reference profiles | Independent scientific, recovery and entered-pull interruption/disposal acceptance; applicable scope-end hygiene and manual native/powerset checks | Partial — selected static repair complete; remaining acceptance planned |
 | <a id="d4"></a>D4 | D2/D3 functional acceptance; separate development artifact, original reference-profile state and matching allocation | Exact standalone native/managed prerequisites without incompatible producer injection, then all eleven selected measurements with honest reference-host conditions | Planned |
@@ -40,15 +44,11 @@ D1–D5 are the transferred Plan 38 remainder, placed after new Plan 39 function
 
 ## D0/D1 — Readiness and actual deployment
 
-The design-phase validation steering at the end of this document supersedes strict capture as a prerequisite for the current campaign. The strict contract below remains optional stronger-scope context; it does not block ordinary functional validation.
+The maintainer withdrew the environment/provenance proof targets on 2026-10-14. Fresh all-role strict capture, source-completeness investigations, executor-input projections, compiler/launcher/installer phase associations and exact installer/environment reproduction are excluded from Plan39 and its inherited Plan38 acceptance. These targets are eliminated, not deferred; no revisit trigger or future campaign is retained. Existing producer code/tests and runtime safeguards remain. Scientific/model/result provenance, explicit Arrow force-validation, physical correctness and truthful cancellation/drain remain required.
 
 Reconcile the 27 accepted Plan 38 decisions against their installed contracts, completed investigation outcomes and selected support limits. ADR-0183–0188 and architecture revisions 160–167 are historical installation context; their formal `proposed` status remains distinct from implementation and can change only through the decision-PR route. Preserve the already selected method, topology, reset, rank and host-policy limits. A new crate, binding, hashing/Python/governance contract or major-family change follows its actual route before dependent work.
 
-Use the [qualification guide](../dev/validation-assessment.md) and [agent environment guide](../dev/agent-environment.md) as command owners. `scripts/producer_deployment.py`, `scripts/python_extension.py`, the actual worker/Python composition roots and the new 39b preparation owner determine the current role operations. Do not copy historical compiler environment into ordinary development. For strict capture, independently establish current build-script/helper/macro/native/header/tool/PyO3 inputs and absence premises before declaring completeness. Capture records consumption; it does not supply source-review judgment by itself.
-
-For the current design-phase campaign, build the ordinary native worker and correctness Python extension, verify the installed import, and exercise their actual workflows. Retain explicit Arrow force-validation and the existing runtime admission safeguards. Do not require fresh all-role strict captures, complete macro-input inventories or an exact installer environment proof. Those stronger promises remain separate optional assurance work; ordinary functional results do not claim them. Revisit an environment difference only when it plausibly changes the behavior or interpretation of a selected check.
-
-Protect completed consumed evidence from later role refresh, while final current deployment still observes current bytes and prerequisites. The previous run's final Python declaration/native-input selection and runtime/worker declarations are historical leads; regenerate or revalidate against changed inputs using 39b's operation, never substitute an earlier Python basis silently. Named historical records remain at the preserved handoff and [observed episodes](../design_review/evidence/implementation-friction-and-codex-effectiveness-2026-10-14/observed-episodes.md).
+Use the [qualification guide](../dev/validation-assessment.md) and [agent environment guide](../dev/agent-environment.md) as command owners. Build the ordinary native worker and correctness Python extension, verify installed import and exercise their actual workflows. Use the effective development environment, explicit Arrow force-validation and existing runtime admission safeguards. Preserve evidence with its original conditions and record differences when they plausibly affect selected behavior or interpretation; environment drift alone does not demand exact reproduction or a proof campaign.
 
 Prepare fresh owned substrate-v6 states for assessed, recovery/manual and measurement work. Rebuild selected disposable study requests/definitions and canonical schema from current generated declarations, as required by [38d's cutover limit](38d-studies-recycles-dynamics-and-fitting.md#deliberate-limits-and-next-owner). Keep the existing primary quiesced unless an explicitly selected primary journey needs it; never reopen it just to refresh incidental data. Identify all owned fixtures, cancellation routes and actual terminal/drain obligations before effects.
 
@@ -92,7 +92,7 @@ At functional scope end, run applicable integration/component/native/Python/refe
 
 Report command, mode, selected scope, zero-failure baseline, actual pass/fail/not-run and enclosing admission/cleanup. Native signal or stale registry recovery never permits overriding safeguards, copying owner tokens, stopping another owner or deleting unrelated evidence. The documented private resource registry isolates new report metadata without bypassing shared host admission; existing legacy ownership stays intact unless separately authorized for exact recovery.
 
-## D4 — Development-context prerequisites and eleven measurements
+## D4 — Development-context prerequisites and once-only simulation audit
 
 This is selected remaining work, not an optional campaign inferred from the older generic benefit wording. The exact eleven cases were recovered from the approved 38g execution plan's visible session message at 2026-10-14 14:12:08.295 UTC and checked against current `.config/process-cases.json`/`.config/preparation-cases.json`. Preserve them explicitly:
 
@@ -104,11 +104,13 @@ This is selected remaining work, not an optional campaign inferred from the olde
 | Results analysis and publication | `results-chain-1`, `results-publish-chain-1` |
 | Preparation and managed execution | `k4-scalar-preparation`, `k4-study-managed-durable-16` |
 
-Build a separate current development-profile worker and fresh owned original reference-profile state. Through the existing assessment API select exact standalone `native` and `managed-primary` functional gates, including their actual producer-fixture prerequisite where declared, **without producer-campaign injection**. Do not transfer strict-producer setup as compatible development functional evidence. Preserve the same worker, state, source, native/provider environment and actual allocation across these prerequisites and measurements. Use `just case-measure <fresh-output> --functional-from <matching-report>` with repeated declared case selectors. If current CLI composition cannot express the required existing scopes, compose `functional_gates` through the supported API rather than inventing filter-subset equivalence.
+Use the ordinary current development-profile worker and an owned reference-profile state. The maintainer selected one complete observation per case and then a diagnostics-led audit, replacing repeated statistical timing. Run `just case-measure <fresh-output> --smoke --audit-diagnostics --case <id>` with explicit case selectors. Each case executes once; its original internal revisions, solves, occurrence count and scientific assertions remain intact. The audit includes selected existing native/Python journeys for distinct execution paths. It adds necessary observation and cooperative-stop wiring, and recommends production corrections without implementing them. No new standalone execution plan, full-workspace gate or producer capture is required.
 
-The inherited reference route requests a 140 GiB caller allocation within its 160 GiB envelope; validate current host admission and available disk before launch, serialize builds/heavy campaigns, and preserve other cooperating owners. This is an existing selected reference-host route, not a proposed universal cap or timing isolation claim. Changed host/profile requirements need explicit compatible selection and fresh matched prerequisites, not silent reuse of the old report.
+The inherited reference route requests a 140 GiB caller allocation within its 160 GiB envelope. Use the existing admission and owned drain routes, serialize heavy builds and measurements, and preserve other cooperating owners. Record the actual profile and host conditions without claiming dedicated timing isolation or demanding an exact environment proof.
 
-Follow the declaration's actual sampling settings and untimed build; do not invent a generic latency, zero-allocation or throughput gate. Report preparation/execution/assessment/publication/read/teardown inclusion, actual profiles/widths, cache conditions, competing work and source/environment identities; sample mean/standard error/range, runtime pool observations and process-lifetime RSS have different meanings. A fresh process is not a cold filesystem. These are reference-host observations, not dedicated timing-lane measurements. Claim improvements only from a valid controlled comparison; no new before/after number is required merely to prove a structural correction. The eleven cases do not establish HiGHS bulk/delta speedups or point-by-point scientific qualification of the physical flash sweep.
+Keep compilation untimed. Use Plan40's typed current/recent inspection, preparation/construction/reuse facts, native progress and bounded optional CPU/timeline captures to locate avoidable work. Preserve earlier windows during long operations. Elapsed-time checkpoints prompt inspection, never an automatic scientific timeout. When source and live evidence settle a shared bottleneck, record interrupted or blocked dependent cases and continue independent paths; do not repeat the same expensive prerequisite just to complete a timing table. Each of the eleven cases needs an explicit audit position, while uncompleted scientific obligations remain open.
+
+Report preparation/execution/assessment/publication/read/teardown inclusion, actual profiles/widths, cache conditions and diagnostic coverage. Runtime pool reservations, process RSS and overlapping phase intervals have different meanings. Partial or stale observations are not zeros; captured hot stacks alone do not prove avoidable work. Statistical repetitions, comparative timing claims, generic latency/throughput gates and environment/provenance proof are outside this selected work, with no assumed future revisit. The eleven cases do not establish HiGHS bulk/delta speedups or point-by-point scientific qualification of the physical flash sweep.
 
 ## Complete inherited obligation transfer
 
@@ -167,7 +169,7 @@ Reconcile these qualified source families against actual evidence, with one new 
 - All completed 38 investigations and their explicit support/revisit outcomes, including native reset/methods/sparse rank, topology, fitting/recycle/demand, installed/cache/context and host dependencies. General file caches stay truthfully inactive; SPQR, native NLP batching, unconsumed methods, JIT/SIMD/persisted evaluators/FeOS expansion and optional upgrade leads do not become hidden requirements.
 - The new friction-review F01–F06, both rule decisions, all 39a–c investigations/opportunities and any new scope-owned defect exposed during acceptance. A sound diagnosis is not resolved by renaming its owner or documenting current cost.
 
-Every required branch/rank/reader/recovery/scientific gap must have actual evidence or an explicit concrete scope decision; it cannot disappear into “further work.” Optional opportunities may retain a justified current capability or defer with a named owner and observable trigger. Material unknown support remains explicit and limits the acceptance claim.
+The environment/provenance proof targets are withdrawn by the explicit scope decision above. Every remaining required branch/rank/reader/recovery/scientific gap must have actual evidence or an explicit concrete scope decision; it cannot disappear into “further work.” Optional opportunities may retain a justified current capability or defer with a named owner and observable trigger. Material unknown support remains explicit and limits the acceptance claim.
 
 Confirm all selected consumers migrated and replaced production paths/callers/tests/fixtures deleted. Move enduring contracts to their architecture/dev owners through the actual decision/design route, keeping source/rationale/qualification separate. Record final **What was built**, **A mistake made and corrected**, and **Deviations from the plan, deliberate**, with evidence labels and named conditions. Retire completed plans/reviews only after inbound/executable consumers and enduring obligations move; Git history is the archive. Other active-plan substantive reconciliation, formal ADR status changes, publishing/push and unrelated campaign resumption remain separately authorized actions.
 
@@ -177,7 +179,7 @@ This companion specifies the transferred final scope and exact eleven measuremen
 
 ## Remaining-design handoff — 2026-10-14
 
-The maintainer authorized remaining functional/design changes but explicitly deferred the entire final campaign: actual PSE all-role strict captures/install/import, assembled integration/scientific/recovery/entered-pull checks, hygiene/manual checks and all eleven measurements. A1–A5 are implemented at their own Outcome. The finite preparation-operation correction and new-launch status correction complete identified functional prerequisites; their targeted checks do not execute D1–D4 or close D5. D0's final live prerequisite assessment remains necessary at campaign launch. Keep native/PyO3 source-review completeness, all current role associations and possible installer namespace changes conservative; fixture compilation evidence supplies none of those grants. No primary fixture was activated or regenerated for this slice.
+The maintainer authorized remaining functional/design changes but explicitly deferred the entire final campaign: actual PSE all-role strict captures/install/import, assembled integration/scientific/recovery/entered-pull checks, hygiene/manual checks and all eleven measurements. A1–A5 are implemented at their own Outcome. The finite preparation-operation correction and new-launch status correction complete identified functional prerequisites; their targeted checks do not execute D1–D4 or close D5. D0's final live prerequisite assessment remains necessary at campaign launch. This historical checkpoint did not grant native/PyO3 completeness or current strict association. The later maintainer withdrawal eliminates those proof targets rather than leaving them as campaign prerequisites. No primary fixture was activated or regenerated for this slice.
 
 ## Selected static repair outcome — 2026-10-14
 
@@ -220,32 +222,15 @@ The maintainer authorized execution of the entire remaining D0–D5 campaign, re
 
 **Interface-checked, not qualified:** current metadata-only diagnostics for runtime, worker and Python are retained in `build/acceptance/p39-current-native-diagnostic-20261015T0100/`. They have no actual compiler/output association and cannot grant strict deployment eligibility. Runtime comparison against the historical source-reviewed diagnostic found unchanged native namespaces, native absence and primary linker selection; changed launcher PATH and compiler-cache selections, plus the expected guarded-owner Cargo manifest/lock changes. These facts narrow the source review, rather than justify copying historical review assertions. Source-led Python/installer inquiry is retained under `/tmp/pse39-final-execution/python-context-investigation/`; it fetched official pinned uv 0.12.22 sources without product effects.
 
-### Historical strict-context decision — deferred from current validation
+### Withdrawn strict-context target
 
-The first narrow correction does not settle two additional context couplings:
-
-1. `executor_bases` binds the entire role's native/SDK and caller environment to each executor, including Maturin-only PyO3 selections. `verify_compilation` also revalidates the preceding whole-role deployment association. Equal unit keys therefore cannot inherit compilation when those contexts differ. Existing owner runtime-I/O reviews alone do not establish compiler-input projection completeness; Rust `env!`, generated suppliers and Cargo-forwarded build-script values require separate treatment.
-2. Maturin 1.15.0 starts the venv Python interpreter before its Cargo child, with site startup enabled. Its later `uv --no-deps --force-reinstall` installation changes the guarded site namespace, including generated distribution metadata. `DeploymentAssociation::verify_current_scoped` rechecks that namespace on both raw and imported artifacts; it must refuse the captured pre-install digest after mutation. A PyO3 explicit config bypasses PyO3 interpreter discovery, but does not bypass Maturin's earlier startup. No receipt rebinding or namespace omission is justified.
-
-**Accepted target, 2026-10-14:** the maintainer selected separate compiler, launcher and installation contexts explicitly, rather than claim one mutable namespace is unchanged across all phases. This extends the prior bounded per-executor investigation into a phase-specific association contract. The bounded decision/design route precedes dependent code.
-
-- An executor preparation projection requires an explicit current source-qualified contract bound to exact owner/helper/source/features/platform and compiler/configuration/native inputs. One admitted view supplies reuse identity and original executor-premise verification. Actual associated compiler environment dependencies, generated suppliers and Cargo-owned values remain distinct from ambient executable I/O. Unknown or incomplete projections retain conservative refusal. The full current role association remains an independent final obligation.
-- The prebuild launcher owns its exact interpreter/startup files, complete `.pth` membership/content, helper and import-shadow/absence premises, and the actual selected arguments/configuration delivered to Cargo. The protected original build association remains immutable and retains its actual context.
-- The installer owns the exact selected wheel/distribution identity, site entry selection, target distribution metadata and RECORD-directed removal, then the authenticated installed outputs and full before/after namespace reconciliation. Only source-justified exact installer-output changes can cross this boundary; an unexplained changed member refuses. The final verifier keeps unchanged build/executor inputs current, verifies the protected prebuild launcher evidence historically, verifies the exact source-qualified transition for every permitted changed member, and independently verifies the current installed/import context. It does not run the old whole-role verifier against a known changed launcher digest. Current installed-code checks bind the resulting context and exact imported bytes, including the existing independently replayed RPATH transformation. They do not rewrite the build-time context or treat historical evidence as current.
-- First compilation remains actual non-Fresh success within this operation. Reuse retains complete relevant premises and original output checks. No per-role cleaning, new persistent compilation store, guessed projection, weakened scientific oracle or unrelated process intervention is selected.
-
-The alternative is to retain the current conservative context contract and record D1 as unqualified; bypassing strict qualification or substituting Local would need an explicit scope change. Proposed ADR-0189 and architecture revision 170 record the selected target. The [independent phase-context review](../design_review/reviews/design_review_plan39-executor-and-installer-contexts_2026-10-14.md) accepts it at Proposed strength; its qualified F01/F02 and RC01/RC02 are owned here in D0 and remain open until implementation/source qualification and actual D1 acceptance. Formal ADR status remains unchanged.
-
-Revealing acceptance includes Maturin-only changes admitted for a proven unrelated executor; consuming executors and changed `env!`/`option_env!`/generated or absent-to-present channels refused; changed owner/helper/compiler/wrapper/native/search premises refused; missing/stale projection conservative; explicit PyO3 config removal switching branches refused; unexpected namespace mutation refused; and actual all-role installation/import/current association successful under the separately checked phases. Tiny mechanism fixtures cannot establish source completeness for PSE.
-
-D1–D4 remain unexecuted until the accepted phase contract is implemented and its prerequisites are verified. The supported temporary campaign composition is prepared at `/tmp/pse39-final-execution/campaign.py`: producer capture precedes creation/start/init of one explicitly owned current-schema reference state, with store-consuming gates depending on initialization. Existing comprehensive gates and uncovered hygiene/manual leaves retain their declared modes and receipts. No fixture has been started. Scope-end independent static checks can proceed without claiming assembled or scientific acceptance.
-
+The earlier compiler/launcher/installer phase-context selection and its source-completeness acceptance are withdrawn by the maintainer. The [phase-context review](../design_review/reviews/design_review_plan39-executor-and-installer-contexts_2026-10-14.md) remains historical design evidence; its F01/F02 and RC01/RC02 are excluded from current work. No projection, installer-phase proof, all-role campaign or revisit obligation survives. Existing implementation remains in place and receives no broader qualification claim. D1–D4 proceed through ordinary functional prerequisites.
 
 ## Design-phase validation steering — 2026-10-14
 
-The maintainer clarified that minor environment changes do not invalidate useful results and that validation must reflect the design phase, without proof to the degree pursued in D0. This supersedes strict all-role producer/installer proof as a prerequisite for the current campaign. Stop expansion of the additional phase-context machinery and source-completeness investigation. Ordinary Cargo checks, Clippy, Python types/lints, targeted behavior controls and representative native/Python scientific workflows remain selected; relevant performance observations remain useful without claims of exact host reproduction or a universal qualification guarantee. Record differences when they plausibly affect the result, rather than making every difference an automatic blocker.
+The maintainer withdrew the environment/provenance proof targets on 2026-10-14. Fresh all-role strict capture, source-completeness investigations, executor-input projections, compiler/launcher/installer phase associations and exact installer/environment reproduction are excluded from Plan39 and its inherited Plan38 acceptance. These targets are eliminated, not deferred; no revisit trigger or future campaign is retained. Existing producer code/tests and runtime safeguards remain. Scientific/model/result provenance, explicit Arrow force-validation, physical correctness and truthful cancellation/drain remain required. Ordinary Cargo checks, Clippy, Python types/lints, targeted behavior controls and representative native/Python scientific workflows remain selected, with relevant performance observations.
 
-The integrated native-role assertion correction remains. Additional executor-projection and installer-phase drafts are isolated, unmerged and not used by production. The phase-context review’s F01/F02 and RC01/RC02 are deferred to a separately requested strict cross-build assurance requirement; no claim of strict acceptance is made. Proposed ADR-0189 and architecture revision171 distinguish this scope. D1’s ordinary build/install/import behavior replaces the optional strict proof prerequisite for D2–D4 in this design-phase campaign. Physical/scientific correctness, truthful outcomes and owned cancellation/drain remain required.
+The integrated native-role assertion correction remains. Additional executor-projection and installer-phase drafts are isolated, unmerged and not used by production. They are withdrawn from this work, with no future implementation or review requirement. D1’s ordinary build/install/import behavior supplies the functional prerequisite for D2–D4.
 
 The excessive static sweep was interrupted through its exact owned controller; no other owner was stopped. Its actual completed commands returned zero except one fixture license header, subsequently fixed and `just lint-license` returned zero. Exhaustive feature combinations were interrupted; remaining powerset/docs steps were not run. The report’s broad source-drift classification reflects concurrent decision/documentation/header changes and does not describe Cargo/type/lint errors. Preserve that interrupted report, but do not rerun successful commands solely to obtain an unchanged documentation snapshot.
 
@@ -255,4 +240,252 @@ Ordinary native correctness extension installation (`just py-sync-native-correct
 
 The current owned substrate-v6 database was initialized, and `just unit-native-package pse-runtime native-solvers,canonical-tests solve_durable_replay_after_publication_close_requires_explicit_local_receiver` passed **1 selected test** (958 outside the filter), with Arrow force-validation and linked KINSOL. This exercises actual durable publication, closed-owner refusal, explicit local reconstruction and a fresh independently checked nonlinear root. It does not establish physical server-loss recovery or the other assembled scientific families. The first wrapper cleanup omitted `--drained`; the supported `quiesce` then `stop --drained` correction succeeded. The store is stopped; no unrelated service or allocation was changed.
 
-`just turn-end` passed. Strict cross-build proof and exhaustive feature combinations remain outside the current design-phase selection; broader representative workflows, recovery/interruption and the selected performance observations remain unfinished. These scoped results stand despite unrelated documentation or environment drift; this checkpoint does not claim whole-plan completion.
+`just turn-end` passed. Strict cross-build proof targets are withdrawn. Exhaustive feature combinations remain outside the current design-phase selection; broader representative workflows, recovery/interruption and the selected performance observations remain unfinished. These scoped results stand despite unrelated documentation or environment drift; this checkpoint does not claim whole-plan completion.
+
+### Remaining practical acceptance in progress
+
+The representative native selections passed 19 backend controls, 19 workflow controls and four independent cubic controls; the ordinary installed Python selection passed 11 journeys. The complete setup/tooling selection passed 1,089 tests after isolating the nested-capacity unit fixture from the launcher's actual CPU placement. A newly exposed managed result bug is corrected in `b9c94fcfb`: receiver writers and service readers now use the owning service's payload directory, with a passing hermetic shared-file regression. Rebuilt managed consumers pass both compact-result cases and the sixteen-owner completion journey.
+
+The remaining managed cancellation failure is functional: all sixteen native owners drain, but file reservation erases the existing typed study-cancellation refusal into an infrastructure error, preventing terminal settlement. The bounded correction preserves the writer fence and propagates its existing typed refusal to the existing cancelled-completion path. This is under implementation; it is not accepted yet. Measurements and the independent recovery/signal/reference checks are proceeding on the working paths.
+
+The measurement collector now removes compulsory source/environment/native-artifact equivalence proof and accepts optional functional references as context. Actual command/test/sample failures and managed ownership/drain remain enforced. The unintegrated executor/installer proof drafts and their local branches were discarded; no deferred work or revisit obligation remains. Final reconciliation and retirement follow the remaining functional checks and all eleven observations.
+
+### Simulation audit — 2026-10-15
+
+The maintainer authorized the conversational diagnostics-led execution approach, including
+all eleven D4 positions and selected existing native/Python journeys. Production corrections
+are recommendations from this audit; implementing them is outside this authorization.
+The existing collector's `--smoke --audit-diagnostics` route, shared benchmark observation
+helper and passive Python reader are implemented. They retain the original workload and
+scientific assertions, publish an operation before the workload runtime, preserve typed
+stage/live/terminal windows, and separate interruption, cleanup and native/receiver join.
+Explicit stop requests use actual cancellation owners. The helper does not override a
+production cancellation defect or infer successful drain from process exit.
+
+Local artifacts are under `build/assessment/p39-simulation-audit-20261015T184030Z/`.
+`preparation-control/` holds the completed scalar case; `cases/cold-large-1/diagnostics/`
+holds the interrupted cold case, two ten-second CPU windows, timeline and retained live
+inspection documents. The initial `preparation/` attempt records a setup refusal: the
+reference store was launched outside its reference allocation owner. Correcting that route
+allowed the same control to run; no capacity policy or admission guard was changed.
+
+#### Established preparation findings and proposed corrections
+
+| ID | Position and evidence | Proposed correction and preservation | Priority and owner |
+|---|---|---|---|
+| AUD39-01 | Cold source admission took about 36.47 seconds before case preparation. In its bounded CPU window, 127 of 225 decoded stack groups contained `selected_source` paths. `SourceIndex::imported` scans every selected row for each root-name import although `insert` already maintains `named_roots`. Source inspection establishes avoidable repeated scanning; sampling does not establish an exclusive CPU percentage or speedup. | Use the existing indexed root bucket after completeness checks. Preserve every candidate, declaration-ID ordering, import precedence, protected absence and `Pending` semantics. Examine repeated inherited/guarded member candidate expansion separately; a pending lookup must not become cached absence. The same resolver serves ingress, local selection, delta data closures and replay validation. | High: runtime modeling canonical source owner and selected-source resolver. |
+| AUD39-02 | The second CPU window locates `CheckedPackage::named_types_with`, `resolve_with_types`, guarded member traversal and type-map destruction during specialization. `Evaluator::typed_result`, constructor argument loops and `Engine::source_types` repeatedly build broad visible type environments. The cold case remained in preparation, then returned `Math(Cancelled)` after approximately 518.73 seconds; it supplied no numerical solve result. | Reuse the stable lexical base within one specialization over an unchanged borrowed package, applying current environment/reader/function overlays separately. Hoist unchanged constructor lookup outside the argument loop. Evolving admission type maps must remain fresh: retain the existing mutation, prefix, import, shadowing, lowered-function and refinement controls. A permanent owner-only cache would violate current validity. | High: modeling specialization and checked-package type resolution. |
+| AUD39-03 | The audit watcher recorded the stop request, but specialization continued for several minutes. `CancelSource::child_with_deadline` creates a disconnected fresh token. Both `checked_selection_scoped` and `engage` pass such a child through preparation without bridging parent cancellation. The later original-source cancellation check finally refused the case. Fixture cleanup succeeded; zero workflow native joins were recorded because no numerical RunHandle was reached. | Propagate parent-to-child cancellation using the existing child-token capability while retaining upward/sibling isolation and the minimum original deadline. Coordinate ephemeral-study bookkeeping: its cancellation guards currently depend on the child still being uncancelled before repopulating the policy frontier. Track parent handling independently. Keep shared-flight producer cancellation separate so another waiter survives, and retain issued work through actual join. Add ordinary `declared_execution` parent-cancellation and two-waiter controls, plus blocked/waiting study cancellation coverage. | First prerequisite before retrying slow dependent cases: runtime cancellation, modeling preparation and study coordination. |
+
+These are source-backed work/lifecycle findings, not numerical solver diagnoses. Both CPU
+documents retain `Partial` source coverage and unknown kernel sampling loss. Their intervals
+and process identities are recorded; overlapping phase times and independently captured
+frames are not summed into exclusive operation time. Scientific models, presolve, solver
+tolerances, permissions and original postsolve assessments must remain intact.
+
+#### Additional investigations
+
+The following source findings remain unmeasured opportunities rather than established
+causes of the interrupted cold run:
+
+- `SpecializedModel::function_contracts` clones the full checked package before overlaying
+  synthesized functions, including calls per contribution/expectation and contextual operation.
+  Examine a borrowed source plus synthesis-owned overlay, keeping newly generated functions
+  and physical-operation adjustments current. Repeated growing symbol-type maps are adjacent
+  work; captured clone/drop frames alone do not attribute their total cost.
+- Grouped `normalize` reconstructs the full runtime input/formal lookup for each consumer
+  output. Build it once per immutable grouped plan while preserving dependency-order naming,
+  body identity, validity inputs and checked-member attribution. Existing per-output transitive
+  member closure is already implemented and is not the defect.
+- Selected function preparation first creates a full value `CasePlan` and then projects it;
+  fitting invokes this route per experiment and for checks. Examine direct selected-row
+  construction, preserving requested coordinate/row order, contribution accumulation, bounds,
+  native form metadata and original guards.
+- Observation-program cache lookup reconstructs selected structure first, and a miss repeats
+  it. Carry or retain the already selected immutable structure under its actual dependencies.
+  Do not narrow opaque coupled original evaluations without a supplier-owned contract.
+- Warm solver views retain domain-only value products before affine discovery. Examine
+  whether assessed immutable row evidence can be retained under complete structure/consumed
+  fixed-value identity. Structure reuse alone does not establish proof reuse. Current affine
+  discovery already uses selected row contributions and candidate coordinates, rather than
+  every global formal for every row.
+
+Future diagnostic improvements should add bounded responsibility-level counters for lexical
+lookup candidates examined, type-environment construction/reuse and package/function-overlay
+construction, alongside source size and selected demand. These can distinguish required work
+from work amplification without bespoke stack counting. Cancellation diagnostics should
+distinguish caller request, waiter departure, last-waiter producer signal, worker observation
+and actual join. A recorded request alone cannot establish propagation or drain. Preserve
+attempt/generation identity, explicit partiality and unavailable facts; do not create per-name
+unbounded metric families or statistical performance gates.
+
+The completed scalar control directly supports reuse: warm/value/binding/span-only stages
+admitted no new bodies; changing one equation admitted one body and reused six; changing the
+referenced physical context admitted seven. Its original identity assertions passed and final
+runtime pool reservation was zero. Pool reservations and process RSS remain different scopes.
+
+#### Additional functional findings and execution costs
+
+| ID | Position and evidence | Proposed correction and preservation | Priority and owner |
+|---|---|---|---|
+| AUD39-04 | The existing Python physical flash-sweep control fails in `ephemeral-preparation` before occurrence execution: the runtime has no canonical recording sink. Public `admit_study` always takes the recorded-source admission route, although the lower study executor supports ephemeral execution. Its Rust ephemeral fixtures supply synthetic canonical receipt identity and do not qualify public local admission. | Give locally owned model and physical source descriptors an honest ephemeral admission path. Require explicit publication before durable admission, preserving physical validity, original identity and source lifetime. Do not invent canonical receipts, force all studies durable, or remove the local control. | High functional blocker: Python modeling admission and runtime study source ownership. |
+| AUD39-05 | The scalar 1,000-point sweep completes a useful prefix but spends substantial wall time outside the short observed native join. This benchmark uses a canonical deployment and waits for durable completion per point; it is not a pure local edit-to-solve benchmark. One live operation reports 65 query builders and 154 successful statements **over the whole operation**, not publication alone. The counters establish protocol work, not which requests are avoidable. | Investigate bounded grouping of compatible metadata admission, empty memberships, append and seal operations, and carrying immutable metadata already returned by acknowledged registration. Preserve cancellation fences, changing attempt state, source protection, complete requested outputs, immutable payload identity and exact ACK/manifest coverage. Keep unlike relation/schema payloads in separate IPC files (blueprint §20). Assess operation-scoped sharing of physical source protection with expiry, retirement and deployment fences intact. | Investigate after cancellation and admission correctness: durable workflow and canonical transport owners. |
+| AUD39-06 | Both results cases complete the original dynamic trajectory/forward-response work, then fail before the result graph activates: `local analysis lacks original certification/withheld reasons`. The result-analysis dispatcher promotes response-sensitivity provenance to `LocalAnalysis`, whose admission requires `runtime.local_validity`; dynamic forward responses do not supply that scalar-analysis certification. Finite values and accepted trajectory completion do not establish certified derivatives. | Choose a truthful dynamics-owned response certification/withholding contract with matching artifact admission, or use an appropriate trajectory/response evidence artifact with its actual meaning instead of scalar `LocalAnalysis`. Preserve coordinates, units, time coverage, numerical permission, explicit withholding reasons, source provenance and artifact independence. Adjust the benchmark artifact-type oracle only if the chosen meaning warrants it; retain the scientific and publication obligations. | High functional blocker: result-analysis dispatch, dynamics response evidence and artifact admission. |
+| AUD39-07 | The valid managed retry returns sixteen usable/fresh one-attempt outcomes, then its first persisted result reader fails in the observer's 256 MiB shared fair pool. `connected_results::results` retains a fixed 96 MiB selection-response allowance while `ResultSnapshot::capture` requests another fixed 96 MiB metadata-page allowance. Two real 64 MiB compiler-workspace leases also remain. The 4 GiB process cap and host memory are different scopes; this is a truthful pool refusal, not host OOM. | Transfer exact retained selection metadata to its owning reservation and retire/reuse the temporary response allowance before snapshot paging, once actual RPC ownership permits. Derive a safe metadata-page bound from its bounded descriptor contract (at most 64 block rows plus file descriptors), rather than physical IPC file size. Preserve prepaid transport ownership through real drain, run/attempt/manifest protection, complete descriptor validation and row coordinates. Investigate pressure coordination only for demonstrably idle compiler owners; their redundancy is unproven. Reconcile the harness pool with its intended workload after narrowing required ownership, without treating a cap bump as the correction. | High functional/composition blocker: connected result selection, canonical snapshot paging and shared resource ownership. |
+
+AUD39-05 also exposed a separate failed existing control:
+`canonical_append_queue_packs_relations_and_flushes_before_empty_membership` reports
+“issuing a queue item grants no ACK coverage.” Reconcile the queue's actual flush/packing
+contract with that assertion before recommending a batching change. A failed expectation
+alone does not establish that the implementation or test is the correct authority.
+`ResultAppendQueue` currently flushes per relation and on a name change. A compatible
+metadata batch does not authorize packing unlike relation payloads into one file.
+
+Several tempting diagnoses were excluded by source inspection. Registered file ownership
+already has a cache. Protected execution lookup addresses the run key directly, rather than
+querying run-to-problem twice. Two intent checks straddle the OS instance lock and are not
+automatically redundant. Sealing returns the original completion rather than reopening it
+through protected analysis. These are preservation constraints for AUD39-05, not scheduled
+optimizations. The sampled final server statement duration and native join duration cover
+only those scopes, not total transport or numerical execution.
+
+The AUD39-07 metadata selection and snapshot page do not hydrate IPC payload files. Their
+allowances derive from physical-file maxima despite bounded descriptor paging. This does not
+authorize removing transport accounting before genuine drain. The two compiler workspace leases
+are real policy-sized retained generations; their names alone do not prove duplication or idle
+work. Existing math pressure handling can trim idle lanes, whereas these result grants call the
+pool directly. A shared pressure path is an investigation only where it can distinguish active
+borrowers from idle retained reuse. The existing empty-demand result control requests `0..0`
+and bypasses snapshot paging, so it does not exercise the observed transient overlap.
+
+#### Once-only case outcomes
+
+**Tested / Measured, bounded observations:** each completed case ran through Criterion's
+`--test` smoke route once with the original assertions and explicit Arrow force-validation.
+Reported elapsed time includes its case setup and cleanup; it is explanatory evidence, not
+a comparative benchmark, latency target or repeated-sample estimate. The collector records
+`measured: false` because no Criterion statistical measurement was performed.
+
+| D4 case | Outcome | What the observation establishes |
+|---|---|---|
+| `k4-scalar-preparation` | Completed, 8.43 s | Warm/value/binding/span stages admit zero new bodies; one changed equation admits one and reuses six; a changed physical context admits seven. Original reuse assertions pass, final pool reservation is zero, fixture cleanup succeeds. |
+| `cold-large-1` | Interrupted, 518.73 s | The 32-block case spends 36.47 s admitting source and 480.52 s preparing. It never reaches a numerical RunHandle. AUD39-01–03 explain preparation work and delayed cancellation; cleanup succeeds. |
+| `warm-large-1` | Blocked, not run | Its common cold preparation prerequisite exposes AUD39-01–03. No large-case warm reuse or numerical result is claimed. |
+| `specialization-medium-1` | Blocked, not run | The same preparation mechanism is already decision-relevantly exposed. No additional timing-only run was made. |
+| `cancellation-cold-1` | Blocked, not run | Its 32-block preparation prerequisite did not reach the intended native cancellation point. The separate managed cancellation control below does not pass this case. |
+| `value-sweep-1000-1` | Interrupted, 247.20 s | 234 actual native joins and successful fixture cleanup are recorded before the explicit stop. The full 1,000-point numerical/reuse obligation is incomplete. This two-equation scalar durable sweep does not qualify the physical flash sweep. |
+| `fit-gradient-cold-1` | Completed, 16.04 s | Original fit/gradient assertions pass; one native join and successful cleanup. Returned Ipopt diagnostics report 12 iterations and 46 evaluations. Nested trajectory totals not exported by this terminal result remain unknown. |
+| `shooting-single-idas-cold-1` | Completed, 15.84 s | Original shooting objective/control assertions pass; one native join and successful cleanup. Two IDAS segments include a control change at time 1. First-segment counters report 26 steps, 36 residual evaluations, 34 nonlinear iterations and 15 linear setups/Jacobian evaluations, with no reported failures. |
+| `results-chain-1` | Failed | Original dynamic work completes; AUD39-06 prevents graph/read oracles. Initial error-path audit cleanup fails while an outer runtime retains readers. The repaired retry preserves the production failure and records one native join, successful fixture cleanup and zero cleanup failures. |
+| `results-publish-chain-1` | Failed | Same certification gap; graph/publication/reopen/retirement oracles are not reached. Initial cleanup has the same harness defect; the shared ownership correction was exercised by the `results-chain-1` retry, not a second publication-case run. |
+| `k4-study-managed-durable-16` | Failed, valid retry 26.02 s | All sixteen completed/usable/fresh one-attempt outcomes and distinct retained run identities pass before the first persisted read. That read exhausts the observer pool (AUD39-07); native-metric and original numerical value checks later in `persisted` are not reached. Exact registered primary drain and fixture cleanup both succeed. |
+
+The cold case's two ten-second CPU captures and timeline are under
+`cases/cold-large-1/diagnostics/`; its 30 inspection windows preserve the transition from
+source admission to specialization and the stop request. The sweep's 21 windows, manual
+same-process catalog and live operation preserve publication work independently of solver
+progress. Bounded root-link retention can hide recent descendants after many point operations;
+the collector now also queries the exact process's active-operation catalog, preserving
+actual identities rather than fabricating root links. Snapshots from a dead process can
+remain active-looking and must be interpreted with process liveness and staleness.
+
+Managed receiver discovery uses the fixture's registered database, live PID and process-start
+identity to select the primary's typed checkpoint. The primary launch does not currently
+forward the caller's `PSE_DIAGNOSTICS_DIR`; the collector therefore checks its actual default
+catalog. The valid managed retry retains `managed-association.json`, exact PID/start identity and typed primary candidate inspections under `managed-closeout/`. Its process catalog is explicitly partial; at most eight active owners are copied per read. Terminal discovery observes the receiver already gone and records that unavailable live suffix. Caller diagnostics alone do not establish managed-worker profiling coverage.
+
+#### Selected journey evidence and exclusions
+
+Commands and full selection arguments are retained in `campaign.json`,
+`independent-campaign.json`, `remaining-campaign.json`,
+`harness-closeout-campaign.json`, `managed-closeout-campaign.json` and the adjacent named logs under
+the audit artifact root. Failure baseline is zero; excluded tests are not passes.
+
+- **Tested:** force-validated native backend selection passed **3**, with **614 outside
+  the filter**: HiGHS bulk/fresh-original comparison, conic data/bound reuse and dynamic
+  segment/restart observations. These lower-level controls do not all carry a public runtime
+  operation context; their numerical pass is not a full profiling-coverage claim.
+- **Tested:** force-validated `scripts.arrow_validation nextest run --no-fail-fast -p
+  pse-runtime --locked --lib --features native-solvers,canonical-tests ...
+  --ignore-default-filter --test-threads 1` passed **11**, with **995 outside the filter**.
+  Selection covers price-taker MIQP, two physical recycle journeys, root response/rank loss,
+  adjoint and exact transient-fit actions, analytic covariance, profile predecessor seeding,
+  horizon reuse and advanced-step fallback. Typed runtime checkpoints were retained.
+- **Tested:** ordinary installed Python selected journeys passed **4**, failed **1**,
+  with **1 deselected**, via `just native-python`: authored solve/join/warm start, unused
+  strategy rung and both live-attempt retention variants pass; the ephemeral flash study
+  fails as AUD39-04. Its managed variant was intentionally excluded from this ordinary route.
+- **Tested:** managed Python `test_public_study_cancel_drains_sixteen_native_owners_and_never_starts_tail`
+  passed **1**. This exercises all sixteen native owners draining and refusal to start the
+  tail; it does not establish ordinary preparation parent-cancellation propagation.
+- **Failed:** the force-validated append-queue selection ran **1**, failed **1**. Its
+  packing/ACK contract requires investigation as stated under AUD39-05.
+- **Tested:** `.venv/bin/python -m unittest scripts.tests.test_case_audit
+  scripts.tests.test_case_measure` passed **13**. Controls include managed profile/worker registration, missing/failed/interrupted
+  outcomes, supported selectors, exact managed identity and an actual foreground-process-group
+  interrupt that leaves the child alive to observe `stop.request` and clean up.
+
+The first selected native workflow wrapper refused source/config drift after compilation;
+its tests were **not run**. The subsequent ordinary force-validated functional command above
+ran them without repeating the eliminated environment/provenance proof. Initial store setup
+also refused a reference store outside its reference allocation; correcting ownership allowed
+execution without changing admission or capacity policy. These unsuccessful setup attempts
+remain visible in the artifacts and are not scientific failures or successful tests.
+
+#### Harness corrections and resource closeout
+
+**Implemented / Tested:** the audit wiring now boxes the large managed study futures,
+constructs one public study future for either the audit await or ordinary 120-second route,
+and keeps scientific Runtime/readers inside the error boundary before fixture cleanup.
+The repaired `results-chain-1` retry still fails AUD39-06 but records one actual native join,
+one successful fixture cleanup, zero cleanup failures and no helper diagnostic errors.
+The publication case uses the same repaired ownership route but was not rerun.
+
+The first boxed managed retry revealed missing per-database registration and a destructor
+that retried failed receiver selection, causing a second panic. The collector now passes
+`--execution-profile plan28-reference` and the selected receiver worker to the existing
+fixture registration API; teardown targets the registered receiver state. Receiver finish
+is fallible and attempted once, retains an undrained fixture on failure and never introduces
+a second destructor panic. The subsequent valid retry reaches the result-read limitation
+and records **one successful registered receiver drain and one successful fixture cleanup**.
+Its zero caller-native-join count describes external execution, not zero primary native work.
+Independent source review confirmed ownership/cancellation ordering and caught an incidental
+ordinary timer/peak-scope change; that change was corrected so fixture construction stays
+outside the original benchmark operation timer.
+
+The two aborted invocations left their exact creator markers charged. For each, the creator
+was verified dead without a registered receiver context; the supported `record_drain` route
+released only that dead physical borrower. Outcomes remain `incomplete`, pinned and unproved;
+all data and evidence remain. No manual allocation disposal or guard override was used.
+`creation-owner-drain.json` and `creation-owner-drain-closeout.json` retain these limited
+cleanup facts. The final registered quiesce and `stop --drained` both succeed: this audit's
+store is stopped, with no owned receiver left running. Unrelated services/records remain.
+Both audit worktrees were integrated by comparing their assigned files with main, then removed;
+no commit or push was performed, and concurrent uncommitted work remains intact.
+
+#### Audit closure boundary
+
+The audit establishes avoidable preparation work, a cancellation propagation defect and public study, artifact and result-reading blockers; it also narrows durable point overhead into explicit investigations.
+No production correction in AUD39-01–07 is implemented or accepted by this audit. Correctness
+and truthful lifecycle handling precede a fresh slow-case run. A future authorized correction
+should first settle cancellation and real join, then local study admission/result evidence and result-read ownership,
+then indexed lookup and stable type-environment reuse, and finally protocol grouping supported
+by operation-level evidence. Independent preparation optimizations need not wait for result
+artifact design, but acceptance must not run through known invalid paths.
+
+Original full cold/warm/cancellation, 1,000-point and result-graph obligations remain unqualified.
+No GPU/MPI, every solver method/configuration, server-loss recovery, exhaustive feature sweep,
+all scientific models, full Plan39 D0–D5 or assembled Plan40e claim is made. Broad hygiene and
+manual qualification were not requested by this audit. Statistical benchmarking and eliminated
+environment/provenance proofs have no deferred obligation. Existing scientific/source identity,
+Arrow validation and actual cancellation/drain contracts remain in force.
+
+
+**Tested, audit-tool closeout:** the final force-validated `scripts.case_measure --smoke
+--audit-diagnostics` build for `native_process` completed without compiler diagnostics;
+its managed case failure and successful teardown are reported above. The scoped collector
+unit command passed **13** against zero failures. `scripts/pse-env -- just turn-end` passed
+ADR indexing and formatting. Its advisory safe-fix Ruff invocation reported **40** outstanding
+findings in the pre-existing `python/pse/diagnostics.py` work; these are not a strict lint pass.
+One audit-owned lazy-import warning was corrected. No full hygiene/type/Clippy qualification
+was performed by this audit.

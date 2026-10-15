@@ -40,6 +40,7 @@ enum Command {
     Stop,
 }
 struct Actor {
+    observation: Option<pse_diagnostics::observation::ObservationContext>,
     sender: Sender<Command>,
     join: Mutex<Option<JoinHandle<()>>>,
     gate: Mutex<()>,
@@ -136,6 +137,14 @@ impl Actor {
             }
         };
         let (reply, answer) = mpsc::sync_channel(1);
+        if let (Some(caller), Some(producer)) =
+            (pse_diagnostics::observation::current(), &self.observation)
+        {
+            caller.link(
+                producer,
+                pse_diagnostics::observation::Relationship::DependencyWait,
+            );
+        }
         self.sender
             .send(Command::Phase(scope, reply))
             .map_err(|_| MathRuntimeError::Panic("surrogate owning worker exited".into()))?;
@@ -173,6 +182,14 @@ pub struct SurrogateHandle {
     task: pse_ids::ContentHash,
 }
 impl SurrogateHandle {
+    /// Passive actor observations; reading does not queue behind its scientific work.
+    pub fn observations(&self) -> Option<pse_diagnostics::observation::OperationReader> {
+        self.actor
+            .observation
+            .as_ref()
+            .map(|context| context.reader())
+    }
+
     /// Explicitly copy the actual library history under an independent conservative charge.
     /// Compact advancement never requests or retains this history.
     /// # Errors
@@ -253,10 +270,21 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
     let (ready, initialized) = mpsc::sync_channel(1);
     let flag = abort.flag();
     let stack = options.stack_bytes;
+    let diagnostic = pse_diagnostics::observation::current().map(|context| {
+        context.child(
+            "surrogate.actor",
+            pse_diagnostics::observation::Relationship::Nested,
+        )
+    });
+    let observation = diagnostic.as_ref().map(|guard| guard.context());
+    let worker_observation = observation.clone();
     let join = std::thread::Builder::new()
         .name("pse-egobox".into())
         .stack_size(stack)
         .spawn(move || {
+            let _entered = worker_observation
+                .as_ref()
+                .map(pse_diagnostics::observation::ObservationContext::enter);
             // Construct here: egobox's boxed strategies are Sync but not Send.
             let initialized_task = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut task =
@@ -283,6 +311,8 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
             while let Ok(command) = commands.recv() {
                 match command {
                     Command::Phase(scope, reply) => {
+                        let _phase =
+                            pse_diagnostics::observation::phase("surrogate.fidelity.advance");
                         let before = task.work();
                         let advance = task.advance_within(scope).map_err(failure);
                         let after = match &advance {
@@ -322,6 +352,26 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
                                 })
                             })
                             .map_err(Into::into);
+                        if let Some(context) = &worker_observation {
+                            context.boolean(
+                                "surrogate.proposal.available",
+                                proposal.as_ref().is_ok_and(Option::is_some),
+                            );
+                            context.boolean("surrogate.phase.failed", proposal.is_err());
+                            if let Ok(work) = &work {
+                                context.count("surrogate.evaluations", "calls", work.evaluations);
+                                context.count(
+                                    "surrogate.iterations",
+                                    "iterations",
+                                    work.iterations,
+                                );
+                                context.count(
+                                    "surrogate.initializations",
+                                    "constructions",
+                                    work.initializations,
+                                );
+                            }
+                        }
                         let callback_terminal = proposal.is_err() && task.is_finished();
                         let _ = reply.send(PhaseReply {
                             proposal,
@@ -344,11 +394,15 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
                     Command::Stop => break,
                 }
             }
+            if let Some(diagnostic) = diagnostic {
+                diagnostic.finish(pse_diagnostics::observation::Outcome::Completed);
+            }
             // Full solver/state and local rayon pool drop here before this thread exits.
         })
         .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
     match initialized.recv() {
         Ok(Ok(())) => Ok(Actor {
+            observation,
             sender,
             join: Mutex::new(Some(join)),
             gate: Mutex::new(()),

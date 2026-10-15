@@ -84,6 +84,7 @@ impl Default for FaerLu {
 }
 impl LinearSolver<M> for FaerLu {
     fn set_sparsity<C: LinearOp<T = f64, V = V, M = M, C = FaerContext>>(&mut self, op: &C) {
+        crate::observation::boolean("diffsol.faer.factor.valid", false);
         self.ready = unset();
         self.numeric = NumericLu::new();
         self.scratch = None;
@@ -92,24 +93,25 @@ impl LinearSolver<M> for FaerLu {
         self.parallel = op.context().par;
         self.symbolic = match pattern(op) {
             Ok(matrix) => {
-                let result =
+                let result = crate::observation::scoped("diffsol.faer.symbolic", || {
                     lu::factorize_symbolic_lu(matrix.inner().symbolic(), Default::default())
-                        .map_err(|e| {
-                            LinearSolverError::Other(format!("faer symbolic sparse LU: {e:?}"))
-                        })
-                        .and_then(|symbolic| {
-                            let request = symbolic
-                                .factorize_numeric_lu_scratch::<f64>(
-                                    self.parallel,
-                                    Default::default(),
-                                )
-                                .or(symbolic.solve_in_place_scratch::<f64>(1, self.parallel));
-                            let scratch = MemBuffer::try_new(request).map_err(|e| {
-                                LinearSolverError::Other(format!("faer sparse LU scratch: {e:?}"))
-                            })?;
-                            self.scratch = Some(RefCell::new(scratch));
-                            Ok(symbolic)
-                        });
+                })
+                .map_err(|e| LinearSolverError::Other(format!("faer symbolic sparse LU: {e:?}")))
+                .and_then(|symbolic| {
+                    let request = symbolic
+                        .factorize_numeric_lu_scratch::<f64>(self.parallel, Default::default())
+                        .or(symbolic.solve_in_place_scratch::<f64>(1, self.parallel));
+                    let scratch = MemBuffer::try_new(request).map_err(|e| {
+                        LinearSolverError::Other(format!("faer sparse LU scratch: {e:?}"))
+                    })?;
+                    crate::conditioning::publish_faer_storage(
+                        "diffsol.faer.storage",
+                        matrix.inner().val().len(),
+                        request.size_bytes(),
+                    );
+                    self.scratch = Some(RefCell::new(scratch));
+                    Ok(symbolic)
+                });
                 self.matrix = Some(matrix);
                 result
             }
@@ -120,6 +122,7 @@ impl LinearSolver<M> for FaerLu {
         };
     }
     fn set_linearisation<C: LinearOp<T = f64, V = V, M = M, C = FaerContext>>(&mut self, op: &C) {
+        crate::observation::boolean("diffsol.faer.factor.valid", false);
         self.ready = match (&self.symbolic, self.matrix.as_mut(), self.scratch.as_mut()) {
             (Ok(symbolic), Some(matrix), Some(scratch)) => {
                 let same_pattern = op.sparsity().is_some_and(|pattern| {
@@ -138,21 +141,33 @@ impl LinearSolver<M> for FaerLu {
                 if matrix.inner().val().iter().any(|value| !value.is_finite()) {
                     Err(LinearSolverError::LuSolveFailed)
                 } else {
-                    symbolic
-                        .factorize_numeric_lu(
-                            &mut self.numeric,
-                            matrix.inner().as_ref(),
-                            self.parallel,
-                            MemStack::new(scratch.get_mut()),
-                            Default::default(),
-                        )
-                        .map(|_| ())
-                        .map_err(|e| LinearSolverError::Other(format!("faer sparse LU: {e:?}")))
+                    let result = crate::observation::scoped("diffsol.faer.factor", || {
+                        symbolic
+                            .factorize_numeric_lu(
+                                &mut self.numeric,
+                                matrix.inner().as_ref(),
+                                self.parallel,
+                                MemStack::new(scratch.get_mut()),
+                                Default::default(),
+                            )
+                            .map(|_| ())
+                            .map_err(|e| LinearSolverError::Other(format!("faer sparse LU: {e:?}")))
+                    });
+                    crate::observation::count(
+                        if result.is_ok() {
+                            "diffsol.faer.factor.succeeded"
+                        } else {
+                            "diffsol.faer.factor.failed"
+                        },
+                        1,
+                    );
+                    result
                 }
             }
             (Err(error), _, _) => Err(error.clone()),
             _ => unset(),
         };
+        crate::observation::boolean("diffsol.faer.factor.valid", self.ready.is_ok());
     }
     fn solve_in_place(&self, x: &mut V) -> Result<(), LaError> {
         self.ready.as_ref().map_err(|e| LaError::from(e.clone()))?;
@@ -166,13 +181,24 @@ impl LinearSolver<M> for FaerLu {
             .ok_or(LinearSolverError::LinearSolverNotSetup)?;
         let mut scratch = scratch.borrow_mut();
         let n = x.len();
-        LuRef::new_unchecked(symbolic, &self.numeric).solve_in_place_with_conj(
-            Conj::No,
-            faer::MatMut::from_column_major_slice_mut(x.as_mut_slice(), n, 1),
-            self.parallel,
-            MemStack::new(&mut scratch),
+        crate::observation::scoped("diffsol.faer.solve", || {
+            LuRef::new_unchecked(symbolic, &self.numeric).solve_in_place_with_conj(
+                Conj::No,
+                faer::MatMut::from_column_major_slice_mut(x.as_mut_slice(), n, 1),
+                self.parallel,
+                MemStack::new(&mut scratch),
+            )
+        });
+        let result = finite(x);
+        crate::observation::count(
+            if result.is_ok() {
+                "diffsol.faer.solve.succeeded"
+            } else {
+                "diffsol.faer.solve.failed"
+            },
+            1,
         );
-        finite(x)
+        result
     }
 }
 
@@ -209,6 +235,78 @@ impl Default for Klu {
     }
 }
 impl Klu {
+    /// Copy only initialized return fields while this thread exclusively owns KLU.
+    /// Allocator peaks cover this common object's lifetime, including old factors.
+    fn publish_return(&self, phase: &str) {
+        // SAFETY: no KLU call is active; defaults initializes these common fields.
+        let common = unsafe { &*self.common.get() };
+        crate::observation::integer(
+            &format!("diffsol.klu.{phase}.status"),
+            "native_status",
+            i64::from(common.status),
+        );
+        crate::observation::integer(
+            "diffsol.klu.allocator_lifetime.current_bytes",
+            "bytes",
+            i64::try_from(common.memusage).unwrap_or(i64::MAX),
+        );
+        crate::observation::integer(
+            "diffsol.klu.allocator_lifetime.peak_bytes",
+            "bytes",
+            i64::try_from(common.mempeak).unwrap_or(i64::MAX),
+        );
+        for (name, value, unit) in [
+            ("structural_rank", common.structural_rank, "rank"),
+            (
+                "numerical_rank",
+                common.numerical_rank,
+                "native_pivot_position",
+            ),
+        ] {
+            let current = if name == "structural_rank" {
+                !self.symbolic.is_null()
+            } else {
+                phase != "symbolic"
+                    && (common.status == 0 || u32::try_from(common.status) == Ok(klu::KLU_SINGULAR))
+            };
+            if !current {
+                crate::observation::unavailable(
+                    &format!("diffsol.klu.{name}"),
+                    "this phase did not establish a current rank/pivot result",
+                );
+            } else if value >= 0 {
+                crate::observation::integer(&format!("diffsol.klu.{name}"), unit, value);
+            } else {
+                crate::observation::unavailable(
+                    &format!("diffsol.klu.{name}"),
+                    "native -1 means rank was not computed",
+                );
+            }
+        }
+        if phase != "symbolic" && common.status == 0 && !self.numeric.is_null() {
+            // SAFETY: the successful owner return established this live numeric
+            // object's stored L/U/off-diagonal entry counts; no KLU call is active.
+            let numeric = unsafe { &*self.numeric };
+            for (name, value) in [
+                ("l_entries", numeric.lnz),
+                ("u_entries", numeric.unz),
+                ("off_diagonal_entries", numeric.nzoff),
+            ] {
+                crate::observation::integer(
+                    &format!("diffsol.klu.factor.{name}"),
+                    "entries",
+                    value,
+                );
+            }
+        } else {
+            for name in ["l_entries", "u_entries", "off_diagonal_entries"] {
+                crate::observation::unavailable(
+                    &format!("diffsol.klu.factor.{name}"),
+                    "this return did not establish current numeric storage",
+                );
+            }
+        }
+    }
     /// Reuse numeric storage only while KLU's own conditioning diagnostics accept it.
     /// This is the bundled SUNDIALS 7.1.1 KLU setup policy, with failed diagnostics
     /// also routed to a fresh factor rather than leaving a partly updated factor live.
@@ -219,7 +317,7 @@ impl Klu {
         let threshold = f64::EPSILON.powf(2.0 / 3.0);
         // SAFETY: full CSC identity was checked before this call. The owned numeric,
         // symbolic and common objects are live and exclusively accessed for the update.
-        let refactored = unsafe {
+        let refactored = crate::observation::scoped("diffsol.klu.refactor", || unsafe {
             klu::klu_l_refactor(
                 self.columns.as_mut_ptr(),
                 self.rows.as_mut_ptr(),
@@ -228,18 +326,24 @@ impl Klu {
                 self.numeric,
                 self.common.get(),
             )
-        };
+        });
         if refactored != 1 {
+            self.publish_return("refactor");
+            crate::observation::count("diffsol.klu.refactor.failed", 1);
             return false;
         }
+        crate::observation::count("diffsol.klu.refactor.succeeded", 1);
         // SAFETY: the successful refactor retained the live symbolic and numeric objects;
         // the boxed common object remains exclusively accessed by this solver.
         if unsafe { klu::klu_l_rcond(self.symbolic, self.numeric, self.common.get()) } != 1 {
+            crate::observation::count("diffsol.klu.refactor.condition_diagnostic_failed", 1);
             return false;
         }
         // SAFETY: KLU initialized this field in the successful rcond call above.
         let rcond = unsafe { (*self.common.get()).rcond };
+        crate::observation::gauge("diffsol.klu.rcond", "ratio", rcond);
         if !rcond.is_finite() || rcond < 0.0 {
+            crate::observation::count("diffsol.klu.refactor.conditioning_rejected", 1);
             return false;
         }
         if rcond < threshold {
@@ -255,12 +359,20 @@ impl Klu {
                 )
             };
             if estimated != 1 {
+                crate::observation::count("diffsol.klu.refactor.condition_diagnostic_failed", 1);
                 return false;
             }
             // SAFETY: KLU initialized this field in the successful condest call above.
             let condition = unsafe { (*self.common.get()).condest };
-            return condition.is_finite() && condition > 0.0 && condition <= 1.0 / threshold;
+            crate::observation::gauge("diffsol.klu.condest", "ratio", condition);
+            let accepted = condition.is_finite() && condition > 0.0 && condition <= 1.0 / threshold;
+            if !accepted {
+                crate::observation::count("diffsol.klu.refactor.conditioning_rejected", 1);
+            }
+            self.publish_return("refactor");
+            return accepted;
         }
+        self.publish_return("refactor");
         true
     }
     fn free_numeric(&mut self) {
@@ -296,14 +408,15 @@ impl Klu {
         let n = index(&matrix.nrows())?;
         // SAFETY: the column pointers (n + 1) and row indices describe the n × n pattern
         // and outlive the symbolic object; KLU only reads them.
-        self.symbolic = unsafe {
+        self.symbolic = crate::observation::scoped("diffsol.klu.symbolic", || unsafe {
             klu::klu_l_analyze(
                 n,
                 self.columns.as_ptr(),
                 self.rows.as_ptr(),
                 self.common.get(),
             )
-        };
+        });
+        self.publish_return("symbolic");
         if self.symbolic.is_null() {
             return Err(LinearSolverError::KluFailedToAnalyze);
         }
@@ -334,6 +447,25 @@ impl LinearSolver<M> for Klu {
         }
     }
     fn set_linearisation<C: LinearOp<T = f64, V = V, M = M, C = FaerContext>>(&mut self, op: &C) {
+        crate::observation::unavailable(
+            "diffsol.klu.rcond",
+            "not calculated for current numeric attempt",
+        );
+        crate::observation::unavailable(
+            "diffsol.klu.condest",
+            "not calculated for current numeric attempt",
+        );
+        crate::observation::unavailable(
+            "diffsol.klu.numerical_rank",
+            "current numeric attempt has not established a pivot result",
+        );
+        crate::observation::boolean("diffsol.klu.factor.valid", false);
+        for name in ["l_entries", "u_entries", "off_diagonal_entries"] {
+            crate::observation::unavailable(
+                &format!("diffsol.klu.factor.{name}"),
+                "current numeric attempt has not established storage",
+            );
+        }
         let Some(mut matrix) = self.matrix.take() else {
             return;
         };
@@ -355,9 +487,14 @@ impl LinearSolver<M> for Klu {
                 self.matrix = Some(matrix);
                 return;
             }
+            let had_numeric = !self.numeric.is_null();
             if self.refactor(&mut matrix) {
+                crate::observation::boolean("diffsol.klu.factor.valid", true);
                 self.matrix = Some(matrix);
                 return;
+            }
+            if had_numeric {
+                crate::observation::count("diffsol.klu.refactor.rejected_full_fallback", 1);
             }
             self.free_numeric();
             #[cfg(test)]
@@ -366,7 +503,7 @@ impl LinearSolver<M> for Klu {
             }
             // SAFETY: the values follow the analyzed pattern, whose copies outlive the call;
             // the symbolic object and the boxed common object are live.
-            self.numeric = unsafe {
+            self.numeric = crate::observation::scoped("diffsol.klu.factor", || unsafe {
                 klu::klu_l_factor(
                     self.columns.as_ptr(),
                     self.rows.as_ptr(),
@@ -374,7 +511,17 @@ impl LinearSolver<M> for Klu {
                     self.symbolic,
                     self.common.get(),
                 )
-            };
+            });
+            crate::observation::count(
+                if self.numeric.is_null() {
+                    "diffsol.klu.factor.failed"
+                } else {
+                    "diffsol.klu.factor.succeeded"
+                },
+                1,
+            );
+            self.publish_return("factor");
+            crate::observation::boolean("diffsol.klu.factor.valid", !self.numeric.is_null());
             if self.numeric.is_null() {
                 self.failure = match u32::try_from(self.status()) {
                     Ok(klu::KLU_SINGULAR) => LinearSolverError::Other(
@@ -396,7 +543,7 @@ impl LinearSolver<M> for Klu {
         }
         // SAFETY: `x` holds n contiguous values; the factors and the boxed common object are
         // live, and no other KLU call on them is in progress.
-        let solved = unsafe {
+        let solved = crate::observation::scoped("diffsol.klu.solve", || unsafe {
             klu::klu_l_solve(
                 self.symbolic,
                 self.numeric,
@@ -405,7 +552,8 @@ impl LinearSolver<M> for Klu {
                 x.as_mut_slice().as_mut_ptr(),
                 self.common.get(),
             )
-        };
+        });
+        self.publish_return("solve");
         if solved != 1 {
             return Err(LinearSolverError::LuSolveFailed.into());
         }
@@ -442,6 +590,10 @@ mod tests {
     /// The native factor uses the operator's admitted context, not ambient globals.
     #[test]
     fn faer_factor_consumes_serial_integrator_context() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("faer-scratch-extent");
+        let _entered = operation.context().enter();
         let context = FaerContext { par: Par::Seq };
         let matrix = faer::sparse::SparseColMat::try_new_from_triplets(
             2,
@@ -460,6 +612,30 @@ mod tests {
         let mut x = V::from_vec(vec![2.0, 8.0], context);
         solver.solve_in_place(&mut x).unwrap();
         assert_eq!(x.as_slice(), &[1.0, 2.0]);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "diffsol.faer.storage.matrix_entries")
+                .unwrap()
+                .latest,
+            Value::Integer(2)
+        );
+        assert!(
+            matches!(snapshot.metrics.iter().find(|metric| metric.name == "diffsol.faer.storage.scratch_requested_bytes").unwrap().latest, Value::Integer(value) if value > 0)
+        );
+        assert!(matches!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "diffsol.faer.storage.numeric_fill")
+                .unwrap()
+                .latest,
+            Value::Unavailable(_)
+        ));
     }
 
     /// Solve with column-major values `[a00, a10, a01, a11]`.
@@ -565,6 +741,10 @@ mod tests {
 
     #[test]
     fn klu_refactor_reuses_storage_and_fresh_factor_recovers_changed_pivots() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("klu-returned-factor-entries");
+        let _entered = operation.context().enter();
         let context = FaerContext { par: Par::Seq };
         let triplets = [(0, 0), (1, 0), (0, 1), (1, 1)]
             .into_iter()
@@ -579,6 +759,17 @@ mod tests {
         op.0.val_mut().copy_from_slice(&[2., 0., 0., 4.]);
         solver.set_linearisation(&op);
         let original = solver.numeric;
+        let initial = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        for name in [
+            "diffsol.klu.factor.l_entries",
+            "diffsol.klu.factor.u_entries",
+        ] {
+            assert!(
+                matches!(initial.metrics.iter().find(|metric| metric.name == name).unwrap().latest, Value::Integer(value) if value >= 2)
+            );
+        }
         op.0.val_mut().copy_from_slice(&[4., 0., 0., 2.]);
         solver.set_linearisation(&op);
         assert_eq!(

@@ -173,6 +173,9 @@ impl PreparedModeling {
             .iter()
             .flat_map(|i| i.slots.iter().map(|s| s.source()))
             .collect::<BTreeSet<_>>();
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("compiler.observation_structures", "count", 1);
+        }
         Ok(Arc::new(CaseStructure::new(
             variables
                 .iter()
@@ -440,19 +443,34 @@ impl PreparedCase {
     /// Values that do not bind this structure, a refused derived parameter, a failed
     /// projection, or cancellation.
     pub fn rebind(&self, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("compiler.value_rebinds", "count", 1);
+            context.phase("compiler.value_rebind")
+        });
         let _span = tracing::info_span!("pse.case.value_rebind").entered();
         let mut rebound = self.clone();
         if !self.derived.matches(values) {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.derived_consumed_value_changes", "count", 1);
+            }
             rebound.derived = Arc::new(self.derivation.derive(values, cancel)?).into();
         }
         let values = rebound.derived.complete(values);
         self.plan.structure().validate_frozen_values(&values)?;
         rebound.coefficient_values = Arc::new(fixed_values(&self.plan, &values)?).into();
         if !self.products_match(&values) {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.product_consumed_value_changes", "count", 1);
+            }
             let bound = ValueProducts::bind(&self.plan, &values, self.class_proof_work, cancel)?;
             rebound.presolve = bound.presolve.into();
             rebound.coefficients = bound.coefficients.map(Into::into);
             rebound.facts = bound.facts;
+        } else if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("compiler.value_product_reuses", "count", 1);
+        }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("compiler.value_rebinds_completed", "count", 1);
         }
         Ok(rebound)
     }
@@ -642,18 +660,28 @@ impl CompilerWorkspace {
     pub fn prepare_modeling_observations(
         &self,
         model: &PreparedModeling,
-        rows: &BTreeSet<SemanticId>,
+        structure: Arc<CaseStructure>,
         profile: Profile,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedFunctions> {
+        let bodies = structure
+            .instances()
+            .iter()
+            .map(|binding| binding.body)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(|key| {
+                model
+                    .admitted
+                    .bodies
+                    .get(&key)
+                    .map(|body| (key, body.math.clone()))
+                    .ok_or_else(|| CompileError::Missing("observation body".into()))
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
         let plan = Arc::new(CasePlan::prepare(
-            model.observation_structure(rows)?,
-            model
-                .admitted
-                .bodies
-                .iter()
-                .map(|(k, b)| (*k, b.math.clone()))
-                .collect(),
+            structure,
+            bodies,
             &self.inputs.quantities,
             DerivativeOrder::Value,
             profile.assembly,
@@ -678,17 +706,20 @@ impl CompilerWorkspace {
         profile: Profile,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedFunctions> {
-        let source = model.admitted.plan(
-            &self.inputs.quantities,
-            DerivativeOrder::Value,
-            profile.assembly,
-            cancel,
-        )?;
-        let plan = Arc::new(source.functions(
+        let plan = Arc::new(CasePlan::prepare_functions(
+            &model.admitted.case,
+            |key| {
+                model
+                    .admitted
+                    .bodies
+                    .get(&key)
+                    .map(|body| body.math.clone())
+            },
             &rows,
             coordinates,
             &self.inputs.quantities,
             order,
+            profile.assembly,
             cancel,
         )?);
         Ok(PreparedFunctions {

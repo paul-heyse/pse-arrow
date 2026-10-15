@@ -39,6 +39,124 @@ fn execution() -> Execution {
 }
 
 #[test]
+fn copied_watch_context_attributes_progress_and_restores_foreign_worker_context() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value, current};
+    let hub = ObservationHub::new(Policy::default());
+    let source = hub.start("scip-captured-attempt");
+    let unrelated = hub.start("unrelated-worker-task");
+    let captured = source.context();
+    let other = unrelated.context();
+    std::thread::spawn(move || {
+        assert!(current().is_none());
+        let watch = Watch {
+            observation_context: Some(captured.clone()),
+            cancel: Arc::default(),
+            progress: Arc::new(Progress::new(0)),
+            started: Instant::now(),
+            events: AtomicU64::new(0),
+            interrupted: AtomicBool::new(false),
+            failed: AtomicBool::new(false),
+            objective: None,
+        };
+        for unrelated in [false, true] {
+            let _other = unrelated.then(|| other.enter());
+            let previous = current().map(|context| context.id());
+            // This is the scope entered by both native event callbacks, including
+            // a copied handler on a library-created thread without caller TLS.
+            let code = contained(|| {
+                let _observation = watch.observation_scope();
+                assert_eq!(current().unwrap().id(), captured.id());
+                watch.progress.push(Event {
+                    phase: "scip.incumbent".into(),
+                    elapsed: Duration::ZERO,
+                    values: BTreeMap::from([("worker_probe".into(), Metric::Integer(7))]),
+                    incumbent: None,
+                });
+                ffi::SCIP_Retcode_SCIP_OKAY
+            });
+            assert_eq!(code, ffi::SCIP_Retcode_SCIP_OKAY);
+            assert_eq!(current().map(|context| context.id()), previous);
+        }
+        assert!(current().is_none());
+    })
+    .join()
+    .unwrap();
+    let snapshot = source.reader().snapshot(Duration::from_secs(60));
+    assert_eq!(
+        snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "scip.incumbent.checkpoints")
+            .unwrap()
+            .cumulative,
+        Value::Count(2)
+    );
+    assert!(
+        unrelated
+            .reader()
+            .snapshot(Duration::from_secs(60))
+            .metrics
+            .is_empty()
+    );
+}
+
+#[test]
+fn selected_plugin_statistics_respect_stage_presence_and_optional_timing() {
+    let execution = execution();
+    let instance = Instance::new(&execution, Modes::default()).unwrap();
+    let mut metrics = BTreeMap::new();
+    selected_plugin_statistics(&instance, &mut metrics);
+    assert_eq!(
+        metrics["scip.plugins.selected"],
+        Metric::Unavailable(UnavailableReason::NotApplicable)
+    );
+    assert!(!metrics.contains_key("scip.plugin.presolve.dualinfer.calls"));
+    native!("SCIPsolve", ffi::SCIPsolve(instance.ptr())).unwrap();
+    metrics.clear();
+    selected_plugin_statistics(&instance, &mut metrics);
+    assert!(matches!(metrics["scip.plugins.selected"], Metric::Text(_)));
+    assert!(matches!(
+        metrics["scip.plugins.reset_on_initialization"],
+        Metric::Bool(_)
+    ));
+    for prefix in [
+        "scip.plugin.presolve.dualinfer",
+        "scip.plugin.propagation.pseudoobj",
+        "scip.plugin.separation.gomory",
+        "scip.plugin.constraint.nonlinear",
+    ] {
+        assert_eq!(metrics[&format!("{prefix}.present")], Metric::Bool(true));
+    }
+    for name in [
+        "scip.plugin.presolve.dualinfer.calls",
+        "scip.plugin.propagation.pseudoobj.calls",
+        "scip.plugin.separation.gomory.calls",
+        "scip.plugin.constraint.nonlinear.presolve_calls",
+    ] {
+        assert!(matches!(metrics[name], Metric::Integer(value) if value >= 0));
+    }
+    if metrics["scip.plugin.nlpi.ipopt.present"] == Metric::Bool(true) {
+        assert_eq!(
+            metrics["scip.plugin.nlpi.ipopt.evaluation_timing_enabled"],
+            Metric::Bool(false)
+        );
+        assert_eq!(
+            metrics["scip.plugin.nlpi.ipopt.evaluation_seconds"],
+            Metric::Unavailable(UnavailableReason::NotRequested)
+        );
+        assert!(
+            matches!(metrics["scip.plugin.nlpi.ipopt.solves"], Metric::Integer(value) if value >= 0)
+        );
+    } else {
+        assert_eq!(
+            metrics["scip.plugin.nlpi.ipopt"],
+            Metric::Unavailable(UnavailableReason::NotApplicable)
+        );
+        assert!(!metrics.contains_key("scip.plugin.nlpi.ipopt.solves"));
+    }
+}
+
+#[test]
 fn nested_defaults_refuse_domain_overrides_and_nonserial_openmp_lists() {
     let serial = defaults();
     for list in [None, Some("1"), Some("1, 1")] {

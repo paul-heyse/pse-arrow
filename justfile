@@ -267,6 +267,13 @@ assessment *args:
 assessment-list *args:
     "{{ py }}" -m scripts.validation --list "$@"
 
+[group('discovery')]
+[doc('Read published simulation diagnostics or explicitly capture a bounded profile; never builds or opens a store')]
+[positional-arguments]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+diagnostics *args:
+    "{{ py }}" -c 'from pse.diagnostics import main; raise SystemExit(main())' "$@"
+
 [group('local')]
 fmt-rust-check:
     cargo fmt --all -- --check
@@ -1365,7 +1372,7 @@ bench-case-smoke output *args:
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure --smoke "$@"
 
 [group('local')]
-[doc('Fresh-process Criterion cases; requires --functional-from with completed local qualification')]
+[doc('Fresh-process Criterion observations; optional --functional-from completed test reference')]
 [positional-arguments]
 case-measure output *args:
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure "$@"

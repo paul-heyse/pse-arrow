@@ -15,6 +15,28 @@ use pse_kernels::DerivativeOrder;
 use pse_math::facts::{BoundShape, ProblemFacts};
 use pse_model::generated::enums::ModelingVariableDomain;
 
+#[cfg(not(feature = "ipopt"))]
+#[test]
+fn unlinked_native_return_has_explicit_observation_coverage() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("unlinked-native");
+    let _entered = operation.context().enter();
+    assert!(matches!(
+        super::unlinked(Backend::Ipopt),
+        ProblemError::Unavailable {
+            backend: Backend::Ipopt,
+            ..
+        }
+    ));
+    let snapshot = operation
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    assert!(
+        matches!(&snapshot.metrics.iter().find(|m| m.name == "ipopt.native").unwrap().latest, Value::Unavailable(reason) if reason.contains("not linked"))
+    );
+}
+
 /// A test-only adapter. It is known to no routing, runner or workflow code: it reaches
 /// execution only through its capability record and a table entry.
 #[derive(Debug)]

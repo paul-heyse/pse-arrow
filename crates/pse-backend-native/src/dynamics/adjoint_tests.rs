@@ -237,6 +237,89 @@ fn adjoint(oracle: &mut Reactor, p: &Profile, parameters: &[f64]) -> Gradient {
     .unwrap()
 }
 
+#[cfg(feature = "diffsol")]
+#[test]
+fn diffsol_adjoint_live_roles_preserve_counter_epochs_and_scientific_calls() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let mut p = reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, false, true);
+    p.adjoint.steps_between_checkpoints = PositiveCount::try_new(3).unwrap();
+    let parameters = reactor_parameters(true);
+    let mut control = Reactor::new(false);
+    let reference = adjoint(&mut control, &p, &parameters);
+    assert_eq!(reference.report.termination, Termination::Completed);
+    let hub = ObservationHub::new(Policy {
+        max_metrics: 256,
+        ..Policy::default()
+    });
+    let operation = hub.start("diffsol-adjoint-live-roles");
+    let mut observed = Reactor::new(false);
+    let result = {
+        let _entered = operation.context().enter();
+        adjoint(&mut observed, &p, &parameters)
+    };
+    assert_eq!(
+        result.report.termination,
+        Termination::Completed,
+        "{:?}",
+        result.report.error
+    );
+    assert_eq!(observed.evaluations.get(), control.evaluations.get());
+    assert_eq!(result.gradient, reference.gradient);
+    let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+    for role in [
+        "diffsol.adjoint.forward_record",
+        "diffsol.adjoint.backward",
+        "diffsol.adjoint.replay",
+    ] {
+        let metric = |suffix: &str| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == format!("{role}.{suffix}"))
+                .unwrap()
+        };
+        assert!(
+            matches!(metric("number_of_steps").cumulative, Value::Count(value) if value > 0),
+            "{role}"
+        );
+        assert!(
+            matches!(metric("physical_time").latest, Value::Number(_)),
+            "{role}"
+        );
+        assert_eq!(
+            metric("last_step_returned_success").latest,
+            Value::Boolean(true)
+        );
+        assert!(snapshot.metrics.iter().any(|metric| metric.name
+            == format!("{role}.number_of_linear_solver_setups_from_checkpoint")));
+    }
+    let backward = snapshot
+        .metrics
+        .iter()
+        .find(|metric| metric.name == "diffsol.adjoint.backward.number_of_steps")
+        .unwrap();
+    assert!(backward.resets > 0);
+    let forwarded: u64 = result
+        .report
+        .statistics
+        .iter()
+        .filter_map(|value| {
+            value
+                .get("number_of_steps")
+                .and_then(serde_json::Value::as_u64)
+        })
+        .sum();
+    assert_eq!(
+        snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "diffsol.adjoint.forward_record.number_of_steps")
+            .unwrap()
+            .cumulative,
+        Value::Count(forwarded)
+    );
+}
+
 /// The adjoint gradient of J = Σ wᵢₒ·yₒ(tᵢ) equals the forward sensitivities contracted
 /// with the same weights, and central finite differences of J, for every scheme, the ODE
 /// and the DAE, and a scheduled feed whose intervals cross two changes, with the declared

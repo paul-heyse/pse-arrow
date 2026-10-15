@@ -167,6 +167,10 @@ impl BackendExecution for PounceConvex {
         #[cfg(not(feature = "pounce"))]
         {
             let _ = retained;
+            crate::observation::unavailable(
+                "pounce_convex.native",
+                "selected backend is not linked in this build",
+            );
             inputs
                 .iter()
                 .map(|_| {
@@ -193,7 +197,7 @@ mod native {
     };
     use pounce_rs::{
         convex::{
-            ConeSpec, QpOptions, QpProblem, QpSolution, QpStatus, Triplet, solve_qp_batch_parallel,
+            ConeSpec, QpOptions, QpProblem, QpSolution, QpStatus, Triplet, solve_qp_ipm,
             solve_socp_ipm,
         },
         linsol::{FeralSolverInterface, SparseSymLinearSolverInterface},
@@ -474,6 +478,7 @@ mod native {
             pool_width: NonZeroUsize,
         }
         let serial = active.len() > 1;
+        let observation_context = pse_diagnostics::observation::current();
         let jobs: Vec<Job<'_>> = active
             .iter()
             .filter_map(|i| {
@@ -513,27 +518,79 @@ mod native {
                     && j.pool_width == f.pool_width
             })
         });
-        if uniform && let Some(first) = jobs.first() {
-            let problems: Vec<QpProblem> = jobs.iter().map(|j| j.problem.clone()).collect();
-            return solve_qp_batch_parallel(
-                &problems,
-                first.options,
-                backend(&first.linear, first.pool_width),
-            )
-            .into_iter()
-            .map(Some)
-            .collect();
+        if uniform {
+            crate::observation::unavailable(
+                "pounce_convex.session_stats",
+                "cold IPM route has no ActiveSetSession/PresolveStats; no accepted parametric reuse",
+            );
+            // The pinned batch helper is exactly par_iter + solve_qp_ipm. Keep that
+            // native entry point while installing each member's copied context on
+            // its actual worker; a shared backend factory cannot identify a member.
+            return jobs
+                .par_iter()
+                .map(|j| {
+                    let operation = observation_context.as_ref().map(|context| {
+                        context.child(
+                            "pounce_convex.member",
+                            pse_diagnostics::observation::Relationship::Nested,
+                        )
+                    });
+                    let _entered = operation
+                        .as_ref()
+                        .map(|operation| operation.context().enter());
+                    let solution = crate::observation::scoped("pounce_convex.qp_ipm", || {
+                        solve_qp_ipm(j.problem, j.options, backend(&j.linear, j.pool_width))
+                    });
+                    observe_solution(&solution);
+                    if let Some(operation) = operation {
+                        operation.finish(pse_diagnostics::observation::Outcome::Completed);
+                    }
+                    Some(solution)
+                })
+                .collect();
         }
         jobs.par_iter()
             .map(|j| {
-                Some(solve_socp_ipm(
-                    j.problem,
-                    j.specs,
-                    j.options,
-                    backend(&j.linear, j.pool_width),
-                ))
+                let operation = observation_context.as_ref().map(|context| {
+                    context.child(
+                        "pounce_convex.member",
+                        pse_diagnostics::observation::Relationship::Nested,
+                    )
+                });
+                let _entered = operation
+                    .as_ref()
+                    .map(|operation| operation.context().enter());
+                crate::observation::unavailable(
+                    "pounce_convex.live_iteration",
+                    "IPM route returns its solution after solve; no callback in this entry point",
+                );
+                let solution = crate::observation::scoped("pounce_convex.solve", || {
+                    solve_socp_ipm(
+                        j.problem,
+                        j.specs,
+                        j.options,
+                        backend(&j.linear, j.pool_width),
+                    )
+                });
+                observe_solution(&solution);
+                if let Some(operation) = operation {
+                    operation.finish(pse_diagnostics::observation::Outcome::Completed);
+                }
+                Some(solution)
             })
             .collect()
+    }
+
+    fn observe_solution(solution: &QpSolution) {
+        crate::observation::integer(
+            "pounce_convex.iterations",
+            "count",
+            i64::try_from(solution.iters).unwrap_or(i64::MAX),
+        );
+        crate::observation::gauge("pounce_convex.objective", "native_objective", solution.obj);
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.text("pounce_convex.status", status_name(solution.status));
+        }
     }
 
     fn status_name(status: QpStatus) -> &'static str {

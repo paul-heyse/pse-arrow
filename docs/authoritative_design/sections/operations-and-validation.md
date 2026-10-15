@@ -57,9 +57,39 @@ back by `Runtime::progress` or queried under `pse_ops`
 detail is in the [generated runtime reference](../../generated/relations/runtime.md);
 result meaning is owned by [§19](workflows-and-results.md#section-19).
 
-**Limits.** Spans cover preparation, assembly and storage boundaries, not individual
-residual or derivative evaluations. There is no metrics exporter or distributed trace
-propagation beyond `tracing` task propagation inside the engine.
+**Operation diagnostics.** Ordinary workflow operations establish an inspectable diagnostic
+identity before expensive preparation/admission. Lightweight collection maintains current
+activity, cumulative owner facts and bounded recent context; the default recent request is
+60 seconds, shortened to actual observed duration. Explicit opt-out, loss, reset, curtailment,
+staleness and interruption remain visible. Diagnostic identities reference scientific
+model/run/attempt identities without changing their authority or cache keys.
+
+The low observation vocabulary belongs to `pse-diagnostics`; runtime composes access and
+publication, and numerical/context owners retain their meanings. Explicit propagation follows
+async tasks, native threads, shared producers/waiters and actual managed/native-child
+execution. Library code does not install a global subscriber. A reader retains copied
+observations rather than scientific cancellation leases or native resources. Closing a
+reader does not stop execution; native ownership ends only after actual drain/join.
+
+Independent same-host readers consume bounded atomically published process checkpoints,
+separate from scientific request/result IPC and closed-result admission. A checkpoint's
+publication time is not the freshness of its native facts. Cross-process composition is not
+atomic, and hard death preserves at most the last published prefix. Optional writer failure
+cannot supply or revoke scientific permission. Cleanup follows exact diagnostic ownership
+and publisher lifetime, never generic age/size deletion.
+
+Numerical observations preserve native phase, activation, coordinate, unit, clock and reset
+semantics. Owner-safe callbacks/returns publish already available facts; inspection performs
+no residual/property/derivative evaluation, query replay or unsynchronized foreign getter.
+Inclusive/parallel/shared work is not blindly summed; unknown is not zero and an unattributed
+interval is not automatically waiting. A native checkpoint is not an accepted physical state.
+
+Deep callback detail, expensive engine plans, exporters and sampling remain optional. Engine
+`ObservationPolicy::Off` does not disable ordinary lightweight operation diagnostics or imply
+that absent engine metrics are zero. Collection bounds are diagnostic settings, not numerical
+work limits or new scientific/cache identities. No exact overhead/latency criterion or
+identical trajectory guarantee is added. Environment/provenance proof campaigns remain
+permanently eliminated. Plan 40 owns implementation and qualification of this accepted target.
 
 ### 23.2 Failure taxonomy
 
@@ -403,11 +433,13 @@ Source integration and document reconciliation alone do not establish acceptance
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
 
-Measurement prerequisites name the relevant functional recipe scopes (process, preparation,
-admission or lifecycle). Existing runners own case selection; no second selector or exact
-test-name manifest is maintained. Full coverage can satisfy a narrower declared scope;
-arbitrary filters are never inferred equivalent. Native identity and actual conditions
-remain part of applicability.
+Design-phase measurements run the declared cases and retain their actual samples, scientific
+assertions, execution conditions and cleanup outcomes. A functional report may be referenced
+for context; identical source, environment, native bytes or artifact provenance is not a
+prerequisite. Differences are observations, not automatic invalidation. Actual command/test
+failures, invalid samples and unsafe ownership or drain still fail. Existing runners own case
+selection; no second test-name manifest or proof campaign is required. Comparative performance
+claims still require a controlled comparison.
 
 Criterion benchmarks live in `benches/` (`pse-benches`): `canonicalization`,
 `native_cache`, `native_consolidation`, `native_process` (complete-process cases) and
@@ -419,7 +451,7 @@ under inline and nested realizations; nothing is solved, and workloads are regis
 | Command | Purpose |
 |---|---|
 | `just bench-smoke` | runs every benchmark once as a test; no timing |
-| `just case-measure <output> --functional-from <qualification>` | fresh-process case measurements; requires completed functional qualification of the same source |
+| `just case-measure <output> [--functional-from <report>]` | fresh-process observations; optional reference to actual passing functional tests, with execution differences recorded |
 | `just bench-production` | production-equivalent native measurements without force-validation, in an isolated target directory, memory-capped (each recipe command runs in its own `scripts/pse-env` scope), with receipts under the repository `build/` |
 
 Measurement rules:

@@ -26,6 +26,7 @@ use surrealdb::{
     opt::{Config, WebsocketConfig},
     types::{Object, Value},
 };
+pub use transport::CanonicalQuerySample;
 use transport::{CanonicalClient, original_deadline, within_clock};
 
 /// Initial negotiated protocol limit; batches must leave space for their envelope.

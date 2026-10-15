@@ -224,17 +224,15 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::ModelingPointChecks, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         let control = FlightCancellation::default();
-        let operation = self.job_scoped(
-            1,
-            super::WITHIN_WORKSPACE,
+        let operation = self.compiler_job(
+            workspace,
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
             control.clone(),
             driver.deadline(),
-            move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+            move |authority, flag| {
+                let compiler = authority.lock()?;
                 Ok(compiler.check_prepared_modeling_point(
                     model.compiled(),
                     model.solved().model(),
@@ -263,6 +261,7 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, MathRuntimeError>
     {
+        let driver = self.preparation_driver(driver)?;
         if inner.is_empty() {
             return Ok(external);
         }
@@ -587,19 +586,18 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<(), MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         if rows.is_empty() && columns.is_empty() {
             return Ok(());
         }
         let control = FlightCancellation::default();
-        let operation = self.job(
-            1,
-            pse_structural::incidence::MATCHING_STACK,
+        let operation = self.compiler_job(
+            workspace,
+            super::ConstructionEstimate::Known(pse_structural::incidence::MATCHING_STACK),
             control.clone(),
-            move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+            driver.deadline(),
+            move |authority, flag| {
+                let compiler = authority.lock()?;
                 let analysis = compiler.analyze_modeling_partition(
                     model.compiled(),
                     rows,
@@ -633,13 +631,15 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+        let operation = self.compiler_job_retained(
+            workspace,
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+            control.clone(),
+            driver.deadline(),
+            move |authority, flag| {
+                let compiler = authority.lock()?;
                 let prepared = compiler.prepare_modeling_functions(
                     model.compiled(),
                     rows,
@@ -650,10 +650,11 @@ impl MathService {
                 )?;
                 let bytes = prepared.plan.retained_bytes();
                 Ok((prepared, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.assemble_functions(prepared, lease, driver).await
+        self.assemble_functions(prepared, lease, &driver).await
     }
     /// Compile the parametric program of a prepared solver view over `parameters`, in
     /// request order (Plan 22 S1), through the compiler and artifact cache. It depends on no
@@ -667,13 +668,15 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+        let operation = self.compiler_job_retained(
+            workspace,
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+            control.clone(),
+            driver.deadline(),
+            move |authority, flag| {
+                let compiler = authority.lock()?;
                 let prepared = compiler.prepare_modeling_parametric(
                     view.compiled(),
                     &parameters,
@@ -683,41 +686,45 @@ impl MathService {
                 )?;
                 let bytes = prepared.plan.retained_bytes();
                 Ok((prepared, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.assemble_functions(prepared, lease, driver).await
+        self.assemble_functions(prepared, lease, &driver).await
     }
-    /// Compile a value-independent observation program for `rows` through the compiler
-    /// and artifact cache. Every evaluation binds its own values (A6).
+    /// Compile the carried selected observation structure through the compiler and
+    /// artifact cache without reconstructing it. Each evaluation binds its own values.
     pub async fn prepare_modeling_observations(
         self: &Arc<Self>,
         workspace: Workspace,
         model: ModelingPreparation,
-        rows: std::collections::BTreeSet<SemanticId>,
+        structure: Arc<pse_math::binding::CaseStructure>,
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+        let operation = self.compiler_job_retained(
+            workspace,
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+            control.clone(),
+            driver.deadline(),
+            move |authority, flag| {
+                let compiler = authority.lock()?;
                 let product = compiler.prepare_modeling_observations(
                     model.compiled(),
-                    &rows,
+                    structure,
                     profile,
                     &flag,
                 )?;
                 let bytes = product.plan.retained_bytes();
                 Ok((product, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.count(|p| &p.observations);
-        self.assemble_functions(product, lease, driver).await
+        self.assemble_functions(product, lease, &driver).await
     }
     /// Prepare the solver view of a bound structure and bind its first values: one
     /// structural preparation (A6). Later values rebind it ([`Self::rebind`]).
@@ -735,13 +742,15 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<super::Preparation, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+        let operation = self.compiler_job_retained(
+            workspace,
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+            control.clone(),
+            driver.deadline(),
+            move |authority, flag| {
+                let compiler = authority.lock()?;
                 let product = compiler.prepare_modeling_view(
                     model.compiled(),
                     structure,
@@ -752,7 +761,8 @@ impl MathService {
                 )?;
                 let bytes = product.retained_bytes();
                 Ok((product, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.count(|p| &p.views);
@@ -781,9 +791,11 @@ impl MathService {
         driver: &crate::CancelSource,
         deadline: Option<std::time::Instant>,
     ) -> Result<super::Preparation, MathRuntimeError> {
-        // Both phases share the enclosing clock or one admission-only cutoff.
-        // A comparison needing Derived::complete or frozen-value validation copies
-        // metadata only after bounded population/CPU/pool admission.
+        // Both phases share the earliest explicit clock or one policy-resolved
+        // preparation clock, including native execution and actual join.
+        let deadline = deadline.into_iter().chain(driver.deadline()).min();
+        let driver = self.preparation_driver(&driver.with_deadline(deadline))?;
+        let deadline = driver.deadline();
         let cutoff = self.admission_deadline(deadline)?;
         let compiled = prepared.prepared.clone();
         let binding_demand = compiled.rebind_binding_allocation_bound(&values)?;
@@ -875,30 +887,48 @@ impl MathService {
         let bytes = rebound.rebind_allocation_bytes(compiled);
         self.own_rebind(prepared, rebound, retained_construction(lease, bytes)?)
     }
-    /// Own immutable generated declarations and their package data documents under the
-    /// deployment pool.
-    pub fn modeling_revision(
-        &self,
+    /// Admit immutable source through population and compiler ownership before dispatch.
+    pub async fn modeling_revision(
+        self: &Arc<Self>,
         workspace: &Workspace,
         rows: Vec<Declaration>,
         scope: pse_modeling::PhysicalScope,
         documents: Arc<pse_modeling::document::DocumentInventory>,
         physical: &pse_ids::ContentHash,
+        driver: &crate::CancelSource,
     ) -> Result<ModelingRevision, MathRuntimeError> {
-        let reservation =
-            pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
-        self.pressure
-            .try_grow(&reservation, self.policy.workspace_bytes / 2)?;
-        self.admit_modeling_revision(
-            workspace,
-            rows,
-            scope,
-            documents,
-            physical,
-            reservation,
-            Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            &BTreeMap::new(),
-        )
+        let driver = self.preparation_driver(driver)?;
+        let service = self.clone();
+        let physical = *physical;
+        let deadline = driver.deadline();
+        let control = FlightCancellation::default();
+        let operation = self.compiler_job(
+            workspace.clone(),
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+            control.clone(),
+            deadline,
+            move |authority, flag| {
+                let reservation = pse_columnar::MemoryConsumer::new("modeling:source-revision")
+                    .register(&service.pool);
+                service
+                    .pressure
+                    .try_grow(&reservation, service.policy.workspace_bytes / 2)?;
+                service.admit_modeling_revision(
+                    &authority,
+                    rows,
+                    scope,
+                    documents,
+                    &physical,
+                    reservation,
+                    flag,
+                    &BTreeMap::new(),
+                )
+            },
+        );
+        tokio::pin!(operation);
+        tokio::select! { result = &mut operation => result, () = driver.cancelled() => {
+            control.cancel(); let _ = operation.await; Err(MathRuntimeError::Cancelled)
+        }}
     }
     #[expect(
         clippy::too_many_arguments,
@@ -906,7 +936,7 @@ impl MathService {
     )]
     fn admit_modeling_revision(
         &self,
-        workspace: &Workspace,
+        authority: &super::CompilerAuthority,
         rows: Vec<Declaration>,
         scope: pse_modeling::PhysicalScope,
         documents: Arc<pse_modeling::document::DocumentInventory>,
@@ -922,11 +952,12 @@ impl MathService {
             return Err(MathRuntimeError::Limit("modeling source bytes"));
         }
         let mut supplier_refused = false;
-        let admitted = workspace
-            .compiler
-            .lock()
-            .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?
-            .publish_modeling_with_validation(rows, scope, documents, cancel, |candidate| {
+        let admitted = authority.lock()?.publish_modeling_with_validation(
+            rows,
+            scope,
+            documents,
+            cancel,
+            |candidate| {
                 for (record, supplier) in suppliers {
                     if candidate.record(*record).map(|record| record.origin) != Some(*supplier) {
                         supplier_refused = true;
@@ -937,7 +968,8 @@ impl MathService {
                     }
                 }
                 Ok(())
-            });
+            },
+        );
         if supplier_refused {
             return Err(MathRuntimeError::Infrastructure(
                 "canonical record supplier differs from admitted scientific identity".into(),
@@ -976,20 +1008,20 @@ impl MathService {
         limits: Limits,
         driver: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::SemanticModeling, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         let service = self.clone();
         let control = FlightCancellation::default();
-        let operation = self.job_retained_scoped(
-            1,
-            super::WITHIN_WORKSPACE,
+        let operation = self.compiler_job_retained(
+            workspace,
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
             control.clone(),
             driver.deadline(),
-            move |flag| {
-                let product =
-                    service.with_modeling_compiler(&workspace, &revision, |compiler| {
-                        Ok(compiler.prepare_semantic_modeling_cancellable(
-                            root, instance, bindings, limits, flag,
-                        )?)
-                    })?;
+            move |authority, flag| {
+                let product = service.with_modeling_compiler(authority, &revision, |compiler| {
+                    Ok(compiler.prepare_semantic_modeling_cancellable(
+                        root, instance, bindings, limits, flag,
+                    )?)
+                })?;
                 let bytes = product.retained_bytes();
                 Ok((product, bytes))
             },
@@ -1019,6 +1051,8 @@ impl MathService {
         limits: Limits,
         driver: &crate::CancelSource,
     ) -> Result<ModelingPreparation, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
+
         let frontier = self
             .plan_frontier(
                 workspace.clone(),
@@ -1027,10 +1061,10 @@ impl MathService {
                 instance,
                 bindings,
                 limits,
-                driver,
+                &driver,
             )
             .await?;
-        self.complete_frontier(workspace, Arc::new(frontier), driver)
+        self.complete_frontier(workspace, Arc::new(frontier), &driver)
             .await
     }
 }
@@ -1328,16 +1362,13 @@ impl MathService {
     /// The comparison and current-lane operation share the same exclusive compiler guard.
     pub(crate) fn with_modeling_compiler<T>(
         self: &Arc<Self>,
-        workspace: &Workspace,
+        authority: super::CompilerAuthority,
         revision: &ModelingRevision,
         operation: impl FnOnce(
             &mut pse_compiler::workspace::CompilerWorkspace,
         ) -> Result<T, MathRuntimeError>,
     ) -> Result<T, MathRuntimeError> {
-        let mut compiler = workspace
-            .compiler
-            .lock()
-            .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
+        let mut compiler = authority.lock()?;
         if !compiler.has_modeling_revision()
             || compiler.selects_modeling_revision(&revision.admitted)
         {
@@ -1348,11 +1379,11 @@ impl MathService {
         }
         let inputs = compiler.context();
         drop(compiler);
+        authority.release()?;
         let detached =
             self.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;
-        let mut compiler = detached.compiler.lock().map_err(|_| {
-            MathRuntimeError::Infrastructure("detached compiler lock poisoned".into())
-        })?;
+        let detached = authority.replace_private(detached)?;
+        let mut compiler = detached.lock()?;
         compiler.publish_modeling_revision(revision.admitted.clone())?;
         operation(&mut compiler)
     }
@@ -1363,7 +1394,7 @@ impl MathService {
     )]
     pub(crate) fn modeling_revision_at(
         self: &Arc<Self>,
-        workspace: &Workspace,
+        authority: super::CompilerAuthority,
         rows: Vec<Declaration>,
         scope: pse_modeling::PhysicalScope,
         documents: Arc<pse_modeling::document::DocumentInventory>,
@@ -1377,19 +1408,17 @@ impl MathService {
             pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
         self.pressure
             .try_grow(&reservation, self.policy.workspace_bytes / 2)?;
-        let mut head = workspace
-            .lane_head
-            .lock()
-            .map_err(|_| MathRuntimeError::Infrastructure("compiler lane head poisoned".into()))?;
+        let mut head =
+            authority.workspace.lane_head.lock().map_err(|_| {
+                MathRuntimeError::Infrastructure("compiler lane head poisoned".into())
+            })?;
         if head.as_ref().is_some_and(|prior| stamp.precedes(prior)) {
             drop(head);
-            let inputs = workspace
-                .compiler
-                .lock()
-                .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?
-                .context();
+            let inputs = authority.lock()?.context();
+            authority.release()?;
             let detached =
                 self.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;
+            let detached = authority.replace_private(detached)?;
             return self.admit_modeling_revision(
                 &detached,
                 rows,
@@ -1402,7 +1431,7 @@ impl MathService {
             );
         }
         let result = self.admit_modeling_revision(
-            workspace,
+            &authority,
             rows,
             scope,
             documents,

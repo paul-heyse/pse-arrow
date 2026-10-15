@@ -49,12 +49,25 @@ pub fn jacobian_condition(
         return Err(ProblemError::numerical("nonfinite Jacobian entry"));
     }
     let a = feral::SparseColMatrix::from_sparse_columns(m, &columns).map_err(native)?;
-    let mut lu = match feral::SparseLu::factor_markowitz(&a, feral::LuParams::default()) {
+    let factored = crate::observation::scoped("conditioning.feral.lu.factor", || {
+        feral::SparseLu::factor_markowitz(&a, feral::LuParams::default())
+    });
+    crate::observation::count(
+        if factored.is_ok() {
+            "conditioning.feral.lu.factor.succeeded"
+        } else {
+            "conditioning.feral.lu.factor.failed"
+        },
+        1,
+    );
+    let mut lu = match factored {
         Ok(lu) => lu,
         Err(feral::FeralError::SingularBasis { .. }) => return Ok(None),
         Err(e) => return Err(native(e)),
     };
-    match lu.condition_estimate_1(&a) {
+    match crate::observation::scoped("conditioning.feral.lu.condition_estimate", || {
+        lu.condition_estimate_1(&a)
+    }) {
         Ok(v) if v.is_finite() => Ok(Some(v)),
         Ok(_) | Err(feral::FeralError::SingularBasis { .. }) => Ok(None),
         Err(e) => Err(native(e)),
@@ -147,10 +160,12 @@ where
     let (solver, inertia) = factor(&matrix)?;
     Ok(Kkt {
         inertia,
-        condition_1norm: solver
-            .estimate_condition_1norm(&matrix)
-            .ok()
-            .filter(|v| v.is_finite()),
+        condition_1norm: crate::observation::scoped(
+            "conditioning.feral.ldlt.condition_estimate",
+            || solver.estimate_condition_1norm(&matrix),
+        )
+        .ok()
+        .filter(|v| v.is_finite()),
     })
 }
 
@@ -176,24 +191,124 @@ pub(crate) fn factor_into(
     solver: &mut feral::Solver,
     matrix: &feral::CscMatrix,
 ) -> Result<(usize, usize, usize), ProblemError> {
-    match solver.factor(matrix, None) {
-        feral::FactorStatus::Success | feral::FactorStatus::WrongInertia { .. } => {}
-        feral::FactorStatus::Singular => {
-            return Err(ProblemError::numerical(
-                "KKT factorization reported a singular matrix without an inertia",
+    crate::observation::operation("conditioning.feral.ldlt", || {
+        crate::observation::boolean("factor.valid", false);
+        let status = crate::observation::scoped("conditioning.feral.ldlt.factor", || {
+            solver.factor(matrix, None)
+        });
+        publish_factor_status(&status);
+        match status {
+            feral::FactorStatus::Success | feral::FactorStatus::WrongInertia { .. } => {}
+            feral::FactorStatus::Singular => {
+                return Err(ProblemError::numerical(
+                    "KKT factorization reported a singular matrix without an inertia",
+                ));
+            }
+            feral::FactorStatus::FatalError(e) => return Err(native(e)),
+        }
+        let inertia = solver
+            .inertia()
+            .ok_or_else(|| ProblemError::internal("FERAL factor without an inertia"))?;
+        if inertia.total() != matrix.n {
+            return Err(ProblemError::internal(
+                "FERAL inertia does not cover the KKT order",
             ));
         }
-        feral::FactorStatus::FatalError(e) => return Err(native(e)),
+        publish_factor_summary(solver, true);
+        Ok((inertia.positive, inertia.negative, inertia.zero))
+    })
+}
+
+pub(crate) fn publish_factor_status(status: &feral::FactorStatus) {
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.text(
+            "factor.status",
+            match status {
+                feral::FactorStatus::Success => "success",
+                feral::FactorStatus::WrongInertia { .. } => "wrong_inertia",
+                feral::FactorStatus::Singular => "singular",
+                feral::FactorStatus::FatalError(_) => "fatal_error",
+            },
+        );
     }
-    let inertia = solver
-        .inertia()
-        .ok_or_else(|| ProblemError::internal("FERAL factor without an inertia"))?;
-    if inertia.total() != matrix.n {
-        return Err(ProblemError::internal(
-            "FERAL inertia does not cover the KKT order",
-        ));
+}
+
+/// Copy a completed direct-owner snapshot only after its existing validity checks.
+pub(crate) fn publish_factor_summary(solver: &feral::Solver, valid: bool) {
+    crate::observation::boolean("factor.valid", valid);
+    if !valid {
+        crate::observation::unavailable(
+            "factor.stats",
+            "current return did not establish valid factor statistics",
+        );
+        return;
     }
-    Ok((inertia.positive, inertia.negative, inertia.zero))
+    // This direct Solver owner exposes a safe completed FactorStats snapshot,
+    // unlike the private Solver inside the pounce-feral adapter wrapper.
+    if let Some(context) = pse_diagnostics::observation::current() {
+        if let Some(stats) = solver.last_factor_stats() {
+            context.text("factor.stats", "completed_snapshot");
+            for (name, value) in [
+                ("nnz_a", stats.nnz_a),
+                ("nnz_l", stats.nnz_l),
+                ("tiny_pivots", stats.n_tiny),
+                ("supernodes", stats.ordering_info.n_supernodes),
+                ("max_front_rows", stats.ordering_info.max_front_rows),
+            ] {
+                crate::observation::integer(
+                    &format!("factor.{name}"),
+                    "count",
+                    i64::try_from(value).unwrap_or(i64::MAX),
+                );
+            }
+            for (name, value) in [
+                ("fill_ratio", stats.fill_ratio),
+                ("min_abs_pivot", stats.min_abs_pivot),
+                ("max_abs_pivot", stats.max_abs_pivot),
+            ] {
+                context.gauge(&format!("factor.{name}"), "native", value);
+            }
+            context.boolean("factor.pattern_reused", stats.pattern_reused);
+            context.text(
+                "factor.ordering.requested",
+                &format!("{:?}", stats.ordering_info.requested),
+            );
+            context.text(
+                "factor.ordering.used",
+                &format!("{:?}", stats.ordering_info.used),
+            );
+            context.text(
+                "factor.ordering.preprocess",
+                &format!("{:?}", stats.ordering_info.preprocess),
+            );
+            context.boolean("factor.ordering.escalated", stats.ordering_info.escalated);
+            context.text("factor.scaling", &format!("{:?}", stats.scaling_info));
+        } else {
+            context.unavailable(
+                "factor.stats",
+                "native return exposes no stored FactorStats snapshot",
+            );
+        }
+    }
+}
+
+/// Existing high-level faer LU owners expose the input and requested scratch
+/// extent. NumericLu's decomposition-specific storage is private in faer 0.24.4.
+pub(crate) fn publish_faer_storage(prefix: &str, matrix_entries: usize, scratch_bytes: usize) {
+    crate::observation::integer(
+        &format!("{prefix}.matrix_entries"),
+        "entries",
+        i64::try_from(matrix_entries).unwrap_or(i64::MAX),
+    );
+    crate::observation::integer(
+        &format!("{prefix}.scratch_requested_bytes"),
+        "bytes",
+        i64::try_from(scratch_bytes).unwrap_or(i64::MAX),
+    );
+    crate::observation::unavailable(
+        &format!("{prefix}.numeric_fill"),
+        "faer 0.24.4 high-level NumericLu hides actual decomposition storage; input/scratch are not factor fill or RSS",
+    );
 }
 
 pub(crate) fn native(error: feral::FeralError) -> ProblemError {
@@ -399,6 +514,10 @@ mod tests {
 
     #[test]
     fn unchanged_kkt_pattern_refreshes_numeric_inertia_and_original_licq() {
+        use pse_diagnostics::observation::{ObservationHub, Outcome, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("direct-feral-factor-returns");
+        let _entered = operation.context().enter();
         // [I A^T; A 0] independently diagnoses original gradient rank. Explicit
         // structural zeros keep exactly one CSC pattern as A loses and regains rank.
         let mut matrix = feral::CscMatrix {
@@ -426,5 +545,43 @@ mod tests {
         matrix.values[2] = 1.;
         assert_eq!(factor_into(&mut solver, &matrix).unwrap(), (2, 2, 0));
         assert_eq!(solver.symbolic_call_count(), 2);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(snapshot.children.len(), 4);
+        assert!(
+            snapshot
+                .children
+                .iter()
+                .all(|child| child.outcome == Some(Outcome::Completed))
+        );
+        let reused = hub
+            .reader(snapshot.children[1].id)
+            .unwrap()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            reused
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "factor.pattern_reused")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
+        );
+        assert_eq!(
+            reused
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "factor.valid")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
+        );
+        assert!(
+            reused
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "factor.tiny_pivots")
+        );
     }
 }

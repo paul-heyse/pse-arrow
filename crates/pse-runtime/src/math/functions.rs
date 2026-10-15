@@ -10,6 +10,7 @@ impl MathService {
         lease: Arc<pse_columnar::AllocationLease>,
         driver: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         let owner = self.shared_product(
             vec![1, Arc::as_ptr(&prepared.plan) as usize],
             Arc::new(prepared.clone()),
@@ -21,8 +22,9 @@ impl MathService {
             if driver.token().is_cancelled() {
                 return Err(MathRuntimeError::Cancelled);
             }
-            artifacts.push(self.artifact(request.clone()).await?);
+            artifacts.push(Self::preparation_wait(&driver, self.artifact(request.clone())).await?);
         }
+        let _ = self.preparation_driver(&driver)?;
         let plan = Arc::new(prepared.plan.as_ref().clone().with_owner(owner.clone()));
         let layout = self.reserve(
             "case_operation_layout",
@@ -35,6 +37,7 @@ impl MathService {
         let _span = tracing::info_span!("pse.case.function_assembly").entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
+        let _ = self.preparation_driver(&driver)?;
         Ok(Arc::new(ExecutableCase {
             assembly,
             _artifacts: artifacts,

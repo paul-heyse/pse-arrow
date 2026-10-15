@@ -73,6 +73,7 @@ impl<E> Clone for FlightError<E> {
 }
 type SharedLoad<V, E> = Shared<BoxFuture<'static, Result<Arc<V>, FlightError<E>>>>;
 struct Flight<V, E> {
+    observation: Option<pse_diagnostics::observation::ObservationContext>,
     result: SharedLoad<V, E>,
     cancel: FlightCancellation,
     waiters: AtomicUsize,
@@ -121,6 +122,10 @@ where
     where
         F: Future<Output = Result<Arc<V>, E>> + Send + 'static,
     {
+        let observer = pse_diagnostics::observation::current();
+        let _wait = observer
+            .as_ref()
+            .map(|context| context.phase("preparation.wait"));
         let waiter = {
             let mut entries = self
                 .entries
@@ -139,6 +144,13 @@ where
                     Err(0) => return Err(FlightError::Retiring),
                     Err(_) => return Err(FlightError::Capacity),
                 }
+                if let (Some(observer), Some(producer)) = (&observer, &f.observation) {
+                    observer.link(
+                        producer,
+                        pse_diagnostics::observation::Relationship::SharedProduction,
+                    );
+                    observer.count("preparation.joined", "requests", 1);
+                }
                 Waiter(f.clone())
             } else {
                 if entries.len() >= self.limit {
@@ -148,7 +160,14 @@ where
                 let result = async move { rx.await.unwrap_or(Err(FlightError::Panicked)) }
                     .boxed()
                     .shared();
+                let observation = observer.as_ref().map(|context| {
+                    context.child(
+                        "preparation.producer",
+                        pse_diagnostics::observation::Relationship::SharedProduction,
+                    )
+                });
                 let f = Arc::new(Flight {
+                    observation: observation.as_ref().map(|guard| guard.context()),
                     result,
                     cancel: FlightCancellation::default(),
                     waiters: AtomicUsize::new(1),
@@ -156,7 +175,8 @@ where
                 entries.insert(key.clone(), f.clone());
                 let owner = self.entries.clone();
                 let active = f.clone();
-                tokio::spawn(async move {
+                let context = f.observation.clone();
+                tokio::spawn(pse_diagnostics::observation::scope(context, async move {
                     let outcome =
                         std::panic::AssertUnwindSafe(async { create(active.cancel.clone()).await })
                             .catch_unwind()
@@ -176,8 +196,15 @@ where
                         entries.remove(&key);
                     }
                     drop(entries);
+                    if let Some(observation) = observation {
+                        observation.finish(if result.is_ok() {
+                            pse_diagnostics::observation::Outcome::Completed
+                        } else {
+                            pse_diagnostics::observation::Outcome::Failed
+                        });
+                    }
                     let _ = tx.send(result);
-                });
+                }));
                 Waiter(f)
             }
         };
@@ -203,6 +230,65 @@ mod tests {
         diagnostic::<FlightError<std::io::Error>>();
     }
 
+    #[tokio::test]
+    async fn observation_links_two_waiters_to_one_producer_without_owning_cancellation() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Relationship, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let first = hub.start("first.waiter");
+        let second = hub.start("second.waiter");
+        let flights = Flights::<u8, usize, &'static str>::new(2);
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let calls = Arc::new(AtomicUsize::new(0));
+        let (g, e, c) = (gate.clone(), entered.clone(), calls.clone());
+        let mut a = Box::pin(pse_diagnostics::observation::scope(
+            Some(first.context()),
+            flights.load_owned(1, move |_| async move {
+                let context = pse_diagnostics::observation::current().unwrap();
+                context.count("actual.constructions", "constructions", 1);
+                c.fetch_add(1, Ordering::SeqCst);
+                e.notify_one();
+                g.notified().await;
+                Ok(Arc::new(7))
+            }),
+        ));
+        assert!(futures_util::poll!(a.as_mut()).is_pending());
+        entered.notified().await;
+        let mut b = Box::pin(pse_diagnostics::observation::scope(
+            Some(second.context()),
+            flights.load_owned(1, |_| async { Err("duplicate") }),
+        ));
+        assert!(futures_util::poll!(b.as_mut()).is_pending());
+        let first_snapshot = first.reader().snapshot(std::time::Duration::from_secs(60));
+        let second_snapshot = second.reader().snapshot(std::time::Duration::from_secs(60));
+        let producer = first_snapshot
+            .children
+            .iter()
+            .find(|child| child.relationship == Relationship::SharedProduction)
+            .unwrap()
+            .id;
+        assert!(
+            second_snapshot
+                .children
+                .iter()
+                .any(|child| child.id == producer
+                    && child.relationship == Relationship::SharedProduction)
+        );
+        let passive = hub.reader(producer).unwrap();
+        drop(a); // one waiter cancellation must not cancel the shared construction
+        gate.notify_one();
+        assert_eq!(*b.await.unwrap(), 7);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(flights.active(), 0);
+        let result = passive.snapshot(std::time::Duration::from_secs(60));
+        assert!(
+            result
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "actual.constructions"
+                    && metric.cumulative == Value::Count(1))
+        );
+    }
     #[tokio::test]
     async fn completion_retains_identity_and_other_waiters_survive() {
         let flights = Arc::new(Flights::<u8, usize, &'static str>::new(2));

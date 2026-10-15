@@ -1052,6 +1052,15 @@ struct ShootingOracle {
 }
 impl ShootingOracle {
     fn evaluate(&mut self, x: &[f64], requested: DerivativeOrder) -> Result<&Point, ProblemError> {
+        let _phase = pse_diagnostics::observation::phase("shooting.trial");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("shooting.trial_demands", "count", 1);
+            context.gauge(
+                "shooting.requested_order",
+                "derivative order",
+                requested as u8 as f64,
+            );
+        }
         self.execution.check()?;
         if requested > DerivativeOrder::First {
             return Err(ProblemError::unsupported(
@@ -1064,11 +1073,19 @@ impl ShootingOracle {
         if x.len() != n || x.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("shooting trial coordinates"));
         }
-        if self
+        let same = self
             .point
             .as_ref()
-            .is_some_and(|v| v.compatible(&p, &self.execution, x) && v.achieved >= order)
+            .is_some_and(|point| point.compatible(&p, &self.execution, x));
+        if same
+            && self
+                .point
+                .as_ref()
+                .is_some_and(|point| point.achieved >= order)
         {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("shooting.trial_cache_reuses", "count", 1);
+            }
             return self
                 .point
                 .as_ref()
@@ -1076,6 +1093,17 @@ impl ShootingOracle {
         }
         // Forward sensitivities serve first-order rows and the terminal objective only.
         // Keep the old point until the entire new integration and its products succeed.
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(
+                if same {
+                    "shooting.derivative_upgrades"
+                } else {
+                    "shooting.new_trials"
+                },
+                "count",
+                1,
+            );
+        }
         let first = order >= DerivativeOrder::First;
         let forward = first && n > 0 && (!p.rows.is_empty() || !p.terminal.is_empty());
         let sensitivity = if forward {
@@ -1089,6 +1117,27 @@ impl ShootingOracle {
             .iter()
             .enumerate()
             .map(|(k, window)| {
+                let _phase = pse_diagnostics::observation::current().map(|context| {
+                    context.count("shooting.window_integrations", "count", 1);
+                    context.gauge("shooting.window_index", "index", k as f64);
+                    context.gauge(
+                        "shooting.window_columns",
+                        "count",
+                        window.columns.len() as f64,
+                    );
+                    context.gauge(
+                        "shooting.window_start",
+                        "physical seconds",
+                        window.profile.start,
+                    );
+                    context.gauge(
+                        "shooting.window_end",
+                        "physical seconds",
+                        window.profile.end,
+                    );
+                    context.boolean("shooting.forward_sensitivities", forward);
+                    context.phase("shooting.window")
+                });
                 p.experiment.integrate_window(
                     window,
                     &integration,
@@ -1217,6 +1266,9 @@ impl ShootingOracle {
             gradient,
             adjoint: None,
         });
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("shooting.trials_completed", "count", 1);
+        }
         self.point
             .as_ref()
             .ok_or_else(|| ProblemError::internal("shooting point publication"))
@@ -1226,6 +1278,9 @@ impl ShootingOracle {
     fn adjoint(&mut self, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
         self.evaluate(x, DerivativeOrder::Value)?;
         if let Some(gradient) = self.point.as_ref().and_then(|p| p.adjoint.clone()) {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("shooting.adjoint_cache_reuses", "count", 1);
+            }
             return Ok(gradient);
         }
         let p = self.problem.clone();

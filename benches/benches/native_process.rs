@@ -8,6 +8,8 @@
     clippy::panic,
     reason = "qualification workloads fail on invalid or incomplete execution"
 )]
+#[path = "audit/mod.rs"]
+mod audit;
 #[path = "native_process/curved_fit.rs"]
 mod curved_fit;
 #[path = "native_process/extended.rs"]
@@ -98,6 +100,8 @@ fn process(c: &mut Criterion) {
     let spec: serde_json::Value =
         serde_json::from_str(&std::env::var("PSE_PROCESS_COST_SPEC").unwrap()).unwrap();
     let id = spec["id"].as_str().unwrap();
+    let mut audit = audit::Audit::start(id, &spec);
+    let _audit_context = audit.enter();
     let operation = spec["operation"].as_str().unwrap();
     let reuse = spec["reuse"].as_str().unwrap();
     let blocks = spec["blocks"].as_u64().unwrap() as usize;
@@ -105,26 +109,32 @@ fn process(c: &mut Criterion) {
     let output = PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap());
     if operation == "source-edit-copy" {
         source_reuse::measure(c, &spec, &output, &compiler_phases);
+        audit.complete();
         return;
     }
     if operation == "result_analysis" {
         results_analysis::measure(c, &spec, &output, &compiler_phases);
+        audit.complete();
         return;
     }
     if operation == "k4-study" {
         k4_studies::measure(c, &spec, &output, &compiler_phases);
+        audit.complete();
         return;
     }
     if operation == "k4-restart" {
         restart::measure(c, &spec, &output, &compiler_phases);
+        audit.complete();
         return;
     }
     if operation == "k4-accuracy" {
         k4_accuracy::measure(c, &spec, &output, &compiler_phases);
+        audit.complete();
         return;
     }
     if spec["extended"].as_bool() == Some(true) || matches!(operation, "vessel" | "fit") {
         extended::measure(c, &spec, &output, &compiler_phases);
+        audit.complete();
         return;
     }
     assert!(
@@ -150,26 +160,32 @@ fn process(c: &mut Criterion) {
         None
     } else {
         let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
-        let (source, target) = seed(&owner);
-        let (package, case) = if operation == "flash" {
-            (source.clone(), flash)
-        } else {
-            executor.block_on(heater_blocks(&source, blocks))
-        };
-        let prepared = executor
-            .block_on(seed_prepare(
-                &package,
-                case.into(),
-                profile(Backend::Ipopt, false),
-                &CancelSource::new(),
-            ))
-            .unwrap();
-        authored_success(
-            &executor
-                .block_on(async { prepared.start().unwrap().wait().await })
-                .unwrap(),
-        );
-        Some((owner, source, package, case, target))
+        let retained = audit::with_owner_sync(&owner, &executor, || {
+            let _stage = audit::stage("retained_cold_setup");
+            let (source, target) = seed(&owner);
+            let (package, case) = if operation == "flash" {
+                (source.clone(), flash)
+            } else {
+                executor.block_on(heater_blocks(&source, blocks))
+            };
+            let prepared = executor
+                .block_on(seed_prepare(
+                    &package,
+                    case.into(),
+                    profile(Backend::Ipopt, false),
+                    &audit::cancel_source(),
+                ))
+                .unwrap();
+            authored_success(
+                &executor
+                    .block_on(audit::scope(async {
+                        audit::wait(prepared.start().unwrap()).await
+                    }))
+                    .unwrap(),
+            );
+            (source, package, case, target)
+        });
+        Some((owner, retained.0, retained.1, retained.2, retained.3))
     };
     let mut phases = BTreeMap::new();
     compiler_phases.reset();
@@ -192,10 +208,13 @@ fn process(c: &mut Criterion) {
         let begin=Instant::now();
         let local=if retained.is_none() {Some(WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap())} else {None};
         let owner=match &retained {Some((owner,_,_,_,_))=>owner,None=>local.as_ref().unwrap()};
+        let teardown_begin=audit::with_owner_sync(owner, &executor, || {
+        let _iteration_stage=audit::stage("case_execution");
         let preparations_before=owner.runtime.math().preparations();
         owner.runtime.reset_observation_peak();
         mark(&mut phases,"runtime_admission",begin);
         let begin=Instant::now();
+        let source_stage=audit::stage("source_admission");
         let (target,mut package,case)=if let Some((_,source,package,case,target))=&retained {
             let (package,case)=if reuse=="structure" {executor.block_on(heater_blocks(source,blocks+(iterations as usize%2)))} else {(package.clone(),*case)};(target.clone(),package,case)
         } else {
@@ -209,8 +228,10 @@ fn process(c: &mut Criterion) {
             package=executor.block_on(package.with_declarations(rows)).unwrap();
         }
         mark(&mut phases,"source_admission",begin);
+        drop(source_stage);
+        let prepare_stage=audit::stage("case_preparation");
         let begin=Instant::now();
-        let cancel=CancelSource::new();
+        let cancel=audit::cancel_source();
         let mut analysis=executor.block_on(package.declared_execution(case,compiler(),profile(Backend::Ipopt,false),Default::default(),seed_limits(),&cancel)).unwrap().analysis;
         if reuse=="warm" {
             let path=if operation=="flash" {"root.liquid.T"} else {"block0.phase.T"};
@@ -224,24 +245,28 @@ fn process(c: &mut Criterion) {
         variables.insert(prepared.model.case.compiled().plan.structure().free_variables().count());
         let handle=prepared.start().unwrap();
         mark(&mut phases,"case_preparation_and_start",begin);
+        drop(prepare_stage);
+        let native_stage=audit::stage("numerical_execution");
         let begin=Instant::now();
         if operation=="cancellation" {
             executor.block_on(async {
-                while handle.progress().0.is_empty() && handle.result().is_none() {tokio::task::yield_now().await;}
-                assert!(handle.result().is_none(),"case completed before observable cancellation checkpoint");
+                while handle.progress().0.is_empty() && handle.result().is_none() && !audit::stop_requested() {tokio::task::yield_now().await;}
+                if !audit::stop_requested() { assert!(handle.result().is_none(),"case completed before observable cancellation checkpoint"); }
             });
             mark(&mut phases,"native_to_first_event",begin);
             let stop=Instant::now();
             handle.cancel();
-            let result=executor.block_on(handle.wait()).unwrap();
+            let result=executor.block_on(audit::scope(audit::wait_ref(&handle))).unwrap();
             mark(&mut phases,"cancellation_to_join",stop);
             let RunReport::Modeling(report)=result.report().unwrap() else {panic!("wrong report")};
             assert!(matches!(&report[0].outcome,pse_runtime::math::solves::Outcome::Native(r) if r.termination.category==Termination::Cancelled),"{report:?}");
             for (step,report) in report.iter().enumerate() {observations.modeling(report,step,owner.runtime.math());}
             drop(result);
         } else {
-            let result=executor.block_on(handle.wait()).unwrap();
+            let result=executor.block_on(audit::scope(audit::wait_ref(&handle))).unwrap();
             mark(&mut phases,"native_join",begin);
+            drop(native_stage);
+            let _assessment_stage=audit::stage("original_assessment_and_results");
             let begin=Instant::now();
             let report=authored_success(&result);
             let RunReport::Modeling(reports)=result.report().unwrap() else {panic!("wrong report")};
@@ -257,6 +282,7 @@ fn process(c: &mut Criterion) {
             if !matches!(operation,"vessel"|"fit") {std::hint::black_box(result.table("runtime.solve_variables").unwrap());}
             mark(&mut phases,"physical_validation_and_results",begin);
             if operation=="results" {
+                let _read_stage=audit::stage("connected_result_reads");
                 let begin=Instant::now();
                 let run=result.canonical_run_key().unwrap();
                 let attempt=result.canonical_attempt_key().unwrap();
@@ -270,13 +296,21 @@ fn process(c: &mut Criterion) {
             }
             drop(result);
         }
-        let begin=Instant::now();
+        let teardown_begin=Instant::now();
         observations.preparations(preparations_before,owner.runtime.math().preparations());
         drop(handle);
         drop(prepared);
         drop(package);
         drop(target);
-        if retained.is_none() {executor.block_on(owner.cleanup_fixtures()).unwrap();}
+        teardown_begin
+        });
+        let _teardown_stage=audit::stage("case_teardown");
+        let begin=teardown_begin;
+        if retained.is_none() {
+            let cleanup=executor.block_on(owner.cleanup_fixtures());
+            audit::cleanup_result(cleanup.is_ok());
+            cleanup.unwrap();
+        }
         peak=peak.max(owner.runtime.observation_peak_bytes());
         rss=rss.max(owner.runtime.report().unwrap().process_peak_rss_bytes.unwrap());
         let pool=owner.runtime.pool();
@@ -293,7 +327,9 @@ fn process(c: &mut Criterion) {
         .as_ref()
         .map(|(owner, _, _, _, _)| owner.runtime.pool());
     if let Some((owner, _, _, _, _)) = &retained {
-        executor.block_on(owner.cleanup_fixtures()).unwrap();
+        let cleanup = executor.block_on(owner.cleanup_fixtures());
+        audit::cleanup_result(cleanup.is_ok());
+        cleanup.unwrap();
     }
     drop(retained);
     drop(executor);
@@ -319,6 +355,7 @@ fn process(c: &mut Criterion) {
         "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time (extended for slow operations)",
         "memory_scope":"pool observation per operation; case teardown retains the warm runtime until sampling ends; final retained-runtime teardown is null for cold cases; process lifetime VmHWM from the dedicated benchmark process"
     })).unwrap()).unwrap();
+    audit.complete();
 }
 fn configuration() -> Criterion {
     Criterion::default().output_directory(

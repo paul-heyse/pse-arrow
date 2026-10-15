@@ -49,6 +49,7 @@ from pse.contracts.identities import (
     StudyId,
 )
 from pse.contracts.values import ContentHash, SemanticId
+from pse.diagnostics import Diagnostics
 
 SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
 
@@ -108,6 +109,10 @@ class Runtime:
         Admitted work continues through drain.
         """
         self._handle.close()
+
+    def observations(self) -> Diagnostics:
+        """Read preparation and execution diagnostics independently of this caller."""
+        return Diagnostics(self._handle.observations())
 
     @property
     def durable(self) -> bool:

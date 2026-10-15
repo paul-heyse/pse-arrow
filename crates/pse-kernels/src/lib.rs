@@ -749,6 +749,66 @@ impl Provider for Enveloped {
         Ok(values)
     }
 }
+/// Observation wraps the admitted outer product, including envelope refusal. It
+/// consumes only the requested invocation and never constructs additional trials.
+#[derive(Debug)]
+struct ObservedProvider {
+    inner: Box<dyn Provider>,
+}
+impl Provider for ObservedProvider {
+    fn spec(&self) -> &ProviderSpec {
+        self.inner.spec()
+    }
+    fn evaluate(
+        &mut self,
+        inputs: &[f64],
+        request: &ProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderValues, ProviderError> {
+        let observation = pse_diagnostics::observation::current();
+        let _phase = observation
+            .as_ref()
+            .map(|context| context.phase("kernel.provider.evaluate"));
+        let started = observation.as_ref().map(|_| Instant::now());
+        if let Some(observation) = &observation {
+            observation.count("kernel.provider.calls", "calls", 1);
+            observation.source_ref("kernel.provider", self.spec().id.as_bytes());
+            observation.text(
+                "kernel.provider.derivative_source",
+                self.spec().derivative_source.as_str(),
+            );
+            observation.integer(
+                "kernel.provider.requested_order",
+                "derivative-order",
+                request.order as i64,
+            );
+            observation.count(
+                "kernel.provider.requested_outputs",
+                "outputs",
+                request.outputs.len() as u64,
+            );
+        }
+        let result = self.inner.evaluate(inputs, request, context);
+        if let Some(observation) = &observation {
+            observation.boolean("kernel.provider.failed", result.is_err());
+            if let Err(error) = &result {
+                observation.count("kernel.provider.failures", "calls", 1);
+                observation.boolean(
+                    "kernel.provider.last_failure_recoverable",
+                    error.recoverable(),
+                );
+                if let Some(code) = miette::Diagnostic::code(error) {
+                    observation.text("kernel.provider.last_failure_code", &code.to_string());
+                }
+            }
+            if let Some(started) = started {
+                observation.duration("kernel.provider.elapsed", started.elapsed());
+            }
+        }
+        result
+    }
+}
+
 /// Physically admitted registration backed by an executable factory.
 #[derive(Clone, Debug)]
 pub struct Registration {
@@ -863,21 +923,43 @@ impl Registration {
     }
     /// Construct a worker with the enclosing attempt's immutable execution scope.
     pub fn worker_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {
-        scope.check()?;
-        let worker = self.factory.create_scoped(scope.clone())?;
-        scope.check()?;
-        if worker.spec() != self.spec() {
-            return Err(ProviderError::Contract(
-                "factory returned a different provider contract".into(),
-            ));
+        let observation = pse_diagnostics::observation::current();
+        let _phase = observation
+            .as_ref()
+            .map(|context| context.phase("kernel.provider.construct"));
+        let started = observation.as_ref().map(|_| Instant::now());
+        let result: Result<Box<dyn Provider>, ProviderError> = (|| {
+            scope.check()?;
+            if let Some(observation) = &observation {
+                observation.count("kernel.provider.constructions", "workers", 1);
+            }
+            let worker = self.factory.create_scoped(scope.clone())?;
+            scope.check()?;
+            if worker.spec() != self.spec() {
+                return Err(ProviderError::Contract(
+                    "factory returned a different provider contract".into(),
+                ));
+            }
+            let inner: Box<dyn Provider> = match &self.envelope {
+                Some(envelope) => Box::new(Enveloped {
+                    inner: worker,
+                    envelope: envelope.clone(),
+                }),
+                None => worker,
+            };
+            let observed: Box<dyn Provider> = Box::new(ObservedProvider { inner });
+            Ok(observed)
+        })();
+        if let Some(observation) = &observation {
+            observation.boolean("kernel.provider.construction_failed", result.is_err());
+            if result.is_err() {
+                observation.count("kernel.provider.construction_refusals", "requests", 1);
+            }
+            if let Some(started) = started {
+                observation.duration("kernel.provider.construction_elapsed", started.elapsed());
+            }
         }
-        Ok(match &self.envelope {
-            Some(envelope) => Box::new(Enveloped {
-                inner: worker,
-                envelope: envelope.clone(),
-            }),
-            None => worker,
-        })
+        result
     }
 }
 

@@ -209,6 +209,11 @@ unsafe extern "C" {
         norm: *mut f64,
     ) -> i32;
     pub fn pse_petsc_snes_reason_name(snes: Handle, name: *mut *const c_char) -> i32;
+    pub fn pse_petsc_snes_ksp_statistics(
+        snes: Handle,
+        iterations: *mut i32,
+        reason: *mut i32,
+    ) -> i32;
     pub fn pse_petsc_nasm_subdomains(
         snes: Handle,
         n: i32,

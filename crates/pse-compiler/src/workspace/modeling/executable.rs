@@ -1026,7 +1026,7 @@ fn projection(
     }
     let package = model.function_contracts(catalog.checked(db));
     let context = package.context();
-    let types = model
+    let types: BTreeMap<String, Type> = model
         .symbols
         .iter()
         .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
@@ -1534,6 +1534,10 @@ impl CompilerWorkspace {
         limits: Limits,
         cancel: Arc<AtomicBool>,
     ) -> Result<ModelingPreparationFrontier> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("compiler.preparation_demands", "count", 1);
+            context.phase("compiler.plan_modeling")
+        });
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
         }
@@ -1632,6 +1636,10 @@ impl CompilerWorkspace {
         frontier: ModelingPreparationFrontier,
         cancel: Arc<AtomicBool>,
     ) -> Result<PreparedModeling> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("compiler.completion_demands", "count", 1);
+            context.phase("compiler.complete_modeling")
+        });
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
         }
@@ -1831,24 +1839,19 @@ impl CompilerWorkspace {
         p.quantities = selected.iter().map(|x| x.2).collect();
         p.declarations = selected.iter().map(|x| x.3).collect();
         let admitted = grouped::admit(&self.db, self.inventory, &p)?;
-        let source = admitted.plan(
+        let plan = Arc::new(CasePlan::prepare_functions(
+            &admitted.case,
+            |key| admitted.bodies.get(&key).map(|body| body.math.clone()),
+            &p.outputs
+                .iter()
+                .map(ModelingOutput::row_id)
+                .collect::<Vec<_>>(),
+            coordinates,
             &self.inputs.quantities,
-            DerivativeOrder::Value,
+            DerivativeOrder::First,
             profile.assembly,
             cancel,
-        )?;
-        let plan = Arc::new(
-            source.functions(
-                &p.outputs
-                    .iter()
-                    .map(ModelingOutput::row_id)
-                    .collect::<Vec<_>>(),
-                coordinates,
-                &self.inputs.quantities,
-                DerivativeOrder::First,
-                cancel,
-            )?,
-        );
+        )?);
         Ok(PreparedFunctions {
             artifacts: artifact_requests(&plan, profile, self.inventory.environment(&self.db)),
             plan,

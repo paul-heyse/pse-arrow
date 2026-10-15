@@ -4,6 +4,8 @@
 #include "IpIpoptApplication.hpp"
 #include "IpTNLP.hpp"
 #include "IpSolveStatistics.hpp"
+#include "IpIpoptData.hpp"
+#include "IpTimingStatistics.hpp"
 #include "IpOptionsList.hpp"
 #include <algorithm>
 #include <cmath>
@@ -317,6 +319,32 @@ extern "C" int32_t pse_ipopt_sequence_solve(pse_ipopt_sequence_handle* h, int32_
                 p.result.system_seconds = statistics->TotalSysTime();
                 p.result.wall_seconds = statistics->TotalWallclockTime();
                 p.result.statistics_available = 1;
+                auto data = h->application->IpoptDataObject();
+                if (Ipopt::IsValid(data)) {
+                    // Never end/reset timers for observation. In pinned TimedTask,
+                    // !IsStarted implies end_called; disabled tasks are uncollected.
+                    auto copy = [](const Ipopt::TimedTask& task) {
+                        pse_ipopt_sequence_timing timing{};
+                        timing.enabled = task.IsEnabled(); timing.running = task.IsStarted();
+                        if (timing.enabled && !timing.running) {
+                            timing.cpu_seconds = task.TotalCpuTime();
+                            timing.system_seconds = task.TotalSysTime();
+                            timing.wall_seconds = task.TotalWallclockTime();
+                            timing.available = 1;
+                        }
+                        return timing;
+                    };
+                    auto& timing = data->TimingStats();
+                    p.result.timing_overall = copy(timing.OverallAlgorithm());
+                    p.result.timing_initialize = copy(timing.InitializeIterates());
+                    p.result.timing_search_direction = copy(timing.ComputeSearchDirection());
+                    p.result.timing_trial_point = copy(timing.ComputeAcceptableTrialPoint());
+                    p.result.timing_linear_scaling = copy(timing.LinearSystemScaling());
+                    p.result.timing_symbolic_factor = copy(timing.LinearSystemSymbolicFactorization());
+                    p.result.timing_numeric_factor = copy(timing.LinearSystemFactorization());
+                    p.result.timing_backsolve = copy(timing.LinearSystemBackSolve());
+                    p.result.timing_data_available = 1;
+                }
             }
         }
         p.poll(); // Preserve known native return even when the terminal latch vetoes its candidate.

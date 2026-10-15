@@ -1564,9 +1564,28 @@ impl Session {
             Strategy::LineSearch => 1,
             Strategy::FixedPoint => 3,
         };
+        if method.linear == Linear::Klu && !self.linear.is_null() {
+            crate::observation::unavailable(
+                "kinsol.klu.factor_work",
+                "SUNDIALS owns KLU setup/refactor/solve; current attempt has no safe per-factor checkpoint/count hook",
+            );
+            for name in [
+                "kinsol.klu.current_attempt.symbolic_calls",
+                "kinsol.klu.current_attempt.factor_calls",
+                "kinsol.klu.current_attempt.refactor_calls",
+                "kinsol.klu.current_attempt.solve_calls",
+            ] {
+                crate::observation::unavailable(
+                    name,
+                    "opaque SUNDIALS KLU subphase; Jacobian/linear-iteration counts do not establish this count",
+                );
+            }
+        }
         // SAFETY: the session's live KINSOL memory and vectors on its owning thread; the
         // callbacks reach the context only through their user data.
-        let code = unsafe { ffi::KINSol(self.mem, self.x, strategy, self.us, self.fs) };
+        let code = crate::observation::scoped("kinsol.solve", || unsafe {
+            ffi::KINSol(self.mem, self.x, strategy, self.us, self.fs)
+        });
         let mut report = SolveReport::new(
             Backend::Kinsol,
             self.callback.function.contract(),

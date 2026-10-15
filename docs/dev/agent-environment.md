@@ -50,8 +50,8 @@ by `--explain`.
 **Native defaults you can override.** Native commands default `OMP_NUM_THREADS`,
 `OPENBLAS_NUM_THREADS` and `MKL_NUM_THREADS` to `1` and take `OMP_PROC_BIND`, `OMP_PLACES`
 and `HWLOC_COMPONENTS` from the solver image. A caller value wins; `off` removes the variable,
-and the choice survives nested native setup. Assessment gates and case measurements pin the
-single-thread budget their receipts require.
+and the choice survives nested native setup. Assessment gates pin their required single-thread
+budget; case measurements record the thread settings used.
 
 **Secrets.** `--print` never contains a `.envrc.local` value: local keys are rendered as
 deferred reads that source the file at use. `--explain` never evaluates local shell
@@ -72,7 +72,7 @@ before permitting installation. It does not run a sibling Python compilation. Or
 `target/debug/xtask producer-history-verify <role-build-evidence.json.closure>` and reads
 protected dep-info, inputs, graph and artifact association without live Cargo paths.
 Historical success never grants current receiving freshness; final actual artifact/input
-checks still refuse changed earlier roles. A target-local strict-operation guard is acquired before dependency setup and follows actual writer descendants. Executor families refresh once before role captures; exact same-operation compilation evidence can support later Fresh use. Unknown families, changed original outputs/premises and failed/incomplete operations refuse; retry uses a new output operation. This guard does not exclude arbitrary bare Cargo or replace host admission. Actual source/SDK/native qualification and final current-path association remain mandatory.
+checks still refuse changed earlier roles. A target-local strict-operation guard is acquired before dependency setup and follows actual writer descendants. Executor families refresh once before role captures; exact same-operation compilation evidence can support later Fresh use. Unknown families, changed original outputs/premises and failed/incomplete operations refuse; retry uses a new output operation. This guard does not exclude arbitrary bare Cargo or replace host admission. Within this existing strict command, source/SDK/native qualification and final current-path association retain their conservative semantics. The maintainer withdrew Plan39’s additional all-role campaign, environment/source-completeness and compiler/launcher/installer phase-proof targets; no deferred work or revisit obligation is created. Ordinary development uses its functional build/install/test routes.
 
 **Exit status** is the command's own (pse-env replaces itself with it). `125` means the
 boundary failed — the line starting `pse-env:` says why and what to run; `126`/`127` mean the

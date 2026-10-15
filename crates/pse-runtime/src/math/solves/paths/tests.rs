@@ -365,13 +365,123 @@ async fn actual_native_path_passes_fold_and_only_returns_original_physical_start
             &cancel,
         )
         .unwrap();
-    let outcome = runtime
-        .native()
-        .path_task(path, start, &cancel)
-        .await
-        .unwrap();
+    let hub =
+        pse_diagnostics::observation::ObservationHub::new(pse_diagnostics::observation::Policy {
+            max_operations: 64,
+            ..Default::default()
+        });
+    let operation = hub.start("actual folded path");
+    let path_key = path.key();
+    let outcome = pse_diagnostics::observation::scope(
+        Some(operation.context()),
+        runtime.native().path_task(path, start, &cancel),
+    )
+    .await
+    .unwrap();
     assert!(outcome.terminal.is_none(), "{:?}", outcome.terminal);
     assert_eq!(outcome.observations.len(), 4);
+    let observed = hub
+        .list(0, 64)
+        .operations
+        .into_iter()
+        .find(|entry| entry.kind == "path.execute")
+        .unwrap();
+    let observed = hub
+        .reader(observed.id)
+        .unwrap()
+        .snapshot(std::time::Duration::from_secs(60));
+    use pse_diagnostics::observation::Value;
+    let metric = |name: &str| {
+        observed
+            .metrics
+            .iter()
+            .find(|metric| metric.name == name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "missing path metric {name}; coverage={:?}; retained={:?}",
+                    observed.coverage,
+                    observed
+                        .metrics
+                        .iter()
+                        .map(|metric| metric.name.as_str())
+                        .collect::<Vec<_>>()
+                )
+            })
+    };
+    assert_eq!(metric("path.accepted_points").cumulative, Value::Count(4));
+    assert_eq!(metric("path.accepted_index").latest, Value::Count(4));
+    assert_eq!(
+        metric("path.native_calls").latest,
+        Value::Count(outcome.native_calls)
+    );
+    assert_eq!(
+        metric("path.auxiliary_evaluations").latest,
+        Value::Count(outcome.auxiliary_evaluations)
+    );
+    assert_eq!(metric("path.event_observations").latest, Value::Count(0));
+    assert_eq!(
+        metric("path.proposal_available").latest,
+        Value::Boolean(true)
+    );
+    assert_eq!(metric("path.failed").latest, Value::Boolean(false));
+    assert_eq!(
+        metric("path.accepted_parameter").latest,
+        Value::Number(outcome.observations.last().unwrap().point[1])
+    );
+    assert!(
+        observed
+            .sources
+            .iter()
+            .any(|source| source.name == "path.prepared"
+                && source.bytes == path_key.to_string().as_bytes())
+    );
+    assert!(
+        observed
+            .sources
+            .iter()
+            .any(|source| source.name == "path.parameter"
+                && source.bytes == parameter.to_string().as_bytes())
+    );
+    assert!(
+        observed
+            .detail
+            .iter()
+            .any(|event| event.name == "path.correction")
+    );
+    let corrections = observed
+        .children
+        .iter()
+        .filter(|child| child.kind == "path.native_correction")
+        .collect::<Vec<_>>();
+    assert_eq!(corrections.len() as u64, outcome.native_calls);
+    for child in corrections {
+        let correction = hub
+            .reader(child.id)
+            .unwrap()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert!(
+            correction
+                .metrics
+                .iter()
+                .any(|metric| metric.name.starts_with("callback.")),
+            "correction retains its own native observations"
+        );
+        assert_eq!(
+            correction.outcome,
+            Some(pse_diagnostics::observation::Outcome::Completed)
+        );
+    }
+    assert!(
+        observed
+            .metrics
+            .iter()
+            .all(|metric| !metric.name.starts_with("callback."))
+    );
+    assert_eq!(
+        observed.outcome,
+        Some(pse_diagnostics::observation::Outcome::Completed)
+    );
+    assert!(!observed.coverage.curtailed);
     let last = outcome.observations.last().unwrap();
     assert!(last.point[0] < 0., "{last:?}");
     assert!(

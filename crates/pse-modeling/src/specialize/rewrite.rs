@@ -92,6 +92,7 @@ impl Engine<'_, '_> {
             PredicateKind::In { domain, .. } => {
                 self.restore_set_source(instance, domain, env, at)?;
                 Evaluator {
+                    lexical_bases: Some(&self.lexical_bases),
                     package: self.p,
                     physical: self.c,
                     at,
@@ -104,6 +105,7 @@ impl Engine<'_, '_> {
                 .predicate(predicate)
             }
             _ => Evaluator {
+                lexical_bases: Some(&self.lexical_bases),
                 package: self.p,
                 physical: self.c,
                 at,
@@ -282,6 +284,7 @@ impl Engine<'_, '_> {
             .iter()
             .map(|e| {
                 Evaluator {
+                    lexical_bases: Some(&self.lexical_bases),
                     package: self.p,
                     physical: self.c,
                     at,
@@ -525,7 +528,7 @@ impl Engine<'_, '_> {
                 let Type::Set(element) = domain_type else {
                     return Err(invalid(at, "finite reduction domain type required"));
                 };
-                let mut body_types = types.clone();
+                let mut body_types = crate::TypeScope::new(&types);
                 body_types.insert(binder.var.clone(), *element.clone());
                 let prototype =
                     crate::expression::infer(body, &body_types, self.p, self.c, at, None)?;
@@ -551,6 +554,7 @@ impl Engine<'_, '_> {
                     local.insert(binder.var.clone(), value);
                     if let Some(filter) = &binder.filter
                         && !(Evaluator {
+                            lexical_bases: Some(&self.lexical_bases),
                             package: self.p,
                             physical: self.c,
                             at,
@@ -852,6 +856,7 @@ impl Engine<'_, '_> {
                     .copied()
                     .unwrap_or(self.states[&instance].definition);
                 let selected = Evaluator {
+                    lexical_bases: Some(&self.lexical_bases),
                     package: self.p,
                     physical: self.c,
                     at,
@@ -906,6 +911,7 @@ impl Engine<'_, '_> {
                 // its actual refusal, rather than an unresolved function named present.
                 if matches!(&e.kind, ExprKind::NamedCall { name, .. } if name.is_ident("present")) {
                     return (Evaluator {
+                        lexical_bases: Some(&self.lexical_bases),
                         package: self.p,
                         physical: self.c,
                         at,

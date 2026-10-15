@@ -277,9 +277,18 @@ impl Blocks {
                     .factor_calls
                     .checked_add(1)
                     .ok_or_else(|| ProblemError::Internal("block factor count overflow".into()))?;
-                let factor =
+                let factored = crate::observation::scoped("kinsol.block.feral.factor", || {
                     feral::SparseLu::factor_markowitz(&block.matrix, feral::LuParams::default())
-                        .map_err(crate::conditioning::native)?;
+                });
+                crate::observation::count(
+                    if factored.is_ok() {
+                        "kinsol.block.feral.factor.succeeded"
+                    } else {
+                        "kinsol.block.feral.factor.failed"
+                    },
+                    1,
+                );
+                let factor = factored.map_err(crate::conditioning::native)?;
                 self.factors_completed =
                     self.factors_completed.checked_add(1).ok_or_else(|| {
                         ProblemError::Internal("block successful factor count overflow".into())
@@ -320,9 +329,17 @@ impl Blocks {
                 .solve_calls
                 .checked_add(1)
                 .ok_or_else(|| ProblemError::Internal("block solve count overflow".into()))?;
-            factor
-                .ftran(&mut local)
-                .map_err(crate::conditioning::native)?;
+            let solved =
+                crate::observation::scoped("kinsol.block.feral.solve", || factor.ftran(&mut local));
+            crate::observation::count(
+                if solved.is_ok() {
+                    "kinsol.block.feral.solve.succeeded"
+                } else {
+                    "kinsol.block.feral.solve.failed"
+                },
+                1,
+            );
+            solved.map_err(crate::conditioning::native)?;
             execution.check()?;
             if local.iter().any(|value| !value.is_finite()) {
                 return Err(ProblemError::numerical(

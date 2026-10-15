@@ -98,6 +98,33 @@ pub(crate) struct DocumentValue<T>(pub(crate) T);
 pub(crate) trait DocumentType {
     const NAME: &'static str;
 }
+impl DocumentType for pse_diagnostics::observation::OperationId {
+    const NAME: &'static str = "OperationId";
+}
+impl DocumentType for pse_diagnostics::observation::OperationPage {
+    const NAME: &'static str = "OperationPage";
+}
+impl DocumentType for pse_diagnostics::observation::OperationSnapshot {
+    const NAME: &'static str = "OperationSnapshot";
+}
+impl DocumentType for pse_runtime::inspection::InspectionRequest {
+    const NAME: &'static str = "InspectionRequest";
+}
+impl DocumentType for pse_runtime::inspection::InspectionDocument {
+    const NAME: &'static str = "InspectionDocument";
+}
+impl DocumentType for pse_runtime::inspection::DiagnosticListRequest {
+    const NAME: &'static str = "DiagnosticListRequest";
+}
+impl DocumentType for pse_runtime::inspection::DiagnosticProcessPage {
+    const NAME: &'static str = "DiagnosticProcessPage";
+}
+impl DocumentType for pse_runtime::capture::CaptureRequest {
+    const NAME: &'static str = "CaptureRequest";
+}
+impl DocumentType for pse_runtime::capture::CaptureDocument {
+    const NAME: &'static str = "CaptureDocument";
+}
 impl<T: DocumentType> DocumentType for std::sync::Arc<T> {
     const NAME: &'static str = T::NAME;
 }

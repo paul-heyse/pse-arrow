@@ -543,7 +543,7 @@ impl Engine<'_, '_> {
              -> Result<Expr> {
                 let parsed = engine.p.expression_at(at, role, index)?.clone();
                 let value = engine.rewrite(instance, &parsed, env, &[at])?;
-                let types = engine
+                let types: std::collections::BTreeMap<_, _> = engine
                     .model
                     .symbols
                     .iter()
@@ -776,7 +776,7 @@ impl Engine<'_, '_> {
                 AnnotationKind::Check => {
                     let predicate = self.p.predicate_at(at, "annotation.arguments", 0)?.clone();
                     let predicate = self.rewrite_predicate(instance, &predicate, env, &[at])?;
-                    let types = self
+                    let types: std::collections::BTreeMap<_, _> = self
                         .model
                         .symbols
                         .iter()
@@ -915,7 +915,7 @@ pub(crate) fn target_declaration(
     c: &crate::TypeContext<'_>,
     at: DeclarationId,
     source: &Expr,
-    env: &std::collections::BTreeMap<String, Type>,
+    env: &dyn crate::TypeLookup,
 ) -> Result<Option<DeclarationId>> {
     let ExprKind::Path(mut path) = source.kind.clone() else {
         return Ok(None);
@@ -953,12 +953,12 @@ pub(crate) fn target_type(
     c: &crate::TypeContext<'_>,
     at: DeclarationId,
     source: &Expr,
-    env: &std::collections::BTreeMap<String, Type>,
+    env: &dyn crate::TypeLookup,
 ) -> Result<Type> {
     if let Some(id) = target_declaration(p, c, at, source, env)? {
         let row = &p.declarations[&id];
         if let Some(e) = &row.value.equation {
-            let mut local = env.clone();
+            let mut local = crate::TypeScope::new(env);
             for (position, i) in e.indices.iter().enumerate() {
                 let (Type::Set(element) | Type::Continuous(_, element)) =
                     crate::expression::index_domain_type(

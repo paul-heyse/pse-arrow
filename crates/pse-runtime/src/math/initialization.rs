@@ -492,15 +492,17 @@ impl MathService {
         numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
         driver: &crate::CancelSource,
     ) -> Result<PreparedConditionalUnit, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         admit_unit_profile(&profile, &numerics)?;
         let preconditions = source.compiled().preconditions.clone();
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+        let operation = self.compiler_job_retained(
+            workspace,
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+            control.clone(),
+            driver.deadline(),
+            move |authority, flag| {
+                let compiler = authority.lock()?;
                 let view = compiler.prepare_modeling_conditional_unit(
                     model.compiled(),
                     source.compiled(),
@@ -514,7 +516,8 @@ impl MathService {
                 )?;
                 let bytes = view.plan.retained_bytes();
                 Ok((view, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let (view, lease) = tokio::select! {
             result = &mut operation => result?,
@@ -600,7 +603,7 @@ impl MathService {
                     artifacts: view.artifacts.clone(),
                 },
                 lease,
-                driver,
+                &driver,
             )
             .await?;
         let contract = native::assembled::contract(&executable.assembly);
@@ -856,6 +859,10 @@ impl ConditionalUnitSession {
         updates: &[(SemanticId, f64)],
         execution: &Execution,
     ) -> Result<Vec<(SemanticId, f64)>, native::ProblemError> {
+        let _phase = pse_diagnostics::observation::phase("initialization.conditional_root");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("initialization.conditional_root_attempts", "count", 1);
+        }
         let result = (|| {
             execution.check()?;
             self.oracle.refill_inputs(updates)?;
@@ -894,6 +901,21 @@ impl ConditionalUnitSession {
                     owner: None,
                 },
             )?;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.boolean(
+                    "initialization.conditional_native_state_reused",
+                    report.evidence.reused_native_state,
+                );
+                match report.metrics.get("setup.initial_reused") {
+                    Some(Metric::Bool(reused)) => {
+                        context.boolean("initialization.conditional_setup_reused", *reused)
+                    }
+                    _ => context.unavailable(
+                        "initialization.conditional_setup_reused",
+                        "native setup reuse was not supplied",
+                    ),
+                }
+            }
             #[cfg(test)]
             {
                 self.calls += 1;
@@ -918,6 +940,17 @@ impl ConditionalUnitSession {
                 .zip(primal.iter().copied())
                 .collect())
         })();
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(
+                if result.is_ok() {
+                    "initialization.conditional_roots_accepted"
+                } else {
+                    "initialization.conditional_roots_failed"
+                },
+                "count",
+                1,
+            );
+        }
         if result.is_err() {
             self.retained.clear();
             self.retained.release();
@@ -1206,7 +1239,8 @@ impl MathService {
         numerical: super::solves::NumericalInputs,
         driver: &crate::CancelSource,
     ) -> Result<PreparedInitialization, MathRuntimeError> {
-        let original = self.assemble(case.clone()).await?;
+        let driver = self.preparation_driver(driver)?;
+        let original = Self::preparation_wait(&driver, self.assemble(case.clone())).await?;
         let quantities = case.compiled().quantities.clone();
         let preconditions = case.compiled().preconditions.clone();
         let mut targets = case
@@ -1223,19 +1257,21 @@ impl MathService {
             .sum::<usize>()
             + size_of_val(targets.as_slice());
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+        let operation = self.compiler_job_retained(
+            workspace,
+            super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+            control.clone(),
+            driver.deadline(),
+            move |authority, flag| {
+                let compiler = authority.lock()?;
                 let products =
                     compiler.prepare_bound_initialization(case.compiled(), profile, &flag)?;
                 let bytes = pse_compiler::workspace::PreparedBlock::retained_group_bytes(&products)
                     .and_then(|bytes| bytes.checked_add(numerical_bytes))
                     .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
                 Ok((products, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let (products, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let mut prepared = self
@@ -1246,11 +1282,16 @@ impl MathService {
                 preconditions,
                 targets,
                 numerical.declarations,
+                &driver,
             )
             .await?;
         prepared.original = Some(original);
         Ok(prepared)
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "initialization ownership carries its scientific inventory and original preparation clock"
+    )]
     async fn own_initialization(
         self: &Arc<Self>,
         products: Arc<Vec<pse_compiler::workspace::PreparedBlock>>,
@@ -1259,7 +1300,9 @@ impl MathService {
         preconditions: pse_math::SharedAllocation<pse_quantity::PhysicalPreconditions>,
         targets: Vec<pse_math::numerics::TargetSpec>,
         requirements: Vec<pse_math::numerics::SourcedRequirement>,
+        driver: &crate::CancelSource,
     ) -> Result<PreparedInitialization, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         let owner = self.shared_product(
             vec![3, Arc::as_ptr(&products) as usize],
             products.clone(),
@@ -1270,7 +1313,8 @@ impl MathService {
         for block in products.iter() {
             let mut artifacts = vec![];
             for request in block.artifacts.iter() {
-                artifacts.push(self.artifact(request.clone()).await?);
+                artifacts
+                    .push(Self::preparation_wait(&driver, self.artifact(request.clone())).await?);
             }
             let plan = Arc::new(block.plan.as_ref().clone().with_owner(owner.clone()));
             let layout = self.reserve(
@@ -1293,6 +1337,7 @@ impl MathService {
                 }),
             });
         }
+        let _ = self.preparation_driver(&driver)?;
         Ok(PreparedInitialization {
             numerical_owner: self.policy_resolution_owner(),
             snapshot: execution::Snapshot::observe(&execution::LINKED),
@@ -1408,6 +1453,10 @@ impl Blocks<'_, '_> {
         &mut self,
         original: CaseValues,
     ) -> Result<InitializationReport, MathRuntimeError> {
+        let observation = pse_diagnostics::observation::current();
+        let _phase = observation
+            .as_ref()
+            .map(|context| context.phase("initialization.stages"));
         let mut completed_stages = 0;
         let mut stages = Vec::new();
         let mut committed = CaseValues {
@@ -1420,6 +1469,11 @@ impl Blocks<'_, '_> {
             .collect();
         let previous_accepted = self.profile.solver.controls.start == StartPolicy::PreviousAccepted;
         for (stage, updates) in self.profile.stages.iter().enumerate() {
+            let _stage_phase = observation.as_ref().map(|context| {
+                context.count("initialization.stage_attempts", "count", 1);
+                context.gauge("initialization.stage_index", "index", stage as f64);
+                context.phase("initialization.stage")
+            });
             // The stage overlay exists only in this stage's working values; the original
             // specification is never written.
             let mut values = original.clone();
@@ -1444,6 +1498,11 @@ impl Blocks<'_, '_> {
                             .rposition(|a| a.boundary.id == id && a.committed)
                     })
                     .flatten();
+                if let Some(context) = &observation {
+                    context.count("initialization.block_attempts", "count", 1);
+                    context.gauge("initialization.block_index", "index", index as f64);
+                    context.boolean("initialization.previous_committed_seed", previous.is_some());
+                }
                 let attempted = self.attempt(index, &values, previous).await;
                 let trace = match &attempted {
                     Ok((_, trace)) => Some(trace.clone()),
@@ -1467,6 +1526,18 @@ impl Blocks<'_, '_> {
                     trace,
                     committed: committed_block,
                 });
+                if let Some(context) = &observation {
+                    context.boolean("initialization.block_candidate_committed", committed_block);
+                    context.count(
+                        if committed_block {
+                            "initialization.block_candidate_commits"
+                        } else {
+                            "initialization.block_refusals"
+                        },
+                        "count",
+                        1,
+                    );
+                }
                 if !committed_block {
                     completed = false;
                     break;
@@ -1480,6 +1551,10 @@ impl Blocks<'_, '_> {
                 let validation_scope = self.scope.clone();
                 self.scope.check().map_err(native::ProblemError::Provider)?;
                 let bytes = original_case.assembly.numeric_worker_bytes();
+                let _assessment = observation.as_ref().map(|context| {
+                    context.count("initialization.original_stage_assessments", "count", 1);
+                    context.phase("initialization.original_stage_assessment")
+                });
                 completed = self.local.construct(bytes, |_storage| {
                     let budget = WorkerBudget::new(bytes);
                     let mut worker = self.service.worker(
@@ -1540,6 +1615,18 @@ impl Blocks<'_, '_> {
                 for attempt in &mut self.attempts[first..] {
                     attempt.committed = false;
                 }
+            }
+            if let Some(context) = &observation {
+                context.count(
+                    if completed {
+                        "initialization.stages_committed"
+                    } else {
+                        "initialization.stages_refused"
+                    },
+                    "count",
+                    1,
+                );
+                context.boolean("initialization.stage_committed", completed);
             }
             stages.push(StageAttempt {
                 stage,
@@ -2699,6 +2786,7 @@ mod tests {
                 preconditions,
                 vec![],
                 vec![],
+                &crate::CancelSource::new(),
             )
             .await
             .unwrap();
@@ -2860,6 +2948,7 @@ mod tests {
                 compiled.preconditions.clone(),
                 Vec::new(),
                 Vec::new(),
+                &crate::CancelSource::new(),
             )
             .await
             .unwrap();
@@ -2982,6 +3071,7 @@ mod tests {
                 compiled.preconditions.clone(),
                 targets,
                 Vec::new(),
+                &crate::CancelSource::new(),
             )
             .await
             .unwrap();

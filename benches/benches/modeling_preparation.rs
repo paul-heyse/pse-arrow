@@ -21,6 +21,8 @@
     clippy::print_stdout,
     reason = "a standalone measurement harness fails on invalid setup and emits its records"
 )]
+#[path = "audit/mod.rs"]
+mod audit;
 #[path = "k4/preparation.rs"]
 mod k4_preparation;
 #[path = "native_process/phases.rs"]
@@ -501,19 +503,22 @@ fn preparation(c: &mut Criterion) {
     // the registered smoke workloads run unless one case is selected.
     let measuring = std::env::args().any(|a| a == "--bench");
     let output = std::env::var_os("PSE_PREPARATION_OUTPUT").map(PathBuf::from);
-    let executor = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(1)
-        .enable_all()
-        .build()
-        .unwrap();
     if let Some(workload) = selected
         .as_deref()
         .and_then(|id| workloads.iter().find(|w| w["id"] == id))
         .filter(|w| w["model"] == "scalar-k4")
     {
+        let mut audit = audit::Audit::start(workload["id"].as_str().unwrap(), workload);
+        let _audit_context = audit.enter();
         k4_preparation::measure(c, workload, output.as_deref(), &phases);
+        audit.complete();
         return;
     }
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
     if selected.is_none() {
         for workload in workloads
             .iter()

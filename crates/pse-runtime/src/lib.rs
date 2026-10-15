@@ -3,7 +3,9 @@
 
 // The `Send` proofs for the nested async state machines exceed rustc's default depth of
 // 128; its `recursion_depth_exceeding_limit` future-incompatibility lint asks for more.
-#![recursion_limit = "256"]
+// Poll-scoped observation adds future wrappers to existing nested workflows.
+// Keep auto-trait checking within a finite compiler depth without runtime boxing.
+#![recursion_limit = "512"]
 
 //! The run controller: one shared accounted runtime, the sessions built on it, and the
 //! lifecycle that cancels them (blueprint §14.3, §18.8, §20.3, ADR-0046).
@@ -34,9 +36,12 @@
 
 pub mod budget;
 pub mod cancel;
+pub mod capture;
 pub mod env;
 pub mod error;
+pub mod inspection;
 pub mod inspection_documents;
+pub mod observation;
 pub use inspection_documents::{ResourceConsumer, TableName};
 pub mod peak;
 pub mod session_factory;

@@ -2348,6 +2348,57 @@ impl CandidateUse {
         }
     }
 }
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type CaptureKind = pse_diagnostics::CaptureKind;
+impl crate::SemanticEq for CaptureKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for CaptureKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CaptureKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type CaptureOutputKind = pse_diagnostics::CaptureOutputKind;
+impl crate::SemanticEq for CaptureOutputKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for CaptureOutputKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CaptureOutputKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type CaptureStatus = pse_diagnostics::CaptureStatus;
+impl crate::SemanticEq for CaptureStatus {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for CaptureStatus {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CaptureStatus {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -16454,6 +16505,40 @@ impl NativeWarmCapability {
         }
     }
 }
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type NextObservation = pse_diagnostics::NextObservation;
+impl crate::SemanticEq for NextObservation {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for NextObservation {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NextObservation {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type NonFinite = pse_diagnostics::NonFinite;
+impl crate::SemanticEq for NonFinite {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for NonFinite {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NonFinite {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -18726,6 +18811,23 @@ impl crate::SemanticFrame for OperationEffect {
         hash.str(self.as_str());
     }
 }
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type OperationOutcome = pse_diagnostics::OperationOutcome;
+impl crate::SemanticEq for OperationOutcome {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for OperationOutcome {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for OperationOutcome {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -20140,6 +20242,23 @@ impl crate::SemanticFrame for ReferenceStateKind {
         hash.str(self.as_str());
     }
 }
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type Relationship = pse_diagnostics::Relationship;
+impl crate::SemanticEq for Relationship {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for Relationship {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for Relationship {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -21067,6 +21186,23 @@ impl StateSign {
             vocabulary: stringify!(StateSign),
             value: value.to_owned(),
         }
+    }
+}
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type StatementKind = pse_diagnostics::StatementKind;
+impl crate::SemanticEq for StatementKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for StatementKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StatementKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.

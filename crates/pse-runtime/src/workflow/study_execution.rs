@@ -124,6 +124,7 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.execute");
                 let (report, preparations) = crate::math::counted(async {
                     match self.runtime.durability() {
                         super::Durability::Durable(_) => {
@@ -357,6 +358,9 @@ impl ModelingPackage {
             .min(self.runtime.shared.budget().math.jobs)
             .max(1);
         let work_cancel = cancel.child_with_deadline(None);
+        // Hierarchical cancellation can already have stopped the child. Frontier
+        // bookkeeping follows the parent event exactly once, not the child's state.
+        let mut parent_cancelled = false;
         let mut pending: futures_util::stream::FuturesUnordered<
             futures_util::future::BoxFuture<'_, LaneCompletion>,
         > = futures_util::stream::FuturesUnordered::new();
@@ -384,9 +388,18 @@ impl ModelingPackage {
         let mut completed = Vec::new();
         let (decision, preparations) = crate::math::counted(async {
             loop {
-                if cancel.token().is_cancelled() && !work_cancel.token().is_cancelled() {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.integer("study.frontier", "occurrences", frontier.len() as i64);
+                    context.integer("study.prepared", "occurrences", ready.len() as i64);
+                    context.integer("study.in_flight", "occurrences", inflight.len() as i64);
+                }
+                if cancel.token().is_cancelled() && !parent_cancelled {
+                    parent_cancelled = true;
                     work_cancel.cancel();
                     frontier.extend(0..facts.len());
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("study.parent_cancellation_handled", "events", 1);
+                    }
                 }
                 // Poll every issued future; immediately available completions need no
                 // frontier-wide barrier and can expose a real native batch together.
@@ -513,7 +526,8 @@ impl ModelingPackage {
                             let child_cancel = &work_cancel;
                             inflight.insert(index);
                             frontier.remove(&index);
-                            pending.push(async move {
+                            pending.push(crate::observation::child("study.occurrence.prepare", async move {
+                                if let Some(context) = pse_diagnostics::observation::current() { context.integer("study.occurrence", "index", index as i64); }
                                 let prepare = async {
                                     let (source, requested) = match explicit {
                                         Some(requested) => (self.clone(), requested),
@@ -532,7 +546,7 @@ impl ModelingPackage {
                                     None => prepare.await,
                                 };
                                 LaneCompletion::Prepared { index, operation, staged, lane }
-                            }.boxed());
+                            }).boxed());
                         }
                         ActionKind::Wait(_) => { frontier.remove(&index); }
                         ActionKind::Reconcile => return Err(WorkflowError::Internal(
@@ -605,7 +619,7 @@ impl ModelingPackage {
                             attempt: facts[index].attempt_count - 1, preparation, previous, older });
                     }
                     let child_cancel = &work_cancel;
-                    pending.push(execute_lane(self, members, child_cancel).boxed());
+                    pending.push(crate::observation::child("study.execution.lane", execute_lane(self, members, child_cancel)).boxed());
                 }
                 if pending.is_empty() {
                     if !frontier.is_empty() { continue; }
@@ -615,9 +629,13 @@ impl ModelingPackage {
                 }
                 let next = tokio::select! {
                     value = pending.next() => value,
-                    () = cancel.cancelled(), if !work_cancel.token().is_cancelled() => {
+                    () = cancel.cancelled(), if !parent_cancelled => {
+                        parent_cancelled = true;
                         work_cancel.cancel();
                         frontier.extend(0..facts.len());
+                        if let Some(context) = pse_diagnostics::observation::current() {
+                            context.count("study.parent_cancellation_handled", "events", 1);
+                        }
                         continue;
                     }
                 };
@@ -758,6 +776,16 @@ async fn execute_lane(
     mut members: Vec<LaneMember>,
     cancel: &crate::CancelSource,
 ) -> LaneCompletion {
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.integer("study.batch.members", "occurrences", members.len() as i64);
+        let indices = members
+            .iter()
+            .take(16)
+            .flat_map(|member| (member.index as u64).to_le_bytes())
+            .collect::<Vec<_>>();
+        context.source_ref("study.batch.occurrence_indices_le_u64", &indices);
+        context.boolean("study.batch.mapping.partial", members.len() > 16);
+    }
     let positions = members
         .iter()
         .map(|member| (member.index, member.start.clone()))
@@ -1015,6 +1043,11 @@ async fn record_execution(
         start,
         result,
     } = point;
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("study.settled", "occurrences", 1);
+        context.integer("study.occurrence.index", "occurrence_index", index as i64);
+        context.boolean("study.occurrence.execution_failed", result.is_err());
+    }
     let (scientific, diagnostic) = match &result {
         Ok(result) => (
             super::study_operations::scientific_facts(result),
@@ -1031,6 +1064,12 @@ async fn record_execution(
             ),
         ),
     };
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.boolean("study.occurrence.scientifically_usable", scientific.usable);
+        if diagnostic.is_some() {
+            context.count("study.diagnostic_occurrences", "occurrences", 1);
+        }
+    }
     let cancelled = cancel.token().is_cancelled()
         || diagnostic
             .as_ref()
@@ -2261,6 +2300,54 @@ mod occurrence_execution_tests {
                     .diagnostic
                     .as_ref()
                     .is_some_and(|d| d.class == BoundaryClass::Cancelled)
+        }));
+        assert!(report.results.iter().all(Option::is_none));
+        assert_eq!(report.preparations.views, 0);
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn parent_cancellation_refreshes_blocked_study_points_and_drains_queued_preparation() {
+        let (package, mut definition) = fixture(&[1., 2., 3.]).await;
+        definition.points[1].policy.dependencies = vec![Dependency::UsableResult(OccurrenceKey(0))];
+        definition.points[2].policy.dependencies = vec![Dependency::Ordering(OccurrenceKey(1))];
+        let service = package.runtime.shared.math();
+        let (admitted, admission) = tokio::sync::oneshot::channel();
+        let (exit, gate) = std::sync::mpsc::channel::<()>();
+        let mut submission = crate::math::Submission::ephemeral();
+        submission.admitted = Some(admitted);
+        let blocker = service
+            .submit_with(service.cores(), 0, submission, move |_, _| {
+                gate.recv().map_err(|error| {
+                    crate::math::MathRuntimeError::Infrastructure(error.to_string())
+                })?;
+                Ok(((), 0))
+            })
+            .unwrap();
+        admission.await.unwrap();
+        let population_available = service.test_admission_snapshot().2;
+        let cancel = crate::CancelSource::new();
+        let mut study = Box::pin(package.study(&definition, 8, &cancel));
+        let queued = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                assert!(futures_util::poll!(study.as_mut()).is_pending());
+                if service.test_admission_snapshot().2 < population_available {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        cancel.cancel();
+        // The unrelated CPU owner stays blocked: cancellation must drain queued
+        // preparation without first making that owner's CPU permits available.
+        let finished =
+            tokio::time::timeout(std::time::Duration::from_secs(10), study.as_mut()).await;
+        exit.send(()).unwrap();
+        blocker.finish().await.unwrap();
+        queued.unwrap();
+        let report = finished.unwrap().unwrap();
+        assert_eq!(report.outcomes.len(), 3);
+        assert!(report.outcomes.iter().all(|outcome| {
+            outcome.lifecycle == StudyPointState::Cancelled && outcome.attempts.is_empty()
         }));
         assert!(report.results.iter().all(Option::is_none));
         assert_eq!(report.preparations.views, 0);

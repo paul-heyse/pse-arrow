@@ -29,7 +29,13 @@ fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
         .deadline()
         .is_some_and(|deadline| std::time::Instant::now() >= deadline)
     {
-        Err(crate::math::MathRuntimeError::Limit("canonical source operation deadline").into())
+        Err(
+            crate::math::MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "canonical source operation deadline".into(),
+            })
+            .into(),
+        )
     } else {
         Ok(())
     }
@@ -530,7 +536,9 @@ pub(super) async fn persist(
     runtime: &Runtime,
     ingress: CanonicalIngress<'_>,
     previous: Option<&SourceRevision>,
+    cancel: &crate::CancelSource,
 ) -> Result<SourceRevision, WorkflowError> {
+    checkpoint(cancel)?;
     let CanonicalIngress {
         rows,
         physical,
@@ -611,13 +619,18 @@ pub(super) async fn persist(
         )?;
         let mut data_documents = documents.clone();
         data_documents.parsed_fields = index.parsed_fields.clone();
-        let data = runtime.shared.math().modeling_revision(
-            &workspace,
-            data_rows,
-            physical_scope.clone(),
-            Arc::new(data_documents),
-            &physical.key,
-        )?;
+        let data = runtime
+            .shared
+            .math()
+            .modeling_revision(
+                &workspace,
+                data_rows,
+                physical_scope.clone(),
+                Arc::new(data_documents),
+                &physical.key,
+                cancel,
+            )
+            .await?;
         for (record, supplier) in selected_source::record_sources(data.checked()) {
             let source = &index.rows[&supplier];
             edits.push(edit(
@@ -772,7 +785,8 @@ pub(super) async fn persist(
             return Ok(previous.clone());
         }
     }
-    admit_revision(runtime, previous, identity, &edits, None).await
+    checkpoint(cancel)?;
+    admit_revision(runtime, previous, identity, &edits, Some(cancel)).await
 }
 
 /// Stage complete local ownership before issuing the existing durable effect.
@@ -799,6 +813,9 @@ async fn admit_revision(
                 |old| old.problem.clone(),
             );
             let operation = pse_operations::mint_id::<SemanticId>().to_string();
+            if let Some(cancel) = cancel {
+                checkpoint(cancel)?;
+            }
             let recorded = store
                 .edit(&problem, old.map(|old| old.key.as_str()), &operation, edits)
                 .await
@@ -984,10 +1001,12 @@ impl SourceIndex {
                 self.requests.insert(Request::Logical(parent));
             }
         } else {
-            self.named_roots
-                .entry(row.name.clone())
-                .or_default()
-                .push(id);
+            // The old row-map scan yielded declaration order, independently of
+            // source acquisition order. Keep that contract in each indexed bucket.
+            let roots = self.named_roots.entry(row.name.clone()).or_default();
+            if let Err(position) = roots.binary_search(&id) {
+                roots.insert(position, id);
+            }
         }
         if let Some(fields) = fields {
             self.fields.insert(id, fields);
@@ -1404,12 +1423,15 @@ impl LexicalLookup for SourceIndex {
                 self.requests.insert(Request::Name(None, import));
                 return Lookup::Pending;
             }
-            found.extend(
-                self.rows
-                    .values()
-                    .filter(|row| row.parent_id.is_none() && row.name == import)
-                    .map(|row| row.declaration_id),
-            );
+            let candidates = self.named_roots.get(&import).map_or(&[][..], Vec::as_slice);
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count(
+                    "modeling.import_candidates",
+                    "declarations",
+                    candidates.len() as u64,
+                );
+            }
+            found.extend_from_slice(candidates);
         }
         if found.is_empty() {
             Lookup::Absent
@@ -1750,29 +1772,38 @@ impl ModelingPackage {
         let flight_metadata = metadata.clone();
         let key = (request.clone(), dependencies.clone());
         let population = crate::math::PopulationScope::capture();
+        let producer_deadline = service.preparation_producer_deadline();
         let operation = math.selected_flights.load_owned(key, move |control| {
             population.run(async move {
+                let producer_deadline = producer_deadline?;
                 let worker_service = service.clone();
+                let workspace = service.compiler_lane(lineage, inputs)?;
                 let admitted = service
-                    .job(1, 0, control, move |flag| {
-                        let _sources = leases;
-                        let _metadata = flight_metadata;
-                        if flag.load(std::sync::atomic::Ordering::Acquire) {
-                            return Err(crate::math::MathRuntimeError::Cancelled);
-                        }
-                        let workspace = worker_service.compiler_lane(lineage, inputs)?;
-                        worker_service.modeling_revision_at(
-                            &workspace,
-                            rows,
-                            physical,
-                            Arc::new(documents),
-                            &physical_key,
-                            stamp,
-                            flag,
-                            &suppliers,
-                        )
-                    })
-                    .await?;
+                    .compiler_job(
+                        workspace,
+                        crate::math::ConstructionEstimate::Known(0),
+                        control,
+                        Some(producer_deadline),
+                        move |authority, flag| {
+                            let _sources = leases;
+                            let _metadata = flight_metadata;
+                            if flag.load(std::sync::atomic::Ordering::Acquire) {
+                                return Err(crate::math::MathRuntimeError::Cancelled);
+                            }
+                            worker_service.modeling_revision_at(
+                                authority,
+                                rows,
+                                physical,
+                                Arc::new(documents),
+                                &physical_key,
+                                stamp,
+                                flag,
+                                &suppliers,
+                            )
+                        },
+                    )
+                    .await
+                    .map_err(crate::math::MathRuntimeError::preparation_producer_failure)?;
                 Ok(Arc::new(admitted))
             })
         });
@@ -2615,6 +2646,30 @@ impl Runtime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn canonical_source_checkpoint_preserves_time_and_cancellation_causes() {
+        let driver = crate::CancelSource::new().with_deadline(Some(
+            std::time::Instant::now() - std::time::Duration::from_millis(1),
+        ));
+        assert!(matches!(
+            checkpoint(&driver),
+            Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            )))
+        ));
+        assert!(!driver.token().is_cancelled());
+        driver.cancel();
+        assert!(matches!(
+            checkpoint(&driver),
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
+        checkpoint(&crate::CancelSource::new()).unwrap();
+    }
     fn parse(source: &str) -> Vec<Declaration> {
         pse_authoring::language::parse(
             source,
@@ -2623,6 +2678,113 @@ mod tests {
             Default::default(),
         )
         .unwrap()
+    }
+    fn indexed_root(name: &str, byte: u8) -> Declaration {
+        let mut row = parse(&format!("package {name} {{}}"))[0].clone();
+        row.declaration_id = DeclarationId::from(SemanticId::from_bytes([byte; 16]));
+        row
+    }
+
+    #[test]
+    fn indexed_imports_preserve_declaration_order_group_order_and_multiplicity() {
+        let mut index = SourceIndex::default();
+        let owner = indexed_root("owner", 20);
+        let owner_id = owner.declaration_id;
+        for row in [
+            owner,
+            indexed_root("first", 9),
+            indexed_root("second", 7),
+            indexed_root("first", 3),
+        ] {
+            index.insert((row, None)).unwrap();
+        }
+        index.imports.insert(owner_id);
+        index.roots_complete = true;
+        index.imported_names.insert(
+            (owner_id, "picked".into()),
+            vec!["first".into(), "second".into(), "first".into()],
+        );
+        let id = |byte| DeclarationId::from(SemanticId::from_bytes([byte; 16]));
+        assert_eq!(
+            index.imported(owner_id, "picked"),
+            Lookup::Found(vec![id(3), id(9), id(7), id(3), id(9)])
+        );
+        assert!(index.requests.is_empty());
+    }
+
+    #[test]
+    fn indexed_imports_keep_pending_distinct_from_absence_and_acquired_candidates() {
+        let mut index = SourceIndex::default();
+        let owner = indexed_root("owner", 20);
+        let owner_id = owner.declaration_id;
+        index.insert((owner, None)).unwrap();
+        index
+            .imported_names
+            .insert((owner_id, "picked".into()), vec!["first".into()]);
+        assert_eq!(index.imported(owner_id, "picked"), Lookup::Pending);
+        assert!(index.requests.contains(&Request::Imports(owner_id)));
+        index.imports.insert(owner_id);
+        index.requests.clear();
+        let first = indexed_root("first", 3);
+        let first_id = first.declaration_id;
+        index.insert((first, None)).unwrap();
+        assert_eq!(index.imported(owner_id, "picked"), Lookup::Pending);
+        assert!(
+            index
+                .requests
+                .contains(&Request::Name(None, "first".into()))
+        );
+        index.names.insert((None, "first".into()));
+        assert_eq!(
+            index.imported(owner_id, "picked"),
+            Lookup::Found(vec![first_id])
+        );
+        index
+            .imported_names
+            .insert((owner_id, "empty".into()), vec!["absent".into()]);
+        assert_eq!(index.imported(owner_id, "empty"), Lookup::Pending);
+        index.names.insert((None, "absent".into()));
+        assert_eq!(index.imported(owner_id, "empty"), Lookup::Absent);
+    }
+
+    #[test]
+    fn indexed_imports_examine_only_the_requested_root_bucket() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("source.import.lookup");
+        let context = operation.context();
+        let _scope = context.enter();
+        let mut index = SourceIndex::default();
+        let owner = indexed_root("owner", 200);
+        let owner_id = owner.declaration_id;
+        index.insert((owner, None)).unwrap();
+        for byte in 1..100 {
+            index
+                .insert((indexed_root(&format!("unrelated{byte}"), byte), None))
+                .unwrap();
+        }
+        let target = indexed_root("target", 201);
+        let target_id = target.declaration_id;
+        index.insert((target, None)).unwrap();
+        index.imports.insert(owner_id);
+        index.roots_complete = true;
+        index
+            .imported_names
+            .insert((owner_id, "picked".into()), vec!["target".into()]);
+        assert_eq!(
+            index.imported(owner_id, "picked"),
+            Lookup::Found(vec![target_id])
+        );
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let candidates = snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "modeling.import_candidates")
+            .unwrap();
+        assert_eq!(candidates.cumulative, Value::Count(1));
+        assert_eq!(index.rows.len(), 101);
     }
     #[test]
     fn complete_namespace_inventory_resolves_nearer_names_without_leaf_or_import_probes() {
@@ -2703,6 +2865,71 @@ mod tests {
             .await
             .unwrap();
         assert!(Arc::ptr_eq(&selected.admission, &reused.admission));
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn scoped_local_selection_inherits_parent_cancellation_before_native_entry() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = parse("package p {def Root {var x:Scalar;eq e:x==1;}}");
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let service = runtime.shared.math();
+        let (admitted, admission) = tokio::sync::oneshot::channel();
+        let (exit, gate) = std::sync::mpsc::channel::<()>();
+        let mut submission = crate::math::Submission::ephemeral();
+        submission.admitted = Some(admitted);
+        let blocker = service
+            .submit_with(service.cores(), 0, submission, move |_, _| {
+                gate.recv().map_err(|error| {
+                    crate::math::MathRuntimeError::Infrastructure(error.to_string())
+                })?;
+                Ok(((), 0))
+            })
+            .unwrap();
+        admission.await.unwrap();
+        let parent = crate::CancelSource::new();
+        let roots = [root];
+        let mut selection = Box::pin(package.checked_selection_scoped(
+            &roots,
+            &parent,
+            std::time::Instant::now() + std::time::Duration::from_secs(60),
+        ));
+        let queued = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                assert!(futures_util::poll!(selection.as_mut()).is_pending());
+                if service.selected_flights.active() != 0 {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        parent.cancel();
+        let stopped =
+            tokio::time::timeout(std::time::Duration::from_secs(10), selection.as_mut()).await;
+        drop(selection);
+        let drained = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while service.selected_flights.active() != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        exit.send(()).unwrap();
+        blocker.finish().await.unwrap();
+        queued.unwrap();
+        drained.unwrap();
+        assert!(matches!(
+            stopped.unwrap(),
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
     }
     #[tokio::test]
     async fn local_siblings_branch_and_cancel_keeps_previous_head() {

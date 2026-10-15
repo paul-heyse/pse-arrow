@@ -26,6 +26,10 @@ this plan. The new selected work and bounded investigations run before the full 
 Plan 38 work; [39d](39d-qualification-and-plan38-cutover.md) owns that ordering and final
 qualification handoff.
 
+## Current scope decision
+
+The maintainer withdrew the environment/provenance proof targets on 2026-10-14. Fresh all-role strict capture, source-completeness investigations, executor-input projections, compiler/launcher/installer phase associations and exact installer/environment reproduction are excluded from Plan39 and its inherited Plan38 acceptance. These targets are eliminated, not deferred; no revisit trigger or future campaign is retained. Existing producer code/tests and runtime safeguards remain. Scientific/model/result provenance, explicit Arrow force-validation, physical correctness and truthful cancellation/drain remain required. Existing C1–C5 implementation and historical observations remain.
+
 ## Existing responsibilities and the target boundary
 
 Source inspection supports improving composition through existing owners:

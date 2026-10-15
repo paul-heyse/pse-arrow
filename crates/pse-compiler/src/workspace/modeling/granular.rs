@@ -40,6 +40,7 @@ struct OccurrenceInput {
 }
 #[salsa::tracked(returns(clone), lru=64, heap_size=parsed_heap)]
 fn parsed(db: &dyn CompilerDb, source: Source) -> Result<Arc<ParsedFields>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.parsed");
     checkpoint(db);
     if let Some(parsed) = source.parsed(db)
         && parsed.matches(source.row(db), source.fields(db).as_ref())
@@ -55,6 +56,7 @@ fn parsed_heap(v: &Result<Arc<ParsedFields>>) -> usize {
 }
 #[salsa::tracked(returns(clone), lru=64, heap_size=parsed_heap)]
 fn signature_syntax(db: &dyn CompilerDb, source: Source) -> Result<Arc<ParsedFields>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.signature_syntax");
     checkpoint(db);
     let value = parsed(db, source)?.signature_syntax();
     checkpoint(db);
@@ -66,6 +68,7 @@ fn resolved(
     inventory: Inventory,
     input: TypeInput,
 ) -> Result<Arc<ResolvedSignature>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.resolved");
     checkpoint(db);
     let source = input.source(db);
     let context = TypeContext {
@@ -86,6 +89,7 @@ fn resolved_heap(v: &Result<Arc<ResolvedSignature>>) -> usize {
 }
 #[salsa::tracked(returns(clone), lru=64, heap_size=signature_heap)]
 fn typed(db: &dyn CompilerDb, inventory: Inventory, input: TypeInput) -> Result<Arc<Signature>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.typed");
     checkpoint(db);
     let resolution = resolved(db, inventory, input)?;
     let source = *input.source(db);
@@ -111,6 +115,7 @@ fn complete(
     inventory: Inventory,
     input: CompleteInput,
 ) -> Result<Arc<CheckedPackage>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.complete");
     checkpoint(db);
     let context = TypeContext {
         admissions: None,
@@ -139,6 +144,7 @@ fn complete_heap(v: &Result<Arc<CheckedPackage>>) -> usize {
 }
 #[salsa::tracked(returns(clone), lru=64, heap_size=occurrence_heap)]
 fn occurrence(db: &dyn CompilerDb, input: OccurrenceInput) -> CheckedExpression {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.occurrence");
     checkpoint(db);
     let value = input
         .namespace(db)
@@ -635,6 +641,7 @@ fn effective_members(
     db: &dyn CompilerDb,
     phase: MemberPhase,
 ) -> Result<Arc<phases::MemberProduct>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.effective_members");
     checkpoint(db);
     let value = phase.input(db).check()?;
     checkpoint(db);
@@ -655,6 +662,7 @@ fn checked_expressions(
     inventory: Inventory,
     phase: ExpressionPhase,
 ) -> Result<Arc<phases::expressions::Product>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.checked_expressions");
     checkpoint(db);
     let context = TypeContext {
         admissions: None,
@@ -680,6 +688,7 @@ fn expression_references(
     db: &dyn CompilerDb,
     phase: ReferencePhase,
 ) -> Arc<BTreeSet<DeclarationId>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.expression_references");
     checkpoint(db);
     let value = phase.input(db).resolve();
     checkpoint(db);
@@ -705,6 +714,7 @@ fn enclosing_inventory(
     inventory: Inventory,
     input: InventoryInput,
 ) -> Result<Arc<phases::InventoryProduct>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.enclosing_inventory");
     checkpoint(db);
     let mut documents = input.documents(db).as_ref().clone();
     for source in input.sources(db) {

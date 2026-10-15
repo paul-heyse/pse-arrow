@@ -53,6 +53,7 @@ from pse.contracts.identities import (
     StudyId,
 )
 from pse.contracts.values import ContentHash, SemanticId
+from pse.diagnostics import OperationObservations
 
 StudyPointStatus: TypeAlias = PointStatus
 
@@ -419,6 +420,11 @@ class RunHandle:
     """Blocking and asyncio access to the same supervised native job."""
 
     _handle: _NativeRunHandle
+
+    def observations(self) -> OperationObservations | None:
+        """Read diagnostics without retaining this handle's cancellation lease."""
+        reader = self._handle.observations()
+        return None if reader is None else OperationObservations(reader)
 
     def cancel(self) -> None:
         """Request stop; join and terminal report ownership remain native."""

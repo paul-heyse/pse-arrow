@@ -24,10 +24,10 @@ use pse_model::{
 };
 pub use record::{AttemptRecord, SubmittedStartRecord};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU8, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -539,7 +539,7 @@ impl IncumbentEvent {
 pub(crate) struct CaptureThrottle {
     started: Instant,
     /// Nanoseconds after `started` of the last capture; `u64::MAX` before the first.
-    last: std::sync::atomic::AtomicU64,
+    last: AtomicU64,
     pending: AtomicBool,
 }
 #[cfg(any(feature = "highs", feature = "scip"))]
@@ -547,7 +547,7 @@ impl CaptureThrottle {
     pub(crate) fn new() -> Self {
         Self {
             started: Instant::now(),
-            last: std::sync::atomic::AtomicU64::new(u64::MAX),
+            last: AtomicU64::new(u64::MAX),
             pending: AtomicBool::new(false),
         }
     }
@@ -599,8 +599,14 @@ pub trait ProgressTap: Send + Sync + std::fmt::Debug {
 #[derive(Debug)]
 pub struct Progress {
     limit: usize,
-    events: Mutex<(Vec<Event>, u64)>,
+    events: Mutex<ProgressState>,
+    dropped: AtomicU64,
     tap: Option<Arc<dyn ProgressTap>>,
+}
+#[derive(Debug, Default)]
+struct ProgressState {
+    recent: VecDeque<Event>,
+    current: Option<Event>,
 }
 impl Event {
     /// Retained bytes: the phase, the values and the incumbent.
@@ -633,11 +639,12 @@ impl Metric {
 }
 
 impl Progress {
-    /// Allocate only up to the admitted bound; later events increment a dropped count.
+    /// Retain a rolling admitted history and the latest bounded checkpoint.
     pub fn new(limit: usize) -> Self {
         Self {
             limit,
-            events: Mutex::new((Vec::new(), 0)),
+            events: Mutex::new(ProgressState::default()),
+            dropped: AtomicU64::new(0),
             tap: None,
         }
     }
@@ -652,27 +659,74 @@ impl Progress {
     /// retained event holds at most 4 KiB: an incumbent whose solution is larger is
     /// retained without it (the tap received it whole).
     pub fn push(&self, mut event: Event) {
+        crate::observation::event(&event);
         if let Some(tap) = &self.tap {
             tap.observe(&event);
         }
-        if let Ok(mut s) = self.events.lock() {
+        if let Ok(mut s) = self.events.try_lock() {
             if event.retained_bytes() > 4096
                 && let Some(incumbent) = event.incumbent.as_mut()
             {
                 incumbent.primal = None;
             }
-            if s.0.len() < self.limit && event.retained_bytes() <= 4096 {
-                s.0.push(event);
-            } else {
-                s.1 = s.1.saturating_add(1);
+            if event.retained_bytes() <= 4096 {
+                s.current = Some(event.clone());
+                if self.limit > 0 {
+                    if s.recent.len() == self.limit {
+                        s.recent.pop_front();
+                        self.lose();
+                    }
+                    s.recent.push_back(event);
+                    return;
+                }
             }
         }
+        self.lose();
     }
-    /// Snapshot currently retained events and their dropped-event count.
+    fn lose(&self) {
+        let _ = self
+            .dropped
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
+                Some(n.saturating_add(1))
+            });
+    }
+    /// Latest compact checkpoint, including when history retention is disabled.
+    /// Contention is unavailable, never a reason to wait for a native owner.
+    pub fn current(&self) -> Option<Event> {
+        self.events.try_lock().ok().and_then(|s| s.current.clone())
+    }
+    /// Snapshot retained recent events and explicit history loss. Observation readers
+    /// never hold a native producer up; a contended read returns no history with loss.
     pub fn snapshot(&self) -> (Vec<Event>, u64) {
-        self.events.lock().map(|s| s.clone()).unwrap_or_default()
+        let dropped = self.dropped.load(Ordering::Relaxed);
+        self.events.try_lock().map_or_else(
+            |_| (Vec::new(), dropped.saturating_add(1)),
+            |s| (s.recent.iter().cloned().collect(), dropped),
+        )
     }
 }
+/// A local attempt stop, independent of the enclosing task's cancellation owner.
+#[cfg(test)]
+mod progress_contention_tests {
+    use super::*;
+    #[test]
+    fn contended_progress_never_waits_and_reports_loss() {
+        let progress = Progress::new(2);
+        let held = progress.events.lock().unwrap();
+        progress.push(Event {
+            phase: "contended".into(),
+            elapsed: Duration::ZERO,
+            values: BTreeMap::new(),
+            incumbent: None,
+        });
+        assert!(progress.current().is_none());
+        assert_eq!(progress.snapshot().1, 2); // one lost producer event and this unavailable read
+        drop(held);
+        assert_eq!(progress.snapshot().1, 1);
+        assert!(progress.snapshot().0.is_empty());
+    }
+}
+
 /// A local attempt stop, independent of the enclosing task's cancellation owner.
 #[derive(Debug, Default)]
 pub struct AttemptAbandonment {

@@ -11,8 +11,8 @@ review: docs/design_review/reviews/design_review_plan39-pure-macro-channels_2026
 evidence: Proposed
 supersedes: []
 superseded-by: null
-revisit: A consumed macro requires environment selectors or file grammar input, or a guarded owner/helper upgrade introduces another external input channel.
-verification: Actual compiler controls reject generated Paste environment selectors and Pest file attributes, preserve inline grammar parsing, invalidate changed owner/helper/features, and distinguish caller code identity from macro external-input assurance; Plan39d retains assembled strict producer qualification.
+revisit: None; additional environment/provenance proof targets were withdrawn by the maintainer and carry no revisit obligation.
+verification: Actual compiler controls reject generated Paste environment selectors and Pest file attributes, preserve inline grammar parsing, invalidate changed owner/helper/features, and distinguish caller code identity from macro external-input assurance; no further strict producer/environment proof campaign is selected.
 ---
 
 # ADR-0189: Enforce pure invocation channels for selected macro producers
@@ -45,11 +45,11 @@ Retain minimal patched dependency source with upstream version/provenance and li
 
 ### Compensating controls
 
-Review binds exact source and executable helper closure. Real compiler fixtures exercise generated selectors, unsupported forms and unchanged normal parsing. Scientific input hashing independently retains relevant caller code. A later effectful requirement reopens this decision rather than silently broadening tokens-only assurance.
+Review binds exact source and executable helper closure. Real compiler fixtures exercise generated selectors, unsupported forms and unchanged normal parsing. Scientific input hashing independently retains relevant caller code. The implemented tokens-only restriction remains; no additional environment/provenance proof investigation is scheduled.
 
 ### Confirmation
 
-The bounded design assessment is linked above. Current implementation and test outcomes belong to Plan39b B1/B5. Targeted compiler behavior does not qualify the full deployment campaign; Plan39d owns that later scope.
+The bounded design assessment is linked above. Current implementation and test outcomes belong to Plan39b B1/B5. Targeted compiler behavior retains its stated scope. Plan39d owns ordinary functional acceptance; the additional strict deployment proof campaign is withdrawn.
 
 ### One finite preparation operation — authorized remaining Plan39 scope
 
@@ -57,19 +57,11 @@ The maintainer authorized the remaining-design execution on 2026-10-14, excludin
 
 Actual Maturin child argv/SDK/environment remains authoritative and is enrolled late. Unknown executor families refuse before build. A first exact executor compilation context requires successful non-Fresh compiler evidence; later Fresh use requires that same operation's preceding exact compilation with unchanged dependency-complete source/configuration/reviewed environment/native/absence premises and original outputs. Unit-graph keys alone are insufficient. Build-script output associations remain distinct from executable compilation evidence; an emitted build-script-executed message alone does not prove execution in that child. Unknown, changed or incomplete premises refuse.
 
-Protected historical evidence remains independently reconstructible; original-path current artifact/input/namespace/environment verification is unchanged. Existing coordinated ownership and before/after checks still apply: private preparation exclusion does not make arbitrary concurrent tools harmless. The bounded independent assessment is [the preparation-operation review](../design_review/reviews/design_review_plan39-preparation-operation_2026-10-14.md). Dependent assurance code waits for that assessment. Tiny compiler fixtures establish only this mechanism; actual PSE all-role capture/install/import remains Plan39d work.
+Protected historical evidence remains independently reconstructible; original-path current artifact/input/namespace/environment verification is unchanged. Existing coordinated ownership and before/after checks still apply: private preparation exclusion does not make arbitrary concurrent tools harmless. The bounded independent assessment is [the preparation-operation review](../design_review/reviews/design_review_plan39-preparation-operation_2026-10-14.md). That assessment preceded the implemented bounded correction; no additional review or assurance-code prerequisite is scheduled. Tiny compiler fixtures establish only this mechanism. Actual PSE all-role proof capture/install/import is withdrawn from Plan39d.
 
-### Source-qualified compiler, launcher and installation contexts — deferred
+### Withdrawn environment/provenance proof targets
 
-The maintainer subsequently directed design-phase validation without proving minor environment changes or exact reproduction to this degree. This additional phase-context machinery is deferred; it is not a prerequisite for ordinary functional validation. Revisit only for a separately requested strict cross-build assurance requirement. The target review remains historical evidence, not implementation acceptance.
-
-On 2026-10-14 the maintainer accepted the concrete D0 phase-context target in Plan39d. The existing whole-role context conflates executor compilation, Maturin's prebuild Python startup and uv's later replacement of installation metadata. Preserve these as separate owned operations and evidence, rather than claiming a mutated input namespace is unchanged. This amends the prior all-consumed-inputs-unchanged realization for the explicitly checked installation transition; it does not permit arbitrary changed inputs.
-
-An executor projection requires an explicit current source-qualified completeness contract over exact owner/helper/source/features/platform, compiler/configuration/native inputs, executable I/O and actual associated compiler environment/generated suppliers. Existing runtime-I/O grants alone do not establish compiler relevance. One admitted executor view supplies its reuse basis and original-premise verification. Unknown/stale/incomplete projections keep conservative refusal. First compilation remains actual successful non-Fresh evidence in the same operation; later reuse keeps unchanged complete relevant premises and original outputs.
-
-The build association records the actual Cargo child's inputs and remains immutable in protected history. Maturin's prebuild launcher separately records interpreter/startup and complete import-shadow/absence and `.pth` premises plus the actual delivered Cargo arguments/configuration. Installation separately binds selected wheel/distribution identity, site entry selection, target metadata/RECORD-directed removal, authenticated outputs and full before/after namespace reconciliation. Only source-qualified exact installation-output changes are permitted; unexplained membership, bytes, modes, links or aliases refuse.
-
-Final verification keeps unchanged build/executor inputs current, verifies original launcher evidence historically, authenticates every allowed installation transition, and independently verifies current installed/imported context and full bytes with the existing exact RPATH-only replay. It neither applies the old whole-role unchanged-namespace verifier to a known changed launcher namespace nor silently rebinds the original build receipt. Metadata-only diagnostics do not qualify this contract. Plan39d owns revealing controls and actual all-role acceptance; the [independent phase-context assessment](../design_review/reviews/design_review_plan39-executor-and-installer-contexts_2026-10-14.md) accepts this target at Proposed strength before dependent implementation. Formal ADR status is unchanged.
+The maintainer withdrew the environment/provenance proof targets on 2026-10-14. Fresh all-role strict capture, source-completeness investigations, executor-input projections, compiler/launcher/installer phase associations and exact installer/environment reproduction are excluded from Plan39 and its inherited Plan38 acceptance. These targets are eliminated, not deferred; no revisit trigger or future campaign is retained. Existing producer code/tests and runtime safeguards remain. Scientific/model/result provenance, explicit Arrow force-validation, physical correctness and truthful cancellation/drain remain required. The earlier source-qualified executor projection and launcher/installation phase-chain target is withdrawn from this proposed record. Its bounded review retains historical scope only and authorizes no future proof work. Formal ADR status remains proposed.
 
 ## Pros and cons
 
@@ -82,3 +74,5 @@ The target removes unrelated caller review invalidation at the channel owner and
 ## Status history
 
 - 2026-10-14 — proposed after explicit operator selection; implementation and assembled qualification remain distinct.
+
+- 2026-10-14 — maintainer withdrew the additional strict campaign, environment/source-completeness and compiler/launcher/installer phase-proof targets; no deferral or revisit requirement remains. Existing implementation and scoped evidence are preserved.

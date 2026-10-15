@@ -148,6 +148,7 @@ from pse.contracts.documents import (
     TearSelectionDocument,
     WarmStartSnapshot,
 )
+from pse.diagnostics import CaptureSession, Diagnostics, OperationObservations
 
 __all__ = [
     "AdjointSettings",
@@ -160,6 +161,7 @@ __all__ = [
     "BuildInfo",
     "CacheReport",
     "CacheSettings",
+    "CaptureSession",
     "ClarabelSettings",
     "CompactStudyResult",
     "Completion",
@@ -173,6 +175,7 @@ __all__ = [
     "DiagnosticReport",
     "DiagnosticSamplesControls",
     "DiagnosticSpanDocument",
+    "Diagnostics",
     "DiffsolSettings",
     "EffortPolicy",
     "EligibilityDocument",
@@ -219,6 +222,7 @@ __all__ = [
     "NativeStrategyAttempt",
     "NumericalStrategy",
     "NumericalStrategyDocument",
+    "OperationObservations",
     "PhysicalContext",
     "PounceSettings",
     "PreparedFlow",

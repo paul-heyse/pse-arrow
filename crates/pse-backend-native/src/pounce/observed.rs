@@ -9,6 +9,7 @@ use pounce_common::observed::{Abort, Event, Layout, Observer, Path, Primitive};
 use std::cell::RefCell;
 #[derive(Default)]
 struct State {
+    phases: [[Vec<pse_diagnostics::observation::PhaseGuard>; 2]; 3],
     layout: Option<Layout>,
     separator: Option<Vec<usize>>,
     factors: [u64; 3],
@@ -66,6 +67,11 @@ impl Observation {
     }
     /// Reconcile begun factors when native unwinding prevents the matching End event.
     pub(super) fn finish_operations(&self) {
+        for path in &mut self.state.borrow_mut().phases {
+            for phases in path {
+                phases.clear();
+            }
+        }
         let pending = std::mem::take(&mut self.state.borrow_mut().pending_factors);
         let count: u64 = pending.iter().sum();
         if count == 0 {
@@ -84,8 +90,15 @@ impl Observation {
             self.fail(error);
         }
         let mut state = self.state.borrow_mut();
-        for (failed, pending) in state.failed_factors.iter_mut().zip(pending) {
+        for (index, (failed, pending)) in state.failed_factors.iter_mut().zip(pending).enumerate() {
             *failed += pending;
+            crate::observation::count(
+                &format!(
+                    "pounce.linear.{}.factor.interrupted",
+                    ["monolithic", "schur_f", "schur_s"][index]
+                ),
+                pending,
+            );
         }
     }
     pub(super) fn record(&self, report: &mut SolveReport) {
@@ -291,6 +304,18 @@ impl Observer for Observation {
                         .map_err(|e| self.fail(e))?;
                 }
                 let mut state = self.state.borrow_mut();
+                let path_name = ["monolithic", "schur_f", "schur_s"][index(*path)];
+                let primitive_name = if *primitive == Primitive::Factor {
+                    "factor"
+                } else {
+                    "backsolve"
+                };
+                let name = format!("pounce.linear.{path_name}.{primitive_name}");
+                crate::observation::count(&format!("{name}.attempts"), 1);
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    state.phases[index(*path)][usize::from(*primitive == Primitive::Backsolve)]
+                        .push(context.phase(&name));
+                }
                 match primitive {
                     Primitive::Factor => {
                         state.factors[index(*path)] += 1;
@@ -304,6 +329,20 @@ impl Observer for Observation {
                 primitive,
                 succeeded,
             } => {
+                self.state.borrow_mut().phases[index(*path)]
+                    [usize::from(*primitive == Primitive::Backsolve)]
+                .pop();
+                let name = format!(
+                    "pounce.linear.{}.{}.{}",
+                    ["monolithic", "schur_f", "schur_s"][index(*path)],
+                    if *primitive == Primitive::Factor {
+                        "factor"
+                    } else {
+                        "backsolve"
+                    },
+                    if *succeeded { "succeeded" } else { "failed" }
+                );
+                crate::observation::count(&name, 1);
                 if *primitive == Primitive::Factor {
                     let mut state = self.state.borrow_mut();
                     state.pending_factors[index(*path)] = state.pending_factors[index(*path)]
@@ -374,6 +413,10 @@ mod tests {
     }
     #[test]
     fn failed_factor_and_missing_end_reconcile_once() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("pounce-failed-factor");
+        let _entered = operation.context().enter();
         let count = Arc::new(Count::default());
         let mut execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
         execution.work_admission = Some(count.clone());
@@ -402,5 +445,27 @@ mod tests {
         assert_eq!(count.admitted.load(Ordering::SeqCst), 2);
         assert_eq!(count.observed.load(Ordering::SeqCst), 2);
         assert_eq!(observer.state.borrow().failed_factors[0], 2);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert!(snapshot.phases.is_empty());
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "pounce.linear.monolithic.factor.attempts")
+                .unwrap()
+                .cumulative,
+            Value::Count(2)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "pounce.linear.monolithic.factor.interrupted")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
     }
 }

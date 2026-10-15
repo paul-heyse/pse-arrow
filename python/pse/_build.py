@@ -69,6 +69,14 @@ _NativeScientificReplay = _native.NativeScientificReplay
 _NativeStoredResult = _native.NativeStoredResult
 NativeStrategyAttempt = _native.NativeStrategyAttempt
 _NativeProgressStream = _native.NativeProgressStream
+_NativeDiagnostics = _native.NativeDiagnostics
+_NativeOperationObservations = _native.NativeOperationObservations
+_NativeCaptureSession = _native.NativeCaptureSession
+_diagnostic_operation_id = _native.diagnostic_operation_id
+_diagnostic_operation_text = _native.diagnostic_operation_text
+_diagnostic_list = _native.diagnostic_list
+_diagnostic_inspect = _native.diagnostic_inspect
+_diagnostic_capture = _native.diagnostic_capture
 
 
 def build_info() -> BuildInfo:

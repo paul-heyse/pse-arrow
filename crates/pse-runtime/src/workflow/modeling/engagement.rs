@@ -210,6 +210,86 @@ mod tests {
             .unwrap();
         (package, scope)
     }
+    #[tokio::test(flavor = "current_thread")]
+    async fn held_preparation_reuse_preserves_cancelled_and_expired_caller_clocks() {
+        let (package, scope) = held_fixture(crate::workflow::tests::runtime()).await;
+        let (root, instance, original) = {
+            let entries = scope.entries.lock().await;
+            let view = &entries.views[0];
+            (
+                view.root,
+                view.instance,
+                view.model.compiled().model.allocation_identity(),
+            )
+        };
+        let cancelled = crate::CancelSource::new();
+        cancelled.cancel();
+        assert!(matches!(
+            package
+                .prepare(
+                    root,
+                    instance,
+                    Bindings::default(),
+                    Limits::default(),
+                    &cancelled
+                )
+                .await,
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
+        let expired = crate::CancelSource::new().with_deadline(Some(
+            std::time::Instant::now() - std::time::Duration::from_millis(1),
+        ));
+        assert!(matches!(
+            package
+                .prepare(
+                    root,
+                    instance,
+                    Bindings::default(),
+                    Limits::default(),
+                    &expired
+                )
+                .await,
+            Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            )))
+        ));
+        assert!(!expired.token().is_cancelled());
+        let caller = crate::CancelSource::new();
+        let guard = scope.entries.lock().await;
+        let mut queued = Box::pin(package.prepare(
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+            &caller,
+        ));
+        assert!(futures_util::poll!(queued.as_mut()).is_pending());
+        caller.cancel();
+        assert!(matches!(
+            queued.await,
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
+        drop(guard);
+        let valid = package
+            .prepare(
+                root,
+                instance,
+                Bindings::default(),
+                Limits::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(valid.compiled().model.allocation_identity(), original);
+        scope.close().await.unwrap();
+    }
     #[tokio::test]
     async fn closed_scope_releases_engagement_payloads_while_source_package_is_retained() {
         let (retained_source, scope) = held_fixture(crate::workflow::tests::runtime()).await;
@@ -226,6 +306,87 @@ mod tests {
         let entries = scope.entries.lock().await;
         assert!(entries.views.is_empty() && entries.owners.is_empty());
     }
+    #[tokio::test(flavor = "current_thread")]
+    async fn public_preparation_parent_cancellation_drains_queued_specialization() {
+        let (mut package, scope) = held_fixture(crate::workflow::tests::runtime()).await;
+        let (root, instance) = {
+            let entries = scope.entries.lock().await;
+            (entries.views[0].root, entries.views[0].instance)
+        };
+        scope.close().await.unwrap();
+        package.held_preparation = None;
+        let service = package.runtime.shared.math();
+        service.clear_program_cache();
+        // Establish source admission before occupying CPU, so the issued public
+        // request reaches the actual specialization producer rather than selection.
+        drop(
+            package
+                .checked_selection(&[root], &crate::CancelSource::new())
+                .await
+                .unwrap(),
+        );
+        let before = service.preparation_effects();
+        let (started, entered) = tokio::sync::oneshot::channel();
+        let (release, gate) = std::sync::mpsc::channel();
+        let mut submission = crate::math::Submission::ephemeral();
+        submission.admitted = Some(started);
+        let blocker = service
+            .submit_with(service.cores(), 0, submission, move |_, _| {
+                gate.recv_timeout(std::time::Duration::from_secs(10))
+                    .map_err(|error| {
+                        crate::math::MathRuntimeError::Infrastructure(error.to_string())
+                    })?;
+                Ok(((), 0))
+            })
+            .unwrap();
+        entered.await.unwrap();
+        let available = service.test_admission_snapshot().2;
+        let cancel = crate::CancelSource::new();
+        let mut preparation = Box::pin(package.prepare(
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+            &cancel,
+        ));
+        let queued = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                assert!(futures_util::poll!(preparation.as_mut()).is_pending());
+                if service.frontier_flights.active() == 1 {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        cancel.cancel();
+        let outcome =
+            tokio::time::timeout(std::time::Duration::from_secs(5), preparation.as_mut()).await;
+        drop(preparation);
+        let drained = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while service.frontier_flights.active() != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        let remaining = service.test_admission_snapshot().2;
+        release.send(()).unwrap();
+        blocker.finish().await.unwrap();
+        queued.unwrap();
+        assert!(matches!(
+            outcome.unwrap(),
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
+        drained.unwrap();
+        assert_eq!(remaining, available);
+        assert_eq!(
+            service.preparation_effects().frontiers,
+            before.frontiers,
+            "cancellation drained the queued specialization without entering its compiler work"
+        );
+    }
 }
 impl ModelingPackage {
     pub(in crate::workflow) async fn engage(
@@ -240,7 +401,7 @@ impl ModelingPackage {
         activity
             .scope(async {
                 let state = AtomicU8::new(ESTABLISHING);
-                let deadline = preparation_deadline(cancel)?;
+                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
                 let mut selected = self
                     .checked_selection_scoped(&[root], cancel, deadline)
                     .await?;

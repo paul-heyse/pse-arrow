@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+pin-project-lite.workspace = true
 strum.workspace = true
 thiserror.workspace = true
 miette.workspace = true

@@ -1214,9 +1214,12 @@ struct Supplier {
 impl Supplier {
     fn counted(&self) -> Result<(), ProblemError> {
         if let Some(calls) = &self.calls {
-            calls
+            let previous = calls
                 .try_update(Ordering::AcqRel, Ordering::Acquire, |v| v.checked_add(1))
                 .map_err(|_| ProblemError::memory("path source evaluation counter"))?;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count_value("path.auxiliary_evaluations", "count", previous + 1, 0);
+            }
         }
         Ok(())
     }
@@ -1614,75 +1617,102 @@ struct PathExecution<'a> {
     retained: &'a mut Retained,
     tangent_workspace: &'a mut arclength::TangentWorkspace,
 }
+fn observe_native_correction(
+    kind: &'static str,
+    work: impl FnOnce() -> Result<SolveReport, MathRuntimeError>,
+) -> Result<SolveReport, MathRuntimeError> {
+    let operation = pse_diagnostics::observation::current()
+        .map(|parent| parent.child(kind, pse_diagnostics::observation::Relationship::Nested));
+    let context = operation.as_ref().map(|operation| operation.context());
+    let _entered = context.as_ref().map(|context| context.enter());
+    let result = work();
+    if let Some(operation) = operation {
+        operation.finish(match &result {
+            Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+            Err(MathRuntimeError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
+            Err(_) => pse_diagnostics::observation::Outcome::Failed,
+        });
+    }
+    result
+}
+
 fn correct(
     context: PathExecution<'_>,
     point: &[f64],
     orientation: &[f64],
     source: ContentHash,
 ) -> Result<SolveReport, MathRuntimeError> {
-    let PathExecution {
-        service,
-        path,
-        execution,
-        budget,
-        retained,
-        tangent_workspace: _,
-    } = context;
-    let supplier = path.supplier(service, execution, budget)?;
-    let binding = path
-        .family
-        .bind(supplier, point.to_vec(), orientation.to_vec(), source)?;
-    let identity = binding.key();
-    let smoothness = native::assembled::contract(&path.program.program.assembly).smoothness;
-    let inner = arclength::Corrector::new(binding, smoothness)?;
-    let oracle = NormalizedCorrector {
-        inner,
-        normalization: path.normalization.clone(),
-    };
-    let compatibility = Compatibility {
-        layout: path.family.key(),
-        profile: profile_key(&path.request.corrector)?.as_id(),
-        data: identity,
-        backend: Backend::Ipopt,
-    };
-    let structure = native::structural::Assessment::new(
-        native::structural::Mode::Roots,
-        path.structure.variables.clone(),
-        path.structure.equations.clone(),
-        path.structure.witness.clone(),
-    )?;
-    let adapter = execution::adapter(Backend::Ipopt);
-    let warm = WarmStart {
-        origin: None,
-        compatibility: compatibility.clone(),
-        payload: adapter.primal_start(point.to_vec())?,
-    };
-    let report = execution::nlp(
-        execution::Step {
-            adapter,
-            settings: &path.request.corrector.backend,
-            snapshot: &path.original.snapshot,
-            structure: Some(&structure),
-            controls: &path.request.corrector.controls,
-            accuracy: &path.accuracy,
-            execution: execution.clone(),
-            tolerances: &path.tolerances,
-            normalization: &path.normalization,
-            compatibility,
-            warm: Some(&warm),
-        },
-        retained,
-        execution::Nlp {
-            oracle: Box::new(oracle),
-            initial: point,
-            presolve: &native::presolve::Policy::Off,
-            intent: SolveIntent::Root,
-            sense: ObjectiveSense::Minimize,
-            limit: service.policy.worker_bytes / 256,
-            analysis: execution::Analysis::NONE,
-        },
-    )?;
-    Ok(report)
+    let _phase = pse_diagnostics::observation::phase("path.correction");
+    // The path owns committed progress. Each actual correction owns its callback
+    // and adapter catalogue so native diagnostics cannot displace path facts.
+    observe_native_correction("path.native_correction", || {
+        let PathExecution {
+            service,
+            path,
+            execution,
+            budget,
+            retained,
+            tangent_workspace: _,
+        } = context;
+        let supplier = path.supplier(service, execution, budget)?;
+        let binding = path
+            .family
+            .bind(supplier, point.to_vec(), orientation.to_vec(), source)?;
+        let identity = binding.key();
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.source_ref("path.corrector", identity.to_string());
+        }
+        let smoothness = native::assembled::contract(&path.program.program.assembly).smoothness;
+        let inner = arclength::Corrector::new(binding, smoothness)?;
+        let oracle = NormalizedCorrector {
+            inner,
+            normalization: path.normalization.clone(),
+        };
+        let compatibility = Compatibility {
+            layout: path.family.key(),
+            profile: profile_key(&path.request.corrector)?.as_id(),
+            data: identity,
+            backend: Backend::Ipopt,
+        };
+        let structure = native::structural::Assessment::new(
+            native::structural::Mode::Roots,
+            path.structure.variables.clone(),
+            path.structure.equations.clone(),
+            path.structure.witness.clone(),
+        )?;
+        let adapter = execution::adapter(Backend::Ipopt);
+        let warm = WarmStart {
+            origin: None,
+            compatibility: compatibility.clone(),
+            payload: adapter.primal_start(point.to_vec())?,
+        };
+        let report = execution::nlp(
+            execution::Step {
+                adapter,
+                settings: &path.request.corrector.backend,
+                snapshot: &path.original.snapshot,
+                structure: Some(&structure),
+                controls: &path.request.corrector.controls,
+                accuracy: &path.accuracy,
+                execution: execution.clone(),
+                tolerances: &path.tolerances,
+                normalization: &path.normalization,
+                compatibility,
+                warm: Some(&warm),
+            },
+            retained,
+            execution::Nlp {
+                oracle: Box::new(oracle),
+                initial: point,
+                presolve: &native::presolve::Policy::Off,
+                intent: SolveIntent::Root,
+                sense: ObjectiveSense::Minimize,
+                limit: service.policy.worker_bytes / 256,
+                analysis: execution::Analysis::NONE,
+            },
+        )?;
+        Ok(report)
+    })
 }
 /// Mechanical fixed-scalar original equations used solely to bridge a completed
 /// arclength endpoint to the actual target. Existing native iteration owns correction.
@@ -1762,123 +1792,132 @@ fn correct_target(
     budget: &Arc<WorkerBudget>,
     retained: &mut Retained,
 ) -> Result<SolveReport, MathRuntimeError> {
-    let supplier = path.supplier(service, execution, budget)?;
-    let original = path.family.original();
-    let n = original.coordinates().len();
-    let pattern =
-        pse_math::sparse::AssemblyMatrix::new(n, n, original.incidence(), i32::MAX as usize)?;
-    let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
-    h.str("actual-fixed-target-path-bridge")
-        .hash(&path.family.key())
-        .hash(&path.target_identity)
-        .f64(parameter);
-    let identity = h.finish_hash();
-    let contract = native::OracleContract {
-        identity,
-        variables: original
-            .coordinates()
-            .iter()
-            .map(|v| native::Variable {
-                id: v.id,
-                lower: v.lower,
-                upper: v.upper,
-            })
-            .collect(),
-        rows: original.constraints().iter().map(|r| r.id).collect(),
-        derivatives: DerivativeOrder::First,
-        smoothness: native::assembled::contract(&path.program.program.assembly).smoothness,
-    };
-    let oracle = FixedCorrector {
-        supplier,
-        parameter,
-        contract: contract.clone(),
-        pattern,
-        bounds: vec![(0., 0.); n],
-        normalization: path.original.normalization.clone(),
-    };
-    let mut structure = native::structural::oracle_structure_with_cancel(
-        &contract,
-        oracle.jacobian_pattern(),
-        &oracle.bounds,
-        false,
-        &execution.cancel,
-    )?;
-    structure.witness = structure.witness.with_owner(path._owner.clone());
-    let facts = routing::oracle_facts(&contract, false, true);
-    routing::Requirements {
-        table: &execution::LINKED,
-        facts: &facts,
-        intent: SolveIntent::Root,
-        numerical_psd: false,
-        least_squares: false,
-        controls: &path.request.corrector.controls,
-        settings: &path.request.corrector.backend,
-        sensitivity: false,
-        context: routing::Context {
-            snapshot: path.original.snapshot.clone(),
-            pending_classes: &[],
-            structure: Some(structure.clone()),
-            oracle: Some(&contract),
-            guards: &BTreeMap::new(),
-            budgets: Some(execution::Budgets {
+    let _phase = pse_diagnostics::observation::phase("path.target_bridge");
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.gauge("path.target_parameter", "source_canonical", parameter);
+    }
+    observe_native_correction("path.native_target_bridge", || {
+        let supplier = path.supplier(service, execution, budget)?;
+        let original = path.family.original();
+        let n = original.coordinates().len();
+        let pattern =
+            pse_math::sparse::AssemblyMatrix::new(n, n, original.incidence(), i32::MAX as usize)?;
+        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+        h.str("actual-fixed-target-path-bridge")
+            .hash(&path.family.key())
+            .hash(&path.target_identity)
+            .f64(parameter);
+        let identity = h.finish_hash();
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.source_ref("path.corrector", identity.to_string());
+        }
+        let contract = native::OracleContract {
+            identity,
+            variables: original
+                .coordinates()
+                .iter()
+                .map(|v| native::Variable {
+                    id: v.id,
+                    lower: v.lower,
+                    upper: v.upper,
+                })
+                .collect(),
+            rows: original.constraints().iter().map(|r| r.id).collect(),
+            derivatives: DerivativeOrder::First,
+            smoothness: native::assembled::contract(&path.program.program.assembly).smoothness,
+        };
+        let oracle = FixedCorrector {
+            supplier,
+            parameter,
+            contract: contract.clone(),
+            pattern,
+            bounds: vec![(0., 0.); n],
+            normalization: path.original.normalization.clone(),
+        };
+        let mut structure = native::structural::oracle_structure_with_cancel(
+            &contract,
+            oracle.jacobian_pattern(),
+            &oracle.bounds,
+            false,
+            &execution.cancel,
+        )?;
+        structure.witness = structure.witness.with_owner(path._owner.clone());
+        let facts = routing::oracle_facts(&contract, false, true);
+        routing::Requirements {
+            table: &execution::LINKED,
+            facts: &facts,
+            intent: SolveIntent::Root,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &path.request.corrector.controls,
+            settings: &path.request.corrector.backend,
+            sensitivity: false,
+            context: routing::Context {
+                snapshot: path.original.snapshot.clone(),
+                pending_classes: &[],
+                structure: Some(structure.clone()),
+                oracle: Some(&contract),
+                guards: &BTreeMap::new(),
+                budgets: Some(execution::Budgets {
+                    accuracy: &path.original.accuracy,
+                    tolerances: &path.original.tolerances,
+                    normalization: &path.original.normalization,
+                }),
+                coefficients: None,
+                cone: None,
+                factorable: None,
+                certificate: None,
+                prepared: &[routing::ArtifactDemand::Representation(
+                    execution::Representation::Nlp,
+                )],
+                refusals: &BTreeMap::new(),
+            },
+        }
+        .select(SolverSelection::Explicit(Backend::Ipopt))?;
+        let assessment = native::structural::Assessment::new(
+            native::structural::Mode::Roots,
+            structure.variables,
+            structure.equations,
+            structure.witness,
+        )?;
+        let compatibility = Compatibility {
+            layout: original.identity(),
+            profile: profile_key(&path.request.corrector)?.as_id(),
+            data: identity,
+            backend: Backend::Ipopt,
+        };
+        let adapter = execution::adapter(Backend::Ipopt);
+        let warm = WarmStart {
+            origin: None,
+            compatibility: compatibility.clone(),
+            payload: adapter.primal_start(point.to_vec())?,
+        };
+        Ok(execution::nlp(
+            execution::Step {
+                adapter,
+                settings: &path.request.corrector.backend,
+                snapshot: &path.original.snapshot,
+                structure: Some(&assessment),
+                controls: &path.request.corrector.controls,
                 accuracy: &path.original.accuracy,
+                execution: execution.clone(),
                 tolerances: &path.original.tolerances,
                 normalization: &path.original.normalization,
-            }),
-            coefficients: None,
-            cone: None,
-            factorable: None,
-            certificate: None,
-            prepared: &[routing::ArtifactDemand::Representation(
-                execution::Representation::Nlp,
-            )],
-            refusals: &BTreeMap::new(),
-        },
-    }
-    .select(SolverSelection::Explicit(Backend::Ipopt))?;
-    let assessment = native::structural::Assessment::new(
-        native::structural::Mode::Roots,
-        structure.variables,
-        structure.equations,
-        structure.witness,
-    )?;
-    let compatibility = Compatibility {
-        layout: original.identity(),
-        profile: profile_key(&path.request.corrector)?.as_id(),
-        data: identity,
-        backend: Backend::Ipopt,
-    };
-    let adapter = execution::adapter(Backend::Ipopt);
-    let warm = WarmStart {
-        origin: None,
-        compatibility: compatibility.clone(),
-        payload: adapter.primal_start(point.to_vec())?,
-    };
-    Ok(execution::nlp(
-        execution::Step {
-            adapter,
-            settings: &path.request.corrector.backend,
-            snapshot: &path.original.snapshot,
-            structure: Some(&assessment),
-            controls: &path.request.corrector.controls,
-            accuracy: &path.original.accuracy,
-            execution: execution.clone(),
-            tolerances: &path.original.tolerances,
-            normalization: &path.original.normalization,
-            compatibility,
-            warm: Some(&warm),
-        },
-        retained,
-        execution::Nlp {
-            oracle: Box::new(oracle),
-            initial: point,
-            presolve: &native::presolve::Policy::Off,
-            intent: SolveIntent::Root,
-            sense: ObjectiveSense::Minimize,
-            limit: service.policy.worker_bytes / 256,
-            analysis: execution::Analysis::NONE,
-        },
-    )?)
+                compatibility,
+                warm: Some(&warm),
+            },
+            retained,
+            execution::Nlp {
+                oracle: Box::new(oracle),
+                initial: point,
+                presolve: &native::presolve::Policy::Off,
+                intent: SolveIntent::Root,
+                sense: ObjectiveSense::Minimize,
+                limit: service.policy.worker_bytes / 256,
+                analysis: execution::Analysis::NONE,
+            },
+        )?)
+    })
 }
 #[derive(Debug)]
 struct CurvatureSupplier {
@@ -2024,6 +2063,10 @@ fn event_probe(
     outcome: &mut PathOutcome,
     events: &mut Vec<arclength::Event>,
 ) -> Result<(), MathRuntimeError> {
+    let _phase = pse_diagnostics::observation::phase("path.event_probe");
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("path.event_probe_attempts", "count", 1);
+    }
     let EventPoint {
         point,
         orientation,
@@ -2060,6 +2103,9 @@ fn event_probe(
         Ok(event) => {
             outcome.event_work.push(event.work);
             events.push(event);
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count_value("path.event_observations", "count", events.len() as u64, 0);
+            }
             Ok(())
         }
         Err(failure) => {
@@ -2093,6 +2139,10 @@ fn localize_event(
         retained,
         tangent_workspace,
     } = context;
+    let _phase = pse_diagnostics::observation::phase("path.event_localization");
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("path.event_localizations", "count", 1);
+    }
     let EventBracket {
         left,
         right,
@@ -2178,6 +2228,9 @@ fn localize_event(
             .collect::<Vec<_>>();
         path.family.validate_point(&predicted)?;
         outcome.native_calls += 1;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count_value("path.native_calls", "count", outcome.native_calls, 0);
+        }
         let report = Arc::new(
             correct(
                 PathExecution {
@@ -2276,6 +2329,23 @@ fn localize_event(
     )
 }
 
+fn observe_path_cause(cause: &ProblemError) {
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.text(
+            "path.last_failure_class",
+            crate::math::strategy::failure(cause).as_str(),
+        );
+        if let Some(code) = pse_diagnostics::TypedDiagnostic::diagnostic_code(cause) {
+            context.text("path.last_failure_code", code.as_str());
+        } else {
+            context.unavailable(
+                "path.last_failure_code",
+                "aggregate has no single diagnostic code",
+            );
+        }
+    }
+}
+
 /// Execute a bounded oriented path inside the original owning worker job. This seam does
 /// not create another task clock/session driver or grant original candidate permission.
 pub(crate) fn run_path(
@@ -2286,6 +2356,44 @@ pub(crate) fn run_path(
     budget: &Arc<WorkerBudget>,
     owner: Arc<pse_columnar::AllocationLease>,
 ) -> PathOutcome {
+    let operation = pse_diagnostics::observation::current().map(|parent| {
+        parent.child(
+            "path.execute",
+            pse_diagnostics::observation::Relationship::Nested,
+        )
+    });
+    let context = operation.as_ref().map(|operation| operation.context());
+    let _entered = context.as_ref().map(|context| context.enter());
+    if let Some(context) = &context {
+        context.source_ref("path.prepared", path.key().to_string());
+        context.source_ref("path.source", path.source.to_string());
+        context.source_ref("path.family", path.family.key().to_string());
+        context.source_ref("path.target", path.target_identity.to_string());
+        context.source_ref("path.parameter", path.request.parameter.to_string());
+        context.text(
+            "path.parameter_coordinates",
+            "canonical coordinates of referenced source parameter",
+        );
+        context.boolean("path.connected_required", path.branch.connected.is_some());
+        context.count_value("path.accepted_index", "index", 0, 0);
+        for name in [
+            "path.native_calls",
+            "path.auxiliary_evaluations",
+            "path.event_observations",
+        ] {
+            context.count_value(name, "count", 0, 0);
+        }
+        for name in [
+            "path.corrector_attempts",
+            "path.rejected_attempts",
+            "path.subdivisions",
+            "path.accepted_points",
+            "path.event_probe_attempts",
+            "path.event_localizations",
+        ] {
+            context.count(name, "count", 0);
+        }
+    }
     let mut outcome = PathOutcome {
         reports_owner: Arc::new(std::sync::Mutex::new(vec![owner.clone()])),
         endpoint: None,
@@ -2330,6 +2438,9 @@ pub(crate) fn run_path(
         let mut point = augmented(&start.point, path.program.parameters[0].1);
         path.family.validate_point(&point)?;
         let orientation_id = orientation_key(path.source, &point, &start.orientation);
+        if let Some(context) = &context {
+            context.source_ref("path.orientation", orientation_id.to_string());
+        }
         let proof_bytes = path
             .request
             .selection
@@ -2382,6 +2493,14 @@ pub(crate) fn run_path(
         let mut chart = path.request.selection.as_ref().map(|s| s.previous.clone());
         let mut transport = origin_transport(path, &point, orientation_id);
         let mut source = orientation_id;
+        if let Some(context) = &context {
+            context.gauge("path.accepted_parameter", "source_canonical", point[n]);
+            context.source_ref(
+                "path.committed_point",
+                native::square_response::point_key(&point).to_string(),
+            );
+            context.source_ref("path.transport", transport.to_string());
+        }
         if let Some(selection) = &path.request.selection {
             let alternatives = selection
                 .alternatives
@@ -2407,9 +2526,12 @@ pub(crate) fn run_path(
                     .map_err(ProblemError::Provider)?,
                 cancel: scope.cancellation(),
             };
-            selection
-                .previous
-                .validate(&request, selection.verifier.identity())?;
+            {
+                let _phase = pse_diagnostics::observation::phase("path.chart_validation");
+                selection
+                    .previous
+                    .validate(&request, selection.verifier.identity())?;
+            }
             if let Some(required) = path.branch.connected
                 && (required.path != path.family.key()
                     || required.sheet != chart_key(&selection.previous)
@@ -2448,33 +2570,58 @@ pub(crate) fn run_path(
         }
         for _ in 0..path.request.policy.steps {
             execution.check()?;
-            let tangent = match arclength::tangent(
-                arclength::Request {
-                    family: &path.family,
-                    point: &point,
-                    previous: &orientation,
-                    source,
-                    residual_limits: &path.original.tolerances.rows,
-                    backward_limit: path.request.policy.backward_limit,
-                    limits: path.request.policy.tangent,
-                },
-                &mut supplier,
-                &execution,
-                &mut tangent_workspace,
-            ) {
-                Ok(tangent) => {
-                    outcome.tangent_work.push(tangent.work);
-                    tangent
-                }
-                Err(failure) => {
-                    outcome.tangent_work.push(failure.work);
-                    outcome.terminal = Some(failure.cause);
-                    return Ok(());
+            let tangent = {
+                let _phase = pse_diagnostics::observation::phase("path.tangent");
+                match arclength::tangent(
+                    arclength::Request {
+                        family: &path.family,
+                        point: &point,
+                        previous: &orientation,
+                        source,
+                        residual_limits: &path.original.tolerances.rows,
+                        backward_limit: path.request.policy.backward_limit,
+                        limits: path.request.policy.tangent,
+                    },
+                    &mut supplier,
+                    &execution,
+                    &mut tangent_workspace,
+                ) {
+                    Ok(tangent) => {
+                        outcome.tangent_work.push(tangent.work);
+                        tangent
+                    }
+                    Err(failure) => {
+                        outcome.tangent_work.push(failure.work);
+                        outcome.terminal = Some(failure.cause);
+                        return Ok(());
+                    }
                 }
             };
             loop {
                 let displacement = steps.step();
                 execution.check()?;
+                if let Some(context) = &context {
+                    context.count("path.corrector_attempts", "count", 1);
+                    context.gauge(
+                        "path.attempted_displacement",
+                        "normalized_arclength",
+                        displacement,
+                    );
+                    context.gauge(
+                        "path.attempt_origin_parameter",
+                        "source_canonical",
+                        point[n],
+                    );
+                    context.source_ref("path.corrector_binding", source.to_string());
+                    context.text(
+                        "path.corrector_binding_kind",
+                        if outcome.observations.is_empty() {
+                            "origin_orientation"
+                        } else {
+                            "committed_point"
+                        },
+                    );
+                }
                 let predictor = point
                     .iter()
                     .zip(&tangent.physical)
@@ -2487,6 +2634,14 @@ pub(crate) fn run_path(
                     .map_err(MathRuntimeError::from)
                     .and_then(|()| {
                         outcome.native_calls += 1;
+                        if let Some(context) = pse_diagnostics::observation::current() {
+                            context.count_value(
+                                "path.native_calls",
+                                "count",
+                                outcome.native_calls,
+                                0,
+                            );
+                        }
                         correct(
                             PathExecution {
                                 service,
@@ -2518,7 +2673,15 @@ pub(crate) fn run_path(
                     }
                 };
                 if let Some(cause) = cause {
+                    observe_path_cause(&cause);
+                    if let Some(context) = &context {
+                        context.count("path.rejected_attempts", "count", 1);
+                        context.boolean("path.retry_permitted", retry);
+                    }
                     if retry && steps.rejected(crate::math::strategy::failure(&cause)) {
+                        if let Some(context) = &context {
+                            context.count("path.subdivisions", "count", 1);
+                        }
                         if path.profile().controls.reuse != ReusePolicy::RequireReuse {
                             retained.clear();
                         }
@@ -2539,8 +2702,10 @@ pub(crate) fn run_path(
                 execution.check()?;
                 let mut selection_evidence = None;
                 if let (Some(selection), Some(previous)) = (&path.request.selection, &chart) {
-                    let (next_chart, evidence) =
-                        selection.connect(previous, point[n], &next, &execution)?;
+                    let (next_chart, evidence) = {
+                        let _phase = pse_diagnostics::observation::phase("path.chart_connection");
+                        selection.connect(previous, point[n], &next, &execution)?
+                    };
                     selection_evidence = Some(evidence);
                     if next_chart.is_none() {
                         outcome.observations.push(PathObservation {
@@ -2605,6 +2770,18 @@ pub(crate) fn run_path(
                 orientation = tangent.normalized.clone();
                 point = next.clone();
                 source = native::square_response::point_key(&point);
+                if let Some(context) = &context {
+                    context.count("path.accepted_points", "count", 1);
+                    context.count_value(
+                        "path.accepted_index",
+                        "index",
+                        outcome.observations.len() as u64 + 1,
+                        0,
+                    );
+                    context.gauge("path.accepted_parameter", "source_canonical", point[n]);
+                    context.source_ref("path.committed_point", source.to_string());
+                    context.source_ref("path.transport", transport.to_string());
+                }
                 outcome.observations.push(PathObservation {
                     point: next,
                     displacement,
@@ -2623,6 +2800,9 @@ pub(crate) fn run_path(
             if target[0].1.to_bits() != point[n].to_bits() {
                 execution.check()?;
                 outcome.native_calls += 1;
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count_value("path.native_calls", "count", outcome.native_calls, 0);
+                }
                 let report = Arc::new(
                     correct_target(
                         service,
@@ -2653,8 +2833,10 @@ pub(crate) fn run_path(
                 let previous = chart
                     .as_ref()
                     .ok_or_else(|| ProblemError::internal("connected source chart missing"))?;
-                let (next_chart, evidence) =
-                    selection.connect(previous, point[n], &next, &execution)?;
+                let (next_chart, evidence) = {
+                    let _phase = pse_diagnostics::observation::phase("path.chart_connection");
+                    selection.connect(previous, point[n], &next, &execution)?
+                };
                 let tangent = outcome
                     .observations
                     .last()
@@ -2693,6 +2875,21 @@ pub(crate) fn run_path(
                 );
                 chart = Some(next_chart);
                 point = next;
+                if let Some(context) = &context {
+                    context.count("path.accepted_points", "count", 1);
+                    context.count_value(
+                        "path.accepted_index",
+                        "index",
+                        outcome.observations.len() as u64,
+                        0,
+                    );
+                    context.gauge("path.accepted_parameter", "source_canonical", point[n]);
+                    context.source_ref(
+                        "path.committed_point",
+                        native::square_response::point_key(&point).to_string(),
+                    );
+                    context.source_ref("path.transport", transport.to_string());
+                }
             }
         }
         if let Some(endpoint) = &chart {
@@ -2761,6 +2958,33 @@ pub(crate) fn run_path(
     outcome.auxiliary_evaluations = calls.load(Ordering::Acquire);
     outcome.events = pse_math::SharedAllocation::from(Arc::new(events))
         .with_owner(outcome.reports_owner.clone());
+    if let Some(context) = &context {
+        context.count_value("path.native_calls", "count", outcome.native_calls, 0);
+        context.count_value(
+            "path.auxiliary_evaluations",
+            "count",
+            outcome.auxiliary_evaluations,
+            0,
+        );
+        context.count_value(
+            "path.event_observations",
+            "count",
+            outcome.events.len() as u64,
+            0,
+        );
+        context.boolean("path.proposal_available", outcome.proposal.is_some());
+        context.boolean("path.failed", outcome.terminal.is_some());
+        if let Some(cause) = &outcome.terminal {
+            observe_path_cause(cause);
+        }
+    }
+    if let Some(operation) = operation {
+        operation.finish(match outcome.terminal.as_deref() {
+            None => pse_diagnostics::observation::Outcome::Completed,
+            Some(ProblemError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
+            Some(_) => pse_diagnostics::observation::Outcome::Failed,
+        });
+    }
     outcome
 }
 struct PathCancellation(Option<Arc<std::sync::atomic::AtomicBool>>);

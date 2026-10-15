@@ -1,0 +1,329 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Passive diagnostic readers and explicitly owned capture sessions.
+
+Standalone reads consume published checkpoints without constructing a Runtime or
+connecting to scientific storage. Rust owns explanations and capture interpretation.
+"""
+
+from __future__ import annotations
+
+import argparse
+import math
+import sys
+from collections.abc import Sequence
+from pathlib import Path
+from types import TracebackType
+from typing import Self
+
+import attrs
+
+from pse import codec
+from pse._build import (
+    InspectionError,
+    _diagnostic_capture,
+    _diagnostic_inspect,
+    _diagnostic_list,
+    _diagnostic_operation_id,
+    _diagnostic_operation_text,
+    _NativeCaptureSession,
+    _NativeDiagnostics,
+    _NativeOperationObservations,
+)
+from pse.contracts.documents import (
+    CaptureBudget,
+    CaptureDocument,
+    CaptureRequest,
+    ClosedDuration,
+    DiagnosticListRequest,
+    DiagnosticProcessPage,
+    InspectionDocument,
+    InspectionRequest,
+    OperationId,
+    OperationPage,
+    OperationSnapshot,
+)
+from pse.contracts.enums import CaptureKind, CaptureStatus
+
+
+@attrs.frozen
+class OperationObservations:
+    """Exact operation reader with no scientific cancellation or result lease."""
+
+    _handle: _NativeOperationObservations
+
+    @property
+    def id(self) -> OperationId:
+        """Process instance and sequence, independent from scientific identity."""
+        return self._handle.id
+
+    def snapshot(self, *, window: float = 60.0) -> OperationSnapshot:
+        """Read copied facts for the requested preceding seconds."""
+        return self._handle.snapshot(window)
+
+    def inspect(self, *, window: float = 60.0) -> InspectionDocument:
+        """Explain copied facts; unavailable related owners remain explicit."""
+        return self._handle.inspect(window)
+
+
+@attrs.frozen
+class Diagnostics:
+    """Collection reader that retains no runtime caller or publisher registration."""
+
+    _handle: _NativeDiagnostics
+
+    @property
+    def checkpoint(self) -> Path:
+        """Exact publisher checkpoint locator; reading does not publish it."""
+        return Path(self._handle.checkpoint)
+
+    def list(self, *, offset: int = 0, limit: int = 16) -> OperationPage:
+        """Read a bounded page of known preparation, execution and terminal work."""
+        return self._handle.list(offset=offset, limit=limit)
+
+    def reader(self, operation: OperationId) -> OperationObservations | None:
+        """Select an independent operation lease, or retain explicit absence."""
+        reader = self._handle.reader(operation)
+        return None if reader is None else OperationObservations(reader)
+
+    def inspect(self, request: InspectionRequest) -> InspectionDocument:
+        """Read the Rust-owned interpretation without invoking occupied owners."""
+        return self._handle.inspect(request)
+
+
+@attrs.frozen
+class CaptureSession:
+    """Own only optional capture workers; stopping leaves target science running."""
+
+    _handle: _NativeCaptureSession
+
+    def snapshot(self) -> CaptureDocument:
+        """Observe current capture status, losses and flushed readable prefixes."""
+        return self._handle.snapshot()
+
+    def request_stop(self) -> None:
+        """Request exporter stop without waiting or cancelling the target."""
+        self._handle.request_stop()
+
+    def wait(self) -> CaptureDocument:
+        """Release Python execution while waiting and joining capture workers."""
+        return self._handle.wait()
+
+    def stop(self) -> CaptureDocument:
+        """Stop and join only this capture, retaining its output files."""
+        return self._handle.stop()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.stop()
+
+
+def operation_id(text: str) -> OperationId:
+    """Parse Rust's exact 32-hex-process:decimal-sequence diagnostic locator."""
+    return _diagnostic_operation_id(text)
+
+
+def operation_text(operation: OperationId) -> str:
+    """Render the diagnostic locator using its Rust owner."""
+    return _diagnostic_operation_text(operation)
+
+
+def list_processes(
+    request: DiagnosticListRequest | None = None,
+    *,
+    directory: str | Path | None = None,
+) -> DiagnosticProcessPage:
+    """Read one bounded process page; initialize neither runtime nor storage."""
+    if request is None:
+        request = DiagnosticListRequest(after=None, limit=16)
+    return _diagnostic_list(request, None if directory is None else Path(directory))
+
+
+def inspect_checkpoint(
+    checkpoint: str | Path, request: InspectionRequest
+) -> InspectionDocument:
+    """Explain an exact published prefix through the same Rust inspection owner."""
+    return _diagnostic_inspect(Path(checkpoint), request)
+
+
+def capture(request: CaptureRequest) -> CaptureSession:
+    """Start explicitly selected capture; omission uses Rust's request defaults."""
+    return CaptureSession(_diagnostic_capture(request))
+
+
+def _seconds(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError("seconds must be finite and nonnegative")
+    return parsed
+
+
+def _bounded_count(value: str) -> int:
+    parsed = int(value)
+    if not 1 <= parsed <= 32:
+        raise argparse.ArgumentTypeError("count must be between 1 and 32")
+    return parsed
+
+
+def _positive(value: str) -> int:
+    parsed = int(value)
+    if not 1 <= parsed <= (1 << 63) - 1:
+        raise argparse.ArgumentTypeError(
+            "allowance must be a positive signed 64-bit integer"
+        )
+    return parsed
+
+
+def _duration(seconds: float) -> ClosedDuration:
+    total = round(seconds * 1_000_000_000)
+    secs, nanos = divmod(total, 1_000_000_000)
+    return ClosedDuration(secs=secs, nanos=nanos)
+
+
+def _render_inspection(document: InspectionDocument) -> None:
+    print(f"operation {operation_text(document.request.operation)}")
+    operation = document.operation
+    if operation is not None:
+        print(f"  kind={operation.kind} outcome={operation.outcome}")
+        print(
+            f"  read_at={operation.read_at!r} observed_at={operation.observed_at!r} stale_after={operation.stale_after!r}"
+        )
+        print(
+            f"  requested_interval={operation.requested_interval!r} actual_interval={operation.interval_start!r}..{operation.interval_end!r} interval_partial={operation.interval_partial}"
+        )
+        print(
+            f"  coverage={operation.coverage!r} detail_partial={operation.detail_partial}"
+        )
+        for phase in operation.phases:
+            print(
+                f"  phase token={phase.token} kind={phase.kind} started_at={phase.started_at!r}"
+            )
+    print(f"transport {codec.encode_json(document.transport).decode()}")
+    for statement in document.statements:
+        print(f"{statement.kind} [{statement.code}] {statement.message}")
+        for evidence in statement.evidence:
+            print(f"  evidence {codec.encode_json(evidence).decode()}")
+        if statement.next:
+            print(f"  next {', '.join(statement.next)}")
+    if operation is not None:
+        for metric in operation.metrics:
+            print(
+                f"metric {metric.name} unit={metric.unit} observed_at={metric.observed_at!r}"
+            )
+            print(
+                f"  latest={codec.encode_json(metric.latest).decode()} cumulative={codec.encode_json(metric.cumulative).decode()} recent={codec.encode_json(metric.recent).decode()}"
+            )
+            print(
+                f"  generation={metric.generation} resets={metric.resets} cumulative_partial={metric.cumulative_partial} recent_partial={metric.recent_partial} history_partial={metric.history_partial} history_dropped={metric.history_dropped}"
+            )
+    for related in document.related:
+        print(
+            f"related {operation_text(related.id)} kind={related.kind} outcome={related.outcome}"
+        )
+        for phase in related.phases:
+            print(
+                f"  phase token={phase.token} kind={phase.kind} started_at={phase.started_at!r}"
+            )
+    print(f"omitted {document.omitted}")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Run bounded diagnostic reads/capture against already published targets."""
+    parser = argparse.ArgumentParser(prog="just diagnostics")
+    commands = parser.add_subparsers(dest="command", required=True)
+    listing = commands.add_parser("list", help="discover published process prefixes")
+    listing.add_argument("--directory", "--dir", type=Path)
+    listing.add_argument("--after")
+    listing.add_argument("--limit", type=_bounded_count, default=16)
+    listing.add_argument("--json", action="store_true")
+    inspecting = commands.add_parser(
+        "inspect", help="explain an exact published operation"
+    )
+    inspecting.add_argument("checkpoint", type=Path)
+    inspecting.add_argument("operation")
+    inspecting.add_argument("--window", type=_seconds, default=60.0)
+    inspecting.add_argument("--related-limit", type=_bounded_count, default=16)
+    inspecting.add_argument("--no-related", action="store_true")
+    inspecting.add_argument("--json", action="store_true")
+    capturing = commands.add_parser(
+        "capture", help="start explicit bounded optional capture"
+    )
+    capturing.add_argument("checkpoint", type=Path)
+    capturing.add_argument("operation")
+    capturing.add_argument("--kind", choices=("cpu", "timeline"), default="timeline")
+    capturing.add_argument("--output", type=Path, required=True)
+    capturing.add_argument("--duration", type=_seconds, default=10.0)
+    capturing.add_argument("--memory-bytes", type=_positive, default=16 << 20)
+    capturing.add_argument("--output-bytes", type=_positive, default=256 << 20)
+    capturing.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "list":
+            page = list_processes(
+                DiagnosticListRequest(after=args.after, limit=args.limit),
+                directory=args.directory,
+            )
+            if args.json:
+                print(codec.encode_json(page).decode())
+            else:
+                for process in page.processes:
+                    print(f"checkpoint {process.checkpoint} partial={process.partial}")
+                    if process.failure:
+                        print(f"  unavailable {process.failure}")
+                    for operation in process.operations:
+                        print(
+                            f"  {operation_text(operation.id)} {operation.kind} outcome={operation.outcome}"
+                        )
+                if page.next is not None:
+                    print(f"next {page.next}")
+            return 0
+        selected = operation_id(args.operation)
+        if args.command == "inspect":
+            document = inspect_checkpoint(
+                args.checkpoint,
+                InspectionRequest(
+                    version=1,
+                    operation=selected,
+                    window=_duration(args.window),
+                    include_related=not args.no_related,
+                    related_limit=args.related_limit,
+                ),
+            )
+            if args.json:
+                print(codec.encode_json(document).decode())
+            else:
+                _render_inspection(document)
+            return 0
+        if args.duration == 0:
+            parser.error("capture duration must be positive")
+        if args.memory_bytes < 4 << 20:
+            parser.error("capture needs at least 4194304 memory bytes")
+        request = CaptureRequest(
+            version=1,
+            checkpoint=str(args.checkpoint),
+            operation=selected,
+            kind=CaptureKind.CPU if args.kind == "cpu" else CaptureKind.TIMELINE,
+            output=str(args.output),
+            duration=_duration(args.duration),
+            budget=CaptureBudget(
+                memory_bytes=args.memory_bytes, output_bytes=args.output_bytes
+            ),
+        )
+        with capture(request) as session:
+            result = session.wait()
+        print(codec.encode_json(result).decode())
+        return 1 if result.status == CaptureStatus.FAILED else 0
+    except (InspectionError, OSError, ValueError, OverflowError) as error:
+        print(f"diagnostics unavailable: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

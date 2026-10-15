@@ -35,21 +35,43 @@ fn admit(
     let inputs = context();
     let physical =
         pse_compiler::workspace::physical_identity(&inputs.quantities, &inputs.preconditions);
-    service
-        .modeling_revision_at(
-            workspace,
-            source(value),
-            pse_modeling::PhysicalScope::default(),
-            Arc::default(),
-            &physical,
-            LaneStamp {
-                sequence,
-                revision: key.into(),
-            },
-            Arc::new(AtomicBool::new(false)),
-            &BTreeMap::new(),
-        )
-        .unwrap()
+    let service = service.clone();
+    let workspace = workspace.clone();
+    let key = key.to_owned();
+    // Exercise the admitted asynchronous production path even from synchronous
+    // source-order controls; the dedicated runtime is joined before returning.
+    std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let worker_service = service.clone();
+        runtime
+            .block_on(service.compiler_job(
+                workspace,
+                super::super::ConstructionEstimate::Known(0),
+                FlightCancellation::default(),
+                None,
+                move |authority, flag| {
+                    worker_service.modeling_revision_at(
+                        authority,
+                        source(value),
+                        pse_modeling::PhysicalScope::default(),
+                        Arc::default(),
+                        &physical,
+                        LaneStamp {
+                            sequence,
+                            revision: key,
+                        },
+                        flag,
+                        &BTreeMap::new(),
+                    )
+                },
+            ))
+            .unwrap()
+    })
+    .join()
+    .unwrap()
 }
 
 #[test]
@@ -74,10 +96,14 @@ fn historical_and_branch_admission_and_preparation_never_rewind_live_compiler() 
             .selects_modeling_revision(&head.admitted)
     );
     service
-        .with_modeling_compiler(&workspace, &historical, |compiler| {
-            assert!(compiler.selects_modeling_revision(&historical.admitted));
-            Ok(())
-        })
+        .with_modeling_compiler(
+            super::super::CompilerAuthority::private(workspace.clone()).unwrap(),
+            &historical,
+            |compiler| {
+                assert!(compiler.selects_modeling_revision(&historical.admitted));
+                Ok(())
+            },
+        )
         .unwrap();
     assert!(
         workspace
@@ -184,7 +210,7 @@ fn rejected_canonical_supplier_keeps_exact_live_head_and_original_failure_kind()
         pse_compiler::workspace::physical_identity(&inputs.quantities, &inputs.preconditions);
     let record = DeclarationId::from_id(SemanticId::from_bytes([99; 16]));
     let result = service.modeling_revision_at(
-        &workspace,
+        super::super::CompilerAuthority::private(workspace.clone()).unwrap(),
         source(2),
         pse_modeling::PhysicalScope::default(),
         Arc::default(),
@@ -228,9 +254,13 @@ fn rejected_canonical_supplier_keeps_exact_live_head_and_original_failure_kind()
 async fn dynamic_snapshot_pressure_evicts_idle_lane_but_retains_historical_source_owners() {
     use pse_engine::session::{EngineFactory, ExecutionSettings, ThreadBudget};
     use std::num::NonZeroUsize;
+    // Actual source admission now retains the charged worker stack/session envelope
+    // alongside the live workspace, historical workspace and source candidate.
+    // The later borrower still fills this pool to establish real snapshot pressure.
+    let capacity = 128 << 20;
     let registry = pse_schema::shared_registry().unwrap();
     let resources = pse_engine::resources::EngineResources::build(
-        NonZeroUsize::new(64 << 20).unwrap(),
+        NonZeroUsize::new(capacity).unwrap(),
         NonZeroUsize::new(8).unwrap(),
         std::env::temp_dir(),
         1 << 20,
@@ -258,7 +288,6 @@ async fn dynamic_snapshot_pressure_evicts_idle_lane_but_retains_historical_sourc
         registry,
         _validation_owner: owner,
     };
-    let capacity = 64 << 20;
     let (service, _cache) = super::super::tests::service_with_policy(
         capacity,
         super::super::MathPolicy {

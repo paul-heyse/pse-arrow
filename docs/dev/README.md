@@ -7,6 +7,7 @@ status; the current qualification basis is
 
 - [Agent environment](agent-environment.md): `scripts/pse-env`, scopes and slices, worktrees, test selection, hooks and runtime capabilities.
 - [Qualification commands](validation-assessment.md): assessment, native tests, case measurements and shared fixtures.
+- [Simulation diagnostics](simulation-diagnostics.md): passive live/recent inspection, typed Python/CLI readers and explicit CPU/timeline capture.
 - [Native workflow](native-workflow.md): public Rust/Python model, solve, dynamics, fitting and retained result usage.
 - [Canonical operational store](operational-store.md): revisions, workers, connected results, analyses and retention.
 - [Local substrate](surreal-substrate.md): supervised server setup, allocation, backup and restore.

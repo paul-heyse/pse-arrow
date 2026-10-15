@@ -1962,7 +1962,7 @@ pub(crate) fn runtime_failure(error: &super::MathRuntimeError) -> Observation {
         }
         E::Solve(cause) => failure(cause),
         E::Cancelled => Observation::Cancelled,
-        E::Limit(_) | E::Pool(_) => Observation::ResourceExhausted,
+        E::Limit(_) | E::PreparationExpired | E::Pool(_) => Observation::ResourceExhausted,
         E::Panic(_) => Observation::Panic,
         E::Infrastructure(_) | E::Retiring => Observation::OperationalFailure,
         E::Math(cause) => boundary_failure(

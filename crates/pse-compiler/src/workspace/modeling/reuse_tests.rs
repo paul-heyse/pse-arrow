@@ -794,3 +794,86 @@ fn owned_frontier_retries_the_same_request_after_a_pure_retention_lookup_refusal
         .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
         .unwrap();
 }
+
+#[test]
+fn observation_distinguishes_value_product_reuse_from_consumed_value_change() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let source =
+        rows("package p { def Root { param p: Scalar = 2; var x: Scalar; eq e: x*p == 6; } }");
+    let root = source
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    workspace
+        .publish_modeling(source, PhysicalScope::default())
+        .unwrap();
+    let model = prepare(
+        &mut workspace,
+        root,
+        Bindings {
+            demand: vec!["p".into(), "x".into()],
+            ..Bindings::default()
+        },
+    );
+    let (x, p) = (model.model.paths["x"], model.model.paths["p"]);
+    let values = |x_value, p_value| CaseValues {
+        scalars: BTreeMap::from([(x, x_value), (p, p_value)]),
+    };
+    let cancel = Arc::new(AtomicBool::new(false));
+    let first = workspace
+        .prepare_modeling_view(
+            &model,
+            model.bound_structure(&BTreeMap::new()).unwrap().structure,
+            &values(1.0, 2.0),
+            DerivativeOrder::First,
+            Profile::default(),
+            &cancel,
+        )
+        .unwrap();
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("rebind");
+    let context = operation.context();
+    let _entered = context.enter();
+    let start = first.rebind(&values(5.0, 2.0), &cancel).unwrap();
+    assert!(Arc::ptr_eq(&first.plan, &start.plan));
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &first.presolve,
+        &start.presolve
+    ));
+    let changed = first.rebind(&values(1.0, 3.0), &cancel).unwrap();
+    assert!(Arc::ptr_eq(&first.plan, &changed.plan));
+    assert!(!pse_math::SharedAllocation::ptr_eq(
+        &first.presolve,
+        &changed.presolve
+    ));
+    let snapshot = context
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    let count = |name: &str| {
+        snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == name)
+            .map(|metric| metric.cumulative.clone())
+    };
+    assert_eq!(count("compiler.value_rebinds"), Some(Value::Count(2)));
+    assert_eq!(
+        count("compiler.value_rebinds_completed"),
+        Some(Value::Count(2))
+    );
+    assert_eq!(
+        count("compiler.value_product_reuses"),
+        Some(Value::Count(1))
+    );
+    assert_eq!(
+        count("compiler.product_consumed_value_changes"),
+        Some(Value::Count(1))
+    );
+    assert_eq!(count("math.compiled_body_constructions"), None);
+}

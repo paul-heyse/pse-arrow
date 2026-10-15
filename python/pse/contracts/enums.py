@@ -236,6 +236,33 @@ class CandidateUse(StrEnum):
     UNUSABLE = "unusable"
 
 
+class CaptureKind(StrEnum):
+    """The declared CaptureKind enumeration."""
+
+    CPU = "Cpu"
+    TIMELINE = "Timeline"
+
+
+class CaptureOutputKind(StrEnum):
+    """The declared CaptureOutputKind enumeration."""
+
+    PERFETTO = "Perfetto"
+    PERFDATA = "PerfData"
+    SAMPLY = "Samply"
+    SYMBOLS = "Symbols"
+    TOOLLOG = "ToolLog"
+
+
+class CaptureStatus(StrEnum):
+    """The declared CaptureStatus enumeration."""
+
+    RUNNING = "Running"
+    COMPLETED = "Completed"
+    STOPPED = "Stopped"
+    PARTIAL = "Partial"
+    FAILED = "Failed"
+
+
 class ClarabelDirect(StrEnum):
     """The declared ClarabelDirect enumeration."""
 
@@ -1938,6 +1965,25 @@ class NativeWarmCapability(StrEnum):
     PRIMAL_DUAL_AND_BASIS = "primal_dual_and_basis"
 
 
+class NextObservation(StrEnum):
+    """The declared NextObservation enumeration."""
+
+    INSPECTRELATED = "InspectRelated"
+    CPUPROFILE = "CpuProfile"
+    TIMELINECAPTURE = "TimelineCapture"
+    OPTIONALALLOCATIONPROBE = "OptionalAllocationProbe"
+    OPTIONALWAITPROBE = "OptionalWaitProbe"
+    AWAITOWNERCHECKPOINT = "AwaitOwnerCheckpoint"
+
+
+class NonFinite(StrEnum):
+    """The declared NonFinite enumeration."""
+
+    NAN = "Nan"
+    POSITIVEINFINITY = "PositiveInfinity"
+    NEGATIVEINFINITY = "NegativeInfinity"
+
+
 class NumericalAccuracyClass(StrEnum):
     """The declared NumericalAccuracyClass enumeration."""
 
@@ -2189,6 +2235,15 @@ class OperationEffect(StrEnum):
     PUBLISH = "publish"
 
 
+class OperationOutcome(StrEnum):
+    """The declared OperationOutcome enumeration."""
+
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+    CANCELLED = "Cancelled"
+    INTERRUPTED = "Interrupted"
+
+
 class PackageKind(StrEnum):
     """The declared PackageKind enumeration."""
 
@@ -2355,6 +2410,16 @@ class ReferenceStateKind(StrEnum):
     CUSTOM = "custom"
 
 
+class Relationship(StrEnum):
+    """The declared Relationship enumeration."""
+
+    NESTED = "Nested"
+    DEPENDENCYWAIT = "DependencyWait"
+    SHAREDPRODUCTION = "SharedProduction"
+    REUSE = "Reuse"
+    CONTINUATION = "Continuation"
+
+
 class ReusePolicy(StrEnum):
     """The declared ReusePolicy enumeration."""
 
@@ -2450,6 +2515,14 @@ class StateSign(StrEnum):
     POSITIVE = "positive"
     NON_POSITIVE = "non_positive"
     NEGATIVE = "negative"
+
+
+class StatementKind(StrEnum):
+    """The declared StatementKind enumeration."""
+
+    ESTABLISHED = "Established"
+    HYPOTHESIS = "Hypothesis"
+    LIMITATION = "Limitation"
 
 
 class StructuralScopeKind(StrEnum):

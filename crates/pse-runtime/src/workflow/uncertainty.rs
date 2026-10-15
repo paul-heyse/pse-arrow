@@ -125,82 +125,121 @@ fn propagate_checked(
     jacobian: Result<&Jacobian, Upstream>,
     cancel: Option<&pse_columnar::CancellationToken>,
 ) -> Result<Result<Propagated, Upstream>, WorkflowError> {
-    let checkpoint = || {
-        cancel.map_or(Ok(()), |cancel| {
-            cancel
-                .checkpoint()
-                .map_err(pse_relations::RelationError::from)
-                .map_err(super::relation)
-        })
-    };
-    checkpoint()?;
-    let (covariance, jacobian) = match (covariance, jacobian) {
-        (Ok(c), Ok(j)) => (c, j),
-        (Err(upstream), _) | (_, Err(upstream)) => return Ok(Err(upstream)),
-    };
-    covariance
-        .admit()
-        .map_err(|e| contract(format!("propagated covariance: {e}")))?;
-    let (m, n) = (jacobian.outputs.len(), jacobian.parameters.len());
-    if jacobian.values.len()
-        != m.checked_mul(n)
-            .ok_or_else(|| contract("Jacobian extent"))?
-    {
-        return Err(contract(
-            "a Jacobian's values match its outputs and parameters",
-        ));
-    }
-    let p = covariance.parameters.len();
-    let parameter_access = pse_math::index::CheckedInventory::new(&jacobian.parameters, |id| *id)
-        .map_err(super::math)?;
-    pse_math::index::CheckedInventory::new(&jacobian.outputs, |id| *id).map_err(super::math)?;
-    let columns = covariance
-        .parameters
-        .iter()
-        .map(|id| {
-            parameter_access
-                .position(id)
-                .ok_or_else(|| contract(format!("the Jacobian does not differentiate {id}")))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let sigma = |k: usize, l: usize| covariance.values[k * p + l].into_inner();
-    let j = |i: usize, k: usize| jacobian.values[i * n + columns[k]];
-    // J·Σ_θ, then (J·Σ_θ)·Jᵀ.
-    let product: Vec<f64> = (0..m * p)
-        .map(|index| {
-            let (i, l) = (index / p, index % p);
-            let mut sum = -0.0;
-            for k in 0..p {
-                if k % 1024 == 0 {
-                    checkpoint()?;
+    let observation = pse_diagnostics::observation::current();
+    let _phase = observation.as_ref().map(|context| {
+        context.count("uncertainty.propagation.requests", "count", 1);
+        context.phase("uncertainty.propagation")
+    });
+    let result = (|| {
+        let checkpoint = || {
+            cancel.map_or(Ok(()), |cancel| {
+                cancel
+                    .checkpoint()
+                    .map_err(pse_relations::RelationError::from)
+                    .map_err(super::relation)
+            })
+        };
+        checkpoint()?;
+        let (covariance, jacobian) = match (covariance, jacobian) {
+            (Ok(c), Ok(j)) => (c, j),
+            (Err(upstream), _) | (_, Err(upstream)) => return Ok(Err(upstream)),
+        };
+        covariance
+            .admit()
+            .map_err(|e| contract(format!("propagated covariance: {e}")))?;
+        let (m, n) = (jacobian.outputs.len(), jacobian.parameters.len());
+        if let Some(context) = &observation {
+            context.integer("uncertainty.propagation.outputs", "count", m as i64);
+            context.integer("uncertainty.propagation.parameters", "count", n as i64);
+        }
+        if jacobian.values.len()
+            != m.checked_mul(n)
+                .ok_or_else(|| contract("Jacobian extent"))?
+        {
+            return Err(contract(
+                "a Jacobian's values match its outputs and parameters",
+            ));
+        }
+        let p = covariance.parameters.len();
+        let parameter_access =
+            pse_math::index::CheckedInventory::new(&jacobian.parameters, |id| *id)
+                .map_err(super::math)?;
+        pse_math::index::CheckedInventory::new(&jacobian.outputs, |id| *id).map_err(super::math)?;
+        let columns = covariance
+            .parameters
+            .iter()
+            .map(|id| {
+                parameter_access
+                    .position(id)
+                    .ok_or_else(|| contract(format!("the Jacobian does not differentiate {id}")))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let sigma = |k: usize, l: usize| covariance.values[k * p + l].into_inner();
+        let j = |i: usize, k: usize| jacobian.values[i * n + columns[k]];
+        // J·Σ_θ, then (J·Σ_θ)·Jᵀ.
+        let product: Vec<f64> = (0..m * p)
+            .map(|index| {
+                let (i, l) = (index / p, index % p);
+                let mut sum = -0.0;
+                for k in 0..p {
+                    if k % 1024 == 0 {
+                        checkpoint()?;
+                    }
+                    sum += j(i, k) * sigma(k, l);
                 }
-                sum += j(i, k) * sigma(k, l);
-            }
-            Ok::<_, WorkflowError>(sum)
-        })
-        .collect::<Result<_, _>>()?;
-    let values: Vec<f64> = (0..m * m)
-        .map(|index| {
-            let (i, r) = (index / m, index % m);
-            let mut sum = -0.0;
-            for l in 0..p {
-                if l % 1024 == 0 {
-                    checkpoint()?;
+                Ok::<_, WorkflowError>(sum)
+            })
+            .collect::<Result<_, _>>()?;
+        let values: Vec<f64> = (0..m * m)
+            .map(|index| {
+                let (i, r) = (index / m, index % m);
+                let mut sum = -0.0;
+                for l in 0..p {
+                    if l % 1024 == 0 {
+                        checkpoint()?;
+                    }
+                    sum += product[i * p + l] * j(r, l);
                 }
-                sum += product[i * p + l] * j(r, l);
+                Ok::<_, WorkflowError>(sum)
+            })
+            .collect::<Result<_, _>>()?;
+        if values.iter().any(|v| !v.is_finite()) {
+            return Err(contract("the propagated covariance overflowed"));
+        }
+        Ok(Ok(Propagated {
+            covariance_run: covariance.run_id,
+            parameters: covariance.parameters.clone(),
+            outputs: jacobian.outputs.clone(),
+            values,
+        }))
+    })();
+    if let Some(context) = observation {
+        context.boolean("uncertainty.propagation.returned", result.is_ok());
+        match &result {
+            Ok(Ok(_)) => {
+                context.boolean("uncertainty.propagation.available", true);
+                context.text("uncertainty.propagation.withheld", "none");
+                context.text("uncertainty.propagation.upstream", "none");
+                context.text("uncertainty.propagation.failure", "none");
             }
-            Ok::<_, WorkflowError>(sum)
-        })
-        .collect::<Result<_, _>>()?;
-    if values.iter().any(|v| !v.is_finite()) {
-        return Err(contract("the propagated covariance overflowed"));
+            Ok(Err(upstream)) => {
+                context.boolean("uncertainty.propagation.available", false);
+                context.text("uncertainty.propagation.withheld", upstream.reason.as_str());
+                context.text(
+                    "uncertainty.propagation.upstream",
+                    upstream.quantity.as_str(),
+                );
+                context.text("uncertainty.propagation.failure", "none");
+            }
+            Err(error) => {
+                context.boolean("uncertainty.propagation.available", false);
+                context.text("uncertainty.propagation.withheld", "not_applicable");
+                context.text("uncertainty.propagation.upstream", "not_applicable");
+                context.text("uncertainty.propagation.failure", &error.to_string());
+            }
+        }
     }
-    Ok(Ok(Propagated {
-        covariance_run: covariance.run_id,
-        parameters: covariance.parameters.clone(),
-        outputs: jacobian.outputs.clone(),
-        values,
-    }))
+    result
 }
 
 impl RunResult {
@@ -316,6 +355,9 @@ mod projection_tests {
             .map(|k| jacobian.values[k] * covariance.values[k].into_inner())
             .sum();
         let expected: f64 = (0..1).map(|k| product * jacobian.values[k]).sum();
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("propagation quantity");
+        let _entered = operation.context().enter();
         assert_eq!(
             propagate(Ok(&covariance), Ok(&jacobian))
                 .unwrap()
@@ -338,6 +380,71 @@ mod projection_tests {
             withheld.propagation_verdict().unwrap_err().reason,
             WithheldReason::ResponsesUnavailable
         );
+        let upstream = Upstream {
+            quantity: DerivedQuantity::ParametricSensitivity,
+            reason: WithheldReason::ResponsesUnavailable,
+            detail: "response refused".into(),
+        };
+        assert!(propagate(Ok(&covariance), Err(upstream)).unwrap().is_err());
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let metric = |name| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap()
+        };
+        assert_eq!(
+            metric("uncertainty.propagation.requests").cumulative,
+            pse_diagnostics::observation::Value::Count(2)
+        );
+        assert_eq!(
+            metric("uncertainty.propagation.available").latest,
+            pse_diagnostics::observation::Value::Boolean(false)
+        );
+        assert_eq!(
+            metric("uncertainty.propagation.withheld").latest,
+            pse_diagnostics::observation::Value::Text(
+                WithheldReason::ResponsesUnavailable.as_str().into()
+            )
+        );
+        propagate(Ok(&covariance), Ok(&jacobian)).unwrap().unwrap();
+        let restored = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            restored
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "uncertainty.propagation.upstream")
+                .unwrap()
+                .latest,
+            pse_diagnostics::observation::Value::Text("none".into())
+        );
+        let invalid = Jacobian {
+            values: vec![],
+            ..jacobian
+        };
+        assert!(propagate(Ok(&covariance), Ok(&invalid)).is_err());
+        let failed = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        for name in [
+            "uncertainty.propagation.upstream",
+            "uncertainty.propagation.withheld",
+        ] {
+            assert_eq!(
+                failed
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .unwrap()
+                    .latest,
+                pse_diagnostics::observation::Value::Text("not_applicable".into())
+            );
+        }
     }
 
     #[test]

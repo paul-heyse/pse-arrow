@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Definition admission and effective interface membership precede instantiation.
+mod admission_view;
+pub use admission_view::{FunctionAdmission, FunctionContracts};
+
 use crate::{Declaration, Result, Selected, Type, TypeContext, invalid};
 use petgraph::{
     algo::{kosaraju_scc, toposort},

@@ -100,7 +100,7 @@ pub(crate) fn admit(p: &CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         let id = row.declaration_id;
         if let Some(v) = &row.value.applicability {
             let function = &p.functions[&id];
-            let env = function.arguments.iter().cloned().collect();
+            let env: BTreeMap<_, _> = function.arguments.iter().cloned().collect();
             let owner = p
                 .resolve(id, &v.owner)
                 .ok_or_else(|| invalid(id, "applicability owner is absent"))?;
@@ -230,7 +230,7 @@ pub(crate) fn admit(p: &CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         }
     }
     for f in p.functions.values() {
-        let env = f.arguments.iter().cloned().collect();
+        let env: BTreeMap<_, _> = f.arguments.iter().cloned().collect();
         for application in &f.applicability {
             if crate::expression::infer(application, &env, p, c, f.id, Some(&Type::Applicability))?
                 != Type::Applicability

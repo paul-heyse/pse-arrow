@@ -738,7 +738,7 @@ impl Engine<'_, '_> {
                             .expression_at(at, "scope.fixture.specifications.expression", position)?
                             .clone();
                         let expression = self.rewrite(instance, &expression, &local, &[at])?;
-                        let types = self
+                        let types: BTreeMap<_, _> = self
                             .model
                             .symbols
                             .iter()

@@ -27,6 +27,85 @@ fn text(error: &[c_char]) -> String {
         .to_string_lossy()
         .into_owned()
 }
+
+/// Native tasks overlap; these source-owned totals must never be summed as
+/// exclusive phase time. Disabled/running/serious-return absence stays explicit.
+fn terminal_timing(
+    result: &ffi::Result,
+    native_known: bool,
+    metrics: &mut std::collections::BTreeMap<String, Metric>,
+) {
+    let data = native_known && result.timing_data_available == 1;
+    let mut copied = std::collections::BTreeMap::new();
+    for (name, timing) in [
+        ("overall", result.timing_overall),
+        ("initialize", result.timing_initialize),
+        ("search_direction", result.timing_search_direction),
+        ("trial_point", result.timing_trial_point),
+        ("linear_scaling", result.timing_linear_scaling),
+        ("symbolic_factor", result.timing_symbolic_factor),
+        ("numeric_factor", result.timing_numeric_factor),
+        ("backsolve", result.timing_backsolve),
+    ] {
+        let prefix = format!("timing.native.{name}");
+        let reason = if !data {
+            UnavailableReason::Unknown
+        } else if timing.enabled != 1 {
+            UnavailableReason::NotRequested
+        } else {
+            UnavailableReason::NotComputed
+        };
+        copied.insert(
+            format!("{prefix}.enabled"),
+            if data {
+                Metric::Bool(timing.enabled == 1)
+            } else {
+                Metric::Unavailable(reason)
+            },
+        );
+        copied.insert(
+            format!("{prefix}.running"),
+            if data {
+                Metric::Bool(timing.running == 1)
+            } else {
+                Metric::Unavailable(reason)
+            },
+        );
+        for (unit, value) in [
+            ("cpu_seconds", timing.cpu_seconds),
+            ("system_seconds", timing.system_seconds),
+            ("wall_seconds", timing.wall_seconds),
+        ] {
+            copied.insert(
+                format!("{prefix}.{unit}"),
+                if data && timing.available == 1 && timing.enabled == 1 && timing.running == 0 {
+                    Metric::Real(value)
+                } else {
+                    Metric::Unavailable(reason)
+                },
+            );
+        }
+    }
+    if let Some(parent) = pse_diagnostics::observation::current() {
+        let operation = parent.child(
+            "ipopt.terminal_timing",
+            pse_diagnostics::observation::Relationship::Nested,
+        );
+        {
+            let _entered = operation.context().enter();
+            let compact = copied
+                .iter()
+                .filter(|(name, _)| {
+                    !name.ends_with("cpu_seconds") && !name.ends_with("system_seconds")
+                })
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect();
+            crate::observation::metrics("ipopt", &compact);
+        }
+        operation.finish(pse_diagnostics::observation::Outcome::Completed);
+    }
+    metrics.extend(copied);
+}
 fn failure(code: i32, message: String) -> ProblemError {
     match code {
         ffi::INVALID => ProblemError::Contract(message),
@@ -575,24 +654,34 @@ impl Sequence {
             );
             let mut error: [c_char; 512] = [0; 512];
             let _threads = crate::mkl::Threads::enter(controls.threads)?;
-            let code = owned.slot.with_active(&mut context, || {
-                // SAFETY: only this call activates the borrowed oracle. All starts
-                // have checked dimensions and remain immutable until native return.
-                unsafe {
-                    ffi::pse_ipopt_sequence_solve(
-                        owned.handle.pointer.as_ptr(),
-                        i32::from(reused),
-                        seconds,
-                        native_n,
-                        primal.as_ptr(),
-                        zl,
-                        zu,
-                        native_m,
-                        lambda,
-                        error.as_mut_ptr(),
-                        error.len(),
-                    )
-                }
+            crate::observation::unavailable(
+                "ipopt.timing.current_interval",
+                "native running intervals have no completed totals; selected task copies arrive at owner return",
+            );
+            crate::observation::unavailable(
+                "ipopt.linear.private_jobs",
+                "actual selected native factor owns private job data; current bridge forwards no synchronized per-job copy",
+            );
+            let code = crate::observation::scoped("ipopt.optimize", || {
+                owned.slot.with_active(&mut context, || {
+                    // SAFETY: only this call activates the borrowed oracle. All starts
+                    // have checked dimensions and remain immutable until native return.
+                    unsafe {
+                        ffi::pse_ipopt_sequence_solve(
+                            owned.handle.pointer.as_ptr(),
+                            i32::from(reused),
+                            seconds,
+                            native_n,
+                            primal.as_ptr(),
+                            zl,
+                            zu,
+                            native_m,
+                            lambda,
+                            error.as_mut_ptr(),
+                            error.len(),
+                        )
+                    }
+                })
             });
             if !matches!(
                 code,
@@ -658,6 +747,7 @@ impl Sequence {
                 report.evidence.work.iterations = u64::try_from(result.iterations).ok();
             }
             let stats = native_known && result.statistics_available == 1;
+            terminal_timing(&result, native_known, &mut report.metrics);
             let count = |value| stats.then(|| u64::try_from(value).ok()).flatten();
             let observed_seconds = |value: f64| stats.then_some(value);
             report.evidence.native_observations = Some(Arc::new(NativeObservations {
@@ -1038,6 +1128,13 @@ mod tests {
     }
     #[test]
     fn native_observations_survive_zero_telemetry_and_use_structured_ipopt_statistics() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy {
+            max_metrics: 64,
+            ..Policy::default()
+        });
+        let operation = hub.start("ipopt-real-no-history");
+        let _entered = operation.context().enter();
         let controls = Controls {
             history: 0,
             ..Controls::default()
@@ -1059,6 +1156,13 @@ mod tests {
             .unwrap();
         assert_eq!(report.termination.category, Termination::Success);
         assert!(report.events.is_empty());
+        assert!(
+            matches!(report.metrics["timing.native.overall.wall_seconds"], Metric::Real(value) if value >= 0.0)
+        );
+        assert_eq!(
+            report.metrics["timing.native.numeric_factor.wall_seconds"],
+            Metric::Unavailable(UnavailableReason::NotRequested)
+        );
         let native = report.evidence.native_observations.as_ref().unwrap();
         assert_eq!(native.coordinates, ObservationCoordinates::SubmittedOracle);
         let NativeCounters::Ipopt {
@@ -1086,6 +1190,113 @@ mod tests {
         assert!(!current.partial);
         assert_eq!(current.values[0].variable, report.variables[0]);
         assert!(report.completed_report_allowance().unwrap().is_some());
+        let observed = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            observed
+                .metrics
+                .iter()
+                .find(|m| m.name == "ipopt.optimize.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert!(
+            observed
+                .metrics
+                .iter()
+                .any(|m| m.name.starts_with("callback.") && m.name.ends_with(".completed_calls"))
+        );
+        assert!(matches!(
+            observed
+                .metrics
+                .iter()
+                .find(|m| m.name == "ipopt.timing.current_interval")
+                .unwrap()
+                .latest,
+            Value::Unavailable(_)
+        ));
+    }
+    #[test]
+    fn terminal_timer_projection_distinguishes_disabled_running_and_absent_records() {
+        let mut result = ffi::Result::default();
+        let mut metrics = std::collections::BTreeMap::new();
+        terminal_timing(&result, true, &mut metrics);
+        assert_eq!(
+            metrics["timing.native.numeric_factor.wall_seconds"],
+            Metric::Unavailable(UnavailableReason::Unknown)
+        );
+        result.timing_data_available = 1;
+        terminal_timing(&result, true, &mut metrics);
+        assert_eq!(
+            metrics["timing.native.numeric_factor.wall_seconds"],
+            Metric::Unavailable(UnavailableReason::NotRequested)
+        );
+        result.timing_numeric_factor = ffi::Timing {
+            enabled: 1,
+            running: 1,
+            available: 0,
+            wall_seconds: 99.0,
+            ..Default::default()
+        };
+        terminal_timing(&result, true, &mut metrics);
+        assert_eq!(
+            metrics["timing.native.numeric_factor.wall_seconds"],
+            Metric::Unavailable(UnavailableReason::NotComputed)
+        );
+        result.timing_numeric_factor.running = 0;
+        result.timing_numeric_factor.available = 1;
+        terminal_timing(&result, true, &mut metrics);
+        assert_eq!(
+            metrics["timing.native.numeric_factor.wall_seconds"],
+            Metric::Real(99.0)
+        );
+        terminal_timing(&result, false, &mut metrics);
+        assert_eq!(
+            metrics["timing.native.numeric_factor.wall_seconds"],
+            Metric::Unavailable(UnavailableReason::Unknown)
+        );
+    }
+    #[test]
+    fn explicitly_enabled_native_timers_are_copied_after_real_owner_return() {
+        let controls = Controls {
+            options: std::collections::BTreeMap::from([(
+                "timing_statistics".into(),
+                OptionValue::Bool(true),
+            )]),
+            ..Controls::default()
+        };
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        let report = Sequence::new()
+            .solve(
+                &mut oracle,
+                &[1.5],
+                ObjectiveSense::Minimize,
+                &controls,
+                &ResolvedAccuracy::verification(),
+                &Settings::default(),
+                Execution::new(Arc::default(), &controls),
+                &tolerance(),
+                None,
+                crate::solver_tests::stamp(Backend::Ipopt),
+            )
+            .unwrap();
+        assert_eq!(report.termination.category, Termination::Success);
+        assert_eq!(
+            report.metrics["timing.native.numeric_factor.enabled"],
+            Metric::Bool(true)
+        );
+        assert_eq!(
+            report.metrics["timing.native.numeric_factor.running"],
+            Metric::Bool(false)
+        );
+        assert!(
+            matches!(report.metrics["timing.native.numeric_factor.wall_seconds"], Metric::Real(value) if value >= 0.0)
+        );
+        assert!(
+            matches!(report.metrics["timing.native.backsolve.cpu_seconds"], Metric::Real(value) if value >= 0.0)
+        );
     }
     #[test]
     fn persistent_tnlp_reuses_real_application_with_fresh_borrowed_numeric_oracle() {

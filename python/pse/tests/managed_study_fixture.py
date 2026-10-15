@@ -312,7 +312,9 @@ class ManagedStudyFixture:
             assert_held(held)
             self.signal("cancel.json" if cancel else "release.json")
             while self.caller.poll() is None:
-                assert time.monotonic() < deadline, "public study operation timed out"
+                assert time.monotonic() < deadline, (
+                    "public study operation timed out: " + self._caller_output()
+                )
                 time.sleep(0.02)
             self._check_caller()
         except BaseException:
@@ -325,12 +327,14 @@ class ManagedStudyFixture:
         assert self.caller is not None
         status = self.caller.poll()
         if status is not None:
-            assert (self.directory / "caller.log").stat().st_size <= 64 << 10, (
-                "public caller output exceeded its bound"
-            )
-            with (self.directory / "caller.log").open("rb") as output:
-                detail = output.read(64 << 10).decode(errors="replace")
+            detail = self._caller_output()
             assert status == 0, f"public caller exited {status}: {detail}"
+
+    def _caller_output(self) -> str:
+        log = self.directory / "caller.log"
+        assert log.stat().st_size <= 64 << 10, "public caller output exceeded its bound"
+        with log.open("rb") as output:
+            return output.read(64 << 10).decode(errors="replace")
 
     def _primary_alive(self, deadline: float) -> bool:
         """Check the supervisor-owned service even before the entry snapshot.

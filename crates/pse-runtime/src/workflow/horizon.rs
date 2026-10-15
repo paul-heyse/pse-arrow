@@ -281,3 +281,86 @@ pub(super) mod prefix;
 #[cfg(all(feature = "solver-ipopt", feature = "solver-diffsol"))]
 #[path = "horizon_tests.rs"]
 mod tests;
+
+#[cfg(any(feature = "solver-diffsol", test))]
+pub(super) fn observe_step(k: usize, step: &HorizonStep) {
+    let Some(context) = pse_diagnostics::observation::current() else {
+        return;
+    };
+    context.count("horizon.samples_completed", "count", 1);
+    context.gauge("horizon.sample_index", "index", k as f64);
+    context.gauge("horizon.sample_time", "physical seconds", step.time);
+    context.text("horizon.decision", step.decision.as_str());
+    context.boolean("horizon.estimator_acted", step.estimator.is_some());
+    context.boolean("horizon.controller_acted", step.controller.is_some());
+    context.boolean("horizon.background_acted", step.advanced.is_some());
+    if let Some(fallback) = step.fallback {
+        context.count("horizon.fallback_decisions", "count", 1);
+        context.text("horizon.fallback", fallback.as_str());
+    } else {
+        context.text("horizon.fallback", "none");
+    }
+    if step.decision == HorizonDecision::Held {
+        context.count("horizon.held_decisions", "count", 1);
+    }
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::*;
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+
+    #[test]
+    fn observation_horizon_fallback_and_hold_retain_actual_sample_meaning() {
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("horizon samples");
+        let context = operation.context();
+        let _entered = context.enter();
+        let mut step = HorizonStep {
+            time: 2.0,
+            measured: vec![3.0],
+            estimator: Some(0),
+            controller: Some(1),
+            decision: HorizonDecision::Fallback,
+            fallback: Some(pse_backend_native::kkt::Fallback::NotRetained),
+            activity: None,
+            advanced: None,
+            applied: vec![4.0],
+            reached: vec![5.0],
+        };
+        observe_step(0, &step);
+        step.time = 3.0;
+        step.decision = HorizonDecision::Held;
+        step.fallback = None;
+        observe_step(1, &step);
+        let snapshot = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let metric = |name: &str| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap()
+        };
+        assert_eq!(
+            metric("horizon.samples_completed").cumulative,
+            Value::Count(2)
+        );
+        assert_eq!(
+            metric("horizon.fallback_decisions").cumulative,
+            Value::Count(1)
+        );
+        assert_eq!(metric("horizon.held_decisions").cumulative, Value::Count(1));
+        assert_eq!(
+            metric("horizon.decision").latest,
+            Value::Text("held".into())
+        );
+        assert_eq!(
+            metric("horizon.fallback").latest,
+            Value::Text("none".into())
+        );
+        assert_eq!(metric("horizon.sample_time").latest, Value::Number(3.0));
+        assert_eq!(step.applied, vec![4.0]);
+    }
+}

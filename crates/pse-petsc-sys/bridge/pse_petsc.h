@@ -96,6 +96,9 @@ int32_t pse_petsc_snes_linear(PsePetscHandle, const char *, const char *);
 int32_t pse_petsc_snes_layout(PsePetscHandle, PsePetscHandle);
 int32_t pse_petsc_snes_solve(PsePetscHandle, PsePetscHandle);
 int32_t pse_petsc_snes_statistics(PsePetscHandle, int32_t *, int32_t *, int32_t *, int32_t *, double *);
+/* Owner-thread checkpoint after SNESSolve. KSP_CONVERGED_ITERATING means the
+ * current KSP has no completed solve; iterations are then not current-run work. */
+int32_t pse_petsc_snes_ksp_statistics(PsePetscHandle, int32_t *, int32_t *);
 int32_t pse_petsc_snes_reason_name(PsePetscHandle, const char **);
 /* Successful registration consumes all sub-SNES wrapper handles and nulls the
  * caller's entries. Scatters remain caller-owned; NASM retains separate references.

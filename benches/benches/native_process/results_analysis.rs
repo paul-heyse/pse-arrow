@@ -75,7 +75,7 @@ fn check_sample(row: &simulation_samples::Row, expected: &Expected) {
 }
 
 async fn trajectory(runtime: &Runtime, expected: &Expected, one_output: bool) -> ReadObservation {
-    let cancel = CancelSource::new();
+    let cancel = audit::cancel_source();
     let mut reader = if one_output {
         runtime
             .output_results(
@@ -445,7 +445,7 @@ async fn prepare(
     let time_quantity = time.id.as_id();
     let time_unit = time.canonical_unit.as_id();
     let policy = pse_model::numerics::NumericalPolicy::default();
-    let cancel = CancelSource::new();
+    let cancel = audit::cancel_source();
     let package = runtime
         .modeling_from_documents(
             &support::admitted_documents(owner, &sources.modeling),
@@ -526,7 +526,10 @@ async fn prepare(
     let experiment = prepared.model().solved().instance();
     mark(&mut phase_seconds, "simulation_preparation", started);
     let started = Instant::now();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let numerical_stage = audit::stage("simulate_and_publish");
+    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    drop(numerical_stage);
+    let _assessment = audit::stage("original_trajectory_and_analysis_assessment");
     mark(&mut phase_seconds, "simulate_and_publish", started);
     let started = Instant::now();
     assert!(
@@ -840,10 +843,20 @@ fn measure_retained(
         .build()
         .unwrap();
     let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
-    let runtime = runtime(&owner);
-    let setup_start = Instant::now();
-    let (expected, setup) = executor.block_on(prepare(&runtime, &owner, states, samples, false, 0));
-    let setup_seconds = setup_start.elapsed().as_secs_f64();
+    let (runtime, expected, setup, setup_seconds) =
+        audit::with_owner_sync(&owner, &executor, || {
+            let _setup = audit::stage("retained_result_setup");
+            // This closure owns every scientific Runtime/read lease. If preparation
+            // fails, unwind drops them before with_owner_sync cleans the fixture.
+            let runtime = runtime(&owner);
+            let setup_start = Instant::now();
+            let (expected, setup) = executor.block_on(audit::scope(prepare(
+                &runtime, &owner, states, samples, false, 0,
+            )));
+            let setup_seconds = setup_start.elapsed().as_secs_f64();
+            (runtime, expected, setup, setup_seconds)
+        });
+    let mut runtime = Some(runtime);
     owner.runtime.reset_observation_peak();
     phases.reset();
     let records_name = format!("{name}-observations.jsonl");
@@ -861,7 +874,15 @@ fn measure_retained(
         let mut elapsed = Duration::ZERO;
         for _ in 0..count {
             let started = Instant::now();
-            let record = executor.block_on(read_all(&runtime, &expected, states, samples));
+            let (returned_runtime, record) = audit::with_owner_sync(&owner, &executor, || {
+                let _reads = audit::stage("retained_result_reads");
+                // Move the retained owner inside the unwind boundary for this
+                // read; keeping it in an outer Option would preserve its leases.
+                let runtime = runtime.take().unwrap();
+                let record = executor.block_on(audit::scope(read_all(&runtime, &expected, states, samples)));
+                (runtime, record)
+            });
+            runtime = Some(returned_runtime);
             let duration = started.elapsed();
             elapsed += duration;
             let (dense, selected, graph, dense_seconds, output_seconds, graph_seconds) = record;
@@ -886,11 +907,18 @@ fn measure_retained(
     let retained = pool.reserved();
     // Every analysis handle and reader is scoped to setup or one completed
     // iteration. Withdraw its retention only after those owners have dropped.
-    executor.block_on(retire(&runtime, &expected));
-    let after_case_teardown = pool.reserved();
-    drop(expected);
-    drop(runtime);
-    executor.block_on(owner.cleanup_fixtures()).unwrap();
+    let after_case_teardown = audit::with_owner_sync(&owner, &executor, || {
+        let _teardown = audit::stage("retained_result_retirement");
+        let runtime = runtime.take().unwrap();
+        executor.block_on(retire(&runtime, &expected));
+        let reserved = pool.reserved();
+        drop(expected);
+        drop(runtime);
+        reserved
+    });
+    let cleanup = executor.block_on(owner.cleanup_fixtures());
+    audit::cleanup_result(cleanup.is_ok());
+    cleanup.unwrap();
     drop(owner);
     executor.block_on(tokio::task::yield_now());
     let after = pool.reserved();
@@ -1080,20 +1108,29 @@ fn measure_complete(
                 // destruction are outside the source-to-results operation timer.
                 let owner =
                     WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
-                let runtime = runtime(&owner);
-                owner.runtime.reset_observation_peak();
-                let started = Instant::now();
-                let (expected, setup) = executor.block_on(prepare(
-                    &runtime,
-                    &owner,
-                    states,
-                    samples,
-                    true,
-                    physical_padding_bytes,
-                ));
-                let (dense, selected, graph, dense_seconds, output_seconds, graph_seconds) =
-                    executor.block_on(read_all(&runtime, &expected, states, samples));
-                let duration = started.elapsed();
+                let (runtime, expected, setup, reads, duration) =
+                    audit::with_owner_sync(&owner, &executor, || {
+                        let _setup = audit::stage("source_to_published_analysis");
+                        // Runtime/readers must drop inside the guard on a production
+                        // failure, before its owning fixture cleanup is attempted.
+                        let runtime = runtime(&owner);
+                        owner.runtime.reset_observation_peak();
+                        let started = Instant::now();
+                        let (expected, setup) = executor.block_on(audit::scope(prepare(
+                            &runtime,
+                            &owner,
+                            states,
+                            samples,
+                            true,
+                            physical_padding_bytes,
+                        )));
+                        let _reads = audit::stage("published_result_reads");
+                        let reads = executor
+                            .block_on(audit::scope(read_all(&runtime, &expected, states, samples)));
+                        let duration = started.elapsed();
+                        (runtime, expected, setup, reads, duration)
+                    });
+                let (dense, selected, graph, dense_seconds, output_seconds, graph_seconds) = reads;
                 elapsed += duration;
                 for (phase, value) in setup["phase_seconds"].as_object().unwrap() {
                     *inclusive_phases.entry(phase.clone()).or_default() += value.as_f64().unwrap();
@@ -1118,11 +1155,21 @@ fn measure_complete(
                 retained = retained.max(pool.reserved());
                 // No original reports/readers survive into reclamation. Retirement,
                 // observation output and fixture cleanup are explicitly untimed.
-                executor.block_on(retire(&runtime, &expected));
-                after_case = after_case.max(pool.reserved());
-                drop(expected);
-                drop(runtime);
-                executor.block_on(owner.cleanup_fixtures()).unwrap();
+                let retired_reserved = audit::with_owner_sync(&owner, &executor, || {
+                    let _teardown = audit::stage("published_result_retirement");
+                    // Take the actual owner into this second unwind boundary too;
+                    // retirement failure must not leave an outer Runtime alive.
+                    let runtime = runtime;
+                    executor.block_on(retire(&runtime, &expected));
+                    let reserved = pool.reserved();
+                    drop(expected);
+                    drop(runtime);
+                    reserved
+                });
+                after_case = after_case.max(retired_reserved);
+                let cleanup = executor.block_on(owner.cleanup_fixtures());
+                audit::cleanup_result(cleanup.is_ok());
+                cleanup.unwrap();
                 drop(owner);
                 executor.block_on(tokio::task::yield_now());
                 assert_eq!(

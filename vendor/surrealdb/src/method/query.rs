@@ -22,11 +22,36 @@ use crate::notification::Notification;
 use crate::types::{SurrealValue, Value, Variables};
 use crate::{Connection, Error, Result, Surreal, opt};
 
+/// Optional owner-supplied observation of statistics from the actual query invocation.
+/// Implementations must not block execution or treat observations as result permission.
+pub trait QueryStatisticsObserver: std::fmt::Debug + Send + Sync {
+    /// Observe the original statement index, supplied statistics and statement success.
+    fn observe(&self, statement: usize, stats: Stats, succeeded: bool);
+    /// The actual request failed without a statement-associated result.
+    /// No statistics or permission to retry are implied by this notification.
+    fn request_failed(&self) {}
+}
+
+fn observe_statistics(observer: &Option<Arc<dyn QueryStatisticsObserver>>, statement: usize, stats: Stats, succeeded: bool) {
+    if let Some(observer) = observer {
+        // Optional diagnostics cannot turn an otherwise valid database response into failure.
+        let _observed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| observer.observe(statement, stats, succeeded)));
+    }
+}
+
+
+fn observe_request_failure(observer: &Option<Arc<dyn QueryStatisticsObserver>>) {
+    if let Some(observer) = observer {
+        let _observed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| observer.request_failed()));
+    }
+}
+
 /// Returned by [`Surreal::query`](crate::Surreal::query), resolving to [`IndexedResults`]
 /// (optionally via [`Query::with_stats`](Self::with_stats)).
 #[derive(Debug)]
 #[must_use = "futures do nothing unless you `.await` or poll them"]
 pub struct Query<'r, C: Connection> {
+    pub(crate) statistics_observer: Option<Arc<dyn QueryStatisticsObserver>>,
     pub(crate) request_context: Option<crate::opt::RequestContext>,
     pub(crate) txn: Option<Uuid>,
     pub(crate) client: Cow<'r, Surreal<C>>,
@@ -78,6 +103,12 @@ impl<'r, C> Query<'r, C>
 where
     C: Connection,
 {
+    /// Observe supplied statistics without consuming results or issuing another query.
+    pub fn observe_statistics(mut self, observer: Arc<dyn QueryStatisticsObserver>) -> Self {
+        self.statistics_observer = Some(observer);
+        self
+    }
+
     /// Attach the original operation clock without changing the session.
     pub fn request_context(mut self, context: crate::opt::RequestContext) -> Self {
         let context = match self.request_context.as_ref() {
@@ -129,6 +160,7 @@ where
     /// thread
     pub fn into_owned(self) -> Query<'static, C> {
         Query {
+            statistics_observer: self.statistics_observer,
             request_context: self.request_context,
             txn: self.txn,
             client: Cow::Owned(self.client.into_owned()),
@@ -227,6 +259,7 @@ where
         }
         let _payload_drain = self.payload_drain.take();
         let Self {
+            statistics_observer,
             request_context,
             txn,
             client,
@@ -265,6 +298,9 @@ where
             let forward = async {
                 while let Ok(item) = raw_rx.recv().await {
                     for item in stream_items_for(item) {
+                        if let StreamItem::StatementEnd { statement, stats, result } = &item {
+                            observe_statistics(&statistics_observer, *statement, Stats { execution_time: stats.execution_time }, result.is_ok());
+                        }
                         if out_tx.send(Ok(item)).await.is_err() {
                             // The caller stopped reading. Closing the execution's
                             // channel is what unparks it: it is bounded, and this
@@ -282,6 +318,7 @@ where
             // A failure belonging to no single statement ends the stream, as
             // distinct from a statement reporting its own.
             if let Err(error) = outcome {
+                observe_request_failure(&statistics_observer);
                 let _ = out_tx.send(Err(error)).await;
             }
         });
@@ -445,6 +482,7 @@ where
             let mut owned = self;
             let _payload_drain = owned.payload_drain.take();
             let Self {
+                statistics_observer,
                 request_context,
                 txn,
                 client,
@@ -474,11 +512,12 @@ where
                     Cow::Owned(query),
                     variables?,
                 )
-                .await?;
+                .await.inspect_err(|_| observe_request_failure(&statistics_observer))?;
 
             let mut indexed_results = IndexedResults::new();
 
             for (index, result) in results.into_iter().enumerate() {
+                observe_statistics(&statistics_observer, index, Stats { execution_time: Some(result.time) }, result.result.is_ok());
                 let stats = DbResultStats::default()
                     .with_execution_time(result.time)
                     .with_query_type(result.query_type);
@@ -595,6 +634,7 @@ where
         };
 
         Query {
+            statistics_observer: self.statistics_observer,
             request_context: self.request_context,
             txn: self.txn,
             client: self.client,

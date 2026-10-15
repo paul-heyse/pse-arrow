@@ -56,6 +56,7 @@ fn document_table<'db>(
     plan: PlanKey<'db>,
     document: DataDocumentInput,
 ) -> Result<Arc<DocumentTable>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.document_table");
     checkpoint(db);
     let table = pse_modeling::document::admit(
         plan.plan(db),
@@ -306,6 +307,7 @@ fn selected(
     catalog: Catalog,
     root: DeclarationId,
 ) -> Result<Arc<CheckedPackage>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.selected");
     checkpoint(db);
     Ok(Arc::new(catalog.checked(db).select(root)?))
 }
@@ -315,6 +317,7 @@ fn specialized(
     catalog: Catalog,
     request: Request,
 ) -> Result<Arc<SpecializedModel>> {
+    let _phase = pse_diagnostics::observation::phase("compiler.query.specialized");
     checkpoint(db);
     let package = selected(db, catalog, *request.root(db))?;
     let result = pse_modeling::specialize::specialize_with_discretizer(
@@ -424,6 +427,10 @@ impl CompilerWorkspace {
         cancel: Arc<AtomicBool>,
         validate_candidate: impl FnOnce(&CheckedPackage) -> Result<()>,
     ) -> Result<Arc<ModelingRevision>> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("compiler.publication_demands", "count", 1);
+            context.phase("compiler.publish_modeling")
+        });
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
         }
@@ -438,6 +445,9 @@ impl CompilerWorkspace {
             && state.revision.documents == documents
         {
             validate_candidate(&state.revision.checked)?;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.unchanged_revision_reuses", "count", 1);
+            }
             return Ok(state.revision.clone());
         }
         if rows
@@ -464,6 +474,9 @@ impl CompilerWorkspace {
             }
             self.publish_modeling_revision(revision.clone())?;
             if self.retention_exceeded() {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("compiler.retention_limit_rotations", "count", 1);
+                }
                 self.rebuild(self.inputs.clone())?;
             }
             if self.db.cancel.load(Ordering::Acquire) {
@@ -476,7 +489,12 @@ impl CompilerWorkspace {
             // expose candidate-only inputs: rotate, reset cancellation and republish
             // the exact detached admitted head without running the checker again.
             let generation = self.generation.saturating_add(1);
-            let mut restored = Self::new(self.inputs.clone(), self.limits)?;
+            let _phase = pse_diagnostics::observation::current().map(|context| {
+                context.count("compiler.failed_candidate_rotations", "count", 1);
+                context.phase("compiler.failed_candidate_restore")
+            });
+            let mut restored =
+                Self::with_shared_events(self.inputs.clone(), self.limits, self.events.clone())?;
             restored.db.body_retention = self.db.body_retention.clone();
             if let Some(prior) = prior {
                 restored.publish_modeling_revision(prior)?;
@@ -637,6 +655,9 @@ impl CompilerWorkspace {
         hash: u64,
     ) -> Result<(Catalog, Request)> {
         if self.retention_exceeded() {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.retention_limit_rotations", "count", 1);
+            }
             self.rebuild(self.inputs.clone())?;
         }
 
@@ -682,6 +703,9 @@ impl CompilerWorkspace {
                 && r.bindings(&self.db) == &bindings
                 && *r.limits(&self.db) == limits
         }) {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.selection_request_reuses", "count", 1);
+            }
             return Ok((state.catalog, *request));
         }
         // Charge the map's minimum table/growth slack and control bytes, plus
@@ -702,6 +726,9 @@ impl CompilerWorkspace {
             > self.limits.input_bytes.saturating_sub(state.input_bytes)
         {
             // Rotation releases only local handles; owned products remain valid.
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.request_byte_limit_rotations", "count", 1);
+            }
             self.rebuild(self.inputs.clone())?;
             return self.modeling_request_in_bucket(root, instance, bindings, limits, hash);
         }

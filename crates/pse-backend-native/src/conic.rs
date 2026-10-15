@@ -589,8 +589,10 @@ impl Session {
         let settings = settings(pse, controls, accuracy, pse.mode)?;
         let d = data(p)?;
         let quadratic = p.quadratic.to_clarabel();
-        let solver = DefaultSolver::new(&quadratic, &p.objective, &d.a, &d.rhs, &d.cones, settings)
-            .map_err(|e| ProblemError::Contract(format!("Clarabel problem: {e}")))?;
+        let solver = crate::observation::scoped("clarabel.setup", || {
+            DefaultSolver::new(&quadratic, &p.objective, &d.a, &d.rhs, &d.cones, settings)
+        })
+        .map_err(|e| ProblemError::Contract(format!("Clarabel problem: {e}")))?;
         Ok(Self {
             solver,
             compatibility,
@@ -630,9 +632,11 @@ impl Session {
         {
             return Ok(crate::execution::SessionUpdate::Incompatible);
         }
-        self.solver
-            .update_data(&quadratic, &p.objective, &d.a, &d.rhs)
-            .map_err(|e| ProblemError::Contract(format!("Clarabel update: {e}")))?;
+        crate::observation::scoped("clarabel.update", || {
+            self.solver
+                .update_data(&quadratic, &p.objective, &d.a, &d.rhs)
+        })
+        .map_err(|e| ProblemError::Contract(format!("Clarabel update: {e}")))?;
         self.compatibility = compatibility;
         Ok(crate::execution::SessionUpdate::Compatible)
     }
@@ -675,7 +679,11 @@ impl Session {
             return Ok(report);
         }
         if execution.stopped().is_none() {
-            self.solver.solve();
+            crate::observation::unavailable(
+                "clarabel.nested_timers",
+                "public timers move out during solve; no typed per-key live getter",
+            );
+            crate::observation::scoped("clarabel.solve", || self.solver.solve());
         }
         let solution = &self.solver.solution;
         let mut report = SolveReport::new(
@@ -685,6 +693,7 @@ impl Session {
             &execution,
         );
         report.metrics = metrics(&self.solver.info);
+        crate::observation::metrics("clarabel.final", &report.metrics);
         // Nonfinite native residuals compare false against every budget.
         let info = &self.solver.info;
         report.evidence.work.iterations = Some(u64::from(info.iterations));
@@ -760,6 +769,7 @@ impl Session {
         } else {
             report.termination.assurance = Assurance::None;
         }
+        crate::observation::report(&report);
         Ok(report)
     }
 }
@@ -996,14 +1006,16 @@ pub(crate) fn cone_violation(cone: &Cone, s: &[f64]) -> Result<f64, ProblemError
             );
             let mut memory = faer::dyn_stack::MemBuffer::try_new(scratch)
                 .map_err(|e| ProblemError::memory(e.to_string()))?;
-            faer::linalg::evd::self_adjoint_evd(
-                m.as_ref(),
-                eigenvalues.as_mut(),
-                None,
-                faer::Par::Seq,
-                faer::dyn_stack::MemStack::new(&mut memory),
-                Default::default(),
-            )
+            crate::observation::scoped("clarabel.quality.psd_eigensolve", || {
+                faer::linalg::evd::self_adjoint_evd(
+                    m.as_ref(),
+                    eigenvalues.as_mut(),
+                    None,
+                    faer::Par::Seq,
+                    faer::dyn_stack::MemStack::new(&mut memory),
+                    Default::default(),
+                )
+            })
             .map_err(|e| ProblemError::numerical(format!("PSD quality eigensolve: {e:?}")))?;
             eigenvalues
                 .column_vector()
@@ -1345,6 +1357,13 @@ mod tests {
     }
     #[test]
     fn unscaled_conic_updates_match_fresh_solves_and_reset_prior_iterates() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy {
+            max_metrics: 64,
+            ..Policy::default()
+        });
+        let operation = hub.start("clarabel-real-update");
+        let _entered = operation.context().enter();
         let (mut p, certificate) = reuse_problem();
         let stamp = crate::solver_tests::stamp(Backend::Clarabel);
         let reusable = Settings {
@@ -1431,6 +1450,51 @@ mod tests {
         assert!((actual.primal[0] - 1.).abs() < 1e-7);
         assert!((actual.primal[0] - expected.primal[0]).abs() < 1e-7);
         assert!((actual.objective.unwrap() - expected.objective.unwrap()).abs() < 1e-7);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "clarabel.solve.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(3)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "clarabel.setup.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(2)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "clarabel.update.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert!(
+            snapshot
+                .metrics
+                .iter()
+                .any(|m| m.name == "clarabel.iteration.res_primal")
+        );
+        assert!(matches!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "clarabel.nested_timers")
+                .unwrap()
+                .latest,
+            Value::Unavailable(_)
+        ));
     }
     /// The conic boundary vocabulary is pse-owned (F09): its encoding is pinned here, the
     /// layout and request identities derive from it alone, and Clarabel sees only the

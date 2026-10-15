@@ -284,6 +284,8 @@ impl ModelingPackage {
         profile: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -314,6 +316,8 @@ impl ModelingPackage {
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -711,6 +715,8 @@ impl ModelingPackage {
         numerical: NumericalInputs,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -749,6 +755,8 @@ impl ModelingPackage {
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -767,6 +775,8 @@ impl ModelingPackage {
         resolution: ModelingCaseResolution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let ModelingCaseResolution {
@@ -957,6 +967,8 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -1004,6 +1016,8 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let original_inputs = crate::workflow::replay::OriginalCaseInputs::capture(
             self, &model, &case, order, compiler, &solver, &numerical, &overrides,
         )?;
@@ -2878,6 +2892,11 @@ fn root_parametric_failure(
             root_math_response_failure(cause)
         }
         E::Cancelled
+        | E::PreparationExpired
+        | E::Solve(pse_backend_native::ProblemError::Limit {
+            kind: pse_backend_native::LimitKind::Time,
+            ..
+        })
         | E::Solve(pse_backend_native::ProblemError::Cancelled)
         | E::Compile(pse_compiler::workspace::CompileError::Cancelled)
         | E::Retiring
@@ -2909,6 +2928,20 @@ fn root_math_response_failure(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn producer_preparation_expiry_is_not_a_scientific_response_neighborhood() {
+        let cause = crate::math::MathRuntimeError::PreparationExpired;
+        assert!(root_parametric_failure(&cause).is_none());
+        let cause = crate::math::MathRuntimeError::Shared(Arc::new(cause));
+        assert!(root_parametric_failure(&cause).is_none());
+        let cause = crate::math::MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+            kind: pse_backend_native::LimitKind::Time,
+            detail: "scientific preparation caller deadline".into(),
+        });
+        assert!(root_parametric_failure(&cause).is_none());
+        let cause = crate::math::MathRuntimeError::Shared(Arc::new(cause));
+        assert!(root_parametric_failure(&cause).is_none());
+    }
     use crate::math::solves::Outcome;
     use std::sync::Arc;
     #[tokio::test]

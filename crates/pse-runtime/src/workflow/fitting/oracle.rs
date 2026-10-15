@@ -98,6 +98,7 @@ impl FitOracle {
         p: impl Into<Arc<FitProblem>>,
         execution: Execution,
     ) -> Result<Self, ProblemError> {
+        let _phase = pse_diagnostics::observation::phase("fit.oracle_construction");
         let p = p.into();
         let team = experiments::ExperimentTeam::new(p.clone(), execution.clone())?;
         let workers = p
@@ -106,6 +107,9 @@ impl FitOracle {
             .map(|e| match e {
                 Experiment::Steady(_) if team.is_some() => Ok(None),
                 Experiment::Steady(s) => {
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("fit.experiment_worker_constructions", "count", 1);
+                    }
                     let providers =
                         crate::math::attempt_providers(&s.providers, &execution.scope()?)
                             .map_err(ProblemError::Provider)?;
@@ -123,7 +127,12 @@ impl FitOracle {
             .map(|experiment| match experiment {
                 Experiment::Steady(_) => Ok(None),
                 Experiment::Transient(_) if team.is_some() => Ok(None),
-                Experiment::Transient(s) => s.worker(&execution).map(Some),
+                Experiment::Transient(s) => {
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("fit.experiment_worker_constructions", "count", 1);
+                    }
+                    s.worker(&execution).map(Some)
+                }
             })
             .collect::<Result<Vec<_>, ProblemError>>()?;
         let hessian = p.layout.hessian.clone();
@@ -159,6 +168,13 @@ impl FitOracle {
         )
     }
     fn evaluate_demand(&mut self, x: &[f64], mut demand: Demand) -> Result<&Point, ProblemError> {
+        let _phase = pse_diagnostics::observation::phase("fit.trial");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("fit.trial_demands", "count", 1);
+            context.boolean("fit.requested_jacobian", demand.jacobian);
+            context.boolean("fit.requested_responses", demand.responses);
+            context.boolean("fit.requested_adjoint", demand.adjoint);
+        }
         if let Some(stop) = self.execution.stopped() {
             self.point = None;
             return Err(ProblemError::stopped(stop, "fit evaluation deadline"));
@@ -179,10 +195,24 @@ impl FitOracle {
                 .as_ref()
                 .is_some_and(|p| p.achieved.includes(demand))
         {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("fit.trial_cache_reuses", "count", 1);
+            }
             return self
                 .point
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("fit point cache"));
+        }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(
+                if same {
+                    "fit.derivative_upgrades"
+                } else {
+                    "fit.new_trials"
+                },
+                "count",
+                1,
+            );
         }
         if same && let Some(point) = &self.point {
             demand = demand.union(point.achieved);
@@ -305,6 +335,9 @@ impl FitOracle {
             incumbent: None,
         });
         self.point = Some(point);
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("fit.trials_completed", "count", 1);
+        }
         self.point
             .as_ref()
             .ok_or_else(|| ProblemError::internal("fit point publication"))
@@ -689,22 +722,50 @@ impl FitProblem {
         workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        let adapters: Vec<&dyn native::execution::BackendExecution> = match route {
-            native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
-            native::routing::Route::Constant => vec![],
-        };
-        let (mut report, execution) = native::execution::scoped(
-            &adapters,
-            solver.controls.threads,
-            self.runtime.native().stack_bytes(),
-            || self.execute_inner(solver, route, scope, progress, admission),
-        )?;
-        // The estimation adapter team and native retained state have joined before
-        // profile admission releases the coordinator's active allowance.
-        native::execution::original_scoped(&execution, || {
-            self.derive(&mut report, route, &execution, workers);
+        let operation = pse_diagnostics::observation::current().map(|parent| {
+            parent.child(
+                "fit.execution",
+                pse_diagnostics::observation::Relationship::Nested,
+            )
         });
-        Ok(report)
+        let context = operation.as_ref().map(|operation| operation.context());
+        let _entered = context.as_ref().map(|context| context.enter());
+        let result = (|| {
+            let adapters: Vec<&dyn native::execution::BackendExecution> = match route {
+                native::routing::Route::Native(backend) => {
+                    vec![native::execution::adapter(backend)]
+                }
+                native::routing::Route::Constant => vec![],
+            };
+            let _phase = pse_diagnostics::observation::phase("fit.execute");
+            let observation = pse_diagnostics::observation::current();
+            let (mut report, execution) = native::execution::scoped(
+                &adapters,
+                solver.controls.threads,
+                self.runtime.native().stack_bytes(),
+                || {
+                    let _entered = observation.as_ref().map(|context| context.enter());
+                    self.execute_inner(solver, route, scope, progress, admission)
+                },
+            )?;
+            // The estimation adapter team and native retained state have joined before
+            // profile admission releases the coordinator's active allowance.
+            native::execution::original_scoped(&execution, || {
+                self.derive(&mut report, route, &execution, workers);
+            });
+            observe_report(&report);
+            Ok(report)
+        })();
+        if let Some(operation) = operation {
+            operation.finish(match &result {
+                Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                Err(crate::math::MathRuntimeError::Cancelled) => {
+                    pse_diagnostics::observation::Outcome::Cancelled
+                }
+                Err(_) => pse_diagnostics::observation::Outcome::Failed,
+            });
+        }
+        result
     }
     fn execute_inner(
         self: &Arc<Self>,
@@ -817,7 +878,11 @@ impl FitProblem {
         report: &mut FitReport,
         execution: Execution,
     ) -> Result<(), crate::math::MathRuntimeError> {
+        let _phase = pse_diagnostics::observation::phase("fit.original_final_assessment");
         if let Some(x) = report.candidate.clone() {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("fit.original_final_assessments", "count", 1);
+            }
             let x = x.as_slice();
             // Fresh final evaluation is independent of native callback cache and candidate status.
             let mut final_oracle = FitOracle::new(self.clone(), execution)?;
@@ -1312,193 +1377,287 @@ pub(super) fn evaluate_experiment(
     workers: ExperimentWorkers<'_>,
     previous: Option<&native::dynamics::Report>,
 ) -> Result<ExperimentProducts, ProblemError> {
-    let steady = workers.steady;
-    #[cfg(feature = "solver-diffsol")]
-    let transient = workers.transient;
-    execution.check()?;
-    #[cfg(not(feature = "solver-diffsol"))]
-    let _ = previous;
-    let mut result = ExperimentProducts::default();
-    let e = &p.experiments[ei];
-    let mapping = &p.layout.mappings[ei];
-    match e {
-        Experiment::Steady(s) => {
-            if steady.is_none() {
-                let providers = crate::math::attempt_providers(&s.providers, &execution.scope()?)
-                    .map_err(ProblemError::Provider)?;
-                *steady = Some(s.case.assembly.worker_scoped(providers, execution.scope()?));
-            }
-            let worker = steady
-                .as_mut()
-                .ok_or_else(|| ProblemError::internal("missing steady worker"))?;
-            let mut values = s.values.clone();
-            for &(id, col) in &s.coordinates {
-                values.scalars.insert(id, x[col.get()]);
-            }
-            let outputs = worker.constraints(&values)?;
-            for &(row, global) in &s.constraints {
-                result.constraints.push((global.get(), outputs[row.get()]));
-            }
-            let j = if demand.jacobian || demand.responses || demand.adjoint {
-                Some(worker.jacobian(&values)?.to_owned())
+    let operation = pse_diagnostics::observation::current().map(|parent| {
+        parent.count("fit.experiment_attempts", "count", 1);
+        parent.child(
+            "fit.experiment",
+            pse_diagnostics::observation::Relationship::Nested,
+        )
+    });
+    let context = operation.as_ref().map(|operation| operation.context());
+    let _entered = context.as_ref().map(|context| context.enter());
+    let result = (|| {
+        let _phase = pse_diagnostics::observation::phase("fit.experiment");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            if let Ok(index) = i64::try_from(ei) {
+                context.integer("fit.experiment_index", "index", index);
             } else {
-                None
-            };
-            if let Some(j) = &j {
-                if demand.jacobian {
-                    for &(source, target) in &mapping.constraints {
-                        result.jacobian.push((target, j.val()[source]));
-                    }
-                }
-                if demand.responses || demand.adjoint {
-                    for term in &mapping.responses {
-                        debug_assert!(p.measurements[term.observation].included);
-                        result
-                            .responses
-                            .push((term.contribution, j.val()[term.local]));
-                    }
-                }
+                context.unavailable(
+                    "fit.experiment_index",
+                    "index exceeds signed diagnostic representation",
+                );
             }
-            for &i in &mapping.observations {
-                let o = &p.measurements[i];
-                result.predictions.push((i, outputs[o.row]));
-            }
-            result.block = j;
+            context.source_ref(
+                "fit.experiment",
+                p.declaration.experiments[ei].experiment_id.to_string(),
+            );
         }
-        Experiment::Transient(s) => {
-            if mapping.observations.is_empty() {
-                return Ok(result);
-            }
-            #[cfg(feature = "solver-diffsol")]
-            {
-                let forward = demand.responses
-                    && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None;
-                let combined = demand.adjoint && !mapping.free_bindings.is_empty();
-                if transient.is_none() {
-                    *transient = Some(s.worker(execution)?);
+        let steady = workers.steady;
+        #[cfg(feature = "solver-diffsol")]
+        let transient = workers.transient;
+        execution.check()?;
+        #[cfg(not(feature = "solver-diffsol"))]
+        let _ = previous;
+        let mut result = ExperimentProducts::default();
+        let e = &p.experiments[ei];
+        let mapping = &p.layout.mappings[ei];
+        match e {
+            Experiment::Steady(s) => {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.text("fit.experiment_kind", "steady");
+                    context.count(
+                        if steady.is_none() {
+                            "fit.experiment_worker_constructions"
+                        } else {
+                            "fit.experiment_worker_reuses"
+                        },
+                        "count",
+                        1,
+                    );
                 }
-                let report = if combined {
-                    let (report, contributions) = FitOracle::transient_gradient(
-                        p,
-                        ei,
-                        s,
-                        x,
-                        execution,
-                        transient
-                            .as_mut()
-                            .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
-                    )?;
-                    for (parameter, value) in contributions {
-                        if let Some(column) = p.parameter_columns[parameter] {
-                            result.adjoint.push((column.get(), value));
+                if steady.is_none() {
+                    let providers =
+                        crate::math::attempt_providers(&s.providers, &execution.scope()?)
+                            .map_err(ProblemError::Provider)?;
+                    *steady = Some(s.case.assembly.worker_scoped(providers, execution.scope()?));
+                }
+                let worker = steady
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing steady worker"))?;
+                let mut values = s.values.clone();
+                for &(id, col) in &s.coordinates {
+                    values.scalars.insert(id, x[col.get()]);
+                }
+                let outputs = worker.constraints(&values)?;
+                for &(row, global) in &s.constraints {
+                    result.constraints.push((global.get(), outputs[row.get()]));
+                }
+                let j = if demand.jacobian || demand.responses || demand.adjoint {
+                    Some(worker.jacobian(&values)?.to_owned())
+                } else {
+                    None
+                };
+                if let Some(j) = &j {
+                    if demand.jacobian {
+                        for &(source, target) in &mapping.constraints {
+                            result.jacobian.push((target, j.val()[source]));
                         }
                     }
-
-                    report
-                } else {
-                    s.integrate(
-                        transient
-                            .as_mut()
-                            .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
-                        &|k| FitOracle::value(p, x, k),
-                        execution,
-                        if forward {
-                            native::dynamics::DynamicSensitivity::Forward
-                        } else {
-                            native::dynamics::DynamicSensitivity::None
-                        },
-                    )?
-                };
-                if let Some(prior) = previous {
-                    let before = s.prediction_allowances(
-                        transient
-                            .as_mut()
-                            .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
-                        &|k| FitOracle::value(p, x, k),
-                        prior,
-                    )?;
-                    let after = s.prediction_allowances(
-                        transient
-                            .as_mut()
-                            .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
-                        &|k| FitOracle::value(p, x, k),
-                        &report,
-                    )?;
-                    for &i in &mapping.observations {
-                        let o = &p.measurements[i];
-                        let sample = o
-                            .sample_index
-                            .ok_or_else(|| ProblemError::internal("fit upgrade sample"))?;
-                        let old = prior
-                            .samples
-                            .get(sample)
-                            .and_then(|v| v.outputs.get(o.row))
-                            .copied()
-                            .ok_or_else(|| ProblemError::internal("fit prior prediction"))?;
-                        let new = report
-                            .samples
-                            .get(sample)
-                            .and_then(|v| v.outputs.get(o.row))
-                            .copied()
-                            .ok_or_else(|| ProblemError::internal("fit upgraded prediction"))?;
-                        let allowance = before
-                            .get(sample)
-                            .and_then(|v| v.get(o.row))
-                            .zip(after.get(sample).and_then(|v| v.get(o.row)))
-                            .map(|(a, b)| a + b)
-                            .ok_or_else(|| ProblemError::internal("fit upgrade allowance"))?;
-                        FitOracle::admit_upgrade(old, new, allowance)?;
+                    if demand.responses || demand.adjoint {
+                        for term in &mapping.responses {
+                            debug_assert!(p.measurements[term.observation].included);
+                            result
+                                .responses
+                                .push((term.contribution, j.val()[term.local]));
+                        }
                     }
                 }
                 for &i in &mapping.observations {
                     let o = &p.measurements[i];
-                    let sample = o
-                        .sample_index
-                        .and_then(|i| report.samples.get(i))
-                        .ok_or_else(|| {
-                            ProblemError::internal("missing prepared transient sample")
-                        })?;
-                    result.predictions.push((i, sample.outputs[o.row]));
+                    result.predictions.push((i, outputs[o.row]));
                 }
-                if forward {
-                    // Each term directly names its measurement and local binding;
-                    // retain binding-major contribution order without relationship searches.
-                    for term in &mapping.responses {
-                        let o = &p.measurements[term.observation];
+                result.block = j;
+            }
+            Experiment::Transient(s) => {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.text("fit.experiment_kind", "transient");
+                }
+                if mapping.observations.is_empty() {
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("fit.unobserved_experiment_skips", "count", 1);
+                    }
+                    return Ok(result);
+                }
+                #[cfg(feature = "solver-diffsol")]
+                {
+                    let forward = demand.responses
+                        && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None;
+                    let combined = demand.adjoint && !mapping.free_bindings.is_empty();
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.boolean("fit.transient_forward", forward);
+                        context.boolean("fit.transient_combined_adjoint", combined);
+                        context.count(
+                            if transient.is_none() {
+                                "fit.experiment_worker_constructions"
+                            } else {
+                                "fit.experiment_worker_reuses"
+                            },
+                            "count",
+                            1,
+                        );
+                    }
+                    if transient.is_none() {
+                        *transient = Some(s.worker(execution)?);
+                    }
+                    let report = if combined {
+                        let (report, contributions) = FitOracle::transient_gradient(
+                            p,
+                            ei,
+                            s,
+                            x,
+                            execution,
+                            transient.as_mut().ok_or_else(|| {
+                                ProblemError::internal("missing transient worker")
+                            })?,
+                        )?;
+                        for (parameter, value) in contributions {
+                            if let Some(column) = p.parameter_columns[parameter] {
+                                result.adjoint.push((column.get(), value));
+                            }
+                        }
+
+                        report
+                    } else {
+                        s.integrate(
+                            transient.as_mut().ok_or_else(|| {
+                                ProblemError::internal("missing transient worker")
+                            })?,
+                            &|k| FitOracle::value(p, x, k),
+                            execution,
+                            if forward {
+                                native::dynamics::DynamicSensitivity::Forward
+                            } else {
+                                native::dynamics::DynamicSensitivity::None
+                            },
+                        )?
+                    };
+                    if let Some(prior) = previous {
+                        let _upgrade = pse_diagnostics::observation::phase(
+                            "fit.derivative_upgrade_validation",
+                        );
+                        if let Some(context) = pse_diagnostics::observation::current() {
+                            context.count("fit.upgrade_validation_attempts", "count", 1);
+                        }
+                        let before = s.prediction_allowances(
+                            transient.as_mut().ok_or_else(|| {
+                                ProblemError::internal("missing transient worker")
+                            })?,
+                            &|k| FitOracle::value(p, x, k),
+                            prior,
+                        )?;
+                        let after = s.prediction_allowances(
+                            transient.as_mut().ok_or_else(|| {
+                                ProblemError::internal("missing transient worker")
+                            })?,
+                            &|k| FitOracle::value(p, x, k),
+                            &report,
+                        )?;
+                        for &i in &mapping.observations {
+                            let o = &p.measurements[i];
+                            let sample = o
+                                .sample_index
+                                .ok_or_else(|| ProblemError::internal("fit upgrade sample"))?;
+                            let old = prior
+                                .samples
+                                .get(sample)
+                                .and_then(|v| v.outputs.get(o.row))
+                                .copied()
+                                .ok_or_else(|| ProblemError::internal("fit prior prediction"))?;
+                            let new = report
+                                .samples
+                                .get(sample)
+                                .and_then(|v| v.outputs.get(o.row))
+                                .copied()
+                                .ok_or_else(|| ProblemError::internal("fit upgraded prediction"))?;
+                            let allowance = before
+                                .get(sample)
+                                .and_then(|v| v.get(o.row))
+                                .zip(after.get(sample).and_then(|v| v.get(o.row)))
+                                .map(|(a, b)| a + b)
+                                .ok_or_else(|| ProblemError::internal("fit upgrade allowance"))?;
+                            FitOracle::admit_upgrade(old, new, allowance)?;
+                        }
+                    }
+                    for &i in &mapping.observations {
+                        let o = &p.measurements[i];
                         let sample = o
                             .sample_index
                             .and_then(|i| report.samples.get(i))
                             .ok_or_else(|| {
                                 ProblemError::internal("missing prepared transient sample")
                             })?;
-                        result.responses.push((
-                            term.contribution,
-                            s.response(sample, o.row, &s.bindings[term.local])?,
-                        ));
+                        result.predictions.push((i, sample.outputs[o.row]));
                     }
+                    if forward {
+                        // Each term directly names its measurement and local binding;
+                        // retain binding-major contribution order without relationship searches.
+                        for term in &mapping.responses {
+                            let o = &p.measurements[term.observation];
+                            let sample = o
+                                .sample_index
+                                .and_then(|i| report.samples.get(i))
+                                .ok_or_else(|| {
+                                    ProblemError::internal("missing prepared transient sample")
+                                })?;
+                            result.responses.push((
+                                term.contribution,
+                                s.response(sample, o.row, &s.bindings[term.local])?,
+                            ));
+                        }
+                    }
+                    result.trajectory = Some(report);
                 }
-                result.trajectory = Some(report);
+                #[cfg(not(feature = "solver-diffsol"))]
+                {
+                    let _ = s;
+                    return Err(ProblemError::unsupported("Diffsol not linked"));
+                }
             }
-            #[cfg(not(feature = "solver-diffsol"))]
-            {
-                let _ = s;
-                return Err(ProblemError::unsupported("Diffsol not linked"));
+        }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("fit.experiments_completed", "count", 1);
+        }
+        Ok(result)
+    })();
+    if let Some(context) = &context {
+        context.boolean("fit.experiment_failed", result.is_err());
+        if let Err(cause) = &result {
+            context.text(
+                "fit.experiment_failure_class",
+                crate::math::strategy::failure(cause).as_str(),
+            );
+            if let Some(code) = pse_diagnostics::TypedDiagnostic::diagnostic_code(cause) {
+                context.text("fit.experiment_failure_code", code.as_str());
+            } else {
+                context.unavailable(
+                    "fit.experiment_failure_code",
+                    "aggregate has no single diagnostic code",
+                );
             }
         }
     }
-    Ok(result)
+    if let Some(operation) = operation {
+        operation.finish(match &result {
+            Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+            Err(ProblemError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
+            Err(_) => pse_diagnostics::observation::Outcome::Failed,
+        });
+    }
+    result
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::workflow::tests::{compiler_profile, id, physical, runtime};
-    async fn source(fixed: bool) -> crate::workflow::ModelingPackage {
-        source_body(
+    // Materialize the large fixture future outside the test executor's polling
+    // frame, so fixture construction does not consume the fitting caller's stack.
+    #[inline(never)]
+    fn source(fixed: bool) -> impl Future<Output = crate::workflow::ModelingPackage> {
+        Box::pin(source_body(
             fixed,
             "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 0);",
-        )
-        .await
+        ))
     }
     async fn source_body(fixed: bool, body: &str) -> crate::workflow::ModelingPackage {
         source_text(fixed, &format!("package p {{ def Root {{ {body} }} }}")).await
@@ -1573,21 +1732,31 @@ mod tests {
     }
     #[tokio::test]
     async fn fitting_value_demand_omits_steady_jacobian_and_upgrades_coherently() {
-        let p = source(false)
-            .await
-            .prepare_fit_problem(
-                id(32).into(),
-                profile(false),
-                compiler_profile(),
-                Default::default(),
-                &crate::CancelSource::new(),
-            )
-            .await
-            .unwrap()
-            .0;
+        let source = source(false).await;
+        let cancel = crate::CancelSource::new();
+        let preparation = source.prepare_fit_problem(
+            id(32).into(),
+            profile(false),
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        );
+        // Exercise the production future directly. Its composed activity/context
+        // state must not embed all steady/transient preparation futures inline.
+        assert!(size_of_val(&preparation) < 64 * 1024);
+        let p = preparation.await.unwrap().0;
         let execution =
             Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
         let mut oracle = FitOracle::new(p, execution).unwrap();
+        let hub = pse_diagnostics::observation::ObservationHub::new(
+            pse_diagnostics::observation::Policy {
+                max_metrics: 64,
+                ..Default::default()
+            },
+        );
+        let operation = hub.start("fit cache and upgrade");
+        let context = operation.context();
+        let _entered = context.enter();
         let objective = oracle.objective(&[2.0]).unwrap();
         let point = oracle.point.as_ref().unwrap();
         assert!(!point.achieved.responses && !point.achieved.jacobian);
@@ -1607,6 +1776,59 @@ mod tests {
                 .iter()
                 .all(Option::is_none)
         );
+        let snapshot = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let count = |name: &str| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .map(|metric| metric.cumulative.clone())
+        };
+        use pse_diagnostics::observation::Value;
+        assert_eq!(count("fit.trial_demands"), Some(Value::Count(4)));
+        assert_eq!(count("fit.trial_cache_reuses"), Some(Value::Count(1)));
+        assert_eq!(count("fit.derivative_upgrades"), Some(Value::Count(1)));
+        assert_eq!(count("fit.new_trials"), Some(Value::Count(2)));
+        assert_eq!(count("fit.trials_completed"), Some(Value::Count(3)));
+        let experiments = snapshot
+            .children
+            .iter()
+            .filter(|child| child.kind == "fit.experiment")
+            .collect::<Vec<_>>();
+        assert_eq!(experiments.len(), 3);
+        assert!(
+            snapshot
+                .sources
+                .iter()
+                .all(|source| source.name != "fit.experiment")
+        );
+        for child in experiments {
+            let experiment = hub
+                .reader(child.id)
+                .unwrap()
+                .snapshot(std::time::Duration::from_secs(60));
+            assert!(
+                experiment
+                    .sources
+                    .iter()
+                    .any(|source| source.name == "fit.experiment"
+                        && source.bytes == id(33).to_string().as_bytes())
+            );
+            assert!(
+                experiment
+                    .metrics
+                    .iter()
+                    .any(|metric| metric.name == "fit.experiment_index"
+                        && metric.latest == Value::Integer(0))
+            );
+            assert_eq!(
+                experiment.outcome,
+                Some(pse_diagnostics::observation::Outcome::Completed)
+            );
+        }
+        assert!(!snapshot.coverage.curtailed);
     }
     #[tokio::test]
     async fn prepared_fit_clones_share_the_original_reservation() {

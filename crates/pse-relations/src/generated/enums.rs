@@ -9,17 +9,17 @@ pub use pse_model::generated::r#enums::{
     AccuracyResolutionStatus, AccuracyUnavailableReason, AssertionStatus, AttemptState,
     Authority, BasisKind, BasisRule, BoundActivity, BoundKind, BoundStatus,
     CandidateBoundOrigin, CandidateQualifier, CandidateRefusal, CandidateUse,
-    ClarabelDirect, ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy,
-    ColumnRole, CompositionBasis, ComputationKind, ConstraintScalingScheme,
-    ConversionKind, CovarianceApproximation, DerivationGranularity, DerivedQuantity,
-    Determinism, DiagnosticCode, DiagnosticNonfiniteObservation,
-    DiagnosticObservationKind, DiagnosticRule, DiagnosticSeverity, DiagnosticStage,
-    DiffsolLinear, DiffsolMethod, DualQualification, DynamicSensitivity, DynamicsMethod,
-    EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection,
-    EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass, FeralOrdering,
-    FeralScaling, FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
-    IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
-    IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
+    CaptureKind, CaptureOutputKind, CaptureStatus, ClarabelDirect, ClarabelMergeMethod,
+    ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole, CompositionBasis,
+    ComputationKind, ConstraintScalingScheme, ConversionKind, CovarianceApproximation,
+    DerivationGranularity, DerivedQuantity, Determinism, DiagnosticCode,
+    DiagnosticNonfiniteObservation, DiagnosticObservationKind, DiagnosticRule,
+    DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod, DualQualification,
+    DynamicSensitivity, DynamicsMethod, EndpointPolicy, EngineeringScaleKind, EntityKind,
+    EventDirection, EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass,
+    FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives, HessianMode,
+    HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy, InputConsumptionKind,
+    IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
     KinsolOrthogonalization, KinsolStrategy, MigrationOp, ModelingAccumulatorMode,
     ModelingAnalysisRoute, ModelingAnnotationKind, ModelingApplicabilityBasis,
     ModelingApplicabilityKind, ModelingApplicabilityOutcome, ModelingCellKind,
@@ -44,24 +44,26 @@ pub use pse_model::generated::r#enums::{
     NativeRayCoordinate, NativeRepresentation, NativeRouteKind, NativeRouteRefusal,
     NativeRouteSelection, NativeRunState, NativeSolveIntent, NativeStartPolicy,
     NativeStructuralMode, NativeStructuralPolicy, NativeTermination, NativeUnoMethod,
-    NativeWarmCapability, NumericalAccuracyClass, NumericalAttemptObservation,
-    NumericalBranchPolicy, NumericalCompositionPolicy, NumericalCoordinates,
-    NumericalEventKind, NumericalMechanism, NumericalOriginalConclusion,
-    NumericalPathEventKind, NumericalPhase, NumericalPosition, NumericalProvenanceField,
-    NumericalScope, NumericalSource, NumericalStartOrigin, NumericalTarget,
-    NumericalTransition, ObservationTimeBasis, Opcode, OperationEffect, PackageKind,
-    PardisoMatching, PardisoOrdering, PounceFdColoring, PounceFdPattern, PounceMethod,
+    NativeWarmCapability, NextObservation, NonFinite, NumericalAccuracyClass,
+    NumericalAttemptObservation, NumericalBranchPolicy, NumericalCompositionPolicy,
+    NumericalCoordinates, NumericalEventKind, NumericalMechanism,
+    NumericalOriginalConclusion, NumericalPathEventKind, NumericalPhase,
+    NumericalPosition, NumericalProvenanceField, NumericalScope, NumericalSource,
+    NumericalStartOrigin, NumericalTarget, NumericalTransition, ObservationTimeBasis,
+    Opcode, OperationEffect, OperationOutcome, PackageKind, PardisoMatching,
+    PardisoOrdering, PounceFdColoring, PounceFdPattern, PounceMethod,
     PouncePartitionedElements, PouncePartitionedUpdate, Preconditioner, PresolvePass,
     PresolvePolicyKind, QuantityAdditionKind, QuantityKindCategory,
     QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
-    ReductionKind, ReferenceRule, ReferenceStateKind, ReusePolicy, RowActivity,
-    ScaleKind, SensitivityCorrector, Severity, ShootingMethod, SnapshotClass,
-    SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign, StructuralScopeKind,
-    StudyAvailability, StudyContinuationPermission, StudyEffectState, StudyLegacyKind,
-    StudyLifecycle, StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
-    StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
-    StudyUnavailableSeedPolicy, SubjectRule, TearMethod, TearPolicy, TimeCoordinateKind,
-    TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
+    ReductionKind, ReferenceRule, ReferenceStateKind, Relationship, ReusePolicy,
+    RowActivity, ScaleKind, SensitivityCorrector, Severity, ShootingMethod,
+    SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign,
+    StatementKind, StructuralScopeKind, StudyAvailability, StudyContinuationPermission,
+    StudyEffectState, StudyLegacyKind, StudyLifecycle, StudyPointState, StudyResultRole,
+    StudyRetryFailure, StudySeedNeed, StudySeedRole, StudySeedUnavailable,
+    StudyStartKind, StudyState, StudyUnavailableSeedPolicy, SubjectRule, TearMethod,
+    TearPolicy, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
+    WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for AccuracyCriterionStatus {
     fn append(
@@ -657,6 +659,81 @@ impl crate::columnar::ArrowValue for CandidateUse {
                         value
                     }
                 },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CaptureKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(CaptureKind).to_owned(),
+                enumeration: stringify!(CaptureKind).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CaptureOutputKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(CaptureOutputKind).to_owned(),
+                enumeration: stringify!(CaptureOutputKind).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CaptureStatus {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(CaptureStatus).to_owned(),
+                enumeration: stringify!(CaptureStatus).to_owned(),
+                value: value.to_owned(),
             })
     }
 }
@@ -4295,6 +4372,56 @@ impl crate::columnar::ArrowValue for NativeWarmCapability {
             })
     }
 }
+impl crate::columnar::ArrowValue for NextObservation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(NextObservation).to_owned(),
+                enumeration: stringify!(NextObservation).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NonFinite {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(NonFinite).to_owned(),
+                enumeration: stringify!(NonFinite).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
 impl crate::columnar::ArrowValue for NumericalAccuracyClass {
     fn append(
         &self,
@@ -4867,6 +4994,31 @@ impl crate::columnar::ArrowValue for OperationEffect {
             })
     }
 }
+impl crate::columnar::ArrowValue for OperationOutcome {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(OperationOutcome).to_owned(),
+                enumeration: stringify!(OperationOutcome).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
 impl crate::columnar::ArrowValue for PackageKind {
     fn append(
         &self,
@@ -5415,6 +5567,31 @@ impl crate::columnar::ArrowValue for ReferenceStateKind {
             })
     }
 }
+impl crate::columnar::ArrowValue for Relationship {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(Relationship).to_owned(),
+                enumeration: stringify!(Relationship).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
 impl crate::columnar::ArrowValue for ReusePolicy {
     fn append(
         &self,
@@ -5744,6 +5921,31 @@ impl crate::columnar::ArrowValue for StateSign {
                         value
                     }
                 },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for StatementKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(StatementKind).to_owned(),
+                enumeration: stringify!(StatementKind).to_owned(),
+                value: value.to_owned(),
             })
     }
 }

@@ -111,7 +111,11 @@ async fn peer_with_replay_release(
                         continue;
                     }
                 }
-                if method == "query" && query != "CONTROL" {
+                if method == "query"
+                    && query != "CONTROL"
+                    && query != "STATISTICS"
+                    && query != "REQUEST_FAILURE"
+                {
                     continue;
                 }
                 let mut reply = Object::new();
@@ -122,13 +126,31 @@ async fn peer_with_replay_release(
                     statement.insert("status", "OK");
                     statement.insert("time", "0ns");
                     statement.insert("result", true);
-                    Value::Array(vec![Value::Object(statement)].into())
+                    if query == "STATISTICS" {
+                        statement.insert("time", "37ns");
+                        let mut failed = Object::new();
+                        failed.insert("status", "ERR");
+                        failed.insert("time", "91ns");
+                        failed.insert("result", "controlled statement failure");
+                        Value::Array(vec![Value::Object(statement), Value::Object(failed)].into())
+                    } else {
+                        Value::Array(vec![Value::Object(statement)].into())
+                    }
                 } else if method == "version" {
                     Value::String("3.3.0".into())
                 } else {
                     Value::None
                 };
-                reply.insert("result", result);
+                if query == "REQUEST_FAILURE" {
+                    reply.insert(
+                        "error",
+                        surrealdb::types::SurrealValue::into_value(surrealdb::Error::internal(
+                            "controlled request failure".into(),
+                        )),
+                    );
+                } else {
+                    reply.insert("result", result);
+                }
                 socket
                     .send(Message::Binary(
                         surrealdb::types::encode(&Value::Object(reply))
@@ -1631,4 +1653,304 @@ async fn canonical_file_owner_lost_ack_retries_exact_original_then_disconnects()
 #[tokio::test]
 async fn canonical_file_owner_cancelled_ack_disconnects_pending_original() {
     original_file_owner_survives_abandoned_ack(true, false).await;
+}
+
+#[derive(Debug, Default)]
+struct StatisticsProbe {
+    samples: std::sync::Mutex<Vec<(usize, Option<Duration>, bool)>>,
+    panic_first: bool,
+    failed_requests: std::sync::atomic::AtomicUsize,
+}
+impl surrealdb::method::QueryStatisticsObserver for StatisticsProbe {
+    fn request_failed(&self) {
+        self.failed_requests
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        assert!(
+            !self.panic_first,
+            "controlled optional failure-observer panic"
+        );
+    }
+    fn observe(&self, statement: usize, stats: surrealdb::method::Stats, succeeded: bool) {
+        self.samples
+            .lock()
+            .unwrap()
+            .push((statement, stats.execution_time, succeeded));
+        assert!(
+            !self.panic_first || statement != 0,
+            "controlled optional observer panic"
+        );
+    }
+}
+
+#[tokio::test]
+async fn native_sdk_statistics_observe_actual_response_before_take_and_contain_panics() {
+    for panic_first in [false, true] {
+        let (client, mut received, server) = peer(true).await;
+        let probe = Arc::new(StatisticsProbe {
+            panic_first,
+            ..StatisticsProbe::default()
+        });
+        let mut result = client
+            .query("STATISTICS")
+            .request_context(RequestContext::new(Instant::now() + Duration::from_secs(5)))
+            .observe_statistics(probe.clone())
+            .bind(("unused", true))
+            .await
+            .unwrap();
+        assert_eq!(
+            *probe.samples.lock().unwrap(),
+            vec![
+                (0, Some(Duration::from_nanos(37)), true),
+                (1, Some(Duration::from_nanos(91)), false)
+            ]
+        );
+        let value: Option<bool> = result.take(0).unwrap();
+        assert_eq!(value, Some(true));
+        assert!(
+            result.check().is_err(),
+            "statement failure remains scientific result failure"
+        );
+        assert!(
+            client
+                .query("REQUEST_FAILURE")
+                .request_context(RequestContext::new(Instant::now() + Duration::from_secs(5)))
+                .observe_statistics(probe.clone())
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            probe
+                .failed_requests
+                .load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
+        assert_eq!(
+            probe.samples.lock().unwrap().len(),
+            2,
+            "request failure fabricates no statements"
+        );
+        client
+            .query("CONTROL")
+            .request_context(RequestContext::control(
+                Instant::now() + Duration::from_secs(5),
+            ))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+        assert_eq!(next_query(&mut received).await, "STATISTICS");
+        assert_eq!(next_query(&mut received).await, "REQUEST_FAILURE");
+        assert_eq!(
+            next_query(&mut received).await,
+            "CONTROL",
+            "statistics never replay the query"
+        );
+        assert!(received.try_recv().is_err());
+        client.disconnect().await.unwrap();
+        server.await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn canonical_statistics_keep_server_samples_out_of_local_active_intervals() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value as ObservedValue};
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("canonical-statistics");
+    let observer = super::CanonicalStatistics {
+        context: operation.context(),
+        invocation: 42,
+    };
+    let mut stats = surrealdb::method::Stats::default();
+    stats.execution_time = Some(Duration::from_nanos(91));
+    surrealdb::method::QueryStatisticsObserver::observe(&observer, 3, stats, false);
+    let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+    let sample = snapshot
+        .metrics
+        .iter()
+        .find(|m| m.name == "canonical.query.latest_sample")
+        .unwrap();
+    let ObservedValue::Text(value) = &sample.latest else {
+        panic!("typed sample expected");
+    };
+    assert_eq!(
+        serde_json::from_str::<super::CanonicalQuerySample>(value).unwrap(),
+        super::CanonicalQuerySample::Statement {
+            invocation: 42,
+            statement: 3,
+            server_nanoseconds: Some(91),
+            succeeded: false,
+        }
+    );
+    assert!(matches!(sample.cumulative, ObservedValue::Unavailable(_)));
+    assert!(matches!(sample.recent, ObservedValue::Unavailable(_)));
+    assert_eq!(snapshot.sources.len(), 1);
+}
+
+#[tokio::test]
+async fn canonical_client_attaches_statistics_to_the_original_query() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value as ObservedValue, scope};
+    let (sdk, mut received, server) = peer(true).await;
+    let options = crate::canonical::CanonicalOptions {
+        endpoint: String::new(),
+        namespace: "namespace".into(),
+        database: "database".into(),
+        username: "owner".into(),
+        password: "test".into(),
+        selection_username: "viewer".into(),
+        selection_password: "test".into(),
+        state_path: std::path::PathBuf::new(),
+        initializer_nonce: None,
+    };
+    let client = super::CanonicalClient::new(
+        Arc::try_unwrap(sdk).unwrap(),
+        Duration::from_secs(5),
+        &options,
+    );
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("actual-canonical-query");
+    let result = scope(Some(operation.context()), async {
+        client.query("STATISTICS").await
+    })
+    .await
+    .unwrap();
+    assert!(result.check().is_err());
+    let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+    let sample = snapshot
+        .metrics
+        .iter()
+        .find(|m| m.name == "canonical.query.latest_sample")
+        .unwrap();
+    let read_sample = |value: &ObservedValue| {
+        let ObservedValue::Text(value) = value else {
+            panic!("typed sample expected");
+        };
+        serde_json::from_str::<super::CanonicalQuerySample>(value).unwrap()
+    };
+    let first = read_sample(&sample.history[0].first_value);
+    let latest = read_sample(&sample.latest);
+    let super::CanonicalQuerySample::Statement {
+        invocation,
+        statement: 0,
+        server_nanoseconds: Some(37),
+        succeeded: true,
+    } = first
+    else {
+        panic!("actual first statement expected: {first:?}");
+    };
+    assert_eq!(
+        latest,
+        super::CanonicalQuerySample::Statement {
+            invocation,
+            statement: 1,
+            server_nanoseconds: Some(91),
+            succeeded: false
+        }
+    );
+    client.query("CONTROL").await.unwrap().check().unwrap();
+    assert_eq!(next_query(&mut received).await, "STATISTICS");
+    assert_eq!(next_query(&mut received).await, "CONTROL");
+    client.client.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn canonical_statistics_bound_bursts_without_displacing_attempt_identity() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value as ObservedValue};
+    use surrealdb::method::QueryStatisticsObserver;
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("canonical-statistics-burst");
+    for invocation in 0..1000 {
+        let observer = super::CanonicalStatistics {
+            context: operation.context(),
+            invocation,
+        };
+        let mut stats = surrealdb::method::Stats::default();
+        stats.execution_time = Some(Duration::from_nanos(invocation));
+        observer.observe(3, stats, true);
+    }
+    operation
+        .context()
+        .source_ref("canonical.attempt", "exact-attempt");
+    let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+    assert_eq!(
+        snapshot.metrics.len(),
+        4,
+        "field catalogue does not grow with query count"
+    );
+    assert_eq!(
+        snapshot.sources.len(),
+        2,
+        "one origin leaves room for attempt identity"
+    );
+    assert!(
+        snapshot
+            .sources
+            .iter()
+            .any(|source| source.name == "canonical.attempt")
+    );
+    let sample = snapshot
+        .metrics
+        .iter()
+        .find(|m| m.name == "canonical.query.latest_sample")
+        .unwrap();
+    let ObservedValue::Text(value) = &sample.latest else {
+        panic!("typed sample expected");
+    };
+    assert_eq!(
+        serde_json::from_str::<super::CanonicalQuerySample>(value).unwrap(),
+        super::CanonicalQuerySample::Statement {
+            invocation: 999,
+            statement: 3,
+            server_nanoseconds: Some(999),
+            succeeded: true
+        }
+    );
+    assert_eq!(
+        sample
+            .history
+            .iter()
+            .map(|sample| sample.samples)
+            .sum::<u64>(),
+        1000
+    );
+    let observer = super::CanonicalStatistics {
+        context: operation.context(),
+        invocation: 1000,
+    };
+    observer.request_failed();
+    let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+    let sample = snapshot
+        .metrics
+        .iter()
+        .find(|m| m.name == "canonical.query.latest_sample")
+        .unwrap();
+    let ObservedValue::Text(value) = &sample.latest else {
+        panic!("typed sample expected");
+    };
+    assert_eq!(
+        serde_json::from_str::<super::CanonicalQuerySample>(value).unwrap(),
+        super::CanonicalQuerySample::RequestFailure { invocation: 1000 }
+    );
+}
+
+#[test]
+fn canonical_statistics_exact_sample_fits_default_text_bound() {
+    let sample = super::CanonicalQuerySample::Statement {
+        invocation: u64::MAX,
+        statement: usize::MAX,
+        server_nanoseconds: Some(u128::MAX),
+        succeeded: false,
+    };
+    let wire = serde_json::to_string(&sample).unwrap();
+    assert!(
+        wire.len() <= pse_diagnostics::observation::Policy::default().max_text_bytes,
+        "{wire}"
+    );
+    assert_eq!(
+        serde_json::from_str::<super::CanonicalQuerySample>(&wire).unwrap(),
+        sample
+    );
 }

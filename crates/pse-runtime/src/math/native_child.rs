@@ -236,6 +236,7 @@ struct RootWire {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Hello {
+    diagnostic_operation: pse_diagnostics::observation::OperationId,
     protocol: String,
     attempt: SemanticId,
     pid: u32,
@@ -247,6 +248,7 @@ struct Hello {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Request {
+    diagnostic_parent: Option<pse_diagnostics::observation::OperationId>,
     attempt: SemanticId,
     execution: ContentHash,
     request: ContentHash,
@@ -486,6 +488,12 @@ fn launch(
                 "native child executable/build/profile/attempt handshake differs",
             ));
         }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.link_id(
+                hello.diagnostic_operation,
+                pse_diagnostics::observation::Relationship::Continuation,
+            );
+        }
         let request = digest(&payload);
         let remaining = scope
             .remaining(Duration::MAX)
@@ -500,6 +508,7 @@ fn launch(
             .u64(u64::from(remaining.subsec_nanos()));
         let execution = h.finish_hash();
         let envelope = Request {
+            diagnostic_parent: pse_diagnostics::observation::current().map(|context| context.id()),
             attempt,
             execution,
             request,
@@ -665,7 +674,10 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     let executable =
         pse_buildinfo::FileObservation::capture(&std::env::current_exe().map_err(infrastructure)?)
             .map_err(infrastructure)?;
+    let diagnostics = crate::observation::process_diagnostics();
+    let diagnostic = diagnostics.hub().start("native.child");
     let hello = Hello {
+        diagnostic_operation: diagnostic.context().id(),
         protocol: PROTOCOL.into(),
         attempt,
         pid: std::process::id(),
@@ -697,9 +709,22 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
         .checked_add(request.remaining)
         .ok_or_else(|| contract("native child receiving deadline extent"))?;
     let scope = ExecutionScope::new(Arc::default(), Some(deadline));
+    let registration = diagnostics.register_child(request.diagnostic_parent);
+    let context = diagnostic.context();
+    if let Some(parent) = request.diagnostic_parent {
+        context.link_id(
+            parent,
+            pse_diagnostics::observation::Relationship::Continuation,
+        );
+    }
+    context.source_ref("native.attempt", attempt.to_string().as_bytes());
+    let _entered = context.enter();
     let result = reconstruct_and_solve(&request, &scope)
         .map_err(|error| error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native));
-    send(
+    let solve_success = result.is_ok();
+    context.boolean("native.solve.return.success", solve_success);
+    let sending = context.phase("native.response.send");
+    let sent = send(
         &mut channel,
         &Response {
             attempt,
@@ -709,7 +734,17 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
         },
         RESPONSE_LIMIT,
         &scope,
-    )
+    );
+    drop(sending);
+    context.boolean("native.response.sent", sent.is_ok());
+    diagnostic.finish(if solve_success && sent.is_ok() {
+        pse_diagnostics::observation::Outcome::Completed
+    } else {
+        pse_diagnostics::observation::Outcome::Failed
+    });
+    drop(registration);
+    diagnostics.stop_publisher();
+    sent
 }
 
 #[allow(

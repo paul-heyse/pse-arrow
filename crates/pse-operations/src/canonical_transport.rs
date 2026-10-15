@@ -315,6 +315,17 @@ impl CanonicalClient {
                 "pse_rpc_timeout",
                 surrealdb::types::Duration::from_std(remaining),
             ));
+        let query = match pse_diagnostics::observation::current() {
+            Some(context) => {
+                static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+                context.count("canonical.query.builders", "builders", 1);
+                query.observe_statistics(Arc::new(CanonicalStatistics {
+                    context,
+                    invocation: NEXT.fetch_add(1, Ordering::Relaxed),
+                }))
+            }
+            None => query,
+        };
         match RESPONSE_OWNER.try_with(Arc::clone) {
             Ok(owner) => query.payload_owner(owner),
             Err(_) => query,
@@ -384,5 +395,97 @@ impl CanonicalClient {
     }
     pub(crate) async fn disconnect(&self) -> Result<(), surrealdb::Error> {
         self.client.disconnect().await
+    }
+}
+
+/// One actual SDK response sample. The compact wire representation fits the
+/// default observation text bound even at the maximum integer values. Statement
+/// index and server time belong to the same invocation atomically; history may
+/// coalesce intermediate responses and reports that loss explicitly.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum CanonicalQuerySample {
+    /// The request failed without a statement response; no server time is known.
+    #[serde(rename = "r")]
+    RequestFailure {
+        /// Process-local diagnostic invocation, unrelated to scientific identity.
+        #[serde(rename = "q")]
+        invocation: u64,
+    },
+    /// A statement in an actual response, copied before caller consumption.
+    #[serde(rename = "s")]
+    Statement {
+        /// Process-local diagnostic invocation, unrelated to scientific identity.
+        #[serde(rename = "q")]
+        invocation: u64,
+        /// Actual zero-based statement index in that response.
+        #[serde(rename = "s")]
+        statement: usize,
+        /// Exact server-reported duration in nanoseconds, when supplied. This
+        /// does not locate a local active interval or establish total server CPU.
+        #[serde(rename = "ns")]
+        server_nanoseconds: Option<u128>,
+        /// Actual statement result status, independent of the request transport.
+        #[serde(rename = "ok")]
+        succeeded: bool,
+    },
+}
+
+/// Actual-invocation statistics, copied before any caller consumes or checks the response.
+#[derive(Debug)]
+struct CanonicalStatistics {
+    context: pse_diagnostics::observation::ObservationContext,
+    invocation: u64,
+}
+impl CanonicalStatistics {
+    fn sample(&self, sample: CanonicalQuerySample) {
+        self.context.source_ref(
+            "canonical.server.statistics",
+            "SurrealDB actual response; server wall-clock sample; no local active interval",
+        );
+        match serde_json::to_string(&sample) {
+            Ok(sample) => self.context.text("canonical.query.latest_sample", &sample),
+            Err(_) => self.context.unavailable(
+                "canonical.query.latest_sample",
+                "server sample serialization unavailable",
+            ),
+        }
+    }
+}
+impl surrealdb::method::QueryStatisticsObserver for CanonicalStatistics {
+    fn request_failed(&self) {
+        self.context
+            .count("canonical.requests.failed", "requests", 1);
+        self.sample(CanonicalQuerySample::RequestFailure {
+            invocation: self.invocation,
+        });
+    }
+    fn observe(&self, statement: usize, stats: surrealdb::method::Stats, succeeded: bool) {
+        self.context
+            .count("canonical.statements.received", "statements", 1);
+        self.context.count(
+            if succeeded {
+                "canonical.statements.succeeded"
+            } else {
+                "canonical.statements.failed"
+            },
+            "statements",
+            1,
+        );
+        self.context.count(
+            if stats.execution_time.is_some() {
+                "canonical.statements.timed"
+            } else {
+                "canonical.statements.untimed"
+            },
+            "statements",
+            1,
+        );
+        self.sample(CanonicalQuerySample::Statement {
+            invocation: self.invocation,
+            statement,
+            server_nanoseconds: stats.execution_time.map(|duration| duration.as_nanos()),
+            succeeded,
+        });
     }
 }

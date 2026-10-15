@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Physical and declaration-reference types; scientific names are admitted data.
+mod environment;
 use crate::{Result, invalid};
+pub use environment::{TypeLookup, TypeScope};
 use pse_authoring::language::{TypeNode, TypeNodeKind, TypeRef, TypeTree};
 use pse_model::generated::identities::DeclarationId;
 use pse_quantity::{QuantityRegistry, Ratio, scheme::Scheme};
@@ -149,7 +151,7 @@ impl TypeContext<'_> {
         &self,
         nodes: &[TypeNode],
         variables: &BTreeSet<String>,
-        names: &BTreeMap<String, Type>,
+        names: &dyn TypeLookup,
         at: DeclarationId,
     ) -> Result<Type> {
         let tree = TypeTree::new(nodes).map_err(|e| invalid(at, e.to_string()))?;
@@ -159,7 +161,7 @@ impl TypeContext<'_> {
         &self,
         node: TypeRef<'a>,
         variables: &BTreeSet<String>,
-        names: &BTreeMap<String, Type>,
+        names: &dyn TypeLookup,
         at: DeclarationId,
     ) -> Result<Type> {
         use TypeNodeKind as K;
@@ -341,7 +343,7 @@ impl TypeContext<'_> {
         &self,
         node: TypeRef<'_>,
         variables: &BTreeSet<String>,
-        names: &BTreeMap<String, Type>,
+        names: &dyn TypeLookup,
         at: DeclarationId,
     ) -> Result<Scheme> {
         use TypeNodeKind as K;

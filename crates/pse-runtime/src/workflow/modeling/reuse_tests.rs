@@ -1702,3 +1702,373 @@ async fn ordinary_preparation_basis_prehash_preserves_exact_identity_under_force
     drop((first, second));
     service.clear_program_cache();
 }
+
+async fn hold_preparation_cpu(
+    service: &Arc<crate::math::MathService>,
+) -> (
+    std::sync::mpsc::Sender<()>,
+    crate::math::solves::SolveHandle<((), Arc<pse_columnar::AllocationLease>)>,
+) {
+    let (started, entered) = tokio::sync::oneshot::channel();
+    let (release, gate) = std::sync::mpsc::channel();
+    let mut submission = crate::math::Submission::ephemeral();
+    submission.admitted = Some(started);
+    let blocker = service
+        .submit_with(2, 0, submission, move |_, _| {
+            gate.recv_timeout(std::time::Duration::from_secs(10))
+                .map_err(|error| {
+                    crate::math::MathRuntimeError::Infrastructure(error.to_string())
+                })?;
+            Ok(((), 0))
+        })
+        .unwrap();
+    entered.await.unwrap();
+    (release, blocker)
+}
+
+async fn exercise_preparation_waiter_clocks<F, Fut>(
+    service: &Arc<crate::math::MathService>,
+    short_first: bool,
+    request: F,
+) where
+    F: Fn(crate::CancelSource, std::time::Instant) -> Fut,
+    Fut: Future<Output = Result<(), crate::math::MathRuntimeError>>,
+{
+    let (release, blocker) = hold_preparation_cpu(service).await;
+    let short_deadline = std::time::Instant::now() + std::time::Duration::from_millis(100);
+    let long_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let short_driver = crate::CancelSource::new().with_deadline(Some(short_deadline));
+    let long_driver = crate::CancelSource::new().with_deadline(Some(long_deadline));
+    let mut short = Box::pin(request(short_driver.clone(), short_deadline));
+    let mut long = Box::pin(request(long_driver.clone(), long_deadline));
+    if short_first {
+        assert!(futures_util::poll!(short.as_mut()).is_pending());
+    } else {
+        assert!(futures_util::poll!(long.as_mut()).is_pending());
+    }
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        while service.test_admission_snapshot().2 > 2 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    if short_first {
+        assert!(futures_util::poll!(long.as_mut()).is_pending());
+    } else {
+        assert!(futures_util::poll!(short.as_mut()).is_pending());
+    }
+    assert!(matches!(
+        short.await,
+        Err(crate::math::MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }
+        ))
+    ));
+    assert!(!short_driver.token().is_cancelled());
+    assert!(!long_driver.token().is_cancelled());
+    assert_eq!(
+        service.test_admission_snapshot().2,
+        2,
+        "one surviving shared producer owns population despite first caller expiry"
+    );
+    release.send(()).unwrap();
+    blocker.finish().await.unwrap();
+    long.await.unwrap();
+    assert_eq!(service.test_admission_snapshot().2, 4);
+}
+
+async fn exercise_preparation_waiter_departure<F, Fut>(
+    service: &Arc<crate::math::MathService>,
+    request: F,
+    active: impl Fn() -> usize,
+) where
+    F: Fn(crate::CancelSource, std::time::Instant) -> Fut,
+    Fut: Future<Output = Result<(), crate::math::MathRuntimeError>>,
+{
+    let (release, blocker) = hold_preparation_cpu(service).await;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let a = crate::CancelSource::new();
+    let b = crate::CancelSource::new();
+    let mut first = Box::pin(request(a.clone(), deadline));
+    let mut second = Box::pin(request(b.clone(), deadline));
+    assert!(futures_util::poll!(first.as_mut()).is_pending());
+    assert!(futures_util::poll!(second.as_mut()).is_pending());
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        while service.test_admission_snapshot().2 > 2 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    a.cancel();
+    assert!(matches!(
+        first.await,
+        Err(crate::math::MathRuntimeError::Cancelled)
+    ));
+    assert_eq!(
+        active(),
+        1,
+        "one departure preserves the surviving producer"
+    );
+    assert!(futures_util::poll!(second.as_mut()).is_pending());
+    b.cancel();
+    assert!(matches!(
+        second.await,
+        Err(crate::math::MathRuntimeError::Cancelled)
+    ));
+    assert_eq!(active(), 1, "last-waiter signal is not producer drain");
+    assert!(
+        matches!(
+            request(crate::CancelSource::new(), deadline).await,
+            Err(crate::math::MathRuntimeError::Retiring)
+        ),
+        "no duplicate producer while retiring"
+    );
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        while active() != 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(service.test_admission_snapshot().2, 3);
+    release.send(()).unwrap();
+    blocker.finish().await.unwrap();
+    request(crate::CancelSource::new(), deadline).await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn shared_frontier_and_completion_keep_each_waiters_clock_in_both_arrival_orders() {
+    for short_first in [true, false] {
+        let runtime = super::super::tests::runtime();
+        let service = runtime.shared.math();
+        let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let instance = pse_modeling::specialize::root_instance(root);
+        let package = runtime
+            .modeling_package(rows, super::super::tests::physical())
+            .await
+            .unwrap();
+        let driver = crate::CancelSource::new();
+        let selected = package.checked_selection(&[root], &driver).await.unwrap();
+        let key = service
+            .basis_key(
+                &selected.admission,
+                root,
+                instance,
+                Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap();
+        let workspace = package.pure_workspace().unwrap();
+        let before = service.preparation_effects();
+        exercise_preparation_waiter_clocks(&service, short_first, |caller, deadline| {
+            let service = service.clone();
+            let key = key.clone();
+            let workspace = workspace.clone();
+            let revision = selected.admission.revision.clone();
+            async move {
+                service
+                    .plan_frontier_keyed(key, workspace, revision, &caller, deadline)
+                    .await
+                    .map(|_| ())
+            }
+        })
+        .await;
+        assert_eq!(
+            service.preparation_effects().frontiers,
+            before.frontiers + 1
+        );
+        let deadline = service.preparation_deadline(&driver).unwrap();
+        let frontier = service
+            .plan_frontier_keyed(
+                key.clone(),
+                workspace.clone(),
+                selected.admission.revision.clone(),
+                &driver,
+                deadline,
+            )
+            .await
+            .unwrap();
+        let expired = std::time::Instant::now() - std::time::Duration::from_millis(1);
+        assert!(
+            service
+                .plan_frontier_keyed(
+                    key.clone(),
+                    workspace.clone(),
+                    selected.admission.revision.clone(),
+                    &driver,
+                    expired
+                )
+                .await
+                .is_err(),
+            "a cache hit must not bypass the caller's original clock"
+        );
+        exercise_preparation_waiter_clocks(&service, short_first, |caller, deadline| {
+            let service = service.clone();
+            let key = key.clone();
+            let workspace = workspace.clone();
+            let frontier = frontier.clone();
+            let premises = selected.admission.dependencies.clone();
+            async move {
+                service
+                    .complete_frontier_keyed(key, premises, workspace, frontier, &caller, deadline)
+                    .await
+                    .map(|_| ())
+            }
+        })
+        .await;
+        assert_eq!(
+            service.preparation_effects().completions,
+            before.completions + 1
+        );
+        assert!(
+            service
+                .complete_frontier_keyed(
+                    key.clone(),
+                    selected.admission.dependencies.clone(),
+                    workspace.clone(),
+                    frontier.clone(),
+                    &driver,
+                    expired
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(service.frontier_flights.active(), 0);
+        assert_eq!(service.basis_flights.active(), 0);
+        service.clear_program_cache();
+        exercise_preparation_waiter_departure(
+            &service,
+            |caller, deadline| {
+                let service = service.clone();
+                let key = key.clone();
+                let workspace = workspace.clone();
+                let revision = selected.admission.revision.clone();
+                async move {
+                    service
+                        .plan_frontier_keyed(key, workspace, revision, &caller, deadline)
+                        .await
+                        .map(|_| ())
+                }
+            },
+            || service.frontier_flights.active(),
+        )
+        .await;
+        let frontier = service
+            .plan_frontier_keyed(
+                key.clone(),
+                workspace.clone(),
+                selected.admission.revision.clone(),
+                &driver,
+                deadline,
+            )
+            .await
+            .unwrap();
+        exercise_preparation_waiter_departure(
+            &service,
+            |caller, deadline| {
+                let service = service.clone();
+                let key = key.clone();
+                let workspace = workspace.clone();
+                let frontier = frontier.clone();
+                let premises = selected.admission.dependencies.clone();
+                async move {
+                    service
+                        .complete_frontier_keyed(
+                            key, premises, workspace, frontier, &caller, deadline,
+                        )
+                        .await
+                        .map(|_| ())
+                }
+            },
+            || service.basis_flights.active(),
+        )
+        .await;
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn shared_preparation_producer_expiry_is_typed_and_retries_only_after_drain() {
+    let runtime = super::super::tests::runtime_on(
+        512 << 20,
+        crate::math::MathPolicy {
+            foreign_bytes: 1 << 20,
+            worker_bytes: 64 << 20,
+            workspace_bytes: 32 << 20,
+            preparation_limit: std::time::Duration::from_millis(500),
+            ..Default::default()
+        },
+    );
+    let service = runtime.shared.math();
+    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let instance = pse_modeling::specialize::root_instance(root);
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let driver = crate::CancelSource::new();
+    let selected = package.checked_selection(&[root], &driver).await.unwrap();
+    let key = service
+        .basis_key(
+            &selected.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    let workspace = package.pure_workspace().unwrap();
+    let before = service.preparation_effects();
+    let (release, blocker) = hold_preparation_cpu(&service).await;
+    let caller_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let result = service
+        .plan_frontier_keyed(
+            key.clone(),
+            workspace.clone(),
+            selected.admission.revision.clone(),
+            &driver,
+            caller_deadline,
+        )
+        .await;
+    assert!(
+        matches!(result, Err(crate::math::MathRuntimeError::Shared(cause))
+        if matches!(cause.as_ref(), crate::math::MathRuntimeError::PreparationExpired))
+    );
+    assert!(!driver.token().is_cancelled());
+    assert_eq!(service.frontier_flights.active(), 0);
+    assert_eq!(service.preparation_effects().frontiers, before.frontiers);
+    assert_eq!(
+        service.test_admission_snapshot().2,
+        3,
+        "failed producer joined, and no automatic retry was manufactured"
+    );
+    release.send(()).unwrap();
+    blocker.finish().await.unwrap();
+    service
+        .plan_frontier_keyed(
+            key,
+            workspace,
+            selected.admission.revision.clone(),
+            &driver,
+            caller_deadline,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        service.preparation_effects().frontiers,
+        before.frontiers + 1
+    );
+}

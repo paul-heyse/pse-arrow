@@ -28,6 +28,8 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -65,6 +67,8 @@ impl ModelingPackage {
         exact_parameters: &BTreeSet<SemanticId>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -106,6 +110,8 @@ impl ModelingPackage {
         prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let original_inputs = crate::workflow::replay::OriginalSimulationInputs::capture(
             self,
             root,

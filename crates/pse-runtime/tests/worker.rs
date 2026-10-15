@@ -968,6 +968,43 @@ async fn worker_runs_authored_case_end_to_end() {
         count += page.len();
     }
     assert!(count > 0, "worker native progress must be retained");
+    let diagnostics = local.observations();
+    let root = diagnostics.checkpoint_path().parent().unwrap().to_owned();
+    let owned = std::fs::read_dir(root)
+        .unwrap()
+        .filter_map(Result::ok)
+        .find_map(|entry| {
+            if entry
+                .path()
+                .extension()
+                .is_none_or(|extension| extension != "json")
+            {
+                return None;
+            }
+            let image = pse_runtime::observation::read_checkpoint(&entry.path()).ok()?;
+            let lane = image.operations.iter().find(|operation| {
+                operation.sources.iter().any(|source| {
+                    source.name == "canonical.attempt" && source.bytes == attempt.as_bytes()
+                })
+            })?;
+            assert_ne!(
+                lane.id.process_instance,
+                diagnostics.hub().process_instance()
+            );
+            assert!(lane.sources.iter().any(
+                |source| source.name == "canonical.run" && source.bytes == point.run.as_bytes()
+            ));
+            assert!(image.operations.iter().any(|operation| {
+                operation.metrics.iter().any(|metric| {
+                    metric.name == "native.joined"
+                        && metric.latest == pse_diagnostics::observation::Value::Boolean(true)
+                })
+            }));
+            Some(entry.path())
+        })
+        .expect("actual managed worker publishes its own attempt-linked checkpoint");
+    // drain_worker has reaped this exact child; this is its owned diagnostic file only.
+    std::fs::remove_file(owned).unwrap();
     stored_seed_reused_across_processes(&operations, &package, case, &point.run, attempt).await;
     drop(progress);
     drop(handle);

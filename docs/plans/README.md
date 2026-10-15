@@ -4,14 +4,42 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan 41: Simulation pipeline efficiency and effectiveness](41-simulation-pipeline-efficiency-and-effectiveness.md)
+is the standalone target for the 2026-10-15 pipeline review's F01–F14 and O01–O08.
+Its [rule decisions](41-simulation-pipeline-efficiency-and-effectiveness.md#rule-decisions)
+and [checkpoint](41-simulation-pipeline-efficiency-and-effectiveness.md#current-checkpoint)
+own adoption and the next route. Companions 41a–41f develop preparation, cancellation/admission,
+study/result boundaries, native worker/storage reuse, derivative/evaluator capabilities and
+causal diagnostics/qualification. [41a's Outcome](41a-source-specialization-and-selected-preparation.md#outcome--2026-10-15)
+owns completed preparation scope, and [41b's Outcome](41b-cancellation-shared-work-and-admission.md#outcome--2026-10-15) owns the delivered B0–B3 enablers. Broader
+41b, the other companions and full-series qualification remain open.
+This series does not supersede existing plans; reconciliation follows its execution.
+
+[Plan 40: Simulation performance diagnostics](40-simulation-performance-diagnostics.md)
+owns the adopted diagnostics review's F01–F06 and operator-accepted RC01. Its companions
+[40a](40a-operation-context-and-live-history.md),
+[40b](40b-context-and-native-diagnostics.md),
+[40c](40c-inspection-analysis-and-profiling.md),
+[40d](40d-affine-preparation-locality.md) and
+[40e](40e-qualification-and-closeout.md) develop early operation context and recent history,
+native/context projections, inspection and profiling, affine locality and assembled acceptance.
+The [checkpoint](40-simulation-performance-diagnostics.md#current-checkpoint) owns the next
+execution route. The 40a–40d functional deliveries have passed their focused acceptance;
+the coordinator and packet Outcomes link commands, results and exclusions. The completed
+companions remain needed by the active series. Remaining assembled qualification,
+scope-end checks and finding/document closeout stay with 40e. Other active plans retain
+their existing scope and status, and eliminated environment/provenance proof work is not revived.
+
 [Plan 39: Implementation friction and Codex effectiveness](39-implementation-friction-and-codex-effectiveness.md)
-owns the new review-driven corrections and all remaining Plan 38 execution/disposition.
+owns the new review-driven corrections and remaining functional Plan 38 execution/disposition. The maintainer withdrew environment/provenance proof targets, including strict all-role capture and compiler/launcher/installer phase proof; these are eliminated, not deferred.
 Its [sequence](39-implementation-friction-and-codex-effectiveness.md#prerequisites-and-execution-sequence)
 places local preparation/rebinding, deployment and operational work first, then the complete
 [transferred qualification and cutover](39d-qualification-and-plan38-cutover.md).
-Plan 38a–f retain completed implementation/investigation outcomes; the inactive
+[39d's diagnostics-led simulation audit](39d-qualification-and-plan38-cutover.md#simulation-audit--2026-10-15)
+owns the current eleven-case outcomes and proposed production corrections; it does not close
+Plan39 or Plan40e. Plan 38a–f retain completed implementation/investigation outcomes; the inactive
 [Plan 38 coordinator](38-efficiency-and-solver-target.md) and [38g handoff](38g-qualification-and-cutover.md#turn-handoff--2026-10-14)
-preserve historical decisions and exact failed/scoped/not-run evidence. The owning Plan39 checkpoint records selected implementation; [39d's selected static Outcome](39d-qualification-and-plan38-cutover.md#selected-static-repair-outcome--2026-10-14) records the later authorized checker repairs. [39d’s current prerequisite assessment](39d-qualification-and-plan38-cutover.md#final-campaign-prerequisite-assessment--2026-10-14) owns the authorized entire remainder and selected phase-context correction; this index does not establish acceptance.
+preserve historical decisions and exact failed/scoped/not-run evidence. The owning Plan39 checkpoint records selected implementation; [39d's selected static Outcome](39d-qualification-and-plan38-cutover.md#selected-static-repair-outcome--2026-10-14) records the later authorized checker repairs. [39d’s current prerequisite assessment](39d-qualification-and-plan38-cutover.md#final-campaign-prerequisite-assessment--2026-10-14) owns the authorized functional remainder and withdrawn proof-scope disposition; this index does not establish acceptance.
 
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
 interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded

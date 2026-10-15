@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-// PyO3's `Ungil` proof for the nested inspection closures exceeds rustc's default depth
-// of 128; its `recursion_depth_exceeding_limit` future-incompatibility lint asks for more.
-#![recursion_limit = "256"]
+// PyO3's `Ungil`/Send proofs include nested workflow observation wrappers and exceed
+// the default compiler depth. Match the runtime's finite checking depth without boxing
+// its futures or weakening auto-trait requirements.
+#![recursion_limit = "512"]
 #![allow(
     unsafe_code,
     reason = "pyo3 CPython ABI glue (blueprint §21) and ADR-0164 controlled deployment qualification"
@@ -20,6 +21,7 @@
 
 use pyo3::prelude::*;
 
+mod diagnostics;
 mod documents;
 mod enums;
 mod identities;
@@ -63,6 +65,11 @@ mod _native {
     #[pymodule_export]
     use super::{
         build_info, compiled_features,
+        diagnostics::{
+            NativeCaptureSession, NativeDiagnostics, NativeOperationObservations,
+            diagnostic_capture, diagnostic_inspect, diagnostic_list, diagnostic_operation_id,
+            diagnostic_operation_text,
+        },
         identities::{
             content_hash_from_prefixed, content_hash_to_prefixed, semantic_id_from_hex,
             semantic_id_to_hex,

@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 171
-date: 2026-10-14
+revision: 175
+date: 2026-10-15
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,10 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 175 | 2026-10-15 | Plan 41a and enabling B1–B3 (§14.3): hierarchical private cancellation, independent finite shared-producer clocks, compiler authority before active dispatch and through actual join; borrowed inference/function views and direct selected preparation preserve existing scientific meaning. | Maintainer-authorized execution; within-contract ownership/cancellation corrections and consumed preparation setting. Targeted implementation acceptance remains at Plan 41a/41b; no complete-series qualification claim. |
+| 174 | 2026-10-15 | Plan 40 accepted RC01 (§23.1): lightweight operation diagnostics before preparation, current/cumulative/recent coverage, owner-safe context publication and independent same-host checkpoint reads; optional deep capture and separate scientific permission. | Maintainer accepted RC01 on 2026-10-14 and authorized 40a/40b execution; G0 contract installation, implementation/qualification remain at Plan 40. |
+| 173 | 2026-10-14 | Maintainer-selected practical measurement contract (§24.3): declared cases, actual samples/scientific assertions and owned drain; optional functional reference without exact source/environment/native-artifact proof. Record relevant differences and preserve real failures. | Explicit maintainer direction; PSE_DESIGN_EDIT=1; measurement tooling simplification, no new assurance campaign or universal performance claim. |
+| 172 | 2026-10-14 | Maintainer withdraws Plan39 environment/provenance proof targets (§5.3): all-role strict campaign, source-completeness investigations, executor projection and compiler/launcher/installer phase associations are eliminated, without deferral or revisit obligation. Scientific/model/result provenance, explicit force-validation and current runtime safeguards remain. | Explicit maintainer direction; PSE_DESIGN_EDIT=1; documentation scope amendment only, no new proof system or qualification claim. |
 | 171 | 2026-10-14 | Plan39 validation scope follows maintainer design-phase steering: practical build/static/behavioral/native/Python validation; proposed phase-context proof machinery is not an ordinary validation gate (§5.3). | Explicit maintainer direction; PSE_DESIGN_EDIT=1; strict optional assurance remains separate and unqualified. |
 | 170 | 2026-10-14 | Proposed ADR-0189 / Plan39d: source-qualified executor compilation premises; separate immutable compiler/launcher evidence, authenticated installation transitions and current installed/import context (§5.3/§14.3). | Maintainer explicitly selected phase contexts; PSE_DESIGN_EDIT=1; independent phase-context target review Accept at Proposed strength; implementation/source qualification and assembled acceptance remain separate. |
 | 169 | 2026-10-14 | Plan39 remaining design within proposed ADR-0183/0189: exact revision-owned inventories and invocation-bound handoff; owned receiver rebinding and independent supplied import; finite strict preparation refresh and same-operation executor compilation (§5.3/§14.3/§14.4/§19.1). | Maintainer-authorized remaining-design execution; PSE_DESIGN_EDIT=1; independent preparation target review Accept at Proposed strength; targeted implementation checks remain distinct from explicitly deferred Plan39d qualification/measurements. |

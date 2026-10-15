@@ -124,8 +124,10 @@ impl SparseFactor {
                     ));
                 }
                 let matrix = SparseColMat::new(pattern, values);
-                let symbolic = lu::factorize_symbolic_lu(matrix.symbolic(), Default::default())
-                    .map_err(sparse_failure)?;
+                let symbolic = crate::observation::scoped("square_response.faer.symbolic", || {
+                    lu::factorize_symbolic_lu(matrix.symbolic(), Default::default())
+                })
+                .map_err(sparse_failure)?;
                 let scratch =
                     symbolic.factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default());
                 if scratch.size_bytes() > request.bytes {
@@ -136,22 +138,23 @@ impl SparseFactor {
                 let mut memory = MemBuffer::try_new(scratch)
                     .map_err(|_| ProblemError::memory("fresh sparse factor scratch allocation"))?;
                 let mut numeric = NumericLu::new();
-                symbolic
-                    .factorize_numeric_lu(
+                crate::observation::scoped("square_response.faer.factor", || {
+                    symbolic.factorize_numeric_lu(
                         &mut numeric,
                         matrix.as_ref(),
                         Par::Seq,
                         MemStack::new(&mut memory),
                         Default::default(),
                     )
-                    .map_err(|e| match e {
-                        faer::sparse::linalg::LuError::Generic(error) => sparse_failure(error),
-                        faer::sparse::linalg::LuError::SymbolicSingular { index } => {
-                            ProblemError::numerical(format!(
-                                "fresh sparse factor rank loss at pivot {index}"
-                            ))
-                        }
-                    })?;
+                })
+                .map_err(|e| match e {
+                    faer::sparse::linalg::LuError::Generic(error) => sparse_failure(error),
+                    faer::sparse::linalg::LuError::SymbolicSingular { index } => {
+                        ProblemError::numerical(format!(
+                            "fresh sparse factor rank loss at pivot {index}"
+                        ))
+                    }
+                })?;
                 execution.check()?;
                 Ok(Self {
                     held: Arc::new(Owned {
@@ -343,7 +346,19 @@ impl SparseFactor {
         // Numeric/symbolic fields are private, installed together by the constructor.
         let lu = LuRef::new_unchecked(&self.held.symbolic, &self.held.numeric);
         execution.counted(work_unit(0, 0), || {
-            lu.solve_in_place_with_conj(Conj::No, x.as_mut(), Par::Seq, MemStack::new(&mut memory));
+            crate::observation::integer(
+                "square_response.faer.solve.rhs",
+                "count",
+                i64::try_from(rhs.ncols()).unwrap_or(i64::MAX),
+            );
+            crate::observation::scoped("square_response.faer.solve", || {
+                lu.solve_in_place_with_conj(
+                    Conj::No,
+                    x.as_mut(),
+                    Par::Seq,
+                    MemStack::new(&mut memory),
+                )
+            });
             Ok(())
         })?;
         let limit = 64. * n.max(1) as f64 * f64::EPSILON;
@@ -399,12 +414,14 @@ impl SparseFactor {
             // Refinement is an actual solver iteration. A reused-factor action is
             // neither another factor construction nor a proof operation.
             execution.counted(work_unit(1, 0), || {
-                lu.solve_in_place_with_conj(
-                    Conj::No,
-                    residual.as_mut(),
-                    Par::Seq,
-                    MemStack::new(&mut memory),
-                );
+                crate::observation::scoped("square_response.faer.refinement_solve", || {
+                    lu.solve_in_place_with_conj(
+                        Conj::No,
+                        residual.as_mut(),
+                        Par::Seq,
+                        MemStack::new(&mut memory),
+                    )
+                });
                 for column in 0..rhs.ncols() {
                     for row in 0..n {
                         x[(row, column)] += residual[(row, column)];
@@ -447,12 +464,14 @@ impl SparseFactor {
         let mut z = b.clone();
         let lu = LuRef::new_unchecked(&self.held.symbolic, &self.held.numeric);
         execution.counted(work_unit(0, 0), || {
-            lu.solve_transpose_in_place_with_conj(
-                Conj::No,
-                z.as_mut(),
-                Par::Seq,
-                MemStack::new(&mut memory),
-            );
+            crate::observation::scoped("square_response.faer.transpose_solve", || {
+                lu.solve_transpose_in_place_with_conj(
+                    Conj::No,
+                    z.as_mut(),
+                    Par::Seq,
+                    MemStack::new(&mut memory),
+                )
+            });
             Ok(())
         })?;
         let limit = 64. * n.max(1) as f64 * f64::EPSILON;
@@ -501,11 +520,16 @@ impl SparseFactor {
                 ));
             }
             execution.counted(work_unit(1, 0), || {
-                lu.solve_transpose_in_place_with_conj(
-                    Conj::No,
-                    residual.as_mut(),
-                    Par::Seq,
-                    MemStack::new(&mut memory),
+                crate::observation::scoped(
+                    "square_response.faer.transpose_refinement_solve",
+                    || {
+                        lu.solve_transpose_in_place_with_conj(
+                            Conj::No,
+                            residual.as_mut(),
+                            Par::Seq,
+                            MemStack::new(&mut memory),
+                        )
+                    },
                 );
                 for i in 0..n {
                     z[(i, 0)] += residual[(i, 0)];

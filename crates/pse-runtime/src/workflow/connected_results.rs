@@ -530,6 +530,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_runs as rows;
                 let extent = response_owner(self, "canonical:result-header")?;
                 let row = pse_operations::canonical::response_ownership_scope(
@@ -558,6 +559,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_attempts as rows;
                 let extent = response_owner(self, "canonical:result-header")?;
                 let row = pse_operations::canonical::response_ownership_scope(
@@ -586,6 +588,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_result_manifests as rows;
                 let extent = response_owner(self, "canonical:result-header")?;
                 let store = self.canonical_store()?;
@@ -628,6 +631,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("result.read");
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let extent = response_owner(self, "canonical:result-selection")?;
                 let read = pse_operations::canonical::response_ownership_scope(
@@ -655,6 +659,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("result.read");
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 if start > end {
                     return Err(contract("result row range is reversed"));
@@ -763,6 +768,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("result.read");
                 if minimum.is_some_and(|value| !value.is_finite())
                     || maximum.is_some_and(|value| !value.is_finite())
                     || minimum.zip(maximum).is_some_and(|(min, max)| min > max)

@@ -31,6 +31,7 @@ macro_rules! engine_settings_fields {
         math_stack_bytes: Option<usize>, "int | None", None => usize, $budget.math.stack_bytes;
         math_jobs: Option<usize>, "int | None", None => usize, $budget.math.jobs;
         math_flights: Option<usize>, "int | None", None => usize, $budget.math.flights;
+        math_preparation_limit_ms: Option<u64>, "int | None", None => u128, $budget.math.preparation_limit.as_millis();
         math_admission_wait_ms: Option<u64>, "int | None", None => u128, $budget.math.admission_wait.as_millis();
     } };
 }
@@ -138,6 +139,10 @@ impl EngineSettingsInput {
                 stack_bytes: self.math_stack_bytes.unwrap_or(math_defaults.stack_bytes),
                 jobs: self.math_jobs.unwrap_or(math_defaults.jobs),
                 flights: self.math_flights.unwrap_or(math_defaults.flights),
+                preparation_limit: self
+                    .math_preparation_limit_ms
+                    .map(std::time::Duration::from_millis)
+                    .unwrap_or(math_defaults.preparation_limit),
                 admission_wait: self
                     .math_admission_wait_ms
                     .map(std::time::Duration::from_millis)
@@ -178,6 +183,7 @@ mod delta_boundary_unit {
             math_jobs: None,
             math_flights: None,
             math_admission_wait_ms: None,
+            math_preparation_limit_ms: None,
         }
     }
     #[test]
@@ -214,6 +220,27 @@ mod delta_boundary_unit {
         let mut settings = input();
         settings.math_admission_wait_ms = Some(0);
         assert!(settings.resolve(None).is_err());
+    }
+    #[test]
+    fn preparation_limit_preserves_finite_default_and_validates_override() {
+        assert_eq!(
+            input().resolve(None).unwrap().math.preparation_limit,
+            std::time::Duration::from_secs(600)
+        );
+        let mut settings = input();
+        settings.math_preparation_limit_ms = Some(75);
+        assert_eq!(
+            settings.resolve(None).unwrap().math.preparation_limit,
+            std::time::Duration::from_millis(75)
+        );
+        let mut settings = input();
+        settings.math_preparation_limit_ms = Some(0);
+        assert!(settings.resolve(None).is_err());
+        let policy = crate::math::MathPolicy {
+            preparation_limit: std::time::Duration::MAX,
+            ..Default::default()
+        };
+        assert!(policy.validate().is_err());
     }
     #[test]
     fn spill_compression_is_parsed_once_at_the_input_boundary() {

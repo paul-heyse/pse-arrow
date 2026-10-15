@@ -1276,7 +1276,7 @@ impl Runtime {
         lane: &mut super::study::StudyCandidateLane,
         cancel: &crate::CancelSource,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
-        use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy, WaitReason};
+        let _observation = pse_diagnostics::observation::phase("managed.worker.claim");
         let operations = operations(self)?;
         match operations.store().check_write_admission() {
             Ok(()) => {}
@@ -1339,220 +1339,12 @@ impl Runtime {
                             },
                             None => None,
                         };
-                        let scope = operations.store().study_scope(&candidate.key).await?;
-                        let policy = scope.point().policy()?;
-                        let unresolved = match &policy.start {
-                            StartPolicy::Fresh => None,
-                            StartPolicy::Explicit { role, .. } => Some(SeedFact {
-                                role: *role,
-                                availability: SeedAvailability::Unresolved,
-                            }),
-                            StartPolicy::Continuation(edge) => Some(SeedFact {
-                                role: edge.role,
-                                availability: SeedAvailability::Unresolved,
-                            }),
-                        };
-                        let preliminary = scope.action(unresolved)?;
-                        match &preliminary.kind {
-                            ActionKind::Wait(WaitReason::ScientificAdmission) => {
-                                if self.admit_study_candidate(&scope, lane, cancel).await? {
-                                    return Ok((
-                                        Processed::Maintenance {
-                                            study: scope.point().study.clone(),
-                                            examined: 1,
-                                        },
-                                        None,
-                                    ));
-                                }
-                                continue;
-                            }
-                            ActionKind::Wait(WaitReason::SeedResolution { .. })
-                            | ActionKind::Start(_) => {}
-                            ActionKind::Refuse(_) | ActionKind::Cancel => {
-                                if self
-                                    .settle_current_study_candidate(&scope, &preliminary)
-                                    .await?
-                                    .is_none()
-                                {
-                                    continue;
-                                }
-                                return Ok((
-                                    Processed::Settled {
-                                        point: candidate.key,
-                                    },
-                                    None,
-                                ));
-                            }
-                            ActionKind::Wait(_) | ActionKind::Reconcile => continue,
-                        }
-                        let mut prepared = self
-                            .prepare_study_candidate_in_lane(&scope, lane, cancel)
-                            .await?;
-                        let action = scope.action(prepared.seed.clone())?;
-                        if !matches!(action.kind, ActionKind::Start(_)) {
-                            match action.kind {
-                                ActionKind::Refuse(_) | ActionKind::Cancel => {
-                                    if self
-                                        .settle_current_study_candidate(&scope, &action)
-                                        .await?
-                                        .is_none()
-                                    {
-                                        continue;
-                                    }
-                                    return Ok((
-                                        Processed::Settled {
-                                            point: candidate.key,
-                                        },
-                                        None,
-                                    ));
-                                }
-                                _ => continue,
-                            }
-                        }
-                        let claim_operation = format!(
-                            "study-claim:{}:{}:{}",
-                            candidate.key,
-                            scope.point().revision,
-                            operations.worker()
-                        );
-                        let claim = match operations
-                            .store()
-                            .claim_study_point(
-                                &scope,
-                                prepared.seed.clone(),
-                                &claim_operation,
-                                operations.worker(),
-                                operations.policy().lease,
-                            )
-                            .await
+                        if let Some(result) = self
+                            .observe_study_candidate(operations, candidate, lane, cancel)
+                            .await?
                         {
-                            Ok(claim) => claim,
-                            Err(error) => {
-                                let current =
-                                    operations.store().study_scope(&candidate.key).await?;
-                                if current.point().revision != scope.point().revision
-                                    || current.cancelled() != scope.cancelled()
-                                    || current
-                                        .predecessors()
-                                        .iter()
-                                        .map(|p| (&p.key, p.revision))
-                                        .ne(scope
-                                            .predecessors()
-                                            .iter()
-                                            .map(|p| (&p.key, p.revision)))
-                                {
-                                    continue;
-                                }
-                                return Err(error.into());
-                            }
-                        };
-                        let run_key = claim
-                            .fence
-                            .run()
-                            .strip_prefix("run:")
-                            .ok_or_else(|| contract("scientific run lineage key absent"))?;
-                        let run = RunId::from_id(
-                            SemanticId::parse_hex(run_key).map_err(|e| contract(e.to_string()))?,
-                        );
-                        let mut hash =
-                            pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-                        hash.str("scientific.attempt.lineage.v1")
-                            .str(claim.fence.attempt());
-                        let attempt_id = AttemptId::from_id(hash.finish_id());
-                        let mut attempt = DurableAttempt::claimed(
-                            operations,
-                            claim.fence.clone(),
-                            run,
-                            attempt_id,
-                        )?;
-                        attempt.set_output(prepared.output.clone());
-                        let stop = cancel.clone();
-                        if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
-                            let record = attempt.abandon(&Arc::new(error)).await;
-                            return Ok((
-                                Processed::Ran {
-                                    point: claim.point.key,
-                                    record: Box::new(record),
-                                },
-                                None,
-                            ));
+                            return Ok(result);
                         }
-                        let point = match operations.store().mark_study_started(&claim).await {
-                            Ok(point) => point,
-                            Err(error) => {
-                                return Ok((
-                                    Processed::Ran {
-                                        point: claim.point.key,
-                                        record: Box::new(
-                                            attempt.abandon(&Arc::new(error.into())).await,
-                                        ),
-                                    },
-                                    None,
-                                ));
-                            }
-                        };
-                        if let Err(error) = self.apply_study_prediction(&mut prepared, cancel).await
-                        {
-                            let record = attempt.abandon(&Arc::new(error)).await;
-                            self.recover_study_point(&point.key).await?;
-                            return Ok((
-                                Processed::Ran {
-                                    point: point.key,
-                                    record: Box::new(record),
-                                },
-                                None,
-                            ));
-                        }
-                        if let Err(error) = operations
-                            .store()
-                            .renew_attempt(&claim.fence, operations.policy().lease)
-                            .await
-                        {
-                            let error = Arc::new(WorkflowError::Canonical(error));
-                            let cancelled = attempt.cancelled_refusal(&error);
-                            let record = attempt.abandon(&error).await;
-                            // Drain the owner on every refusal. Only an acknowledged
-                            // exact cancellation can settle without native entry.
-                            if !cancelled {
-                                return Err(WorkflowError::Shared(error));
-                            }
-                            record
-                                .attempt
-                                .as_ref()
-                                .map_err(|error| WorkflowError::Shared(error.clone()))?;
-                            self.recover_study_point(&point.key).await?;
-                            return Ok((
-                                Processed::Ran {
-                                    point: point.key,
-                                    record: Box::new(record),
-                                },
-                                None,
-                            ));
-                        }
-                        let held = lane.scope().ok_or_else(|| {
-                            contract("worker native lane source permission absent")
-                        })?;
-                        let result = held.during(cancel, async {
-                            let handle = prepared.operation.start_attempt(self, cancel, attempt).await?;
-                            tokio::select! {result=handle.wait()=>result,()=cancel.cancelled()=>{handle.cancel();handle.wait().await}}
-                        }).await?;
-                        let record = match result.durability() {
-                            RunDurability::Durable(record) => record.clone(),
-                            RunDurability::Ephemeral => {
-                                return Err(contract(
-                                    "claimed native study attempt was not retained",
-                                ));
-                            }
-                        };
-                        self.record_study_attempt(&point, &claim.start, &record)
-                            .await?;
-                        return Ok((
-                            Processed::Ran {
-                                point: point.key,
-                                record,
-                            },
-                            Some(result),
-                        ));
                     }
                 }
                 let final_key = format!("finalize:{}", study.key);
@@ -1578,6 +1370,253 @@ impl Runtime {
             }
         }
     }
+    /// Observe actual candidate work, including preparation before a claim exists.
+    /// Empty discovery polls create no operation and cannot evict actual attempts.
+    async fn observe_study_candidate(
+        &self,
+        operations: &Operations,
+        candidate: pse_operations::canonical_studies::ScopedStudyPoint,
+        lane: &mut super::study::StudyCandidateLane,
+        cancel: &crate::CancelSource,
+    ) -> Result<Option<(Processed, Option<Arc<super::RunResult>>)>, WorkflowError> {
+        use pse_diagnostics::observation::{Outcome, Relationship, current, scope};
+        let operation = current()
+            .map(|context| context.child("managed.worker.candidate", Relationship::Nested));
+        let context = operation.as_ref().map(|operation| operation.context());
+        let result = scope(
+            context,
+            self.work_study_candidate(operations, candidate, lane, cancel),
+        )
+        .await;
+        if let Some(operation) = operation {
+            operation.finish(if result.is_ok() {
+                Outcome::Completed
+            } else {
+                Outcome::Failed
+            });
+        }
+        result
+    }
+
+    /// One candidate's existing policy/claim/execution path. None resumes discovery;
+    /// Some returns the same processed action to the worker scheduler.
+    async fn work_study_candidate(
+        &self,
+        operations: &Operations,
+        candidate: pse_operations::canonical_studies::ScopedStudyPoint,
+        lane: &mut super::study::StudyCandidateLane,
+        cancel: &crate::CancelSource,
+    ) -> Result<Option<(Processed, Option<Arc<super::RunResult>>)>, WorkflowError> {
+        use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy, WaitReason};
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.source_ref("study.occurrence", candidate.key.as_bytes());
+        }
+        let scope = operations.store().study_scope(&candidate.key).await?;
+        let policy = scope.point().policy()?;
+        let unresolved = match &policy.start {
+            StartPolicy::Fresh => None,
+            StartPolicy::Explicit { role, .. } => Some(SeedFact {
+                role: *role,
+                availability: SeedAvailability::Unresolved,
+            }),
+            StartPolicy::Continuation(edge) => Some(SeedFact {
+                role: edge.role,
+                availability: SeedAvailability::Unresolved,
+            }),
+        };
+        let preliminary = scope.action(unresolved)?;
+        match &preliminary.kind {
+            ActionKind::Wait(WaitReason::ScientificAdmission) => {
+                if self.admit_study_candidate(&scope, lane, cancel).await? {
+                    return Ok(Some((
+                        Processed::Maintenance {
+                            study: scope.point().study.clone(),
+                            examined: 1,
+                        },
+                        None,
+                    )));
+                }
+                return Ok(None);
+            }
+            ActionKind::Wait(WaitReason::SeedResolution { .. }) | ActionKind::Start(_) => {}
+            ActionKind::Refuse(_) | ActionKind::Cancel => {
+                if self
+                    .settle_current_study_candidate(&scope, &preliminary)
+                    .await?
+                    .is_none()
+                {
+                    return Ok(None);
+                }
+                return Ok(Some((
+                    Processed::Settled {
+                        point: candidate.key,
+                    },
+                    None,
+                )));
+            }
+            ActionKind::Wait(_) | ActionKind::Reconcile => return Ok(None),
+        }
+        let mut prepared = self
+            .prepare_study_candidate_in_lane(&scope, lane, cancel)
+            .await?;
+        let action = scope.action(prepared.seed.clone())?;
+        if !matches!(action.kind, ActionKind::Start(_)) {
+            match action.kind {
+                ActionKind::Refuse(_) | ActionKind::Cancel => {
+                    if self
+                        .settle_current_study_candidate(&scope, &action)
+                        .await?
+                        .is_none()
+                    {
+                        return Ok(None);
+                    }
+                    return Ok(Some((
+                        Processed::Settled {
+                            point: candidate.key,
+                        },
+                        None,
+                    )));
+                }
+                _ => return Ok(None),
+            }
+        }
+        let claim_operation = format!(
+            "study-claim:{}:{}:{}",
+            candidate.key,
+            scope.point().revision,
+            operations.worker()
+        );
+        let claim = match operations
+            .store()
+            .claim_study_point(
+                &scope,
+                prepared.seed.clone(),
+                &claim_operation,
+                operations.worker(),
+                operations.policy().lease,
+            )
+            .await
+        {
+            Ok(claim) => claim,
+            Err(error) => {
+                let current = operations.store().study_scope(&candidate.key).await?;
+                if current.point().revision != scope.point().revision
+                    || current.cancelled() != scope.cancelled()
+                    || current
+                        .predecessors()
+                        .iter()
+                        .map(|p| (&p.key, p.revision))
+                        .ne(scope.predecessors().iter().map(|p| (&p.key, p.revision)))
+                {
+                    return Ok(None);
+                }
+                return Err(error.into());
+            }
+        };
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.source_ref("canonical.run", claim.fence.run().as_bytes());
+            context.source_ref("canonical.attempt", claim.fence.attempt().as_bytes());
+            context.source_ref("study.occurrence", claim.point.key.as_bytes());
+            context.count("study.claimed", "occurrences", 1);
+        }
+        let run_key = claim
+            .fence
+            .run()
+            .strip_prefix("run:")
+            .ok_or_else(|| contract("scientific run lineage key absent"))?;
+        let run =
+            RunId::from_id(SemanticId::parse_hex(run_key).map_err(|e| contract(e.to_string()))?);
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+        hash.str("scientific.attempt.lineage.v1")
+            .str(claim.fence.attempt());
+        let attempt_id = AttemptId::from_id(hash.finish_id());
+        let mut attempt =
+            DurableAttempt::claimed(operations, claim.fence.clone(), run, attempt_id)?;
+        attempt.set_output(prepared.output.clone());
+        let stop = cancel.clone();
+        if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
+            let record = attempt.abandon(&Arc::new(error)).await;
+            return Ok(Some((
+                Processed::Ran {
+                    point: claim.point.key,
+                    record: Box::new(record),
+                },
+                None,
+            )));
+        }
+        let point = match operations.store().mark_study_started(&claim).await {
+            Ok(point) => point,
+            Err(error) => {
+                return Ok(Some((
+                    Processed::Ran {
+                        point: claim.point.key,
+                        record: Box::new(attempt.abandon(&Arc::new(error.into())).await),
+                    },
+                    None,
+                )));
+            }
+        };
+        if let Err(error) = self.apply_study_prediction(&mut prepared, cancel).await {
+            let record = attempt.abandon(&Arc::new(error)).await;
+            self.recover_study_point(&point.key).await?;
+            return Ok(Some((
+                Processed::Ran {
+                    point: point.key,
+                    record: Box::new(record),
+                },
+                None,
+            )));
+        }
+        if let Err(error) = operations
+            .store()
+            .renew_attempt(&claim.fence, operations.policy().lease)
+            .await
+        {
+            let error = Arc::new(WorkflowError::Canonical(error));
+            let cancelled = attempt.cancelled_refusal(&error);
+            let record = attempt.abandon(&error).await;
+            // Drain the owner on every refusal. Only an acknowledged
+            // exact cancellation can settle without native entry.
+            if !cancelled {
+                return Err(WorkflowError::Shared(error));
+            }
+            record
+                .attempt
+                .as_ref()
+                .map_err(|error| WorkflowError::Shared(error.clone()))?;
+            self.recover_study_point(&point.key).await?;
+            return Ok(Some((
+                Processed::Ran {
+                    point: point.key,
+                    record: Box::new(record),
+                },
+                None,
+            )));
+        }
+        let held = lane
+            .scope()
+            .ok_or_else(|| contract("worker native lane source permission absent"))?;
+        let result = held.during(cancel, async {
+            let handle = prepared.operation.start_attempt(self, cancel, attempt).await?;
+            tokio::select! {result=handle.wait()=>result,()=cancel.cancelled()=>{handle.cancel();handle.wait().await}}
+        }).await?;
+        let record = match result.durability() {
+            RunDurability::Durable(record) => record.clone(),
+            RunDurability::Ephemeral => {
+                return Err(contract("claimed native study attempt was not retained"));
+            }
+        };
+        self.record_study_attempt(&point, &claim.start, &record)
+            .await?;
+        return Ok(Some((
+            Processed::Ran {
+                point: point.key,
+                record,
+            },
+            Some(result),
+        )));
+    }
+
     /// A separate rotating cursor gives later active studies bounded recovery
     /// service even while scientific discovery repeatedly returns an earlier point.
     async fn recover_next_study(

@@ -3183,7 +3183,12 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
     ));
     let rows: BTreeSet<_> = structure.rows().iter().map(|row| row.id).collect();
     let observed = workspace
-        .prepare_modeling_observations(&model, &rows, exact, &cancel)
+        .prepare_modeling_observations(
+            &model,
+            model.observation_structure(&rows).unwrap(),
+            exact,
+            &cancel,
+        )
         .unwrap();
     assert_eq!(observed.plan.limits(), exact.assembly);
     let functions = workspace
@@ -6605,6 +6610,109 @@ fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control
 }
 
 #[test]
+fn selected_preparation_uses_one_plan_and_carries_observation_structure() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let (mut workspace, _, _, root) = setup(
+        "package p { def Root { var x:Scalar; var y:Scalar; eq a:x*y==2; let good:Scalar=x+y; let bad:Scalar=log(-1); } }",
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let model = workspace
+        .prepare_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings {
+                demand: vec!["good".into(), "bad".into()],
+                ..Default::default()
+            },
+            Limits::default(),
+            cancel.clone(),
+        )
+        .unwrap();
+    let selected = ModelingOutput::Member(model.model.paths["good"]).row_id();
+    let bad = ModelingOutput::Member(model.model.paths["bad"]).row_id();
+    let coordinate = |name: &str| {
+        model
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(&format!(".{name}")))
+            .unwrap()
+            .id
+    };
+    let coordinates = vec![coordinate("y"), coordinate("x")];
+    let count = |snapshot: &pse_diagnostics::observation::OperationSnapshot, name: &str| {
+        snapshot
+            .metrics
+            .iter()
+            .find(|m| m.name == name)
+            .map(|m| m.cumulative.clone())
+    };
+    for order in [
+        DerivativeOrder::Value,
+        DerivativeOrder::First,
+        DerivativeOrder::Second,
+    ] {
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("compiler-selected-functions");
+        let entered = operation.context().enter();
+        let functions = workspace
+            .prepare_modeling_functions(
+                &model,
+                vec![selected],
+                coordinates.clone(),
+                order,
+                Profile::default(),
+                &cancel,
+            )
+            .unwrap();
+        drop(entered);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            count(&snapshot, "math.case_plan_constructions"),
+            Some(Value::Count(1))
+        );
+        assert_eq!(
+            count(&snapshot, "math.selected_function_constructions"),
+            Some(Value::Count(1))
+        );
+        assert_eq!(functions.plan.columns(), coordinates);
+        assert_eq!(functions.plan.structure().rows().len(), 1);
+        assert!(
+            !functions
+                .plan
+                .structure()
+                .rows()
+                .iter()
+                .any(|r| r.id == bad)
+        );
+    }
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("compiler-observations");
+    let entered = operation.context().enter();
+    let structure = model
+        .observation_structure(&BTreeSet::from([selected]))
+        .unwrap();
+    let prepared = workspace
+        .prepare_modeling_observations(&model, structure.clone(), Profile::default(), &cancel)
+        .unwrap();
+    drop(entered);
+    assert!(std::ptr::eq(prepared.plan.structure(), structure.as_ref()));
+    let snapshot = operation
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    assert_eq!(
+        count(&snapshot, "compiler.observation_structures"),
+        Some(Value::Count(1))
+    );
+    assert_eq!(
+        count(&snapshot, "math.case_plan_constructions"),
+        Some(Value::Count(1))
+    );
+}
+
+#[test]
 fn selected_shared_observation_body_demands_only_its_implicit_provider_output() {
     use crate::typed_math::{Formal, Request};
     use pse_authoring::dsl;
@@ -6724,6 +6832,100 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
             .unwrap()
             .len(),
         2
+    );
+    let selected_plan = CasePlan::prepare_functions(
+        &shared.case,
+        |key| shared.bodies.get(&key).map(|body| body.math.clone()),
+        &selected.iter().copied().collect::<Vec<_>>(),
+        vec![variable.id],
+        registry,
+        DerivativeOrder::Second,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(selected_plan.bodies().len(), 1);
+    assert!(Arc::ptr_eq(
+        &selected_plan.bodies()[&key],
+        &shared.bodies[&key].math
+    ));
+    assert_eq!(
+        selected_plan.bodies()[&key].providers().len(),
+        2,
+        "selection retains the complete body and provider authority"
+    );
+    assert!(
+        selected_plan
+            .demands()
+            .iter()
+            .all(|demand| demand.outputs == vec![0]),
+        "only the selected output's executable provider dependency is demanded"
+    );
+    #[derive(Debug)]
+    struct IdentityProvider(pse_kernels::ProviderSpec);
+    impl pse_kernels::Provider for IdentityProvider {
+        fn spec(&self) -> &pse_kernels::ProviderSpec {
+            &self.0
+        }
+        fn evaluate(
+            &mut self,
+            inputs: &[f64],
+            request: &pse_kernels::ProviderRequest,
+            context: &pse_kernels::EvaluationContext<'_>,
+        ) -> std::result::Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+            request.validate(&self.0, context)?;
+            let values = pse_kernels::ProviderValues {
+                values: vec![inputs[0]; request.outputs.len()],
+                jacobian: if request.order >= DerivativeOrder::First {
+                    vec![1.0; request.outputs.len()]
+                } else {
+                    vec![]
+                },
+                hessians: if request.order >= DerivativeOrder::Second {
+                    vec![0.0; request.outputs.len()]
+                } else {
+                    vec![]
+                },
+            };
+            values.validate(&self.0, request)?;
+            Ok(values)
+        }
+    }
+    let assembly = Arc::new(
+        Arc::new(selected_plan)
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    let values = CaseValues {
+        scalars: BTreeMap::from([(variable.id, 2.0)]),
+    };
+    let first = inners[0].descriptor.spec();
+    let provider: Box<dyn pse_kernels::Provider> = Box::new(IdentityProvider(first.clone()));
+    let mut worker = assembly.worker(BTreeMap::from([(first.key(), provider)]), cancel.clone());
+    assert_eq!(
+        worker.constraints(&values).unwrap(),
+        vec![2.0],
+        "the unselected provider is not required for the selected body output"
+    );
+    assert_eq!(worker.jacobian(&values).unwrap().val(), &[1.0]);
+    assert!(
+        worker
+            .hessian(&values, 0.0, &[1.0])
+            .unwrap()
+            .val()
+            .iter()
+            .all(|v| *v == 0.0)
+    );
+    assert!(
+        assembly
+            .worker(BTreeMap::new(), cancel.clone())
+            .constraints(&values)
+            .is_err(),
+        "the selected provider remains required"
     );
     let observation_bodies = std::mem::take(&mut shared.bodies);
     assert!(
@@ -7113,5 +7315,78 @@ fn authored_affine_accelerator_uses_registered_solver_and_original_ift_guards() 
             .unwrap()
             .values,
         vec![0.5]
+    );
+}
+
+#[test]
+fn affine_row_rebind_keeps_free_iterates_and_refreshes_parameter_coefficients_without_artifacts() {
+    use pse_math::presolve::ClassStatus;
+    let (mut workspace, _, _, root) = setup(
+        "package p { def Root { param p:Scalar=2; var x:Scalar; eq affine:p*x==6; eq nonlinear:x*x==9; } }",
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let model = workspace
+        .prepare_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings {
+                demand: vec!["p".into(), "x".into()],
+                ..Bindings::default()
+            },
+            Limits::default(),
+            cancel.clone(),
+        )
+        .unwrap();
+    let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
+    let p = model.model.paths["p"];
+    let x = model.model.paths["x"];
+    let values = |coefficient, iterate| CaseValues {
+        scalars: BTreeMap::from([(p, coefficient), (x, iterate)]),
+    };
+    let base = workspace
+        .prepare_modeling_view(
+            &model,
+            structure,
+            &values(2.0, 3.0),
+            DerivativeOrder::First,
+            Profile::default(),
+            &cancel,
+        )
+        .unwrap();
+    let first = base
+        .prepare_affine_rows(&values(2.0, 3.0), &cancel)
+        .unwrap();
+    let affine = first.presolve.affine.iter().flatten().next().unwrap();
+    assert_eq!(affine.entries, BTreeMap::from([(0, 2.0)]));
+    assert_eq!(affine.constant, -6.0);
+    assert_eq!(first.presolve.affine.iter().flatten().count(), 1);
+    assert_eq!(first.presolve.class_status, ClassStatus::Unassessed);
+    assert_eq!(first.artifacts, base.artifacts);
+    let free = first.rebind(&values(2.0, -4.0), &cancel).unwrap();
+    assert_eq!(free.presolve.key, first.presolve.key);
+    assert_eq!(free.presolve.affine, first.presolve.affine);
+    assert_eq!(free.artifacts, first.artifacts);
+    assert!(
+        first
+            .prepare_affine_rows(&values(5.0, -4.0), &cancel)
+            .is_err()
+    );
+    let rebound = first.rebind(&values(5.0, -4.0), &cancel).unwrap();
+    assert!(rebound.presolve.affine.iter().all(Option::is_none));
+    let refreshed = rebound
+        .prepare_affine_rows(&values(5.0, -4.0), &cancel)
+        .unwrap();
+    let affine = refreshed.presolve.affine.iter().flatten().next().unwrap();
+    assert_eq!(affine.entries, BTreeMap::from([(0, 5.0)]));
+    assert_eq!(affine.constant, -6.0);
+    assert_ne!(refreshed.presolve.key, first.presolve.key);
+    assert_eq!(refreshed.artifacts, first.artifacts);
+    assert_eq!(refreshed.presolve.class_status, ClassStatus::Unassessed);
+    assert_eq!(refreshed.presolve.row_sources, first.presolve.row_sources);
+    assert_eq!(refreshed.presolve.obligations, first.presolve.obligations);
+    cancel.store(true, Ordering::Release);
+    assert!(
+        matches!(base.prepare_affine_rows(&values(2.0, 3.0), &cancel),
+        Err(CompileError::Math(error)) if matches!(error.as_ref(), MathError::Cancelled))
     );
 }

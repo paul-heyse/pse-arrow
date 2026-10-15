@@ -32,29 +32,56 @@ fn study_owner(independent: bool, threads: usize, managed: bool) -> WorkflowRunt
 /// Public package.study owns primary activation; this guard adds fixture teardown.
 struct ManagedReceiver {
     store: Option<pse_operations::canonical::CanonicalStore>,
-    finished: bool,
+    finish_result: Option<Result<(), String>>,
+    drain_recorded: bool,
 }
+// Keep every failed receiver owner rather than dropping/replacing an earlier one.
 // One undrained receiver prevents later managed benchmark launches in this process.
-static UNDRAINED_RECEIVER: std::sync::Mutex<Option<pse_operations::canonical::CanonicalStore>> =
-    std::sync::Mutex::new(None);
+static UNDRAINED_RECEIVER: std::sync::Mutex<Vec<pse_operations::canonical::CanonicalStore>> =
+    std::sync::Mutex::new(Vec::new());
 impl ManagedReceiver {
     fn new(runtime: &Runtime) -> Self {
+        audit::managed_target(runtime);
         assert!(
             UNDRAINED_RECEIVER
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .is_none(),
+                .is_empty(),
             "previous managed receiver did not drain; isolated fixture preserved"
         );
         Self {
             store: Some(runtime.canonical().unwrap().store().clone()),
-            finished: false,
+            finish_result: None,
+            drain_recorded: false,
         }
     }
-    fn finish(&mut self) {
-        let store = self.store.as_ref().unwrap();
-        let selected = workflow::NativeExecutionSelection::from_store(store).unwrap();
-        let receiver = selected.receiver().unwrap();
+    /// Attempt this exact registered drain once; failure preserves the fixture owner.
+    fn finish(&mut self) -> Result<(), String> {
+        if let Some(result) = &self.finish_result {
+            return result.clone();
+        }
+        // Mark the attempt before fallible selection/launch. Drop must never
+        // retry it while unwinding or turn an original failure into a double panic.
+        self.finish_result = Some(Err("managed drain attempt did not return".into()));
+        let result = self.try_finish();
+        if result.is_err() {
+            self.preserve_store();
+        }
+        audit::receiver_drain_result(result.is_ok());
+        self.drain_recorded = true;
+        self.finish_result = Some(result.clone());
+        result
+    }
+    fn try_finish(&self) -> Result<(), String> {
+        let store = self
+            .store
+            .as_ref()
+            .ok_or("managed fixture owner is absent")?;
+        let selected = workflow::NativeExecutionSelection::from_store(store)
+            .map_err(|error| format!("managed drain selection: {error}"))?;
+        let receiver = selected
+            .receiver()
+            .ok_or("selected managed drain receiver is absent")?;
         let status = std::process::Command::new(&receiver.supervisor_executable)
             .current_dir(support::repository())
             .arg("-m")
@@ -62,30 +89,39 @@ impl ManagedReceiver {
             .arg("--stop-managed-primary")
             .arg(store.database())
             .arg("--state")
-            .arg(store.deployment_state())
-            .status();
-        self.finished = true;
-        if !status.is_ok_and(|status| status.success()) {
-            // Preserve the database owner when drain cannot be established.
-            // In particular, unwinding must not let fixture Drop delete a DB
-            // still held by the external native receiver.
-            let mut emergency = UNDRAINED_RECEIVER
+            .arg(selected.receiver_state())
+            .status()
+            .map_err(|error| format!("managed drain launch: {error}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "exact managed receiver did not drain ({status}); isolated fixture preserved"
+            ))
+        }
+    }
+    fn preserve_store(&mut self) {
+        if let Some(store) = self.store.take() {
+            UNDRAINED_RECEIVER
                 .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            assert!(
-                emergency.is_none(),
-                "undrained managed receiver already retained"
-            );
-            *emergency = self.store.take();
-            drop(emergency);
-            panic!("exact managed receiver did not drain; isolated fixture preserved");
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .push(store);
         }
     }
 }
 impl Drop for ManagedReceiver {
     fn drop(&mut self) {
-        if !self.finished {
-            self.finish();
+        if self.finish_result.is_none() {
+            // A destructor is a best-effort safety net, never a second source
+            // of panics. Explicit finish supplies the checked successful route.
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.finish()));
+        }
+        if self.finish_result.as_ref().is_some_and(Result::is_err) {
+            if !self.drain_recorded {
+                audit::receiver_drain_result(false);
+                self.drain_recorded = true;
+            }
+            self.preserve_store();
         }
     }
 }
@@ -175,7 +211,7 @@ async fn definition(
             &sources.physical,
             &points,
             &workflow::StudyOutputDemand::Full {},
-            &CancelSource::new(),
+            &audit::cancel_source(),
         )
         .await
         .unwrap();
@@ -400,10 +436,18 @@ pub(super) fn measure(
     group.bench_function(name, |b| b.iter_custom(|iterations| {
         let mut timed = Duration::ZERO;
         for _ in 0..iterations {
-            let (elapsed, record) = executor.block_on(async {
+            let (elapsed, record) = executor.block_on(Box::pin(async {
                 let mut numerical=observations::Observations::default();
                 let started=Instant::now();
                 let owner=study_owner(independent, threads as usize, managed);
+                let _binding=audit::bind_owner(&owner);
+                let pool=owner.runtime.pool();
+                let runtime=if durable_mode || managed { runtime(&owner) } else {
+                    runtime(&owner).with_durability(workflow::DurabilitySelection::Ephemeral).unwrap()
+                };
+                let mut receiver=managed.then(|| ManagedReceiver::new(&runtime));
+                let result=audit::caught(Box::pin(async {
+                let setup_stage=audit::stage("study_source_and_definition_admission");
                 let budget=owner.runtime.budget();
                 assert_eq!(budget.threads.pool_threads.get(), observer_threads as usize);
                 if independent && !managed {
@@ -415,10 +459,7 @@ pub(super) fn measure(
                         "reference workload requires its declared effective CPU permits; no reduced profile fallback");
                 }
                 let runtime_profile=json!({"threads":budget.threads.pool_threads.get(),"target_partitions":budget.threads.target_partitions.get(),"jobs":budget.math.jobs,"pool_limit_bytes":budget.memory_limit_bytes.get(),"worker_bytes":budget.math.worker_bytes,"cache":format!("{:?}",budget.cache),"math_policy":format!("{:?}",budget.math)});
-                let runtime=if durable_mode || managed { runtime(&owner) } else {
-                    runtime(&owner).with_durability(workflow::DurabilitySelection::Ephemeral).unwrap()
-                };
-                let mut receiver=managed.then(|| ManagedReceiver::new(&runtime));
+
                 let receiving_profile=if managed {
                     let selected=workflow::NativeExecutionSelection::from_store(runtime.canonical().unwrap().store()).unwrap();
                     let allocation=selected.allocation();
@@ -431,7 +472,7 @@ pub(super) fn measure(
                     assert!(budget.memory_limit_bytes.get() <= profile.observer_memory_bytes);
                     json!({"pool_limit_bytes":profile.pool_memory_bytes,"worker_bytes":profile.worker_bytes,"cpu_threads":profile.cpu_threads,"case_lanes":profile.case_lanes,"jobs":profile.math_jobs,"compiler_cores":profile.compiler_cores,"process_cap_bytes":allocation.native_worker_memory_bytes,"observer_cap_bytes":profile.observer_memory_bytes})
                 } else { Value::Null };
-                let cancel=CancelSource::new();
+                let cancel=audit::cancel_source();
                 let database_setup=started.elapsed();
                 let sources=support::sources(support::SOURCE);
                 phases.reset();
@@ -443,6 +484,8 @@ pub(super) fn measure(
                 assert!(definition.points.iter().all(|point| point.operation.preparation.compiler.optimization.cores == 1),
                     "reference comparison retains one construction core per occurrence");
                 let admission=started.elapsed();
+                drop(setup_stage);
+                let _execution_stage=audit::stage("study_dispatch_execution_and_results");
                 let admission_counts=support::counts(before,owner.runtime.math().preparations());
                 let admission_phases=phases.report(occurrences as u64);
                 let admission_constructions=phases.constructions();
@@ -489,7 +532,15 @@ pub(super) fn measure(
                 } else if managed {
                     // This is the ordinary public adapter: its production ensure-primary
                     // admission and complete retained study are both inside this clock.
-                    let report=tokio::time::timeout(Duration::from_secs(120), package.study(&definition,occurrences,&cancel)).await.unwrap().unwrap();
+                    // Keep one large public study future on the heap. Separate
+                    // audit/ordinary awaits must not duplicate it in this harness frame.
+                    let study=Box::pin(package.study(&definition,occurrences,&cancel));
+                    let report=if audit::enabled() {
+                        study.await.unwrap()
+                    } else {
+                        tokio::time::timeout(Duration::from_secs(120),study).await.unwrap().unwrap()
+                    };
+                    audit::checkpoint();
                     let elapsed=started.elapsed();
                     check(&report.outcomes,occurrences,true);
                     assert_eq!(report.results.len(),occurrences);
@@ -503,7 +554,7 @@ pub(super) fn measure(
                     let metrics=persisted(&runtime,&owner,&points,&mut numerical,&values,true).await;
                     (elapsed,Duration::ZERO,Value::Null,Value::Null,read.elapsed().as_secs_f64(),report.outcomes,metrics)
                 } else {
-                    let report=package.study(&definition,occurrences,&cancel).await.unwrap();
+                    let report=Box::pin(package.study(&definition,occurrences,&cancel)).await.unwrap();
                     let elapsed=started.elapsed();
                     check(&report.outcomes, occurrences, independent);
                     let read=Instant::now();
@@ -515,25 +566,39 @@ pub(super) fn measure(
                 let execution_phases=phases.report(occurrences as u64);
                 let peak=owner.runtime.observation_peak_bytes();
                 let rss=owner.runtime.report().unwrap().process_peak_rss_bytes;
-                let pool=owner.runtime.pool();
                 let retained=pool.reserved();
                 let record=json!({"runtime_profile":runtime_profile,"receiving_profile":receiving_profile,"seconds":{"database_setup":database_setup.as_secs_f64(),"source_and_definition_admission":admission.as_secs_f64(),"execution_total":elapsed.as_secs_f64(),"submission":submission.as_secs_f64(),"result_read":result_read_seconds},"admission_preparations":admission_counts,"submission_preparations":submission_counts,"worker_preparations":worker_counts,"execution_preparations":execution_counts,"admission_phases":admission_phases,"execution_phases":execution_phases,"worker_passes":worker_passes,"outcomes":outcomes,"point_metrics":metrics,"numerical_observations":numerical.json(),"definition":definition,"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,"retained_runtime_bytes":retained});
-                let drain=Instant::now();
-                if let Some(receiver)=&mut receiver { receiver.finish(); }
-                let receiver_drain_seconds=drain.elapsed().as_secs_f64();
-                drop(receiver);
-                drop(package); drop(physical); drop(runtime);
-                owner.cleanup_fixtures().await.unwrap();
-                drop(owner);
-                tokio::task::yield_now().await;
+                drop(package); drop(physical);
                 let mut record=record;
-                record["seconds"]["receiver_drain"]=receiver_drain_seconds.into();
                 record["admission_constructions"]=admission_constructions;
                 record["execution_constructions"]=phases.constructions();
+                (elapsed,record)
+                })).await;
+                let _drain_stage=audit::stage("managed_receiver_drain_and_fixture_teardown");
+                let drain=Instant::now();
+                if let Some(receiver)=&mut receiver {
+                    if let Err(error)=receiver.finish() {
+                        // Preserve the original scientific failure when one already
+                        // exists; the audit separately records failed receiver drain.
+                        let _=std::io::Write::write_all(&mut std::io::stderr(),format!("{error}\n").as_bytes());
+                        if let Err(panic)=result { std::panic::resume_unwind(panic); }
+                        panic!("{error}");
+                    }
+                }
+                let receiver_drain_seconds=drain.elapsed().as_secs_f64();
+                drop(receiver);
+                drop(runtime);
+                let cleanup=owner.cleanup_fixtures().await;
+                audit::cleanup_result(cleanup.is_ok());
+                cleanup.unwrap();
+                drop(owner);
+                tokio::task::yield_now().await;
+                let (elapsed,mut record)=match result { Ok(result)=>result, Err(panic)=>std::panic::resume_unwind(panic) };
+                record["seconds"]["receiver_drain"]=receiver_drain_seconds.into();
                 record["after_runtime_teardown_bytes"]=pool.reserved().into();
                 assert_eq!(pool.reserved(), 0, "study allocations survive all runtime owners");
                 (elapsed,record)
-            });
+            }));
             timed+=elapsed; records.push(record);
         }
         timed

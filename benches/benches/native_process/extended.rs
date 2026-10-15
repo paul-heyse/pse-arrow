@@ -80,7 +80,7 @@ async fn cone(owner: &WorkflowRuntime, observations: &mut observations::Observat
         .prepare_conic(request, &physical, profile(Backend::Clarabel, true))
         .await
         .unwrap();
-    let result = prepared.start().unwrap().finish().await.unwrap();
+    let result = audit::finish(prepared.start().unwrap()).await.unwrap();
     let pse_runtime::math::solves::Outcome::Native(report) = &result.outcome else {
         panic!("missing cone result")
     };
@@ -114,7 +114,7 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
         .modeling_package(rows, physical)
         .await
         .unwrap();
-    let cancel = CancelSource::new();
+    let cancel = audit::cancel_source();
     let analysis = package
         .declared_execution(
             root,
@@ -200,7 +200,7 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
         .prepare_recycle(&analysis, selection, request, &cancel)
         .await
         .unwrap();
-    let result = prepared.start().unwrap().finish().await.unwrap();
+    let result = audit::finish(prepared.start().unwrap()).await.unwrap();
     observations.strategy(&result.strategy, result.run_id, 0, owner.runtime.math());
     observations.native(&result.report);
     near(
@@ -264,11 +264,11 @@ async fn sparse_fit(
             },
             compiler(),
             seed_limits(),
-            &CancelSource::new(),
+            &audit::cancel_source(),
         )
         .await
         .unwrap();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
     observations.run(&result, owner.runtime.math());
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing sparse fit")
@@ -301,7 +301,7 @@ async fn run(
             let quadratic = operation == "qp";
             let mixed = operation == "mixed-scale";
             let (package, root) = algebraic(owner, quadratic, mixed).await;
-            let cancel = CancelSource::new();
+            let cancel = audit::cancel_source();
             let mut selected = profile(
                 if quadratic {
                     Backend::Highs
@@ -324,7 +324,12 @@ async fn run(
                 .unwrap()
                 .analysis;
             let count = if operation == "value-sweep" { 1000 } else { 1 };
+            let _sweep = audit::stage("value_sweep");
             for point in 0..count {
+                audit::checkpoint();
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("audit.sweep_points_started", "count", 1);
+                }
                 let expected = [
                     if mixed {
                         1e-6
@@ -348,9 +353,12 @@ async fn run(
                         .id
                 };
                 let coordinates = [symbol("x"), symbol("y")];
-                let result = prepared.start().unwrap().wait().await.unwrap();
+                let result = audit::wait(prepared.start().unwrap()).await.unwrap();
                 authored_success(&result);
                 observations.run(&result, owner.runtime.math());
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("audit.sweep_points_joined", "count", 1);
+                }
                 for (id, expected) in coordinates.into_iter().zip(expected) {
                     near(variable(&result, id), expected, expected.abs() * 1e-7);
                 }
@@ -362,7 +370,7 @@ async fn run(
             let root = DeclarationId::from_id(
                 SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap(),
             );
-            let cancel = CancelSource::new();
+            let cancel = audit::cancel_source();
             let prepared = package
                 .declared_simulation(root, compiler(), None, seed_limits(), &cancel)
                 .await
@@ -421,7 +429,7 @@ async fn run(
                         compiler(),
                         None,
                         seed_limits(),
-                        &CancelSource::new(),
+                        &audit::cancel_source(),
                     )
                     .await
                     .unwrap();
@@ -446,11 +454,11 @@ async fn run(
                     selected,
                     compiler(),
                     seed_limits(),
-                    &CancelSource::new(),
+                    &audit::cancel_source(),
                 )
                 .await
                 .unwrap();
-            let result = prepared.start().unwrap().wait().await.unwrap();
+            let result = audit::wait(prepared.start().unwrap()).await.unwrap();
             observations.run(&result, owner.runtime.math());
             let RunReport::Fit(report) = result.report().unwrap() else {
                 panic!("missing fit")
@@ -493,7 +501,15 @@ pub(super) fn measure(
         b.iter(|| {
             let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(1).unwrap()).unwrap();
             let before = owner.runtime.math().preparations();
-            executor.block_on(run(&owner, operation, size, &mut observations));
+            audit::with_owner_sync(&owner, &executor, || {
+                let _stage = audit::stage("extended_execution_and_assessment");
+                executor.block_on(audit::scope(run(
+                    &owner,
+                    operation,
+                    size,
+                    &mut observations,
+                )));
+            });
             observations.preparations(before, owner.runtime.math().preparations());
             peak = peak.max(owner.runtime.observation_peak_bytes());
             rss = rss.max(
@@ -506,7 +522,10 @@ pub(super) fn measure(
             );
             let pool = owner.runtime.pool();
             retained = retained.max(pool.reserved());
-            executor.block_on(owner.cleanup_fixtures()).unwrap();
+            let _teardown = audit::stage("fixture_teardown");
+            let cleanup = executor.block_on(owner.cleanup_fixtures());
+            audit::cleanup_result(cleanup.is_ok());
+            cleanup.unwrap();
             drop(owner);
             executor.block_on(async {
                 tokio::task::yield_now().await;

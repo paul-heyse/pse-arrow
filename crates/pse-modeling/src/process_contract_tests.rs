@@ -851,6 +851,7 @@ fn process_contract_observation_assesses_evaluated_original_delta_terms() {
             .collect();
         let at = package.entry("p.Root").unwrap();
         let mut evaluator = specialize::value::Evaluator {
+            lexical_bases: None,
             selections: None,
             package: &package,
             physical: &context,
@@ -964,6 +965,7 @@ fn process_contract_fixed_parameter_coordinates_keep_identity_while_original_ene
             .collect();
         let at = package.entry("p.Root").unwrap();
         let mut evaluator = specialize::value::Evaluator {
+            lexical_bases: None,
             selections: None,
             package: &package,
             physical: &context,

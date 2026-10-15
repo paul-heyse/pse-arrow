@@ -40,6 +40,7 @@ fn optimum() -> f64 {
     original_objective(&u)
 }
 pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations::Observations) {
+    let preparation_stage = audit::stage("source_and_preparation");
     let physical = physical(owner).await;
     let rows = pse_authoring::language::parse(
         "package tracking { def Tracking { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 0.5; var x[i in t]: Scalar; var y[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == (u - x[i])/1{s}; eq square[i in t]: y[i] == x[i]*x[i]; eq initial: x[0{s}] == 0; annotation start x(0); annotation start y(0); let cost: Scalar = integral(i in t | (x[i]-1)*(x[i]-1)/1{s}); annotation check cost(cost >= 0); let miss[i in t]: Scalar = (x[i]-1.5)*(x[i]-1.5); annotation report miss(\"terminal miss\"); } }",
@@ -83,7 +84,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
             compiler(),
             integration,
             pse_kernels::DerivativeOrder::First,
-            &CancelSource::new(),
+            &audit::cancel_source(),
         )
         .await
         .unwrap();
@@ -174,7 +175,13 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
         &objective_numerics.policy,
     )
     .unwrap();
-    let result = Arc::new(problem).start().unwrap().wait().await.unwrap();
+    drop(preparation_stage);
+    let execution_stage = audit::stage("numerical_execution");
+    let result = audit::wait(Arc::new(problem).start().unwrap())
+        .await
+        .unwrap();
+    drop(execution_stage);
+    let _assessment = audit::stage("original_scientific_assessment");
     assert!(result.usable(), "{:?}", result.assessments());
     let RunReport::Shooting(report) = result.report().unwrap() else {
         panic!("shooting report expected")

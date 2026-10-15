@@ -1441,14 +1441,53 @@ async fn compact_horizon_bounds_roles_and_keeps_actual_background_permission() {
         None,
         original,
     );
-    execution.run().await.unwrap();
+    let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+    let observed = hub.start("horizon role control");
+    pse_diagnostics::observation::scope(Some(observed.context()), execution.run())
+        .await
+        .unwrap();
+    let snapshot = observed
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    for (name, expected) in [
+        ("horizon.prediction.requests", STEPS),
+        ("horizon.background.requests", STEPS - 1),
+    ] {
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap()
+                .cumulative,
+            pse_diagnostics::observation::Value::Count(expected as u64)
+        );
+    }
+    assert!(
+        hub.list(0, usize::MAX)
+            .operations
+            .iter()
+            .any(|operation| operation.kind == "horizon.background")
+    );
     let (roles, requests, reports, measurements, inputs) = execution.retained_counts();
     assert!(roles <= 4, "{roles}");
     assert_eq!((requests, reports, measurements, inputs), (0, 0, 1, 0));
     assert_eq!(execution.retained_sample_count(), 1);
     let sample = execution.last_sample().unwrap();
     assert_eq!(sample.time, PERIOD * (STEPS - 1) as f64);
-    assert_eq!(sample.decision, HorizonDecision::Predicted);
+    let latest_prediction = hub
+        .list(0, usize::MAX)
+        .operations
+        .into_iter()
+        .filter(|operation| operation.kind == "horizon.prediction")
+        .max_by_key(|operation| operation.id.sequence)
+        .and_then(|operation| hub.reader(operation.id))
+        .map(|reader| reader.snapshot(std::time::Duration::from_secs(60)));
+    assert_eq!(
+        sample.decision,
+        HorizonDecision::Predicted,
+        "final actual sample: {sample:?}; prediction: {latest_prediction:?}"
+    );
     let background = execution
         .retained_result(sample.controller.unwrap())
         .unwrap();

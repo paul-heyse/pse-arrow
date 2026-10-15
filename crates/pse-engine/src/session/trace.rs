@@ -7,9 +7,12 @@
 use super::{EngineSession, PlanObservation};
 use crate::EngineError;
 use pse_columnar::MemoryPool;
-use std::sync::Mutex;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 
-pub(super) struct ExecutionTrace(Mutex<State>);
+pub(super) struct ExecutionTrace(Mutex<State>, AtomicU64);
 impl std::fmt::Debug for ExecutionTrace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ExecutionTrace").finish_non_exhaustive()
@@ -21,17 +24,24 @@ struct State {
 }
 impl ExecutionTrace {
     pub(super) fn new(_pool: &std::sync::Arc<dyn MemoryPool>) -> Self {
-        Self(Mutex::new(State {
-            observations: Vec::new(),
-            reservation: pse_columnar::MemoryConsumer::new("session:execution-observations")
-                .register(&super::observation::diagnostic_pool()),
-        }))
+        Self(
+            Mutex::new(State {
+                observations: Vec::new(),
+                reservation: pse_columnar::MemoryConsumer::new("session:execution-observations")
+                    .register(&super::observation::diagnostic_pool()),
+            }),
+            AtomicU64::new(0),
+        )
     }
     pub(super) fn record(&self, observation: PlanObservation) -> Result<(), EngineError> {
         if !observation.is_captured() {
             return Ok(());
         }
-        let Ok(mut state) = self.0.lock() else {
+        let Ok(mut state) = self.0.try_lock() else {
+            self.1.fetch_add(1, Ordering::Relaxed);
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("query.capture.dropped", "observations", 1);
+            }
             return Ok(());
         };
         if state.observations.len() >= 1024
@@ -40,6 +50,10 @@ impl ExecutionTrace {
                 .try_grow(2 * size_of::<PlanObservation>())
                 .is_err()
         {
+            self.1.fetch_add(1, Ordering::Relaxed);
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("query.capture.dropped", "observations", 1);
+            }
             return Ok(());
         }
         state.observations.reserve_exact(1);
@@ -48,6 +62,11 @@ impl ExecutionTrace {
     }
 }
 impl EngineSession {
+    /// Captured observations refused by the bounded diagnostic collector.
+    pub fn dropped_execution_observations(&self) -> u64 {
+        self.trace.1.load(Ordering::Relaxed)
+    }
+
     /// Observations from actual native executions under this attempt and its forks.
     /// # Errors
     /// The observation collector was interrupted by an internal panic.
@@ -63,8 +82,7 @@ impl EngineSession {
     /// Stable/volatile or ambient-variable reads require a fresh preparation.
     /// A false value alone does not establish dependency equality or reuse.
     pub fn requires_fresh_execution(&self) -> bool {
-        self.requires_fresh
-            .load(std::sync::atomic::Ordering::Acquire)
+        self.requires_fresh.load(Ordering::Acquire)
     }
 }
 fn invalid() -> EngineError {

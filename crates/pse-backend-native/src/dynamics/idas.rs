@@ -33,6 +33,26 @@ type Jacobian = pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64
 /// largest relative asymmetry before symmetrization.
 type SecondOrder = (faer::Mat<f64>, f64);
 
+fn format_callback(function: Function) -> crate::callback::CallbackKey {
+    use crate::callback::CallbackKey;
+    match function {
+        Function::Rhs => CallbackKey::Named("idas.residual"),
+        Function::Initial => CallbackKey::Named("idas.initial"),
+        Function::Output => CallbackKey::Named("idas.output"),
+        Function::QuadratureFlux => CallbackKey::Named("idas.quadrature"),
+        Function::Inventory => CallbackKey::Named("idas.inventory"),
+        Function::Roots => CallbackKey::Named("idas.roots"),
+        Function::Transfer(index) => CallbackKey::Block {
+            index,
+            demand: "idas.transfer",
+        },
+        Function::Reset(index) => CallbackKey::Block {
+            index,
+            demand: "idas.reset",
+        },
+    }
+}
+
 struct Context<'a> {
     oracle: &'a mut dyn Oracle,
     contract: Contract,
@@ -84,6 +104,12 @@ impl Context<'_> {
         x: &[f64],
         derivatives: bool,
     ) -> Option<Evaluation> {
+        crate::observation::integer(
+            "idas.callback.mode",
+            "ordinal",
+            i64::try_from(self.mode).unwrap_or(i64::MAX),
+        );
+        crate::observation::boolean("idas.callback.derivatives_requested", derivatives);
         let Self {
             oracle,
             contract: c,
@@ -92,7 +118,7 @@ impl Context<'_> {
             callback,
             ..
         } = self;
-        let value = callback.evaluate("idas.evaluation", || {
+        let value = callback.evaluate(format_callback(f), || {
             let e = oracle.evaluate(*mode, f, t, x, parameters, derivatives)?;
             let rows = match f {
                 Function::Output => c.outputs.len(),
@@ -1254,6 +1280,8 @@ type Adjoints = (Vec<Vec<f64>>, Vec<Vec<f64>>);
 /// The forward state, its rates and its state sensitivities at a restart time.
 type Forward = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>);
 struct Session<'a> {
+    observation_generation: u64,
+    observation_counters: std::cell::RefCell<BTreeSet<&'static str>>,
     ctx: ffi::SUNContext,
     mem: *mut c_void,
     matrix: ffi::SUNMatrix,
@@ -1405,6 +1433,8 @@ impl<'a> Session<'a> {
         let newton_values = vec![0.0; rows.len()];
         let newton_values_b = vec![0.0; rows_b.len()];
         let mut s = Self {
+            observation_generation: crate::observation::generation(),
+            observation_counters: std::cell::RefCell::default(),
             ctx: std::ptr::null_mut(),
             mem: std::ptr::null_mut(),
             matrix: std::ptr::null_mut(),
@@ -1910,7 +1940,10 @@ impl<'a> Session<'a> {
         }
         self.callback.initial_ic_residual = None;
         // SAFETY: live IDAS memory and contained callbacks on this session's thread.
-        Ok(unsafe { ffi::IDACalcIC(self.mem, initialization_option(mode), toward) })
+        Ok(crate::observation::scoped(
+            "idas.consistent_initialization",
+            || unsafe { ffi::IDACalcIC(self.mem, initialization_option(mode), toward) },
+        ))
     }
     /// Restart the same native memory at a scheduled change or an event reset: the
     /// differential states (and their sensitivities) carry over, `IDACalcIC` recomputes
@@ -1923,6 +1956,7 @@ impl<'a> Session<'a> {
         mode_changed: bool,
     ) -> Result<(), ProblemError> {
         if self.forward {
+            crate::observation::count("idas.forward_sensitivity.reinitialize", 1);
             // The carried sensitivities and their rates (the rates are only guesses
             // for `IDACalcIC`).
             let mut time = t;
@@ -1953,6 +1987,9 @@ impl<'a> Session<'a> {
             ffi::IDAReInit(self.mem, t, self.y, self.dy),
             "reinitialization",
         )?;
+        self.observation_generation = crate::observation::generation();
+        self.observation_counters.borrow_mut().clear();
+        crate::observation::count("idas.segment.reinitializations", 1);
         // The adjoint route keeps one segment's checkpoints at a time.
         if self.adjoint.is_some() {
             native!(ffi::IDAAdjReInit(self.mem), "adjoint reinitialization")?;
@@ -2141,13 +2178,13 @@ impl<'a> Session<'a> {
             // SAFETY: the session's live IDAS memory and vectors on its owning thread;
             // `time` is caller storage, and the callbacks reach the context only through
             // their user data.
-            return Ok(unsafe {
+            return Ok(crate::observation::scoped("idas.forward", || unsafe {
                 ffi::IDASolve(self.mem, target, time, self.y, self.dy, ffi::IDA_NORMAL)
-            });
+            }));
         };
         let mut stored = 0;
         // SAFETY: as above; `stored` is a local out-parameter.
-        let flag = unsafe {
+        let flag = crate::observation::scoped("idas.forward_checkpointed", || unsafe {
             ffi::IDASolveF(
                 self.mem,
                 target,
@@ -2157,7 +2194,7 @@ impl<'a> Session<'a> {
                 ffi::IDA_NORMAL,
                 &raw mut stored,
             )
-        };
+        });
         // IDAS counts the checkpoints it adds after the segment's first.
         let held = usize::try_from(stored).unwrap_or(0) + 1;
         b.checkpoints = b.checkpoints.max(held);
@@ -2183,6 +2220,15 @@ impl<'a> Session<'a> {
                 // SAFETY: a counter query of the session's live IDAS memory into a local.
                 if unsafe { ffi::$get(self.mem, &raw mut v) } == 0 {
                     value[$name] = serde_json::json!(long_counter(v));
+                    if let (Some(context), Ok(count)) = (pse_diagnostics::observation::current(), u64::try_from(v)) {
+                        let name = concat!("idas.work.", $name);
+                        if self.observation_counters.borrow_mut().insert($name) {
+                            // This session owns fresh/reinitialized native memory; zero
+                            // is its source-known start, including work preceding the first return.
+                            context.count_value(name, "count", 0, self.observation_generation);
+                        }
+                        context.count_value(name, "count", count, self.observation_generation);
+                    }
                 }
             )*};
         }
@@ -2197,7 +2243,24 @@ impl<'a> Session<'a> {
             IDAGetNumLinIters => "linear_iterations",
             IDAGetNumPrecEvals => "preconditioner_evaluations",
             IDAGetNumJtimesEvals => "jacobian_products",
+            IDAGetNumLinSolvSetups => "linear_setups",
+            IDAGetNumJacEvals => "jacobian_evaluations",
+            IDAGetNumPrecSolves => "preconditioner_solves",
+            IDAGetNumLinConvFails => "linear_convergence_failures",
+            IDAGetNumLinResEvals => "linear_residual_evaluations",
         );
+        if self.forward && !self.sens.is_empty() {
+            count!(
+                IDAGetSensNumResEvals => "sensitivity_residual_evaluations",
+                IDAGetSensNumErrTestFails => "sensitivity_error_test_failures",
+                IDAGetSensNumLinSolvSetups => "sensitivity_linear_setups",
+                IDAGetSensNumNonlinSolvIters => "sensitivity_nonlinear_iterations",
+                IDAGetSensNumNonlinSolvConvFails => "sensitivity_nonlinear_failures",
+            );
+        }
+        if !self.callback.contract.quadratures.is_empty() {
+            count!(IDAGetQuadNumRhsEvals => "quadrature_rhs_evaluations", IDAGetQuadNumErrTestFails => "quadrature_error_test_failures");
+        }
         // IDAGetLastStep may expose IDACalcIC's artificial step before integration.
         // Only a positive actual step count establishes last accepted-step meaning.
         let mut steps: c_long = 0;
@@ -2229,6 +2292,7 @@ impl<'a> Session<'a> {
         if let Ok(observation) = serde_json::to_value(observation) {
             value["native_step"] = observation;
         }
+        crate::observation::structured("idas.segment", &value);
         value
     }
     /// Integrate one segment toward `stop`, sampling every requested time before it.
@@ -2989,7 +3053,9 @@ impl Session<'_> {
         let mem = self.mem;
         // SAFETY: the session's live IDAS memory on its owning thread; the backward
         // callbacks reach the context only through their user data.
-        let flag = unsafe { ffi::IDASolveB(mem, t, ffi::IDA_NORMAL) };
+        let flag = crate::observation::scoped("idas.backward", || unsafe {
+            ffi::IDASolveB(mem, t, ffi::IDA_NORMAL)
+        });
         if flag < 0 {
             return Err(self.callback.native_failure(flag, "adjoint step"));
         }
@@ -3226,8 +3292,25 @@ unsafe fn accumulate(mem: *mut c_void, problem: &mut Problem) -> Result<(), Prob
         ffi::IDAGetNumErrTestFails(backward, &raw mut values[3]),
         "backward error-test failures",
     )?;
-    for (total, value) in problem.counters.iter_mut().zip(values) {
+    for ((name, total), value) in [
+        "steps",
+        "nonlinear_iterations",
+        "nonlinear_convergence_failures",
+        "error_test_failures",
+    ]
+    .into_iter()
+    .zip(problem.counters.iter_mut())
+    .zip(values)
+    {
         *total += long_counter(value);
+        crate::observation::integer(
+            &format!(
+                "idas.backward.{}.{}.completed_segments",
+                problem.which, name
+            ),
+            "count",
+            *total,
+        );
     }
     Ok(())
 }
@@ -3938,6 +4021,13 @@ mod initialization_tests {
     }
     #[test]
     fn public_ic_preserves_original_roles_and_has_no_physical_trajectory() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy {
+            max_metrics: 64,
+            ..Policy::default()
+        });
+        let operation = hub.start("idas-real-ic-only");
+        let _entered = operation.context().enter();
         let mut oracle = IcOracle::new();
         let report = initialize_consistent(&mut oracle, &[], &request(), execution()).unwrap();
         assert_eq!(report.termination.name, "IDA_SUCCESS");
@@ -3957,6 +4047,22 @@ mod initialization_tests {
         assert_eq!(report.evidence.work.factorizations, None);
         assert_eq!(report.evidence.work.proof_steps, None);
         assert!(report.backtracks.is_some());
+        let observed = operation.reader().snapshot(Duration::from_secs(60));
+        assert_eq!(
+            observed
+                .metrics
+                .iter()
+                .find(|m| m.name == "idas.consistent_initialization.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert!(
+            !observed
+                .metrics
+                .iter()
+                .any(|m| m.name == "idas.forward.calls")
+        );
         let mut all_states = request();
         all_states.mode = IdasInitialization::SteadyStates;
         let report =

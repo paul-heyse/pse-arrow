@@ -331,7 +331,9 @@ impl FileSession {
             let service = service.canonicalize().map_err(configuration)?;
             let receiver = state.canonicalize().map_err(configuration)?;
             if !receiver.starts_with(service.join(".receivers")) {
-                return Err(configuration("payload receiver is not owned by its service"));
+                return Err(configuration(
+                    "payload receiver is not owned by its service",
+                ));
             }
             let config = std::fs::read(service.join("config.json")).map_err(configuration)?;
             let owner: Placement = serde_json::from_slice(&config).map_err(configuration)?;
@@ -953,8 +955,10 @@ mod tests {
     #[test]
     fn receiver_payloads_are_readable_from_the_owning_service_state() {
         use std::os::unix::fs::MetadataExt;
-        let state = std::env::temp_dir()
-            .join(format!("pse-receiver-payload-control-{}", uuid::Uuid::new_v4()));
+        let state = std::env::temp_dir().join(format!(
+            "pse-receiver-payload-control-{}",
+            uuid::Uuid::new_v4()
+        ));
         let receiver = state.join(".receivers/generation/selected");
         std::fs::create_dir_all(&receiver).unwrap();
         let mut config = serde_json::json!({

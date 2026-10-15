@@ -497,10 +497,17 @@ pub(super) fn return_scratch(
 struct Request {
     /// Admitted native threads of this step, which size adapter scopes.
     threads: usize,
-    /// Adapter whose scope the step's native state must live in.
+    /// Required adapter scopes. Empty non-solve work borrows an entered compatible scope.
     backends: Vec<Backend>,
+    observation: Option<pse_diagnostics::observation::ObservationContext>,
     scope_owner: Option<Arc<pse_columnar::AllocationLease>>,
     work: Work,
+}
+struct RequestObservation {
+    context: Option<pse_diagnostics::observation::ObservationContext>,
+    operation: Arc<std::sync::Mutex<Option<pse_diagnostics::observation::OperationGuard>>>,
+    dispatch: tracing::Dispatch,
+    span: tracing::Span,
 }
 /// Adapter scopes currently entered on the session thread.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -510,7 +517,12 @@ struct Scope {
 }
 impl Scope {
     fn admits(&self, request: &Request) -> bool {
-        request.threads == self.threads && request.backends == self.backends
+        self.admits_requirements(request.threads, &request.backends)
+    }
+    fn admits_requirements(&self, threads: usize, backends: &[Backend]) -> bool {
+        // No requested adapter is not a teardown request: plant and proposal work
+        // uses the same retained session. Explicit profile changes remain exact.
+        threads == self.threads && (backends.is_empty() || backends == self.backends)
     }
     fn extended(&self, request: &Request) -> Self {
         // Scope affinity is exact. A previous profile's pools must not accumulate
@@ -640,10 +652,32 @@ fn serve(
                         },
                     };
                     if !entered.admits(&request) {
+                        if let Some(context) = &request.observation {
+                            context.count("native.session.scope_replacements", "count", 1);
+                            context.text(
+                                "native.session.previous_backends",
+                                &format!("{:?}", entered.backends),
+                            );
+                            context.text(
+                                "native.session.required_backends",
+                                &format!("{:?}", request.backends),
+                            );
+                            context.boolean("native.session.scope_borrowed", false);
+                        }
                         discarded = retained.scope_history();
                         let next = entered.extended(&request);
                         pending = Some(request);
                         return Ok(Some(next));
+                    }
+                    if let Some(context) = &request.observation {
+                        context.boolean(
+                            "native.session.scope_borrowed",
+                            request.backends.is_empty() && !entered.backends.is_empty(),
+                        );
+                        context.text(
+                            "native.session.entered_backends",
+                            &format!("{:?}", entered.backends),
+                        );
                     }
                     // A ready next request must not indefinitely retain the previous
                     // step's idle reader ahead of an already waiting Uno owner.
@@ -699,10 +733,16 @@ fn serve(
     }
 }
 /// Stops an admitted step when its caller stops waiting for it.
-struct Stop(Option<Arc<AtomicBool>>);
+struct Stop(
+    Option<Arc<AtomicBool>>,
+    Option<pse_diagnostics::observation::ObservationContext>,
+);
 impl Drop for Stop {
     fn drop(&mut self) {
         if let Some(flag) = &self.0 {
+            if let Some(context) = self.1.as_ref().filter(|context| context.is_active()) {
+                context.boolean("native.session.stop_requested", true);
+            }
             flag.store(true, Ordering::Release);
         }
     }
@@ -1089,7 +1129,66 @@ impl NativeSession {
         .await
     }
     /// A prepared task supplies the cancellation owner and clock consumed by every rung.
-    async fn run_task_context<T: Send + 'static>(
+    fn run_task_context<'a, T: Send + 'static>(
+        &'a self,
+        cores: usize,
+        backends: Vec<Backend>,
+        deadline: Option<std::time::Instant>,
+        enclosing: Option<pse_kernels::ExecutionScope>,
+        cancel: &'a crate::CancelSource,
+        work: impl FnOnce(
+            &mut Retained,
+            &Arc<AtomicBool>,
+            &Arc<WorkerBudget>,
+            &mut OperationContext,
+        ) -> Result<T, MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> impl Future<Output = Result<T, MathRuntimeError>> + 'a {
+        let operation = pse_diagnostics::observation::current().map(|parent| {
+            parent.child(
+                "native.session.request",
+                pse_diagnostics::observation::Relationship::Nested,
+            )
+        });
+        let observation = operation.as_ref().map(|operation| operation.context());
+        if let Some(context) = &observation {
+            context.boolean("native.session.stop_requested", false);
+        }
+        let operation = Arc::new(std::sync::Mutex::new(operation));
+        let admission = operation.clone();
+        let observed = RequestObservation {
+            context: observation,
+            operation,
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
+            span: tracing::Span::current(),
+        };
+        let future = self
+            .run_task_context_inner(cores, backends, deadline, enclosing, cancel, work, observed);
+        futures_util::FutureExt::inspect(future, move |result| {
+            if let Err(error) = result {
+                let operation = admission
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
+                if let Some(operation) = operation {
+                    operation
+                        .context()
+                        .text("native.session.admission.failure", &error.to_string());
+                    operation.finish(if matches!(error, MathRuntimeError::Cancelled) {
+                        pse_diagnostics::observation::Outcome::Cancelled
+                    } else {
+                        pse_diagnostics::observation::Outcome::Failed
+                    });
+                }
+            }
+        })
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "request execution receives its scientific scope and independent diagnostic dispatch"
+    )]
+    async fn run_task_context_inner<T: Send + 'static>(
         &self,
         cores: usize,
         backends: Vec<Backend>,
@@ -1104,7 +1203,17 @@ impl NativeSession {
         ) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
+        observed: RequestObservation,
     ) -> Result<T, MathRuntimeError> {
+        let RequestObservation {
+            context: observation,
+            operation,
+            dispatch: trace_dispatch,
+            span: trace_span,
+        } = observed;
+        let waiting = observation
+            .as_ref()
+            .map(|context| context.phase("native.session.admission.wait"));
         if cores == 0 || cores > self.service.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
@@ -1153,7 +1262,7 @@ impl NativeSession {
                 .scope
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if *entered == next {
+            if entered.admits_requirements(next.threads, &next.backends) {
                 0
             } else {
                 execution::scope_stack_bytes(
@@ -1189,7 +1298,7 @@ impl NativeSession {
             || Arc::new(AtomicBool::new(false)),
             |scope| scope.cancellation().clone(),
         );
-        let mut stop = Stop(Some(flag.clone()));
+        let mut stop = Stop(Some(flag.clone()), observation.clone());
         let budget = self.budget.clone();
         let (reply, result) = tokio::sync::oneshot::channel();
         let compute = ComputeOwner::new(
@@ -1211,8 +1320,15 @@ impl NativeSession {
         let request = Request {
             threads: cores,
             backends,
+            observation: observation.clone(),
             scope_owner: Some(scope_owner),
             work: Box::new(move |retained| {
+                drop(waiting);
+                let _entered = observation.as_ref().map(|context| context.enter());
+                let _execution = crate::observation::native_execution_scope();
+                let _trace_dispatch = tracing::dispatcher::set_default(&trace_dispatch);
+                let _trace_span = trace_span.enter();
+                let phase = pse_diagnostics::observation::phase("native.session.work");
                 let mut context = OperationContext {
                     #[cfg(any(test, feature = "solver-kinsol"))]
                     lane,
@@ -1247,6 +1363,23 @@ impl NativeSession {
                 });
                 drop(context);
                 drop(_dispatch);
+                if let Some(context) = &observation {
+                    context.boolean("native.session.returned", true);
+                    context.boolean("native.session.failed", outcome.is_err());
+                    context.boolean("native.session.stop_observed", flag.load(Ordering::Acquire));
+                }
+                drop(phase);
+                let operation = operation
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
+                if let Some(operation) = operation {
+                    operation.finish(if outcome.is_ok() {
+                        pse_diagnostics::observation::Outcome::Completed
+                    } else {
+                        pse_diagnostics::observation::Outcome::Failed
+                    });
+                }
                 let _ = reply.send(outcome);
             }),
         };
@@ -1261,6 +1394,8 @@ impl NativeSession {
             outcome = &mut result => outcome,
             () = cancel.cancelled() => {
                 if let Some(flag)=&stop.0 {flag.store(true, Ordering::Release);}
+                if let Some(context)=stop.1.as_ref().filter(|context| context.is_active()) {context.boolean("native.session.stop_requested", true);}
+                let _drain = pse_diagnostics::observation::phase("native.session.drain.wait");
                 result.await
             }
         };
@@ -1640,11 +1775,23 @@ impl NativeSession {
     }
     /// Close the session and wait until its thread has joined.
     pub(crate) async fn close(mut self) {
+        let observation = pse_diagnostics::observation::current();
+        let phase = observation
+            .as_ref()
+            .map(|context| context.phase("native.session.join"));
         self.population.close();
         self.sender.take();
         if let Some(joined) = self.joined.take() {
-            let _ = joined.await;
+            let result = joined.await;
+            if let Some(context) = observation {
+                if result.is_ok() {
+                    context.boolean("native.session.joined", true);
+                } else {
+                    context.unavailable("native.session.joined", "join supervisor reply absent");
+                }
+            }
         }
+        drop(phase);
     }
 }
 impl Drop for NativeSession {
@@ -1663,6 +1810,102 @@ impl Drop for NativeSession {
 mod admission_tests {
     use super::*;
     use std::sync::{Condvar, Mutex};
+
+    #[tokio::test]
+    async fn observation_native_session_restores_each_request_context_on_reused_thread() {
+        use pse_diagnostics::observation::{ObservationHub, Outcome, Value, scope};
+        let service = super::super::tests::service();
+        let session = service.open_session().unwrap();
+        let cancel = crate::CancelSource::new();
+        let hub = ObservationHub::new(Default::default());
+        let first = hub.start("first caller");
+        let second = hub.start("second caller");
+        let mut thread = None;
+        for parent in [&first, &second] {
+            let (id, actual_thread) = scope(
+                Some(parent.context()),
+                session.run(1, None, &cancel, |_, _, _| {
+                    let context = pse_diagnostics::observation::current().unwrap();
+                    context.count("actual.request", "count", 1);
+                    Ok((context.id(), std::thread::current().id()))
+                }),
+            )
+            .await
+            .unwrap();
+            assert_ne!(actual_thread, std::thread::current().id());
+            if let Some(previous) = thread {
+                assert_eq!(actual_thread, previous);
+            }
+            thread = Some(actual_thread);
+            let snapshot = parent.reader().snapshot(std::time::Duration::from_secs(60));
+            assert_eq!(snapshot.children.len(), 1);
+            assert_eq!(snapshot.children[0].id, id);
+            let request = hub
+                .reader(id)
+                .unwrap()
+                .snapshot(std::time::Duration::from_secs(60));
+            assert_eq!(request.outcome, Some(Outcome::Completed));
+            assert_eq!(
+                request
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == "actual.request")
+                    .unwrap()
+                    .cumulative,
+                Value::Count(1)
+            );
+            assert!(pse_diagnostics::observation::current().is_none());
+        }
+        let refused = scope(
+            Some(second.context()),
+            session.run(
+                0,
+                None,
+                &cancel,
+                |_, _, _| -> Result<(), MathRuntimeError> {
+                    panic!("invalid request must not dispatch")
+                },
+            ),
+        )
+        .await;
+        assert!(matches!(
+            refused,
+            Err(MathRuntimeError::Limit("optimizer cores"))
+        ));
+        let last = second.reader().snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(last.children.len(), 2);
+        let refused = hub
+            .reader(last.children[1].id)
+            .unwrap()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(refused.outcome, Some(Outcome::Failed));
+        assert!(
+            refused
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "native.session.admission.failure")
+        );
+        scope(Some(second.context()), session.close()).await;
+        assert_eq!(
+            second
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60))
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "native.session.joined")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
+        );
+        assert_eq!(
+            first
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60))
+                .children
+                .len(),
+            1
+        );
+    }
 
     #[tokio::test]
     async fn native_scope_changes_preserve_required_reuse_refusal_after_teardown() {
@@ -1940,6 +2183,14 @@ mod admission_tests {
             )
             .await
             .unwrap();
+        let entered = session.scope.lock().unwrap().clone();
+        let reserved = service.pool.reserved();
+        session
+            .run_task(2, Vec::new(), None, None, &cancel, |_, _, _| Ok(()))
+            .await
+            .unwrap();
+        assert_eq!(*session.scope.lock().unwrap(), entered);
+        assert_eq!(service.pool.reserved(), reserved);
         drop(held);
         session.close().await;
     }
@@ -1978,6 +2229,7 @@ mod admission_tests {
         let request = Request {
             threads: 1,
             backends: vec![Backend::Highs],
+            observation: None,
             scope_owner: None,
             work: Box::new(|_| {}),
         };
@@ -1986,6 +2238,18 @@ mod admission_tests {
         assert_eq!(next.backends, vec![Backend::Highs]);
         assert_eq!(next.threads, 1);
         assert!(next.admits(&request));
+        let borrowing = Request {
+            threads: 2,
+            backends: Vec::new(),
+            observation: None,
+            scope_owner: None,
+            work: Box::new(|_| {}),
+        };
+        assert!(current.admits(&borrowing));
+        assert!(
+            !next.admits(&borrowing),
+            "different thread requirements still replace the scope"
+        );
     }
     #[tokio::test]
     async fn exclusive_session_scratch_waits_for_request_return_and_native_sibling_drain() {
@@ -3279,7 +3543,11 @@ mod admission_tests {
             .unwrap();
         assert_eq!(
             service.pool.reserved(),
-            base + 4 * service.policy.stack_bytes
+            base + 2 * service.policy.stack_bytes
+        );
+        assert_eq!(
+            session.scope.lock().unwrap().backends,
+            vec![Backend::PounceConvex]
         );
         session
             .run(1, Some(Backend::Pounce), &cancel, |_, _, _| Ok(()))

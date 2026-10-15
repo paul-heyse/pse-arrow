@@ -1848,6 +1848,10 @@ impl<O: Oracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced<O, R> {
     /// product demands. Later admissions must preserve this lineage through the
     /// supplier's certified transport rather than changing a demand during evaluation.
     pub fn prepare_reconstruction(&mut self, x: &[f64]) -> Result<(), O::Error> {
+        let _phase = pse_diagnostics::observation::phase("derived.reconstruction.admit");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("derived.reconstruction.admissions", "requests", 1);
+        }
         self.input(x)?;
         self.reconstruction.admit(x)?;
         Ok(())
@@ -1929,6 +1933,11 @@ impl<O: Oracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced<O, R> {
         demand: &AccuracyDemand,
         refinement: RefinementLimits,
     ) -> Result<ReconstructionObservation, O::Error> {
+        let _phase = pse_diagnostics::observation::phase("derived.reconstruction");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("derived.reconstruction.requests", "requests", 1);
+            context.source_ref("derived.reconstruction.family", self.family.key.as_bytes());
+        }
         refinement.validate()?;
         let product = self.point_product(x)?;
         self.demand(&product, demand)?;
@@ -1960,6 +1969,11 @@ impl<O: Oracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced<O, R> {
         demand: &AccuracyDemand,
         refinement: RefinementLimits,
     ) -> Result<ReconstructionObservation, O::Error> {
+        let _phase = pse_diagnostics::observation::phase("derived.reconstruction.action");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("derived.reconstruction.action.requests", "requests", 1);
+            context.source_ref("derived.reconstruction.family", self.family.key.as_bytes());
+        }
         refinement.validate()?;
         let product = self.action_product(x, direction)?;
         self.demand(&product, demand)?;

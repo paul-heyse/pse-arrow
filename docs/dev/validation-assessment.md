@@ -32,7 +32,7 @@ not automatic grounds to invalidate an earlier result or require a new artifact 
 Use the development profile by default and run targeted tests for changed behavior. Cargo may
 need to compile edited code to execute it; that is separate from a qualification-driven rebuild.
 Retain historical evidence with its original conditions, without claiming it exercised new code.
-Strict producer/artifact qualification remains available on explicit request. Do not freeze or
+Existing strict producer/artifact commands retain their own semantics. Plan39’s additional environment/provenance proof targets are withdrawn: no all-role campaign, source-completeness investigation or compiler/launcher/installer phase proof is scheduled or deferred. Do not freeze or
 copy the Cargo environment to keep historical evidence valid, or infer scientific invalidity
 from a refused exact cache match. No automatic change-impact classification is required.
 
@@ -289,38 +289,25 @@ Long-lived service RSS/high-water observations are not attributed to an individu
 case. Keep build, preparation, numerical execution, publication and serving intervals
 separate when describing benefits.
 
-`just case-measure <new-output> --functional-from <assessment-dir-or-checks.json>`
+`just case-measure <new-output> [--functional-from <assessment-dir-or-checks.json>]`
 measures selected complete-process, preparation or admission cases. Repeat `--case <id>`
 to select declared cases; no selector runs the complete campaign. Workload declarations in
-`.config/process-cases.json` and `.config/preparation-cases.json` reference named functional
-scopes, and document admission explicitly requires the admission scope:
+`.config/process-cases.json` and `.config/preparation-cases.json` identify the functional
+areas relevant to interpreting a measurement, without requiring a particular assessment
+invocation or an environment/source/artifact identity proof.
 
-| Scope | Existing behavioral owners |
-|---|---|
-| `process` | Native runtime and conformance acceptance boundaries |
-| `preparation` | Runtime/compiler preparation and provider composition |
-| `admission` | Authored loading/admission and its runtime boundary |
-| `lifecycle` | Runtime/store/lifecycle enforcement and connected result resource controls |
-| `native` | The explicit full linked workspace covering invocation |
+Functional test evidence may be referenced with `--functional-from`, or cited separately
+when reporting the observations. The optional report must contain completed, successful test
+outcomes; failed commands, failed/skipped tests, missing selected results and contradictory
+terminal evidence are refused. The reference retains the reported checks and scope, plus
+available source and environment differences. It does not assert that the test and benchmark
+conditions are equivalent. Different Cargo profiles, provider bytes or unrelated source changes
+do not invalidate successful observations. Scientific assertions in each benchmark and valid
+output samples remain required. Managed execution retains its configured reference allocation,
+receiver ownership and cooperative drain requirements.
 
-Obtain selected prerequisite evidence with, for example,
-`just assessment --functional-scope preparation`. For several workload groups, use
-`just assessment --functional-scope native` to cover them in one Rust invocation.
-Conservative named scopes can overlap; the explicit full native scope avoids repeating them.
-Selections specify recipes, graph/profile and framework filters, never individual-test
-manifests. Measurement accepts the exact declared invocation or the explicitly declared
-complete full-workspace native invocation. It infers no arbitrary filter-subset equivalence.
-Only consumed claims must qualify; unrelated static/documentation checks are not prerequisites.
-Missing, failed, skipped, unexecuted, wrong-mode/profile or changed-input/provider observations
-are refused. Reuse/transfer retains its origin and applicability labels.
-
-The current version-5 report must carry complete terminal evidence for each consumed claim,
-matching relevant product/model/policy/lock inputs and actual native environment/provider
-identity. The benchmark retains its own executable identity: test and benchmark binaries need
-compatible source, features, Cargo profile and providers, not identical executable bytes.
-Benchmark source, workload declarations and parameters also enter measurement identity;
-unrelated prose does not. `just bench-case-smoke <new-output> [--case <id>]` runs untimed
-controls and cannot supply functional or performance qualification.
+`just bench-case-smoke <new-output> [--case <id>]` runs untimed controls and cannot supply
+performance observations.
 
 - **Untimed build.** The benchmark is built with `cargo bench -p pse-benches --bench
   native_process --no-run`, using the profile named in `.config/process-cases.json`
@@ -340,9 +327,12 @@ controls and cannot supply functional or performance qualification.
   differ, and neither attributes individual library allocations. Retained and
   after-teardown pool reservations are reported separately.
 
-`case-measure.json` (`process-cost-v3`) binds the functional report digest, the source
-digest over relevant measurement inputs (a relevant change during measurement is refused), the binary and linked-library hashes,
-the toolchain and the thread settings. Per-case artifacts are under `process-cost/<id>/`.
+`case-measure.json` (`process-cost-v4`) records the optional functional-test reference,
+selected workloads, benchmark paths, profile, thread settings and observed host conditions.
+Available source/environment differences are recorded, including changes during collection;
+they do not automatically invalidate observations. Benchmark artifacts remain under
+`process-cost/<id>/`. A failed build/case command or missing/invalid output samples prevents a
+successful measurement report.
 These are local observations of the design-stage profile, not release-profile
 performance. For production-equivalent measurements, use `just bench-production`
 ([§24.3](../authoritative_design/sections/operations-and-validation.md#section-24-3)).

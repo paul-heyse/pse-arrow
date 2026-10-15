@@ -1831,6 +1831,7 @@ fn domain(
                 let env = Environment::new();
                 let physical = p.context();
                 let mut evaluator = Evaluator {
+                    lexical_bases: None,
                     package: p,
                     physical: &physical,
                     at,
@@ -2291,6 +2292,7 @@ fn derive(
     for (position, expression) in &table.derived {
         let column = &table.table.columns[*position];
         let value = Evaluator {
+            lexical_bases: None,
             package: p,
             physical: &physical,
             at: table.id,
@@ -2344,6 +2346,7 @@ fn requirements(
         }
         for (clause, predicate) in clauses {
             let holds = Evaluator {
+                lexical_bases: None,
                 package: p,
                 physical: &physical,
                 at: table,

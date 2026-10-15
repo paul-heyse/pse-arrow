@@ -64,6 +64,23 @@ pub struct Callbacks {
 }
 #[repr(C)]
 #[derive(Clone, Copy, Default, Debug)]
+/// Copied terminal task state; totals are meaningful only when available is one.
+pub struct Timing {
+    /// Native timing activation; valid only when timing data is available.
+    pub enabled: i32,
+    /// Native task is still active, so completed totals were not read.
+    pub running: i32,
+    /// Activated task has ended; the copied totals are readable.
+    pub available: i32,
+    /// Inclusive native CPU seconds.
+    pub cpu_seconds: f64,
+    /// Inclusive native system seconds.
+    pub system_seconds: f64,
+    /// Inclusive native wall seconds.
+    pub wall_seconds: f64,
+}
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct Result {
     pub application_status: i32,
     pub solver_status: i32,
@@ -83,6 +100,24 @@ pub struct Result {
     pub cpu_seconds: f64,
     pub system_seconds: f64,
     pub wall_seconds: f64,
+    /// Current eligible application data supplied the task activation/state records.
+    pub timing_data_available: i32,
+    /// Overall algorithm task.
+    pub timing_overall: Timing,
+    /// Native iterate initialization task.
+    pub timing_initialize: Timing,
+    /// Search direction task, overlapping its nested linear tasks.
+    pub timing_search_direction: Timing,
+    /// Acceptable trial-point computation task.
+    pub timing_trial_point: Timing,
+    /// Linear scaling task.
+    pub timing_linear_scaling: Timing,
+    /// Symbolic factorization task.
+    pub timing_symbolic_factor: Timing,
+    /// Numeric factorization task.
+    pub timing_numeric_factor: Timing,
+    /// Linear backsolve task.
+    pub timing_backsolve: Timing,
 }
 unsafe extern "C" {
     pub fn pse_ipopt_sequence_create(

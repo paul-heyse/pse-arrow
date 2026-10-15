@@ -327,6 +327,13 @@ int32_t pse_petsc_snes_statistics(PsePetscHandle handle, int32_t *reason, int32_
   TRY(SNESGetIterationNumber(raw, iterations)); TRY(SNESGetNumberFunctionEvals(raw, evaluations));
   TRY(SNESGetLinearSolveIterations(raw, linear_iterations)); return SNESGetFunctionNorm(raw, norm);
 }
+int32_t pse_petsc_snes_ksp_statistics(PsePetscHandle handle, int32_t *iterations, int32_t *reason) {
+  KSP ksp; KSPConvergedReason value;
+  REQUIRE(handle); REQUIRE(iterations); REQUIRE(reason);
+  TRY(SNESGetKSP(((PseSnes *)handle)->raw, &ksp));
+  TRY(KSPGetConvergedReason(ksp, &value)); *reason = value;
+  return KSPGetIterationNumber(ksp, iterations);
+}
 int32_t pse_petsc_snes_reason_name(PsePetscHandle handle, const char **name) { REQUIRE(handle); REQUIRE(name); return SNESGetConvergedReasonString(((PseSnes *)handle)->raw, name); }
 int32_t pse_petsc_snes_error_if_not_converged(PsePetscHandle handle, int32_t enabled) { REQUIRE(handle); return SNESSetErrorIfNotConverged(((PseSnes *)handle)->raw, enabled ? PETSC_TRUE : PETSC_FALSE); }
 int32_t pse_petsc_nasm_subdomains(PsePetscHandle handle, int32_t n, PsePetscHandle *children, const PsePetscHandle *interior, const PsePetscHandle *overlap, const PsePetscHandle *ghost) {

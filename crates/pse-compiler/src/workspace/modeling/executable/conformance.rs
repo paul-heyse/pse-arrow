@@ -270,7 +270,12 @@ impl CompilerWorkspace {
             .extend(values.scalars.iter().map(|(id, v)| (*id, *v)));
         let mut observed = model.expectation_rows();
         observed.extend(model.validity_rows());
-        let prepared = self.prepare_modeling_observations(model, &observed, profile, &cancel)?;
+        let prepared = self.prepare_modeling_observations(
+            model,
+            model.observation_structure(&observed)?,
+            profile,
+            &cancel,
+        )?;
         if prepared
             .plan
             .bodies()

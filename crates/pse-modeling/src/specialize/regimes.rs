@@ -197,7 +197,7 @@ impl Engine<'_, '_> {
             env,
             &[scope.declaration_id],
         )?;
-        let types = self
+        let types: BTreeMap<_, _> = self
             .model
             .symbols
             .iter()

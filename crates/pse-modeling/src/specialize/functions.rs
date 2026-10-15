@@ -9,30 +9,9 @@ impl Engine<'_, '_> {
     /// generic source obligations; no stale source binder is carried into lowering.
     pub(super) fn admit_function_occurrences(&mut self) -> Result<()> {
         let contracts = self.model.function_contracts(self.p);
-        for function in self.model.functions.values_mut() {
-            // Specialization replaces the consumed lexical reduced-law formal with a
-            // direct call. Give that call the same operation-owned numerical result
-            // view as the original formal, only in this reconstruction's body.
-            let body_contracts = function.physical_operation.as_ref().and_then(|operation| {
-                if !matches!(operation, crate::PhysicalOperation::Reconstruction { .. }) {
-                    return None;
-                }
-                let mut body_contracts = contracts.clone();
-                for called in body_contracts.functions.values_mut() {
-                    let numerical = operation.body_arguments(&[(
-                        String::new(),
-                        Type::Function {
-                            arguments: called.arguments.clone(),
-                            result: Box::new(called.result.clone()),
-                        },
-                    )]);
-                    if let Some((_, Type::Function { result, .. })) = numerical.into_iter().next() {
-                        called.result = *result;
-                    }
-                }
-                Some(body_contracts)
-            });
-            let contracts = body_contracts.as_ref().unwrap_or(&contracts);
+        let mut updates = Vec::new();
+        for (name, function) in &self.model.functions {
+            let contracts = contracts.for_reconstruction(function.physical_operation.as_ref());
             let recorder = crate::expression::admission::AdmissionRecorder::for_function(function);
             let context = TypeContext {
                 admissions: Some(&recorder),
@@ -45,7 +24,7 @@ impl Engine<'_, '_> {
                 preconditions: self.c.preconditions,
                 scope: self.c.scope,
             };
-            let arguments = function
+            let arguments: BTreeMap<_, _> = function
                 .physical_operation
                 .as_ref()
                 .map_or_else(
@@ -58,7 +37,7 @@ impl Engine<'_, '_> {
                 let actual = crate::expression::infer(
                     body,
                     &arguments,
-                    contracts,
+                    &contracts,
                     &context,
                     function.id,
                     if function.physical_operation.is_some() {
@@ -85,7 +64,7 @@ impl Engine<'_, '_> {
                 crate::expression::predicate(
                     predicate,
                     &arguments,
-                    contracts,
+                    &contracts,
                     &context,
                     function.id,
                 )?;
@@ -95,7 +74,7 @@ impl Engine<'_, '_> {
                     crate::expression::infer(
                         input,
                         &arguments,
-                        contracts,
+                        &contracts,
                         &context,
                         function.id,
                         None,
@@ -132,7 +111,12 @@ impl Engine<'_, '_> {
                     )?,
                 );
             }
-            function.physical_admissions = admissions;
+            updates.push((name.clone(), admissions));
+        }
+        for (name, admissions) in updates {
+            if let Some(function) = self.model.functions.get_mut(&name) {
+                function.physical_admissions = admissions;
+            }
         }
         Ok(())
     }
@@ -235,35 +219,13 @@ impl Engine<'_, '_> {
         &self,
         at: DeclarationId,
         env: &Environment,
-    ) -> Result<BTreeMap<String, Type>> {
-        let mut types = self.p.named_types(at);
-        let mut owners = Vec::new();
-        let mut owner = Some(at);
-        while let Some(id) = owner {
-            owners.push(id);
-            owner = self.p.declarations[&id].parent_id;
-        }
-        let mut variables = BTreeSet::new();
-        for id in owners.into_iter().rev() {
-            if let Some(scope) = &self.p.declarations[&id].value.scope {
-                variables.extend(scope.type_parameters.iter().cloned());
-                for arg in &scope.parameters {
-                    types.insert(
-                        arg.name.clone(),
-                        self.c.resolve(&arg.r#type, &variables, &types, at)?,
-                    );
-                }
-            }
-        }
-        if let Some(function) = self.p.functions.get(&at) {
-            types.extend(function.arguments.iter().cloned());
-        }
-        for (name, value) in env {
-            if let Some(ty) = value_type(value) {
-                types.insert(name.clone(), ty);
-            }
-        }
-        types.extend(self.function_types.clone());
+    ) -> Result<crate::TypeScope<'_>> {
+        let base = self.lexical_bases.source(self.p, self.c, at)?;
+        let mut types = crate::TypeScope::shared(base).with_upper(&self.function_types);
+        types.extend(
+            env.iter()
+                .filter_map(|(name, value)| value_type(value).map(|ty| (name.clone(), ty))),
+        );
         Ok(types)
     }
 
@@ -693,6 +655,7 @@ impl Engine<'_, '_> {
         self.function_stack.push(function);
         let body = if let Some(external) = &mut contract.external {
             let output = Evaluator {
+                lexical_bases: Some(&self.lexical_bases),
                 package: self.p,
                 physical: self.c,
                 at: function,
@@ -860,18 +823,10 @@ impl Engine<'_, '_> {
 
 impl SpecializedModel {
     /// Checked source signatures augmented with finite scalar specializations for admission.
-    pub fn function_contracts(&self, package: &CheckedPackage) -> CheckedPackage {
-        let mut package = package.clone();
-        for (name, function) in &self.functions {
-            if let Some(id) = name
-                .strip_prefix("f_")
-                .and_then(|id| SemanticId::parse_hex(id).ok())
-                .map(DeclarationId::from)
-            {
-                package.functions.insert(id, function.clone());
-                package.lowered_functions.insert(id);
-            }
-        }
-        package
+    pub fn function_contracts<'a>(
+        &'a self,
+        package: &'a CheckedPackage,
+    ) -> crate::FunctionContracts<'a> {
+        crate::FunctionContracts::new(package, &self.functions)
     }
 }

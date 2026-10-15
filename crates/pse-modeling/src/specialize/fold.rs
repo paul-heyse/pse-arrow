@@ -57,6 +57,7 @@ impl Engine<'_, '_> {
                 local.insert(binder.var.clone(), member);
                 if let Some(filter) = &binder.filter
                     && !(Evaluator {
+                        lexical_bases: Some(&self.lexical_bases),
                         package: self.p,
                         physical: self.c,
                         at,

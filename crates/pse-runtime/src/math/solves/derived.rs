@@ -1497,6 +1497,10 @@ impl MathService {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedDerived, MathRuntimeError> {
+        let _phase = pse_diagnostics::observation::phase("derived.prepare");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("derived.preparation_attempts", "count", 1);
+        }
         profile.controls.validate()?;
         scope.check().map_err(ProblemError::from)?;
         if original.task_scope.as_ref().is_some_and(|declared| {
@@ -2289,6 +2293,11 @@ impl MathService {
         budget: &Arc<WorkerBudget>,
         original_start: &[f64],
     ) -> Result<DerivedAttempt, DerivedFailure> {
+        let _phase = pse_diagnostics::observation::phase("derived.execute");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("derived.attempts", "count", 1);
+            context.text("derived.mechanism", &format!("{:?}", p.mechanism()));
+        }
         if !Arc::ptr_eq(&execution.cancel, p.scope.cancellation()) {
             return Err(ProblemError::Contract(
                 "derived execution must share original task cancellation owner".into(),
@@ -2526,6 +2535,10 @@ impl MathService {
                 .zip(proposal.coordinates.iter().copied())
                 .collect();
             drop(owner);
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("derived.constant_attempts_completed", "count", 1);
+                context.boolean("derived.original_proposal_available", true);
+            }
             return Ok(DerivedAttempt {
                 outcome: Outcome::Constant(Box::new(ConstantReport {
                     owner: Some(result_owner),
@@ -2874,6 +2887,13 @@ impl MathService {
                 .ok()
                 .and_then(|oracle| oracle.applied_action().cloned())
         });
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("derived.native_attempts_returned", "count", 1);
+            context.boolean("derived.original_proposal_available", proposal.is_some());
+            context.boolean("derived.screening_failed", screening_failure.is_some());
+            context.boolean("derived.refinement_available", refinement_product.is_some());
+            context.boolean("derived.refinement_applied", applied_action.is_some());
+        }
         Ok(DerivedAttempt {
             applied_action,
             outcome: Outcome::Native(Box::new(report)),

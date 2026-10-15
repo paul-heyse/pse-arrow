@@ -1434,6 +1434,10 @@ impl Loop {
         result.finished(durable, cancelled).await
     }
     pub(super) async fn run(&mut self) -> Result<(), WorkflowError> {
+        let observation = pse_diagnostics::observation::current();
+        let _phase = observation
+            .as_ref()
+            .map(|context| context.phase("horizon.run"));
         if self.cancel.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled.into());
         }
@@ -1443,6 +1447,11 @@ impl Loop {
             .await?;
         self.anchor(start);
         for k in 0..self.admitted.steps {
+            let _sample = observation.as_ref().map(|context| {
+                context.count("horizon.sample_attempts", "count", 1);
+                context.gauge("horizon.sample_index", "index", k as f64);
+                context.phase("horizon.sample")
+            });
             if self.cancel.token().is_cancelled() {
                 return Err(MathRuntimeError::Cancelled.into());
             }
@@ -1496,6 +1505,7 @@ impl Loop {
                     .ok_or_else(|| contract("horizon reached measurement absent"))?
                     .clone(),
             };
+            super::observe_step(k, &step);
             self.progress.push(event(k, &step, self.started.elapsed()));
             self.steps.push(step);
             self.completed_samples += 1;
@@ -1543,6 +1553,7 @@ impl Loop {
         &self,
         work: impl FnOnce(&Plant, &native::solve::Execution) -> Result<T, ProblemError> + Send + 'static,
     ) -> Result<T, WorkflowError> {
+        let _phase = pse_diagnostics::observation::phase("horizon.plant");
         let plant = self.admitted.plant.clone();
         Ok(self
             .staged
@@ -1841,6 +1852,7 @@ impl Loop {
     /// measurements, the inputs applied over it and the arrival priors. An accepted estimate
     /// sets the next priors.
     async fn estimate(&mut self, k: usize) -> Result<Option<usize>, WorkflowError> {
+        let _phase = pse_diagnostics::observation::phase("horizon.estimate");
         self.estimate = None;
         let admitted = self.admitted.clone();
         let Some(e) = &admitted.estimator else {
@@ -1948,6 +1960,7 @@ impl Loop {
     /// from the previous sample's background solve, or falls back to a full solve, and then
     /// solves in the background for the next sample.
     async fn control(&mut self, k: usize) -> Result<Control, WorkflowError> {
+        let _phase = pse_diagnostics::observation::phase("horizon.control");
         let admitted = self.admitted.clone();
         let Some(c) = &admitted.controller else {
             return Ok(Control::OPEN);
@@ -1989,12 +2002,48 @@ impl Loop {
         let proposal_target = prepared.solve.clone();
         // One backsolve against the background solve's retained factor at the actual state.
         // A factor predicts once: the next background solve replaces it.
-        let predicted =
-            match self.background.take() {
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("horizon.prediction.requests", "count", 1);
+        }
+        let predicted = crate::observation::child("horizon.prediction", async {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.integer("horizon.sample_index", "index", k as i64);
+                context.text("horizon.role", "prediction");
+            }
+            Ok::<_, WorkflowError>(match self.background.take() {
                 None => None,
                 Some(from) => {
                     let background = self.result(from)?;
                     let permission = background.completion.decision.clone();
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.integer(
+                            "horizon.prediction.background_ordinal",
+                            "index",
+                            from as i64,
+                        );
+                        if let crate::math::solves::Outcome::Native(report) = &background.outcome {
+                            match report.evidence.sensitivity.as_ref() {
+                                Some(analysis) => {
+                                    context.boolean(
+                                        "horizon.prediction.background_factor",
+                                        analysis.retained.is_some(),
+                                    );
+                                    match &analysis.sensitivities {
+                                        Ok(_) => context
+                                            .text("horizon.prediction.background_withheld", "none"),
+                                        Err(cause) => context.text(
+                                            "horizon.prediction.background_withheld",
+                                            &cause.to_string(),
+                                        ),
+                                    }
+                                }
+                                None => context.unavailable(
+                                    "horizon.prediction.background_factor",
+                                    "background has no sensitivity analysis",
+                                ),
+                            }
+                        }
+                    }
                     let source = match &background.outcome {
                         crate::math::solves::Outcome::Native(report) => report
                             .candidate
@@ -2023,7 +2072,29 @@ impl Loop {
                                 proposal_scope.clone(),
                                 &self.cancel,
                                 move |retained, flag, _| {
-                                    let outcome = match (retained.advance(), source) {
+                                    let advance = retained.advance();
+                                    if let Some(context) = pse_diagnostics::observation::current() {
+                                        context.boolean(
+                                            "horizon.prediction.factor_retained",
+                                            advance.is_some(),
+                                        );
+                                        context.boolean(
+                                            "horizon.prediction.source_candidate",
+                                            source.is_some(),
+                                        );
+                                        context.boolean(
+                                            "horizon.prediction.original_permission",
+                                            permission.permits_use(),
+                                        );
+                                        context.boolean(
+                                            "horizon.prediction.explicit_start",
+                                            target.numerical_strategy().start.policy
+                                                == native::solve::StartPolicy::Explicit
+                                                || target.entry_origin(false)
+                                                    == pse_model::strategy::StartOrigin::Explicit,
+                                        );
+                                    }
+                                    let outcome = match (advance, source) {
                             (Some(advance), Some(source))
                                 if permission.permits_use()
                                     && target.numerical_strategy().start.policy
@@ -2117,7 +2188,9 @@ impl Loop {
                             .await?;
                     Some(outcome.map(|prediction| (from, prediction)))
                 }
-            };
+            })
+        })
+        .await?;
         let (mut control, source) = match predicted {
             Some(Ok((_, (_, Some((proposal, path, fallback)), scope)))) => {
                 let screened = admitted
@@ -2210,7 +2283,17 @@ impl Loop {
         };
         if k + 1 < admitted.steps {
             let next = self.next(c, advanced, k, &values, source.as_ref())?;
-            let index = self.solve(Role::Controller, next, true).await?;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("horizon.background.requests", "count", 1);
+            }
+            let index = crate::observation::child("horizon.background", async {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.integer("horizon.sample_index", "index", (k + 1) as i64);
+                    context.text("horizon.role", "background");
+                }
+                self.solve(Role::Controller, next, true).await
+            })
+            .await?;
             self.background = Some(index);
             control.advanced = Some(index);
         }
@@ -2249,6 +2332,7 @@ impl Loop {
 }
 
 /// The O5 progress event of one completed sample.
+
 fn event(k: usize, step: &HorizonStep, elapsed: Duration) -> Event {
     let integer = |n: usize| Metric::Integer(i64::try_from(n).unwrap_or(i64::MAX));
     let mut values = BTreeMap::from([

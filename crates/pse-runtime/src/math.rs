@@ -71,6 +71,8 @@ pub struct MathPolicy {
     /// Finite admission-only wait when the caller supplies no task deadline.
     /// It does not limit execution after dispatch or renew an enclosing task clock.
     pub admission_wait: std::time::Duration,
+    /// Finite execution allowance of each service-owned shared preparation producer.
+    pub preparation_limit: std::time::Duration,
     /// Maximum distinct live artifact keys and waiters per key.
     pub flights: usize,
 }
@@ -86,6 +88,7 @@ impl Default for MathPolicy {
             jobs: 4,
             admission_wait: std::time::Duration::from_secs(30),
             flights: 128,
+            preparation_limit: std::time::Duration::from_secs(600),
         }
     }
 }
@@ -107,6 +110,10 @@ impl MathPolicy {
             self.flights,
         ]
         .contains(&0)
+            || self.preparation_limit.is_zero()
+            || std::time::Instant::now()
+                .checked_add(self.preparation_limit)
+                .is_none()
             || self.admission_wait.is_zero()
             || std::time::Instant::now()
                 .checked_add(self.admission_wait)
@@ -160,6 +167,9 @@ pub enum MathRuntimeError {
     /// Finite admission bound.
     #[error("math resource limit: {0}")]
     Limit(&'static str),
+    /// The service-owned producer exhausted its finite allowance, independently of waiters.
+    #[error("shared preparation producer deadline expired")]
+    PreparationExpired,
     /// Cancellation does not imply native exit.
     #[error("math work cancelled")]
     Cancelled,
@@ -174,6 +184,10 @@ pub enum MathRuntimeError {
     Infrastructure(String),
 }
 impl MathRuntimeError {
+    pub(crate) fn preparation_producer_failure(self) -> Self {
+        preparation::producer_failure(self)
+    }
+
     /// Producer-owned retained failure extent. Separately leased strategy traces are
     /// excluded; opaque foreign errors without an allocation contract are refused.
     pub(crate) fn retained_bytes(&self) -> Result<usize, pse_backend_native::ProblemError> {
@@ -235,7 +249,7 @@ impl MathRuntimeError {
                 refusal.retained_bytes(),
             )?,
             Self::Panic(text) | Self::Infrastructure(text) => text.capacity(),
-            Self::Limit(_) | Self::Cancelled | Self::Retiring => 0,
+            Self::Limit(_) | Self::PreparationExpired | Self::Cancelled | Self::Retiring => 0,
         };
         add(size_of::<Self>(), payload)
     }
@@ -272,14 +286,30 @@ impl MathRuntimeError {
             Self::Solve(e) => e,
             Self::Math(e) => ProblemError::Math(e),
             Self::Cancelled => ProblemError::Cancelled,
+            Self::PreparationExpired => ProblemError::Limit {
+                kind: LimitKind::Time,
+                detail: "shared preparation producer deadline".into(),
+            },
             Self::Limit(detail) => ProblemError::Limit {
                 kind: LimitKind::Memory,
                 detail: detail.into(),
             },
-            Self::Shared(error) => match Arc::try_unwrap(error) {
-                Ok(error) => error.into_problem(),
-                Err(error) => Self::Shared(error).into_retained_problem(),
-            },
+            Self::Shared(error) => {
+                fn producer_expired(error: &MathRuntimeError) -> bool {
+                    match error {
+                        MathRuntimeError::PreparationExpired => true,
+                        MathRuntimeError::Shared(cause) => producer_expired(cause),
+                        _ => false,
+                    }
+                }
+                if producer_expired(&error) {
+                    return Self::PreparationExpired.into_problem();
+                }
+                match Arc::try_unwrap(error) {
+                    Ok(error) => error.into_problem(),
+                    Err(error) => Self::Shared(error).into_retained_problem(),
+                }
+            }
             Self::Pool(_) | Self::Strategy { .. } | Self::StrategyTraceUnavailable { .. } => {
                 self.into_retained_problem()
             }
@@ -300,12 +330,12 @@ impl MathRuntimeError {
 }
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
-    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
+    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::PreparationExpired|Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
     forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Strategy {cause,..}|Self::StrategyTraceUnavailable {cause,..}=>Some(cause.as_ref()),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None },
     facts(this) {
         use pse_diagnostics::{DiagnosticRule as R, DiagnosticFacts, DiagnosticObservation as O};
-        let mut facts=DiagnosticFacts { rule: match this { Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(R::MathLimit), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
+        let mut facts=DiagnosticFacts { rule: match this { Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::PreparationExpired|Self::Limit(_)|Self::Pool(_)=>Some(R::MathLimit), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
         if !matches!(this,Self::Solve(_)|Self::Compile(_)|Self::Math(_)|Self::Shared(_)|Self::Strategy {..}|Self::StrategyTraceUnavailable {..}) {facts.observe("detail",O::Text(this.to_string()));}
         facts
     }
@@ -366,6 +396,13 @@ struct PreparationEffects {
     frontiers: AtomicUsize,
     completions: AtomicUsize,
     function_assemblies: AtomicUsize,
+    compiler_entry_gate: Mutex<Option<CompilerEntryGate>>,
+}
+#[cfg(test)]
+struct CompilerEntryGate {
+    entered: tokio::sync::oneshot::Sender<()>,
+    stopped: tokio::sync::oneshot::Sender<()>,
+    exit: std::sync::mpsc::Receiver<()>,
 }
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -467,7 +504,7 @@ impl MathService {
     pub(crate) fn cores(&self) -> usize {
         self.cores
     }
-    #[cfg(all(test, feature = "solver-kinsol"))]
+    #[cfg(test)]
     pub(crate) fn test_admission_snapshot(&self) -> (usize, usize, usize) {
         (
             self.pool.reserved(),
@@ -487,8 +524,91 @@ impl std::fmt::Debug for MathService {
 #[derive(Clone, Debug)]
 pub struct Workspace {
     compiler: Arc<Mutex<CompilerWorkspace>>,
-    lease: Arc<pse_columnar::AllocationLease>,
+    _lease: Arc<pse_columnar::AllocationLease>,
     lane_head: Arc<Mutex<Option<modeling::LaneStamp>>>,
+    admission: Arc<tokio::sync::Semaphore>,
+}
+/// Actual compiler exclusion and workspace storage retained by the native join owner.
+#[derive(Debug)]
+struct CompilerOwner {
+    _workspace: Workspace,
+    _permit: tokio::sync::OwnedSemaphorePermit,
+}
+/// Exclusive compiler authority acquired before active worker dispatch.
+#[derive(Debug)]
+pub(crate) struct CompilerAuthority {
+    workspace: Workspace,
+    retention: Arc<Mutex<Option<CompilerOwner>>>,
+}
+impl CompilerAuthority {
+    fn new(workspace: Workspace, permit: tokio::sync::OwnedSemaphorePermit) -> Self {
+        Self {
+            retention: Arc::new(Mutex::new(Some(CompilerOwner {
+                _workspace: workspace.clone(),
+                _permit: permit,
+            }))),
+            workspace,
+        }
+    }
+    fn lock(&self) -> Result<std::sync::MutexGuard<'_, CompilerWorkspace>, MathRuntimeError> {
+        let retained = self.retention.lock().map_err(|_| {
+            MathRuntimeError::Infrastructure("compiler retention lock poisoned".into())
+        })?;
+        if !retained
+            .as_ref()
+            .is_some_and(|owner| Arc::ptr_eq(&owner._workspace.compiler, &self.workspace.compiler))
+        {
+            return Err(MathRuntimeError::Infrastructure(
+                "compiler authority is not held".into(),
+            ));
+        }
+        drop(retained);
+        self.workspace.compiler.try_lock().map_err(|error| {
+            MathRuntimeError::Infrastructure(format!("admitted compiler lock unavailable: {error}"))
+        })
+    }
+    fn release(&self) -> Result<(), MathRuntimeError> {
+        drop(
+            self.retention
+                .lock()
+                .map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler retention lock poisoned".into())
+                })?
+                .take(),
+        );
+        Ok(())
+    }
+    /// Transfer the actual join owner's authority to a fresh private workspace.
+    fn replace_private(mut self, workspace: Workspace) -> Result<Self, MathRuntimeError> {
+        let permit = workspace
+            .admission
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| {
+                MathRuntimeError::Infrastructure(
+                    "new private compiler admission unavailable".into(),
+                )
+            })?;
+        *self.retention.lock().map_err(|_| {
+            MathRuntimeError::Infrastructure("compiler retention lock poisoned".into())
+        })? = Some(CompilerOwner {
+            _workspace: workspace.clone(),
+            _permit: permit,
+        });
+        self.workspace = workspace;
+        Ok(self)
+    }
+    #[cfg(test)]
+    fn private(workspace: Workspace) -> Result<Self, MathRuntimeError> {
+        let permit = workspace
+            .admission
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| {
+                MathRuntimeError::Infrastructure("test compiler admission unavailable".into())
+            })?;
+        Ok(Self::new(workspace, permit))
+    }
 }
 /// Prepared semantic outputs retain their own payload after a generation rotates.
 #[derive(Clone, Debug)]
@@ -653,8 +773,9 @@ impl MathService {
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Ok(Workspace {
             compiler: Arc::new(Mutex::new(compiler)),
-            lease,
+            _lease: lease,
             lane_head: Arc::default(),
+            admission: Arc::new(tokio::sync::Semaphore::new(1)),
         })
     }
     /// Structural preparations and value rebinds performed so far (A6).
@@ -902,6 +1023,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathRuntimeError {
             }
             Self::Pool(_)
             | Self::Limit(_)
+            | Self::PreparationExpired
             | Self::Cancelled
             | Self::Retiring
             | Self::Infrastructure(_)

@@ -234,6 +234,33 @@ Member names are canonical string values; declaration order is presentation only
 | `diagnostic_only` | `` | false |
 | `unusable` | `` | false |
 
+## `CaptureKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `Cpu` | `` | false |
+| `Timeline` | `` | false |
+
+## `CaptureOutputKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `Perfetto` | `` | false |
+| `PerfData` | `` | false |
+| `Samply` | `` | false |
+| `Symbols` | `` | false |
+| `ToolLog` | `` | false |
+
+## `CaptureStatus`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `Running` | `` | false |
+| `Completed` | `` | false |
+| `Stopped` | `` | false |
+| `Partial` | `` | false |
+| `Failed` | `` | false |
+
 ## `ClarabelDirect`
 
 | Member | IDAES name | Deprecated |
@@ -1938,6 +1965,25 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `primal_dual_and_working_set` | `` | false |
 | `primal_dual_and_basis` | `` | false |
 
+## `NextObservation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `InspectRelated` | `` | false |
+| `CpuProfile` | `` | false |
+| `TimelineCapture` | `` | false |
+| `OptionalAllocationProbe` | `` | false |
+| `OptionalWaitProbe` | `` | false |
+| `AwaitOwnerCheckpoint` | `` | false |
+
+## `NonFinite`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `Nan` | `` | false |
+| `PositiveInfinity` | `` | false |
+| `NegativeInfinity` | `` | false |
+
 ## `NumericalAccuracyClass`
 
 | Member | IDAES name | Deprecated |
@@ -2189,6 +2235,15 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `namespace` | `` | false |
 | `publish` | `` | false |
 
+## `OperationOutcome`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `Completed` | `` | false |
+| `Failed` | `` | false |
+| `Cancelled` | `` | false |
+| `Interrupted` | `` | false |
+
 ## `PackageKind`
 
 | Member | IDAES name | Deprecated |
@@ -2355,6 +2410,16 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `ideal_gas_at_conditions` | `` | false |
 | `custom` | `` | false |
 
+## `Relationship`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `Nested` | `` | false |
+| `DependencyWait` | `` | false |
+| `SharedProduction` | `` | false |
+| `Reuse` | `` | false |
+| `Continuation` | `` | false |
+
 ## `ReusePolicy`
 
 | Member | IDAES name | Deprecated |
@@ -2451,6 +2516,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `positive` | `` | false |
 | `non_positive` | `` | false |
 | `negative` | `` | false |
+
+## `StatementKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `Established` | `` | false |
+| `Hypothesis` | `` | false |
+| `Limitation` | `` | false |
 
 ## `StructuralScopeKind`
 

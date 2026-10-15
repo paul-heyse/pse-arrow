@@ -716,6 +716,11 @@ impl NativeRuntime {
         self.inner.close();
     }
 
+    /// Return passive diagnostic authority without retaining this runtime caller.
+    fn observations(&self) -> crate::diagnostics::NativeDiagnostics {
+        crate::diagnostics::NativeDiagnostics::new(self.inner.observations().clone())
+    }
+
     /// Observe the original source acknowledgement without issuing another edit.
     fn source_settlement(
         &self,
@@ -1557,6 +1562,12 @@ impl Drop for CancelWait {
 }
 #[pymethods]
 impl NativeRunHandle {
+    /// Read copied diagnostics independently of this handle's cancellation lease.
+    fn observations(&self) -> Option<crate::diagnostics::NativeOperationObservations> {
+        self.inner
+            .observations()
+            .map(crate::diagnostics::NativeOperationObservations::new)
+    }
     fn cancel(&self) {
         self.inner.cancel();
     }

@@ -4541,7 +4541,10 @@ mod canonical_durable_codec {
             .unwrap();
         assert!(settled.settled && !settled.assigned);
         let facts = pse_operations::canonical_studies::point_facts(&settled).unwrap();
-        assert_eq!(facts.lifecycle, pse_model::generated::enums::StudyPointState::Cancelled);
+        assert_eq!(
+            facts.lifecycle,
+            pse_model::generated::enums::StudyPointState::Cancelled
+        );
         assert!(facts.native_started && !facts.scientific.usable);
         assert_eq!(facts.attempt_count, 1);
         drop(runtime);

@@ -302,6 +302,10 @@ fn withheld(report: &SolveReport) -> &Withheld {
 
 #[test]
 fn exact_candidate_sensitivities_match_the_analytic_nlp() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("sensitivity-quantity-rhs");
+    let _entered = operation.context().enter();
     let report = tail(
         Analytic::new(P, 2.0, false, false),
         Analytic::new(P, 2.0, false, true),
@@ -332,10 +336,65 @@ fn exact_candidate_sensitivities_match_the_analytic_nlp() {
     for (actual, expected) in hessian.values.iter().zip(H) {
         assert!(close(*actual, expected), "{hessian:?}");
     }
+    let snapshot = operation
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    assert_eq!(
+        snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "sensitivity.parametric.available")
+            .unwrap()
+            .latest,
+        Value::Boolean(true)
+    );
+    let compute = snapshot
+        .children
+        .iter()
+        .find(|child| child.kind == "sensitivity.compute")
+        .unwrap();
+    let compute = hub
+        .reader(compute.id)
+        .unwrap()
+        .snapshot(std::time::Duration::from_secs(60));
+    assert_eq!(
+        compute
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "sensitivity.parameter_rhs.calls")
+            .unwrap()
+            .cumulative,
+        Value::Count(2)
+    );
+    assert_eq!(
+        compute
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "sensitivity.current_parameter_index")
+            .unwrap()
+            .latest,
+        Value::Integer(1)
+    );
+    assert!(
+        compute
+            .sources
+            .iter()
+            .any(|source| source.name == "sensitivity.current_parameter")
+    );
+    assert!(
+        compute
+            .children
+            .iter()
+            .any(|child| child.kind == "sensitivity.reduced_hessian")
+    );
 }
 
 #[test]
 fn sensitivity_withheld_when_sosc_fails() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("sensitivity-withheld-premise");
+    let _entered = operation.context().enter();
     // c = −2: x = (0, 1, 0) with λ_g = 2 is a KKT point, but the null space of the active
     // gradients, along (1, −1, 0), has curvature 1 − 2 < 0: not a minimizer.
     let report = tail(
@@ -359,6 +418,33 @@ fn sensitivity_withheld_when_sosc_fails() {
         .as_ref()
         .unwrap();
     assert_eq!(point.curvature, Curvature::Negative);
+    let snapshot = operation
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    assert_eq!(
+        snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "sensitivity.parametric.available")
+            .unwrap()
+            .latest,
+        Value::Boolean(false)
+    );
+    assert_eq!(
+        snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "sensitivity.parametric.withheld_reason")
+            .unwrap()
+            .latest,
+        Value::Text("second_order".into())
+    );
+    assert!(
+        !snapshot
+            .children
+            .iter()
+            .any(|child| child.kind == "sensitivity.compute")
+    );
 }
 
 #[test]
@@ -617,6 +703,10 @@ mod solved {
     /// `[K⁻¹]ₓₓ = z·zᵀ/3`: `x₃`, held by its active bound, has none.
     #[test]
     fn inverse_reduced_hessian_over_solve_columns() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("inverse-reduced-hessian-quantity");
+        let _entered = operation.context().enter();
         let columns: Vec<OriginalCol> = (0..3).map(OriginalCol::new).collect();
         let inverse = |second_order| {
             run(
@@ -667,6 +757,36 @@ mod solved {
             },
         );
         assert!(matches!(repeated, Err(ProblemError::Contract(_))));
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let child = snapshot
+            .children
+            .iter()
+            .find(|child| child.kind == "sensitivity.inverse_reduced_hessian")
+            .unwrap();
+        let quantity = hub
+            .reader(child.id)
+            .unwrap()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            quantity
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "sensitivity.inverse_reduced_hessian.available")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
+        );
+        assert_eq!(
+            quantity
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "selected_columns")
+                .unwrap()
+                .latest,
+            Value::Integer(3)
+        );
     }
 
     #[test]

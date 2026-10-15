@@ -1,6 +1,28 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Nested residual evaluation and implicit-function derivatives. Native solvers own iteration.
+macro_rules! observed {
+    ($phase:literal, $body:expr) => {
+        $crate::implicit::observation::observe(
+            $phase,
+            concat!($phase, ".calls"),
+            concat!($phase, ".elapsed"),
+            concat!($phase, ".failures"),
+            || $body,
+        )
+    };
+}
+macro_rules! observed_proof {
+    ($phase:literal, $body:expr) => {
+        $crate::implicit::observation::observe_proof(
+            $phase,
+            concat!($phase, ".calls"),
+            concat!($phase, ".elapsed"),
+            concat!($phase, ".failures"),
+            || $body,
+        )
+    };
+}
 #[path = "implicit_accelerators.rs"]
 pub mod accelerators;
 #[path = "implicit_affine.rs"]
@@ -11,6 +33,8 @@ mod configuration;
 mod cubic;
 #[path = "implicit_isolation.rs"]
 mod isolation;
+#[path = "implicit_observation.rs"]
+mod observation;
 #[path = "implicit_reconstruction.rs"]
 pub mod reconstruction;
 #[path = "implicit_regimes.rs"]
@@ -236,8 +260,17 @@ impl Problem {
             .collect::<Vec<_>>();
         let (pattern, _) = SymbolicSparseColMat::try_new_from_indices(n, n, &indices)
             .map_err(|e| MathError::Library(e.to_string()))?;
-        let symbolic = lu::factorize_symbolic_lu(pattern.as_ref(), Default::default())
-            .map_err(|e| MathError::Library(e.to_string()))?;
+        let symbolic = observed!("implicit.factor.symbolic", {
+            lu::factorize_symbolic_lu(pattern.as_ref(), Default::default())
+                .map_err(|e| MathError::Library(e.to_string()))
+        })?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.integer(
+                "implicit.factor.pattern_entries",
+                "structural-entries",
+                indices.len() as i64,
+            );
+        }
         let rhs = match body.compiled_order() {
             DerivativeOrder::Value => 1,
             DerivativeOrder::First => inputs.max(1),
@@ -340,46 +373,52 @@ impl Problem {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
-        if cancel.load(Ordering::Acquire) {
-            return Err(MathError::Cancelled);
-        }
-        if parameters.len() != self.inputs || unknowns.len() != self.unknowns.len() {
-            return Err(MathError::Contract("implicit coordinate extent".into()));
-        }
-        if unknowns
-            .iter()
-            .zip(&self.unknowns)
-            .any(|(x, b)| !x.is_finite() || *x < b.lower || *x > b.upper)
-        {
-            return Err(MathError::Domain {
-                source_id: self.id,
-                requirement: "implicit unknown outside its declared interval",
-            });
-        }
-        let mut worker = self
-            .worker
-            .lock()
-            .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?;
-        let values = selected_inputs(&worker, unknowns, parameters)?;
-        let mut evaluation = worker.evaluate(
-            &values,
-            order,
-            &mut *self
-                .providers
+        observed!("implicit.residual", {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.source_ref("implicit.residual.source", self.identity.as_bytes());
+                context.integer("implicit.residual.order", "derivative-order", order as i64);
+            }
+            if cancel.load(Ordering::Acquire) {
+                return Err(MathError::Cancelled);
+            }
+            if parameters.len() != self.inputs || unknowns.len() != self.unknowns.len() {
+                return Err(MathError::Contract("implicit coordinate extent".into()));
+            }
+            if unknowns
+                .iter()
+                .zip(&self.unknowns)
+                .any(|(x, b)| !x.is_finite() || *x < b.lower || *x > b.upper)
+            {
+                return Err(MathError::Domain {
+                    source_id: self.id,
+                    requirement: "implicit unknown outside its declared interval",
+                });
+            }
+            let mut worker = self
+                .worker
                 .lock()
-                .map_err(|_| MathError::Library("implicit provider lock poisoned".into()))?,
-            cancel,
-        )?;
-        for (value, offset) in evaluation.values.iter_mut().zip(&self.residual_offsets) {
-            *value -= offset;
-        }
-        if evaluation.values.iter().any(|v| !v.is_finite()) {
-            return Err(MathError::Domain {
-                source_id: self.id,
-                requirement: "implicit offset residual is nonfinite",
-            });
-        }
-        Ok(evaluation)
+                .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?;
+            let values = selected_inputs(&worker, unknowns, parameters)?;
+            let mut evaluation = worker.evaluate(
+                &values,
+                order,
+                &mut *self
+                    .providers
+                    .lock()
+                    .map_err(|_| MathError::Library("implicit provider lock poisoned".into()))?,
+                cancel,
+            )?;
+            for (value, offset) in evaluation.values.iter_mut().zip(&self.residual_offsets) {
+                *value -= offset;
+            }
+            if evaluation.values.iter().any(|v| !v.is_finite()) {
+                return Err(MathError::Domain {
+                    source_id: self.id,
+                    requirement: "implicit offset residual is nonfinite",
+                });
+            }
+            Ok(evaluation)
+        })
     }
     /// Check that options match the system's extents and hold finite positive budgets.
     pub fn validate_options(&self, options: &Options) -> Result<(), MathError> {
@@ -420,57 +459,77 @@ impl Problem {
         options: &Options,
         cancel: &Arc<AtomicBool>,
     ) -> Result<(), MathError> {
-        self.validate_options(options)?;
-        let residual = self.evaluate(parameters, point, DerivativeOrder::Value, cancel)?;
-        if residual.values.len() != self.rows.len()
-            || residual
-                .values
-                .iter()
-                .zip(&options.residual_tolerance)
-                .any(|(f, t)| !f.is_finite() || f.abs() > *t)
-        {
-            return Err(MathError::Domain {
-                source_id: self.id,
-                requirement: "inner root did not satisfy original residual budgets",
-            });
-        }
-        Ok(())
+        observed!("implicit.original_assessment", {
+            self.validate_options(options)?;
+            let residual = self.evaluate(parameters, point, DerivativeOrder::Value, cancel)?;
+            if residual.values.len() != self.rows.len()
+                || residual
+                    .values
+                    .iter()
+                    .zip(&options.residual_tolerance)
+                    .any(|(f, t)| !f.is_finite() || f.abs() > *t)
+            {
+                return Err(MathError::Domain {
+                    source_id: self.id,
+                    requirement: "inner root did not satisfy original residual budgets",
+                });
+            }
+            Ok(())
+        })
     }
     fn factorize_matrix(
         &self,
         matrix: &SparseColMat<usize, f64>,
         requirement: &'static str,
     ) -> Result<std::sync::MutexGuard<'_, FactorWorkspace>, MathError> {
-        let mut held = self
-            .factor
-            .lock()
-            .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
-        let FactorWorkspace {
-            numeric,
-            memory,
-            parallel,
-        } = &mut *held;
-        self.symbolic
-            .factorize_numeric_lu(
+        observed!("implicit.factor.numeric", {
+            let mut held = self
+                .factor
+                .lock()
+                .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
+            let FactorWorkspace {
                 numeric,
-                matrix.as_ref(),
-                *parallel,
-                MemStack::new(memory),
-                Default::default(),
-            )
-            .map_err(|_| MathError::Domain {
-                source_id: self.id,
-                requirement,
-            })?;
-        Ok(held)
+                memory,
+                parallel,
+            } = &mut *held;
+            self.symbolic
+                .factorize_numeric_lu(
+                    numeric,
+                    matrix.as_ref(),
+                    *parallel,
+                    MemStack::new(memory),
+                    Default::default(),
+                )
+                .map_err(|_| MathError::Domain {
+                    source_id: self.id,
+                    requirement,
+                })?;
+            Ok(held)
+        })
     }
     fn solve_factor(&self, factor: &mut FactorWorkspace, rhs: faer::MatMut<'_, f64>) {
+        let context = pse_diagnostics::observation::current();
+        let _phase = context
+            .as_ref()
+            .map(|context| context.phase("implicit.factor.solve"));
+        let started = context.as_ref().map(|_| std::time::Instant::now());
+        if let Some(context) = &context {
+            context.count("implicit.factor.backsolves", "calls", 1);
+            context.count(
+                "implicit.factor.right_hand_sides",
+                "columns",
+                rhs.ncols() as u64,
+            );
+        }
         LuRef::new_unchecked(&self.symbolic, &factor.numeric).solve_in_place_with_conj(
             Conj::No,
             rhs,
             factor.parallel,
             MemStack::new(&mut factor.memory),
         );
+        if let (Some(context), Some(started)) = (context, started) {
+            context.duration("implicit.factor.solve.elapsed", started.elapsed());
+        }
     }
 
     /// Use one faer factorization and multiple right-hand sides for first and second IFT jets.
@@ -493,102 +552,105 @@ impl Problem {
         options: &Options,
         cancel: &Arc<AtomicBool>,
     ) -> Result<ProviderValues, MathError> {
-        let n = self.unknowns.len();
-        let p = self.inputs;
-        let width = n + p;
-        let mut output = ProviderValues {
-            values: point.to_vec(),
-            jacobian: vec![],
-            hessians: vec![],
-        };
-        if order == DerivativeOrder::Value {
-            return Ok(output);
-        }
-        if point
-            .iter()
-            .zip(&self.unknowns)
-            .zip(&options.variable_tolerance)
-            .any(|((value, bounds), tolerance)| {
-                *value - bounds.lower <= *tolerance || bounds.upper - *value <= *tolerance
-            })
-        {
-            return Err(MathError::Domain {
-                source_id: self.id,
-                requirement: "implicit derivative neighborhood meets a declared unknown bound",
-            });
-        }
-        if p == 0 {
-            return Ok(output);
-        }
-        let jet = self.evaluate(parameters, point, order, cancel)?;
-        if jet.jacobian.len() != n * width
-            || order == DerivativeOrder::Second && jet.hessians.len() != n * width * width
-        {
-            return Err(MathError::Contract("implicit residual jet extent".into()));
-        }
-        let values = (0..n)
-            .flat_map(|j| self.pattern.as_ref().row_idx_of_col(j).map(move |i| (i, j)))
-            .map(|(i, j)| jet.jacobian[i * width + j])
-            .collect();
-        let matrix = SparseColMat::new(self.pattern.clone(), values);
-        let mut factor = self.factorize_matrix(&matrix, "implicit Jacobian is singular")?;
-        let mut first = Mat::from_fn(n, p, |i, j| -jet.jacobian[i * width + n + j]);
-        let original = first.clone();
-        self.solve_factor(&mut factor, first.as_mut());
-        check_solve(
-            &jet.jacobian,
-            width,
-            &first,
-            &original,
-            options.derivative_tolerance,
-            self.id,
-        )?;
-        output.jacobian = (0..n)
-            .flat_map(|i| (0..p).map(move |j| (i, j)))
-            .map(|(i, j)| first[(i, j)])
-            .collect();
-        if order == DerivativeOrder::First {
-            return Ok(output);
-        }
-        let pairs = (0..p)
-            .flat_map(|a| (a..p).map(move |b| (a, b)))
-            .collect::<Vec<_>>();
-        let tangent = |coordinate: usize, input: usize| {
-            if coordinate < n {
-                first[(coordinate, input)]
-            } else {
-                f64::from(coordinate == n + input)
+        observed!("implicit.derivatives", {
+            let n = self.unknowns.len();
+            let p = self.inputs;
+            let width = n + p;
+            let mut output = ProviderValues {
+                values: point.to_vec(),
+                jacobian: vec![],
+                hessians: vec![],
+            };
+            if order == DerivativeOrder::Value {
+                return Ok(output);
             }
-        };
-        let mut second = Mat::from_fn(n, pairs.len(), |i, j| {
-            let (a, b) = pairs[j];
-            let mut value = 0.0;
-            for k in 0..width {
-                for l in 0..width {
-                    value -=
-                        jet.hessians[(i * width + k) * width + l] * tangent(k, a) * tangent(l, b);
+            if point
+                .iter()
+                .zip(&self.unknowns)
+                .zip(&options.variable_tolerance)
+                .any(|((value, bounds), tolerance)| {
+                    *value - bounds.lower <= *tolerance || bounds.upper - *value <= *tolerance
+                })
+            {
+                return Err(MathError::Domain {
+                    source_id: self.id,
+                    requirement: "implicit derivative neighborhood meets a declared unknown bound",
+                });
+            }
+            if p == 0 {
+                return Ok(output);
+            }
+            let jet = self.evaluate(parameters, point, order, cancel)?;
+            if jet.jacobian.len() != n * width
+                || order == DerivativeOrder::Second && jet.hessians.len() != n * width * width
+            {
+                return Err(MathError::Contract("implicit residual jet extent".into()));
+            }
+            let values = (0..n)
+                .flat_map(|j| self.pattern.as_ref().row_idx_of_col(j).map(move |i| (i, j)))
+                .map(|(i, j)| jet.jacobian[i * width + j])
+                .collect();
+            let matrix = SparseColMat::new(self.pattern.clone(), values);
+            let mut factor = self.factorize_matrix(&matrix, "implicit Jacobian is singular")?;
+            let mut first = Mat::from_fn(n, p, |i, j| -jet.jacobian[i * width + n + j]);
+            let original = first.clone();
+            self.solve_factor(&mut factor, first.as_mut());
+            check_solve(
+                &jet.jacobian,
+                width,
+                &first,
+                &original,
+                options.derivative_tolerance,
+                self.id,
+            )?;
+            output.jacobian = (0..n)
+                .flat_map(|i| (0..p).map(move |j| (i, j)))
+                .map(|(i, j)| first[(i, j)])
+                .collect();
+            if order == DerivativeOrder::First {
+                return Ok(output);
+            }
+            let pairs = (0..p)
+                .flat_map(|a| (a..p).map(move |b| (a, b)))
+                .collect::<Vec<_>>();
+            let tangent = |coordinate: usize, input: usize| {
+                if coordinate < n {
+                    first[(coordinate, input)]
+                } else {
+                    f64::from(coordinate == n + input)
+                }
+            };
+            let mut second = Mat::from_fn(n, pairs.len(), |i, j| {
+                let (a, b) = pairs[j];
+                let mut value = 0.0;
+                for k in 0..width {
+                    for l in 0..width {
+                        value -= jet.hessians[(i * width + k) * width + l]
+                            * tangent(k, a)
+                            * tangent(l, b);
+                    }
+                }
+                value
+            });
+            let original = second.clone();
+            self.solve_factor(&mut factor, second.as_mut());
+            check_solve(
+                &jet.jacobian,
+                width,
+                &second,
+                &original,
+                options.derivative_tolerance,
+                self.id,
+            )?;
+            output.hessians = vec![0.0; n * p * p];
+            for (j, (a, b)) in pairs.into_iter().enumerate() {
+                for i in 0..n {
+                    output.hessians[(i * p + a) * p + b] = second[(i, j)];
+                    output.hessians[(i * p + b) * p + a] = second[(i, j)];
                 }
             }
-            value
-        });
-        let original = second.clone();
-        self.solve_factor(&mut factor, second.as_mut());
-        check_solve(
-            &jet.jacobian,
-            width,
-            &second,
-            &original,
-            options.derivative_tolerance,
-            self.id,
-        )?;
-        output.hessians = vec![0.0; n * p * p];
-        for (j, (a, b)) in pairs.into_iter().enumerate() {
-            for i in 0..n {
-                output.hessians[(i * p + a) * p + b] = second[(i, j)];
-                output.hessians[(i * p + b) * p + a] = second[(i, j)];
-            }
-        }
-        Ok(output)
+            Ok(output)
+        })
     }
 }
 fn check_solve(
@@ -675,7 +737,54 @@ impl SolverWorker {
         options: &Options,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Vec<f64>, MathError> {
-        self.worker.solve(problem, parameters, options, cancel)
+        let parent = pse_diagnostics::observation::current();
+        let guard = parent.as_ref().map(|context| {
+            context.child(
+                "implicit.inner_attempt",
+                pse_diagnostics::observation::Relationship::Nested,
+            )
+        });
+        let context = guard
+            .as_ref()
+            .map(pse_diagnostics::observation::OperationGuard::context);
+        let _entered = context
+            .as_ref()
+            .map(pse_diagnostics::observation::ObservationContext::enter);
+        if let Some(context) = &context {
+            context.source_ref("implicit.solver", self.identity.as_bytes());
+            context.source_ref("implicit.residual.source", problem.identity.as_bytes());
+            context.integer(
+                "implicit.start.coordinates",
+                "coordinates",
+                options.start.len() as i64,
+            );
+            context.integer(
+                "implicit.iteration_limit",
+                "iterations",
+                i64::from(options.iterations),
+            );
+            context.gauge(
+                "implicit.time_allowance",
+                "seconds",
+                options.time_limit.as_secs_f64(),
+            );
+            context.gauge(
+                "implicit.derivative_tolerance",
+                "backward-error",
+                options.derivative_tolerance,
+            );
+        }
+        let result = observed!("implicit.inner_solve", {
+            self.worker.solve(problem, parameters, options, cancel)
+        });
+        if let Some(guard) = guard {
+            guard.finish(if result.is_ok() {
+                pse_diagnostics::observation::Outcome::Completed
+            } else {
+                pse_diagnostics::observation::Outcome::Failed
+            });
+        }
+        result
     }
 }
 
@@ -1116,11 +1225,13 @@ impl pse_kernels::Provider for Nested {
         request: &pse_kernels::ProviderRequest,
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<ProviderValues, pse_kernels::ProviderError> {
-        let result = self.evaluate_inner(inputs, request, context);
-        if result.is_err() {
-            self.numerical = None;
-        }
-        result
+        observed!("implicit.provider", {
+            let result = self.evaluate_inner(inputs, request, context);
+            if result.is_err() {
+                self.numerical = None;
+            }
+            result
+        })
     }
 }
 impl Nested {
@@ -1161,6 +1272,9 @@ impl Nested {
             let out = self.project(&product.values, request, inputs.len())?;
             self.scope
                 .remaining(allowance.saturating_sub(started.elapsed()))?;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("implicit.product.full_reuse", "requests", 1);
+            }
             return Ok(out);
         }
         let anchor = self
@@ -1191,7 +1305,12 @@ impl Nested {
             .as_ref()
             .filter(|product| product.key == numerical_key)
         {
-            Some(product) => product.values.values.clone(),
+            Some(product) => {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("implicit.product.point_reuse", "requests", 1);
+                }
+                product.values.values.clone()
+            }
             None => self
                 .solver
                 .solve(self.problem.clone(), inputs, &options, &self.cancel)
@@ -1213,7 +1332,12 @@ impl Nested {
             .as_ref()
             .filter(|product| product.key == numerical_key && product.order >= request.order)
         {
-            Some(product) => product.values.clone(),
+            Some(product) => {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("implicit.product.jet_reuse", "requests", 1);
+                }
+                product.values.clone()
+            }
             None => self
                 .problem
                 .derivatives_at_verified_point(

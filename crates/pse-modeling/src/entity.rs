@@ -581,6 +581,7 @@ fn reference(
     match ty {
         Type::Set(_) => {
             let value = value::Evaluator {
+                lexical_bases: None,
                 package: p,
                 physical: c,
                 at,
@@ -624,6 +625,7 @@ fn reference(
                 ));
             };
             value::Evaluator {
+                lexical_bases: None,
                 package: p,
                 physical: c,
                 at,
@@ -2140,6 +2142,7 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
             let env = record_values(id, record);
             let read = std::cell::Cell::new(false);
             let value = value::Evaluator {
+                lexical_bases: None,
                 package: p,
                 physical: &physical,
                 at: derivation.row,
@@ -2485,6 +2488,7 @@ pub(crate) fn verify(p: &CheckedPackage) -> Result<()> {
             for (id, record) in members(p, *kind) {
                 let env = record_values(id, record);
                 let holds = value::Evaluator {
+                    lexical_bases: None,
                     package: p,
                     physical: &physical,
                     at: *row,

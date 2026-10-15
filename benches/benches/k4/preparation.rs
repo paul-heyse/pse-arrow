@@ -18,6 +18,8 @@ async fn stage(
     name: &str,
     phases: &phases::Phases,
 ) -> (Duration, Value, ModelingDiagnosticPreparation) {
+    let _audit_stage = audit::stage(name);
+    audit::checkpoint();
     let root = package
         .declarations()
         .await
@@ -37,7 +39,7 @@ async fn stage(
             Default::default(),
             Default::default(),
             Default::default(),
-            &CancelSource::new(),
+            &audit::cancel_source(),
         )
         .await
         .unwrap()
@@ -51,7 +53,7 @@ async fn stage(
     }
     let phase = Instant::now();
     let prepared = package
-        .prepare_diagnostics(&analysis, &CancelSource::new())
+        .prepare_diagnostics(&analysis, &audit::cancel_source())
         .await
         .unwrap();
     let resolution_seconds = phase.elapsed().as_secs_f64();
@@ -269,7 +271,7 @@ async fn pressure(
             pse_modeling::specialize::root_instance(root),
             Default::default(),
             Default::default(),
-            &CancelSource::new(),
+            &audit::cancel_source(),
         )
         .await
         .unwrap();
@@ -305,7 +307,7 @@ async fn pressure(
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
                 Default::default(),
-                &CancelSource::new(),
+                &audit::cancel_source(),
             )
             .await
             .unwrap();
@@ -331,7 +333,7 @@ async fn pressure(
             pse_modeling::specialize::root_instance(root),
             Default::default(),
             Default::default(),
-            &CancelSource::new(),
+            &audit::cancel_source(),
         )
         .await
         .unwrap();
@@ -421,15 +423,18 @@ pub(super) fn measure(
                 let owner =
                     WorkflowRuntime::with_math(NonZeroUsize::new(1).unwrap(), policy).unwrap();
                 let pool = owner.runtime.pool();
-                let (elapsed, mut record) = if spec["demand_orders"] == true {
-                    executor.block_on(demand::run(&owner, phases))
-                } else if spec["worker_permit_lifetime"] == true {
-                    executor.block_on(worker_lifetime::run(&owner, phases))
-                } else if spec["pressure"] == true {
-                    executor.block_on(pressure(&owner, spec, phases))
-                } else {
-                    executor.block_on(preparation(&owner, phases))
-                };
+                let (elapsed, mut record) = audit::with_owner_sync(&owner, &executor, || {
+                    let _stage = audit::stage("preparation_workload");
+                    if spec["demand_orders"] == true {
+                        executor.block_on(demand::run(&owner, phases))
+                    } else if spec["worker_permit_lifetime"] == true {
+                        executor.block_on(worker_lifetime::run(&owner, phases))
+                    } else if spec["pressure"] == true {
+                        executor.block_on(pressure(&owner, spec, phases))
+                    } else {
+                        executor.block_on(preparation(&owner, phases))
+                    }
+                });
                 record["pool_peak_bytes"] = owner.runtime.observation_peak_bytes().into();
                 record["math_policy"] = math_policy.into();
                 record["process_peak_rss_bytes"] = owner
@@ -440,7 +445,10 @@ pub(super) fn measure(
                     .into();
                 // The operation has returned and its runtime/products have dropped.
                 // Drain isolated fixtures outside the accumulated measured interval.
-                executor.block_on(owner.cleanup_fixtures()).unwrap();
+                let _teardown = audit::stage("fixture_teardown");
+                let cleanup = executor.block_on(owner.cleanup_fixtures());
+                audit::cleanup_result(cleanup.is_ok());
+                cleanup.unwrap();
                 drop(owner);
                 executor.block_on(async {
                     tokio::task::yield_now().await;

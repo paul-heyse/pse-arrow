@@ -305,130 +305,142 @@ impl InnerWorker for Kinsol {
         options: &Options,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Vec<f64>, MathError> {
-        problem.validate_options(options)?;
-        // Typed native causes, including structural rows and columns, stay attributable.
-        let map = |error| native_failure(error, problem.id);
-        let controls = Controls {
-            iterations: options.iterations,
-            time_limit: options.time_limit,
-            ..Controls::default()
-        };
-        // The normalized feasibility budget of the unknowns (tolerance over nominal), as
-        // `ResolvedAccuracy::resolve` forms it; the function-norm test stays |r| <= tolerance.
-        let accuracy = ResolvedAccuracy::from_policy(
-            &Default::default(),
-            options
-                .variable_tolerance
-                .iter()
-                .zip(&options.variable_nominals)
-                .map(|(t, n)| t / n)
-                .fold(f64::INFINITY, f64::min),
-        )
-        .map_err(map)?;
-        // One-sided bounds are exact (KINSOL shifts them to sign constraints); a two-sided
-        // interval keeps only its sign information, and `Problem::verify` rechecks it.
-        let contract = OracleContract {
-            identity: problem.identity,
-            variables: problem
-                .unknowns
-                .iter()
-                .map(|u| {
-                    let (lower, upper) = match (u.lower.is_finite(), u.upper.is_finite()) {
-                        (true, false) => (u.lower, f64::INFINITY),
-                        (false, true) => (f64::NEG_INFINITY, u.upper),
-                        _ => (
-                            if u.lower >= 0.0 {
-                                0.0
-                            } else {
-                                f64::NEG_INFINITY
-                            },
-                            if u.upper <= 0.0 { 0.0 } else { f64::INFINITY },
-                        ),
-                    };
-                    Variable {
-                        id: u.id,
-                        lower,
-                        upper,
-                    }
-                })
-                .collect(),
-            rows: problem.rows.clone(),
-            derivatives: problem.requirements.residual_compilation,
-            smoothness: problem
-                .requirements
-                .output_smoothness
-                .min(problem.requirements.residual_compilation),
-        };
-        let pattern = problem
-            .pattern()
-            .to_owned()
-            .map_err(|_| MathError::Limit("implicit Jacobian support allocation"))?;
-        let loan = Loan(Rc::new(RefCell::new(Some(problem.clone()))));
-        let oracle = Oracle {
-            problem: loan.0.clone(),
-            pattern,
-            inputs: problem.inputs,
-            parameters: parameters.to_vec(),
-            contract,
-            cancel: cancel.clone(),
-        };
-        // The nested budgets come from the resolved numerical policy: residuals within
-        // their tolerance and steps below the unknowns' tolerance, in original coordinates.
-        let tolerances = Tolerances {
-            variables: options.variable_tolerance.clone(),
-            rows: options.residual_tolerance.clone(),
-            integrality: f64::EPSILON,
-        };
-        let settings = kinsol::Settings::from_policy(
-            kinsol::Method {
-                setup_interval: 1,
-                ..kinsol::Method::default()
-            },
-            &tolerances,
-            &pse_math::normalization::Normalization::identity(
-                problem.unknowns.len(),
-                problem.rows.len(),
-            ),
-            accuracy.feasibility,
-        );
-        let compatibility = Compatibility {
-            layout: problem.identity,
-            profile: problem.identity,
-            data: problem.identity,
-            backend: Backend::Kinsol,
-        };
-        let execution = Execution::new(cancel.clone(), &controls);
-        let mut session = sessions::take(
-            problem.identity,
-            kinsol::Function::Equations(Box::new(oracle)),
-            settings,
-            execution.clone(),
-            compatibility,
-        )
-        .map_err(map)?;
-        let report = session.solve(
-            &options.start,
-            &controls,
-            &accuracy,
-            execution,
-            &tolerances,
-            None,
-        );
-        sessions::give(problem.identity, session);
-        drop(loan);
-        let report = report.map_err(map)?;
-        if let Some(error) = report_failure(&report, problem.id) {
-            return Err(error);
-        }
-        let point = report
-            .candidate
-            .ok_or(MathError::Domain {
-                source_id: problem.id,
-                requirement: "inner solve returned no candidate",
-            })?
-            .primal;
-        problem.verify(parameters, &point, options, cancel)?;
-        Ok(point)
+        crate::observation::operation("implicit.kinsol.attempt", || {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.source_ref("implicit.problem", problem.identity.as_bytes());
+                context.integer(
+                    "implicit.unknowns",
+                    "count",
+                    i64::try_from(problem.unknowns.len()).unwrap_or(i64::MAX),
+                );
+            }
+            problem.validate_options(options)?;
+            // Typed native causes, including structural rows and columns, stay attributable.
+            let map = |error| native_failure(error, problem.id);
+            let controls = Controls {
+                iterations: options.iterations,
+                time_limit: options.time_limit,
+                ..Controls::default()
+            };
+            // The normalized feasibility budget of the unknowns (tolerance over nominal), as
+            // `ResolvedAccuracy::resolve` forms it; the function-norm test stays |r| <= tolerance.
+            let accuracy = ResolvedAccuracy::from_policy(
+                &Default::default(),
+                options
+                    .variable_tolerance
+                    .iter()
+                    .zip(&options.variable_nominals)
+                    .map(|(t, n)| t / n)
+                    .fold(f64::INFINITY, f64::min),
+            )
+            .map_err(map)?;
+            // One-sided bounds are exact (KINSOL shifts them to sign constraints); a two-sided
+            // interval keeps only its sign information, and `Problem::verify` rechecks it.
+            let contract = OracleContract {
+                identity: problem.identity,
+                variables: problem
+                    .unknowns
+                    .iter()
+                    .map(|u| {
+                        let (lower, upper) = match (u.lower.is_finite(), u.upper.is_finite()) {
+                            (true, false) => (u.lower, f64::INFINITY),
+                            (false, true) => (f64::NEG_INFINITY, u.upper),
+                            _ => (
+                                if u.lower >= 0.0 {
+                                    0.0
+                                } else {
+                                    f64::NEG_INFINITY
+                                },
+                                if u.upper <= 0.0 { 0.0 } else { f64::INFINITY },
+                            ),
+                        };
+                        Variable {
+                            id: u.id,
+                            lower,
+                            upper,
+                        }
+                    })
+                    .collect(),
+                rows: problem.rows.clone(),
+                derivatives: problem.requirements.residual_compilation,
+                smoothness: problem
+                    .requirements
+                    .output_smoothness
+                    .min(problem.requirements.residual_compilation),
+            };
+            let pattern = problem
+                .pattern()
+                .to_owned()
+                .map_err(|_| MathError::Limit("implicit Jacobian support allocation"))?;
+            let loan = Loan(Rc::new(RefCell::new(Some(problem.clone()))));
+            let oracle = Oracle {
+                problem: loan.0.clone(),
+                pattern,
+                inputs: problem.inputs,
+                parameters: parameters.to_vec(),
+                contract,
+                cancel: cancel.clone(),
+            };
+            // The nested budgets come from the resolved numerical policy: residuals within
+            // their tolerance and steps below the unknowns' tolerance, in original coordinates.
+            let tolerances = Tolerances {
+                variables: options.variable_tolerance.clone(),
+                rows: options.residual_tolerance.clone(),
+                integrality: f64::EPSILON,
+            };
+            let settings = kinsol::Settings::from_policy(
+                kinsol::Method {
+                    setup_interval: 1,
+                    ..kinsol::Method::default()
+                },
+                &tolerances,
+                &pse_math::normalization::Normalization::identity(
+                    problem.unknowns.len(),
+                    problem.rows.len(),
+                ),
+                accuracy.feasibility,
+            );
+            let compatibility = Compatibility {
+                layout: problem.identity,
+                profile: problem.identity,
+                data: problem.identity,
+                backend: Backend::Kinsol,
+            };
+            let execution = Execution::new(cancel.clone(), &controls);
+            let mut session = sessions::take(
+                problem.identity,
+                kinsol::Function::Equations(Box::new(oracle)),
+                settings,
+                execution.clone(),
+                compatibility,
+            )
+            .map_err(map)?;
+            let report = session.solve(
+                &options.start,
+                &controls,
+                &accuracy,
+                execution,
+                &tolerances,
+                None,
+            );
+            sessions::give(problem.identity, session);
+            drop(loan);
+            let report = report.map_err(map)?;
+            if let Some(error) = report_failure(&report, problem.id) {
+                return Err(error);
+            }
+            let point = report
+                .candidate
+                .ok_or(MathError::Domain {
+                    source_id: problem.id,
+                    requirement: "inner solve returned no candidate",
+                })?
+                .primal;
+            crate::observation::scoped("implicit.kinsol.original_verify", || {
+                problem.verify(parameters, &point, options, cancel)
+            })?;
+            Ok(point)
+        })
     }
 }
 

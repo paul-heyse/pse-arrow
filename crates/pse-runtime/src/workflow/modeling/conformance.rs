@@ -2782,7 +2782,12 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let run = CONFORMANCE_TEST_PROBE
             .scope(probe.clone(), package.conform(parallel_policy(), &cancel));
-        let prepare_until = preparation_deadline(&cancel).unwrap();
+        let prepare_until = package
+            .runtime
+            .shared
+            .math()
+            .preparation_deadline(&cancel)
+            .unwrap();
         let controls = async {
             probe.wait_initial_preparation(prepare_until).await;
             probe.wait(|state| state.active == 16).await;
@@ -2973,7 +2978,12 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let run = CONFORMANCE_TEST_PROBE
             .scope(probe.clone(), package.conform(parallel_policy(), &cancel));
-        let prepare_until = preparation_deadline(&cancel).unwrap();
+        let prepare_until = package
+            .runtime
+            .shared
+            .math()
+            .preparation_deadline(&cancel)
+            .unwrap();
         let controls = async {
             probe.wait_initial_preparation(prepare_until).await;
             probe.wait(|state| state.active == 16).await;
@@ -3025,7 +3035,12 @@ mod tests {
         let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
-        let prepare_until = preparation_deadline(&cancel).unwrap();
+        let prepare_until = package
+            .runtime
+            .shared
+            .math()
+            .preparation_deadline(&cancel)
+            .unwrap();
         let mut run = Box::pin(
             CONFORMANCE_TEST_PROBE
                 .scope(probe.clone(), package.conform(parallel_policy(), &cancel)),
@@ -3105,7 +3120,12 @@ mod tests {
         probe.state.lock().unwrap().fatal_fixture = Some(order[0]);
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
-        let prepare_until = preparation_deadline(&cancel).unwrap();
+        let prepare_until = package
+            .runtime
+            .shared
+            .math()
+            .preparation_deadline(&cancel)
+            .unwrap();
         let mut run = Box::pin(
             CONFORMANCE_TEST_PROBE
                 .scope(probe.clone(), package.conform(parallel_policy(), &cancel)),

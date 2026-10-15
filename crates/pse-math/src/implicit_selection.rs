@@ -156,23 +156,25 @@ impl SelectionWorker {
         inputs: &[f64],
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<Vec<f64>>, MathError> {
-        if let Some(anchor) = &mut self.anchor {
-            let unknowns = vec![0.; problem.unknowns.len()];
-            let coordinates = selected_inputs(anchor, &unknowns, inputs)?;
-            return Ok(Some(
-                anchor
-                    .evaluate(
-                        &coordinates,
-                        DerivativeOrder::Value,
-                        &mut *problem.providers.lock().map_err(|_| {
-                            MathError::Library("implicit anchor provider lock poisoned".into())
-                        })?,
-                        cancel,
-                    )?
-                    .values,
-            ));
-        }
-        Ok(None)
+        observed!("implicit.selection.anchor", {
+            if let Some(anchor) = &mut self.anchor {
+                let unknowns = vec![0.; problem.unknowns.len()];
+                let coordinates = selected_inputs(anchor, &unknowns, inputs)?;
+                return Ok(Some(
+                    anchor
+                        .evaluate(
+                            &coordinates,
+                            DerivativeOrder::Value,
+                            &mut *problem.providers.lock().map_err(|_| {
+                                MathError::Library("implicit anchor provider lock poisoned".into())
+                            })?,
+                            cancel,
+                        )?
+                        .values,
+                ));
+            }
+            Ok(None)
+        })
     }
     pub(super) fn configure(
         &mut self,
@@ -201,27 +203,29 @@ impl SelectionWorker {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<(), MathError> {
-        if let Some(restriction) = &mut self.restriction {
-            let coordinates = selected_inputs(restriction, point, inputs)?;
-            let jet = restriction.evaluate(
-                &coordinates,
-                if order > DerivativeOrder::Value {
-                    DerivativeOrder::First
-                } else {
-                    DerivativeOrder::Value
-                },
-                &mut *problem.providers.lock().map_err(|_| {
-                    MathError::Library("implicit selection provider lock poisoned".into())
-                })?,
-                cancel,
-            )?;
-            if jet.values != [1.] {
-                return Err(MathError::Domain {
-                    source_id: problem.id,
-                    requirement: "implicit selected branch restriction",
-                });
+        observed!("implicit.selection.restriction", {
+            if let Some(restriction) = &mut self.restriction {
+                let coordinates = selected_inputs(restriction, point, inputs)?;
+                let jet = restriction.evaluate(
+                    &coordinates,
+                    if order > DerivativeOrder::Value {
+                        DerivativeOrder::First
+                    } else {
+                        DerivativeOrder::Value
+                    },
+                    &mut *problem.providers.lock().map_err(|_| {
+                        MathError::Library("implicit selection provider lock poisoned".into())
+                    })?,
+                    cancel,
+                )?;
+                if jet.values != [1.] {
+                    return Err(MathError::Domain {
+                        source_id: problem.id,
+                        requirement: "implicit selected branch restriction",
+                    });
+                }
             }
-        }
-        Ok(())
+            Ok(())
+        })
     }
 }

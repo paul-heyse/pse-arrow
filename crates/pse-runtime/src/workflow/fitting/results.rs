@@ -21,6 +21,7 @@ impl RunResult {
         &self,
         request: &crate::workflow::result_export::Projection,
     ) -> Result<(), WorkflowError> {
+        let _phase = pse_diagnostics::observation::phase("fit.result_projection");
         let RunRequest::Fit(p) = &self.request else {
             return Err(contract("fit request mismatch"));
         };
@@ -31,6 +32,9 @@ impl RunResult {
             Err(_) => None,
             _ => return Err(contract("fit report mismatch")),
         };
+        if let Some(report) = report {
+            observe_report(report);
+        }
         let registry = self.runtime.registry();
         let validation = self.result_validation_context();
         let pool = self.runtime.shared.pool();
@@ -564,6 +568,7 @@ async fn uncertainty(
     p: &FitProblem,
     report: Option<&FitReport>,
 ) -> Result<(), WorkflowError> {
+    let _phase = pse_diagnostics::observation::phase("fit.uncertainty_projection");
     let mut validity = crate::workflow::result_export::Rows::<local_validity::Row>::new(
         request, registry, pool, cancel, validation,
     )

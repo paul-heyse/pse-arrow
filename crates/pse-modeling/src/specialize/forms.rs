@@ -505,7 +505,7 @@ impl Engine<'_, '_> {
     fn type_of(
         &self,
         expression: &Expr,
-        contracts: &CheckedPackage,
+        contracts: &dyn crate::FunctionAdmission,
         at: DeclarationId,
     ) -> Result<Type> {
         let types = self
@@ -662,9 +662,8 @@ impl Engine<'_, '_> {
         lineage: Lineage,
         env: &Environment,
     ) -> Result<(Vec<SemanticId>, Vec<SemanticId>)> {
-        let contracts = self.model.function_contracts(self.p);
         let residual = bin(BinaryOp::Sub, lhs, rhs);
-        let ty = self.type_of(&residual, &contracts, source)?;
+        let ty = self.type_of(&residual, &self.model.function_contracts(self.p), source)?;
         let mut variables = Vec::new();
         let (residual, upper, lower) = match realized {
             Realized::BigM(expression) => {
@@ -675,8 +674,14 @@ impl Engine<'_, '_> {
                     .iter()
                     .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
                     .collect::<BTreeMap<_, _>>();
-                if crate::expression::infer(&m, &types, &contracts, self.c, source, Some(&ty))?
-                    != ty
+                if crate::expression::infer(
+                    &m,
+                    &types,
+                    &self.model.function_contracts(self.p),
+                    self.c,
+                    source,
+                    Some(&ty),
+                )? != ty
                 {
                     return Err(invalid(
                         source,
@@ -1059,7 +1064,6 @@ impl Engine<'_, '_> {
         epsilon: Option<f64>,
         lineage: &Lineage,
     ) -> Result<(Vec<SemanticId>, Vec<SemanticId>, bool)> {
-        let contracts = self.model.function_contracts(self.p);
         let mut variables = BTreeSet::new();
         for row in disjuncts.iter().flatten() {
             self.collect_variables(&row.lhs, &mut variables);
@@ -1168,7 +1172,7 @@ impl Engine<'_, '_> {
         for ((rows_k, indicator), map) in disjuncts.into_iter().zip(indicators).zip(&copies) {
             for r in rows_k {
                 let g = bin(BinaryOp::Sub, r.lhs, r.rhs);
-                let ty = self.type_of(&g, &contracts, source)?;
+                let ty = self.type_of(&g, &self.model.function_contracts(self.p), source)?;
                 let zero = self.typed_zero(&ty, source)?;
                 let mut memo = BTreeMap::new();
                 let lhs = match self.classify(&g, &variables, &mut memo) {
@@ -2016,8 +2020,7 @@ impl Engine<'_, '_> {
                     span: Span::default(),
                 };
                 let smoothed = self.rewrite(instance, &call, &local, &[at])?;
-                let contracts = self.model.function_contracts(self.p);
-                let ty = self.type_of(&smoothed, &contracts, at)?;
+                let ty = self.type_of(&smoothed, &self.model.function_contracts(self.p), at)?;
                 let zero = self.typed_zero(&ty, at)?;
                 rows.push(self.push_row(
                     pse_ids::named_id(base, "complementarity-smooth"),
@@ -2068,8 +2071,7 @@ impl Engine<'_, '_> {
                     &second_ty,
                 )?;
                 let product = bin(BinaryOp::Mul, first, second);
-                let contracts = self.model.function_contracts(self.p);
-                let ty = self.type_of(&product, &contracts, at)?;
+                let ty = self.type_of(&product, &self.model.function_contracts(self.p), at)?;
                 let zero = self.typed_zero(&ty, at)?;
                 rows.push(self.push_row(
                     pse_ids::named_id(base, "complementarity-product"),

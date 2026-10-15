@@ -17,7 +17,7 @@ impl Engine<'_, '_> {
         fn check(
             equation: &Equation,
             types: &BTreeMap<String, Type>,
-            functions: &CheckedPackage,
+            functions: &dyn crate::FunctionAdmission,
             context: &TypeContext<'_>,
             at: DeclarationId,
             expected: Option<&Type>,
@@ -38,7 +38,7 @@ impl Engine<'_, '_> {
                             ExprKind::NamedCall { name, .. }
                                 if functions
                                     .resolve_segments(at, &name.segments)
-                                    .and_then(|id| functions.functions.get(&id))
+                                    .and_then(|id| functions.function(id))
                                     .is_some_and(|f| f.result.physical_refinement().is_some()) =>
                             {
                                 contextual = true;

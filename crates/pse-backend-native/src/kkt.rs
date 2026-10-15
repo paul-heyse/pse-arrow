@@ -692,10 +692,10 @@ impl KktFactor {
             proof_steps: Some(0),
         };
         execution.counted(work, || {
-            let w = self
-                .solver
-                .solve(&scaled)
-                .map_err(crate::conditioning::native)?;
+            let w = crate::observation::scoped("kkt.feral.correction_solve", || {
+                self.solver.solve(&scaled)
+            })
+            .map_err(crate::conditioning::native)?;
             execution.check()?;
             if w.len() != n || w.iter().any(|x| !x.is_finite()) {
                 return Err(ProblemError::numerical("nonfinite KKT correction action"));
@@ -795,7 +795,9 @@ impl SensBacksolver for NormalizedFactor {
         if rhs.len() != n || lhs.len() != n {
             return false;
         }
-        let Ok(w) = self.0.solver.solve_refined(&self.0.matrix, rhs) else {
+        let Ok(w) = crate::observation::scoped("kkt.feral.normalized_refined_solve", || {
+            self.0.solver.solve_refined(&self.0.matrix, rhs)
+        }) else {
             return false;
         };
         if w.len() != n {
@@ -821,7 +823,9 @@ impl SensBacksolver for KktFactor {
             .zip(self.scales.iter())
             .map(|(r, p)| r * p / self.objective)
             .collect();
-        let Ok(w) = self.solver.solve_refined(&self.matrix, &scaled) else {
+        let Ok(w) = crate::observation::scoped("kkt.feral.physical_refined_solve", || {
+            self.solver.solve_refined(&self.matrix, &scaled)
+        }) else {
             return false;
         };
         if w.len() != n {
@@ -1419,7 +1423,10 @@ fn symmetric_product(matrix: &feral::CscMatrix, x: &[f64], absolute: bool) -> Ve
 fn backward_error(solver: &feral::Solver, matrix: &feral::CscMatrix) -> Option<f64> {
     let ones = vec![1.0; matrix.n];
     let b = symmetric_product(matrix, &ones, false);
-    let w = solver.solve_refined(matrix, &b).ok()?;
+    let w = crate::observation::scoped("kkt.feral.backward_error_refined_solve", || {
+        solver.solve_refined(matrix, &b)
+    })
+    .ok()?;
     let r = symmetric_product(matrix, &w, false);
     let infinity = |v: &[f64]| v.iter().fold(0.0_f64, |a, v| a.max(v.abs()));
     // ‖K‖∞ is the largest absolute row sum.

@@ -188,6 +188,7 @@ impl Engine<'_, '_> {
     ) -> Result<Value> {
         self.checkpoint()?;
         let value = Evaluator {
+            lexical_bases: Some(&self.lexical_bases),
             package: self.p,
             physical: self.c,
             at,
@@ -223,6 +224,7 @@ impl Engine<'_, '_> {
                 self.checkpoint()?;
                 let local = coordinates_env(env, &row);
                 let Value::Set(values) = Evaluator {
+                    lexical_bases: Some(&self.lexical_bases),
                     package: self.p,
                     physical: self.c,
                     at,
@@ -276,7 +278,7 @@ impl Engine<'_, '_> {
         }
     }
     fn process_type(&self, expression: &Expr, at: DeclarationId) -> Result<Type> {
-        let types = self
+        let types: BTreeMap<_, _> = self
             .model
             .symbols
             .iter()

@@ -15,6 +15,24 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [simulation pipeline efficiency and effectiveness review](reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md)
+reassesses Plan39's seven diagnostic-audit items across preparation, numerical solving,
+workflow composition and result consumption. Its fourteen findings and conditional library
+opportunities distinguish avoidable work from numerical strategy and preserve scientific
+assessment. The [supporting inquiries](evidence/simulation-pipeline-efficiency-and-effectiveness-2026-10-15/README.md)
+include exact library fit and a fresh independent integrated challenge. The decision is Revise;
+new recommendations and rule impacts await future plan creation. Original audit status stays
+with 39d, and Plans39/40 remain independently active.
+
+The [simulation performance diagnostics review](reviews/design_review_simulation-performance-diagnostics_2026-10-14.md)
+assesses live current-work inspection, recent-window progress, causal work attribution and
+profiling across preparation, numerical methods, nested workflows and managed execution.
+Its [supporting evidence](evidence/simulation-performance-diagnostics-2026-10-14/README.md)
+includes context-specific analysis, exact library capabilities, instrumentation boundaries
+and bounded workstation profiling probes. [Plan 40](../plans/40-simulation-performance-diagnostics.md)
+owns adopted F01–F06, the accepted RC01 route and future implementation/qualification.
+The review does not restart benchmarking or alter other active plans' scope or status.
+
 The [implementation friction and Codex effectiveness review](reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md)
 examines the final October 14 implementation interval and its operational logs. It traces
 startup ownership, local preparation and replay work, producer assurance and capture lifetimes,

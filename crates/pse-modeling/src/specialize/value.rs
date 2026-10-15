@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded compile-time values. This interpreter selects structure; runtime math uses pse-math.
-use crate::{CheckedPackage, DeclarationId, Result, Type, TypeContext, invalid};
+use crate::{CheckedPackage, DeclarationId, Result, Type, TypeContext, TypeLookup, invalid};
 use pse_authoring::{
     dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, Path, Predicate, PredicateKind, Span},
     language::StaticValue,
@@ -203,6 +203,7 @@ impl Value {
 pub type Environment = BTreeMap<String, Value>;
 
 pub(crate) struct Evaluator<'a, 'b> {
+    pub lexical_bases: Option<&'a super::lexical::LexicalBases>,
     pub selections: Option<&'a crate::scientific_selection::Collector>,
     pub package: &'a CheckedPackage,
     pub physical: &'a TypeContext<'b>,
@@ -288,6 +289,7 @@ impl Evaluator<'_, '_> {
                     let mut next = Vec::new();
                     for env in environments {
                         let mut evaluator = Evaluator {
+                            lexical_bases: self.lexical_bases,
                             package: self.package,
                             physical: self.physical,
                             at: self.at,
@@ -323,6 +325,7 @@ impl Evaluator<'_, '_> {
                 let mut seen = BTreeSet::new();
                 for env in environments {
                     let mut evaluator = Evaluator {
+                        lexical_bases: self.lexical_bases,
                         package: self.package,
                         physical: self.physical,
                         at: self.at,
@@ -350,11 +353,19 @@ impl Evaluator<'_, '_> {
                     return Err(invalid(self.at, "definition reference required"));
                 };
                 let mut supplied = BTreeSet::new();
+                let constructor_types = self
+                    .lexical_bases
+                    .filter(|_| !matches!(self.reader, crate::provenance::Reader::Admission(_)))
+                    .map_or_else(
+                        || std::sync::Arc::new(self.package.named_types(*id)),
+                        |bases| bases.evaluation(self.package, *id),
+                    );
+                let variables = BTreeSet::new();
+                let target = self.package.preset_definition(*id)?;
                 for (n, expression) in arguments {
                     if !supplied.insert(n) {
                         return Err(invalid(self.at, "duplicate binding"));
                     }
-                    let target = self.package.preset_definition(*id)?;
                     let parameter = self.package.declarations[&target]
                         .value
                         .scope
@@ -363,8 +374,8 @@ impl Evaluator<'_, '_> {
                         .ok_or_else(|| invalid(self.at, format!("unknown argument {n}")))?;
                     let ty = self.physical.resolve(
                         &parameter.r#type,
-                        &BTreeSet::new(),
-                        &self.package.named_types(*id),
+                        &variables,
+                        constructor_types.as_ref(),
                         *id,
                     )?;
                     let value = self.syntax(expression, Some(&ty), depth + 1)?;
@@ -380,7 +391,12 @@ impl Evaluator<'_, '_> {
     }
     /// The declarations' types visible at `at`; at admission a kind's name types its
     /// extent (Plan 23 D0).
-    fn named_types(&self) -> BTreeMap<String, Type> {
+    fn named_types(&self) -> std::sync::Arc<BTreeMap<String, Type>> {
+        if !matches!(self.reader, crate::provenance::Reader::Admission(_))
+            && let Some(bases) = self.lexical_bases
+        {
+            return bases.evaluation(self.package, self.at);
+        }
         let mut types = self.package.named_types(self.at);
         if matches!(self.reader, crate::provenance::Reader::Admission(_)) {
             crate::entity::extents(self.package, self.at, &mut types);
@@ -388,7 +404,7 @@ impl Evaluator<'_, '_> {
         if let Some(function) = self.package.functions.get(&self.at) {
             types.extend(function.arguments.iter().cloned());
         }
-        types
+        std::sync::Arc::new(types)
     }
     fn reference(&mut self, name: &str, depth: usize) -> Result<Value> {
         if depth > 64 {
@@ -481,6 +497,7 @@ impl Evaluator<'_, '_> {
             }),
             crate::Selected::Set(_) | crate::Selected::ScopeValue(_) => {
                 let mut evaluator = Evaluator {
+                    lexical_bases: self.lexical_bases,
                     at: id,
                     package: self.package,
                     physical: self.physical,
@@ -654,7 +671,8 @@ impl Evaluator<'_, '_> {
     }
     /// The complete type of a static arithmetic result, inferred at its root.
     fn typed_result(&mut self, e: &Expr, result: f64, expected: Option<&Type>) -> Result<Value> {
-        let mut env = self.named_types();
+        let base = self.named_types();
+        let mut env = crate::TypeScope::shared(base);
         env.extend(
             self.env
                 .iter()
@@ -671,8 +689,7 @@ impl Evaluator<'_, '_> {
                         .resolve(self.at, &name)
                         .filter(|id| self.package.kinds.contains_key(id))
                     {
-                        env.entry(name)
-                            .or_insert_with(|| Type::Set(Box::new(Type::Entity(kind))));
+                        env.insert_absent(name, Type::Set(Box::new(Type::Entity(kind))));
                     }
                 }
             });
@@ -696,7 +713,7 @@ impl Evaluator<'_, '_> {
         for path in e.paths() {
             if path.segments.len() > 1 && path.segments.iter().all(|s| s.indices.is_empty()) {
                 let name = dsl::render_path(path);
-                if !env.contains_key(&name)
+                if env.get(&name).is_none()
                     && !presence_paths.contains(&name)
                     && let Ok(value) = self.expr(
                         &Expr {
@@ -1066,7 +1083,8 @@ impl Evaluator<'_, '_> {
                 if !result.is_finite() {
                     return Err(invalid(self.at, "static primitive domain violation"));
                 }
-                let mut types = self.named_types();
+                let base = self.named_types();
+                let mut types = crate::TypeScope::shared(base);
                 types.extend(
                     self.env
                         .iter()
@@ -1116,7 +1134,8 @@ impl Evaluator<'_, '_> {
                 if values.len() > self.limit {
                     return Err(invalid(self.at, "static reduction extent"));
                 }
-                let mut types = self.named_types();
+                let base = self.named_types();
+                let mut types = crate::TypeScope::shared(base);
                 types.extend(
                     self.env
                         .iter()
@@ -1189,6 +1208,7 @@ impl Evaluator<'_, '_> {
                     let mut env = self.env.clone();
                     env.insert(binder.var.clone(), value);
                     let mut evaluator = Evaluator {
+                        lexical_bases: self.lexical_bases,
                         package: self.package,
                         physical: self.physical,
                         at: self.at,
@@ -1256,7 +1276,8 @@ impl Evaluator<'_, '_> {
                 if members.len() > self.limit {
                     return Err(invalid(self.at, "static fold extent"));
                 }
-                let mut types = self.named_types();
+                let base = self.named_types();
+                let mut types = crate::TypeScope::shared(base);
                 types.extend(
                     self.env
                         .iter()
@@ -1276,6 +1297,7 @@ impl Evaluator<'_, '_> {
                     let mut env = self.env.clone();
                     env.insert(binder.var.clone(), member);
                     let mut evaluator = Evaluator {
+                        lexical_bases: self.lexical_bases,
                         package: self.package,
                         physical: self.physical,
                         at: self.at,
@@ -1295,6 +1317,7 @@ impl Evaluator<'_, '_> {
                         env.insert(accumulator.clone(), previous);
                         env.insert(item.clone(), current);
                         Evaluator {
+                            lexical_bases: self.lexical_bases,
                             package: self.package,
                             physical: self.physical,
                             at: self.at,
@@ -1331,6 +1354,7 @@ impl Evaluator<'_, '_> {
                 let mut env = self.env.clone();
                 for (name, value) in bindings {
                     let value = Evaluator {
+                        lexical_bases: self.lexical_bases,
                         package: self.package,
                         physical: self.physical,
                         at: self.at,
@@ -1344,6 +1368,7 @@ impl Evaluator<'_, '_> {
                     env.insert(name.clone(), value);
                 }
                 Evaluator {
+                    lexical_bases: self.lexical_bases,
                     package: self.package,
                     physical: self.physical,
                     at: self.at,
@@ -1364,7 +1389,8 @@ impl Evaluator<'_, '_> {
                 let result = if let Some(expected) = expected {
                     expected.clone()
                 } else {
-                    let mut types = self.named_types();
+                    let base = self.named_types();
+                    let mut types = crate::TypeScope::shared(base);
                     // A present or absent row cell still has its declared optional
                     // type. Values alone cannot recover absence or an empty set's
                     // element contract, so retain the admitted row/function context.
@@ -1387,7 +1413,7 @@ impl Evaluator<'_, '_> {
                     }
                     for (name, value) in self.env {
                         if let Some(ty) = value_type(value) {
-                            types.entry(name.clone()).or_insert(ty);
+                            types.insert_absent(name.clone(), ty);
                         }
                     }
                     crate::expression::infer(e, &types, self.package, self.physical, self.at, None)?
@@ -1530,6 +1556,7 @@ impl Evaluator<'_, '_> {
                         return Err(invalid(id, "selection dependency argument type"));
                     }
                     let mut evaluator = Evaluator {
+                        lexical_bases: self.lexical_bases,
                         package: self.package,
                         physical: self.physical,
                         at: id,
@@ -1737,6 +1764,7 @@ impl Evaluator<'_, '_> {
         let mut stack = self.stack.clone();
         stack.push(id);
         let mut evaluator = Evaluator {
+            lexical_bases: self.lexical_bases,
             package: self.package,
             physical: self.physical,
             at: id,

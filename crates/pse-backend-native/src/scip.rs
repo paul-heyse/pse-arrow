@@ -488,6 +488,7 @@ pub fn termination(status: Status) -> NativeTermination {
 /// locked. `cancel`, `progress`, `started` and `objective` change only between solves.
 #[derive(Debug)]
 struct Watch {
+    observation_context: Option<pse_diagnostics::observation::ObservationContext>,
     cancel: Arc<AtomicBool>,
     progress: Arc<Progress>,
     started: Instant,
@@ -498,6 +499,13 @@ struct Watch {
     /// SCIP's handler, and by concurrent solvers' handlers for their incumbents, whose
     /// shared record is locked.
     objective: Option<Objective>,
+}
+impl Watch {
+    fn observation_scope(&self) -> Option<pse_diagnostics::observation::EnterGuard> {
+        self.observation_context
+            .as_ref()
+            .map(|context| context.enter())
+    }
 }
 /// How the owning SCIP's incumbents and bounds are reported in original units: the owning
 /// SCIP (copies share the handler data), the column variables of the export, the objective
@@ -789,6 +797,7 @@ unsafe extern "C" fn watch_exec(
         let Some(watch) = watch(eventhdlr) else {
             return ffi::SCIP_Retcode_SCIP_INVALIDDATA;
         };
+        let _observation = watch.observation_scope();
         watch.events.fetch_add(1, Ordering::Relaxed);
         // SAFETY: SCIP passes the live event being processed.
         let kind = unsafe { ffi::SCIPeventGetType(event) };
@@ -823,6 +832,7 @@ unsafe extern "C" fn watch_copy_exec(
         let Some(watch) = watch(eventhdlr) else {
             return ffi::SCIP_Retcode_SCIP_INVALIDDATA;
         };
+        let _observation = watch.observation_scope();
         // SAFETY: SCIP passes the live event being processed.
         let kind = unsafe { ffi::SCIPeventGetType(event) };
         if kind & event::BESTSOLFOUND != 0
@@ -1086,6 +1096,7 @@ impl Instance {
         native!("SCIPcreate", ffi::SCIPcreate(&mut raw))?;
         let scip = NonNull::new(raw).ok_or_else(|| ProblemError::memory("SCIPcreate"))?;
         let watch = Box::new(Watch {
+            observation_context: pse_diagnostics::observation::current(),
             cancel: execution.cancel.clone(),
             progress: execution.progress.clone(),
             started: execution.started,
@@ -1152,6 +1163,7 @@ impl Instance {
         // SAFETY: no solve is running, so no handler holds the data; the box is owned
         // exclusively by this instance.
         let watch = unsafe { self.watch.as_mut() };
+        watch.observation_context = pse_diagnostics::observation::current();
         watch.cancel = execution.cancel.clone();
         watch.progress = execution.progress.clone();
         watch.started = execution.started;
@@ -3087,6 +3099,207 @@ pub(crate) struct Request<'a> {
     pub warm: Option<&'a WarmStart>,
     pub compatibility: &'a Compatibility,
 }
+/// Bounded terminal census of selected actual plugins, not a category total.
+/// Public plugin getters in SCIP 10.0.2 copy stored fields; no plugin runs here.
+fn selected_plugin_statistics(instance: &Instance, metrics: &mut BTreeMap<String, Metric>) {
+    let s = instance.ptr();
+    // SAFETY: an owner-side scalar query of this live instance after solve returned.
+    let stage = unsafe { ffi::SCIPgetStage(s) };
+    metrics.insert(
+        "scip.plugins.stage".into(),
+        Metric::Integer(i64::from(stage)),
+    );
+    if !matches!(
+        stage,
+        ffi::SCIP_Stage_SCIP_STAGE_PRESOLVED
+            | ffi::SCIP_Stage_SCIP_STAGE_SOLVING
+            | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
+    ) {
+        metrics.insert(
+            "scip.plugins.selected".into(),
+            Metric::Unavailable(UnavailableReason::NotApplicable),
+        );
+        return;
+    }
+    metrics.insert(
+        "scip.plugins.selected".into(),
+        Metric::Text("dualinfer,pseudoobj,gomory,nonlinear,ipopt; selected only".into()),
+    );
+    // presol/prop/sepa/constraint counters reset on plugin initialization only
+    // when misc/resetstat is true; NLPI counters reset on NLPI initialization.
+    // Never reinterpret any of them as an inferred per-attempt/window delta.
+    let mut reset = 0;
+    // SAFETY: a nonmutating named parameter read on the owning instance.
+    let reset_code = unsafe { ffi::SCIPgetBoolParam(s, c"misc/resetstat".as_ptr(), &mut reset) };
+    metrics.insert(
+        "scip.plugins.reset_on_initialization".into(),
+        if reset_code == ffi::SCIP_Retcode_SCIP_OKAY {
+            Metric::Bool(reset != 0)
+        } else {
+            Metric::Unavailable(UnavailableReason::Unknown)
+        },
+    );
+    metrics.insert(
+        "scip.plugin.nlpi.ipopt.scope".into(),
+        Metric::Text("native NLPI initialization; may include merged worker statistics".into()),
+    );
+    // SAFETY: finds borrow plugin pointers from this instance. Null explicitly
+    // means absent; each getter below only reads the nonnull plugin's own fields.
+    let presol = unsafe { ffi::SCIPfindPresol(s, c"dualinfer".as_ptr()) };
+    let prop = unsafe { ffi::SCIPfindProp(s, c"pseudoobj".as_ptr()) };
+    let sepa = unsafe { ffi::SCIPfindSepa(s, c"gomory".as_ptr()) };
+    let conshdlr = unsafe { ffi::SCIPfindConshdlr(s, c"nonlinear".as_ptr()) };
+    let nlpi = unsafe { ffi::SCIPfindNlpi(s, c"ipopt".as_ptr()) };
+    for (prefix, present) in [
+        ("scip.plugin.presolve.dualinfer", !presol.is_null()),
+        ("scip.plugin.propagation.pseudoobj", !prop.is_null()),
+        ("scip.plugin.separation.gomory", !sepa.is_null()),
+        ("scip.plugin.constraint.nonlinear", !conshdlr.is_null()),
+        ("scip.plugin.nlpi.ipopt", !nlpi.is_null()),
+    ] {
+        metrics.insert(format!("{prefix}.present"), Metric::Bool(present));
+        if !present {
+            metrics.insert(
+                prefix.into(),
+                Metric::Unavailable(UnavailableReason::NotApplicable),
+            );
+        }
+    }
+    if !presol.is_null() {
+        // SAFETY: nonnull stored plugin, owner and eligible stage established above.
+        let (calls, fixed, bounds) = unsafe {
+            (
+                ffi::SCIPpresolGetNCalls(presol),
+                ffi::SCIPpresolGetNFixedVars(presol),
+                ffi::SCIPpresolGetNChgBds(presol),
+            )
+        };
+        for (name, value) in [
+            ("calls", calls),
+            ("fixed_variables", fixed),
+            ("changed_bounds", bounds),
+        ] {
+            metrics.insert(
+                format!("scip.plugin.presolve.dualinfer.{name}"),
+                Metric::Integer(i64::from(value)),
+            );
+        }
+    }
+    if !prop.is_null() {
+        // SAFETY: same owner-side stored-field reads.
+        let (calls, reductions, cutoffs) = unsafe {
+            (
+                ffi::SCIPpropGetNCalls(prop),
+                ffi::SCIPpropGetNDomredsFound(prop),
+                ffi::SCIPpropGetNCutoffs(prop),
+            )
+        };
+        for (name, value) in [
+            ("calls", calls),
+            ("domain_reductions", reductions),
+            ("cutoffs", cutoffs),
+        ] {
+            metrics.insert(
+                format!("scip.plugin.propagation.pseudoobj.{name}"),
+                Metric::Integer(value),
+            );
+        }
+    }
+    if !sepa.is_null() {
+        // SAFETY: same owner-side stored-field reads.
+        let (calls, found, applied) = unsafe {
+            (
+                ffi::SCIPsepaGetNCalls(sepa),
+                ffi::SCIPsepaGetNCutsFound(sepa),
+                ffi::SCIPsepaGetNCutsApplied(sepa),
+            )
+        };
+        for (name, value) in [
+            ("calls", calls),
+            ("cuts_found", found),
+            ("cuts_applied", applied),
+        ] {
+            metrics.insert(
+                format!("scip.plugin.separation.gomory.{name}"),
+                Metric::Integer(value),
+            );
+        }
+    }
+    if !conshdlr.is_null() {
+        // SAFETY: same owner-side stored-field reads; these distinguish nonlinear
+        // constraint work from solves performed by the selected Ipopt NLPI.
+        let (presolve, propagation, separation, enforcement) = unsafe {
+            (
+                ffi::SCIPconshdlrGetNPresolCalls(conshdlr),
+                ffi::SCIPconshdlrGetNPropCalls(conshdlr),
+                ffi::SCIPconshdlrGetNSepaCalls(conshdlr),
+                ffi::SCIPconshdlrGetNEnfoLPCalls(conshdlr),
+            )
+        };
+        metrics.insert(
+            "scip.plugin.constraint.nonlinear.presolve_calls".into(),
+            Metric::Integer(i64::from(presolve)),
+        );
+        for (name, value) in [
+            ("propagation_calls", propagation),
+            ("separation_calls", separation),
+            ("lp_enforcement_calls", enforcement),
+        ] {
+            metrics.insert(
+                format!("scip.plugin.constraint.nonlinear.{name}"),
+                Metric::Integer(value),
+            );
+        }
+    }
+    if !nlpi.is_null() {
+        // SAFETY: direct stored NLPI summaries after all owner work returned.
+        let (problems, solves, iterations, seconds) = unsafe {
+            (
+                ffi::SCIPnlpiGetNProblems(nlpi),
+                ffi::SCIPnlpiGetNSolves(nlpi),
+                ffi::SCIPnlpiGetNIterations(nlpi),
+                ffi::SCIPnlpiGetSolveTime(nlpi),
+            )
+        };
+        metrics.insert(
+            "scip.plugin.nlpi.ipopt.problems_created".into(),
+            Metric::Integer(i64::from(problems)),
+        );
+        metrics.insert(
+            "scip.plugin.nlpi.ipopt.solves".into(),
+            Metric::Integer(i64::from(solves)),
+        );
+        metrics.insert(
+            "scip.plugin.nlpi.ipopt.iterations".into(),
+            Metric::Integer(iterations),
+        );
+        metrics.insert(
+            "scip.plugin.nlpi.ipopt.solver_reported_seconds".into(),
+            Metric::Real(seconds),
+        );
+        let mut enabled = 0;
+        // SAFETY: same nonmutating parameter read; this does not activate timers.
+        let code = unsafe { ffi::SCIPgetBoolParam(s, c"timing/nlpieval".as_ptr(), &mut enabled) };
+        metrics.insert(
+            "scip.plugin.nlpi.ipopt.evaluation_timing_enabled".into(),
+            if code == ffi::SCIP_Retcode_SCIP_OKAY {
+                Metric::Bool(enabled != 0)
+            } else {
+                Metric::Unavailable(UnavailableReason::Unknown)
+            },
+        );
+        metrics.insert(
+            "scip.plugin.nlpi.ipopt.evaluation_seconds".into(),
+            if code == ffi::SCIP_Retcode_SCIP_OKAY && enabled != 0 {
+                // SAFETY: enabled by existing scientific configuration, completed owner summary.
+                Metric::Real(unsafe { ffi::SCIPnlpiGetEvalTime(nlpi) })
+            } else {
+                Metric::Unavailable(UnavailableReason::NotRequested)
+            },
+        );
+    }
+}
+
 /// Export, read back, inject, solve and report in original coordinates. Qualification
 /// belongs to the factorable runner. A reoptimization session is retained on the owning
 /// worker across a finite sequence; every other attempt builds and frees its instance.
@@ -3214,13 +3427,15 @@ pub(crate) fn solve(
     let s = session.instance.ptr();
     let solved = if r.controls.threads > 1 {
         session.instance.concurrent_may_be_active = true;
-        let result = native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s));
+        let result = crate::observation::scoped("scip.solve_concurrent", || {
+            native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s))
+        });
         if result.is_ok() {
             session.instance.concurrent_may_be_active = false;
         }
         result
     } else {
-        native!("SCIPsolve", ffi::SCIPsolve(s))
+        crate::observation::scoped("scip.solve", || native!("SCIPsolve", ffi::SCIPsolve(s)))
     };
     if let Err(cause) = solved {
         // Cleanup failure carries its original typed native cause and cannot be
@@ -3382,6 +3597,50 @@ pub(crate) fn solve(
         transformations: Vec::new(),
     }));
     let metrics = &mut report.metrics;
+    // Pinned SCIP 10.0.2 statistics allow these queries only after presolve or
+    // during/after solving. Never infer eligibility from a retained handle alone.
+    // SAFETY: the owning instance has returned from SCIPsolve; no concurrent copy
+    // is accessed here and the stage query itself is always admitted.
+    let stage = unsafe { ffi::SCIPgetStage(s) };
+    if matches!(
+        stage,
+        ffi::SCIP_Stage_SCIP_STAGE_PRESOLVED
+            | ffi::SCIP_Stage_SCIP_STAGE_SOLVING
+            | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
+    ) {
+        let getters: [(&str, unsafe extern "C" fn(*mut ffi::SCIP) -> i64); 6] = [
+            ("scip.nodes.current_run", ffi::SCIPgetNNodes),
+            ("scip.nodes.all_runs", ffi::SCIPgetNTotalNodes),
+            ("scip.lp.solves", ffi::SCIPgetNLPs),
+            ("scip.lp.iterations", ffi::SCIPgetNLPIterations),
+            ("scip.strong_branch.calls", ffi::SCIPgetNStrongbranchs),
+            (
+                "scip.strong_branch.lp_iterations",
+                ffi::SCIPgetNStrongbranchLPIterations,
+            ),
+        ];
+        for (name, getter) in getters {
+            // SAFETY: the exact getter's documented eligible stage was checked above.
+            metrics.insert(name.into(), Metric::Integer(unsafe { getter(s) }));
+        }
+        // SAFETY: same eligible owning stage; these are supplied census values,
+        // not an inference from configured plugins or their printed summaries.
+        metrics.insert(
+            "scip.presolve.rounds_current_or_last".into(),
+            Metric::Integer(i64::from(unsafe { ffi::SCIPgetNPresolRounds(s) })),
+        );
+        // SAFETY: SCIPgetNCutsApplied admits the same three stages checked above.
+        metrics.insert(
+            "scip.separation.cuts_applied".into(),
+            Metric::Integer(i64::from(unsafe { ffi::SCIPgetNCutsApplied(s) })),
+        );
+    } else {
+        metrics.insert(
+            "scip.lp.iterations".into(),
+            Metric::Unavailable(UnavailableReason::NotApplicable),
+        );
+    }
+    selected_plugin_statistics(&session.instance, metrics);
     metrics.insert("scip.status".into(), Metric::Integer(i64::from(raw)));
     metrics.insert("scip.nodes".into(), Metric::Integer(nodes));
     for (key, value) in [
@@ -3509,6 +3768,7 @@ pub(crate) fn solve(
     if let Some(mut local) = local.take() {
         local.shutdown()?;
     }
+    crate::observation::report(&report);
     Ok(report)
 }
 

@@ -364,6 +364,11 @@ impl DurabilitySelection {
     }
 }
 impl Runtime {
+    /// Passive diagnostic registry, available before preparing or starting a run.
+    pub fn observations(&self) -> &Arc<crate::observation::Diagnostics> {
+        &self.caller.observations
+    }
+
     /// Release this logical caller and all of its aliases. Already admitted work
     /// retains its continuation authority; physical drivers belong to the deployment.
     pub fn close(&self) {
@@ -400,6 +405,7 @@ impl Runtime {
         let caller = Arc::new(RuntimeCaller::new(
             Some(canonical.store().clone()),
             model.validation_context(),
+            Arc::downgrade(&shared),
         ));
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
@@ -425,7 +431,11 @@ impl Runtime {
         model: BoundModel,
     ) -> Result<Self, WorkflowError> {
         Self::check_deployment(&shared, model.factory())?;
-        let caller = Arc::new(RuntimeCaller::new(None, model.validation_context()));
+        let caller = Arc::new(RuntimeCaller::new(
+            None,
+            model.validation_context(),
+            Arc::downgrade(&shared),
+        ));
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
         shared.caches().register_component(&component);
@@ -630,9 +640,12 @@ impl Runtime {
 struct RuntimeCaller {
     state: std::sync::Mutex<RuntimeCallerState>,
     validation: Arc<pse_relations::validate::ValidationContext>,
+    observations: Arc<crate::observation::Diagnostics>,
+    resources: std::sync::Weak<SharedRuntime>,
 }
 #[derive(Debug, Default)]
 struct RuntimeCallerState {
+    diagnostic_registration: Option<crate::observation::DiagnosticRegistration>,
     closed: bool,
     active: usize,
     stores: Vec<pse_operations::canonical::CanonicalStore>,
@@ -641,13 +654,33 @@ impl RuntimeCaller {
     fn new(
         store: Option<pse_operations::canonical::CanonicalStore>,
         validation: Arc<pse_relations::validate::ValidationContext>,
+        resources: std::sync::Weak<SharedRuntime>,
     ) -> Self {
+        let observations = crate::observation::process_diagnostics().clone();
         Self {
             state: std::sync::Mutex::new(RuntimeCallerState {
+                diagnostic_registration: Some(observations.register()),
                 stores: store.into_iter().collect(),
                 ..Default::default()
             }),
             validation,
+            observations,
+            resources,
+        }
+    }
+    fn sample_resources(&self, context: &pse_diagnostics::observation::ObservationContext) {
+        if let Some(shared) = self.resources.upgrade() {
+            match i64::try_from(shared.pool().reserved()) {
+                Ok(bytes) => context.integer("resource.shared_pool_reserved", "bytes", bytes),
+                Err(_) => context.unavailable(
+                    "resource.shared_pool_reserved",
+                    "byte sample exceeds signed observation range",
+                ),
+            }
+            context.source_ref(
+                "resource.pool.scope",
+                b"shared_runtime_current_not_operation_peak",
+            );
         }
     }
     fn admit(self: &Arc<Self>) -> Result<RuntimeActivity, WorkflowError> {
@@ -667,9 +700,20 @@ impl RuntimeCaller {
             .active
             .checked_add(1)
             .ok_or_else(|| contract("runtime activity extent"))?;
+        let observation = match pse_diagnostics::observation::current() {
+            Some(context) => context.child(
+                "workflow.activity",
+                pse_diagnostics::observation::Relationship::Nested,
+            ),
+            None => self.observations.hub().start("workflow.activity"),
+        };
+        self.sample_resources(&observation.context());
         Ok(RuntimeActivity(Arc::new(RuntimeActivityOwner {
             caller: self.clone(),
             validation: Arc::new(self.validation.new_scope()),
+            observation: Some(observation),
+            observation_returned: std::sync::atomic::AtomicBool::new(false),
+            observation_interrupted: std::sync::atomic::AtomicBool::new(false),
         })))
     }
     fn close(&self) {
@@ -679,6 +723,7 @@ impl RuntimeCaller {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.closed = true;
         if state.active == 0 {
+            state.diagnostic_registration = None;
             for store in &state.stores {
                 store.close();
             }
@@ -691,11 +736,29 @@ impl RuntimeCaller {
 pub(crate) struct RuntimeActivity(Arc<RuntimeActivityOwner>);
 #[derive(Debug)]
 struct RuntimeActivityOwner {
+    observation: Option<pse_diagnostics::observation::OperationGuard>,
+    observation_returned: std::sync::atomic::AtomicBool,
+    observation_interrupted: std::sync::atomic::AtomicBool,
     caller: Arc<RuntimeCaller>,
     validation: Arc<pse_relations::validate::ValidationContext>,
 }
 impl Drop for RuntimeActivityOwner {
     fn drop(&mut self) {
+        // This marks the activity scope drained, not a scientific solution qualified.
+        if let Some(observation) = self.observation.take() {
+            self.caller.sample_resources(&observation.context());
+            observation.context().boolean("activity.drained", true);
+            if self
+                .observation_returned
+                .load(std::sync::atomic::Ordering::Acquire)
+                && !self
+                    .observation_interrupted
+                    .load(std::sync::atomic::Ordering::Acquire)
+            {
+                observation.finish(pse_diagnostics::observation::Outcome::Completed);
+            }
+            // Otherwise the guard records an unexplained/interrupted scope drop.
+        }
         let mut state = self
             .caller
             .state
@@ -703,6 +766,7 @@ impl Drop for RuntimeActivityOwner {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.active -= 1;
         if state.closed && state.active == 0 {
+            state.diagnostic_registration = None;
             for store in &state.stores {
                 store.close();
             }
@@ -710,27 +774,200 @@ impl Drop for RuntimeActivityOwner {
     }
 }
 tokio::task_local! { static RUNTIME_CONTINUATION: RuntimeActivity; }
-impl RuntimeActivity {
-    pub(crate) fn sync_scope<T>(&self, action: impl FnOnce() -> T) -> T {
-        RUNTIME_CONTINUATION.sync_scope(self.clone(), action)
-    }
-    pub(crate) fn scope<F: Future>(&self, future: F) -> impl Future<Output = F::Output> + use<F> {
-        RUNTIME_CONTINUATION.scope(self.clone(), future)
+struct ObservationScopeReturn {
+    owner: Arc<RuntimeActivityOwner>,
+    returned: bool,
+}
+impl ObservationScopeReturn {
+    fn mark_returned(&mut self) {
+        self.returned = true;
     }
 }
+impl Drop for ObservationScopeReturn {
+    fn drop(&mut self) {
+        if self.returned {
+            self.owner
+                .observation_returned
+                .store(true, std::sync::atomic::Ordering::Release);
+        } else {
+            self.owner
+                .observation_interrupted
+                .store(true, std::sync::atomic::Ordering::Release);
+        }
+    }
+}
+impl RuntimeActivity {
+    fn observation_context(&self) -> Option<pse_diagnostics::observation::ObservationContext> {
+        // A nested continuation keeps its actual lane/producer attribution. A different
+        // runtime activity enters its own node instead of borrowing another caller's one.
+        if RUNTIME_CONTINUATION
+            .try_with(|current| Arc::ptr_eq(&current.0, &self.0))
+            .unwrap_or(false)
+            && let Some(context) = pse_diagnostics::observation::current()
+        {
+            return Some(context);
+        }
+        self.0
+            .observation
+            .as_ref()
+            .map(|observation| observation.context())
+    }
+    pub(crate) fn sync_scope<T>(&self, action: impl FnOnce() -> T) -> T {
+        let context = self.observation_context();
+        let _entered = context
+            .as_ref()
+            .map(pse_diagnostics::observation::ObservationContext::enter);
+        let mut completion = ObservationScopeReturn {
+            owner: self.0.clone(),
+            returned: false,
+        };
+        let output = RUNTIME_CONTINUATION.sync_scope(self.clone(), action);
+        completion.returned = true;
+        output
+    }
+    pub(crate) fn scope<F: Future>(&self, future: F) -> impl Future<Output = F::Output> + use<F> {
+        let context = self.observation_context();
+        let mut completion = ObservationScopeReturn {
+            owner: self.0.clone(),
+            returned: false,
+        };
+        // Inspect stores F once and owns the completion guard through cancellation.
+        // Another async forwarding layer duplicates large nested preparation futures.
+        let future = futures_util::FutureExt::inspect(future, move |_| completion.mark_returned());
+        RUNTIME_CONTINUATION.scope(self.clone(), crate::observation::scope(context, future))
+    }
+}
+
 pub(crate) fn inherit_runtime_activity<F: Future>(future: F) -> impl Future<Output = F::Output> {
     let activity = RUNTIME_CONTINUATION.try_with(Clone::clone).ok();
+    let context = pse_diagnostics::observation::current();
     let future = pse_operations::canonical::inherit_activity(future);
-    async move {
-        match activity {
-            Some(activity) => activity.scope(future).await,
-            None => future.await,
-        }
+    // Construct the scope now: a spawned task's first poll has no originating task-local.
+    match activity {
+        Some(activity) => futures_util::future::Either::Left(activity.scope(future)),
+        None => futures_util::future::Either::Right(crate::observation::scope(context, future)),
     }
 }
 #[cfg(test)]
 mod local_caller_tests {
     use super::*;
+    use std::time::Duration;
+    #[test]
+    fn observation_runtime_scope_stores_one_inline_future() {
+        let runtime = tests::runtime();
+        let activity = runtime.admit_activity().unwrap();
+        let payload = [0u8; 64 * 1024];
+        let future = async move {
+            std::future::pending::<()>().await;
+            std::hint::black_box(payload)
+        };
+        let bytes = size_of_val(&future);
+        let scoped = activity.scope(future);
+        assert!(size_of_val(&scoped) <= bytes + 1024);
+        drop(scoped);
+        drop(activity);
+        runtime.close();
+    }
+    #[tokio::test]
+    async fn observation_inherited_continuation_captures_lane_before_spawn() {
+        let runtime = tests::runtime();
+        let activity = runtime.admit_activity().unwrap();
+        activity
+            .scope(async {
+                let parent = pse_diagnostics::observation::current().unwrap();
+                let lane = parent.child(
+                    "study.source.lane",
+                    pse_diagnostics::observation::Relationship::Nested,
+                );
+                let expected = lane.context().id();
+                let inherited = crate::observation::scope(Some(lane.context()), async {
+                    inherit_runtime_activity(async {
+                        pse_diagnostics::observation::current().unwrap().id()
+                    })
+                })
+                .await;
+                assert_eq!(
+                    pse_diagnostics::observation::current().unwrap().id(),
+                    parent.id()
+                );
+                assert_eq!(tokio::spawn(inherited).await.unwrap(), expected);
+                assert_eq!(
+                    pse_diagnostics::observation::current().unwrap().id(),
+                    parent.id()
+                );
+                lane.finish(pse_diagnostics::observation::Outcome::Completed);
+            })
+            .await;
+        drop(activity);
+        runtime.close();
+    }
+    #[tokio::test]
+    async fn observation_nested_runtime_scope_preserves_actual_producer_attribution() {
+        let runtime = tests::runtime();
+        let activity = runtime.admit_activity().unwrap();
+        activity
+            .scope(async {
+                let parent = pse_diagnostics::observation::current().unwrap();
+                let producer = parent.child(
+                    "study.actual.lane",
+                    pse_diagnostics::observation::Relationship::Nested,
+                );
+                let expected = producer.context().id();
+                crate::observation::scope(Some(producer.context()), async {
+                    let nested = runtime.admit_activity().unwrap();
+                    nested
+                        .scope(async {
+                            assert_eq!(
+                                pse_diagnostics::observation::current().unwrap().id(),
+                                expected
+                            );
+                        })
+                        .await;
+                    nested.sync_scope(|| {
+                        assert_eq!(
+                            pse_diagnostics::observation::current().unwrap().id(),
+                            expected
+                        )
+                    });
+                })
+                .await;
+                producer.finish(pse_diagnostics::observation::Outcome::Completed);
+                assert_eq!(
+                    pse_diagnostics::observation::current().unwrap().id(),
+                    parent.id()
+                );
+            })
+            .await;
+        drop(activity);
+        runtime.close();
+    }
+    #[tokio::test]
+    async fn observation_drop_distinguishes_returned_work_from_cancelled_future() {
+        let runtime = tests::runtime();
+        let completed = runtime.admit_activity().unwrap();
+        let completed_reader = completed.0.observation.as_ref().unwrap().reader();
+        completed.scope(async {}).await;
+        drop(completed);
+        assert_eq!(
+            completed_reader.snapshot(Duration::from_secs(60)).outcome,
+            Some(pse_diagnostics::observation::Outcome::Completed)
+        );
+        let interrupted = runtime.admit_activity().unwrap();
+        let reader = interrupted.0.observation.as_ref().unwrap().reader();
+        // A preceding returned continuation must not disguise a later dropped one.
+        interrupted.scope(async {}).await;
+        let mut pending = Box::pin(interrupted.scope(std::future::pending::<()>()));
+        assert!(futures_util::poll!(pending.as_mut()).is_pending());
+        drop(pending);
+        drop(interrupted);
+        runtime.close();
+        let snapshot = reader.snapshot(Duration::from_secs(60));
+        assert_eq!(
+            snapshot.outcome,
+            Some(pse_diagnostics::observation::Outcome::Interrupted)
+        );
+        assert!(snapshot.coverage.interrupted);
+    }
     #[tokio::test]
     async fn local_close_refuses_idle_alias_and_keeps_admitted_children() {
         let runtime = tests::runtime();

@@ -27,6 +27,7 @@ pub(super) async fn run(
     observations: &mut observations::Observations,
     gradient_only: bool,
 ) {
+    let preparation_stage = audit::stage("source_and_preparation");
     let physical = physical(owner).await;
     let observed = [
         ("reading-0", "x", 0.5),
@@ -103,7 +104,7 @@ pub(super) async fn run(
         .with_fit_declarations(declarations)
         .await
         .unwrap();
-    let cancel = CancelSource::new();
+    let cancel = audit::cancel_source();
     let simulation = package
         .declared_simulation(case, compiler(), None, seed_limits(), &cancel)
         .await
@@ -186,7 +187,11 @@ pub(super) async fn run(
         .unwrap()
         .budget;
     assert!(objective_budget.is_finite() && objective_budget > 0.0);
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    drop(preparation_stage);
+    let execution_stage = audit::stage("numerical_execution");
+    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    drop(execution_stage);
+    let _assessment = audit::stage("original_scientific_assessment");
     observations.run(&result, owner.runtime.math());
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing curved fit")

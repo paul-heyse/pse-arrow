@@ -2105,6 +2105,18 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
         &cancel,
     )
     .unwrap();
+    // Independent physical oracle: -2 * ((F-32)*5/9 + 273.15 - K).
+    // Aliases, nonzero gather offsets and contribution scales all precede row proof.
+    let domain = plan
+        .presolve_domain_facts(&values, 100_000, &cancel)
+        .unwrap();
+    let facts = plan
+        .affine_row_facts(&values, &domain, 100_000, &cancel)
+        .unwrap();
+    let affine = facts.affine[0].as_ref().unwrap();
+    assert!((affine.entries[&0] + 10.0 / 9.0).abs() < 1e-12);
+    assert_eq!(affine.entries[&1], 2.0);
+    assert!((affine.constant + 2.0 * (273.15 - 32.0 * 5.0 / 9.0)).abs() < 1e-12);
     let reference = Arc::new(
         Arc::new(plan.clone())
             .compile(
@@ -2856,4 +2868,900 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     let reference = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
     assert!(reference.instantiated_orders().iter().all(Vec::is_empty));
     assert!(returned.lock().unwrap().is_none());
+}
+
+#[test]
+fn affine_original_rows_cancel_across_bodies_before_proof_and_reuse_bound_outputs() {
+    use crate::presolve::ClassStatus;
+    let (original, mut values) = fixture(true, false);
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        3,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let a = builder.input(0, quantity, IndexSet::new(), id(30)).unwrap();
+    let b = builder.input(1, quantity, IndexSet::new(), id(31)).unwrap();
+    let c = builder.input(2, quantity, IndexSet::new(), id(32)).unwrap();
+    let square = builder
+        .binary(Binary::Mul, a.clone(), b, None, id(33))
+        .unwrap();
+    let linear = builder.binary(Binary::Add, a, c, None, id(34)).unwrap();
+    let residual = builder
+        .binary(Binary::Add, square, linear, None, id(35))
+        .unwrap();
+    let second = Arc::new(builder.prepare(&[residual]).unwrap());
+    let second_key = ContentHash::from_bytes([2; 32]);
+    let mut variables = original.structure().variables().to_vec();
+    let mut parameter = variables
+        .iter()
+        .find(|v| v.port.id == id(1))
+        .unwrap()
+        .clone();
+    parameter.port.id = id(3);
+    parameter.fixed = true;
+    variables.push(parameter.clone());
+    let mut first = original.structure().instances()[0].clone();
+    first.contributions = vec![
+        Contribution {
+            output: 0,
+            target: Target::Row(id(10)),
+            scale: -0.5
+        };
+        2
+    ];
+    let x = variables
+        .iter()
+        .find(|v| v.port.id == id(1))
+        .unwrap()
+        .port
+        .clone();
+    let slots = vec![
+        SlotBinding::new(&x, &x, &registry).unwrap(),
+        SlotBinding::new(&x, &x, &registry).unwrap(),
+        SlotBinding::new(&parameter.port, &parameter.port, &registry).unwrap(),
+    ];
+    let second_binding = InstanceBinding {
+        checked_members: Default::default(),
+        instance: id(8),
+        body: second_key,
+        slots: slots.into(),
+        contributions: vec![Contribution {
+            output: 0,
+            target: Target::Row(id(10)),
+            scale: 1.0,
+        }],
+    };
+    let structure = CaseStructure::new(
+        variables,
+        vec![],
+        vec![first, second_binding],
+        original.structure().rows().to_vec(),
+        None,
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let mut bodies = original.bodies().clone();
+    bodies.insert(second_key, second);
+    values.scalars.insert(id(3), 3.0);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = Arc::new(
+        CasePlan::prepare(
+            Arc::new(structure),
+            bodies,
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap(),
+    );
+    let base = plan
+        .presolve_domain_facts(&values, 100_000, &cancel)
+        .unwrap();
+    let facts = plan
+        .affine_row_facts(&values, &base, 100_000, &cancel)
+        .unwrap();
+    let row_index = plan
+        .structure()
+        .rows()
+        .iter()
+        .position(|row| row.id == id(10))
+        .unwrap();
+    let row = facts.affine[row_index].as_ref().unwrap();
+    assert_eq!(row.entries, BTreeMap::from([(0, 1.0)]));
+    assert_eq!(row.constant, 3.0);
+    assert_eq!(facts.class_status, ClassStatus::Unassessed);
+    assert_eq!(facts.obligations, base.obligations);
+    assert_eq!(facts.row_sources, base.row_sources);
+    let assembly = Arc::new(
+        plan.compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap(),
+    );
+    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    for x in [-2.0, 0.0, 5.0] {
+        values.scalars.insert(id(1), x);
+        assert!(facts.matches(&assembly, &values));
+        assert_eq!(worker.constraints(&values).unwrap()[row_index], x + 3.0);
+    }
+    values.scalars.insert(id(3), 4.0);
+    assert!(matches!(
+        assembly.affine_row_facts(&values, &facts, 100_000, &cancel),
+        Err(crate::MathError::Contract(_))
+    ));
+}
+
+#[test]
+fn affine_selected_row_work_is_local_when_an_independent_block_is_added() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    use std::time::Duration;
+    let (original, original_values) = fixture(false, false);
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let run = |extra: bool| {
+        let mut variables = original.structure().variables().to_vec();
+        let mut instances = original.structure().instances().to_vec();
+        let mut rows = original.structure().rows().to_vec();
+        let mut values = original_values.clone();
+        if extra {
+            let mut ports = Vec::new();
+            for n in [3, 4] {
+                let mut variable = variables[0].clone();
+                variable.port.id = id(n);
+                ports.push(variable.port.clone());
+                variables.push(variable);
+                values.scalars.insert(id(n), f64::from(n));
+            }
+            let mut unrelated = instances[0].clone();
+            unrelated.instance = id(8);
+            unrelated.slots = vec![
+                SlotBinding::new(&ports[0], &ports[0], &registry).unwrap(),
+                SlotBinding::new(&ports[1], &ports[1], &registry).unwrap(),
+            ]
+            .into();
+            unrelated.contributions = vec![Contribution {
+                output: 1,
+                target: Target::Row(id(12)),
+                scale: 1.0,
+            }];
+            instances.push(unrelated);
+            let mut row = rows[0].clone();
+            row.id = id(12);
+            rows.push(row);
+        }
+        let structure = CaseStructure::new(
+            variables,
+            vec![],
+            instances,
+            rows,
+            original.structure().objective().cloned(),
+            CaseLimits::default(),
+        )
+        .unwrap();
+        let plan = CasePlan::prepare(
+            Arc::new(structure),
+            original.bodies().clone(),
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+        let domain = plan
+            .presolve_domain_facts(&values, 100_000, &cancel)
+            .unwrap();
+        let mut base = plan
+            .affine_row_facts(&values, &domain, 100_000, &cancel)
+            .unwrap();
+        let selected = plan
+            .structure()
+            .rows()
+            .iter()
+            .position(|row| row.id == id(10))
+            .unwrap();
+        base.affine[selected] = None;
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("selected-row-locality");
+        let entered = operation.context().enter();
+        let facts = plan
+            .affine_row_facts(&values, &base, 100_000, &cancel)
+            .unwrap();
+        drop(entered);
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        let counts = snapshot
+            .metrics
+            .iter()
+            .map(|metric| {
+                let Value::Count(count) = metric.cumulative else {
+                    panic!("expected actual work count");
+                };
+                (metric.name.clone(), count)
+            })
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            facts.affine[selected].as_ref().unwrap().entries,
+            BTreeMap::from([(0, 5.0), (1, 5.0)])
+        );
+        assert_eq!(counts["affine.selected_rows"], 1);
+        assert_eq!(counts["affine.contributions_examined"], 2);
+        assert_eq!(counts["affine.bound_output_reuses"], 1);
+        assert_eq!(counts["affine.candidate_coordinates"], 2);
+        assert_eq!(counts["affine.derivative_attempts"], 2);
+        assert_eq!(counts["affine.formal_coordinates"], 2);
+        assert_eq!(counts["affine.nonzero_coefficients"], 2);
+        assert_eq!(counts["affine.established_rows"], 1);
+        assert_eq!(counts["affine.withheld_rows"], 0);
+        (counts, facts)
+    };
+    let (first, _) = run(false);
+    let (extra, _) = run(true);
+    for name in [
+        "contributions_examined",
+        "bound_output_reuses",
+        "candidate_coordinates",
+        "derivative_attempts",
+        "formal_coordinates",
+        "substitution_calls",
+        "nonzero_coefficients",
+    ] {
+        assert_eq!(
+            first[&format!("affine.{name}")],
+            extra[&format!("affine.{name}")],
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn affine_row_coefficient_range_withholds_only_the_affected_original_row() {
+    let (original, values) = fixture(false, false);
+    let mut instances = original.structure().instances().to_vec();
+    for contribution in &mut instances[0].contributions {
+        if matches!(contribution.target, Target::Row(_)) {
+            contribution.scale = f64::MAX;
+        }
+    }
+    let structure = CaseStructure::new(
+        original.structure().variables().to_vec(),
+        vec![],
+        instances,
+        original.structure().rows().to_vec(),
+        original.structure().objective().cloned(),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(
+        Arc::new(structure),
+        original.bodies().clone(),
+        &standard_registry().unwrap(),
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let base = plan
+        .presolve_domain_facts(&values, 100_000, &cancel)
+        .unwrap();
+    let facts = plan
+        .affine_row_facts(&values, &base, 100_000, &cancel)
+        .unwrap();
+    let affected = plan
+        .structure()
+        .rows()
+        .iter()
+        .position(|row| row.id == id(10))
+        .unwrap();
+    let empty = plan
+        .structure()
+        .rows()
+        .iter()
+        .position(|row| row.id == id(11))
+        .unwrap();
+    assert!(facts.affine[affected].is_none());
+    assert_eq!(facts.affine[empty].as_ref().unwrap().constant, 0.0);
+    assert!(facts.affine[empty].as_ref().unwrap().entries.is_empty());
+    assert_eq!(facts.class_status, base.class_status);
+    assert_eq!(facts.obligations, base.obligations);
+    assert_eq!(facts.row_sources, base.row_sources);
+    assert!(base.affine.iter().all(Option::is_none));
+}
+
+#[test]
+fn affine_plan_coordinates_can_select_fixed_variables_and_parameters_in_explicit_order() {
+    let (original, mut values) = fixture(false, true);
+    let registry = standard_registry().unwrap();
+    let fixed = original
+        .structure()
+        .variables()
+        .iter()
+        .find(|v| v.port.id == id(1))
+        .unwrap()
+        .port
+        .clone();
+    let mut parameter = fixed.clone();
+    parameter.id = id(3);
+    let mut instances = original.structure().instances().to_vec();
+    instances[0].slots = vec![
+        SlotBinding::new(&fixed, &fixed, &registry).unwrap(),
+        SlotBinding::new(&parameter, &parameter, &registry).unwrap(),
+    ]
+    .into();
+    let structure = Arc::new(
+        CaseStructure::new(
+            original.structure().variables().to_vec(),
+            vec![parameter],
+            instances,
+            original.structure().rows().to_vec(),
+            original.structure().objective().cloned(),
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    values.scalars.insert(id(3), 3.0);
+    let cancel = Arc::new(AtomicBool::new(false));
+    for (coordinates, entries, constant) in [
+        (vec![id(1)], BTreeMap::from([(0, 5.0)]), 15.0),
+        (vec![id(3)], BTreeMap::from([(0, 5.0)]), 10.0),
+        (
+            vec![id(3), id(1)],
+            BTreeMap::from([(0, 5.0), (1, 5.0)]),
+            0.0,
+        ),
+    ] {
+        let plan = CasePlan::prepare_with_coordinates(
+            structure.clone(),
+            original.bodies().clone(),
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+            coordinates.clone(),
+        )
+        .unwrap();
+        assert_eq!(plan.columns(), coordinates);
+        assert!(plan.structure().free_variables().next().is_none());
+        let domain = plan
+            .presolve_domain_facts(&values, 100_000, &cancel)
+            .unwrap();
+        let facts = plan
+            .affine_row_facts(&values, &domain, 100_000, &cancel)
+            .unwrap();
+        let row = plan
+            .structure()
+            .rows()
+            .iter()
+            .position(|row| row.id == id(10))
+            .unwrap();
+        assert_eq!(facts.affine[row].as_ref().unwrap().entries, entries);
+        assert_eq!(facts.affine[row].as_ref().unwrap().constant, constant);
+        for source in [id(1), id(3)] {
+            let mut changed = values.clone();
+            changed.scalars.insert(source, 7.0);
+            assert_eq!(
+                facts.matches(&plan, &changed),
+                coordinates.contains(&source)
+            );
+            if coordinates.contains(&source) {
+                let retained = plan
+                    .affine_row_facts(&changed, &facts, 100_000, &cancel)
+                    .unwrap();
+                assert_eq!(retained.key, facts.key);
+                assert_eq!(retained.affine, facts.affine);
+            } else {
+                assert!(matches!(
+                    plan.affine_row_facts(&changed, &facts, 100_000, &cancel),
+                    Err(crate::MathError::Contract(_))
+                ));
+            }
+        }
+    }
+}
+
+#[test]
+fn affine_selected_output_does_not_examine_unrelated_inputs_of_a_wide_body() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    use std::time::Duration;
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let cancel = Arc::new(AtomicBool::new(false));
+    let run = |width: usize| {
+        let mut builder = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            width,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let mut inputs = (0..width)
+            .map(|slot| {
+                builder
+                    .input(slot, quantity, IndexSet::new(), id(20))
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let selected = inputs.remove(0);
+        let mut unrelated = inputs.remove(0);
+        for input in inputs {
+            unrelated = builder
+                .binary(Binary::Add, unrelated, input, None, id(21))
+                .unwrap();
+        }
+        let body = Arc::new(builder.prepare(&[selected, unrelated]).unwrap());
+        let key = ContentHash::from_bytes([1; 32]);
+        let variables = (0..width)
+            .map(|column| Variable {
+                port: Port {
+                    id: id(50 + u8::try_from(column).unwrap()),
+                    quantity,
+                    unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+                },
+                fixed: false,
+                domain: ModelingVariableDomain::Continuous,
+                lower: None,
+                upper: None,
+            })
+            .collect::<Vec<_>>();
+        let mut ports = variables
+            .iter()
+            .map(|variable| variable.port.clone())
+            .collect::<Vec<_>>();
+        // Original slot zero binds to the last global column. The other local slots,
+        // including one with that same formal number, belong only to the other output.
+        ports.rotate_right(1);
+        let slots = ports
+            .iter()
+            .map(|port| SlotBinding::new(port, port, &registry).unwrap())
+            .collect::<Vec<_>>();
+        let values = CaseValues {
+            scalars: variables
+                .iter()
+                .map(|variable| (variable.port.id, 2.0))
+                .collect(),
+        };
+        let structure = CaseStructure::new(
+            variables,
+            vec![],
+            vec![InstanceBinding {
+                checked_members: Default::default(),
+                instance: id(9),
+                body: key,
+                slots: slots.into(),
+                contributions: vec![
+                    Contribution {
+                        output: 0,
+                        target: Target::Row(id(10)),
+                        scale: 2.0,
+                    },
+                    Contribution {
+                        output: 0,
+                        target: Target::Row(id(10)),
+                        scale: 3.0,
+                    },
+                ],
+            }],
+            vec![Row {
+                id: id(10),
+                quantity,
+                lower: 0.0,
+                upper: 100.0,
+            }],
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap();
+        let plan = CasePlan::prepare(
+            Arc::new(structure),
+            BTreeMap::from([(key, body)]),
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+        let domain = plan
+            .presolve_domain_facts(&values, 100_000, &cancel)
+            .unwrap();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("affine-wide-output-locality");
+        let entered = operation.context().enter();
+        let facts = plan
+            .affine_row_facts(&values, &domain, 100_000, &cancel)
+            .unwrap();
+        drop(entered);
+        assert_eq!(
+            facts.affine[0].as_ref().unwrap().entries,
+            BTreeMap::from([(width - 1, 5.0)])
+        );
+        assert_eq!(facts.affine[0].as_ref().unwrap().constant, 0.0);
+        let counts = || {
+            operation
+                .reader()
+                .snapshot(Duration::from_secs(60))
+                .metrics
+                .into_iter()
+                .filter(|metric| metric.unit == "count" && metric.name.starts_with("affine."))
+                .map(|metric| {
+                    let Value::Count(count) = metric.cumulative else {
+                        panic!("expected actual work count");
+                    };
+                    (metric.name, count)
+                })
+                .collect::<BTreeMap<_, _>>()
+        };
+        let first = counts();
+        assert_eq!(counts(), first, "inspection must not execute another proof");
+        for name in [
+            "selected_rows",
+            "input_symbols_examined",
+            "input_slots_examined",
+            "bound_output_reuses",
+            "formal_coordinates",
+            "candidate_coordinates",
+            "derivative_attempts",
+            "nonzero_coefficients",
+            "established_rows",
+        ] {
+            assert_eq!(first[&format!("affine.{name}")], 1, "{name}");
+        }
+        assert_eq!(first["affine.contributions_examined"], 2);
+        assert_eq!(first["affine.substitution_calls"], 2);
+        assert_eq!(first["affine.withheld_rows"], 0);
+        first
+    };
+    assert_eq!(run(2), run(64));
+}
+
+#[test]
+fn selected_functions_prepare_once_keep_contributions_coordinates_and_complete_universe() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    use std::time::Duration;
+    let (original, values) = fixture(false, false);
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut first = original.structure().instances()[0].clone();
+    first.contributions = vec![
+        Contribution {
+            output: 0,
+            target: Target::Row(id(10)),
+            scale: 2.0,
+        },
+        Contribution {
+            output: 0,
+            target: Target::Row(id(10)),
+            scale: -0.5,
+        },
+        Contribution {
+            output: 1,
+            target: Target::Row(id(11)),
+            scale: 3.0,
+        },
+    ];
+    let mut second = first.clone();
+    second.instance = id(8);
+    second.contributions = vec![
+        Contribution {
+            output: 0,
+            target: Target::Row(id(10)),
+            scale: 0.5,
+        },
+        Contribution {
+            output: 1,
+            target: Target::Row(id(11)),
+            scale: -1.0,
+        },
+    ];
+    let source = Arc::new(
+        CaseStructure::new(
+            original.structure().variables().to_vec(),
+            vec![],
+            vec![first, second],
+            original.structure().rows().to_vec(),
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let needed = CasePlan::prepare(
+        source.clone(),
+        original.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    for order in [
+        DerivativeOrder::Value,
+        DerivativeOrder::First,
+        DerivativeOrder::Second,
+    ] {
+        let coordinates = vec![id(2), id(1)];
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("direct-selected-functions");
+        let entered = operation.context().enter();
+        let mut looked_up = Vec::new();
+        let direct = CasePlan::prepare_functions(
+            &source,
+            |key| {
+                looked_up.push(key);
+                original.bodies().get(&key).cloned()
+            },
+            &[id(11), id(10)],
+            coordinates.clone(),
+            &registry,
+            order,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+        drop(entered);
+        assert_eq!(
+            looked_up,
+            original.bodies().keys().copied().collect::<Vec<_>>()
+        );
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        for name in [
+            "math.case_plan_constructions",
+            "math.selected_function_constructions",
+            "math.selected_function_bodies",
+        ] {
+            assert_eq!(
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|m| m.name == name)
+                    .unwrap()
+                    .cumulative,
+                Value::Count(1)
+            );
+        }
+        let projected = needed
+            .functions(
+                &[id(11), id(10)],
+                coordinates.clone(),
+                &registry,
+                order,
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(direct.columns(), coordinates);
+        assert_eq!(
+            direct
+                .structure()
+                .rows()
+                .iter()
+                .map(|r| r.id)
+                .collect::<Vec<_>>(),
+            vec![id(10), id(11)]
+        );
+        assert_eq!(
+            direct.structure().coordinate_allocation(),
+            source.coordinate_allocation()
+        );
+        assert_eq!(direct.structure(), projected.structure());
+        assert_eq!(direct.demands(), projected.demands());
+        assert_eq!(
+            direct
+                .structure()
+                .instances()
+                .iter()
+                .map(|i| i.contributions.len())
+                .sum::<usize>(),
+            5
+        );
+        let compile = |plan: CasePlan| {
+            Arc::new(
+                Arc::new(plan)
+                    .compile(
+                        Optimization::default(),
+                        EvaluationLimits::default(),
+                        &cancel,
+                    )
+                    .unwrap(),
+            )
+        };
+        let direct = compile(direct);
+        let projected = compile(projected);
+        let mut worker = direct.worker(BTreeMap::new(), cancel.clone());
+        let mut reference = projected.worker(BTreeMap::new(), cancel.clone());
+        assert_eq!(worker.constraints(&values).unwrap(), vec![12.0, 10.0]);
+        assert_eq!(
+            worker.constraints(&values).unwrap(),
+            reference.constraints(&values).unwrap()
+        );
+        if order >= DerivativeOrder::First {
+            assert_eq!(
+                worker.jacobian(&values).unwrap().val(),
+                reference.jacobian(&values).unwrap().val()
+            );
+            assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 0)], 4.0);
+            assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 1)], 6.0);
+        }
+        if order >= DerivativeOrder::Second {
+            assert_eq!(
+                worker.hessian(&values, 0.0, &[3.0, 2.0]).unwrap().val(),
+                reference.hessian(&values, 0.0, &[3.0, 2.0]).unwrap().val()
+            );
+            assert_eq!(
+                worker
+                    .hessian(&values, 0.0, &[3.0, 2.0])
+                    .unwrap()
+                    .to_dense()[(1, 0)],
+                6.0
+            );
+        }
+    }
+    for (rows, coordinates) in [
+        (vec![id(99)], vec![id(1)]),
+        (vec![id(10), id(10)], vec![id(1)]),
+        (vec![id(10)], vec![id(1), id(1)]),
+        (vec![id(10)], vec![id(99)]),
+    ] {
+        let result = CasePlan::prepare_functions(
+            &source,
+            |_| panic!("invalid selection acquired a body"),
+            &rows,
+            coordinates,
+            &registry,
+            DerivativeOrder::Second,
+            AssemblyLimits::default(),
+            &cancel,
+        );
+        assert!(matches!(result, Err(crate::MathError::Contract(_))));
+    }
+    assert!(matches!(
+        CasePlan::prepare_functions(
+            &source,
+            |_| None,
+            &[id(10)],
+            vec![],
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        ),
+        Err(crate::MathError::Contract(_))
+    ));
+}
+
+#[test]
+fn selected_functions_ignore_unselected_bad_guard_and_preserve_selected_guard() {
+    let (original, mut values) = fixture(false, false);
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = builder.input(0, quantity, IndexSet::new(), id(31)).unwrap();
+    let logarithm = builder.unary(crate::Function::Log, x, id(32)).unwrap();
+    let guarded = Arc::new(builder.prepare(&[logarithm]).unwrap());
+    let key = ContentHash::from_bytes([2; 32]);
+    let mut instances = original.structure().instances().to_vec();
+    let port = &original.structure().variables().get(0).unwrap().port;
+    instances.push(InstanceBinding {
+        instance: id(8),
+        body: key,
+        checked_members: Default::default(),
+        slots: vec![SlotBinding::new(port, port, &registry).unwrap()].into(),
+        contributions: vec![Contribution {
+            output: 0,
+            target: Target::Row(id(11)),
+            scale: 1.0,
+        }],
+    });
+    let source = CaseStructure::new(
+        original.structure().variables().to_vec(),
+        vec![],
+        instances,
+        original.structure().rows().to_vec(),
+        original.structure().objective().cloned(),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let mut bodies = original.bodies().clone();
+    bodies.insert(key, guarded.clone());
+    let cancel = Arc::new(AtomicBool::new(false));
+    values.scalars.insert(id(1), -2.0);
+    let prepare = |rows: &[SemanticId]| {
+        let plan = CasePlan::prepare_functions(
+            &source,
+            |key| bodies.get(&key).cloned(),
+            rows,
+            vec![id(2)],
+            &registry,
+            DerivativeOrder::First,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+        Arc::new(
+            Arc::new(plan)
+                .compile(
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &cancel,
+                )
+                .unwrap(),
+        )
+    };
+    let selected = prepare(&[id(10)]);
+    assert_eq!(selected.bodies().len(), 1);
+    let mut worker = selected.worker(BTreeMap::new(), cancel.clone());
+    assert_eq!(worker.constraints(&values).unwrap(), vec![5.0]);
+    let selected = prepare(&[id(11)]);
+    assert_eq!(selected.bodies().len(), 1);
+    assert!(Arc::ptr_eq(&selected.bodies()[&key], &guarded));
+    let mut worker = selected.worker(BTreeMap::new(), cancel);
+    assert!(worker.constraints(&values).is_err());
+}
+
+#[test]
+fn selected_functions_differentiate_fixed_variables_and_parameters_in_request_order() {
+    let (original, mut values) = fixture(false, true);
+    let registry = standard_registry().unwrap();
+    let fixed = &original.structure().variables().get(0).unwrap().port;
+    let mut parameter = fixed.clone();
+    parameter.id = id(3);
+    let mut instances = original.structure().instances().to_vec();
+    instances[0].slots = vec![
+        SlotBinding::new(fixed, fixed, &registry).unwrap(),
+        SlotBinding::new(&parameter, &parameter, &registry).unwrap(),
+    ]
+    .into();
+    let source = CaseStructure::new(
+        original.structure().variables().to_vec(),
+        vec![parameter],
+        instances,
+        original.structure().rows().to_vec(),
+        original.structure().objective().cloned(),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    values.scalars.insert(id(3), 7.0);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare_functions(
+        &source,
+        |key| original.bodies().get(&key).cloned(),
+        &[id(10)],
+        vec![id(3), id(1)],
+        &registry,
+        DerivativeOrder::Second,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(plan.columns(), &[id(3), id(1)]);
+    assert!(plan.structure().free_variables().next().is_none());
+    assert_eq!(
+        plan.structure().coordinate_allocation(),
+        source.coordinate_allocation()
+    );
+    let assembly = Arc::new(
+        Arc::new(plan)
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    assert_eq!(worker.constraints(&values).unwrap(), vec![45.0]);
+    assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 0)], 5.0);
+    assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 1)], 5.0);
 }

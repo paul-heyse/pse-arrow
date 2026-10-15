@@ -1563,6 +1563,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -1593,6 +1595,8 @@ impl ModelingPackage {
         profile: Option<native::Profile>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -1662,6 +1666,8 @@ impl ModelingPackage {
         snapshot: &pse_backend_native::execution::Snapshot,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         if derivatives < DerivativeOrder::First {
             return Err(contract(
                 "integrated dynamics needs at least first-order partials",

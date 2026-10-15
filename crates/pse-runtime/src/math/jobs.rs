@@ -641,6 +641,7 @@ pub(super) struct AdmissionEntry {
     bytes: usize,
     construction: ConstructionEstimate,
     slot: PopulationEntry,
+    compiler: Option<Arc<std::sync::Mutex<Option<super::CompilerOwner>>>>,
 }
 impl AdmissionEntry {
     /// Set the constructor portion explicitly when the entry also covers other
@@ -757,19 +758,22 @@ impl MathService {
         let flag = cancel.clone();
         let events = progress.clone();
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
-            let result = service
-                .admitted(
-                    cores,
-                    bytes,
-                    flag,
-                    (admitted, deadline, source_owns_deadline),
-                    Some(entry),
-                    move |flag| work(flag, events),
-                )
-                .await;
-            let _ = sender.send(result);
-        }));
+        tokio::spawn(crate::observation::inherit(crate::observation::child(
+            "math.submission",
+            pse_operations::canonical::inherit_activity(async move {
+                let result = service
+                    .admitted(
+                        cores,
+                        bytes,
+                        flag,
+                        (admitted, deadline, source_owns_deadline),
+                        Some(entry),
+                        move |flag| work(flag, events),
+                    )
+                    .await;
+                let _ = sender.send(result);
+            }),
+        )));
         Ok(super::solves::SolveHandle {
             cancel,
             receiver: Some(receiver),
@@ -874,6 +878,116 @@ impl MathService {
         .await
         .map(|(value, _)| value)
     }
+    /// Admit population, await exclusive compiler ownership, then dispatch under one cutoff.
+    /// No active CPU or native job is held while another compiler operation runs.
+    pub(crate) async fn compiler_job_retained<T: Send + 'static>(
+        self: &Arc<Self>,
+        workspace: super::Workspace,
+        construction: ConstructionEstimate,
+        cancel: FlightCancellation,
+        deadline: Option<std::time::Instant>,
+        work: impl FnOnce(
+            super::CompilerAuthority,
+            Arc<std::sync::atomic::AtomicBool>,
+        ) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        let bytes = construction.bytes();
+        if matches!(construction, ConstructionEstimate::Opaque(_))
+            && bytes > self.policy.worker_bytes
+        {
+            return Err(MathRuntimeError::Limit("constructor worker capacity"));
+        }
+        let mut entry = self
+            .admit_entry(1, bytes, &cancel, deadline, None)?
+            .with_construction(construction);
+        let authority = Self::compiler_authority(workspace, &cancel, entry.at).await?;
+        entry.compiler = Some(authority.retention.clone());
+        #[cfg(test)]
+        let effects = self.preparation_effects.clone();
+        self.job_retained_on_entry(1, bytes, cancel, deadline, entry, move |flag| {
+            #[cfg(test)]
+            let gate = effects
+                .compiler_entry_gate
+                .lock()
+                .map_err(|_| {
+                    MathRuntimeError::Infrastructure("test compiler gate lock poisoned".into())
+                })?
+                .take();
+            #[cfg(test)]
+            if let Some(gate) = gate {
+                let _ = gate.entered.send(());
+                let watchdog = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                while !flag.load(Ordering::Acquire) {
+                    if std::time::Instant::now() >= watchdog {
+                        return Err(MathRuntimeError::Infrastructure(
+                            "test compiler stop not observed".into(),
+                        ));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+                let _ = gate.stopped.send(());
+                gate.exit
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
+            }
+            work(authority, flag)
+        })
+        .await
+    }
+    pub(crate) async fn compiler_job<T: Send + 'static>(
+        self: &Arc<Self>,
+        workspace: super::Workspace,
+        construction: ConstructionEstimate,
+        cancel: FlightCancellation,
+        deadline: Option<std::time::Instant>,
+        work: impl FnOnce(
+            super::CompilerAuthority,
+            Arc<std::sync::atomic::AtomicBool>,
+        ) -> Result<T, MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<T, MathRuntimeError> {
+        self.compiler_job_retained(
+            workspace,
+            construction,
+            cancel,
+            deadline,
+            move |authority, flag| work(authority, flag).map(|value| (value, 0)),
+        )
+        .await
+        .map(|(value, _)| value)
+    }
+    async fn compiler_authority(
+        workspace: super::Workspace,
+        cancel: &FlightCancellation,
+        cutoff: std::time::Instant,
+    ) -> Result<super::CompilerAuthority, MathRuntimeError> {
+        if cancel.flag().load(Ordering::Acquire) {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        if std::time::Instant::now() >= cutoff {
+            return Err(Self::admission_timeout());
+        }
+        let stage = pse_diagnostics::observation::phase("math.compiler_admission");
+        let permit = tokio::select! {
+            biased;
+            () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
+            () = tokio::time::sleep_until(cutoff.into()) => return Err(Self::admission_timeout()),
+            permit = workspace.admission.clone().acquire_owned() => permit.map_err(|_| {
+                MathRuntimeError::Infrastructure("compiler admission closed".into())
+            })?,
+        };
+        drop(stage);
+        if cancel.flag().load(Ordering::Acquire) {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        if std::time::Instant::now() >= cutoff {
+            return Err(Self::admission_timeout());
+        }
+        Ok(super::CompilerAuthority::new(workspace, permit))
+    }
     /// Consume a ticket acquired before a synchronous submission creates any task.
     pub(super) async fn job_scoped_on_entry<T: Send + 'static>(
         self: &Arc<Self>,
@@ -976,6 +1090,7 @@ impl MathService {
             bytes,
             construction,
             slot,
+            compiler: None,
         })
     }
     /// The enclosing deadline is authoritative. Unscoped callers receive a finite
@@ -1081,6 +1196,7 @@ impl MathService {
             bytes,
             construction,
             slot,
+            compiler,
         } = entry;
         if cancel.flag().load(Ordering::Acquire) {
             return Err(MathRuntimeError::Cancelled);
@@ -1091,11 +1207,14 @@ impl MathService {
         let mut caller = Caller(Some(cancel.clone()));
         let service = self.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
-            let result = async {
-                let (lease, active) = service
-                    .reserve_active("math:native-job", cores as u32, bytes, &cancel, at)
-                    .await?;
+        tokio::spawn(crate::observation::inherit(crate::observation::child(
+            "math.job",
+            pse_operations::canonical::inherit_activity(async move {
+                let result = async {
+                let (lease, active) = {
+                    let _waiting = pse_diagnostics::observation::phase("math.admission.wait");
+                    service.reserve_active("math:native-job", cores as u32, bytes, &cancel, at).await?
+                };
                 if cancel.flag().load(Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
                 }
@@ -1123,11 +1242,19 @@ impl MathService {
                 ));
                 let sessions = service.policy.inner_session_bytes;
                 let runtime = tokio::runtime::Handle::current();
+                let observation = pse_diagnostics::observation::current();
+                let dispatch = tracing::dispatcher::get_default(Clone::clone);
+                let span = tracing::Span::current();
                 let handle = std::thread::Builder::new()
                     .name("pse-math".into())
                     .stack_size(service.policy.stack_bytes)
                     .spawn(move || {
                         let _runtime = runtime.enter();
+                        let _observation = observation.as_ref().map(pse_diagnostics::observation::ObservationContext::enter);
+                        let _execution = crate::observation::native_execution_scope();
+                        let _dispatch = tracing::dispatcher::set_default(&dispatch);
+                        let _span = span.enter();
+                        let _phase = pse_diagnostics::observation::phase("native.worker");
                         #[cfg(feature = "solver-kinsol")]
                         pse_backend_native::implicit::budget_sessions(sessions);
                         #[cfg(not(feature = "solver-kinsol"))]
@@ -1140,16 +1267,20 @@ impl MathService {
                     .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
                 // Joining witnesses thread-local and native destructor completion.
                 let mut joining = tokio::task::spawn_blocking(move || handle.join());
+                // Inclusive supervisor wait overlaps worker execution; it is not exclusive CPU time.
+                let joining_phase = pse_diagnostics::observation::phase("native.join.wait");
                 let result = match deadline {
                     Some(deadline) => tokio::select! {
                         biased;
                         () = cancel.cancelled() => {
+                            if let Some(context) = pse_diagnostics::observation::current() { context.boolean("native.stop_requested", true); }
                             let _ = joining.await;
                             Err(MathRuntimeError::Cancelled)
                         },
                         () = tokio::time::sleep_until(deadline.into()) => {
                             // Signal checkpoints immediately, but retain every native owner
                             // until the actual thread and its foreign destructors have joined.
+                            if let Some(context) = pse_diagnostics::observation::current() { context.boolean("native.deadline_expired", true); }
                             if !source_owns_deadline { cancel.cancel(); }
                             let _ = joining.await;
                             Err(Self::admission_timeout())
@@ -1163,6 +1294,11 @@ impl MathService {
                         .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
                         .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
                 };
+                drop(joining_phase);
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.boolean("native.joined", true);
+                    context.boolean("native.return.failed", result.is_err());
+                }
                 // Native thread, TLS and foreign destruction have joined. Release CPU
                 // before optional retention yields for the escaped result's growth.
                 drop(compute);
@@ -1186,9 +1322,12 @@ impl MathService {
                 result
             }
             .await;
-            drop(slot);
-            let _ = tx.send(result);
-        }));
+                // Actual native/TLS join precedes release of compiler exclusion and storage.
+                drop(compiler);
+                drop(slot);
+                let _ = tx.send(result);
+            }),
+        )));
         let result = rx
             .await
             .map_err(|_| MathRuntimeError::Infrastructure("lost native supervisor".into()))?;
@@ -1215,29 +1354,34 @@ mod construction_tests {
         let (started, start) = tokio::sync::oneshot::channel();
         let (observed, observation) = tokio::sync::oneshot::channel();
         let (release, gate) = std::sync::mpsc::channel();
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let parent = hub.start("native.join.fixture");
         let worker_service = service.clone();
         let worker_cancel = cancel.clone();
-        let task = tokio::spawn(async move {
-            worker_service
-                .job_scoped(1, 1024, worker_cancel, Some(deadline), move |flag| {
-                    let _ = started.send(());
-                    let cutoff = std::time::Instant::now() + std::time::Duration::from_secs(5);
-                    while !flag.load(Ordering::Acquire) {
-                        if std::time::Instant::now() >= cutoff {
-                            return Err(MathRuntimeError::Infrastructure(
-                                "native cancellation was not observed".into(),
-                            ));
+        let task = tokio::spawn(pse_diagnostics::observation::scope(
+            Some(parent.context()),
+            async move {
+                worker_service
+                    .job_scoped(1, 1024, worker_cancel, Some(deadline), move |flag| {
+                        let _ = started.send(());
+                        let cutoff = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                        while !flag.load(Ordering::Acquire) {
+                            if std::time::Instant::now() >= cutoff {
+                                return Err(MathRuntimeError::Infrastructure(
+                                    "native cancellation was not observed".into(),
+                                ));
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(1));
                         }
-                        std::thread::sleep(std::time::Duration::from_millis(1));
-                    }
-                    let _ = observed.send(());
-                    // Cancellation has been observed, but native teardown is deliberately held.
-                    gate.recv_timeout(std::time::Duration::from_secs(10))
-                        .map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
-                    Err::<(), _>(MathRuntimeError::Cancelled)
-                })
-                .await
-        });
+                        let _ = observed.send(());
+                        // Cancellation has been observed, but native teardown is deliberately held.
+                        gate.recv_timeout(std::time::Duration::from_secs(10))
+                            .map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
+                        Err::<(), _>(MathRuntimeError::Cancelled)
+                    })
+                    .await
+            },
+        ));
         tokio::time::timeout(std::time::Duration::from_secs(5), start)
             .await
             .unwrap()
@@ -1252,6 +1396,24 @@ mod construction_tests {
         // An earlier cancellation must remain cancellation even if join crosses the deadline.
         tokio::time::sleep_until((deadline + std::time::Duration::from_millis(20)).into()).await;
         assert!(!task.is_finished());
+        let job = hub
+            .list(0, 128)
+            .operations
+            .into_iter()
+            .find(|operation| operation.kind == "math.job")
+            .unwrap();
+        let reader = hub.reader(job.id).unwrap();
+        let stopping = reader.snapshot(std::time::Duration::from_secs(60));
+        assert!(
+            stopping.outcome.is_none(),
+            "stop request is not native drain"
+        );
+        assert!(
+            stopping
+                .phases
+                .iter()
+                .any(|phase| phase.kind == "native.join.wait")
+        );
         assert_eq!(service.jobs.available_permits(), jobs - 1);
         assert_eq!(service.cpu.available_permits(), cores - 1);
         assert!(service.pool.reserved() > baseline);
@@ -1270,6 +1432,14 @@ mod construction_tests {
                 ))
             ));
         }
+        let joined = reader.snapshot(std::time::Duration::from_secs(60));
+        assert!(
+            joined
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "native.joined"
+                    && metric.latest == pse_diagnostics::observation::Value::Boolean(true))
+        );
         assert_eq!(service.jobs.available_permits(), jobs);
         assert_eq!(service.cpu.available_permits(), cores);
         assert_eq!(service.pool.reserved(), baseline);

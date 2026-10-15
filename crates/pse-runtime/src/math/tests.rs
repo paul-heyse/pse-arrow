@@ -1160,3 +1160,488 @@ async fn changed_unused_coefficients_do_not_pin_obsolete_bindings_through_reused
     drop(latest);
     assert_eq!(service.pool.reserved(), 0);
 }
+
+fn compiler_workspace(service: &Arc<MathService>) -> Workspace {
+    service
+        .workspace(
+            CompilerContext {
+                quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
+                preconditions: Arc::new(
+                    pse_quantity::PhysicalPreconditions::new(
+                        pse_quantity::generated::standard_preconditions(),
+                    )
+                    .unwrap(),
+                ),
+                providers: BTreeMap::new(),
+            },
+            WorkspaceLimits::default(),
+        )
+        .unwrap()
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn compiler_queue_owns_population_without_active_resources_and_cancelled_waiter_is_removed() {
+    let service = service();
+    let workspace = compiler_workspace(&service);
+    let baseline = service.pool.reserved();
+    let (started, entered) = tokio::sync::oneshot::channel();
+    let (release, gate) = std::sync::mpsc::channel();
+    let first_service = service.clone();
+    let first_workspace = workspace.clone();
+    let first = tokio::spawn(async move {
+        first_service
+            .compiler_job(
+                first_workspace,
+                ConstructionEstimate::Known(0),
+                FlightCancellation::default(),
+                None,
+                move |authority, _| {
+                    let _compiler = authority.lock()?;
+                    let _ = started.send(());
+                    gate.recv_timeout(std::time::Duration::from_secs(10))
+                        .map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
+                    Ok(())
+                },
+            )
+            .await
+    });
+    entered.await.unwrap();
+    let running_bytes = service.pool.reserved();
+    let control = FlightCancellation::default();
+    let mut second = Box::pin(service.compiler_job(
+        workspace.clone(),
+        ConstructionEstimate::Known(0),
+        control.clone(),
+        None,
+        |_, _| -> Result<(), MathRuntimeError> {
+            panic!("cancelled queued compiler must never dispatch")
+        },
+    ));
+    assert!(futures_util::poll!(second.as_mut()).is_pending());
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs - 2);
+    assert_eq!(
+        service.active_jobs.available_permits(),
+        service.policy.jobs - 1
+    );
+    assert_eq!(service.cpu.available_permits(), 1);
+    assert_eq!(
+        service.pool.reserved(),
+        running_bytes,
+        "queued compiler has no active construction/native allocation"
+    );
+    control.cancel();
+    assert!(matches!(second.await, Err(MathRuntimeError::Cancelled)));
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+    let called = Arc::new(AtomicBool::new(false));
+    let observed = called.clone();
+    let mut third = Box::pin(service.compiler_job(
+        workspace.clone(),
+        ConstructionEstimate::Known(0),
+        FlightCancellation::default(),
+        None,
+        move |authority, _| {
+            let _compiler = authority.lock()?;
+            observed.store(true, Ordering::Release);
+            Ok(())
+        },
+    ));
+    assert!(futures_util::poll!(third.as_mut()).is_pending());
+    assert!(!called.load(Ordering::Acquire));
+    release.send(()).unwrap();
+    first.await.unwrap().unwrap();
+    third.await.unwrap();
+    assert!(called.load(Ordering::Acquire));
+    assert_eq!(workspace.admission.available_permits(), 1);
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+    assert_eq!(service.cpu.available_permits(), 2);
+    assert_eq!(service.pool.reserved(), baseline);
+}
+
+#[tokio::test]
+async fn compiler_queue_cutoff_and_dispatch_refusal_release_exact_authority() {
+    let service = service();
+    let workspace = compiler_workspace(&service);
+    let baseline = service.pool.reserved();
+    let authority = CompilerAuthority::private(workspace.clone()).unwrap();
+    let control = FlightCancellation::default();
+    let result = service
+        .compiler_job(
+            workspace.clone(),
+            ConstructionEstimate::Known(0),
+            control.clone(),
+            Some(std::time::Instant::now() + std::time::Duration::from_millis(25)),
+            |_, _| Ok(()),
+        )
+        .await;
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }
+        ))
+    ));
+    assert!(!control.flag().load(Ordering::Acquire));
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    assert_eq!(service.cpu.available_permits(), 2);
+    assert_eq!(service.pool.reserved(), baseline);
+    drop(authority);
+    service.active_jobs.close();
+    let result = service
+        .compiler_job(
+            workspace.clone(),
+            ConstructionEstimate::Known(0),
+            FlightCancellation::default(),
+            None,
+            |_, _| Ok(()),
+        )
+        .await;
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Limit("active jobs closed"))
+    ));
+    assert_eq!(workspace.admission.available_permits(), 1);
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    assert_eq!(service.pool.reserved(), baseline);
+}
+
+struct ReleaseCompilerTlsGate(Arc<(Mutex<bool>, std::sync::Condvar)>);
+impl Drop for ReleaseCompilerTlsGate {
+    fn drop(&mut self) {
+        *self
+            .0
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+        self.0.1.notify_all();
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn compiler_authority_and_workspace_remain_owned_through_tls_destructor_and_abandonment() {
+    let service = service();
+    let workspace = compiler_workspace(&service);
+    let baseline = service.pool.reserved();
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+    let _release_on_exit = ReleaseCompilerTlsGate(gate.clone());
+    let notification = entered.clone();
+    let held = gate.clone();
+    let mut operation = Box::pin(service.compiler_job(
+        workspace.clone(),
+        ConstructionEstimate::Known(0),
+        FlightCancellation::default(),
+        None,
+        move |authority, _| {
+            let _compiler = authority.lock()?;
+            TLS.set(Some(SlowDrop {
+                entered: notification,
+                gate: held,
+                thread: std::thread::current().id(),
+            }));
+            Ok(())
+        },
+    ));
+    assert!(futures_util::poll!(operation.as_mut()).is_pending());
+    entered.notified().await;
+    drop(operation);
+    assert_eq!(
+        workspace.admission.available_permits(),
+        0,
+        "a returned compiler closure is not a joined native thread"
+    );
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+    assert!(service.pool.reserved() > baseline);
+    *gate.0.lock().unwrap() = true;
+    gate.1.notify_one();
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while service.jobs.available_permits() != service.policy.jobs {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(workspace.admission.available_permits(), 1);
+    assert_eq!(service.pool.reserved(), baseline);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn compiler_queue_is_bounded_by_existing_population_before_active_admission() {
+    let (service, _) = service_with_policy(
+        512 << 20,
+        MathPolicy {
+            jobs: 2,
+            foreign_bytes: 1 << 20,
+            workspace_bytes: 16 << 20,
+            worker_bytes: 8 << 20,
+            ..Default::default()
+        },
+    );
+    let workspace = compiler_workspace(&service);
+    let authority = CompilerAuthority::private(workspace.clone()).unwrap();
+    let baseline = service.pool.reserved();
+    let control = FlightCancellation::default();
+    let mut first = Box::pin(service.compiler_job(
+        workspace.clone(),
+        ConstructionEstimate::Known(0),
+        control.clone(),
+        None,
+        |_, _| Ok(()),
+    ));
+    let mut second = Box::pin(service.compiler_job(
+        workspace.clone(),
+        ConstructionEstimate::Known(0),
+        control.clone(),
+        None,
+        |_, _| Ok(()),
+    ));
+    assert!(futures_util::poll!(first.as_mut()).is_pending());
+    assert!(futures_util::poll!(second.as_mut()).is_pending());
+    assert_eq!(service.jobs.available_permits(), 0);
+    assert_eq!(service.active_jobs.available_permits(), 2);
+    assert_eq!(service.cpu.available_permits(), 2);
+    assert_eq!(service.pool.reserved(), baseline);
+    assert!(matches!(
+        service
+            .compiler_job(
+                workspace.clone(),
+                ConstructionEstimate::Known(0),
+                FlightCancellation::default(),
+                None,
+                |_, _| Ok(())
+            )
+            .await,
+        Err(MathRuntimeError::Limit("native jobs"))
+    ));
+    control.cancel();
+    assert!(matches!(first.await, Err(MathRuntimeError::Cancelled)));
+    assert!(matches!(second.await, Err(MathRuntimeError::Cancelled)));
+    drop(authority);
+    assert_eq!(workspace.admission.available_permits(), 1);
+    assert_eq!(service.jobs.available_permits(), 2);
+    assert_eq!(service.pool.reserved(), baseline);
+}
+
+#[test]
+fn shared_preparation_expiry_remains_a_native_time_limit_with_other_waiters() {
+    let cause = Arc::new(MathRuntimeError::PreparationExpired);
+    let shared = MathRuntimeError::Shared(cause.clone());
+    assert!(matches!(
+        strategy::runtime_failure(&shared),
+        pse_model::generated::enums::NumericalAttemptObservation::ResourceExhausted
+    ));
+    assert!(matches!(
+        shared.into_problem(),
+        pse_backend_native::ProblemError::Limit {
+            kind: pse_backend_native::LimitKind::Time,
+            ..
+        }
+    ));
+    assert!(matches!(
+        cause.as_ref(),
+        MathRuntimeError::PreparationExpired
+    ));
+    let other_time = MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+        kind: pse_backend_native::LimitKind::Time,
+        detail: "scientific callback deadline".into(),
+    });
+    assert!(
+        matches!(
+            other_time.preparation_producer_failure(),
+            MathRuntimeError::Solve(_)
+        ),
+        "unrelated time failures retain their original typed cause"
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn direct_function_preparation_uses_finite_policy_through_postdispatch_join_without_cancelling_caller()
+ {
+    let runtime = crate::workflow::tests::runtime_on(
+        512 << 20,
+        MathPolicy {
+            foreign_bytes: 1 << 20,
+            worker_bytes: 64 << 20,
+            workspace_bytes: 32 << 20,
+            preparation_limit: std::time::Duration::from_millis(500),
+            ..Default::default()
+        },
+    );
+    let service = runtime.shared.math();
+    let rows = pse_authoring::language::parse(
+        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+        pse_ids::SemanticId::from_bytes([76; 16]),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime
+        .modeling_package(rows, crate::workflow::tests::physical())
+        .await
+        .unwrap();
+    let driver = crate::CancelSource::new();
+    let model = package
+        .prepare(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            &driver,
+        )
+        .await
+        .unwrap();
+    let workspace = package.pure_workspace().unwrap();
+    let rows = model
+        .compiled()
+        .admitted
+        .case()
+        .rows()
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>();
+    let coordinates = model
+        .compiled()
+        .admitted
+        .case()
+        .variables()
+        .iter()
+        .map(|variable| variable.port.id)
+        .collect::<Vec<_>>();
+    let (started, entered) = tokio::sync::oneshot::channel();
+    let (stop, stopped) = tokio::sync::oneshot::channel();
+    let (release, gate) = std::sync::mpsc::channel();
+    *service
+        .preparation_effects
+        .compiler_entry_gate
+        .lock()
+        .unwrap() = Some(CompilerEntryGate {
+        entered: started,
+        stopped: stop,
+        exit: gate,
+    });
+    let baseline = service.pool.reserved();
+    let mut operation = Box::pin(service.prepare_modeling_functions(
+        workspace.clone(),
+        model.clone(),
+        rows.clone(),
+        coordinates.clone(),
+        pse_kernels::DerivativeOrder::Value,
+        Default::default(),
+        &driver,
+    ));
+    assert!(futures_util::poll!(operation.as_mut()).is_pending());
+    tokio::time::timeout(std::time::Duration::from_secs(2), entered)
+        .await
+        .unwrap()
+        .unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(2), stopped)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        futures_util::poll!(operation.as_mut()).is_pending(),
+        "deadline signalling must await actual issued worker completion"
+    );
+    assert_eq!(workspace.admission.available_permits(), 0);
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+    assert!(service.pool.reserved() > baseline);
+    assert!(
+        !driver.token().is_cancelled(),
+        "phase expiry cannot cancel the caller"
+    );
+    release.send(()).unwrap();
+    assert!(matches!(
+        operation.await,
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }
+        ))
+    ));
+    assert_eq!(workspace.admission.available_permits(), 1);
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    assert_eq!(service.pool.reserved(), baseline);
+    assert!(!driver.token().is_cancelled());
+    let cancelled = crate::CancelSource::new();
+    cancelled.cancel();
+    assert!(matches!(
+        service
+            .prepare_modeling_functions(
+                workspace.clone(),
+                model.clone(),
+                rows.clone(),
+                coordinates.clone(),
+                pse_kernels::DerivativeOrder::Value,
+                Default::default(),
+                &cancelled
+            )
+            .await,
+        Err(MathRuntimeError::Cancelled)
+    ));
+    let expired = driver.with_deadline(Some(
+        std::time::Instant::now() - std::time::Duration::from_millis(1),
+    ));
+    assert!(matches!(
+        service
+            .prepare_modeling_functions(
+                workspace,
+                model,
+                rows,
+                coordinates,
+                pse_kernels::DerivativeOrder::Value,
+                Default::default(),
+                &expired
+            )
+            .await,
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }
+        ))
+    ));
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+}
+
+#[tokio::test]
+async fn rebind_uses_earliest_driver_clock_even_when_separate_deadline_is_absent_or_later() {
+    let service = service();
+    let (prepared, values, _) = component_fixture(&service);
+    let baseline = service.pool.reserved();
+    let cpu = service.cpu.clone().acquire_many_owned(2).await.unwrap();
+    for separate in [
+        None,
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
+    ] {
+        let driver = crate::CancelSource::new().with_deadline(Some(
+            std::time::Instant::now() + std::time::Duration::from_millis(25),
+        ));
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            service.rebind_scoped(&prepared, values.clone(), &driver, separate),
+        )
+        .await
+        .unwrap();
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            ))
+        ));
+        assert!(!driver.token().is_cancelled());
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    drop(cpu);
+}

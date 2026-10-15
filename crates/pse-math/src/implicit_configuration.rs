@@ -115,95 +115,102 @@ impl ConfigurationWorker {
         cancel: &Arc<AtomicBool>,
         semantic_anchor: Option<&[f64]>,
     ) -> Result<Options, MathError> {
-        if cancel.load(Ordering::Acquire) {
-            return Err(MathError::Cancelled);
-        }
-        if inputs.len() != problem.inputs {
-            return Err(MathError::Contract("implicit hint input extent".into()));
-        }
-        if semantic_anchor.is_some_and(|anchor| anchor.len() != problem.unknowns.len()) {
-            return Err(MathError::Contract(
-                "implicit semantic anchor extent".into(),
-            ));
-        }
-        let (unknowns, options) = match &self.source {
-            Configuration::Fixed(unknowns, options) => {
-                let mut options = options.clone();
-                if let Some(anchor) = semantic_anchor {
-                    options.start = anchor.to_vec();
-                }
-                (unknowns.clone(), options)
+        observed!("implicit.configuration", {
+            if cancel.load(Ordering::Acquire) {
+                return Err(MathError::Cancelled);
             }
-            Configuration::Hints(resolver) => {
-                let values = if let Some(worker) = &mut self.hints {
-                    // Admission proves these unknown coordinates are absent from hint dependencies.
-                    let point = worker
-                        .input_formals()
-                        .iter()
-                        .map(|formal| {
-                            formal
-                                .checked_sub(problem.unknowns.len())
-                                .and_then(|parameter| inputs.get(parameter))
-                                .copied()
-                                .ok_or_else(|| {
-                                    MathError::Contract(
+            if inputs.len() != problem.inputs {
+                return Err(MathError::Contract("implicit hint input extent".into()));
+            }
+            if semantic_anchor.is_some_and(|anchor| anchor.len() != problem.unknowns.len()) {
+                return Err(MathError::Contract(
+                    "implicit semantic anchor extent".into(),
+                ));
+            }
+            let (unknowns, options) = match &self.source {
+                Configuration::Fixed(unknowns, options) => {
+                    let mut options = options.clone();
+                    if let Some(anchor) = semantic_anchor {
+                        options.start = anchor.to_vec();
+                    }
+                    (unknowns.clone(), options)
+                }
+                Configuration::Hints(resolver) => {
+                    let values = if let Some(worker) = &mut self.hints {
+                        // Admission proves these unknown coordinates are absent from hint dependencies.
+                        let point = worker
+                            .input_formals()
+                            .iter()
+                            .map(|formal| {
+                                formal
+                                    .checked_sub(problem.unknowns.len())
+                                    .and_then(|parameter| inputs.get(parameter))
+                                    .copied()
+                                    .ok_or_else(|| {
+                                        MathError::Contract(
                                         "implicit hint references an unknown or missing parameter"
                                             .into(),
                                     )
-                                })
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    worker
-                        .evaluate(
-                            &point,
-                            DerivativeOrder::Value,
-                            &mut *problem.providers.lock().map_err(|_| {
-                                MathError::Library("implicit hint provider lock poisoned".into())
-                            })?,
-                            cancel,
-                        )?
-                        .values
-                } else {
-                    Vec::new()
-                };
-                let initial = resolver.resolve(&values, None, semantic_anchor)?;
-                if let Some(worker) = &mut self.terms {
-                    let nominal = selected_inputs(worker, &initial.1.variable_nominals, inputs)?;
-                    let terms = worker
-                        .evaluate(
-                            &nominal,
-                            DerivativeOrder::Value,
-                            &mut *problem.providers.lock().map_err(|_| {
-                                MathError::Library("implicit nominal provider lock poisoned".into())
-                            })?,
-                            cancel,
-                        )?
-                        .values;
-                    resolver.resolve(&values, Some(&terms), semantic_anchor)?
-                } else {
-                    initial
+                                    })
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        worker
+                            .evaluate(
+                                &point,
+                                DerivativeOrder::Value,
+                                &mut *problem.providers.lock().map_err(|_| {
+                                    MathError::Library(
+                                        "implicit hint provider lock poisoned".into(),
+                                    )
+                                })?,
+                                cancel,
+                            )?
+                            .values
+                    } else {
+                        Vec::new()
+                    };
+                    let initial = resolver.resolve(&values, None, semantic_anchor)?;
+                    if let Some(worker) = &mut self.terms {
+                        let nominal =
+                            selected_inputs(worker, &initial.1.variable_nominals, inputs)?;
+                        let terms = worker
+                            .evaluate(
+                                &nominal,
+                                DerivativeOrder::Value,
+                                &mut *problem.providers.lock().map_err(|_| {
+                                    MathError::Library(
+                                        "implicit nominal provider lock poisoned".into(),
+                                    )
+                                })?,
+                                cancel,
+                            )?
+                            .values;
+                        resolver.resolve(&values, Some(&terms), semantic_anchor)?
+                    } else {
+                        initial
+                    }
                 }
+            };
+            if unknowns.len() != problem.unknowns.len()
+                || unknowns.iter().zip(&problem.unknowns).any(|(a, b)| {
+                    a.id != b.id
+                        || a.lower.is_nan()
+                        || a.upper.is_nan()
+                        || a.lower > a.upper
+                        || a.lower == f64::INFINITY
+                        || a.upper == f64::NEG_INFINITY
+                })
+            {
+                return Err(MathError::Contract(
+                    "implicit trial configuration identities or intervals".into(),
+                ));
             }
-        };
-        if unknowns.len() != problem.unknowns.len()
-            || unknowns.iter().zip(&problem.unknowns).any(|(a, b)| {
-                a.id != b.id
-                    || a.lower.is_nan()
-                    || a.upper.is_nan()
-                    || a.lower > a.upper
-                    || a.lower == f64::INFINITY
-                    || a.upper == f64::NEG_INFINITY
-            })
-        {
-            return Err(MathError::Contract(
-                "implicit trial configuration identities or intervals".into(),
-            ));
-        }
-        let problem = Arc::get_mut(problem).ok_or_else(|| {
-            MathError::Contract("inner solver retained a completed trial problem".into())
-        })?;
-        problem.unknowns = unknowns;
-        problem.validate_options(&options)?;
-        Ok(options)
+            let problem = Arc::get_mut(problem).ok_or_else(|| {
+                MathError::Contract("inner solver retained a completed trial problem".into())
+            })?;
+            problem.unknowns = unknowns;
+            problem.validate_options(&options)?;
+            Ok(options)
+        })
     }
 }

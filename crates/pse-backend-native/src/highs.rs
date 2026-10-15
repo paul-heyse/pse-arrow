@@ -630,7 +630,7 @@ impl Session {
             solves: 0,
             _local: PhantomData,
         };
-        session.model = Some(upload(p)?);
+        session.model = Some(crate::observation::scoped("highs.setup", || upload(p))?);
         verify_upload(session.model()?, p)?;
         session.uploaded = uploaded;
         Ok(session)
@@ -680,7 +680,13 @@ impl Session {
         compatibility: Compatibility,
         execution: &Execution,
     ) -> Result<crate::execution::SessionUpdate, ProblemError> {
-        let result = self.update_inner(p, certificate, compatibility, execution);
+        let result = crate::observation::scoped("highs.update_attempt", || {
+            self.update_inner(p, certificate, compatibility, execution)
+        });
+        crate::observation::boolean(
+            "highs.update.compatible",
+            matches!(&result, Ok(crate::execution::SessionUpdate::Compatible)),
+        );
         if result.is_err() {
             self.invalidate();
         }
@@ -1061,7 +1067,7 @@ impl Session {
         } else {
             // SAFETY: the session's live model under its lifecycle gate; the callback
             // context bound above outlives the run.
-            unsafe { ffi::Highs_run(ptr) }
+            crate::observation::scoped("highs.run", || unsafe { ffi::Highs_run(ptr) })
         };
         let panicked = callback_binding.context.panicked.load(Ordering::Acquire);
         let cut_pool = callback_binding.finish();
@@ -1258,6 +1264,7 @@ impl Session {
             restore_objective(ptr, p)?;
             verify_upload(self.model()?, p)?;
         }
+        crate::observation::report(&report);
         Ok(report)
     }
 }
@@ -1487,6 +1494,7 @@ impl CallbackBinding {
         let mut binding = Self {
             ptr,
             context: Box::new(Callback {
+                observation_context: pse_diagnostics::observation::current(),
                 execution,
                 panicked: AtomicBool::new(false),
                 capture,
@@ -1537,6 +1545,7 @@ impl Drop for CallbackBinding {
     }
 }
 struct Callback {
+    observation_context: Option<pse_diagnostics::observation::ObservationContext>,
     execution: Execution,
     panicked: AtomicBool,
     capture: Capture,
@@ -1634,6 +1643,10 @@ unsafe extern "C" fn callback(
         return;
     };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _observation = c
+            .observation_context
+            .as_ref()
+            .map(|context| context.enter());
         // SAFETY: HiGHS passes null or its output record, live for the callback.
         if let Some(out) = unsafe { out.as_ref() } {
             if kind == ffi::kHighsCallbackMipImprovingSolution {
@@ -2101,6 +2114,7 @@ mod tests {
     #[test]
     fn highs_callback_interrupt_kinds() {
         let callback_data = Callback {
+            observation_context: pse_diagnostics::observation::current(),
             execution: Execution::new(
                 std::sync::Arc::new(AtomicBool::new(true)),
                 &Controls::default(),
@@ -2131,6 +2145,10 @@ mod tests {
     }
     #[test]
     fn checked_upload_clips_binary_bounds_and_preserves_authored_sense_offset() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("highs-model-setup-update");
+        let _entered = operation.context().enter();
         let p = problem();
         let mut s = Session::new(
             &p,
@@ -2175,6 +2193,39 @@ mod tests {
         assert!(
             s.sparse_start(&p, &BTreeMap::from([(crate::solver_tests::id(99), 1.0)]))
                 .is_err()
+        );
+        assert_eq!(
+            s.update(
+                &p,
+                None,
+                crate::solver_tests::stamp(Backend::Highs),
+                &Execution::new(Default::default(), &Controls::default())
+            )
+            .unwrap(),
+            crate::execution::SessionUpdate::Compatible
+        );
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        for name in ["highs.setup.calls", "highs.update_attempt.calls"] {
+            assert_eq!(
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .unwrap()
+                    .cumulative,
+                Value::Count(1)
+            );
+        }
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "highs.update.compatible")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
         );
     }
     #[test]

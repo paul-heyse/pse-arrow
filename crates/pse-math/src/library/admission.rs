@@ -335,11 +335,19 @@ impl ScalarCache {
         options: Optimization,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<&ExpressionEvaluator<Complex<Rational>>, MathError> {
+        let _phase = pse_diagnostics::observation::phase("math.scalar_prepare");
         if cancelled.load(std::sync::atomic::Ordering::Acquire) {
             return Err(MathError::Cancelled);
         }
         let key = (expressions.to_vec(), parameters.to_vec(), options);
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.scalar_cache_lookups", "count", 1);
+        }
         if !self.evaluators.contains_key(&key) {
+            let _construction = pse_diagnostics::observation::current().map(|context| {
+                context.count("math.scalar_constructions", "count", 1);
+                context.phase("math.scalar_construction")
+            });
             let initial = evaluator_construction(
                 expressions,
                 parameters.len(),
@@ -386,6 +394,11 @@ impl ScalarCache {
                 }),
             );
             self.builds += 1;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("math.scalar_constructions_completed", "count", 1);
+            }
+        } else if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.scalar_cache_reuses", "count", 1);
         }
         self.evaluators
             .get(&key)

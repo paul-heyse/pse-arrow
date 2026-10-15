@@ -319,6 +319,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -350,6 +352,8 @@ impl ModelingPackage {
         demand: Vec<String>,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {

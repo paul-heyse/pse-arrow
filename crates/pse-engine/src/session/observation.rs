@@ -8,7 +8,8 @@ use datafusion::logical_expr::LogicalPlan;
 use pse_columnar::{AllocationLease, MemoryPool};
 use std::{
     fmt::Write,
-    sync::{Arc, OnceLock},
+    sync::{Arc, Mutex, OnceLock},
+    time::{Duration, Instant},
 };
 
 mod graph;
@@ -29,6 +30,7 @@ pub struct PlanObservation {
 #[derive(Debug)]
 struct ObservedPlan {
     captured: bool,
+    rich: bool,
     explain: String,
     rules: Vec<String>,
     diagnostic: Option<String>,
@@ -39,6 +41,8 @@ struct ObservedPhysical {
     explain: String,
     execution: u64,
     completion: OnceLock<ExecutionSnapshot>,
+    latest: Mutex<Option<Arc<LiveExecutionSnapshot>>>,
+    started: Instant,
     diagnostic: Option<String>,
     _lease: Arc<AllocationLease>,
 }
@@ -58,6 +62,16 @@ pub enum MetricUnit {
     /// Library-defined diagnostic representation.
     Native,
 }
+/// Native value semantics, independent of its unit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MetricKind {
+    /// Cumulative native work since this execution's metric allocation.
+    Counter,
+    /// Current or peak native state; never summed as work.
+    Gauge,
+    /// Timestamp, compound or custom value not projected numerically.
+    Native,
+}
 /// One metric from one node and partition of the executed graph.
 #[derive(Clone, Debug)]
 pub struct ObservedMetric {
@@ -73,8 +87,25 @@ pub struct ObservedMetric {
     pub labels: Vec<(String, String)>,
     /// Explicit units for the captured value.
     pub unit: MetricUnit,
+    /// Counter versus gauge semantics from the native metric variant.
+    pub kind: MetricKind,
     /// Exact native numeric counter, absent for compound/custom/timestamp values.
     pub value: Option<usize>,
+}
+/// Owner-copied live evidence; polling and reading never execute the graph.
+#[derive(Debug)]
+pub struct LiveExecutionSnapshot {
+    /// Actual invocation identity, shared with its terminal snapshot.
+    pub execution: u64,
+    /// Unique node and partition metrics; values may update independently.
+    pub metrics: Vec<ObservedMetric>,
+    /// Collection hit an explicit diagnostic bound.
+    pub truncated: bool,
+    /// Time of this owner checkpoint relative to physical capture creation.
+    pub observed_after_start: Duration,
+    /// Wall time spent copying these metrics, separate from operator work.
+    pub collection_elapsed: Duration,
+    _lease: Arc<AllocationLease>,
 }
 /// Bounded terminal evidence, with no retained execution plan or stream.
 #[derive(Debug)]
@@ -87,6 +118,10 @@ pub struct ExecutionSnapshot {
     pub metrics: Vec<ObservedMetric>,
     /// Capture was curtailed by a diagnostic limit or allocation refusal.
     pub truncated: bool,
+    /// Final copy time relative to physical capture creation.
+    pub observed_after_start: Duration,
+    /// Time spent collecting the terminal copy, separate from operator work.
+    pub collection_elapsed: Duration,
     _lease: Arc<AllocationLease>,
 }
 /// Stream-local ownership makes partial and abandoned executions observable too.
@@ -94,6 +129,8 @@ pub(super) struct CompletionGuard {
     plan: Option<Arc<dyn datafusion::physical_plan::ExecutionPlan>>,
     observation: PlanObservation,
     pool: Arc<dyn MemoryPool>,
+    last_checkpoint: Option<Instant>,
+    context: Option<pse_diagnostics::observation::ObservationContext>,
 }
 impl CompletionGuard {
     pub(super) fn new(
@@ -105,11 +142,33 @@ impl CompletionGuard {
             plan: observation.is_captured().then(|| plan.clone()),
             observation: observation.clone(),
             pool: pool.clone(),
+            last_checkpoint: None,
+            context: pse_diagnostics::observation::current(),
         }
+    }
+    pub(super) fn checkpoint(&mut self) {
+        if self
+            .last_checkpoint
+            .is_some_and(|last| last.elapsed() < Duration::from_millis(250))
+        {
+            return;
+        }
+        let Some(plan) = &self.plan else {
+            return;
+        };
+        self.last_checkpoint = Some(Instant::now());
+        self.observation
+            .checkpoint(plan.as_ref(), &self.pool, self.context.as_ref());
     }
     pub(super) fn finish(&mut self, status: super::assurance::TerminalStatus) {
         if let Some(plan) = self.plan.take() {
+            self.observation
+                .checkpoint(plan.as_ref(), &self.pool, self.context.as_ref());
             self.observation.complete(plan.as_ref(), status, &self.pool);
+            if let Some(context) = &self.context {
+                context.text("query.metrics.coverage", "terminal owner copy after stream release; native counters may be partial on failure or abandonment");
+                context.text("query.metrics.terminal", &format!("{status:?}"));
+            }
         }
     }
 }
@@ -119,6 +178,80 @@ impl Drop for CompletionGuard {
     }
 }
 impl PlanObservation {
+    /// Latest owner-copied live metrics. Contended publication returns no copy;
+    /// this getter never acquires a native plan or polls an execution stream.
+    pub fn live_execution(&self) -> Option<Arc<LiveExecutionSnapshot>> {
+        self.physical.as_ref()?.latest.try_lock().ok()?.clone()
+    }
+    fn checkpoint(
+        &self,
+        plan: &dyn datafusion::physical_plan::ExecutionPlan,
+        pool: &Arc<dyn MemoryPool>,
+        context: Option<&pse_diagnostics::observation::ObservationContext>,
+    ) {
+        let Some(physical) = &self.physical else {
+            return;
+        };
+        if physical.completion.get().is_some() {
+            return;
+        }
+        let live = Arc::new(snapshot(plan, physical.execution, physical.started, pool));
+        if let Some(context) = context {
+            context.text(
+                "query.metrics.coverage",
+                "owner checkpoint; independently updated native metrics; drop export pending",
+            );
+            context.boolean("query.metrics.truncated", live.truncated);
+            context.source_ref("query.execution", physical.execution.to_le_bytes());
+            context.count("query.metrics.checkpoints", "checkpoints", 1);
+            context.duration("query.metrics.collection", live.collection_elapsed);
+            for metric in &live.metrics {
+                let key = format!(
+                    "query.{}.node.{}.{}.{:?}.{:?}",
+                    live.execution, metric.node, metric.name, metric.partition, metric.labels
+                );
+                context.source_ref(
+                    &key,
+                    format!(
+                        "operator={};name={};partition={:?};labels={:?};kind={:?};unit={:?}",
+                        metric.operator,
+                        metric.name,
+                        metric.partition,
+                        metric.labels,
+                        metric.kind,
+                        metric.unit
+                    ),
+                );
+                let unit = match metric.unit {
+                    MetricUnit::Rows => "rows",
+                    MetricUnit::Batches => "batches",
+                    MetricUnit::Bytes => "bytes",
+                    MetricUnit::Nanoseconds => "nanoseconds",
+                    MetricUnit::Count => "count",
+                    MetricUnit::Native => "native",
+                };
+                match (metric.kind, metric.value) {
+                    (MetricKind::Counter, Some(value)) => {
+                        context.count_value(&key, unit, value as u64, live.execution)
+                    }
+                    (MetricKind::Gauge, Some(value)) => match i64::try_from(value) {
+                        Ok(value) => context.integer(&key, unit, value),
+                        Err(_) => context
+                            .unavailable(&key, "native gauge exceeds exact signed projection"),
+                    },
+                    _ => context.unavailable(
+                        &key,
+                        "compound, custom or timestamp metric not projected numerically",
+                    ),
+                }
+            }
+        }
+        if let Ok(mut latest) = physical.latest.try_lock() {
+            *latest = Some(live);
+        } else if let Some(context) = context {
+            context.count("query.metrics.dropped", "snapshots", 1);
+        }
+    }
     /// Bounded terminal metrics from the actual execution, when capture was requested.
     pub fn execution(&self) -> Option<&ExecutionSnapshot> {
         self.physical.as_ref()?.completion.get()
@@ -137,9 +270,18 @@ impl PlanObservation {
         pool: &Arc<dyn MemoryPool>,
     ) {
         if let Some(physical) = &self.physical {
-            physical
-                .completion
-                .get_or_init(|| snapshot(plan, physical.execution, status, pool));
+            physical.completion.get_or_init(|| {
+                let copy = snapshot(plan, physical.execution, physical.started, pool);
+                ExecutionSnapshot {
+                    execution: copy.execution,
+                    status,
+                    metrics: copy.metrics,
+                    truncated: copy.truncated,
+                    observed_after_start: copy.observed_after_start,
+                    collection_elapsed: copy.collection_elapsed,
+                    _lease: copy._lease,
+                }
+            });
         }
     }
     /// Whether diagnostic capture was explicitly requested.
@@ -180,7 +322,11 @@ impl PlanObservation {
             reservation: &mut reservation,
             error: None,
         };
-        let rendered = render_physical(plan, &mut writer, pool);
+        let rendered = if self.logical.rich {
+            render_physical(plan, &mut writer, pool)
+        } else {
+            Ok(())
+        };
         let diagnostic = writer
             .error
             .or_else(|| rendered.err())
@@ -197,6 +343,8 @@ impl PlanObservation {
                 explain,
                 execution: NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
                 completion: OnceLock::new(),
+                latest: Mutex::new(None),
+                started: Instant::now(),
                 diagnostic,
                 _lease: AllocationLease::new(reservation),
             })),
@@ -207,9 +355,10 @@ impl PlanObservation {
 fn snapshot(
     root: &dyn datafusion::physical_plan::ExecutionPlan,
     execution: u64,
-    status: super::assurance::TerminalStatus,
+    started: Instant,
     pool: &Arc<dyn MemoryPool>,
-) -> ExecutionSnapshot {
+) -> LiveExecutionSnapshot {
+    let collection_start = Instant::now();
     use datafusion::physical_plan::metrics::MetricValue as V;
     let _ = pool;
     let capture_pool = diagnostic_pool();
@@ -282,6 +431,13 @@ fn snapshot(
                         .map(|l| (l.name().into(), l.value().into()))
                         .collect(),
                     unit,
+                    kind: match value {
+                        V::CurrentMemoryUsage(_) | V::PeakMemoryUsage { .. } | V::Gauge { .. } => {
+                            MetricKind::Gauge
+                        }
+                        _ if numeric => MetricKind::Counter,
+                        _ => MetricKind::Native,
+                    },
                     value: numeric.then(|| value.as_usize()),
                 });
             }
@@ -298,11 +454,12 @@ fn snapshot(
         }
         pending.extend(children.into_iter().rev().map(AsRef::as_ref));
     }
-    ExecutionSnapshot {
+    LiveExecutionSnapshot {
         execution,
-        status,
         metrics,
         truncated,
+        observed_after_start: started.elapsed(),
+        collection_elapsed: collection_start.elapsed(),
         _lease: AllocationLease::new(reservation),
     }
 }
@@ -349,6 +506,7 @@ fn render_physical(
 }
 pub(super) struct Recorder {
     enabled: bool,
+    captured: bool,
     reservation: pse_columnar::MemoryReservation,
     rules: Vec<String>,
     error: Option<EngineError>,
@@ -360,6 +518,7 @@ impl Recorder {
     ) -> Self {
         Self {
             enabled: policy == crate::session::assurance::ObservationPolicy::Diagnostic,
+            captured: policy != crate::session::assurance::ObservationPolicy::Off,
             reservation: pse_columnar::MemoryConsumer::new("session:plan-observation")
                 .register(&diagnostic_pool()),
             rules: Vec::new(),
@@ -409,7 +568,8 @@ impl Recorder {
         };
         Ok(PlanObservation {
             logical: Arc::new(ObservedPlan {
-                captured: self.enabled,
+                captured: self.captured,
+                rich: self.enabled,
                 explain,
                 rules: self.rules,
                 diagnostic,
@@ -509,21 +669,44 @@ mod tests {
         let logical = datafusion::logical_expr::LogicalPlanBuilder::empty(false)
             .build()
             .unwrap();
-        let observation = Recorder::new(
-            &pool,
-            super::super::assurance::ObservationPolicy::Diagnostic,
-        )
-        .finish(&logical, &pse_columnar::CancellationToken::new())
-        .unwrap()
-        .with_physical(plan.as_ref(), &pool)
-        .unwrap();
+        let observation =
+            Recorder::new(&pool, super::super::assurance::ObservationPolicy::Contract)
+                .finish(&logical, &pse_columnar::CancellationToken::new())
+                .unwrap()
+                .with_physical(plan.as_ref(), &pool)
+                .unwrap();
         let mut guard = CompletionGuard::new(&plan, &observation, &pool);
         assert!(observation.execution().is_none());
         let context = datafusion::prelude::SessionContext::new();
-        let batches = datafusion::physical_plan::collect(plan.clone(), context.task_ctx())
-            .await
+        use futures_util::StreamExt;
+        assert!(observation.explain_pgjson().is_empty());
+        assert_eq!(observation.physical_plan(), Some(""));
+        let mut stream =
+            datafusion::physical_plan::execute_stream(plan.clone(), context.task_ctx()).unwrap();
+        assert_eq!(stream.next().await.unwrap().unwrap().num_rows(), 3);
+        guard.checkpoint();
+        let live = observation.live_execution().unwrap();
+        assert!(
+            observation.execution().is_none(),
+            "live copy is not terminal evidence"
+        );
+        assert!(live.metrics.iter().any(|m| m.name == "output_rows"
+            && m.value == Some(3)
+            && m.kind == MetricKind::Counter));
+        let held = observation
+            .physical
+            .as_ref()
+            .unwrap()
+            .latest
+            .lock()
             .unwrap();
-        assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 3);
+        assert!(
+            observation.live_execution().is_none(),
+            "reader never blocks on publication"
+        );
+        drop(held);
+        assert!(stream.next().await.is_none());
+        drop(stream);
         guard.finish(super::super::assurance::TerminalStatus::Completed);
         drop(plan);
         assert!(
@@ -541,6 +724,44 @@ mod tests {
             0,
             "optional evidence cannot consume functional admission"
         );
+    }
+
+    #[test]
+    fn metrics_capture_is_selected_and_graph_curtailment_is_explicit() {
+        use datafusion::physical_plan::{ExecutionPlan, empty::EmptyExec, union::UnionExec};
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let logical = datafusion::logical_expr::LogicalPlanBuilder::empty(false)
+            .build()
+            .unwrap();
+        let schema = Arc::new(datafusion::arrow::datatypes::Schema::empty());
+        let children = (0..4097)
+            .map(|_| {
+                let child: Arc<dyn ExecutionPlan> = Arc::new(EmptyExec::new(schema.clone()));
+                child
+            })
+            .collect();
+        let plan: Arc<dyn ExecutionPlan> = UnionExec::try_new(children).unwrap();
+        let off = Recorder::new(&pool, super::super::assurance::ObservationPolicy::Off)
+            .finish(&logical, &pse_columnar::CancellationToken::new())
+            .unwrap()
+            .with_physical(plan.as_ref(), &pool)
+            .unwrap();
+        let mut disabled = CompletionGuard::new(&plan, &off, &pool);
+        disabled.checkpoint();
+        disabled.finish(super::super::assurance::TerminalStatus::Completed);
+        assert!(off.live_execution().is_none());
+        assert!(off.execution().is_none());
+        let observation =
+            Recorder::new(&pool, super::super::assurance::ObservationPolicy::Contract)
+                .finish(&logical, &pse_columnar::CancellationToken::new())
+                .unwrap()
+                .with_physical(plan.as_ref(), &pool)
+                .unwrap();
+        let mut capture = CompletionGuard::new(&plan, &observation, &pool);
+        capture.checkpoint();
+        assert!(observation.live_execution().unwrap().truncated);
+        capture.finish(super::super::assurance::TerminalStatus::Abandoned);
+        assert!(observation.execution().unwrap().truncated);
     }
 
     #[test]

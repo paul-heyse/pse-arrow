@@ -183,6 +183,13 @@ fn coincident_root_samples_observe_reset_and_final_time_is_supported() {
 }
 #[test]
 fn final_scheduled_change_is_reinitialized_and_observed() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let hub = ObservationHub::new(Policy {
+        max_metrics: 64,
+        ..Policy::default()
+    });
+    let operation = hub.start("diffsol-real-segment-reset");
+    let _entered = operation.context().enter();
     let mut p = profile(false);
     p.schedule = vec![ScheduledInput {
         parameter: 0,
@@ -199,6 +206,25 @@ fn final_scheduled_change_is_reinitialized_and_observed() {
     assert_eq!(r.samples.len(), 4);
     assert!((r.samples[3].outputs[0] - r.samples[3].state[0] - 3.0).abs() < 1e-10);
     assert!(r.events[0].after.is_some());
+    let observed = operation.reader().snapshot(Duration::from_secs(60));
+    let steps = observed
+        .metrics
+        .iter()
+        .find(|m| m.name == "diffsol.work.number_of_steps")
+        .unwrap();
+    let reported_steps: u64 = r
+        .statistics
+        .iter()
+        .map(|value| value["number_of_steps"].as_u64().unwrap())
+        .sum();
+    assert_eq!(steps.cumulative, Value::Count(reported_steps));
+    assert!(steps.resets > 0);
+    assert!(
+        observed
+            .metrics
+            .iter()
+            .any(|m| m.name == "diffsol.work.number_of_linear_solver_setups_from_checkpoint")
+    );
 }
 #[test]
 fn typed_callback_failure_retains_only_completed_prefix() {

@@ -84,7 +84,12 @@ fn semantic_body(
     let retained = match db.body_retention() {
         Some(cache) => match cache.get(input.identity) {
             Ok(body) => body,
-            Err(error) => body_refused(db, error),
+            Err(error) => {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("compiler.body_retention_lookup_refusals", "count", 1);
+                }
+                body_refused(db, error)
+            }
         },
         None => None,
     };
@@ -98,6 +103,9 @@ fn semantic_body(
         .entered();
         if body.semantic_identity() != Some(input.identity) || body.spec.physical != input.physical
         {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.body_retention_incompatibilities", "count", 1);
+            }
             body_refused(
                 db,
                 MathError::Contract(
@@ -105,8 +113,23 @@ fn semantic_body(
                 ),
             );
         }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("compiler.semantic_body_retention_reuses", "count", 1);
+        }
         return Ok(body);
     }
+    let _phase = pse_diagnostics::observation::current().map(|context| {
+        context.count("compiler.semantic_body_admissions", "count", 1);
+        if db.body_retention().is_some() {
+            context.unavailable(
+                "compiler.body_retention_miss_reason",
+                "retention does not report a miss cause",
+            );
+        } else {
+            context.source_ref("compiler.body_retention", b"not attached");
+        }
+        context.phase("compiler.semantic_body_admission")
+    });
     // Enter only after retained lookup misses: a query validation/cache hit is not
     // a fresh arithmetic admission. The benchmark subscriber observes this owner.
     let admission = tracing::info_span!(
@@ -145,6 +168,9 @@ fn semantic_body(
     checkpoint(db);
     let body = Arc::new(body.for_semantic_identity(input.identity));
     admission.record("success", true);
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("compiler.semantic_body_admissions_completed", "count", 1);
+    }
     if let Some(cache) = db.body_retention() {
         return match cache.retain(generation.unwrap_or(u64::MAX), input.identity, body.clone()) {
             Ok(retained) if retained.as_ref() == body.as_ref() => Ok(retained),
@@ -417,8 +443,7 @@ type Normalized = (
 /// symbols by dependency order. Global IDs survive only in the instance gather.
 fn normalize(
     expression: &Expr,
-    formals: &[Formal],
-    inputs: &[SemanticId],
+    runtime: &BTreeMap<&str, (&Formal, SemanticId)>,
     quantities: &BTreeMap<String, QuantityTypeId>,
     validity: &BTreeMap<String, crate::typed_math::Validity>,
 ) -> Result<Normalized> {
@@ -430,14 +455,9 @@ fn normalize(
         .iter()
         .map(|(n, e)| (n.clone(), e))
         .collect::<BTreeMap<_, _>>();
-    let runtime = formals
-        .iter()
-        .zip(inputs)
-        .map(|(f, id)| (f.path.clone(), (f, *id)))
-        .collect::<BTreeMap<_, _>>();
     struct Rename<'a> {
         locals: &'a BTreeMap<String, &'a Expr>,
-        runtime: &'a BTreeMap<String, (&'a Formal, SemanticId)>,
+        runtime: &'a BTreeMap<&'a str, (&'a Formal, SemanticId)>,
         names: BTreeMap<String, String>,
         bindings: Vec<(String, Expr)>,
         formals: Vec<Formal>,
@@ -464,7 +484,7 @@ fn normalize(
                     path.segments[0].name = fresh.clone();
                     return Ok(());
                 }
-                if let Some((formal, id)) = self.runtime.get(&name) {
+                if let Some((formal, id)) = self.runtime.get(name.as_str()) {
                     let fresh = format!("input_{}", self.inputs.len());
                     self.inputs.push(*id);
                     self.formals.push(Formal {
@@ -526,7 +546,7 @@ fn normalize(
     }
     let mut rename = Rename {
         locals: &locals,
-        runtime: &runtime,
+        runtime,
         names: BTreeMap::new(),
         bindings: vec![],
         formals: vec![],
@@ -798,6 +818,20 @@ pub(super) fn plan(
     let mut instances = vec![];
     let mut rows = vec![];
     let physical = physical_identity(registry, checker);
+    let runtime = p
+        .formals
+        .iter()
+        .zip(&p.inputs)
+        .map(|(formal, id)| (formal.path.as_str(), (formal, *id)))
+        .collect::<BTreeMap<_, _>>();
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("compiler.projection_lookups", "count", 1);
+        context.count(
+            "compiler.projection_lookup_entries",
+            "count",
+            runtime.len() as u64,
+        );
+    }
     for (index, (expression, output)) in p.expressions.iter().zip(&p.outputs).enumerate() {
         checkpoint(db);
         if let ModelingOutput::Equation {
@@ -814,13 +848,8 @@ pub(super) fn plan(
             });
             continue;
         }
-        let (expression, formals, inputs, hints, validity, checked_members) = normalize(
-            expression,
-            &p.formals,
-            &p.inputs,
-            &p.local_quantities,
-            &p.validity,
-        )?;
+        let (expression, formals, inputs, hints, validity, checked_members) =
+            normalize(expression, &runtime, &p.local_quantities, &p.validity)?;
         let (functions, provider_names) = dependencies(&expression, &validity, &p.functions);
         let selected_providers: BTreeMap<_, _> = provider_names
             .iter()
@@ -1464,6 +1493,122 @@ mod dependency_tests {
     }
 
     #[test]
+    fn overlapping_consumer_locals_keep_independent_validity_and_shared_lookup() {
+        let source = "package p { def Root { var x:Scalar; var y:Scalar; var limit:Scalar; let shared:Scalar=x+y; let left:Scalar=2*shared; let right:Scalar=3*shared; let unused:Scalar=log(-1); annotation valid shared(0,limit); annotation valid left(0,20); annotation valid right(0,30); eq a:left==6; eq b:right==9; } }";
+        let rows = crate::authored_transfer_tests::rows(source);
+        let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+        let mut workspace = CompilerWorkspace::new(
+            crate::authored_transfer_tests::context(),
+            WorkspaceLimits::default(),
+        )
+        .unwrap();
+        workspace
+            .publish_modeling(rows, PhysicalScope::default())
+            .unwrap();
+        let model = workspace
+            .specialize_modeling(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap();
+        let (catalog, request) = workspace
+            .modeling_request(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap();
+        let projected = projection(&workspace.db, workspace.inventory, catalog, request).unwrap();
+        let runtime = projected
+            .formals
+            .iter()
+            .zip(&projected.inputs)
+            .map(|(formal, id)| (formal.path.as_str(), (formal, *id)))
+            .collect::<BTreeMap<_, _>>();
+        let equations = projected
+            .outputs
+            .iter()
+            .enumerate()
+            .filter(|(_, output)| matches!(output, ModelingOutput::Equation { .. }))
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        assert_eq!(equations.len(), 2);
+        let member = |name: &str| {
+            model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path.ends_with(&format!(".{name}")))
+                .unwrap()
+                .id
+        };
+        let mut actual_members = Vec::new();
+        for index in equations {
+            let (expression, formals, inputs, _, validity, members) = normalize(
+                &projected.expressions[index],
+                &runtime,
+                &projected.local_quantities,
+                &projected.validity,
+            )
+            .unwrap();
+            assert_eq!(formals.len(), 3);
+            assert_eq!(inputs.len(), 3);
+            assert!(
+                inputs.contains(&member("limit")),
+                "validity-only input is retained"
+            );
+            assert_eq!(validity.len(), 2);
+            let members = members.values().copied().collect::<BTreeSet<_>>();
+            assert!(members.contains(&member("shared")));
+            assert_eq!(members.len(), 2);
+            assert!(!dsl::render_expr(&expression).contains("log"));
+            actual_members.push(members);
+        }
+        assert!(actual_members.iter().any(
+            |members| members.contains(&member("left")) && !members.contains(&member("right"))
+        ));
+        assert!(actual_members.iter().any(
+            |members| members.contains(&member("right")) && !members.contains(&member("left"))
+        ));
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("grouped-projection");
+        let entered = operation.context().enter();
+        let planned = plan(
+            &workspace.db,
+            workspace.inventory,
+            &projected,
+            BTreeMap::new(),
+        )
+        .unwrap();
+        drop(entered);
+        assert!(planned.instances.len() >= 2);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "compiler.projection_lookups")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "compiler.projection_lookup_entries")
+                .unwrap()
+                .cumulative,
+            Value::Count(runtime.len() as u64)
+        );
+    }
+
+    #[test]
     fn demanded_member_ranges_retain_only_their_transitive_functions() {
         let source = "package p { fn bottom(x:Scalar)->Scalar=1+x; fn lower(x:Scalar)->Scalar=bottom(x); fn upper(x:Scalar)->Scalar=3+x; def Root { var x:Scalar; annotation valid x(lower(0),upper(0)); eq e:x==2; } }";
         let rows = crate::authored_transfer_tests::rows(source);
@@ -1492,8 +1637,12 @@ mod dependency_tests {
             .unwrap();
         let (expression, _, _, _, validity, _) = normalize(
             &projected.expressions[ordinal],
-            &projected.formals,
-            &projected.inputs,
+            &projected
+                .formals
+                .iter()
+                .zip(&projected.inputs)
+                .map(|(formal, id)| (formal.path.as_str(), (formal, *id)))
+                .collect(),
             &projected.local_quantities,
             &projected.validity,
         )

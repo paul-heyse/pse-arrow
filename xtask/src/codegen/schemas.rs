@@ -121,7 +121,41 @@ pub(super) fn boundary_fixtures() -> anyhow::Result<pse_codegen::codegen::Genera
         transformation: None,
         commitment: None,
     };
+    // Fixed clock/locator keep generated codec controls reproducible. These are actual
+    // serialized owner values, not a second handwritten boundary shape.
+    struct FixtureClock;
+    impl pse_diagnostics::observation::Clock for FixtureClock {
+        fn now(&self) -> std::time::Duration {
+            std::time::Duration::from_secs(3)
+        }
+    }
+    let hub = pse_diagnostics::observation::ObservationHub::with_clock(
+        pse_diagnostics::observation::Policy::default(),
+        std::sync::Arc::new(FixtureClock),
+    );
+    let operation = hub.start("codec.control");
+    operation
+        .context()
+        .count("callback.calls", "calls", (1_u64 << 53) + 1);
+    operation
+        .context()
+        .gauge("ipopt.native_residual", "scaled", f64::INFINITY);
+    operation.context().unavailable(
+        "sensitivity.withheld_cause",
+        "original assessment unavailable",
+    );
+    let reader = operation.reader();
+    operation.finish(pse_diagnostics::observation::Outcome::Cancelled);
+    let mut snapshot = reader.snapshot(std::time::Duration::from_secs(60));
+    snapshot.id = pse_diagnostics::observation::OperationId {
+        process_instance: [1, 2],
+        sequence: 3,
+    };
+    let mut request = pse_runtime::inspection::InspectionRequest::new(snapshot.id);
+    request.include_related = false;
+    let diagnostic = pse_runtime::inspection::inspect_snapshot(snapshot, request);
     let products = BTreeMap::from([
+        ("diagnostic_inspection", encoded(&diagnostic)?),
         (
             "partial",
             encoded(&Conclusion {
@@ -186,6 +220,15 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_runtime::workflow::DiagnosticContextDocument>("diagnostic-context"),
         document::<pse_engine::cache_service::CacheReport>("cache-report"),
         document::<pse_runtime::ResourceReport>("resource-report"),
+        document::<pse_diagnostics::observation::OperationId>("diagnostic-operation-id"),
+        document::<pse_diagnostics::observation::OperationSnapshot>("operation-snapshot"),
+        document::<pse_diagnostics::observation::OperationPage>("operation-page"),
+        document::<pse_runtime::inspection::InspectionRequest>("inspection-request"),
+        document::<pse_runtime::inspection::InspectionDocument>("inspection-document"),
+        document::<pse_runtime::inspection::DiagnosticListRequest>("diagnostic-list-request"),
+        document::<pse_runtime::inspection::DiagnosticProcessPage>("diagnostic-process-page"),
+        document::<pse_runtime::capture::CaptureRequest>("capture-request"),
+        document::<pse_runtime::capture::CaptureDocument>("capture-document"),
         document::<pse_runtime::TableName>("table-name"),
         document::<pse_buildinfo::BuildInfo>("build-info"),
         document::<pse_runtime::workflow::ProgressEventDocument>("progress-event"),

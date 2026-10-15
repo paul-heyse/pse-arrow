@@ -1050,7 +1050,9 @@ pub fn scoped<T: Send, E: From<ProblemError> + Send>(
     }
     let mut work = Some(work);
     let mut out = None;
+    let observation = pse_diagnostics::observation::current();
     let mut run = || {
+        let _observation = observation.as_ref().map(|context| context.enter());
         if let Some(work) = work.take() {
             out = Some(work());
         }
@@ -1184,6 +1186,10 @@ fn foreign(backend: Backend) -> ProblemError {
     feature = "petsc"
 )))]
 fn unlinked(backend: Backend) -> ProblemError {
+    crate::observation::unavailable(
+        &format!("{}.native", format!("{backend:?}").to_lowercase()),
+        "selected backend is not linked in this build",
+    );
     ProblemError::Unavailable {
         backend,
         alternatives: vec![],

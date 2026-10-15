@@ -470,6 +470,26 @@ unsafe extern "C" fn post_step(ctx: *mut c_void, ts: ffi::Handle) -> i32 {
     };
     c.accepted += 1;
     c.steady = steady;
+    // Post-step is an owner checkpoint; artificial TS time is never physical time.
+    if let Ok((reason, steps, iterations, rejects, failures, time, dt)) = statistics(ts) {
+        c.state.execution.progress.push(Event {
+            phase: "petsc.ts.accepted_artificial".into(),
+            elapsed: c.state.execution.started.elapsed(),
+            values: std::collections::BTreeMap::from([
+                ("reason".into(), Metric::Integer(reason.into())),
+                ("steps".into(), Metric::Integer(steps.into())),
+                (
+                    "nonlinear_iterations".into(),
+                    Metric::Integer(iterations.into()),
+                ),
+                ("rejections".into(), Metric::Integer(rejects.into())),
+                ("failures".into(), Metric::Integer(failures.into())),
+                ("artificial_time".into(), Metric::Real(time)),
+                ("proposed_artificial_step".into(), Metric::Real(dt)),
+            ]),
+            incumbent: None,
+        });
+    }
     if steady {
         owner::publish(&mut c.state, || {
             check(
@@ -750,7 +770,9 @@ pub fn solve_flow(
     }
     let code = {
         // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
-        unsafe { ffi::pse_petsc_ts_solve(ts, x) }
+        crate::observation::scoped("petsc.ts.solve", || unsafe {
+            ffi::pse_petsc_ts_solve(ts, x)
+        })
     };
     let (reason, steps, iterations, rejections, failures, time, dt) = statistics(ts)?;
     let mut name = ptr::null();

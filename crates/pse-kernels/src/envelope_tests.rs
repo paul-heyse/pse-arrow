@@ -244,3 +244,141 @@ fn envelope_in_provider_key() {
         key(Some(vec![(-0.0, 0.0), (0.0, 1.0)]))
     );
 }
+
+#[test]
+fn observation_counts_only_actual_requested_provider_work_and_envelope_failure() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    use std::sync::atomic::AtomicUsize;
+    #[derive(Debug)]
+    struct Counted {
+        inner: Bounded,
+        calls: Arc<AtomicUsize>,
+        inspect: bool,
+    }
+    impl ProviderFactory for Counted {
+        fn spec(&self) -> &ProviderSpec {
+            &self.inner.spec
+        }
+        fn create(&self) -> Result<Box<dyn Provider>, ProviderError> {
+            Ok(Box::new(Self {
+                inner: Bounded {
+                    spec: self.inner.spec.clone(),
+                    envelope: self.inner.envelope.clone(),
+                    outputs: self.inner.outputs.clone(),
+                },
+                calls: self.calls.clone(),
+                inspect: self.inspect,
+            }))
+        }
+        fn envelope(&self) -> Option<Vec<(f64, f64)>> {
+            self.inner.envelope.clone()
+        }
+    }
+    impl Provider for Counted {
+        fn spec(&self) -> &ProviderSpec {
+            &self.inner.spec
+        }
+        fn evaluate(
+            &mut self,
+            inputs: &[f64],
+            request: &ProviderRequest,
+            context: &EvaluationContext<'_>,
+        ) -> Result<ProviderValues, ProviderError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            if self.inspect {
+                let live = pse_diagnostics::observation::current()
+                    .unwrap()
+                    .reader()
+                    .snapshot(Duration::from_secs(60));
+                assert!(
+                    live.phases
+                        .iter()
+                        .any(|phase| phase.kind == "kernel.provider.evaluate")
+                );
+            }
+            self.inner.evaluate(inputs, request, context)
+        }
+    }
+    for enabled in [false, true] {
+        let hub = ObservationHub::new(Policy {
+            enabled,
+            ..Policy::default()
+        });
+        let operation = hub.start("provider.control");
+        let observation = operation.context();
+        let _entered = observation.enter();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let registration = Registration::new(
+            Arc::new(Counted {
+                inner: Bounded {
+                    spec: spec(),
+                    envelope: Some(vec![(0.0, 27.0), (-1.0, 1.0)]),
+                    outputs: vec![1.0, 1.5],
+                },
+                calls: calls.clone(),
+                inspect: enabled,
+            }),
+            &standard_registry().unwrap(),
+        )
+        .unwrap();
+        let mut worker = registration.worker().unwrap();
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            0,
+            "observation never evaluates at construction"
+        );
+        let cancellation = AtomicBool::new(false);
+        let context = EvaluationContext {
+            cancelled: &cancellation,
+            max_result_bytes: 1 << 20,
+        };
+        let first = ProviderRequest {
+            outputs: vec![0],
+            order: DerivativeOrder::Value,
+        };
+        assert_eq!(
+            worker.evaluate(&[1.0], &first, &context).unwrap().values,
+            vec![1.0]
+        );
+        assert!(matches!(
+            worker.evaluate(
+                &[1.0],
+                &ProviderRequest::all(&spec(), DerivativeOrder::Value),
+                &context
+            ),
+            Err(ProviderError::Contract(_))
+        ));
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        let snapshot = observation.reader().snapshot(Duration::from_secs(60));
+        if enabled {
+            let metric = |name| {
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .unwrap()
+            };
+            assert_eq!(metric("kernel.provider.calls").cumulative, Value::Count(2));
+            assert_eq!(
+                metric("kernel.provider.failures").cumulative,
+                Value::Count(1)
+            );
+            assert_eq!(
+                metric("kernel.provider.failed").latest,
+                Value::Boolean(true)
+            );
+            assert_eq!(
+                metric("kernel.provider.requested_outputs").cumulative,
+                Value::Count(3)
+            );
+        } else {
+            assert!(!snapshot.coverage.enabled);
+            assert!(snapshot.metrics.is_empty());
+        }
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            2,
+            "inspection never invokes the scientific provider"
+        );
+    }
+}

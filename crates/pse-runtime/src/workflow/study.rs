@@ -444,6 +444,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let operations = self.study_creation_operations()?;
                 let physical =
                     creation_effect(cancel, operations.put_sources(&plan.sources.physical)).await?;
@@ -475,6 +476,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 creation_checkpoint(cancel)?;
                 let operations = self.study_creation_operations()?;
                 definition.validate_roles()?;
@@ -788,7 +790,6 @@ impl Runtime {
                         child.cancel(); renewal_error = Some(error);
                     }
                 }
-                () = cancel.cancelled(), if !child.token().is_cancelled() => { child.cancel(); }
             }
         };
         if let Some(error) = renewal_error {
@@ -954,6 +955,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy};
                 let point = self
                     .canonical_store()?
@@ -1194,6 +1196,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let Some(input) = prepared.prediction.take() else {
                     return Ok(());
                 };
@@ -1422,6 +1425,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let diagnostic =
                     error
                         .map(|error| error.boundary_diagnostic())
@@ -1453,6 +1457,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let (point, actual, study, _run) =
                     self.canonical_store()?.recovery_snapshot(key).await?;
                 let point = &point;
@@ -1550,6 +1555,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 use pse_model::study::{Availability, StudyLifecycle};
                 use pse_operations::canonical_execution::{
                     TerminalClass, result_batch_key, result_set_key,
@@ -1817,6 +1823,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let terminal = record.attempt.as_ref().map_err(|error| {
                     super::diagnostics::operation_context(
                         WorkflowError::Shared(error.clone()),
@@ -1972,6 +1979,7 @@ impl StudyHandle {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let store = self.runtime.canonical_store()?;
                 let study = store
                     .canonical_study(&self.study_id.to_string())
@@ -2023,6 +2031,7 @@ impl StudyHandle {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let store = self.runtime.canonical_store()?;
                 let key = self.study_id.to_string();
                 let old = store
@@ -2052,6 +2061,7 @@ impl StudyHandle {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let store = self.runtime.canonical_store()?;
                 let study = store
                     .canonical_study_summary(&self.study_id.to_string())
@@ -2197,6 +2207,7 @@ impl StudyHandle {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let Some(inventory) = self.terminal_inventory().await? else {
                     return Ok(None);
                 };
@@ -2234,6 +2245,7 @@ impl StudyHandle {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 if poll.is_zero() {
                     return Err(contract("study poll interval must be positive"));
                 }
@@ -2523,6 +2535,7 @@ impl super::ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 let _revision = self.recorded_revision()?;
                 let operations = Operations::from_store(
                     self.runtime.canonical_store()?.clone(),
@@ -2547,6 +2560,7 @@ impl super::ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.request");
                 output.validate(&self.runtime)?;
                 if points.is_empty() {
                     return Err(WorkflowError::Typed(

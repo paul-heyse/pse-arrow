@@ -1,23 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public finite modeling packages are immutable inputs to the existing compiler service.
-// An unscoped caller has no scientific operation clock to inherit. Its shared pure loader
-// still needs a finite lifetime; this omission policy is separate from SDK request and
-// native solver limits. Scoped operations always retain their original absolute clock.
-const UNSCOPED_PREPARATION_LIMIT: std::time::Duration = std::time::Duration::from_secs(600);
-
-fn preparation_deadline(cancel: &crate::CancelSource) -> Result<std::time::Instant, WorkflowError> {
-    cancel.deadline().map_or_else(
-        || {
-            std::time::Instant::now()
-                .checked_add(UNSCOPED_PREPARATION_LIMIT)
-                .ok_or_else(|| {
-                    crate::math::MathRuntimeError::Limit("preparation deadline extent").into()
-                })
-        },
-        Ok,
-    )
-}
 mod bound;
 mod canonical;
 pub(crate) use canonical::LocalSourcePremises;
@@ -434,6 +417,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let token = cancel.token();
                 token.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let validation = self.admission_context();
@@ -452,8 +436,8 @@ impl Runtime {
                     &token,
                 )?;
                 token.checkpoint().map_err(pse_engine::EngineError::from)?;
-                // Publication is an issued canonical effect; finish its owner before
-                // observing cancellation again. Pure validation uses the caller token.
+                // Pure validation retains the caller's cancellation and clock.
+                // Once publication is issued, finish its canonical effect owner.
                 let package = self
                     .persist_modeling(
                         rows,
@@ -464,6 +448,7 @@ impl Runtime {
                         fits,
                         BTreeMap::new(),
                         Some(documents),
+                        cancel,
                     )
                     .await?;
                 let _ = canonical::reload::retain_initial(&package, documents);
@@ -482,6 +467,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 self.modeling_package_registered(rows, physical, BTreeMap::new())
                     .await
             })
@@ -497,6 +483,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let scope = PhysicalScope {
                     package: physical.package.as_ref().map(|p| p.name.clone()),
                     documents: None,
@@ -510,6 +497,7 @@ impl Runtime {
                     Default::default(),
                     providers,
                     None,
+                    &crate::CancelSource::new(),
                 )
                 .await
             })
@@ -529,6 +517,7 @@ impl Runtime {
         fits: super::fitting::FitDeclarations,
         providers: BTreeMap<String, pse_kernels::Registration>,
         loader: Option<&pse_admission::authoring_driver::document::OwnedDocumentSet>,
+        cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
         let revision = canonical::persist(
             self,
@@ -542,6 +531,7 @@ impl Runtime {
                 loader,
             },
             None,
+            cancel,
         )
         .await?;
         self.package_from_revision(revision, physical, providers)
@@ -573,6 +563,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let source = canonical::SourceRevision::open(self, revision).await?;
                 let package = self.package_from_revision(source, physical, providers)?;
                 package.delta_parent(&crate::CancelSource::new()).await?;
@@ -691,7 +682,10 @@ impl ModelingPackage {
     pub async fn declarations(&self) -> Result<OwnedDeclarations, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity
-            .scope(async { self.declaration_inventory().await })
+            .scope(async {
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
+                self.declaration_inventory().await
+            })
             .await
     }
     /// Exact immutable canonical revision, independent of semantic compiler source hashes.
@@ -721,7 +715,10 @@ impl ModelingPackage {
     {
         let activity = self.runtime.admit_activity()?;
         activity
-            .scope(async { self.encode_source_tables().await })
+            .scope(async {
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
+                self.encode_source_tables().await
+            })
             .await
     }
     async fn encode_source_tables(
@@ -844,9 +841,12 @@ impl ModelingPackage {
         stages: Vec<BTreeMap<SemanticId, f64>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let profile = crate::math::initialization::InitializationProfile {
                     solver: a.solver.clone(),
                     stages,
@@ -899,7 +899,8 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let deadline = preparation_deadline(cancel)?;
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
+                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
                 let scoped_driver = cancel.with_deadline(Some(deadline));
                 let cancel = &scoped_driver;
                 let selected = self
@@ -941,6 +942,7 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let cancel = crate::CancelSource::new();
                 let parent = self.delta_parent(&cancel).await?;
                 let old = parent
@@ -997,23 +999,29 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let original = engagement::OriginalPreparationInputs::capture(
-                    self, root, instance, &bindings, limits,
-                )?;
-                if let Some(scope) = &self.held_preparation {
-                    let mut model = scope
-                        .prepare(self, root, instance, bindings, limits, cancel)
+                let _observation = pse_diagnostics::observation::phase("modeling.prepare");
+                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
+                let phase = cancel.child_with_deadline(Some(deadline));
+                preparation::scoped(&phase, deadline, async {
+                    let original = engagement::OriginalPreparationInputs::capture(
+                        self, root, instance, &bindings, limits,
+                    )?;
+                    if let Some(scope) = &self.held_preparation {
+                        let mut model = scope
+                            .prepare(self, root, instance, bindings, limits, &phase)
+                            .await?;
+                        model.original = Some(original);
+                        return Ok(model);
+                    }
+                    let engagement = self
+                        .engage(root, instance, bindings, limits, &phase)
                         .await?;
+                    let mut model = engagement.model().clone();
                     model.original = Some(original);
-                    return Ok(model);
-                }
-                let engagement = self
-                    .engage(root, instance, bindings, limits, cancel)
-                    .await?;
-                let mut model = engagement.model().clone();
-                model.original = Some(original);
-                engagement.close().await?;
-                Ok(model)
+                    engagement.close().await?;
+                    Ok(model)
+                })
+                .await
             })
             .await
     }

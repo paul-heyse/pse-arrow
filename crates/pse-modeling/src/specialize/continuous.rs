@@ -350,6 +350,7 @@ impl Engine<'_, '_> {
                 otherwise,
             } => {
                 let selected = Evaluator {
+                    lexical_bases: Some(&self.lexical_bases),
                     package: self.p,
                     physical: self.c,
                     at,
@@ -840,7 +841,7 @@ impl Engine<'_, '_> {
             let mut local = env.clone();
             local.insert(binder.var.clone(), first.clone());
             let integrand = self.rewrite(instance, body, &local, chain)?;
-            let types = self
+            let types: BTreeMap<_, _> = self
                 .model
                 .symbols
                 .iter()

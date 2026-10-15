@@ -43,6 +43,7 @@ pub mod kkt;
 ))]
 mod mkl;
 mod nlp_pattern;
+mod observation;
 #[cfg(feature = "petsc")]
 pub mod petsc;
 #[cfg(feature = "pounce")]

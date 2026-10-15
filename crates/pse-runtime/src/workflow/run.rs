@@ -21,9 +21,18 @@ use std::{collections::BTreeMap, sync::Arc};
 /// Public cancellation lease. Dropping the last public handle requests cancellation;
 /// the supervisor retains the actual native handle until its join completes.
 #[derive(Debug)]
-struct Lease(FlightCancellation, Option<crate::CancelSource>);
+struct Lease(
+    FlightCancellation,
+    Option<crate::CancelSource>,
+    Option<pse_diagnostics::observation::ObservationContext>,
+);
 impl Lease {
     fn cancel(&self) {
+        if let Some(context) = &self.2
+            && context.is_active()
+        {
+            context.boolean("run.stop_requested", true);
+        }
         self.0.cancel();
         if let Some(checks) = &self.1 {
             checks.cancel();
@@ -38,6 +47,7 @@ impl Drop for Lease {
 /// A repeatably awaitable, cancellable view of one native job.
 #[derive(Clone, Debug)]
 pub struct RunHandle {
+    observation: Option<pse_diagnostics::observation::OperationReader>,
     lease: Arc<Lease>,
     receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
     progress: Arc<Progress>,
@@ -46,6 +56,11 @@ pub struct RunHandle {
     canonical_keys: Option<(String, String)>,
 }
 impl RunHandle {
+    /// Passive current/cumulative/recent operation reader; dropping it never cancels this run.
+    pub fn observations(&self) -> Option<pse_diagnostics::observation::OperationReader> {
+        self.observation.clone()
+    }
+
     /// Request stop; result ownership remains live until native teardown and join.
     pub fn cancel(&self) {
         self.lease.cancel();
@@ -100,7 +115,12 @@ impl RunHandle {
         canonical_keys: Option<(String, String)>,
     ) -> Self {
         Self {
-            lease: Arc::new(Lease(FlightCancellation::default(), Some(checks))),
+            observation: observations_for(run_id, canonical_keys.as_ref()),
+            lease: Arc::new(Lease(
+                FlightCancellation::default(),
+                Some(checks),
+                pse_diagnostics::observation::current(),
+            )),
             receiver,
             progress,
             run_id,
@@ -109,6 +129,20 @@ impl RunHandle {
         }
     }
 }
+fn observations_for(
+    run: RunId,
+    canonical: Option<&(String, String)>,
+) -> Option<pse_diagnostics::observation::OperationReader> {
+    pse_diagnostics::observation::current().map(|context| {
+        context.source_ref("run.identity", run.as_id().to_string().as_bytes());
+        if let Some((run, attempt)) = canonical {
+            context.source_ref("canonical.run", run.as_bytes());
+            context.source_ref("canonical.attempt", attempt.as_bytes());
+        }
+        context.reader()
+    })
+}
+
 /// Which stored seed a preparation starts from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StoredStart {
@@ -292,9 +326,19 @@ impl RunResult {
     }
     /// Capture completion, then record the attempt's end durably when the run is durable.
     pub(super) async fn finished(self, durable: Option<DurableAttempt>, cancelled: bool) -> Self {
+        let _phase = pse_diagnostics::observation::phase("run.completion.and.publication");
         let mut result = self.completed();
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.boolean("run.cancel_requested", cancelled);
+            context.boolean("run.execution_failed", result.report.is_err());
+            context.boolean("run.original_completion.failed", result.completion.is_err());
+            context.source_ref("run.identity", result.run_id.as_id().to_string().as_bytes());
+        }
         if let Some(attempt) = durable {
             let record = attempt.finish(&result, cancelled).await;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.boolean("run.publication.failed", record.attempt.is_err());
+            }
             if let Err(error) = &record.attempt {
                 result.report = Err(error.clone());
                 result.reset_result_projection();
@@ -569,7 +613,7 @@ impl super::ModelingSimulation {
             } else {
                 None
             };
-            let lease = Arc::new(Lease(cancel.clone(), None));
+            let lease = Arc::new(Lease(cancel.clone(), None, pse_diagnostics::observation::current()));
             let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
             let canonical_keys = durable
                 .as_ref()
@@ -719,6 +763,7 @@ impl super::ModelingSimulation {
                 ),
             ));
             Ok((RunHandle {
+                observation: observations_for(run_id, canonical_keys.as_ref()),
                 lease,
                 receiver,
                 progress,
@@ -824,7 +869,11 @@ impl super::ShootingProblem {
             } else {
                 None
             };
-            let lease = Arc::new(Lease(cancel.clone(), None));
+            let lease = Arc::new(Lease(
+                cancel.clone(),
+                None,
+                pse_diagnostics::observation::current(),
+            ));
             let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
             let canonical_keys = durable
                 .as_ref()
@@ -925,6 +974,7 @@ impl super::ShootingProblem {
                 ),
             ));
             Ok(RunHandle {
+                observation: observations_for(run_id, canonical_keys.as_ref()),
                 lease,
                 receiver,
                 progress,
@@ -1044,7 +1094,11 @@ impl super::PreparedFit {
             } else {
                 None
             };
-            let lease = Arc::new(Lease(cancel.clone(), None));
+            let lease = Arc::new(Lease(
+                cancel.clone(),
+                None,
+                pse_diagnostics::observation::current(),
+            ));
             let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
             let canonical_keys = durable
                 .as_ref()
@@ -1142,6 +1196,7 @@ impl super::PreparedFit {
                 ),
             ));
             Ok(RunHandle {
+                observation: observations_for(run_id, canonical_keys.as_ref()),
                 lease,
                 receiver,
                 progress,
@@ -1582,6 +1637,29 @@ mod modeling_failure_tests {
 
 #[cfg(test)]
 mod cancellation_tests {
+    #[test]
+    fn completed_handle_drop_does_not_fabricate_diagnostic_loss() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("completed.run");
+        let context = operation.context();
+        let reader = operation.reader();
+        let lease = super::Lease(
+            pse_columnar::flight::FlightCancellation::default(),
+            None,
+            Some(context),
+        );
+        operation.finish(pse_diagnostics::observation::Outcome::Completed);
+        drop(lease);
+        let snapshot = reader.snapshot(std::time::Duration::from_secs(60));
+        assert!(!snapshot.coverage.curtailed);
+        assert_eq!(snapshot.coverage.dropped_updates, 0);
+        assert!(
+            !snapshot
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "run.stop_requested")
+        );
+    }
     #[tokio::test]
     async fn replay_parent_cancellation_reaches_pending_supervisor_and_keeps_drain_owned() {
         let parent = crate::CancelSource::new();

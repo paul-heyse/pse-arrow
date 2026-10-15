@@ -866,20 +866,20 @@ impl MathService {
             prepared.compiled().initialization_allocation_bound()?,
             self.policy.workspace_bytes,
         );
-        let operation = self.job_retained_construction(
-            1,
+        if construction.bytes() > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit("constructor worker capacity"));
+        }
+        let operation = self.compiler_job_retained(
+            workspace,
             construction,
             control.clone(),
             scope.deadline(),
-            move |abort| {
+            move |authority, abort| {
                 if abort.load(std::sync::atomic::Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
                 }
                 worker_scope.check().map_err(ProblemError::from)?;
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
+                let compiler = authority.lock()?;
                 let products = compiler.prepare_bound_initialization(
                     prepared.compiled(),
                     compiler_profile,

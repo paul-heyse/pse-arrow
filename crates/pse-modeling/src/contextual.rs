@@ -805,8 +805,8 @@ impl ReferenceTranslation {
 pub(crate) fn call_type(
     name: &str,
     args: &[pse_authoring::dsl::Expr],
-    env: &BTreeMap<String, crate::Type>,
-    package: &crate::CheckedPackage,
+    env: &dyn crate::TypeLookup,
+    package: &dyn crate::FunctionAdmission,
     context: &crate::TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Option<crate::Type>> {

@@ -62,6 +62,10 @@ class NestedCapacityTests(unittest.TestCase):
         owner = SimpleNamespace(profile=host.select("timing"))
         with (
             patch.object(host, "inherit", return_value=owner),
+            # Placement belongs to the simulated timing owner, not this test runner.
+            patch.object(
+                pse_env, "runner_width", return_value=len(owner.profile.cores)
+            ),
             patch.object(
                 pse_env, "current_memory_ceiling", return_value=owner.profile.memory
             ),

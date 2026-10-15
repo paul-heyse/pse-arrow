@@ -325,6 +325,62 @@ fn declare_identity_vocabularies(builder: &mut RegistryBuilder) {
 /// Registry projections of the leaf's diagnostic vocabulary.
 pub(super) fn declare_failure_classes(builder: &mut RegistryBuilder) {
     builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::Relationship",
+        pse_diagnostics::Relationship::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::OperationOutcome",
+        pse_diagnostics::OperationOutcome::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::NonFinite",
+        pse_diagnostics::NonFinite::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::StatementKind",
+        pse_diagnostics::StatementKind::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::NextObservation",
+        pse_diagnostics::NextObservation::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::CaptureKind",
+        pse_diagnostics::CaptureKind::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::CaptureStatus",
+        pse_diagnostics::CaptureStatus::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::CaptureOutputKind",
+        pse_diagnostics::CaptureOutputKind::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
         "pse_diagnostics::FailureClass",
         pse_diagnostics::FailureClass::ALL
             .iter()
@@ -400,6 +456,7 @@ mod tests {
                 pse_vocabulary::Stability, pse_vocabulary::ColumnRole,
                 pse_vocabulary::InvariantKind, pse_vocabulary::Severity,
                 pse_vocabulary::Determinism, pse_vocabulary::OperationEffect,
+                pse_diagnostics::Relationship, pse_diagnostics::OperationOutcome, pse_diagnostics::NonFinite, pse_diagnostics::StatementKind, pse_diagnostics::NextObservation, pse_diagnostics::CaptureKind, pse_diagnostics::CaptureStatus, pse_diagnostics::CaptureOutputKind,
                 pse_diagnostics::DiagnosticCode, pse_diagnostics::FailureClass,
                 pse_diagnostics::DiagnosticRule, pse_diagnostics::DiagnosticStage, pse_diagnostics::DiagnosticObservationKind,
                 pse_quantity::Opcode, pse_quantity::ScaleKind, pse_quantity::QuantityAdditionKind,
@@ -417,7 +474,7 @@ mod tests {
             assert_eq!(declared, expected, "{path}");
         }
         assert_eq!(
-            sourced, 31,
+            sourced, 39,
             "every source-owned vocabulary is declared as sourced"
         );
     }

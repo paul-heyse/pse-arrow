@@ -189,7 +189,78 @@ fn flight_error(error: FlightError<MathRuntimeError>) -> MathRuntimeError {
         }
     }
 }
+pub(crate) fn producer_failure(error: MathRuntimeError) -> MathRuntimeError {
+    // These pure compiler producers issue no native/scientific timed calls. Only
+    // the runtime admission/dispatch/join owner issues this time failure; retain
+    // any other time-bearing cause without relabelling it as producer expiry.
+    if matches!(&error, MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+        kind: pse_backend_native::LimitKind::Time, detail,
+    }) if detail == "native admission deadline")
+    {
+        MathRuntimeError::PreparationExpired
+    } else {
+        error
+    }
+}
+fn waiter_expiry() -> MathRuntimeError {
+    MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+        kind: pse_backend_native::LimitKind::Time,
+        detail: "scientific preparation caller deadline".into(),
+    })
+}
 impl MathService {
+    /// Resolve one caller clock; explicit enclosing deadlines are never renewed.
+    pub fn preparation_deadline(
+        &self,
+        driver: &crate::CancelSource,
+    ) -> Result<std::time::Instant, MathRuntimeError> {
+        driver
+            .deadline()
+            .map_or_else(|| self.preparation_producer_deadline(), Ok)
+    }
+    /// Normalize a private preparation entry once without mutating caller cancellation.
+    pub(crate) fn preparation_driver(
+        &self,
+        driver: &crate::CancelSource,
+    ) -> Result<crate::CancelSource, MathRuntimeError> {
+        if driver.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        let deadline = self.preparation_deadline(driver)?;
+        if std::time::Instant::now() >= deadline {
+            return Err(waiter_expiry());
+        }
+        Ok(driver.with_deadline(Some(deadline)))
+    }
+    /// Waiting for independently owned shared products preserves this caller's clock.
+    pub(crate) async fn preparation_wait<T>(
+        driver: &crate::CancelSource,
+        operation: impl Future<Output = Result<T, MathRuntimeError>>,
+    ) -> Result<T, MathRuntimeError> {
+        if driver.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        let deadline = driver.deadline().ok_or_else(|| {
+            MathRuntimeError::Infrastructure("preparation wait without resolved deadline".into())
+        })?;
+        if std::time::Instant::now() >= deadline {
+            return Err(waiter_expiry());
+        }
+        tokio::select! {
+            biased;
+            () = driver.cancelled() => Err(MathRuntimeError::Cancelled),
+            () = tokio::time::sleep_until(deadline.into()) => Err(waiter_expiry()),
+            result = operation => result,
+        }
+    }
+    /// Each shared producer receives its own finite service clock at creation.
+    pub(crate) fn preparation_producer_deadline(
+        &self,
+    ) -> Result<std::time::Instant, MathRuntimeError> {
+        std::time::Instant::now()
+            .checked_add(self.policy.preparation_limit)
+            .ok_or(MathRuntimeError::Limit("preparation deadline extent"))
+    }
     pub(crate) fn basis_key(
         &self,
         selected: &crate::workflow::modeling::SelectedAdmission,
@@ -243,7 +314,7 @@ impl MathService {
             bindings,
             limits,
             control.clone(),
-            None,
+            driver.deadline(),
         );
         tokio::pin!(operation);
         tokio::select! { result = &mut operation => result, () = driver.cancelled() => {
@@ -272,22 +343,29 @@ impl MathService {
         #[cfg(test)]
         let effects = self.preparation_effects.clone();
         let (product, owner) = self
-            .job_retained_scoped(1, super::WITHIN_WORKSPACE, control, deadline, move |flag| {
-                if flag.load(std::sync::atomic::Ordering::Acquire) {
-                    return Err(MathRuntimeError::Cancelled);
-                }
-                #[cfg(test)]
-                effects
-                    .frontiers
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let product =
-                    service.with_modeling_compiler(&workspace, &revision, |compiler| {
-                        Ok(compiler
-                            .plan_modeling_cancellable(root, instance, bindings, limits, flag)?)
-                    })?;
-                let bytes = size_of::<OwnedModelingFrontier>() + product.retained_bytes();
-                Ok((product, bytes))
-            })
+            .compiler_job_retained(
+                workspace,
+                super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+                control,
+                deadline,
+                move |authority, flag| {
+                    if flag.load(std::sync::atomic::Ordering::Acquire) {
+                        return Err(MathRuntimeError::Cancelled);
+                    }
+                    #[cfg(test)]
+                    effects
+                        .frontiers
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let product =
+                        service.with_modeling_compiler(authority, &revision, |compiler| {
+                            Ok(compiler.plan_modeling_cancellable(
+                                root, instance, bindings, limits, flag,
+                            )?)
+                        })?;
+                    let bytes = size_of::<OwnedModelingFrontier>() + product.retained_bytes();
+                    Ok((product, bytes))
+                },
+            )
             .await?;
         if check.load(std::sync::atomic::Ordering::Acquire) {
             return Err(MathRuntimeError::Cancelled);
@@ -308,8 +386,14 @@ impl MathService {
         driver: &crate::CancelSource,
         deadline: std::time::Instant,
     ) -> Result<Arc<OwnedModelingFrontier>, MathRuntimeError> {
+        let deadline = driver
+            .deadline()
+            .map_or(deadline, |outer| outer.min(deadline));
         if driver.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled);
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(waiter_expiry());
         }
         if let Some(frontier) = self.modeling_cache.frontier(&key) {
             return Ok(frontier);
@@ -317,10 +401,12 @@ impl MathService {
         let service = self.clone();
         let generation = self.modeling_cache.generation();
         let population = super::PopulationScope::capture();
+        let producer_deadline = service.preparation_producer_deadline();
         let operation = self
             .frontier_flights
             .load_owned(key.clone(), move |control| {
                 population.run(async move {
+                    let producer_deadline = producer_deadline?;
                     if let Some(frontier) = service.modeling_cache.frontier(&key) {
                         return Ok(frontier);
                     }
@@ -333,9 +419,10 @@ impl MathService {
                             key.bindings.clone(),
                             key.limits,
                             control,
-                            Some(deadline),
+                            Some(producer_deadline),
                         )
-                        .await?;
+                        .await
+                        .map_err(producer_failure)?;
                     frontier.key = Some(key.clone());
                     frontier.generation = generation;
                     let frontier = Arc::new(frontier);
@@ -346,7 +433,12 @@ impl MathService {
                 })
             });
         tokio::pin!(operation);
-        tokio::select! { result = &mut operation => result.map_err(flight_error), () = driver.cancelled() => Err(MathRuntimeError::Cancelled) }
+        tokio::select! {
+            biased;
+            () = driver.cancelled() => Err(MathRuntimeError::Cancelled),
+            () = tokio::time::sleep_until(deadline.into()) => Err(waiter_expiry()),
+            result = &mut operation => result.map_err(flight_error),
+        }
     }
     pub(crate) async fn complete_frontier(
         self: &Arc<Self>,
@@ -358,8 +450,12 @@ impl MathService {
             return Err(MathRuntimeError::Cancelled);
         }
         let control = FlightCancellation::default();
-        let operation =
-            self.complete_frontier_controlled(workspace, frontier, control.clone(), None);
+        let operation = self.complete_frontier_controlled(
+            workspace,
+            frontier,
+            control.clone(),
+            driver.deadline(),
+        );
         tokio::pin!(operation);
         tokio::select! { result = &mut operation => result, () = driver.cancelled() => {
             control.cancel(); let _ = operation.await; Err(MathRuntimeError::Cancelled)
@@ -377,23 +473,26 @@ impl MathService {
         #[cfg(test)]
         let effects = self.preparation_effects.clone();
         let (product, lease) = self
-            .job_retained_scoped(1, super::WITHIN_WORKSPACE, control, deadline, move |flag| {
-                let _workspace_lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                if flag.load(std::sync::atomic::Ordering::Acquire) {
-                    return Err(MathRuntimeError::Cancelled);
-                }
-                #[cfg(test)]
-                effects
-                    .completions
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let product =
-                    compiler.complete_modeling_cancellable(frontier.product.clone(), flag)?;
-                let bytes = product.retained_bytes();
-                Ok((product, bytes))
-            })
+            .compiler_job_retained(
+                workspace,
+                super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
+                control,
+                deadline,
+                move |authority, flag| {
+                    let mut compiler = authority.lock()?;
+                    if flag.load(std::sync::atomic::Ordering::Acquire) {
+                        return Err(MathRuntimeError::Cancelled);
+                    }
+                    #[cfg(test)]
+                    effects
+                        .completions
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let product =
+                        compiler.complete_modeling_cancellable(frontier.product.clone(), flag)?;
+                    let bytes = product.retained_bytes();
+                    Ok((product, bytes))
+                },
+            )
             .await?;
         if check.load(std::sync::atomic::Ordering::Acquire) {
             return Err(MathRuntimeError::Cancelled);
@@ -417,8 +516,14 @@ impl MathService {
         driver: &crate::CancelSource,
         deadline: std::time::Instant,
     ) -> Result<Arc<PreparedBasis>, MathRuntimeError> {
+        let deadline = driver
+            .deadline()
+            .map_or(deadline, |outer| outer.min(deadline));
         if driver.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled);
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(waiter_expiry());
         }
         if frontier.key.as_ref() != Some(&key) {
             return Err(pse_math::MathError::Contract(
@@ -434,10 +539,12 @@ impl MathService {
         let service = self.clone();
         let generation = frontier.generation;
         let population = super::PopulationScope::capture();
+        let producer_deadline = service.preparation_producer_deadline();
         let operation =
             self.basis_flights
                 .load_owned((key.clone(), source_premises.clone()), move |control| {
                     population.run(async move {
+                        let producer_deadline = producer_deadline?;
                         if let Some(basis) = service.modeling_cache.basis(&key)
                             && basis.source_premises == source_premises
                         {
@@ -448,9 +555,10 @@ impl MathService {
                                 workspace,
                                 frontier,
                                 control,
-                                Some(deadline),
+                                Some(producer_deadline),
                             )
-                            .await?;
+                            .await
+                            .map_err(producer_failure)?;
                         let basis = Arc::new(PreparedBasis::new(&service, model, source_premises)?);
                         // Immutable local mathematics retains complete source premises. Durable
                         // import/recording permissions remain with their actual adapters.
@@ -461,6 +569,11 @@ impl MathService {
                     })
                 });
         tokio::pin!(operation);
-        tokio::select! { result = &mut operation => result.map_err(flight_error), () = driver.cancelled() => Err(MathRuntimeError::Cancelled) }
+        tokio::select! {
+            biased;
+            () = driver.cancelled() => Err(MathRuntimeError::Cancelled),
+            () = tokio::time::sleep_until(deadline.into()) => Err(waiter_expiry()),
+            result = &mut operation => result.map_err(flight_error),
+        }
     }
 }

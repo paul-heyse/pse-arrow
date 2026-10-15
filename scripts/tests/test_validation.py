@@ -1517,6 +1517,8 @@ class ValidationTests(unittest.TestCase):
             "100,ms,2\n300,ns,3\n",
             "100,ns,0\n300,ns,3\n",
             "100,ns,2\n",
+            "1e308,ns,1e-300\n300,ns,3\n",
+            "1e308,ns,2\n1e308,ns,2\n",
         ):
             source.write_text(header + rows)
             with self.assertRaises(ValueError):
@@ -1563,7 +1565,6 @@ class ValidationTests(unittest.TestCase):
                 "run",
                 return_value=subprocess.CompletedProcess([], 0, stdout=artifact),
             ) as run,
-            patch.object(case_measure, "native_provenance", return_value={}),
         ):
             case_measure.smoke_campaign(
                 Path(directory), "dev", process, preparation, set(identities)

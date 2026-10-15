@@ -195,3 +195,84 @@ fn implicit_outer_deadline_rejects_late_positive_native_result() {
     assert!(allowances.lock().unwrap()[0] <= Duration::from_millis(40));
     assert!(!factory.cancel.load(Ordering::Acquire));
 }
+
+#[test]
+fn observation_distinguishes_actual_inner_attempt_from_reused_product_and_original_assessment() {
+    use pse_diagnostics::observation::{ObservationHub, Outcome, Policy, Value};
+    for enabled in [false, true] {
+        let hub = ObservationHub::new(Policy {
+            enabled,
+            ..Policy::default()
+        });
+        let operation = hub.start("implicit.observation.control");
+        let observation = operation.context();
+        let _entered = observation.enter();
+        let (factory, calls, _) = factory(Duration::ZERO);
+        let mut worker = factory
+            .create_scoped(ExecutionScope::new(factory.cancel.clone(), None))
+            .unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), 0);
+        let context = pse_kernels::EvaluationContext {
+            cancelled: &factory.cancel,
+            max_result_bytes: 128,
+        };
+        let request = pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value);
+        for _ in 0..2 {
+            assert_eq!(
+                worker.evaluate(&[1.], &request, &context).unwrap().values,
+                vec![1.]
+            );
+        }
+        let snapshot = observation.reader().snapshot(Duration::from_secs(60));
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        if enabled {
+            let metric = |name| {
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .unwrap()
+            };
+            assert_eq!(
+                metric("implicit.provider.calls").cumulative,
+                Value::Count(2)
+            );
+            assert_eq!(
+                metric("implicit.product.full_reuse").cumulative,
+                Value::Count(1)
+            );
+            assert_eq!(
+                metric("implicit.original_assessment.calls").cumulative,
+                Value::Count(1)
+            );
+            let child = snapshot
+                .children
+                .iter()
+                .find(|child| child.kind == "implicit.inner_attempt")
+                .unwrap();
+            assert_eq!(child.outcome, Some(Outcome::Completed));
+            let inner = hub
+                .reader(child.id)
+                .unwrap()
+                .snapshot(Duration::from_secs(60));
+            assert_eq!(
+                inner
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == "implicit.inner_solve.calls")
+                    .unwrap()
+                    .cumulative,
+                Value::Count(1)
+            );
+            assert!(!snapshot.coverage.curtailed);
+        } else {
+            assert!(!snapshot.coverage.enabled);
+            assert!(snapshot.metrics.is_empty());
+        }
+        assert_eq!(
+            calls.load(Ordering::Relaxed),
+            1,
+            "reading never asks the inner solver for another point"
+        );
+    }
+}

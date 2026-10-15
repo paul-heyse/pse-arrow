@@ -290,6 +290,13 @@ pub(crate) unsafe extern "C" fn poll(data: *mut c_void) -> i32 {
     // SAFETY: boundary contains every callback; no borrowed oracle is evaluated here.
     unsafe {
         boundary(data, |c| {
+            let _observation = c.state.observation_scope();
+            crate::observation::count("foreign_nlp.poll.calls", 1);
+            crate::observation::gauge(
+                "foreign_nlp.poll.checkpoint_seconds",
+                "seconds",
+                c.state.execution.started.elapsed().as_secs_f64(),
+            );
             if let Some((stop, _)) = c.state.terminal.as_ref() {
                 return match stop {
                     Termination::Cancelled => 1,

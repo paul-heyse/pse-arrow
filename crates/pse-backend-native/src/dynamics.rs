@@ -790,15 +790,23 @@ impl<'a> SampleElimination<'a> {
                 .map_err(|e| {
                 ProblemError::memory(format!("adjoint jump constraint block: {e:?}"))
             })?;
-            let symbolic = faer::sparse::linalg::solvers::SymbolicLu::try_new(
-                transposed.symbolic(),
-            )
-            .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
-            let factor = faer::sparse::linalg::solvers::Lu::try_new_with_symbolic(
-                symbolic,
-                transposed.as_ref(),
-            )
-            .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
+            let symbolic =
+                crate::observation::scoped("dynamics.sample_elimination.faer.symbolic", || {
+                    faer::sparse::linalg::solvers::SymbolicLu::try_new(transposed.symbolic())
+                })
+                .map_err(|e| {
+                    ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}"))
+                })?;
+            let factor =
+                crate::observation::scoped("dynamics.sample_elimination.faer.factor", || {
+                    faer::sparse::linalg::solvers::Lu::try_new_with_symbolic(
+                        symbolic,
+                        transposed.as_ref(),
+                    )
+                })
+                .map_err(|e| {
+                    ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}"))
+                })?;
             Some(factor)
         };
         #[cfg(test)]
@@ -820,7 +828,9 @@ impl<'a> SampleElimination<'a> {
                 "sample elimination factor is invalid",
             ));
         }
-        let result = self.solve_ready(jump);
+        let result = crate::observation::scoped("dynamics.sample_elimination.solve", || {
+            self.solve_ready(jump)
+        });
         if result.is_err() {
             self.ready = false;
             self.factor = None;

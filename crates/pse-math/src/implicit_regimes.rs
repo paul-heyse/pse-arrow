@@ -1687,7 +1687,10 @@ impl RegimeSelection {
             time_limit: remaining,
             cancel,
         };
-        let evidence = verifier.enclose_action(&request, chart, direction)?;
+        super::observation::request(&request);
+        let evidence = observed_proof!("implicit.proof.enclose_action", {
+            verifier.enclose_action(&request, chart, direction)
+        })?;
         let cells = match &evidence {
             super::RootActionEvidence::Enclosed { proof_cells, .. }
             | super::RootActionEvidence::Incomplete { proof_cells, .. }
@@ -1795,6 +1798,7 @@ impl RegimeSelection {
             time_limit: deadline.saturating_duration_since(Instant::now()),
             cancel,
         };
+        super::observation::request(&request);
         chart.validate(&request, verifier.identity())?;
         let mut key = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
         key.str("fixed-selected-root-inverse").hash(&selected.key);
@@ -1815,8 +1819,9 @@ impl RegimeSelection {
                 proof_cells: 0,
             });
         }
-        let result =
-            verifier.refine_point(&request, chart, unknown_scales, row_scales, max_cells)?;
+        let result = observed_proof!("implicit.proof.refine_point", {
+            verifier.refine_point(&request, chart, unknown_scales, row_scales, max_cells)
+        })?;
         let cells = match &result {
             super::RootPointEvidence::Enclosed { proof_cells, .. }
             | super::RootPointEvidence::Incomplete { proof_cells, .. }
@@ -1904,8 +1909,11 @@ impl RegimeSelection {
             time_limit: deadline.saturating_duration_since(Instant::now()),
             cancel,
         };
+        super::observation::request(&request);
         chart.validate(&request, verifier.identity())?;
-        let result = verifier.enclose_action_bounded(&request, chart, direction, max_cells)?;
+        let result = observed_proof!("implicit.proof.enclose_action_bounded", {
+            verifier.enclose_action_bounded(&request, chart, direction, max_cells)
+        })?;
         let cells = match &result {
             super::RootActionEvidence::Enclosed { proof_cells, .. }
             | super::RootActionEvidence::Incomplete { proof_cells, .. }
@@ -1968,14 +1976,17 @@ impl RegimeSelection {
             time_limit: deadline.saturating_duration_since(Instant::now()),
             cancel,
         };
+        super::observation::request(&request);
         chart.validate(&request, verifier.identity())?;
-        let result = verifier.enclose_neighborhood(
-            &request,
-            chart,
-            parameter_intervals,
-            direction_intervals,
-            max_cells,
-        )?;
+        let result = observed_proof!("implicit.proof.enclose_neighborhood", {
+            verifier.enclose_neighborhood(
+                &request,
+                chart,
+                parameter_intervals,
+                direction_intervals,
+                max_cells,
+            )
+        })?;
         let cells = match &result {
             super::RootNeighborhoodEvidence::Enclosed { proof_cells, .. }
             | super::RootNeighborhoodEvidence::Incomplete { proof_cells, .. }
@@ -2070,6 +2081,7 @@ impl RegimeSelection {
             time_limit: deadline.saturating_duration_since(Instant::now()),
             cancel,
         };
+        super::observation::request(&request);
         chart.validate(&request, verifier.identity())?;
         let mut options = self
             .numerical
@@ -2321,28 +2333,72 @@ impl RegimeSelection {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<SelectedRegime, MathError> {
-        self.chain_work = None;
-        let local = order > DerivativeOrder::Value || self.derivative_branch.is_some();
-        if local
-            && self
-                .alternatives
-                .iter()
-                .any(|regime| regime.isolation.is_some())
-        {
-            if self.verifier.is_none()
-                || self
+        let before = self.observed_chain;
+        let result = observed!("implicit.selection", {
+            self.chain_work = None;
+            let local = order > DerivativeOrder::Value || self.derivative_branch.is_some();
+            if local
+                && self
                     .alternatives
                     .iter()
-                    .any(|regime| regime.isolation.is_none())
+                    .any(|regime| regime.isolation.is_some())
             {
-                return Err(MathError::Contract(
+                if self.verifier.is_none()
+                    || self
+                        .alternatives
+                        .iter()
+                        .any(|regime| regime.isolation.is_none())
+                {
+                    return Err(MathError::Contract(
                     "nonlinear selection requires complete projections and its admitted verifier"
                         .into(),
                 ));
+                }
+                return self.evaluate_certified(parameters, order, cancel);
             }
-            return self.evaluate_certified(parameters, order, cancel);
+            self.evaluate_operational(parameters, order, cancel)
+        });
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.source_ref("implicit.selection", self.id.as_bytes());
+            context.integer(
+                "implicit.selection.requested_order",
+                "derivative-order",
+                order as i64,
+            );
+            context.count(
+                "implicit.proof.chain_cells",
+                "proof-cells",
+                self.observed_chain
+                    .proof_cells
+                    .saturating_sub(before.proof_cells),
+            );
+            context.count(
+                "implicit.proof.chain_charts",
+                "charts",
+                self.observed_chain.charts.saturating_sub(before.charts),
+            );
+            context.count(
+                "implicit.proof.chain_connections",
+                "connections",
+                self.observed_chain
+                    .connections
+                    .saturating_sub(before.connections),
+            );
+            if let Ok(selected) = &result {
+                context.source_ref("implicit.selected.branch", selected.id.as_bytes());
+                context.integer(
+                    "implicit.selection.examined",
+                    "alternatives",
+                    selected.examined as i64,
+                );
+                context.integer(
+                    "implicit.selection.eligible",
+                    "alternatives",
+                    selected.eligible as i64,
+                );
+            }
         }
-        self.evaluate_operational(parameters, order, cancel)
+        result
     }
 
     fn evaluate_certified(
@@ -2421,6 +2477,7 @@ impl RegimeSelection {
                 time_limit: deadline.saturating_duration_since(Instant::now()),
                 cancel,
             };
+            super::observation::request(&request);
             self.verifier
                 .as_ref()
                 .is_some_and(|verifier| chart.validate_scope(&request, verifier.identity()).is_ok())
@@ -2560,6 +2617,7 @@ impl RegimeSelection {
             time_limit: deadline.saturating_duration_since(Instant::now()),
             cancel,
         };
+        super::observation::request(&request);
         let mut fresh_chart = None;
         if self
             .chart
@@ -2568,9 +2626,11 @@ impl RegimeSelection {
         {
             let evidence = match &self.chart {
                 Some(chart) if chart.validate_scope(&request, verifier.identity()).is_ok() => {
-                    verifier.promote(&request, chart)?
+                    observed_proof!("implicit.proof.promote", {
+                        verifier.promote(&request, chart)
+                    })?
                 }
-                _ => verifier.certify(&request)?,
+                _ => observed_proof!("implicit.proof.certify", { verifier.certify(&request) })?,
             };
             checkpoint()?;
             let mut chart = match evidence {
@@ -2746,7 +2806,10 @@ impl RegimeSelection {
                             time_limit: deadline.saturating_duration_since(Instant::now()),
                             cancel,
                         };
-                        connected = verifier.connect(&connection, previous, &chart)?;
+                        super::observation::request(&connection);
+                        connected = observed_proof!("implicit.proof.connect", {
+                            verifier.connect(&connection, previous, &chart)
+                        })?;
                         checkpoint()?;
                     }
                 }
@@ -2775,6 +2838,7 @@ impl RegimeSelection {
                         time_limit: deadline.saturating_duration_since(Instant::now()),
                         cancel,
                     };
+                    super::observation::request(&endpoint);
                     let chain = super::ChartChainRequest {
                         endpoint: &endpoint,
                         previous,
@@ -2783,7 +2847,9 @@ impl RegimeSelection {
                         coverage: self.chain_coverage,
                     };
                     chain.validate(verifier.identity())?;
-                    let evidence = verifier.connect_chain(&chain)?;
+                    let evidence = observed_proof!("implicit.proof.connect_chain", {
+                        verifier.connect_chain(&chain)
+                    })?;
                     let work = evidence.work();
                     self.chain_work = Some(work);
                     self.observed_chain.charts = self

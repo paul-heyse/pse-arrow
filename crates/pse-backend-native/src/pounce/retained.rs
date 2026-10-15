@@ -291,16 +291,61 @@ impl SparseSymLinearSolverInterface for Lease {
     ) -> ESymSolverStatus {
         let before = self.held().backend.summary();
         let fresh = new_matrix || self.new_application;
-        let status = self.held_mut().backend.multi_solve(
-            fresh,
-            ia,
-            ja,
-            nrhs,
-            rhs_vals,
-            check_neg_evals,
-            number_of_neg_evals,
-        );
+        let phase = match self.role.phase {
+            Phase::Main => "pounce.feral.main",
+            Phase::Restoration => "pounce.feral.restoration",
+        };
+        let status = crate::observation::scoped(&format!("{phase}.factor_and_solve"), || {
+            self.held_mut().backend.multi_solve(
+                fresh,
+                ia,
+                ja,
+                nrhs,
+                rhs_vals,
+                check_neg_evals,
+                number_of_neg_evals,
+            )
+        });
         let after = self.held().backend.summary();
+        crate::observation::count(
+            &format!("{phase}.factors"),
+            after.n_factors.saturating_sub(before.n_factors),
+        );
+        crate::observation::count(
+            &format!("{phase}.pattern_reuse"),
+            after.n_pattern_reuse.saturating_sub(before.n_pattern_reuse),
+        );
+        crate::observation::integer(&format!("{phase}.rhs"), "count", i64::from(nrhs));
+        crate::observation::boolean(
+            &format!("{phase}.return_succeeded"),
+            status == ESymSolverStatus::Success,
+        );
+        if status == ESymSolverStatus::Success {
+            if let Some(entries) = after.last_nnz_a {
+                crate::observation::integer(
+                    &format!("{phase}.factor.nnz_a"),
+                    "entries",
+                    i64::try_from(entries).unwrap_or(i64::MAX),
+                );
+            }
+            if let Some(entries) = after.last_nnz_l {
+                crate::observation::integer(
+                    &format!("{phase}.factor.nnz_l"),
+                    "entries",
+                    i64::try_from(entries).unwrap_or(i64::MAX),
+                );
+            }
+        } else {
+            crate::observation::count(&format!("{phase}.failed_returns"), 1);
+            crate::observation::unavailable(
+                &format!("{phase}.factor.nnz_a"),
+                "failed return does not validate retained last-factor summary",
+            );
+            crate::observation::unavailable(
+                &format!("{phase}.factor.nnz_l"),
+                "failed return does not validate retained last-factor summary",
+            );
+        }
         self.record(before, after);
         if status == ESymSolverStatus::Success {
             self.new_application = false;

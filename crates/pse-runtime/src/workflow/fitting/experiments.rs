@@ -29,6 +29,7 @@ pub(super) fn borrowed_capacity<T>(cores: usize, work: impl FnOnce() -> T) -> T 
     result
 }
 struct Request {
+    observation: Option<pse_diagnostics::observation::ObservationContext>,
     x: Arc<[f64]>,
     demand: Demand,
     experiments: Vec<(usize, Option<Arc<native::dynamics::Report>>)>,
@@ -127,6 +128,28 @@ impl ExperimentTeam {
                             Option<crate::workflow::dynamics::DynamicWorker>,
                         > = (0..problem.experiments.len()).map(|_| None).collect();
                         while let Ok(request) = rx.recv() {
+                            // A retained lane receives the context of each actual wave,
+                            // rather than retaining the operation that created the team.
+                            let operation = request.observation.as_ref().map(|parent| {
+                                parent.count("fit.experiment_lane_waves", "count", 1);
+                                parent.child(
+                                    "fit.experiment_lane_wave",
+                                    pse_diagnostics::observation::Relationship::Nested,
+                                )
+                            });
+                            let context = operation.as_ref().map(|operation| operation.context());
+                            let _entered = context.as_ref().map(|context| context.enter());
+                            if let Some(context) = &context {
+                                if let Ok(index) = i64::try_from(lane) {
+                                    context.integer("fit.experiment_lane", "index", index);
+                                } else {
+                                    context.unavailable(
+                                        "fit.experiment_lane",
+                                        "lane exceeds signed diagnostic representation",
+                                    );
+                                }
+                            }
+                            let mut replies_open = true;
                             #[cfg(all(test, feature = "solver-diffsol"))]
                             if let Some(gate) = &request.gate {
                                 let _ = gate.wait();
@@ -181,8 +204,16 @@ impl ExperimentTeam {
                                     }
                                 }
                                 if request.reply.send((ei, result)).is_err() {
+                                    replies_open = false;
                                     break;
                                 }
+                            }
+                            if let Some(operation) = operation {
+                                operation.finish(if replies_open {
+                                    pse_diagnostics::observation::Outcome::Completed
+                                } else {
+                                    pse_diagnostics::observation::Outcome::Interrupted
+                                });
                             }
                         }
                         // All native sessions have already returned; compiled/provider scratch
@@ -236,6 +267,10 @@ impl ExperimentTeam {
         demand: Demand,
         previous: Option<&BTreeMap<InstanceId, Arc<native::dynamics::Report>>>,
     ) -> Result<Vec<ExperimentProducts>, ProblemError> {
+        let _phase = pse_diagnostics::observation::phase("fit.experiment_dispatch");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.gauge("fit.experiment_lanes", "count", self.lanes.len() as f64);
+        }
         let service = self.problem.runtime.native().clone();
         let count = self.problem.experiments.len();
         let x: Arc<[f64]> = Arc::from(x);
@@ -257,6 +292,7 @@ impl ExperimentTeam {
                     })
                     .collect::<Vec<_>>();
                 let request = Request {
+                    observation: pse_diagnostics::observation::current(),
                     x: x.clone(),
                     demand,
                     experiments,

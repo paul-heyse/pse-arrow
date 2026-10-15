@@ -43,10 +43,11 @@ impl CancelSource {
         }
     }
 
-    /// An independently cancellable child retains the effective enclosing clock.
+    /// A child inherits parent cancellation and the effective enclosing clock,
+    /// while its own cancellation cannot reach its parent or siblings.
     pub(crate) fn child_with_deadline(&self, deadline: Option<std::time::Instant>) -> Self {
         let mut child = self.with_deadline(deadline);
-        child.token = CancellationToken::new();
+        child.token = self.token.child_token();
         child
     }
 
@@ -75,5 +76,61 @@ impl CancelSource {
     /// Waits for driver cancellation, including cancellation before this call.
     pub async fn cancelled(&self) {
         self.token.cancelled().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn cancellation_children_inherit_parent_without_upward_or_sibling_cancellation() {
+        let parent = CancelSource::new();
+        let child = parent.child_with_deadline(None);
+        let sibling = parent.child_with_deadline(None);
+        let descendant = child.child_with_deadline(None);
+        child.cancel();
+        assert!(child.token().is_cancelled());
+        assert!(descendant.token().is_cancelled());
+        assert!(!parent.token().is_cancelled());
+        assert!(!sibling.token().is_cancelled());
+        parent.cancel();
+        assert!(sibling.token().is_cancelled());
+        assert!(parent.child_with_deadline(None).token().is_cancelled());
+    }
+
+    #[test]
+    fn cancellation_child_keeps_the_original_minimum_clock() {
+        let early = Instant::now() + Duration::from_secs(1);
+        let later = early + Duration::from_secs(1);
+        let parent = CancelSource::new().with_deadline(Some(early));
+        assert_eq!(parent.child_with_deadline(None).deadline(), Some(early));
+        assert_eq!(
+            parent.child_with_deadline(Some(later)).deadline(),
+            Some(early)
+        );
+        let child = CancelSource::new().child_with_deadline(Some(later));
+        assert_eq!(
+            child.child_with_deadline(Some(early)).deadline(),
+            Some(early)
+        );
+        assert_eq!(parent.deadline(), Some(early));
+    }
+
+    #[tokio::test]
+    async fn cancellation_child_wait_observes_parent_before_and_after_registration() {
+        let parent = CancelSource::new();
+        let child = parent.child_with_deadline(None);
+        parent.cancel();
+        child.cancelled().await;
+        parent.child_with_deadline(None).cancelled().await;
+        assert!(matches!(child.checkpoint(), Err(RuntimeError::Cancelled)));
+        let parent = CancelSource::new();
+        let child = parent.child_with_deadline(None);
+        let mut waiting = Box::pin(child.cancelled());
+        assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+        parent.cancel();
+        waiting.await;
     }
 }

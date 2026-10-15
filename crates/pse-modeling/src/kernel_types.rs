@@ -598,7 +598,11 @@ fn physical_admissions_distinguish_identical_syntax_in_lexical_scopes() {
     };
     expression::infer(
         body,
-        &function.arguments.iter().cloned().collect(),
+        &function
+            .arguments
+            .iter()
+            .cloned()
+            .collect::<BTreeMap<_, _>>(),
         &package,
         &context,
         function.id,

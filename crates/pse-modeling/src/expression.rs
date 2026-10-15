@@ -7,7 +7,7 @@ pub mod inventory;
 pub mod occurrences;
 
 use crate::{
-    DeclarationId, Result,
+    DeclarationId, FunctionAdmission, Result, TypeLookup, TypeScope,
     check::CheckedPackage,
     invalid,
     types::{Type, TypeContext},
@@ -268,8 +268,8 @@ pub(crate) fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
 /// Undefined references, physical mismatch, invalid arguments or unsupported semantics.
 pub fn infer(
     expr: &Expr,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     context: &TypeContext<'_>,
     at: DeclarationId,
     expected: Option<&Type>,
@@ -722,7 +722,7 @@ pub fn infer(
             Ok(a)
         }
         ExprKind::Let { bindings, body } => {
-            let mut env = env.clone();
+            let mut env = TypeScope::new(env);
             for (n, e) in bindings {
                 let ty = infer(e, &env, p, context, at, None)?;
                 env.insert(n.clone(), ty);
@@ -734,7 +734,7 @@ pub fn infer(
             let (Type::Set(element) | Type::Continuous(_, element)) = &domain else {
                 return Err(invalid(at, "reduction domain must be a set"));
             };
-            let mut env = env.clone();
+            let mut env = TypeScope::new(env);
             env.insert(binder.var.clone(), *element.clone());
             if let Some(filter) = &binder.filter {
                 predicate(filter, &env, p, context, at)?;
@@ -786,7 +786,7 @@ pub fn infer(
             let Type::Set(element) = path_type(&binder.domain, env, p, context, at)? else {
                 return Err(invalid(at, "fold requires a finite set"));
             };
-            let mut local = env.clone();
+            let mut local = TypeScope::new(env);
             local.insert(binder.var.clone(), *element);
             if let Some(filter) = &binder.filter {
                 predicate(filter, &local, p, context, at)?;
@@ -907,8 +907,8 @@ fn call(
     name: &Path,
     args: &[Expr],
     wrt: &[Path],
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     context: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Type> {
@@ -957,7 +957,7 @@ fn call(
         return Ok(ty);
     }
     let indirect;
-    let lexical_formal = p.functions.get(&at).is_some_and(|function| {
+    let lexical_formal = p.function(at).is_some_and(|function| {
         function
             .arguments
             .iter()
@@ -970,7 +970,7 @@ fn call(
             .all(|segment| segment.indices.is_empty()))
     .then(|| p.resolve_segments(at, &name.segments))
     .flatten()
-    .and_then(|id| p.functions.get(&id))
+    .and_then(|id| p.function(id))
     {
         function
     } else {
@@ -997,6 +997,7 @@ fn call(
         };
         &indirect
     };
+    let function_result = p.function_result(f);
     let indexed_slot = p
         .declarations
         .get(&f.id)
@@ -1030,7 +1031,7 @@ fn call(
             return Err(invalid(at, "coordinate slot group arity"));
         }
         return Ok(Type::Indexed {
-            element: Box::new(f.result.clone()),
+            element: Box::new((*function_result).clone()),
             axes,
         });
     }
@@ -1121,10 +1122,10 @@ fn call(
             _ => return Err(invalid(at, "function argument type")),
         }
     }
-    if wrt.is_empty() && f.result.quantity_scheme().is_none() {
-        return Ok(f.result.clone());
+    if wrt.is_empty() && (*function_result).quantity_scheme().is_none() {
+        return Ok((*function_result).clone());
     }
-    let mut result = scheme(&f.result, at)?;
+    let mut result = scheme(&(*function_result), at)?;
     for path in wrt {
         let first = path
             .segments
@@ -1162,9 +1163,9 @@ fn call(
     if wrt.is_empty() {
         Ok(with_physical_refinement(
             result,
-            f.result.physical_refinement().cloned(),
+            (*function_result).physical_refinement().cloned(),
         ))
-    } else if f.result.physical_refinement().is_some()
+    } else if (*function_result).physical_refinement().is_some()
         || f.arguments
             .iter()
             .any(|(_, ty)| ty.physical_refinement().is_some())
@@ -1180,8 +1181,8 @@ fn call(
 /// Check an admission predicate and complete comparison contracts.
 pub(crate) fn predicate(
     v: &Predicate,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     context: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<()> {
@@ -1219,7 +1220,7 @@ pub(crate) fn predicate(
     Ok(())
 }
 pub(crate) fn declaration_environment(
-    p: &CheckedPackage,
+    p: &dyn FunctionAdmission,
     context: &TypeContext<'_>,
     id: DeclarationId,
 ) -> Result<BTreeMap<String, Type>> {
@@ -1244,7 +1245,7 @@ pub(crate) fn declaration_environment(
                 env.insert(argument.name.clone(), ty);
             }
         }
-        if let Some(function) = p.functions.get(&current) {
+        if let Some(function) = p.function(current) {
             env.extend(function.arguments.iter().cloned());
         }
     }
@@ -1254,12 +1255,12 @@ pub(crate) fn declaration_environment(
 fn check_forms(
     row: &crate::Declaration,
     id: DeclarationId,
-    outer: &BTreeMap<String, Type>,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    outer: &dyn TypeLookup,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     context: &TypeContext<'_>,
 ) -> Result<()> {
-    let typed = |role: &str, env: &BTreeMap<String, Type>| -> Result<Type> {
+    let typed = |role: &str, env: &dyn TypeLookup| -> Result<Type> {
         let e = p.expression_at(id, role, 0)?;
         infer(e, env, p, context, id, None)
     };
@@ -1290,7 +1291,7 @@ fn check_forms(
         let [index] = f.indices.as_slice() else {
             return Err(invalid(id, "a piecewise function has one breakpoint index"));
         };
-        let mut local = outer.clone();
+        let mut local = TypeScope::new(outer);
         let Type::Set(element) = index_domain_type(
             p.static_at(id, "piecewise.indices.domain", 0)?,
             outer,
@@ -1354,7 +1355,7 @@ pub(crate) fn check_all(p: &mut CheckedPackage, context: &TypeContext<'_>) -> Re
     }
     Ok(())
 }
-fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
+fn check_declarations(p: &dyn FunctionAdmission, context: &TypeContext<'_>) -> Result<()> {
     for id in p.declarations.keys() {
         check_declaration(p, context, *id)?;
     }
@@ -1362,13 +1363,14 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
 }
 
 pub(crate) fn check_declaration(
-    p: &CheckedPackage,
+    p: &dyn FunctionAdmission,
     context: &TypeContext<'_>,
     declaration: DeclarationId,
 ) -> Result<()> {
     let id = &declaration;
     let row = &p.declarations[id];
-    let mut env = declaration_environment(p, context, *id)?;
+    let declaration_base = declaration_environment(p, context, *id)?;
+    let mut outer = TypeScope::new(&declaration_base);
     let mut ancestors = Vec::new();
     let mut cursor = row.parent_id;
     while let Some(owner) = cursor {
@@ -1378,11 +1380,11 @@ pub(crate) fn check_declaration(
     for owner in ancestors.into_iter().rev() {
         if let Some(_guard) = &p.declarations[&owner].value.guard {
             let predicate = p.predicate_at(owner, "guard.predicate", 0)?;
-            env = refine(predicate, &env, p, context, owner)?;
+            refine_into(predicate, &mut outer, p, context, owner)?;
         }
     }
     let indices = member_indices(row);
-    let outer = env.clone();
+    let mut env = TypeScope::new(&outer);
     for (position, (name, _domain)) in indices.into_iter().enumerate() {
         let (Type::Set(element) | Type::Continuous(_, element)) =
             member_index_type(*id, position, &env, p, context)?
@@ -1551,7 +1553,7 @@ pub(crate) fn check_declaration(
             }
         }
     }
-    if let Some(f) = p.functions.get(id) {
+    if let Some(f) = p.function(*id) {
         let physical_context = TypeContext {
             admissions: context.admissions,
             formula_authority: matches!(
@@ -1648,7 +1650,7 @@ pub(crate) fn check_declaration(
                         .is_some_and(|value| {
                             use pse_model::generated::enums::ModelingDeclarationKind as K;
                             let declaration = &p.declarations[&value];
-                            (p.functions.contains_key(&value) || matches!(
+                            (p.function(value).is_some() || matches!(
                                 declaration.value.kind,
                                 K::Entity
                                     | K::Set
@@ -1662,7 +1664,7 @@ pub(crate) fn check_declaration(
                                 // Reconstructed bodies call their map's checked slots.
                                 // Their immutable authority is the package-owned map.
                                 owner.value.kind == K::Package
-                                    || (matches!(p.functions.get(&value).and_then(|function| function.physical_operation.as_ref()), Some(crate::PhysicalOperation::Coordinate { map, .. }) if *map == parent)
+                                    || (matches!(p.function(value).and_then(|function| function.physical_operation.as_ref()), Some(crate::PhysicalOperation::Coordinate { map, .. }) if *map == parent)
                                         && owner.parent_id.is_some_and(|package| p.declarations[&package].value.kind == K::Package))
                             })
                         });
@@ -1735,7 +1737,7 @@ pub(crate) fn check_declaration(
             // expression target; specialization resolves its stable constant identity.
             return Ok(());
         }
-        let mut env = env.clone();
+        let mut env = TypeScope::new(&env);
         let target_declaration = crate::annotation::target_declaration(
             p,
             context,
@@ -1949,8 +1951,8 @@ pub(crate) fn check_declaration(
         let e = p.equation_at(*id, role, 0)?;
         fn eq(
             e: &dsl::Equation,
-            env: &BTreeMap<String, Type>,
-            p: &CheckedPackage,
+            env: &dyn TypeLookup,
+            p: &dyn FunctionAdmission,
             c: &TypeContext<'_>,
             id: DeclarationId,
         ) -> Result<()> {
@@ -2036,8 +2038,8 @@ pub(crate) fn member_indices(row: &crate::Declaration) -> Vec<(&String, &String)
 fn member_index_type(
     declaration: DeclarationId,
     position: usize,
-    env: &BTreeMap<String, Type>,
-    package: &CheckedPackage,
+    env: &dyn TypeLookup,
+    package: &dyn FunctionAdmission,
     context: &TypeContext<'_>,
 ) -> Result<Type> {
     match crate::temporal::index_domain(package, declaration, position)? {
@@ -2108,15 +2110,15 @@ pub(crate) fn member_index_names(row: &crate::Declaration) -> Vec<&str> {
 
 pub(crate) fn index_domain_type(
     value: &pse_authoring::language::StaticValue,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     c: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Type> {
     fn syntax(
         value: &pse_authoring::language::StaticValue,
-        env: &BTreeMap<String, Type>,
-        p: &CheckedPackage,
+        env: &dyn TypeLookup,
+        p: &dyn FunctionAdmission,
         c: &TypeContext<'_>,
         at: DeclarationId,
     ) -> Result<Type> {
@@ -2151,7 +2153,7 @@ pub(crate) fn index_domain_type(
                 bindings,
                 filter,
             } => {
-                let mut local = env.clone();
+                let mut local = TypeScope::new(env);
                 for (name, domain) in bindings {
                     let Type::Set(element) = syntax(domain, &local, p, c, at)? else {
                         return Err(invalid(at, "comprehension index domain must be a set"));
@@ -2173,15 +2175,15 @@ pub(crate) fn index_domain_type(
     syntax(value, env, p, c, at)
 }
 
-fn process_index_environment(
+fn process_index_environment<'a>(
     indices: impl IntoIterator<Item = (String, String)>,
     role: &str,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &'a dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     c: &TypeContext<'_>,
     at: DeclarationId,
-) -> Result<BTreeMap<String, Type>> {
-    let mut local = env.clone();
+) -> Result<TypeScope<'a>> {
+    let mut local = TypeScope::new(env);
     let mut bound = member_indices(&p.declarations[&at])
         .into_iter()
         .map(|(name, _)| name.clone())
@@ -2228,8 +2230,8 @@ fn same_process_type(
 fn process_value(
     expression: &Expr,
     expected: &Type,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     c: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<()> {
@@ -2246,14 +2248,15 @@ fn process_value(
 fn check_process_contracts(
     row: &crate::Declaration,
     at: DeclarationId,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     c: &TypeContext<'_>,
 ) -> Result<()> {
     if let Some(state) = &row.value.state_specification {
         let mut ancestors = BTreeSet::from([at]);
         let mut owner = at;
-        let mut local = env.clone();
+        let mut inherited_base;
+        let mut local = TypeScope::new(env);
         while let Some(_source) = p.declarations[&owner]
             .value
             .state_specification
@@ -2276,7 +2279,8 @@ fn check_process_contracts(
             if !ancestors.insert(base) {
                 return Err(invalid(at, "recursive state specification extension"));
             }
-            local = declaration_environment(p, c, base)?;
+            inherited_base = declaration_environment(p, c, base)?;
+            local = TypeScope::new(&inherited_base);
             for (position, (name, _domain)) in member_indices(&p.declarations[&base])
                 .into_iter()
                 .enumerate()
@@ -2346,8 +2350,8 @@ fn check_process_contracts(
             fn relation(
                 e: &dsl::Equation,
                 tolerance: &Expr,
-                env: &BTreeMap<String, Type>,
-                p: &CheckedPackage,
+                env: &dyn TypeLookup,
+                p: &dyn FunctionAdmission,
                 c: &TypeContext<'_>,
                 at: DeclarationId,
             ) -> Result<()> {
@@ -2535,8 +2539,8 @@ fn check_process_contracts(
 /// than an ordinary value type, validating each actual coordinate in its path.
 pub(crate) fn indexed_declaration_reference(
     expression: &Expr,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     c: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<DeclarationId> {
@@ -2601,8 +2605,8 @@ pub(crate) fn indexed_declaration_reference(
 fn check_member_indices(
     segment: &dsl::PathSegment,
     indices: Vec<(&String, &String)>,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     c: &TypeContext<'_>,
     at: DeclarationId,
     id: DeclarationId,
@@ -2626,8 +2630,8 @@ fn check_member_indices(
 }
 fn path_type(
     path: &Path,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     c: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Type> {
@@ -2802,7 +2806,7 @@ fn path_type(
 }
 /// Whether a value of type `actual` indexes an axis of `kind`: an enumeration member, or
 /// an entity of the kind or a refinement.
-fn coordinate_of(actual: &Type, kind: DeclarationId, p: &CheckedPackage) -> bool {
+fn coordinate_of(actual: &Type, kind: DeclarationId, p: &dyn FunctionAdmission) -> bool {
     match actual {
         Type::Enum(id) => *id == kind,
         Type::Entity(id) => p.refines(*id, kind),
@@ -2812,7 +2816,7 @@ fn coordinate_of(actual: &Type, kind: DeclarationId, p: &CheckedPackage) -> bool
 fn member_declaration(
     ty: &Type,
     name: &str,
-    p: &CheckedPackage,
+    p: &dyn FunctionAdmission,
     at: DeclarationId,
 ) -> Result<DeclarationId> {
     let (Type::Entity(id) | Type::Definition(id) | Type::Interface(id)) = ty else {
@@ -2824,7 +2828,7 @@ fn member_declaration(
 fn member_type(
     ty: &Type,
     name: &str,
-    p: &CheckedPackage,
+    p: &dyn FunctionAdmission,
     at: DeclarationId,
 ) -> Result<(Type, Option<DeclarationId>)> {
     match ty {
@@ -2864,25 +2868,35 @@ fn member_type(
     }
 }
 
-fn refine(
+fn refine<'a>(
     guard: &Predicate,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &'a dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     c: &TypeContext<'_>,
     at: DeclarationId,
-) -> Result<BTreeMap<String, Type>> {
-    let mut env = env.clone();
+) -> Result<TypeScope<'a>> {
+    let mut local = TypeScope::new(env);
+    refine_into(guard, &mut local, p, c, at)?;
+    Ok(local)
+}
+fn refine_into(
+    guard: &Predicate,
+    env: &mut TypeScope<'_>,
+    p: &dyn FunctionAdmission,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+) -> Result<()> {
     match &guard.kind {
         PredicateKind::And(a, b) => {
-            env = refine(a, &env, p, c, at)?;
-            env = refine(b, &env, p, c, at)?;
+            refine_into(a, env, p, c, at)?;
+            refine_into(b, env, p, c, at)?;
         }
         PredicateKind::Atom(expression) => {
             if let ExprKind::NamedCall { name, args } = &expression.kind {
                 if name.is_ident("present")
                     && args.len() == 1
                     && let ExprKind::Path(path) = &args[0].kind
-                    && let Type::Optional(inner) = infer(&args[0], &env, p, c, at, None)?
+                    && let Type::Optional(inner) = infer(&args[0], env, p, c, at, None)?
                 {
                     env.insert(dsl::render_path(path), *inner);
                 }
@@ -2909,7 +2923,7 @@ fn refine(
         }
         _ => {}
     }
-    Ok(env)
+    Ok(())
 }
 
 /// Conservative owned syntax storage for compiler memo and worker admission.
@@ -2924,8 +2938,8 @@ pub fn retained_bytes(expression: &Expr) -> usize {
 fn objective_members(
     a: &pse_authoring::language::AuthoredModelingDeclarationsFieldValueAnnotation,
     target: &Type,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
+    env: &dyn TypeLookup,
+    p: &dyn FunctionAdmission,
     context: &TypeContext<'_>,
     id: DeclarationId,
 ) -> Result<()> {

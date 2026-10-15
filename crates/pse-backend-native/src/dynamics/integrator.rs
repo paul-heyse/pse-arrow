@@ -94,10 +94,21 @@ impl Shared<'_> {
     ) -> Evaluation {
         self.check();
         let parameters = self.values();
-        let result = self
-            .oracle
-            .borrow_mut()
-            .evaluate(mode, f, t, x, &parameters, derivative);
+        let name = format!("diffsol.callback.{f:?}");
+        crate::observation::integer(
+            "diffsol.callback.mode",
+            "ordinal",
+            i64::try_from(mode).unwrap_or(i64::MAX),
+        );
+        crate::observation::boolean("diffsol.callback.derivatives_requested", derivative);
+        let result = crate::observation::scoped(&name, || {
+            self.oracle
+                .borrow_mut()
+                .evaluate(mode, f, t, x, &parameters, derivative)
+        });
+        if result.is_err() {
+            crate::observation::count("diffsol.callback.failed", 1);
+        }
         match result {
             Ok(v) => {
                 let n = self.nout_mode(mode, f);
@@ -826,6 +837,36 @@ impl<'o> Shared<'o> {
     }
 }
 /// Statistics of one finished segment, labelled with the scheme and linear solver.
+fn live_statistics(statistics: &diffsol::ode_solver::OdeSolverStatistics, generation: u64) {
+    live_statistics_for("diffsol.work", statistics, generation);
+}
+fn live_statistics_for(
+    prefix: &str,
+    statistics: &diffsol::ode_solver::OdeSolverStatistics,
+    generation: u64,
+) {
+    let Some(context) = pse_diagnostics::observation::current() else {
+        return;
+    };
+    macro_rules! counters { ($($field:ident),* $(,)?) => {$(
+        context.count_value(&format!("{prefix}.{}", stringify!($field)), "count",
+            u64::try_from(statistics.$field).unwrap_or(u64::MAX), generation);
+    )*}; }
+    counters!(
+        number_of_linear_solver_setups,
+        number_of_steps,
+        number_of_error_test_failures,
+        number_of_nonlinear_solver_iterations,
+        number_of_nonlinear_solver_fails,
+        number_of_linear_solver_setups_from_checkpoint,
+        number_of_linear_solver_setups_from_first_convergence_fail,
+        number_of_linear_solver_setups_from_second_convergence_fail,
+        number_of_linear_solver_setups_from_error_test_fail,
+        number_of_linear_solver_setups_from_step_success
+    );
+}
+
+/// Statistics of one finished segment, labelled with the scheme and linear solver.
 fn segment_statistics(
     statistics: &diffsol::ode_solver::OdeSolverStatistics,
     settings: &DiffsolSettings,
@@ -845,6 +886,7 @@ fn segment_statistics(
                 .map_err(|e| ProblemError::internal(format!("Diffsol settings: {e}")))?,
         );
     }
+    crate::observation::structured("diffsol.segment", &value);
     Ok(value)
 }
 /// Capture before event rewind: method order/h can already describe the next attempt.
@@ -929,6 +971,8 @@ fn run<LS: LinearSolver<M>>(
     let mut steps = 0usize;
     loop {
         shared.check();
+        let generation = crate::observation::generation();
+        live_statistics(&Default::default(), generation);
         let problem = build_problem(&shared, p, time, &scales)?;
         let requested = ConstantOp::call(&problem.eqn.init(), time)
             .as_slice()
@@ -943,7 +987,8 @@ fn run<LS: LinearSolver<M>>(
         // to the outer boundary.
         macro_rules! segment {
             ($solver:expr, sensitivities) => {{
-                let mut solver = $solver.map_err(native)?;
+                let mut solver = crate::observation::scoped("diffsol.segment.initialize", || $solver).map_err(native)?;
+                live_statistics(solver.get_statistics(), generation);
                 let mut observation = step_observation(&solver, None);
                 record_start(&shared, &solver, p, r, time, output)?;
                 if time >= p.end && boundaries.get(segment) != Some(&time) {
@@ -955,7 +1000,7 @@ fn run<LS: LinearSolver<M>>(
                     if stop == time {
                         return Ok((None, solver.state().y.as_slice().to_vec()));
                     }
-                    drive(&shared, &mut solver, p, r, SegmentContext { stop, boundaries: &boundaries, observation: &mut observation }, &mut steps, output)
+                    drive(&shared, &mut solver, p, r, SegmentContext { stop, boundaries: &boundaries, observation: &mut observation, generation }, &mut steps, output, |solver, generation| live_statistics(solver.get_statistics(), generation))
                 }));
                 r.statistics
                     .push(segment_statistics(solver.get_statistics(), &p.diffsol, &observation)?);
@@ -981,7 +1026,8 @@ fn run<LS: LinearSolver<M>>(
                 result
             }};
             ($solver:expr) => {{
-                let mut solver = $solver.map_err(native)?;
+                let mut solver = crate::observation::scoped("diffsol.segment.initialize", || $solver).map_err(native)?;
+                live_statistics(solver.get_statistics(), generation);
                 let mut observation = step_observation(&solver, None);
                 record_start(&shared, &solver, p, r, time, output)?;
                 if time >= p.end && boundaries.get(segment) != Some(&time) {
@@ -993,7 +1039,7 @@ fn run<LS: LinearSolver<M>>(
                     if stop == time {
                         return Ok((None, solver.state().y.as_slice().to_vec()));
                     }
-                    drive(&shared, &mut solver, p, r, SegmentContext { stop, boundaries: &boundaries, observation: &mut observation }, &mut steps, output)
+                    drive(&shared, &mut solver, p, r, SegmentContext { stop, boundaries: &boundaries, observation: &mut observation, generation }, &mut steps, output, |solver, generation| live_statistics(solver.get_statistics(), generation))
                 }));
                 r.statistics
                     .push(segment_statistics(solver.get_statistics(), &p.diffsol, &observation)?);
@@ -1005,14 +1051,18 @@ fn run<LS: LinearSolver<M>>(
         }
         let (event, state) = match (p.forward(), p.diffsol.method) {
             (true, DiffsolMethod::Bdf) => {
-                let solver = problem.bdf_sens::<LS>().map(|mut solver| {
-                    // Diffsol 0.16.2 leaves the forward sensitivity BDF coefficient
-                    // at zero in its constructor. Its public state mutation path
-                    // rebuilds both main and sensitivity coefficients before stepping,
-                    // using the already consistent state/rates and unchanged controls.
-                    let _ = solver.state_mut();
-                    solver
-                });
+                let solver =
+                    crate::observation::scoped("diffsol.forward_sensitivity.initialize", || {
+                        problem.bdf_sens::<LS>()
+                    })
+                    .map(|mut solver| {
+                        // Diffsol 0.16.2 leaves the forward sensitivity BDF coefficient
+                        // at zero in its constructor. Its public state mutation path
+                        // rebuilds both main and sensitivity coefficients before stepping,
+                        // using the already consistent state/rates and unchanged controls.
+                        let _ = solver.state_mut();
+                        solver
+                    });
                 segment!(solver, sensitivities)
             }
             (true, DiffsolMethod::TrBdf2) => {
@@ -1036,6 +1086,8 @@ fn run<LS: LinearSolver<M>>(
         time = r.completed_time;
         shared.conserve(r, time, &state, shared.integrals.borrow().clone())?;
         if let Some(index) = event {
+            crate::observation::count("diffsol.root_returns", 1);
+            crate::observation::gauge("diffsol.event.returned_time", "physical_time", time);
             let guards = shared.evaluate(Function::Roots, time, &state, false).values;
             let events = &shared.contract.events[shared.mode.get()];
             if guards_at_zero(&guards, events) > 1 {
@@ -1136,6 +1188,11 @@ fn reset_sens<'p, 'o: 'p, LS: LinearSolver<M>, S: OdeSolverMethod<'p, Equation<'
     index: usize,
 ) -> Result<(), ProblemError> {
     let mode = shared.mode.get();
+    let context = pse_diagnostics::observation::current();
+    let _reset = context
+        .as_ref()
+        .map(|context| context.phase("diffsol.forward_sensitivity.event_reset"));
+    crate::observation::count("diffsol.forward_sensitivity.event_reset.calls", 1);
     let event = &shared.contract.events[mode][index];
     let state = solver.state();
     let roots = shared.evaluate(Function::Roots, state.t, state.y.as_slice(), true);
@@ -1267,6 +1324,7 @@ struct SegmentContext<'a> {
     stop: f64,
     boundaries: &'a [f64],
     observation: &'a mut crate::solve::NativeStepObservation,
+    generation: u64,
 }
 fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     shared: &Rc<Shared<'o>>,
@@ -1276,11 +1334,13 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     segment: SegmentContext<'_>,
     steps: &mut usize,
     output: &mut SampleOutput<'_>,
+    statistics: impl Fn(&S, u64),
 ) -> Result<(Option<usize>, Vec<f64>), ProblemError> {
     let SegmentContext {
         stop,
         boundaries,
         observation,
+        generation,
     } = segment;
     s.set_stop_time(stop).map_err(native)?;
     loop {
@@ -1290,13 +1350,24 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             return Ok((None, s.state().y.as_slice().to_vec()));
         }
         *steps += 1;
-        let result = s.step();
+        let result = crate::observation::scoped("diffsol.step", || s.step());
+        // OdeSolverMethod does not expose statistics. The concrete scheme owner
+        // supplies its existing getter without adding a new library trait/API.
+        statistics(s, generation);
+        if result.is_err() {
+            crate::observation::count("diffsol.step.failed", 1);
+        }
         let returned_time = match &result {
             Ok(OdeSolverStopReason::RootFound(time, _)) => Some(*time),
             Ok(_) => Some(s.state().t),
             Err(_) => None,
         };
         *observation = step_observation(s, returned_time);
+        if pse_diagnostics::observation::current().is_some()
+            && let Ok(value) = serde_json::to_value(&*observation)
+        {
+            crate::observation::structured("diffsol.current.native_step", &value);
+        }
         let reason = result.map_err(native)?;
         let (time, root) = match reason {
             OdeSolverStopReason::RootFound(t, i) => (t, Some(i)),

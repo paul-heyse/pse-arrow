@@ -344,20 +344,28 @@ def _assert_cancelled_managed_study(
     handle: pse.StudyHandle,
     keys: tuple[int, ...],
 ) -> None:
+    sys.stderr.write("managed cancellation: reading admitted status\n")
+    sys.stderr.flush()
     issued = handle.status()
     assert tuple(item.point_index for item in issued.points) == keys
     assert all(item.attempt is not None for item in issued.points[:16])
     assert all(item.attempt is None for item in issued.points[16:])
+    sys.stderr.write("managed cancellation: requesting cancellation\n")
+    sys.stderr.flush()
     cancelled = handle.cancel()
     assert not cancelled.already_concluded
     assert cancelled.study_id == handle.study_id.to_hex()
     # Do not release the barrier: the actual native stop flags must wake all
     # sixteen admitted owners, while the effect-free tail never enters it.
+    sys.stderr.write("managed cancellation: waiting for native drain\n")
+    sys.stderr.flush()
     drained = fixture.observation(lambda value: value.active == 0)
     assert drained.maximum == 16
     assert len(drained.entries) == 16
     assert all(entry.released and entry.stop_observed for entry in drained.entries)
     assert not (fixture.directory / "release.json").exists()
+    sys.stderr.write("managed cancellation: waiting for terminal study\n")
+    sys.stderr.flush()
     retained = handle.wait(controls=pse.StudyWaitControls(timeout_seconds=90))
     status = runtime.study(handle.study_id).status()
     assert status.state == StudyState.CONCLUDED

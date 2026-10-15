@@ -24,6 +24,8 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -77,6 +79,8 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let structure = prepared.case.compiled().plan.structure();
@@ -125,6 +129,8 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
+        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -155,7 +161,7 @@ impl ModelingPackage {
                     .prepare_modeling_observations(
                         self.numerical_workspace()?,
                         model.clone(),
-                        rows.clone(),
+                        structure,
                         compiler,
                         cancel,
                     )
@@ -169,5 +175,106 @@ impl ModelingPackage {
                 Ok(program)
             })
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_diagnostics::observation::{self, ObservationHub, Policy, Value};
+
+    #[tokio::test]
+    async fn selected_observation_cache_carries_one_structure_and_rebinds_actual_values() {
+        let runtime = crate::workflow::tests::runtime();
+        let declarations = pse_authoring::language::parse(
+            "package p { def Root { var x:Scalar; eq e:x==2; } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let model = package
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let row = model
+            .compiled()
+            .model
+            .equations
+            .iter()
+            .find(|equation| equation.lineage.path == "Root.e")
+            .unwrap()
+            .id;
+        let rows = BTreeSet::from([row]);
+        let compiler = crate::workflow::tests::compiler_profile();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("selected.observation.cache");
+        let activity = runtime.admit_activity().unwrap();
+        activity
+            .scope(observation::scope(Some(operation.context()), async {
+                let first = package
+                    .observation_program(&model, &rows, compiler, &cancel)
+                    .await
+                    .unwrap();
+                let second = package
+                    .observation_program(&model, &rows, compiler, &cancel)
+                    .await
+                    .unwrap();
+                assert!(Arc::ptr_eq(&first, &second));
+            }))
+            .await;
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let structures = snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "compiler.observation_structures")
+            .unwrap();
+        assert_eq!(
+            structures.cumulative,
+            Value::Count(2),
+            "each key lookup constructs one structure; a miss must carry that same structure into preparation"
+        );
+        let x = model
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path == "Root.x")
+            .unwrap()
+            .id;
+        for (value, expected) in [(3., 1.), (5., 3.)] {
+            let observed = package
+                .observe_registered(
+                    model.clone(),
+                    rows.clone(),
+                    CaseValues {
+                        scalars: BTreeMap::from([(x, value)]),
+                    },
+                    compiler,
+                    BTreeMap::new(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            assert_eq!(observed[&row], expected);
+        }
     }
 }

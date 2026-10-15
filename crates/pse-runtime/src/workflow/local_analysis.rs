@@ -26,6 +26,60 @@ use pse_relations::generated::{
 };
 use std::collections::BTreeMap;
 
+fn observe_quantity<T>(name: &str, outcome: &Result<T, (WithheldReason, String)>) {
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.boolean(&format!("local.{name}.available"), outcome.is_ok());
+        match outcome {
+            Ok(_) => {
+                context.text(&format!("local.{name}.withheld"), "none");
+                context.text(&format!("local.{name}.detail"), "none");
+            }
+            Err((reason, detail)) => {
+                context.text(&format!("local.{name}.withheld"), reason.as_str());
+                context.text(&format!("local.{name}.detail"), detail);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::*;
+    #[test]
+    fn observation_local_quantity_withholding_is_independent_of_other_quantities() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("quantity publication");
+        let _entered = operation.context().enter();
+        observe_quantity("sensitivity", &Ok::<_, (WithheldReason, String)>(()));
+        observe_quantity::<()>(
+            "reduced_hessian",
+            &Err((WithheldReason::LicqFailed, "dependent rows".into())),
+        );
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let metric = |name| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap()
+        };
+        assert_eq!(
+            metric("local.sensitivity.available").latest,
+            pse_diagnostics::observation::Value::Boolean(true)
+        );
+        assert_eq!(
+            metric("local.reduced_hessian.available").latest,
+            pse_diagnostics::observation::Value::Boolean(false)
+        );
+        assert_eq!(
+            metric("local.reduced_hessian.withheld").latest,
+            pse_diagnostics::observation::Value::Text(WithheldReason::LicqFailed.as_str().into())
+        );
+    }
+}
+
 /// The registry reason of a withheld quantity and its typed cause.
 pub(super) fn reason(withheld: &Withheld) -> WithheldReason {
     match withheld {
@@ -129,6 +183,19 @@ impl<'a> Rows<'a> {
     }
     /// The rows of one step that requested sensitivities.
     pub(super) async fn push(&mut self, step: &Step<'_>) -> Result<(), WorkflowError> {
+        let _phase = pse_diagnostics::observation::phase("local.analysis.publication");
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.source_ref("local.run", step.run_id.as_id().to_string().as_bytes());
+            context.integer("local.step", "index", step.step);
+            context.boolean(
+                "local.reduced_hessian.requested",
+                step.request.reduced_hessian,
+            );
+            context.boolean(
+                "local.covariance.requested",
+                step.request.propagation.is_some(),
+            );
+        }
         if let Some(root) = step.report.and_then(|r| r.evidence.root_response.as_ref()) {
             return self.root_response(step, root).await;
         }
@@ -158,6 +225,7 @@ impl<'a> Rows<'a> {
             || Err(absent()),
             |p| p.sensitivities.as_ref().map_err(withheld),
         );
+        observe_quantity("sensitivity", &sensitivity);
         self.validity
             .push(validity::Row {
                 run_id: step.run_id,
@@ -178,6 +246,7 @@ impl<'a> Rows<'a> {
             )
         });
         if let Some(hessian) = &hessian {
+            observe_quantity("reduced_hessian", hessian);
             self.validity
                 .push(validity::Row {
                     run_id: step.run_id,
@@ -207,6 +276,7 @@ impl<'a> Rows<'a> {
                         .to_string(),
                     )
                 });
+            observe_quantity("covariance", &outcome);
             self.validity
                 .push(validity::Row {
                     run_id: step.run_id,
@@ -277,6 +347,7 @@ impl<'a> Rows<'a> {
         >,
     ) -> Result<(), WorkflowError> {
         use pse_backend_native::square_response::Withheld as W;
+        let _phase = pse_diagnostics::observation::phase("local.root_response.publication");
         let outcome = root.as_ref().map_err(|w| {
             (
                 match w {
@@ -291,6 +362,7 @@ impl<'a> Rows<'a> {
                 w.to_string(),
             )
         });
+        observe_quantity("root_response", &outcome);
         let mut validity = record(outcome.clone(), None, false);
         if let Ok(response) = &outcome {
             let e = &response.evidence;
@@ -460,6 +532,13 @@ impl<'a> Rows<'a> {
         point: Option<&KktPoint>,
         conditional: bool,
     ) -> Result<(), WorkflowError> {
+        let _phase = pse_diagnostics::observation::phase("local.covariance.publication");
+        observe_quantity(
+            "covariance",
+            &result
+                .as_ref()
+                .map_err(|upstream| (WithheldReason::UpstreamWithheld, upstream.to_string())),
+        );
         self.validity
             .push(validity::Row {
                 run_id: step.run_id,

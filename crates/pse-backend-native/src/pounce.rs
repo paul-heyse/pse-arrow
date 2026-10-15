@@ -164,7 +164,10 @@ pub fn with_threads<T: Send, E: From<ProblemError> + Send>(
     if threads == 0 || stack == 0 {
         return Err(ProblemError::Contract("POUNCE pool admission".into()).into());
     }
+    let observation = pse_diagnostics::observation::current();
+    let worker_observation = observation.clone();
     let run = move || {
+        let _observation = observation.as_ref().map(|context| context.enter());
         let _guard = Admission(ADMITTED.with(|a| a.replace(threads)));
         work()
     };
@@ -174,7 +177,13 @@ pub fn with_threads<T: Send, E: From<ProblemError> + Send>(
     rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
         .stack_size(stack)
-        .build_scoped(|thread| thread.run(), |pool| pool.install(run))
+        .build_scoped(
+            move |thread| {
+                let _observation = worker_observation.as_ref().map(|context| context.enter());
+                thread.run();
+            },
+            |pool| pool.install(run),
+        )
         .map_err(|e| E::from(ProblemError::Internal(format!("POUNCE local pool: {e}"))))?
 }
 /// Worker-local application and actual FERAL backend retention. Each call constructs
@@ -679,7 +688,9 @@ impl Session {
         ));
         let observation_scope = pounce_common::observed::Scope::enter(observation.clone());
         let status = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            app.optimize_tnlp_without_presolve(native)
+            crate::observation::scoped("pounce.optimize", || {
+                app.optimize_tnlp_without_presolve(native)
+            })
         }))
         .map_err(|_| ProblemError::Internal("panic during native optimization".into()));
         observation.finish_operations();
@@ -825,9 +836,11 @@ impl Session {
         let mut statistics = app.statistics();
         let final_barrier = Some(statistics.final_mu)
             .filter(|v| method == Method::InteriorPoint && v.is_finite() && *v > 0.0);
+        let dropped_statistics = statistics.iterations.len().saturating_sub(controls.history);
         if statistics.iterations.len() > controls.history {
-            report.dropped_events += (statistics.iterations.len() - controls.history) as u64;
-            statistics.iterations.truncate(controls.history);
+            statistics
+                .iterations
+                .drain(..statistics.iterations.len() - controls.history);
         }
         // The pinned library's serde projection includes all statistics, including
         // new native fields. JSON null explicitly denotes unavailable/nonfinite data.
@@ -985,6 +998,9 @@ impl Session {
             report.termination.assurance = Assurance::None
         }
         a.state.finish(&mut report);
+        report.dropped_events = report
+            .dropped_events
+            .saturating_add(u64::try_from(dropped_statistics).unwrap_or(u64::MAX));
         let source_abort = observation_scope.abort();
         let source_error = observation.take_error().or_else(|| {
             source_abort.as_ref().map(|abort| match abort {

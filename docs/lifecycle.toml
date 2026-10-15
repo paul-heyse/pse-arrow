@@ -1303,6 +1303,187 @@ id_pattern = '^(D[0-9]+)\b'
 status_profile = "packet"
 status_column = 3
 
+# Plan 40 owns adopted diagnostic findings; companions own their package progress.
+
+[[scope_tables]]
+path = "docs/plans/40-simulation-performance-diagnostics.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/40-simulation-performance-diagnostics.md"
+name = "coordination-packages"
+heading = "Coordination packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/40a-operation-context-and-live-history.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/40b-context-and-native-diagnostics.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/40c-inspection-analysis-and-profiling.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/40d-affine-preparation-locality.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/40e-qualification-and-closeout.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+# Plan 41 owns review dispositions; companions own their native package progress.
+
+[[scope_tables]]
+path = "docs/plans/41-simulation-pipeline-efficiency-and-effectiveness.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/41-simulation-pipeline-efficiency-and-effectiveness.md"
+name = "coordination-packages"
+heading = "Coordination packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/41a-source-specialization-and-selected-preparation.md"
+name = "work-packages"
+heading = "Packages and dependencies"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/41b-cancellation-shared-work-and-admission.md"
+name = "work-packages"
+heading = "Bounded decisions and work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/41c-studies-response-artifacts-and-result-resources.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/41d-native-storage-and-workflow-worker-reuse.md"
+name = "work-packages"
+heading = "Execution packets"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/41e-derivative-reuse-and-evaluator-capabilities.md"
+name = "work-packages"
+heading = "Execution packets"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/41f-causal-diagnostics-qualification-and-closeout.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
 # Closed immutable legacy scalar encodings: exact source spans, never fallback parsing.
 
 [[legacy_yaml]]

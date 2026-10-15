@@ -355,6 +355,7 @@ impl SurrogateProposal {
 }
 struct Callback<E: FidelityEvaluator> {
     evaluator: E,
+    observation: Option<pse_diagnostics::observation::ObservationContext>,
     scope: ExecutionScope,
     limit: u64,
     work: SurrogateWork,
@@ -375,6 +376,13 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
             .0
             .lock()
             .map_err(|_| argmin::core::Error::msg("surrogate callback lock poisoned"))?;
+        let observation = cb.observation.clone();
+        let _entered = observation
+            .as_ref()
+            .map(pse_diagnostics::observation::ObservationContext::enter);
+        let _batch = observation
+            .as_ref()
+            .map(|context| context.phase("surrogate.fidelity.batch"));
         if cb.disabled || cb.terminal.is_some() {
             return Err(argmin::core::Error::msg("surrogate terminal latch"));
         }
@@ -402,6 +410,19 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
                 None
             };
             if let Some(e) = failure {
+                if let Some(context) = &observation {
+                    context.count("surrogate.fidelity.preflight_refusals", "requests", 1);
+                    context.text(
+                        "surrogate.fidelity.terminal",
+                        match &e {
+                            SurrogateFailure::Math(MathError::Cancelled) => "cancelled",
+                            SurrogateFailure::Math(MathError::Limit(_)) => "limit",
+                            SurrogateFailure::Math(_) => "math",
+                            SurrogateFailure::Callback(_) => "callback",
+                            SurrogateFailure::Panic(_) => "panic",
+                        },
+                    );
+                }
                 cb.terminal = Some(e);
                 cb.disabled = true;
                 return Err(argmin::core::Error::msg("surrogate terminal latch"));
@@ -409,6 +430,13 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
             let coordinates = row.to_vec();
             let mut values = vec![0.0; m];
             cb.work.evaluations += 1;
+            let _evaluation = observation
+                .as_ref()
+                .map(|context| context.phase("surrogate.fidelity.evaluate"));
+            let started = observation.as_ref().map(|_| std::time::Instant::now());
+            if let Some(context) = &observation {
+                context.count("surrogate.fidelity.calls", "evaluations", 1);
+            }
             match catch_unwind(AssertUnwindSafe(|| {
                 cb.evaluator.evaluate(&coordinates, &mut values)
             })) {
@@ -421,6 +449,23 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
                 Ok(Err(e)) => cb.terminal = Some(SurrogateFailure::Callback(e)),
                 Err(_) => {
                     cb.terminal = Some(SurrogateFailure::Panic("evaluator callback unwound".into()))
+                }
+            }
+            if let Some(context) = &observation {
+                context.boolean("surrogate.fidelity.failed", cb.terminal.is_some());
+                if let Some(error) = &cb.terminal {
+                    context.count("surrogate.fidelity.failures", "evaluations", 1);
+                    context.text(
+                        "surrogate.fidelity.terminal",
+                        match error {
+                            SurrogateFailure::Callback(_) => "callback",
+                            SurrogateFailure::Math(_) => "math",
+                            SurrogateFailure::Panic(_) => "panic",
+                        },
+                    );
+                }
+                if let Some(started) = started {
+                    context.duration("surrogate.fidelity.elapsed", started.elapsed());
                 }
             }
             if cb.terminal.is_some() {
@@ -470,7 +515,30 @@ impl<E: FidelityEvaluator> Worker<E> {
         options: SurrogateOptions,
         scope: ExecutionScope,
     ) -> Result<Self, SurrogateFailure<E::Error>> {
+        let observation = pse_diagnostics::observation::current();
+        let _construction = observation
+            .as_ref()
+            .map(|context| context.phase("surrogate.library.construct"));
         let correspondence = evaluator.correspondence().clone();
+        if let Some(context) = &observation {
+            context.source_ref(
+                "surrogate.fidelity.source",
+                correspondence.source.as_bytes(),
+            );
+            context.source_ref("surrogate.fidelity", correspondence.fidelity.as_bytes());
+            context.source_ref(
+                "surrogate.original_target",
+                correspondence.original_target.as_bytes(),
+            );
+            context.text(
+                "surrogate.fidelity.coordinates",
+                "original physical canonical units",
+            );
+            context.unavailable(
+                "surrogate.gp.factor_work",
+                "library-owned GP/infill work has no passive structured factor counter",
+            );
+        }
         options.validate(&correspondence)?;
         let remaining = scope
             .remaining(options.time)
@@ -519,6 +587,7 @@ impl<E: FidelityEvaluator> Worker<E> {
             .map_err(|e| MathError::Library(e.to_string()))?;
         let callback = Arc::new(Mutex::new(Callback {
             evaluator,
+            observation,
             scope,
             limit: options.evaluations,
             work: SurrogateWork::default(),
@@ -766,7 +835,11 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
         let iterations = options.iterations;
         let (commands, receiver) = std::sync::mpsc::channel();
         let (ready, initialized) = std::sync::mpsc::sync_channel(1);
+        let observation = pse_diagnostics::observation::current();
         pool.spawn(move || {
+            let _entered = observation
+                .as_ref()
+                .map(pse_diagnostics::observation::ObservationContext::enter);
             let built = catch_unwind(AssertUnwindSafe(|| Worker::new(evaluator, options, scope)));
             let mut worker = match built {
                 Ok(Ok(worker)) => worker,
@@ -1047,6 +1120,7 @@ mod tests {
         fail: bool,
         cancel: Option<Arc<AtomicBool>>,
         threads: usize,
+        expected_observation: Option<pse_diagnostics::observation::OperationId>,
     }
     impl FidelityEvaluator for Evaluator {
         type Error = MathError;
@@ -1055,6 +1129,12 @@ mod tests {
         }
         fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), MathError> {
             assert_eq!(rayon::current_num_threads(), self.threads);
+            if let Some(expected) = self.expected_observation {
+                assert_eq!(
+                    pse_diagnostics::observation::current().map(|context| context.id()),
+                    Some(expected)
+                );
+            }
             self.calls.fetch_add(1, Ordering::SeqCst);
             if self.fail {
                 return Err(MathError::Domain {
@@ -1108,6 +1188,7 @@ mod tests {
             fail: false,
             cancel: None,
             threads: 1,
+            expected_observation: None,
         }
     }
     fn scope() -> ExecutionScope {
@@ -1427,6 +1508,67 @@ mod tests {
                 .0,
             design
         );
+    }
+    #[test]
+    fn observation_survives_foreign_pool_and_counts_no_speculative_fidelity_work() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        for enabled in [false, true] {
+            let hub = ObservationHub::new(Policy {
+                enabled,
+                ..Policy::default()
+            });
+            let operation = hub.start("surrogate.observation.control");
+            let observation = operation.context();
+            let entered = observation.enter();
+            let calls = Arc::new(AtomicUsize::new(0));
+            let mut evaluator = evaluator(calls.clone());
+            evaluator.expected_observation = enabled.then_some(observation.id());
+            evaluator.fail = true;
+            let mut task = RetainedSurrogate::new(evaluator, options(), scope()).unwrap();
+            assert_eq!(calls.load(Ordering::SeqCst), 0);
+            drop(entered);
+            assert!(pse_diagnostics::observation::current().is_none());
+            assert!(matches!(task.advance(), Err(SurrogateFailure::Callback(_))));
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            assert!(task.advance().is_err());
+            let snapshot = observation.reader().snapshot(Duration::from_secs(60));
+            if enabled {
+                let metric = |name| {
+                    snapshot
+                        .metrics
+                        .iter()
+                        .find(|metric| metric.name == name)
+                        .unwrap()
+                };
+                assert_eq!(
+                    metric("surrogate.fidelity.calls").cumulative,
+                    Value::Count(1)
+                );
+                assert_eq!(
+                    metric("surrogate.fidelity.failures").cumulative,
+                    Value::Count(1)
+                );
+                assert_eq!(
+                    metric("surrogate.fidelity.terminal").latest,
+                    Value::Text("callback".into())
+                );
+                assert!(
+                    snapshot
+                        .sources
+                        .iter()
+                        .any(|source| source.name == "surrogate.fidelity")
+                );
+            } else {
+                assert!(!snapshot.coverage.enabled);
+                assert!(snapshot.metrics.is_empty());
+            }
+            assert_eq!(
+                calls.load(Ordering::SeqCst),
+                1,
+                "reads and terminal latches never evaluate"
+            );
+            assert!(pse_diagnostics::observation::current().is_none());
+        }
     }
     #[test]
     fn actual_callbacks_run_in_requested_local_pool() {

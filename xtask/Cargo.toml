@@ -61,6 +61,7 @@ physical-admission = [
 product-schemas = [
   "dep:pse-admission",
   "dep:pse-engine",
+  "dep:pse-diagnostics",
   "dep:pse-backend-native",
   "dep:pse-runtime",
   "dep:pse-model",
@@ -81,6 +82,7 @@ parquet = { workspace = true, optional = true }
 pse-columnar.workspace = true
 pse-codegen.workspace = true
 pse-engine = { workspace = true, optional = true }
+pse-diagnostics = { workspace = true, optional = true }
 datafusion = { workspace = true, optional = true }
 url.workspace = true
 bindgen = { workspace = true, optional = true }

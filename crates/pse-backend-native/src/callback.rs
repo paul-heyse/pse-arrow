@@ -207,6 +207,8 @@ impl std::fmt::Display for CallbackKey {
 /// Worker-local failure state; recoverable history never becomes a terminal latch.
 #[derive(Debug)]
 pub struct CallbackState {
+    observation_generation: u64,
+    observation_context: Option<pse_diagnostics::observation::ObservationContext>,
     /// Rejected evaluations, including recoverable trials. Diagnostic consumers must
     /// not interpret a partially evaluated library check as successful evidence.
     pub rejected_evaluations: usize,
@@ -231,9 +233,16 @@ pub struct CallbackState {
     pub iteration_crossings: usize,
 }
 impl CallbackState {
+    pub(crate) fn observation_scope(&self) -> Option<pse_diagnostics::observation::EnterGuard> {
+        self.observation_context
+            .as_ref()
+            .map(|context| context.enter())
+    }
     /// Start a worker-local callback boundary.
     pub fn new(execution: Execution) -> Self {
         Self {
+            observation_generation: crate::observation::generation(),
+            observation_context: pse_diagnostics::observation::current(),
             rejected_evaluations: 0,
             trial_rejections: 0,
             last_failure: None,
@@ -258,6 +267,7 @@ impl CallbackState {
         work: impl FnOnce() -> Result<T, ProblemError>,
     ) -> Option<T> {
         let demand = demand.into();
+        let _observation = self.observation_scope();
         if self.terminal.is_some() {
             return None;
         }
@@ -294,11 +304,29 @@ impl CallbackState {
                 }
             }
         }
+        if self.observation_context.is_some() && !self.counts.contains_key(&demand) {
+            // This owner knows the per-attempt count is zero before its first
+            // callback. Supply that baseline so the first completed call and a
+            // one-call retry both contribute to cumulative/recent work.
+            crate::observation::counter(
+                &format!("callback.{demand}.completed_calls"),
+                "count",
+                0,
+                self.observation_generation,
+            );
+        }
         let start = std::time::Instant::now();
-        let result = catch_unwind(AssertUnwindSafe(|| {
-            let _original = crate::execution::original_scope(&self.execution);
-            work()
-        }));
+        let evaluate = || {
+            catch_unwind(AssertUnwindSafe(|| {
+                let _original = crate::execution::original_scope(&self.execution);
+                work()
+            }))
+        };
+        let result = if self.observation_context.is_some() {
+            crate::observation::scoped(&format!("callback.{demand}"), evaluate)
+        } else {
+            evaluate()
+        };
         if let Some(admission) = &self.execution.work_admission
             && self.execution.callback_work_owner
         {
@@ -319,8 +347,41 @@ impl CallbackState {
                 }
             }
         }
-        *self.counts.entry(demand).or_default() += 1;
-        *self.seconds.entry(demand).or_default() += start.elapsed().as_secs_f64();
+        let elapsed = start.elapsed();
+        let count = self.counts.entry(demand).or_default();
+        *count = count.saturating_add(1);
+        *self.seconds.entry(demand).or_default() += elapsed.as_secs_f64();
+        // Publish already-produced cumulative owner facts at every safe return. Nested
+        // callbacks remain inclusive; the work-owner flag states which boundary charges.
+        if self.observation_context.is_some() {
+            crate::observation::counter(
+                &format!("callback.{demand}.completed_calls"),
+                "count",
+                u64::try_from(self.counts[&demand]).unwrap_or(u64::MAX),
+                self.observation_generation,
+            );
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.duration(&format!("callback.{demand}.elapsed_nanoseconds"), elapsed);
+            }
+            crate::observation::gauge(
+                &format!("callback.{demand}.seconds"),
+                "seconds",
+                self.seconds[&demand],
+            );
+            crate::observation::boolean("callback.work_owner", self.execution.callback_work_owner);
+            match &result {
+                Ok(Err(error)) => crate::observation::count(
+                    match classify(error) {
+                        Failure::Trial => "callback.failed_trial.calls",
+                        Failure::Fatal => "callback.fatal.calls",
+                        Failure::Stopped(_) => "callback.stopped.calls",
+                    },
+                    1,
+                ),
+                Err(_) => crate::observation::count("callback.panicked.calls", 1),
+                Ok(Ok(_)) => {}
+            }
+        }
         if self.terminal.is_some() {
             self.rejected_evaluations = self.rejected_evaluations.saturating_add(1);
             return None;
@@ -441,6 +502,7 @@ impl CallbackState {
             report.termination.message = Some(message.clone());
         }
         self.retain_failure(report);
+        crate::observation::report(report);
         (report.events, report.dropped_events) = self.execution.progress.snapshot();
     }
     /// Retain the actual native-exit witness before independent validation can
@@ -496,6 +558,140 @@ pub fn retryable_evaluation(report: &crate::solve::SolveReport) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn live_callback_checkpoint_counts_failed_trial_before_finish_and_closes_scope() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        use std::time::Duration;
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("native.callback-test");
+        let _entered = operation.context().enter();
+        let execution = Execution::new(std::sync::Arc::default(), &Default::default());
+        let mut state = CallbackState::new(execution);
+        state.evaluate::<()>("residual", || {
+            let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+            assert!(
+                snapshot
+                    .phases
+                    .iter()
+                    .any(|p| p.kind == "callback.residual")
+            );
+            Err(pse_math::MathError::Domain {
+                source_id: pse_ids::SemanticId::NIL,
+                requirement: "positive",
+            }
+            .into())
+        });
+        assert!(state.terminal.is_none());
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        assert!(snapshot.phases.is_empty());
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "callback.residual.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "callback.residual.completed_calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "callback.failed_trial.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert!(
+            snapshot
+                .metrics
+                .iter()
+                .any(|m| m.name == "callback.residual.seconds")
+        );
+        assert_eq!(state.counts[&CallbackKey::Named("residual")], 1);
+    }
+    #[test]
+    fn live_callback_reset_does_not_subtract_previous_attempt_or_lose_total_work() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("native.callback-reset");
+        let _entered = operation.context().enter();
+        for calls in [2, 1] {
+            let mut state = CallbackState::new(Execution::new(
+                std::sync::Arc::default(),
+                &Default::default(),
+            ));
+            for _ in 0..calls {
+                assert_eq!(state.evaluate("residual", || Ok(7)), Some(7));
+            }
+        }
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let absolute = snapshot
+            .metrics
+            .iter()
+            .find(|m| m.name == "callback.residual.completed_calls")
+            .unwrap();
+        assert_eq!(absolute.latest, Value::Count(1));
+        assert_eq!(absolute.resets, 1);
+        assert_eq!(absolute.cumulative, Value::Count(3));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "callback.residual.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(3)
+        );
+    }
+    #[test]
+    fn callback_restores_its_captured_attempt_context_and_leaves_calling_context_intact() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let source = hub.start("captured-native-attempt");
+        let mut state = {
+            let _entered = source.context().enter();
+            CallbackState::new(Execution::new(
+                std::sync::Arc::default(),
+                &Default::default(),
+            ))
+        };
+        let other = hub.start("unrelated-calling-thread");
+        let _other = other.context().enter();
+        assert_eq!(state.evaluate("residual", || Ok(4)), Some(4));
+        let source_snapshot = source.reader().snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            source_snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "callback.residual.calls")
+                .unwrap()
+                .cumulative,
+            Value::Count(1)
+        );
+        assert!(
+            other
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60))
+                .metrics
+                .is_empty()
+        );
+        assert_eq!(
+            pse_diagnostics::observation::current().unwrap().id(),
+            other.context().id()
+        );
+    }
     #[test]
     fn callback_transports_exact_original_execution_only_for_its_synchronous_work() {
         use std::sync::Arc;

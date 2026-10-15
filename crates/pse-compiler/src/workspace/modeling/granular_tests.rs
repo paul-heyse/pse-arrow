@@ -530,3 +530,151 @@ fn consumer_validation_refusal_occurs_before_live_head_publication() {
     ));
     assert_eq!(workspace.generation(), 1);
 }
+
+fn observation_count(
+    context: &pse_diagnostics::observation::ObservationContext,
+    name: &str,
+) -> u64 {
+    let snapshot = context
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    snapshot
+        .metrics
+        .iter()
+        .find(|metric| metric.name == name)
+        .map_or(0, |metric| match metric.cumulative {
+            pse_diagnostics::observation::Value::Count(value) => value,
+            ref value => panic!("unexpected count for {name}: {value:?}"),
+        })
+}
+
+#[test]
+fn observation_attaches_to_actual_queries_and_survives_generation_and_operation_changes() {
+    use pse_diagnostics::observation::{ObservationHub, Policy};
+    // Construct before entering any operation: no caller is captured by the database.
+    let (mut workspace, events) = observed();
+    let hub = ObservationHub::new(Policy::default());
+    let first = hub.start("cold preparation");
+    let first_context = first.context();
+    {
+        let _entered = first_context.enter();
+        let revision = workspace
+            .publish_modeling(rows(TEXT), PhysicalScope::default())
+            .unwrap();
+        let executed = events.lock().unwrap().len() as u64;
+        assert!(executed > 0);
+        assert_eq!(
+            observation_count(&first_context, "compiler.query_executions"),
+            executed
+        );
+        let repeated = workspace
+            .publish_modeling(rows(TEXT), PhysicalScope::default())
+            .unwrap();
+        assert!(Arc::ptr_eq(&revision, &repeated));
+        assert_eq!(
+            observation_count(&first_context, "compiler.query_executions"),
+            executed
+        );
+        assert_eq!(
+            observation_count(&first_context, "compiler.unchanged_revision_reuses"),
+            1
+        );
+        workspace.rebuild(workspace.inputs.clone()).unwrap();
+        workspace
+            .publish_modeling(
+                rows(&TEXT.replace("x == 1", "x == 3")),
+                PhysicalScope::default(),
+            )
+            .unwrap();
+        assert_eq!(
+            observation_count(&first_context, "compiler.workspace_rebuilds"),
+            1
+        );
+        assert_eq!(
+            observation_count(&first_context, "compiler.query_executions"),
+            events.lock().unwrap().len() as u64
+        );
+    }
+    let frozen = observation_count(&first_context, "compiler.query_executions");
+    let before = events.lock().unwrap().len() as u64;
+    let second = hub.start("next preparation");
+    let second_context = second.context();
+    {
+        let _entered = second_context.enter();
+        workspace
+            .publish_modeling(rows(TEXT), PhysicalScope::default())
+            .unwrap();
+    }
+    assert_eq!(
+        observation_count(&first_context, "compiler.query_executions"),
+        frozen
+    );
+    assert_eq!(
+        observation_count(&second_context, "compiler.query_executions"),
+        events.lock().unwrap().len() as u64 - before
+    );
+    assert!(observation_count(&second_context, "compiler.query_executions") > 0);
+}
+
+#[test]
+fn observation_and_test_callback_survive_failed_candidate_restore() {
+    use pse_diagnostics::observation::{ObservationHub, Policy};
+    let (mut workspace, events) = observed();
+    workspace
+        .publish_modeling(rows(TEXT), PhysicalScope::default())
+        .unwrap();
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("failed source and retry");
+    let context = operation.context();
+    let _entered = context.enter();
+    let before = events.lock().unwrap().len() as u64;
+    assert!(
+        workspace
+            .publish_modeling(
+                rows("package p { def Root { var x: Scalar; eq e:x==missing; } }"),
+                PhysicalScope::default()
+            )
+            .is_err()
+    );
+    assert_eq!(
+        observation_count(&context, "compiler.failed_candidate_rotations"),
+        1
+    );
+    let after_failure = events.lock().unwrap().len();
+    workspace
+        .publish_modeling(
+            rows(&TEXT.replace("x == 1", "x == 4")),
+            PhysicalScope::default(),
+        )
+        .unwrap();
+    assert!(events.lock().unwrap().len() > after_failure);
+    assert_eq!(
+        observation_count(&context, "compiler.query_executions"),
+        events.lock().unwrap().len() as u64 - before
+    );
+}
+
+#[test]
+fn observation_reports_memo_validation_without_inventing_query_execution() {
+    use pse_diagnostics::observation::{ObservationHub, Policy};
+    use salsa::Setter;
+    let (mut workspace, events) = observed();
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("memo validation");
+    let context = operation.context();
+    let _entered = context.enter();
+    assert!(provider(&workspace.db, workspace.inventory, "absent".into()).is_none());
+    assert_eq!(observation_count(&context, "compiler.query_executions"), 1);
+    // This query consumes providers, never environment: a new revision validates it.
+    workspace
+        .inventory
+        .set_environment(&mut workspace.db)
+        .to(ContentHash::from_bytes([77; 32]));
+    assert!(provider(&workspace.db, workspace.inventory, "absent".into()).is_none());
+    assert_eq!(observation_count(&context, "compiler.query_executions"), 1);
+    assert_eq!(events.lock().unwrap().len(), 1);
+    assert_eq!(
+        observation_count(&context, "compiler.query_memo_validations"),
+        1
+    );
+}

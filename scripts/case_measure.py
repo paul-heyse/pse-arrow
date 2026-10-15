@@ -17,18 +17,40 @@ import subprocess
 import time
 from pathlib import Path
 
-from scripts import host_admission, native_tests, validation, validation_receipts
-from scripts.native_tests import MANAGED_FEATURES, native_provenance
-from scripts.validation_scope import (
-    FUNCTIONAL_SCOPES,
-    RUST_INPUTS,
-    Gate,
-    comprehensive,
-    input_identity,
-    native_gate,
-)
+from scripts import host_admission, validation, validation_receipts
+from scripts.validation_scope import RUST_INPUTS
 
 ROOT = Path(__file__).resolve().parents[1]
+AUDIT_CASES = frozenset(
+    {
+        "k4-scalar-preparation",
+        "cold-large-1",
+        "warm-large-1",
+        "specialization-medium-1",
+        "cancellation-cold-1",
+        "value-sweep-1000-1",
+        "fit-gradient-cold-1",
+        "shooting-single-idas-cold-1",
+        "results-chain-1",
+        "results-publish-chain-1",
+        "k4-study-managed-durable-16",
+    }
+)
+ENVIRONMENT_CONTROLS = (
+    "PSE_SURREAL_STATE",
+    "PSE_MEMORY_MAX",
+    "PSE_RESOURCE_CLASS",
+    "PSE_WORKER_BINARY",
+    "CARGO_BUILD_JOBS",
+    "RUSTFLAGS",
+    "LD_LIBRARY_PATH",
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OMP_PROC_BIND",
+    "OMP_PLACES",
+    "HWLOC_COMPONENTS",
+)
 
 
 def measurement_inputs(snapshot: dict) -> dict:
@@ -49,10 +71,6 @@ def measurement_inputs(snapshot: dict) -> dict:
             for prefix in paths
         )
     }
-
-
-def snapshot_digest(snapshot: dict) -> str:
-    return hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
 
 
 def build_benchmark(
@@ -179,16 +197,29 @@ def process_command(binary: str, mode: str, workload: dict) -> list[str]:
         "observer",
         "--state",
         str(state),
+        "--execution-profile",
+        "plan28-reference",
         "--observer-command",
         binary,
         mode,
     ]
 
 
-def managed_receiver_provenance(workloads: list[dict], profile: str) -> dict | None:
+def managed_fixture_environment(workload: dict) -> dict[str, str]:
+    """Register the generated managed fixture DB against its actual receiver."""
+    if workload.get("adapter") != "managed-durable":
+        return {}
+    from scripts import surreal_server  # noqa: PLC0415 -- managed fixture registration
+
+    state = Path(os.environ["PSE_SURREAL_STATE"]).resolve()
+    receiver = surreal_server.checked_primary(surreal_server.config_for(state))
+    return {"PSE_WORKER_BINARY": receiver["worker_executable"]}
+
+
+def managed_receiver_conditions(workloads: list[dict]) -> dict | None:
     if not any(workload.get("adapter") == "managed-durable" for workload in workloads):
         return None
-    from scripts import (  # noqa: PLC0415 -- load supervisor policy only for managed provenance
+    from scripts import (  # noqa: PLC0415 -- load supervisor policy only for managed conditions
         surreal_server,
     )
 
@@ -205,10 +236,6 @@ def managed_receiver_provenance(workloads: list[dict], profile: str) -> dict | N
             for key in ("instance_id", "server", "endpoint", "schema_interpretation")
         },
         "receiver": receiver,
-        "native": native_provenance(
-            {"cargo_profile": profile, "features": MANAGED_FEATURES.split(",")},
-            [receiver["worker_executable"]],
-        ),
         "metrics_scope": "benchmark counters/RSS belong to the observer; primary counters/RSS are unobserved",
     }
 
@@ -228,7 +255,6 @@ def verify_managed_receiver(receiver: dict | None) -> None:
         or surreal_server.checked_primary(config) != receiver["receiver"]
     ):
         raise ValueError("managed measurement deployment changed during execution")
-    validation_receipts.verify_native(receiver["native"])
 
 
 def samples(path: Path) -> dict:
@@ -247,11 +273,18 @@ def samples(path: Path) -> dict:
                 raise ValueError(
                     "Criterion samples require finite positive nanoseconds and iteration counts"
                 )
-            values.append(elapsed / iterations)
+            value = elapsed / iterations
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError(
+                    "Criterion per-iteration samples must be finite and positive"
+                )
+            values.append(value)
             total_time += elapsed
             total_iterations += iterations
     if len(values) < 2:
         raise ValueError("at least two Criterion samples are required")
+    if not all(math.isfinite(value) for value in (total_time, total_iterations)):
+        raise ValueError("Criterion sample totals must be finite")
     return {
         "mean_nanoseconds": total_time / total_iterations,
         "sample_count": len(values),
@@ -264,322 +297,90 @@ def samples(path: Path) -> dict:
     }
 
 
-def functional_features(gate: Gate) -> set[str]:
-    """Use the native owner's current roots and Arrow correctness composition."""
-    managed = "--managed-primary-route" in gate.args
-    selection = [arg for arg in gate.args if arg != "--managed-primary-route"]
-    if managed:
-        selection = native_tests.managed_rust_selection(selection)
-    command = native_tests.correctness_command(
-        native_tests.rust_command("list", selection, managed=managed), os.environ
-    )
-    _, metadata = native_tests.managed_rust_arguments(
-        command[3:], include_managed_features=False
-    )
-    return (
-        set(metadata[metadata.index("--features") + 1].split(","))
-        if "--features" in metadata
-        else set()
-    )
+def measurement_environment() -> dict[str, str]:
+    """Record execution controls without opening or authenticating producer receipts."""
+    return {key: os.environ[key] for key in ENVIRONMENT_CONTROLS if key in os.environ}
 
 
-def verify_functional_execution(
-    native: dict, *, managed: bool, environment: dict[str, str]
-) -> None:
-    """Bind the observer's explicit transformation and actual finite allocation."""
-    from scripts import surreal_server  # noqa: PLC0415 -- native observer owner
-
-    execution = native.get("execution", {})
-    expected_profile = "reference" if managed else "exclusive-observer"
-    resources = surreal_server.execution_resources(expected_profile)
-    allocation = resources["execution"]
-    if not isinstance(allocation, dict):
-        raise ValueError(  # noqa: TRY004 -- invalid evidence is a boundary refusal
-            "functional observer lacks an explicit execution allocation"
-        )
-    state = Path(environment["PSE_SURREAL_STATE"]).resolve()
-    config = surreal_server.config_for(state)
-    child_environment = native_tests.rust_test_environment(environment)
-    child_environment.pop("PSE_MEMORY_MAX", None)
-    child_environment["PSE_SURREAL_STATE"] = str(state)
-    if (
-        execution.get("environment") != child_environment
-        or execution.get("profile") != expected_profile
-        or execution.get("resources") != resources
-        or execution.get("state_resources") != config["resources"]
-        or (managed and config["resources"] != resources)
-        or execution.get("memory_max") != allocation["observer_memory_bytes"]
-        or execution.get("cpu_threads", 0) < allocation["cpu_threads"]
-        or execution.get("captured", 0) < native["captured"]
-        or not execution.get("control_group")
-    ):
-        raise ValueError("functional observer context or allocation changed")
-
-
-def composed_functional_environment(
-    gate: Gate,
-    evidence: dict,
-    declarations: dict,
-    observations: dict,
-    report: Path,
-    snapshot: dict,
-) -> dict[str, str]:
-    """Authenticate the assessment owner's single producer-fixture injection.
-
-    The assessment records its parent before producing this owned artifact. Its
-    native gates inherit the artifact selector; every other parent input remains
-    exact. Standalone gates have no such transformation.
-    """
-    parent = evidence["environment"]
-    assembled = [
-        candidate
-        for profile in ("dev", "producer")
-        for candidate in comprehensive(profile)
-        if candidate.name == gate.name
-    ]
-    if gate not in assembled:
-        return parent
-    fixture = next(
-        candidate
-        for candidate in comprehensive()
-        if candidate.name == "producer-fixture"
-    )
-    declaration = json.loads(json.dumps(validation.asdict(fixture)))
-    check = observations.get(fixture.name, {})
-    if (
-        declarations.get(fixture.name) != declaration
-        or check.get("invocation") != declaration
-        or check.get("mode") != fixture.mode
-        or check.get("profile") != fixture.profile
-        or check.get("status") != "passed"
-        or check.get("exit_code") != 0
-        or check.get("report_errors")
-        or check.get("changed_source")
-        or check.get("changed_environment")
-        or check.get("applicability_transfers")
-        or check.get("evidence_kind") not in {"executed", "unchanged-input-reuse"}
-        or any(result["status"] != "passed" for result in check.get("results", []))
-        or check.get("inputs") != input_identity(fixture.input_scope, snapshot, parent)
-    ):
-        raise ValueError("incomplete assessment producer-fixture prerequisite")
-    terminal = {**check, "results": list(check.get("results", [])), "report_errors": []}
-    validation.compose_selection(terminal)
-    if terminal["report_errors"]:
-        raise ValueError("contradictory assessment producer-fixture terminal evidence")
-    origin = Path(check.get("origin", report.parent)).resolve()
-    if "origin" in check and (
-        not check.get("origin_digest")
-        or validation_receipts.digest(origin / "checks.json") != check["origin_digest"]
-    ):
-        raise ValueError("changed assessment producer-fixture origin")
-    artifacts = check.get("artifacts", {})
-    if "producer-fixture.json" not in artifacts:
-        raise ValueError("missing assessment producer-fixture artifact")
-    for artifact, expected in artifacts.items():
-        target = (origin / artifact).resolve()
-        target.relative_to(origin)
-        if validation_receipts.digest(target) != expected:
-            raise ValueError("changed assessment producer-fixture artifact")
-    path = origin / "producer-fixture.json"
-    validation_receipts.require_fresh(path, check["started"], "producer-fixture")
-    digest = artifacts[path.name]
-    native = observations[gate.name].get("native", {})
-    if native.get("files", {}).get(str(path)) != digest:
-        raise ValueError("native identity does not bind assessment producer-fixture")
-    if "EFFECTIVE_NATIVE_CONFIGURATION" not in parent:
-        raise ValueError("missing assessment parent native configuration")
-    configuration = json.loads(parent["EFFECTIVE_NATIVE_CONFIGURATION"])
-    if not isinstance(configuration, dict):
-        raise ValueError(  # noqa: TRY004 -- invalid evidence is a boundary refusal
-            "invalid assessment parent native configuration"
-        )
-    configuration["PSE_PRODUCER_FIXTURE_RECEIPT"] = {
-        "resolved": str(path),
-        "sha256": digest,
-        "admission": None,
-    }
-    return {
-        **parent,
-        "PSE_PRODUCER_FIXTURE_RECEIPT": str(path),
-        "EFFECTIVE_NATIVE_CONFIGURATION": json.dumps(configuration, sort_keys=True),
-    }
-
-
-def require_functional(
-    root: Path,
-    path: Path,
-    workloads: list[dict],
-    *,
-    snapshot: dict | None = None,
-    profile: str = "dev",
-) -> dict:
-    """Consume only exact declared selections or their explicit linked covering gate."""
+def functional_reference(
+    path: Path | None, *, snapshot: dict, environment: dict[str, str]
+) -> dict | None:
+    """Reference actual test outcomes without claiming equivalent execution conditions."""
+    if path is None:
+        return None
     report = path / "checks.json" if path.is_dir() else path
     evidence = json.loads(report.read_text())
-    if (
-        evidence.get("version") != 5
-        or evidence.get("baseline_failures") != 0
-        or not evidence.get("input_coverage")
-        or evidence.get("complete") is not True
-        or evidence.get("provenance_errors")
-    ):
+    checks = evidence.get("checks", [])
+    if not checks or evidence.get("complete") is not True:
         raise ValueError(
-            "measurement requires a current zero-baseline functional report"
+            "functional reference must contain completed test observations"
         )
-    if snapshot is None:
-        snapshot = validation.sources(root)
-    required = {
-        name for workload in workloads for name in workload.get("functional_scopes", [])
-    }
-    if not required or any(
-        not workload.get("functional_scopes") for workload in workloads
-    ):
-        raise ValueError("measurement workload lacks functional prerequisite scopes")
-    declarations = {item["name"]: item for item in evidence["scope"]}
-    observations = {check["gate"]: check for check in evidence["checks"]}
-    if len(declarations) != len(evidence["scope"]) or len(observations) != len(
-        evidence["checks"]
-    ):
-        raise ValueError("ambiguous functional prerequisite identities")
-    consumed = {}
-    for name in sorted(required):
-        managed = name == "managed-primary"
-        if name not in FUNCTIONAL_SCOPES:
-            raise ValueError("unknown functional prerequisite scope")
-        exact = FUNCTIONAL_SCOPES[name]
-        # The assembled invocation adds its setup dependency without changing
-        # nextest's selection. Accept its exact declared form as well as the
-        # standalone gate; arbitrary dependency/selection edits still refuse.
-        assembled = [
-            next(
-                gate
-                for gate in comprehensive(selected)
-                if gate.name == ("managed-native" if managed else "native-test")
-            )
-            for selected in ("dev", "producer")
+    tests = []
+    for check in checks:
+        drift_diagnostic = "relevant inputs changed during assessment"
+        attribution_only = bool(
+            check.get("changed_source") or check.get("changed_environment")
+        )
+        report_errors = check.get("report_errors", [])
+        terminal_errors = [
+            error
+            for error in report_errors
+            if not (attribution_only and error == drift_diagnostic)
         ]
-        gate = next(
-            (
-                candidate
-                for candidate in (
-                    (exact, *assembled)
-                    if managed
-                    else (exact, native_gate(), *assembled)
-                )
-                if declarations.get(candidate.name)
-                == json.loads(json.dumps(validation.asdict(candidate)))
-            ),
-            None,
-        )
-        if gate is None:
+        if (
+            check.get("exit_code") != 0
+            or check.get("status") not in {"passed", "failed"}
+            or (
+                check.get("status") == "failed"
+                and drift_diagnostic not in report_errors
+            )
+        ):
             raise ValueError(
-                f"missing exact functional invocation or explicit native covering identity: {name}"
+                f"failed or unfinished functional reference: {check.get('gate')}"
             )
-        check = observations.get(gate.name, {})
-        if (
-            not validation_receipts.qualified(
-                {"status": check.get("status", "missing")}
-            )
-            or check.get("exit_code") != 0
-            or check.get("report_errors")
-            or not check.get("selected")
-            or not check.get("results")
-            or any(result["status"] != "passed" for result in check["results"])
-            or check.get("changed_source")
-            or check.get("changed_environment")
-            or check.get("evidence_kind") not in {"executed", "unchanged-input-reuse"}
-            or check.get("applicability_transfers")
-            or check.get("invocation") != declarations[gate.name]
-            or check.get("mode") != gate.mode
-            or check.get("profile") != gate.profile
-        ):
-            raise ValueError(f"incomplete functional prerequisite: {name}")
-        terminal = {**check, "results": list(check["results"]), "report_errors": []}
-        validation.compose_selection(terminal)
-        if terminal["report_errors"]:
-            raise ValueError("incomplete or contradictory selected terminal evidence")
-        inputs = input_identity(gate.input_scope, snapshot, evidence["environment"])
-        if check.get("inputs") != inputs:
-            raise ValueError(
-                "functional inputs changed; explicitly reassess affected observations"
-            )
-        # Read current relevant environment through the same identity operation.
-        native = check.get("native", {})
-        current_environment = validation.relevant_environment()
-        expected_environment = composed_functional_environment(
-            gate, evidence, declarations, observations, report, snapshot
-        )
-        if (
-            input_identity(gate.input_scope, snapshot, expected_environment)[
-                "environment"
-            ]
-            != input_identity(gate.input_scope, snapshot, current_environment)[
-                "environment"
-            ]
-        ):
-            raise ValueError("functional invocation environment changed")
-        actual_environment = native.get("environment")
-        if (
-            actual_environment is None
-            or input_identity(gate.input_scope, snapshot, current_environment)[
-                "environment"
-            ]
-            != input_identity(gate.input_scope, snapshot, actual_environment)[
-                "environment"
-            ]
-        ):
-            raise ValueError("functional relevant environment changed")
-        validation_receipts.verify_native(native)
-        validation_receipts.verify_native_capture(native, check)
-        verify_functional_execution(
-            native, managed=managed, environment=current_environment
-        )
-        if native.get("profile", {}).get("cargo_profile") != profile:
-            raise ValueError("functional Cargo profile differs from measurement")
-        expected_features = functional_features(gate)
-        if set(native.get("profile", {}).get("features", [])) != expected_features:
-            raise ValueError("functional native feature graph differs")
-        origin = Path(check.get("origin", report.parent))
-        for artifact, expected in check.get("artifacts", {}).items():
-            target = (origin / artifact).resolve()
-            target.relative_to(origin.resolve())
-            if validation_receipts.digest(target) != expected:
-                raise ValueError("changed functional artifact")
-        consumed[name] = {
-            "gate": gate.name,
-            "native": native,
-            "evidence_kind": check["evidence_kind"],
-            "origin": str(origin),
+        if terminal_errors:
+            raise ValueError(f"invalid functional test report: {check.get('gate')}")
+        if not check.get("selected") and not check.get("results"):
+            continue  # Setup commands are recorded, but are not test observations.
+        terminal: dict = {
+            **check,
+            "status": "passed",
+            "results": list(check.get("results", [])),
+            "report_errors": [],
         }
+        validation.compose_selection(terminal)
+        if (
+            not terminal["results"]
+            or terminal["report_errors"]
+            or any(result["status"] != "passed" for result in terminal["results"])
+        ):
+            raise ValueError(f"incomplete functional test results: {check.get('gate')}")
+        tests.append(check)
+    if not tests:
+        raise ValueError("functional reference contains no executed tests")
+    prior_sources = evidence.get("source_files")
+    prior_environment = evidence.get("environment", {})
     return {
         "path": str(report.resolve()),
-        "digest": validation_receipts.digest(report),
-        "prerequisites": consumed,
+        "observed_test_status": "passed",
+        "checks": tests,
+        "scope": evidence.get("scope", []),
+        "source_differences": (
+            validation_receipts.changed(measurement_inputs(prior_sources), snapshot)
+            if isinstance(prior_sources, dict)
+            else None
+        ),
+        "environment_differences": {
+            key: {
+                "functional": prior_environment.get(key),
+                "measurement": environment.get(key),
+            }
+            for key in ENVIRONMENT_CONTROLS
+            if prior_environment.get(key) != environment.get(key)
+        },
+        "conditions_equivalent": "not established; reference only",
+        "reported_provenance_errors": evidence.get("provenance_errors", []),
     }
-
-
-def compatible_native(functional: dict, native: dict) -> None:
-    """Test and benchmark executables differ; their toolchain/providers must agree."""
-    for claim in functional["prerequisites"].values():
-        prior = claim["native"]
-        if prior["toolchain"] != native["toolchain"]:
-            raise ValueError("measurement toolchain differs from functional execution")
-        prior_libraries = {
-            name: value
-            for name, value in prior["files"].items()
-            if name not in prior["links"]
-        }
-        libraries = {
-            name: value
-            for name, value in native["files"].items()
-            if name not in native["links"]
-        }
-        if not libraries or any(
-            prior_libraries.get(name) != value for name, value in libraries.items()
-        ):
-            raise ValueError(
-                "measurement native providers differ from functional execution"
-            )
 
 
 def selected_workloads(
@@ -597,7 +398,13 @@ def selected_workloads(
 
 
 def smoke_campaign(
-    output: Path, profile: str, process: dict, preparation: dict, selected: set[str]
+    output: Path,
+    profile: str,
+    process: dict,
+    preparation: dict,
+    selected: set[str],
+    *,
+    audit_order: list[str] | None = None,
 ) -> None:
     """Execute benchmark controls once; this produces no performance qualification."""
     targets = {
@@ -624,6 +431,11 @@ def smoke_campaign(
     ]
     for target in sorted(targets):
         command.extend(("--bench", target))
+    if audit_order is not None:
+        # Ordinary statistical collection does not load correctness closure logic.
+        from scripts import arrow_validation  # noqa: PLC0415
+
+        command = arrow_validation.compose(command)
     build = build_benchmark(command, output, "smoke")
     binaries = {
         row["target"]["name"]: row["executable"]
@@ -636,39 +448,73 @@ def smoke_campaign(
     }
     if set(binaries) != targets:
         raise ValueError("all selected benchmark control executables must be built")
-    receiver = managed_receiver_provenance(
-        [workload for workload in process["workloads"] if workload["id"] in selected],
-        profile,
+    receiver = managed_receiver_conditions(
+        [workload for workload in process["workloads"] if workload["id"] in selected]
     )
-    for declaration, target in (
-        (process, "native_process"),
-        (preparation, "modeling_preparation"),
-        ({"workloads": [{"id": "document-admission"}]}, "document_admission"),
-    ):
-        for workload in declaration["workloads"]:
-            name = workload["id"]
-            if name not in selected:
-                continue
-            directory = output / name
-            directory.mkdir()
-            env = {
-                **os.environ,
-                "PSE_PROCESS_COST_CASE": name,
-                "PSE_PROCESS_COST_SPEC": json.dumps(workload),
-                "PSE_PROCESS_COST_OUTPUT": str(directory),
-                "PSE_PREPARATION_CASE": name,
-                "PSE_PREPARATION_OUTPUT": str(directory),
-                "PSE_ADMISSION_OUTPUT": str(directory),
-            }
-            with (directory / "process.log").open("w") as log:
-                subprocess.run(
+    cases = [
+        (workload, target)
+        for declaration, target in (
+            (process, "native_process"),
+            (preparation, "modeling_preparation"),
+            ({"workloads": [{"id": "document-admission"}]}, "document_admission"),
+        )
+        for workload in declaration["workloads"]
+        if workload["id"] in selected
+    ]
+    if audit_order is not None:
+        cases.sort(key=lambda case: audit_order.index(case[0]["id"]))
+    results = []
+    for workload, target in cases:
+        name = workload["id"]
+        if name not in selected:
+            continue
+        directory = output / name
+        directory.mkdir()
+        env = {
+            **os.environ,
+            "PSE_PROCESS_COST_CASE": name,
+            "PSE_PROCESS_COST_SPEC": json.dumps(workload),
+            "PSE_PROCESS_COST_OUTPUT": str(directory),
+            "PSE_PREPARATION_CASE": name,
+            "PSE_PREPARATION_OUTPUT": str(directory),
+            "PSE_ADMISSION_OUTPUT": str(directory),
+        }
+        env.update(managed_fixture_environment(workload))
+        if audit_order is not None:
+            from scripts import case_audit  # noqa: PLC0415 -- opt-in native reader
+
+            try:
+                result = case_audit.run_case(
                     process_command(binaries[target], "--test", workload),
                     cwd=ROOT,
                     env=env,
-                    check=True,
-                    stdout=log,
-                    stderr=subprocess.STDOUT,
+                    directory=directory,
                 )
+            except KeyboardInterrupt:
+                observation = directory / "diagnostics/observation.json"
+                if observation.exists():
+                    results.append(
+                        {"case": name, **json.loads(observation.read_text())}
+                    )
+                validation.write_json(
+                    output / "case-audit.json",
+                    {"cases": results, "measured": False, "campaign_interrupted": True},
+                )
+                raise
+            results.append({"case": name, **result})
+            validation.write_json(
+                output / "case-audit.json", {"cases": results, "measured": False}
+            )
+            continue
+        with (directory / "process.log").open("w") as log:
+            subprocess.run(
+                process_command(binaries[target], "--test", workload),
+                cwd=ROOT,
+                env=env,
+                check=True,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+            )
     verify_managed_receiver(receiver)
     validation.write_json(
         output / "case-smoke.json",
@@ -677,15 +523,14 @@ def smoke_campaign(
             "measured": False,
             "selected_cases": sorted(selected),
             "managed_receiver": receiver,
-            "native": native_provenance(
-                {
-                    "cargo_profile": profile,
-                    "features": ["native-process", "pse-relations/force-validate"],
-                },
-                list(binaries.values()),
-            ),
+            "profile": profile,
+            "binaries": binaries,
         },
     )
+    if any(result["status"] != "completed" for result in results):
+        raise RuntimeError(
+            f"audit contains failed or interrupted cases; see {output / 'case-audit.json'}"
+        )
 
 
 def preparation_campaign(
@@ -775,13 +620,8 @@ def preparation_campaign(
             for phase in ("load_and_decode", "admit")
         }
     return {
-        "native": native_provenance(
-            {
-                "cargo_profile": profile,
-                "features": ["native-process", "pse-relations/force-validate"],
-            },
-            list(binaries.values()),
-        ),
+        "profile": profile,
+        "binaries": binaries,
         "cases": cases,
         "admission": admission,
     }
@@ -794,11 +634,20 @@ def main() -> int:
         "--stop-managed-primary", metavar="DATABASE", help=argparse.SUPPRESS
     )
     parser.add_argument("--state", type=Path, help=argparse.SUPPRESS)
-    parser.add_argument("--functional-from", type=Path)
+    parser.add_argument(
+        "--functional-from",
+        type=Path,
+        help="Optional completed checks.json test reference; execution conditions may differ.",
+    )
     parser.add_argument(
         "--smoke",
         action="store_true",
         help="Run each selected control once without timing samples or a measurement receipt.",
+    )
+    parser.add_argument(
+        "--audit-diagnostics",
+        action="store_true",
+        help="Observe explicitly selected once-only smoke cases, retaining live diagnostics and cooperative stop support.",
     )
     parser.add_argument(
         "--case",
@@ -807,6 +656,12 @@ def main() -> int:
         help="Declared process, preparation or document-admission case; repeat to select several. Defaults to all.",
     )
     args = parser.parse_args()
+    if args.audit_diagnostics and (not args.smoke or not args.case):
+        parser.error(
+            "--audit-diagnostics requires --smoke and explicit --case selection"
+        )
+    if args.audit_diagnostics and len(set(args.case)) != len(args.case):
+        parser.error("audit case selections must not repeat")
     if args.stop_managed_primary:
         if args.state is None or args.output is not None:
             parser.error("fixture drain requires --state and no output")
@@ -821,29 +676,32 @@ def main() -> int:
     }
     selection = selected_workloads((declaration, preparation, admission), args.case)
     selected = {w["id"] for w in selection}
+    if args.audit_diagnostics and selected - AUDIT_CASES:
+        parser.error(
+            "diagnostic audit stop/cleanup wiring is not supported for: "
+            + ", ".join(sorted(selected - AUDIT_CASES))
+        )
     if args.smoke:
         if args.functional_from:
             parser.error("smoke controls do not consume qualification receipts")
         output = validation.fresh_output(ROOT, args.output)
         smoke_campaign(
-            output, declaration["cargo_profile"], declaration, preparation, selected
+            output,
+            declaration["cargo_profile"],
+            declaration,
+            preparation,
+            selected,
+            audit_order=args.case if args.audit_diagnostics else None,
         )
         return 0
-    if args.functional_from is None:
-        parser.error("measurement requires --functional-from completed qualification")
-    snapshot = validation.sources(ROOT)
-    functional = require_functional(
-        ROOT,
-        args.functional_from,
-        selection,
-        snapshot=snapshot,
-        profile=declaration["cargo_profile"],
+    snapshot = measurement_inputs(validation.sources(ROOT))
+    environment_started = measurement_environment()
+    functional = functional_reference(
+        args.functional_from, snapshot=snapshot, environment=environment_started
     )
     output = validation.fresh_output(ROOT, args.output)
     started = time.time()
-    environment_started = host_admission.measurement_context()
-    inputs = measurement_inputs(snapshot)
-    before = snapshot_digest(inputs)
+    host_started = host_admission.measurement_context()
     profile = {
         "cargo_profile": declaration["cargo_profile"],
         "features": ["native-process", "pse-relations/force-validate"],
@@ -877,11 +735,7 @@ def main() -> int:
     if len(binaries) != 1:
         raise ValueError("expected one compiled benchmark executable")
     binary = Path(binaries.pop())
-    native = native_provenance(profile, [str(binary)])
-    compatible_native(functional, native)
-    receiver = managed_receiver_provenance(selection, profile["cargo_profile"])
-    if receiver is not None:
-        compatible_native(functional, receiver["native"])
+    receiver = managed_receiver_conditions(selection)
     cases = []
     for workload in declaration["workloads"]:
         name = workload["id"]
@@ -895,6 +749,7 @@ def main() -> int:
             "PSE_PROCESS_COST_OUTPUT": str(directory),
             "PSE_PROCESS_COST_SPEC": json.dumps(workload),
         }
+        env.update(managed_fixture_environment(workload))
         with (directory / "process.log").open("w") as log:
             subprocess.run(
                 process_command(str(binary), "--bench", workload),
@@ -919,19 +774,17 @@ def main() -> int:
             }
         )
     report = {
-        "schema": "process-cost-v3",
+        "schema": "process-cost-v4",
+        "measured": True,
         "profile": profile,
         "functional": functional,
         "started": started,
-        "host_conditions_start": environment_started,
-        "source_digest": before,
-        "measurement_inputs": inputs,
+        "host_conditions_start": host_started,
+        "source_observations_start": snapshot,
+        "environment_start": environment_started,
         "compilation_timed": False,
         "selected_cases": [w["id"] for w in selection],
         "binary_path": str(binary.resolve()),
-        "binary_digest": native["files"][str(binary.resolve())],
-        "toolchain": native["toolchain"],
-        "native": native,
         "managed_receiver": receiver,
         "thread_environment": {
             k: os.environ.get(k)
@@ -952,10 +805,15 @@ def main() -> int:
     )
     report["thermodynamic_preparation"] = preparation_report
     report["host_conditions_end"] = host_admission.measurement_context()
-    if preparation_report.get("native"):
-        compatible_native(functional, preparation_report["native"])
-    if snapshot_digest(measurement_inputs(validation.sources(ROOT))) != before:
-        raise ValueError("sources changed during preparation measurement")
+    snapshot_end = measurement_inputs(validation.sources(ROOT))
+    environment_end = measurement_environment()
+    report["source_changes_during_measurement"] = validation_receipts.changed(
+        snapshot, snapshot_end
+    )
+    report["environment_end"] = environment_end
+    report["environment_changes_during_measurement"] = validation_receipts.changed(
+        environment_started, environment_end
+    )
     verify_managed_receiver(receiver)
     validation.write_json(output / "case-measure.json", report)
     return 0

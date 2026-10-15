@@ -259,17 +259,147 @@ fn named_types_prefix_enumeration_preserves_lowered_function_resolution_boundary
     )
     .unwrap();
     let contracts = model.function_contracts(&package);
-    assert!(!contracts.lowered_functions.is_empty());
-    // Actual scalar specialization grants synthetic call lookup, without adding
-    // global qualified names or a parallel type environment for those functions.
-    assert_eq!(contracts.names, package.names);
-    for id in &contracts.lowered_functions {
-        let name = format!("f_{}", id.as_id().to_hex());
-        assert_eq!(contracts.resolve(owner, &name), Some(*id));
-        assert!(!contracts.names.contains_key(&name));
+    assert!(!model.functions.is_empty());
+    // Actual scalar specialization grants synthetic call lookup, while the
+    // immutable source inventories and lexical types retain their original owner.
+    assert!(std::ptr::eq(contracts.package(), &package));
+    for (name, function) in &model.functions {
+        let id =
+            DeclarationId::from(SemanticId::parse_hex(name.strip_prefix("f_").unwrap()).unwrap());
+        assert_eq!(contracts.resolve(owner, name.as_str()), Some(id));
+        assert_eq!(
+            contracts.resolve_segments(owner, &dsl::Path::single(name.as_str()).segments),
+            Some(id)
+        );
+        assert!(std::ptr::eq(contracts.function(id).unwrap(), function));
+        assert!(!package.names.contains_key(name.as_str()));
     }
     assert_eq!(
         contracts.named_types(owner),
-        exhaustive_named_types(&contracts, owner)
+        exhaustive_named_types(&package, owner)
     );
+}
+
+#[test]
+fn finite_function_admission_reads_the_current_owner_after_earlier_use() {
+    let package = checked(
+        "package a { fn twice(x:Scalar)->Scalar=x*2; def Root { var x:Scalar; eq value:twice(x)==2; } }",
+    );
+    let owner = package.entry("a.Root").unwrap();
+    let complete = crate::specialize(
+        &package,
+        owner,
+        crate::InstanceId::from_bytes([7; 16]),
+        &crate::Bindings::default(),
+        crate::Limits::default(),
+    )
+    .unwrap();
+    let (name, function) = complete.functions.iter().next().unwrap();
+    let (name, function) = (name.clone(), function.clone());
+    let id = DeclarationId::from(SemanticId::parse_hex(name.strip_prefix("f_").unwrap()).unwrap());
+    let mut current = crate::SpecializedModel::default();
+    assert!(
+        current
+            .function_contracts(&package)
+            .resolve(owner, &name)
+            .is_none()
+    );
+    current.functions.insert(name.clone(), function.clone());
+    let contracts = current.function_contracts(&package);
+    assert_eq!(contracts.resolve(owner, name.as_str()), Some(id));
+    assert_eq!(
+        contracts.resolve_segments(owner, &dsl::Path::single(name.as_str()).segments),
+        Some(id)
+    );
+    let mut call = function.body.clone().unwrap();
+    call.kind = dsl::ExprKind::NamedCall {
+        name: dsl::Path::single(name),
+        args: vec![dsl::Expr {
+            kind: dsl::ExprKind::Number(dsl::Number {
+                value: 2.,
+                exact_integer: Some(2),
+                unit: None,
+            }),
+            span: Default::default(),
+        }],
+    };
+    assert_eq!(
+        crate::expression::infer(
+            &call,
+            &BTreeMap::new(),
+            &contracts,
+            &package.context(),
+            owner,
+            Some(&function.result)
+        )
+        .unwrap(),
+        function.result
+    );
+}
+
+#[test]
+fn reconstruction_result_view_is_local_and_does_not_change_function_owner() {
+    let package = checked(
+        "package a {fn law(x:Scalar)->Scalar=x; def Root {var x:Scalar; eq value:law(x)==2;}}",
+    );
+    let owner = package.entry("a.Root").unwrap();
+    let mut model = crate::specialize(
+        &package,
+        owner,
+        crate::InstanceId::from_bytes([7; 16]),
+        &crate::Bindings::default(),
+        crate::Limits::default(),
+    )
+    .unwrap();
+    let map = DeclarationId::from(SemanticId::from_bytes([2; 16]));
+    let reconstruction = DeclarationId::from(SemanticId::from_bytes([3; 16]));
+    let (name, function) = model.functions.iter_mut().next().unwrap();
+    let name = name.clone();
+    let scheme = function.result.quantity_scheme().unwrap().clone();
+    function.result = Type::RefinedQuantity {
+        quantity: scheme.clone(),
+        refinement: crate::PhysicalRefinement::ReducedLaw {
+            map,
+            reconstruction,
+        },
+    };
+    let nominal = function.result.clone();
+    let id = DeclarationId::from(SemanticId::parse_hex(name.strip_prefix("f_").unwrap()).unwrap());
+    let operation = crate::PhysicalOperation::Reconstruction {
+        map,
+        reconstruction,
+        reference: owner,
+    };
+    let contracts = model.function_contracts(&package);
+    let local = contracts.for_reconstruction(Some(&operation));
+    let mut call = dsl::parse_expr("law(2)").unwrap();
+    let dsl::ExprKind::NamedCall { name, .. } = &mut call.kind else {
+        panic!("call")
+    };
+    *name = dsl::Path::single(format!("f_{}", id.as_id().to_hex()));
+    assert_eq!(
+        crate::expression::infer(
+            &call,
+            &BTreeMap::new(),
+            &local,
+            &package.context(),
+            owner,
+            None
+        )
+        .unwrap(),
+        Type::Quantity(scheme)
+    );
+    assert_eq!(
+        crate::expression::infer(
+            &call,
+            &BTreeMap::new(),
+            &contracts,
+            &package.context(),
+            owner,
+            None
+        )
+        .unwrap(),
+        nominal
+    );
+    assert_eq!(contracts.function(id).unwrap().result, nominal);
 }

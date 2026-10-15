@@ -6,7 +6,7 @@
 //! transactions, and completed native reports are retained as compact result selections.
 
 // Match the library's depth for the shared runtime's nested async `Send` proof.
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 #![allow(
     clippy::print_stdout,
     clippy::print_stderr,
@@ -526,10 +526,17 @@ fn main() -> ExitCode {
         eprintln!("error: primary readiness publication: {error}");
         return ExitCode::FAILURE;
     }
+    let diagnostics = runtime.observations().clone();
     #[cfg(feature = "canonical-tests")]
     let result = executor.block_on(serve(&cli, runtime, qualification));
     #[cfg(not(feature = "canonical-tests"))]
     let result = executor.block_on(serve(&cli, runtime));
+    // This process composition root joins its optional publisher after scientific
+    // lanes have drained, outside RuntimeCaller admission and native ownership locks.
+    diagnostics.stop_publisher();
+    if let Some(error) = diagnostics.writer_failure() {
+        eprintln!("diagnostic checkpoint unavailable: {error}");
+    }
     match result {
         Ok(processed) => {
             println!("processed {processed} canonical scheduling actions");

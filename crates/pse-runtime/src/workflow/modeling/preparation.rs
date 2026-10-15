@@ -15,7 +15,7 @@ fn preparation_time_limit() -> WorkflowError {
 
 /// A shared pure flight keeps its own charged completion owner when one waiter
 /// cancels. Each waiter consumes its original enclosing operation clock.
-async fn scoped<T>(
+pub(super) async fn scoped<T>(
     cancel: &crate::CancelSource,
     deadline: Instant,
     operation: impl Future<Output = Result<T, WorkflowError>>,

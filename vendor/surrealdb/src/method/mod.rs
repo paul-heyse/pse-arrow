@@ -62,7 +62,7 @@ pub use invalidate::Invalidate;
 pub use live::Stream;
 pub use merge::Merge;
 pub use patch::Patch;
-pub use query::{IntoVariables, ItemStream, Query, QueryStream, StreamItem};
+pub use query::{IntoVariables, ItemStream, Query, QueryStatisticsObserver, QueryStream, StreamItem};
 pub use run::{IntoFn, Run};
 pub use select::Select;
 pub use set::Set;
@@ -699,6 +699,7 @@ where
     #[must_use = "queries do nothing unless you `.await` or poll them"]
     pub fn query<'client>(&'client self, query: impl Into<Cow<'client, str>>) -> Query<'client, C> {
         Query {
+            statistics_observer: None,
             request_context: None,
             txn: None,
             client: Cow::Borrowed(self),

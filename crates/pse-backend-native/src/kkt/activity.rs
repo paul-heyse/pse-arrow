@@ -255,77 +255,85 @@ impl Factor {
                 "activity release matrix exceeds admitted storage allowance",
             ));
         }
-        self.execution.counted(work_unit(Some(0), 1), || {
-            let mut matrix = (*self.source.matrix).clone();
-            let stiffness = matrix.values.iter().fold(1_f64, |a, v| a.max(v.abs()));
-            for column in 0..matrix.n {
-                for slot in matrix.col_ptr[column]..matrix.col_ptr[column + 1] {
-                    let row = matrix.row_idx[slot];
-                    if released.binary_search(&row).is_ok()
-                        || released.binary_search(&column).is_ok()
-                    {
-                        matrix.values[slot] = if row == column { -1. } else { 0. };
-                    }
-                    if row == column && pinned.binary_search(&row).is_ok() {
-                        matrix.values[slot] += stiffness;
+        crate::observation::operation("kkt.activity.feral", || {
+            self.execution.counted(work_unit(Some(0), 1), || {
+                let mut matrix = (*self.source.matrix).clone();
+                let stiffness = matrix.values.iter().fold(1_f64, |a, v| a.max(v.abs()));
+                for column in 0..matrix.n {
+                    for slot in matrix.col_ptr[column]..matrix.col_ptr[column + 1] {
+                        let row = matrix.row_idx[slot];
+                        if released.binary_search(&row).is_ok()
+                            || released.binary_search(&column).is_ok()
+                        {
+                            matrix.values[slot] = if row == column { -1. } else { 0. };
+                        }
+                        if row == column && pinned.binary_search(&row).is_ok() {
+                            matrix.values[slot] += stiffness;
+                        }
                     }
                 }
-            }
-            // Reuse symbolic analysis only when the previous factor's numeric owner
-            // is uniquely held here. Escaped factors remain immutable and force a new
-            // solver. FERAL checks the full CSC pattern before symbolic reuse; numeric
-            // values and inertia are recomputed for every release/pin operation.
-            let retained = self.state.cache.borrow_mut().take();
-            let mut solver = retained
-                .and_then(|retained| Arc::try_unwrap(retained.factor.solver).ok())
-                .unwrap_or_else(|| feral::Solver::new().with_parallel(false));
-            self.state.refactorizations.set(count + 1);
-            match solver.factor(&matrix, None) {
-                feral::FactorStatus::Success | feral::FactorStatus::WrongInertia { .. } => {}
-                feral::FactorStatus::Singular => return Ok(None),
-                feral::FactorStatus::FatalError(error) => {
-                    return Err(crate::conditioning::native(error));
+                // Reuse symbolic analysis only when the previous factor's numeric owner
+                // is uniquely held here. Escaped factors remain immutable and force a new
+                // solver. FERAL checks the full CSC pattern before symbolic reuse; numeric
+                // values and inertia are recomputed for every release/pin operation.
+                let retained = self.state.cache.borrow_mut().take();
+                let mut solver = retained
+                    .and_then(|retained| Arc::try_unwrap(retained.factor.solver).ok())
+                    .unwrap_or_else(|| feral::Solver::new().with_parallel(false));
+                self.state.refactorizations.set(count + 1);
+                crate::conditioning::publish_factor_summary(&solver, false);
+                let status = crate::observation::scoped("kkt.activity.feral.factor", || {
+                    solver.factor(&matrix, None)
+                });
+                crate::conditioning::publish_factor_status(&status);
+                match status {
+                    feral::FactorStatus::Success | feral::FactorStatus::WrongInertia { .. } => {}
+                    feral::FactorStatus::Singular => return Ok(None),
+                    feral::FactorStatus::FatalError(error) => {
+                        return Err(crate::conditioning::native(error));
+                    }
                 }
-            }
-            let inertia = solver
-                .inertia()
-                .ok_or_else(|| ProblemError::internal("activity factor omitted inertia"))?;
-            if inertia.total() != matrix.n {
-                return Err(ProblemError::internal("activity factor inertia extent"));
-            }
-            if inertia.zero > 0 {
-                return Ok(None);
-            }
-            self.execution.check()?;
-            let factor = KktFactor {
-                solver: Arc::new(solver),
-                matrix: Arc::new(matrix),
-                layout: self.source.layout.clone(),
-                scales: self.source.scales.clone(),
-                objective: self.source.objective,
-                bound_rows: self.source.bound_rows.clone(),
-                point: self.source.point,
-                variables: self.source.variables.clone(),
-                rows: self.source.rows.clone(),
-                variable_bounds: self.source.variable_bounds.clone(),
-                normalization: self.source.normalization,
-                row_dual: self.source.row_dual.clone(),
-                lower_dual: self.source.lower_dual.clone(),
-                upper_dual: self.source.upper_dual.clone(),
-            };
-            let bytes = factor.bytes();
-            self.state.bytes.set(self.state.bytes.get().max(bytes));
-            if bytes > self.limits.bytes {
-                return Err(ProblemError::memory(
-                    "activity release factor exceeds admitted storage allowance",
-                ));
-            }
-            *self.state.cache.borrow_mut() = Some(ReleasedFactor {
-                released,
-                pinned,
-                factor: factor.clone(),
-            });
-            Ok(Some(factor))
+                let inertia = solver
+                    .inertia()
+                    .ok_or_else(|| ProblemError::internal("activity factor omitted inertia"))?;
+                if inertia.total() != matrix.n {
+                    return Err(ProblemError::internal("activity factor inertia extent"));
+                }
+                crate::conditioning::publish_factor_summary(&solver, true);
+                if inertia.zero > 0 {
+                    return Ok(None);
+                }
+                self.execution.check()?;
+                let factor = KktFactor {
+                    solver: Arc::new(solver),
+                    matrix: Arc::new(matrix),
+                    layout: self.source.layout.clone(),
+                    scales: self.source.scales.clone(),
+                    objective: self.source.objective,
+                    bound_rows: self.source.bound_rows.clone(),
+                    point: self.source.point,
+                    variables: self.source.variables.clone(),
+                    rows: self.source.rows.clone(),
+                    variable_bounds: self.source.variable_bounds.clone(),
+                    normalization: self.source.normalization,
+                    row_dual: self.source.row_dual.clone(),
+                    lower_dual: self.source.lower_dual.clone(),
+                    upper_dual: self.source.upper_dual.clone(),
+                };
+                let bytes = factor.bytes();
+                self.state.bytes.set(self.state.bytes.get().max(bytes));
+                if bytes > self.limits.bytes {
+                    return Err(ProblemError::memory(
+                        "activity release factor exceeds admitted storage allowance",
+                    ));
+                }
+                *self.state.cache.borrow_mut() = Some(ReleasedFactor {
+                    released,
+                    pinned,
+                    factor: factor.clone(),
+                });
+                Ok(Some(factor))
+            })
         })
     }
 }
@@ -496,6 +504,10 @@ mod tests {
     }
     #[test]
     fn release_refresh_retains_symbolic_but_recomputes_numeric_and_preserves_escaped_factors() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("activity-feral-returns");
+        let _entered = operation.context().enter();
         let factor = activity(source(), Arc::new(Admission::default()));
         // K = [1 1;1 0]. Release changes it to diag(1,-1), pin then to
         // diag(2,-1). The pattern stays identical, including structural zero slots.
@@ -521,6 +533,32 @@ mod tests {
         assert!(factor.source.solve(&[2., 1.], &mut x));
         assert_eq!(x, [1., 1.]);
         assert_eq!(factor.work().refactorizations, 3);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(snapshot.children.len(), 3);
+        let reused = hub
+            .reader(snapshot.children[1].id)
+            .unwrap()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            reused
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "factor.pattern_reused")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
+        );
+        assert_eq!(
+            reused
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "factor.valid")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
+        );
     }
     #[test]
     fn failed_release_is_observed_and_opaque_refinement_refuses_strict_iterations() {

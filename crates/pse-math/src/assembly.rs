@@ -92,7 +92,7 @@ pub struct CasePlan {
     columns: Arc<Vec<SemanticId>>,
     projection: Arc<crate::factorable::ProjectionTopology>,
     rows: Arc<BTreeMap<SemanticId, GlobalRow>>,
-    row_bindings: Arc<BTreeMap<SemanticId, Vec<usize>>>,
+    row_contributions: Arc<BTreeMap<SemanticId, Vec<(usize, usize)>>>,
     instances: Arc<Vec<Instance>>,
     jacobian: Arc<AssemblyMatrix>,
     hessian: Arc<AssemblyMatrix>,
@@ -391,17 +391,17 @@ impl CasePlan {
             ),
         ];
         components.push((
-            "row-bindings",
-            Arc::as_ptr(&self.row_bindings) as usize,
-            size_of_val(self.row_bindings.as_ref())
+            "row-contributions",
+            Arc::as_ptr(&self.row_contributions) as usize,
+            size_of_val(self.row_contributions.as_ref())
                 + self
-                    .row_bindings
+                    .row_contributions
                     .values()
                     .map(|indices| {
                         size_of::<SemanticId>()
                             + 96
                             + size_of_val(indices)
-                            + indices.capacity() * size_of::<usize>()
+                            + indices.capacity() * size_of::<(usize, usize)>()
                     })
                     .sum::<usize>(),
         ));
@@ -538,6 +538,10 @@ impl CasePlan {
         columns: Vec<SemanticId>,
         source: Option<&Self>,
     ) -> Result<Self, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.case_plan_constructions", "count", 1);
+            context.phase("math.case_plan_construction")
+        });
         if limits.contributions == 0 || limits.native_index == 0 || limits.worker_bytes == 0 {
             return Err(MathError::Limit("zero case assembly budget"));
         }
@@ -679,6 +683,9 @@ impl CasePlan {
                         })
                 });
                 let support = if let Some(established) = established {
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("math.source_support_reuses", "count", 1);
+                    }
                     established.conditional_support(&all_outputs, &formal, order, cancel)?
                 } else if order == DerivativeOrder::First {
                     body.incidence(&all_outputs, &formal, cancel)?
@@ -766,22 +773,30 @@ impl CasePlan {
             columns.len(),
             limits,
         )?;
-        let mut row_bindings = BTreeMap::<_, Vec<usize>>::new();
+        let mut row_contributions = BTreeMap::<_, Vec<(usize, usize)>>::new();
         for (index, binding) in structure.instances().iter().enumerate() {
-            for contribution in &binding.contributions {
+            for (output, contribution) in binding.contributions.iter().enumerate() {
                 if let Target::Row(row) = contribution.target {
-                    let bindings = row_bindings.entry(row).or_default();
-                    if bindings.last() != Some(&index) {
-                        bindings.push(index);
-                    }
+                    row_contributions
+                        .entry(row)
+                        .or_default()
+                        .push((index, output));
                 }
             }
+        }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("affine.setup_columns", "count", columns.len() as u64);
+            context.count(
+                "affine.setup_contributions",
+                "count",
+                row_contributions.values().map(Vec::len).sum::<usize>() as u64,
+            );
         }
         Ok(Self {
             projection: Arc::new(crate::factorable::ProjectionTopology::new(
                 &structure, &columns,
             )?),
-            row_bindings: Arc::new(row_bindings),
+            row_contributions: Arc::new(row_contributions),
             structure,
             bodies,
             columns: Arc::new(columns),
@@ -812,30 +827,113 @@ impl CasePlan {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Self, MathError> {
+        Self::prepare_functions(
+            &self.structure,
+            |body| self.bodies.get(&body).cloned(),
+            selected_rows,
+            coordinates,
+            registry,
+            order,
+            self.limits,
+            cancel,
+        )
+    }
+    /// Prepare selected function rows directly from admitted structure. Only bodies
+    /// contributing to selected rows are acquired; their complete guard and provider
+    /// dependencies remain intact. The original coordinate universe is shared.
+    ///
+    /// Rows retain source order and derivative coordinates retain caller order.
+    /// Objectives, native forms and solver requirements are excluded, as in
+    /// [`Self::functions`].
+    ///
+    /// # Errors
+    /// Unknown or repeated rows/coordinates, missing selected bodies, or ordinary
+    /// preparation failures.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "selected preparation consumes source, body authority and explicit assembly policy"
+    )]
+    pub fn prepare_functions(
+        source: &CaseStructure,
+        mut body: impl FnMut(ContentHash) -> Option<Arc<PreparedBody>>,
+        selected_rows: &[SemanticId],
+        coordinates: Vec<SemanticId>,
+        registry: &QuantityRegistry,
+        order: DerivativeOrder,
+        limits: AssemblyLimits,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
         let selected: BTreeSet<_> = selected_rows.iter().copied().collect();
         if selected.len() != selected_rows.len()
-            || selected.iter().any(|r| !self.rows.contains_key(r))
+            || selected
+                .iter()
+                .any(|row| source.rows().binary_search_by_key(row, |r| r.id).is_err())
         {
             return Err(MathError::Contract(
                 "unknown or repeated function output".into(),
             ));
         }
-        let instances = self
-            .structure
-            .instances()
-            .iter()
-            .filter_map(|binding| {
-                let mut binding = binding.clone();
-                binding
-                    .contributions
-                    .retain(|c| matches!(c.target, Target::Row(r) if selected.contains(&r)));
-                (!binding.contributions.is_empty()).then_some(binding)
-            })
-            .collect();
+        // Refuse invalid coordinate requests before acquiring any body products.
+        if coordinates.iter().collect::<BTreeSet<_>>().len() != coordinates.len()
+            || coordinates.iter().any(|c| !source.contains_coordinate(c))
+        {
+            return Err(MathError::Contract(
+                "unknown or duplicate derivative coordinate".into(),
+            ));
+        }
+        let mut instances = Vec::new();
+        for binding in source.instances() {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
+            let contributions: Vec<_> = binding
+                .contributions
+                .iter()
+                .filter(|c| matches!(c.target, Target::Row(r) if selected.contains(&r)))
+                .cloned()
+                .collect();
+            if !contributions.is_empty() {
+                instances.push(crate::binding::InstanceBinding {
+                    instance: binding.instance,
+                    body: binding.body,
+                    slots: binding.slots.clone(),
+                    checked_members: binding.checked_members.clone(),
+                    contributions,
+                });
+            }
+        }
+        let mut bodies = BTreeMap::new();
+        for binding in &instances {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
+            if let std::collections::btree_map::Entry::Vacant(entry) = bodies.entry(binding.body) {
+                entry.insert(
+                    body(binding.body)
+                        .ok_or_else(|| MathError::Contract("missing prepared body".into()))?,
+                );
+            }
+        }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.selected_function_constructions", "count", 1);
+            context.count(
+                "math.selected_function_bodies",
+                "count",
+                bodies.len() as u64,
+            );
+            context.count(
+                "math.selected_function_rows",
+                "count",
+                selected.len() as u64,
+            );
+        }
         let structure = Arc::new(
-            self.structure.restricted(
+            source.restricted(
                 instances,
-                self.structure
+                source
                     .rows()
                     .iter()
                     .filter(|r| selected.contains(&r.id))
@@ -846,10 +944,10 @@ impl CasePlan {
         );
         Self::prepare_with_coordinates(
             structure,
-            self.bodies.clone(),
+            bodies,
             registry,
             order,
-            self.limits,
+            limits,
             cancel,
             coordinates,
         )
@@ -978,9 +1076,9 @@ impl CasePlan {
             .collect();
         let binding_indices: BTreeSet<_> = selected_rows
             .iter()
-            .filter_map(|row| self.row_bindings.get(row))
+            .filter_map(|row| self.row_contributions.get(row))
             .flatten()
-            .copied()
+            .map(|&(binding, _)| binding)
             .collect();
         let instances: Vec<_> = binding_indices
             .into_iter()
@@ -1339,6 +1437,10 @@ impl CasePlan {
     pub(crate) fn projection_topology(&self) -> &crate::factorable::ProjectionTopology {
         &self.projection
     }
+    /// Original contribution order, indexed once rather than rediscovered for each row proof.
+    pub(crate) fn row_contributions(&self, row: SemanticId) -> &[(usize, usize)] {
+        self.row_contributions.get(&row).map_or(&[], Vec::as_slice)
+    }
     /// Compiled derivative ceiling.
     pub fn available_order(&self) -> DerivativeOrder {
         self.available
@@ -1498,6 +1600,10 @@ impl CasePlan {
         self: &Arc<Self>,
         programs: Vec<Arc<CompiledBody>>,
     ) -> Result<CaseAssembly, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.assembly_binds", "count", 1);
+            context.phase("math.assembly_bind")
+        });
         if programs.len() != self.requests.len() {
             return Err(MathError::Contract("artifact demand count".into()));
         }
@@ -1909,6 +2015,10 @@ impl CaseAssembly {
         self: &Arc<Self>,
         value: impl Fn(SemanticId) -> Option<f64>,
     ) -> Result<BoundValues, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.input_binds", "count", 1);
+            context.phase("math.input_bind")
+        });
         let fixed = self
             .fixed
             .iter()
@@ -1926,6 +2036,10 @@ impl CaseAssembly {
     }
     /// Validate a rebind once and retain only its fixed and parameter coordinates.
     pub fn bind_values(self: &Arc<Self>, values: &CaseValues) -> Result<BoundValues, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.value_binds", "count", 1);
+            context.phase("math.value_bind")
+        });
         self.structure.validate_values(values)?;
         Ok(BoundValues {
             assembly: Arc::clone(self),

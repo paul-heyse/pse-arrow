@@ -2439,40 +2439,101 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
         )
         .await
         .unwrap();
-    let outcome = with_admitted_fit_oracle_outcome(problem.into(), |oracle| {
-        let team = oracle
-            .team
-            .as_mut()
-            .expect("fixture admits two independent lanes");
-        team.require_concurrent_test_wave();
-        let value = oracle.objective(&[2.5]).unwrap();
-        assert!((value - 1.25).abs() < 1e-6);
-        assert_eq!(
-            oracle.team.as_ref().unwrap().test_constructions(),
-            vec![1, 1]
-        );
-        let mut gradient = [0.];
-        oracle.gradient(&[2.5], &mut gradient).unwrap();
-        assert!((gradient[0] - 2.).abs() < 1e-6);
-        let predictions = &oracle.point.as_ref().unwrap().predictions;
-        assert!((predictions[0] - 73.5).abs() < 1e-6);
-        assert_eq!(predictions[1], 2.5);
-        assert_eq!(
-            oracle.team.as_ref().unwrap().test_constructions(),
-            vec![1, 1]
-        );
-        assert!((oracle.objective(&[0.7]).unwrap() - 0.89).abs() < 1e-6);
-        oracle.gradient(&[0.7], &mut gradient).unwrap();
-        assert!((gradient[0] + 1.6).abs() < 1e-6);
-        assert_eq!(
-            oracle.team.as_ref().unwrap().test_constructions(),
-            vec![1, 1]
-        );
-        oracle.execution.cancel.store(true, Ordering::Release);
-        assert!(oracle.objective(&[1.0]).is_err());
-        assert!(oracle.point.is_none());
-    })
+    let experiments = problem
+        .declaration
+        .experiments
+        .iter()
+        .map(|experiment| experiment.experiment_id.to_string())
+        .collect::<Vec<_>>();
+    let hub =
+        pse_diagnostics::observation::ObservationHub::new(pse_diagnostics::observation::Policy {
+            max_operations: 128,
+            ..Default::default()
+        });
+    let operation = hub.start("parallel experiment attribution");
+    let outcome = pse_diagnostics::observation::scope(
+        Some(operation.context()),
+        with_admitted_fit_oracle_outcome(problem.into(), |oracle| {
+            let team = oracle
+                .team
+                .as_mut()
+                .expect("fixture admits two independent lanes");
+            team.require_concurrent_test_wave();
+            let value = oracle.objective(&[2.5]).unwrap();
+            assert!((value - 1.25).abs() < 1e-6);
+            assert_eq!(
+                oracle.team.as_ref().unwrap().test_constructions(),
+                vec![1, 1]
+            );
+            let mut gradient = [0.];
+            oracle.gradient(&[2.5], &mut gradient).unwrap();
+            assert!((gradient[0] - 2.).abs() < 1e-6);
+            let predictions = &oracle.point.as_ref().unwrap().predictions;
+            assert!((predictions[0] - 73.5).abs() < 1e-6);
+            assert_eq!(predictions[1], 2.5);
+            assert_eq!(
+                oracle.team.as_ref().unwrap().test_constructions(),
+                vec![1, 1]
+            );
+            assert!((oracle.objective(&[0.7]).unwrap() - 0.89).abs() < 1e-6);
+            oracle.gradient(&[0.7], &mut gradient).unwrap();
+            assert!((gradient[0] + 1.6).abs() < 1e-6);
+            assert_eq!(
+                oracle.team.as_ref().unwrap().test_constructions(),
+                vec![1, 1]
+            );
+            oracle.execution.cancel.store(true, Ordering::Release);
+            assert!(oracle.objective(&[1.0]).is_err());
+            assert!(oracle.point.is_none());
+        }),
+    )
     .await;
+    use pse_diagnostics::observation::Value;
+    let mut observed_indices = BTreeSet::new();
+    let mut observed_lanes = BTreeSet::new();
+    for entry in hub.list(0, 128).operations {
+        let snapshot = hub
+            .reader(entry.id)
+            .unwrap()
+            .snapshot(std::time::Duration::from_secs(60));
+        if entry.kind == "fit.experiment" {
+            let index = snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "fit.experiment_index")
+                .unwrap();
+            let Value::Integer(index) = index.latest else {
+                panic!("experiment index must remain exact")
+            };
+            let index = usize::try_from(index).unwrap();
+            observed_indices.insert(index);
+            assert!(
+                snapshot
+                    .sources
+                    .iter()
+                    .any(|source| source.name == "fit.experiment"
+                        && source.bytes == experiments[index].as_bytes())
+            );
+        } else if entry.kind == "fit.experiment_lane_wave" {
+            let lane = snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "fit.experiment_lane")
+                .unwrap();
+            let Value::Integer(lane) = lane.latest else {
+                panic!("lane index must remain exact")
+            };
+            observed_lanes.insert(lane);
+            assert!(
+                snapshot
+                    .sources
+                    .iter()
+                    .all(|source| source.name != "fit.experiment")
+            );
+        }
+    }
+    assert_eq!(observed_indices, [0, 1].into_iter().collect());
+    assert_eq!(observed_lanes, [0, 1].into_iter().collect());
     // The actual enclosing operation must also report its original cancellation
     // after all actor threads and native states have joined.
     assert!(matches!(

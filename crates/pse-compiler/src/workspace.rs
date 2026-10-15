@@ -1261,8 +1261,47 @@ fn conditional_blocks(
     Ok(Arc::new(blocks))
 }
 
+type CompilerEvents = Arc<dyn Fn(salsa::Event) + Send + Sync>;
+
+// The callback reads the active operation at emission time. A workspace can outlive
+// many operations, and a rebuilt Salsa database must not retain the first caller.
+fn observe_query_event(event: &salsa::Event) {
+    let Some(context) = pse_diagnostics::observation::current() else {
+        return;
+    };
+    let (metric, key) = match &event.kind {
+        salsa::EventKind::WillExecute { database_key } => {
+            context.unavailable(
+                "compiler.query_miss_reason",
+                "Salsa does not report the execution cause",
+            );
+            ("compiler.query_executions", database_key)
+        }
+        salsa::EventKind::DidValidateMemoizedValue { database_key } => {
+            ("compiler.query_memo_validations", database_key)
+        }
+        salsa::EventKind::WillBlockOn { database_key, .. } => {
+            context.unavailable(
+                "compiler.query_shared_wait_duration",
+                "Salsa reports wait entry without a matching exit event",
+            );
+            ("compiler.query_shared_waits", database_key)
+        }
+        salsa::EventKind::DidDiscard { key } => ("compiler.query_discards", key),
+        _ => return,
+    };
+    context.count(metric, "count", 1);
+    // Local numeric handles are opaque attribution, never semantic/cache identity.
+    // Avoid DatabaseKeyIndex Debug: an attached database can format authored inputs.
+    context.source_ref(
+        "salsa_query",
+        format!("{:?}:{:?}", key.ingredient_index(), key.key_index()),
+    );
+}
+
 /// Single-writer workspace. Callers serialize access; no database clones or partial batches escape.
 pub struct CompilerWorkspace {
+    events: Option<CompilerEvents>,
     db: CompilerDatabase,
     inventory: Inventory,
     inputs: CompilerContext,
@@ -1308,10 +1347,23 @@ impl CompilerWorkspace {
         limits: WorkspaceLimits,
         event: Option<Box<dyn Fn(salsa::Event) + Send + Sync>>,
     ) -> Result<Self> {
+        Self::with_shared_events(inputs, limits, event.map(Arc::from))
+    }
+    fn with_shared_events(
+        inputs: CompilerContext,
+        limits: WorkspaceLimits,
+        events: Option<CompilerEvents>,
+    ) -> Result<Self> {
         pse_math::initialize()?;
         validate(&inputs, limits)?;
+        let callback = events.clone();
         let mut db = CompilerDatabase {
-            storage: salsa::Storage::new(event),
+            storage: salsa::Storage::new(Some(Box::new(move |event| {
+                observe_query_event(&event);
+                if let Some(callback) = &callback {
+                    callback(event);
+                }
+            }))),
             cancel: Arc::default(),
             projection_scratch_limit: limits.input_bytes,
             body_retention: None,
@@ -1320,6 +1372,7 @@ impl CompilerWorkspace {
         let inventory = inventory(&db, &inputs, pse_math::context()?.environment.identity());
         configure(&mut db, limits.query_values);
         Ok(Self {
+            events,
             db,
             inventory,
             inputs,
@@ -1335,7 +1388,11 @@ impl CompilerWorkspace {
         let cancelled = self.db.cancellation_token().is_cancelled();
         let worker_cancel = self.db.cancel.clone();
         let generation = self.generation + 1;
-        let mut replacement = Self::new(inputs, self.limits)?;
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("compiler.workspace_rebuilds", "count", 1);
+            context.phase("compiler.workspace_rebuild")
+        });
+        let mut replacement = Self::with_shared_events(inputs, self.limits, self.events.clone())?;
         replacement.db.body_retention = self.db.body_retention.clone();
         if let Some(state) = &self.modeling {
             replacement.publish_modeling_revision(state.revision.clone())?;
@@ -1393,6 +1450,9 @@ impl CompilerWorkspace {
         // A single oversized result may escape in its returned Arc, but is not
         // retained as a memo for the next request. Input admission remains separate.
         if self.retention_exceeded() {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.retention_limit_rotations", "count", 1);
+            }
             self.rebuild(self.inputs.clone())?;
         }
         Ok(())

@@ -930,10 +930,38 @@ queueing in its original request deadline; server guards remain authoritative ac
 stores and processes. No pacing turn spans hydration or native work.
 
 Scoped preparation inherits the enclosing absolute operation clock through its driver and
-independent children; it cannot renew that clock on a basis hit or phase change. An unscoped
-preparation has a separate finite ten-minute loader lifetime. This omission policy changes
-neither individual canonical RPC deadlines nor solver stopping budgets. Preparation expiry
-is a typed time resource limit; native owners remain charged through actual drain.
+hierarchical private children. A parent stops its descendants; a child cannot cancel its
+parent or siblings. The caller clock cannot renew on a basis hit, phase change or retry.
+The consumed `MathPolicy::preparation_limit` (`math_preparation_limit_ms` at deployment)
+supplies the finite omission allowance, defaulting to ten minutes. Each unscoped caller
+establishes its deadline once on entry. A newly created shared frontier/completion producer
+establishes its own service-policy clock, independently of every waiter, covering queueing
+and preparation.
+Waiters retain their original clocks and cancellation; their departure cannot stop another
+valid waiter. Producer expiry remains distinct from caller expiry through typed failures.
+No automatic retry renews a clock or overlaps a retiring producer. `admission_wait` stays
+admission-only; these preparation clocks do not alter SDK or solver stopping budgets.
+
+Compiler exclusion is acquired cancellably under the existing bounded population ticket
+before active CPU/native dispatch. That same ticket transfers workspace authority into the
+worker and retains its permit and generation storage through actual thread/TLS join. Head
+comparison, publication and use remain coherent under one writer. Historical/branch work
+releases live-lane authority before acquiring a separately charged private workspace; it
+neither rewinds the head nor waits recursively for the same permit. No second scheduler or
+population ticket is introduced.
+
+Selected import lookup consumes maintained declaration-ordered root buckets after the same
+completeness checks. Immutable specialization owns its reusable lexical bases; current
+arguments, values, reader refinements and finite functions remain occurrence-local borrowed
+overlays. Mutable admission has no retained owner-only type cache. Function admission borrows
+the original checked package and current finite-function owner through one resolution view.
+Selected function assembly constructs only required complete bodies and their demanded
+products, preserving contribution sums, source row order and requested coordinate order.
+The complete coordinate universe and selected projection's original meaning survive; an
+already-needed broader plan can supply the same projection. Observation preparation carries
+the exact keyed structure into construction, and grouped outputs share projection lookup
+while their local bindings, normalization and attribution remain separate. Bounded diagnostics
+observe actual construction and examination, without extra scientific evaluation.
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 

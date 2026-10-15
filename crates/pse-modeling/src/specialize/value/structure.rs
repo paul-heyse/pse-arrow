@@ -25,6 +25,7 @@ impl Evaluator<'_, '_> {
         let evaluate =
             |at, env: &Environment, role: &str, position: usize, expected: Option<&Type>| {
                 Evaluator {
+                    lexical_bases: self.lexical_bases,
                     package: self.package,
                     physical: self.physical,
                     at,
@@ -50,6 +51,7 @@ impl Evaluator<'_, '_> {
             };
             bindings.extend(arguments.clone());
             return Evaluator {
+                lexical_bases: self.lexical_bases,
                 package: self.package,
                 physical: self.physical,
                 at: definition,
@@ -82,7 +84,13 @@ impl Evaluator<'_, '_> {
             .filter(|(n, _)| crate::analysis::Fact::namespace_of(n).is_some())
             .map(|(n, v)| (n.clone(), v.clone()))
             .collect::<Environment>();
-        let names = self.package.named_types(definition);
+        let names = self
+            .lexical_bases
+            .filter(|_| !matches!(self.reader, crate::provenance::Reader::Admission(_)))
+            .map_or_else(
+                || std::sync::Arc::new(self.package.named_types(definition)),
+                |bases| bases.evaluation(self.package, definition),
+            );
         let vars = BTreeSet::new();
         let declared = contract
             .parameters
@@ -108,9 +116,9 @@ impl Evaluator<'_, '_> {
             let mut next = Vec::new();
             let mut failure = None;
             for (position, parameter) in pending {
-                let ty = self
-                    .physical
-                    .resolve(&parameter.r#type, &vars, &names, definition)?;
+                let ty =
+                    self.physical
+                        .resolve(&parameter.r#type, &vars, names.as_ref(), definition)?;
                 let _source = parameter.default_value.as_deref().ok_or_else(|| {
                     invalid(definition, format!("missing argument {}", parameter.name))
                 })?;
@@ -140,7 +148,7 @@ impl Evaluator<'_, '_> {
         for parameter in &contract.parameters {
             let ty = self
                 .physical
-                .resolve(&parameter.r#type, &vars, &names, definition)?;
+                .resolve(&parameter.r#type, &vars, names.as_ref(), definition)?;
             if !conforms(&env[&parameter.name], &ty, self.package) {
                 return Err(invalid(definition, "binding complete type differs"));
             }

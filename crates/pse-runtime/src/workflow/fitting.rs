@@ -668,3 +668,56 @@ impl PreparedFit {
         &self.problem.snapshot
     }
 }
+
+// Copy only already-produced scientific availability. Inspection never computes
+// covariance, response condition, a profile point or an original check.
+fn observe_report(report: &FitReport) {
+    let Some(context) = pse_diagnostics::observation::current() else {
+        return;
+    };
+    context.boolean("fit.candidate_available", report.candidate.is_some());
+    context.boolean("fit.original_checks_complete", report.checks_complete);
+    context.boolean("fit.validation_failed", report.validation_error.is_some());
+    context.boolean("fit.responses_available", report.responses.is_some());
+    if let Some(rank) = report.rank {
+        context.gauge("fit.response_rank", "rank", rank as f64);
+    } else {
+        context.unavailable("fit.response_rank", "no qualified rank was produced");
+    }
+    if let Some(diagnostic) = &report.diagnostic {
+        context.text("fit.diagnostic_rule", diagnostic.rule.as_str());
+    } else {
+        context.text("fit.diagnostic_rule", "none");
+    }
+    match &report.covariance {
+        Some(covariance) => match &covariance.values {
+            Ok(_) => {
+                context.text("fit.covariance_status", "available");
+                context.text("fit.covariance_withheld_reason", "none");
+            }
+            Err(withheld) => {
+                context.text("fit.covariance_status", "withheld");
+                context.text(
+                    "fit.covariance_withheld_reason",
+                    &format!("{:?}", withheld.reason()),
+                );
+            }
+        },
+        None => context.unavailable("fit.covariance_status", "no covariance was produced"),
+    }
+    match &report.profiles {
+        Some(Ok(chains)) => {
+            context.text("fit.profiles_status", "produced");
+            context.text("fit.profiles_withheld_reason", "none");
+            context.gauge("fit.profile_chains", "count", chains.len() as f64);
+        }
+        Some(Err(withheld)) => {
+            context.text("fit.profiles_status", "withheld");
+            context.text(
+                "fit.profiles_withheld_reason",
+                &format!("{:?}", withheld.reason()),
+            );
+        }
+        None => context.unavailable("fit.profiles_status", "no profile chains were produced"),
+    }
+}

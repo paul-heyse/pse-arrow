@@ -10,6 +10,7 @@ import pytest
 
 import pse
 from pse import codec
+from pse.conformance import RunSettings, run_once
 from pse.contracts import documents, values
 from pse.contracts.enums import (
     AttemptState,
@@ -289,4 +290,43 @@ def test_generated_duration_retains_standard_fields_and_refuses_unknown_fields()
     with pytest.raises(msgspec.ValidationError):
         codec.decode_json(
             b'{"time_limit":{"secs":-1,"nanos":0}}', documents.InitializationOverrides
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("milliseconds", [None, 75])
+def test_preparation_producer_allowance_uses_native_defaults_and_explicit_override(
+    tmp_path: Path, milliseconds: int | None
+) -> None:
+    settings = pse.EngineSettings(
+        memory_limit_bytes=256 << 20,
+        threads=1,
+        spill_dir=str(tmp_path),
+        max_spill_bytes=1 << 30,
+        batch_size=128,
+        math_preparation_limit_ms=milliseconds,
+    )
+    assert settings.math_preparation_limit_ms == (
+        600_000 if milliseconds is None else milliseconds
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("pure", [True, False])
+def test_conformance_forwards_preparation_allowance_before_acquiring_scientific_inputs(
+    tmp_path: Path, pure: bool
+) -> None:
+    # The native settings owner must reject the allowance before either route
+    # reads an absent model or opens a substrate.
+    with pytest.raises(pse.InspectionError, match="math allowances"):
+        run_once(
+            "invalid-preparation-allowance",
+            tmp_path / "absent-package",
+            (),
+            tmp_path / "absent-physical",
+            pure=pure,
+            settings=RunSettings(
+                memory_limit_bytes=256 << 20, math_preparation_limit_ms=0
+            ),
+            report=None,
         )

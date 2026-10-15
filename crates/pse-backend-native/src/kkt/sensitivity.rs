@@ -168,6 +168,34 @@ impl std::fmt::Display for Withheld {
     }
 }
 
+fn availability<T>(quantity: &str, result: &Result<T, Withheld>) {
+    let Some(context) = pse_diagnostics::observation::current() else {
+        return;
+    };
+    context.boolean(&format!("{quantity}.available"), result.is_ok());
+    let reason = match result {
+        Ok(_) => "none",
+        Err(Withheld::NoCandidate) => "no_candidate",
+        Err(Withheld::Multipliers) => "multipliers",
+        Err(Withheld::Complementarity) => "complementarity",
+        Err(Withheld::Unqualified(_)) => "unqualified",
+        Err(Withheld::Analysis(_)) => "analysis_unavailable",
+        Err(Withheld::Licq { .. }) => "licq",
+        Err(Withheld::WeaklyActive { .. }) => "weakly_active",
+        Err(Withheld::SecondOrder(_)) => "second_order",
+        Err(Withheld::Backsolve) => "backsolve",
+    };
+    context.text(&format!("{quantity}.withheld_reason"), reason);
+}
+
+fn quantity<T>(name: &str, work: impl FnOnce() -> Result<T, Withheld>) -> Result<T, Withheld> {
+    crate::observation::operation(name, || {
+        let result = work();
+        availability(name, &result);
+        result
+    })
+}
+
 /// Parametric sensitivities at the candidate, one vector per parameter in request order,
 /// in original physical units per parameter unit.
 #[derive(Clone, Debug, PartialEq)]
@@ -262,6 +290,20 @@ pub(crate) fn derive(
     sense: ObjectiveSense,
     budget: Budget,
 ) -> Option<super::Advance> {
+    let context = pse_diagnostics::observation::current();
+    let _phase = context
+        .as_ref()
+        .map(|context| context.phase("sensitivity.derive"));
+    crate::observation::count("sensitivity.derive.calls", 1);
+    crate::observation::integer(
+        "sensitivity.parameters",
+        "structural_count",
+        i64::try_from(request.parameters.len()).unwrap_or(i64::MAX),
+    );
+    crate::observation::boolean(
+        "sensitivity.reduced_hessian.requested",
+        request.reduced_hessian,
+    );
     let parameters: Vec<SemanticId> = request.parameters.iter().map(|(id, _)| *id).collect();
     let values = request.parameters.clone();
     let source = request.source;
@@ -288,6 +330,18 @@ pub(crate) fn derive(
         Ok((sensitivities, hessian)) => (Ok(sensitivities), hessian),
         Err(withheld) => (Err(withheld.clone()), reduced.then_some(Err(withheld))),
     };
+    availability("sensitivity.parametric", &sensitivities);
+    if let Some(result) = &reduced_hessian {
+        availability("sensitivity.reduced_hessian", result);
+    } else {
+        crate::observation::unavailable("sensitivity.reduced_hessian.available", "not requested");
+        if let Some(context) = &context {
+            context.text(
+                "sensitivity.reduced_hessian.withheld_reason",
+                "not_requested",
+            );
+        }
+    }
     report.evidence.sensitivity = Some(Parametric {
         parameters,
         point,
@@ -473,7 +527,14 @@ pub(crate) fn invert(
     columns: &[OriginalCol],
     sense: ObjectiveSense,
 ) {
-    let result = inverse(report, factor, columns, sense);
+    let result = quantity("sensitivity.inverse_reduced_hessian", || {
+        crate::observation::integer(
+            "selected_columns",
+            "structural_count",
+            i64::try_from(columns.len()).unwrap_or(i64::MAX),
+        );
+        inverse(report, factor, columns, sense)
+    });
     report.evidence.inverse_reduced_hessian = Some(result);
 }
 
@@ -513,7 +574,14 @@ fn inverse(
         },
     );
     let mut raw = vec![0.0; k * k];
-    if !app.compute_reduced_hessian(&mut raw) || raw.iter().any(|v| !v.is_finite()) {
+    crate::observation::unavailable(
+        "sensitivity.inverse_reduced_hessian.current_rhs_index",
+        "library owns selected-column RHS loop; no per-RHS index hook",
+    );
+    if !crate::observation::scoped("sensitivity.inverse_reduced_hessian.schur_action", || {
+        app.compute_reduced_hessian(&mut raw)
+    }) || raw.iter().any(|v| !v.is_finite())
+    {
         return Err(Withheld::Backsolve);
     }
     // Over x rows the Schur reduction returns B·K̃⁻¹·Bᵀ itself (column-major, symmetric)
@@ -578,58 +646,73 @@ fn compute(
     reduced: bool,
     sense: ObjectiveSense,
 ) -> Result<(Sensitivities, Option<Result<ReducedHessian, Withheld>>), Withheld> {
-    let layout = factor.layout();
-    let (n, m, np) = (report.variables.len(), report.rows.len(), multipliers.len());
-    let pins = pin_rows(factor, n, np).ok_or_else(|| {
-        Withheld::Analysis(Unavailable::from(ProblemError::internal(
-            "a pin is not a row of the KKT system",
-        )))
-    })?;
-    let selector =
-        || IndexSchurData::from_parts(pins.clone(), vec![-1; np]).map_err(|_| Withheld::Backsolve);
-    let sign = sense.sign();
-    let steps = SensApplication::new(
-        selector()?,
-        factor.clone(),
-        SensOptions {
-            run_sens: true,
-            ..SensOptions::default()
-        },
-    );
-    let mut sensitivities = Sensitivities {
-        primal: Vec::with_capacity(np),
-        bounds: Vec::with_capacity(np),
-        rows: Vec::with_capacity(np),
-        objective: multipliers.iter().map(|v| sign * v).collect(),
-    };
-    let mut delta = vec![0.0; np];
-    let mut step = vec![0.0; layout.dim()];
-    for k in 0..np {
-        delta.fill(0.0);
-        delta[k] = 1.0;
-        if !steps.parametric_step(&delta, &mut step) {
-            return Err(Withheld::Backsolve);
-        }
-        sensitivities.primal.push(step[..n].to_vec());
-        // Layout `[x; active rows; active bounds]`: every inactive multiplier stays zero.
-        let mut rows = vec![0.0; m];
-        for (k, (r, _)) in layout.rows.iter().enumerate() {
-            rows[r.get()] = step[layout.variables + k];
-        }
-        sensitivities.rows.push(rows);
-        let base = layout.variables + layout.rows.len();
-        let mut bounds = vec![0.0; n];
-        for (k, (j, side)) in layout.bounds.iter().enumerate() {
-            if j.get() < n {
-                // The row carries z_L for a lower bound or a pin and z_U for an upper one.
-                let dz = step[base + k];
-                bounds[j.get()] = if *side == Side::Upper { -dz } else { dz };
+    quantity("sensitivity.compute", || {
+        let layout = factor.layout();
+        let (n, m, np) = (report.variables.len(), report.rows.len(), multipliers.len());
+        let pins = pin_rows(factor, n, np).ok_or_else(|| {
+            Withheld::Analysis(Unavailable::from(ProblemError::internal(
+                "a pin is not a row of the KKT system",
+            )))
+        })?;
+        let selector = || {
+            IndexSchurData::from_parts(pins.clone(), vec![-1; np]).map_err(|_| Withheld::Backsolve)
+        };
+        let sign = sense.sign();
+        let steps = SensApplication::new(
+            selector()?,
+            factor.clone(),
+            SensOptions {
+                run_sens: true,
+                ..SensOptions::default()
+            },
+        );
+        let mut sensitivities = Sensitivities {
+            primal: Vec::with_capacity(np),
+            bounds: Vec::with_capacity(np),
+            rows: Vec::with_capacity(np),
+            objective: multipliers.iter().map(|v| sign * v).collect(),
+        };
+        let mut delta = vec![0.0; np];
+        let mut step = vec![0.0; layout.dim()];
+        for k in 0..np {
+            delta.fill(0.0);
+            delta[k] = 1.0;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.integer(
+                    "sensitivity.current_parameter_index",
+                    "ordinal",
+                    i64::try_from(k).unwrap_or(i64::MAX),
+                );
+                if let Some(parameter) = factor.variables.get(n + k) {
+                    context.source_ref("sensitivity.current_parameter", parameter.as_bytes());
+                }
             }
+            if !crate::observation::scoped("sensitivity.parameter_rhs", || {
+                steps.parametric_step(&delta, &mut step)
+            }) {
+                return Err(Withheld::Backsolve);
+            }
+            sensitivities.primal.push(step[..n].to_vec());
+            // Layout `[x; active rows; active bounds]`: every inactive multiplier stays zero.
+            let mut rows = vec![0.0; m];
+            for (k, (r, _)) in layout.rows.iter().enumerate() {
+                rows[r.get()] = step[layout.variables + k];
+            }
+            sensitivities.rows.push(rows);
+            let base = layout.variables + layout.rows.len();
+            let mut bounds = vec![0.0; n];
+            for (k, (j, side)) in layout.bounds.iter().enumerate() {
+                if j.get() < n {
+                    // The row carries z_L for a lower bound or a pin and z_U for an upper one.
+                    let dz = step[base + k];
+                    bounds[j.get()] = if *side == Side::Upper { -dz } else { dz };
+                }
+            }
+            sensitivities.bounds.push(bounds);
         }
-        sensitivities.bounds.push(bounds);
-    }
-    let hessian = reduced.then(|| reduced_hessian(factor, selector, sign, np));
-    Ok((sensitivities, hessian))
+        let hessian = reduced.then(|| reduced_hessian(factor, selector, sign, np));
+        Ok((sensitivities, hessian))
+    })
 }
 
 /// The reduced Hessian over the pins from the normalized factor, mapped to physical units.
@@ -639,54 +722,61 @@ fn reduced_hessian(
     sign: f64,
     np: usize,
 ) -> Result<ReducedHessian, Withheld> {
-    let mut app = SensApplication::new(
-        selector()?,
-        factor.normalized(),
-        SensOptions {
-            compute_red_hessian: true,
-            rh_eigendecomp: true,
-            ..SensOptions::default()
-        },
-    );
-    let (mut raw, mut w, mut v) = (vec![0.0; np * np], vec![0.0; np], vec![0.0; np * np]);
-    if !app.compute_reduced_hessian_eigen(&mut raw, &mut w, &mut v)
-        || raw.iter().chain(&w).chain(&v).any(|x| !x.is_finite())
-    {
-        return Err(Withheld::Backsolve);
-    }
-    // gh#937: over the pin rows the Schur reduction returns −Ĥ in the minimization
-    // convention; the authored sense multiplies by the objective's sign.
-    let orient = -sign;
-    let normalized: Vec<f64> = (0..np * np)
-        .map(|index| orient * raw[(index % np) * np + index / np])
-        .collect();
-    // Negation keeps the eigenvectors and maps each eigenvalue w to orient·w.
-    let mut order: Vec<usize> = (0..np).collect();
-    order.sort_by(|a, b| (orient * w[*a]).total_cmp(&(orient * w[*b])));
-    let eigenvalues = order.iter().map(|k| orient * w[*k]).collect();
-    let eigenvectors = order
-        .iter()
-        .flat_map(|k| v[k * np..(k + 1) * np].iter().copied())
-        .collect();
-    // Ĥ = S_p·H·S_p / S_f, so H = S_f·Ĥ / (S_p·S_p) through the normalization.
-    let first = factor.layout().variables - np;
-    let coordinate_scales: Vec<f64> = (0..np)
-        .map(|k| factor.column_scale(OriginalCol::new(first + k)))
-        .collect();
-    let objective_scale = factor.objective_scale();
-    let values = (0..np * np)
-        .map(|index| {
-            let (i, j) = (index / np, index % np);
-            normalized[index] * objective_scale / (coordinate_scales[i] * coordinate_scales[j])
+    quantity("sensitivity.reduced_hessian", || {
+        let mut app = SensApplication::new(
+            selector()?,
+            factor.normalized(),
+            SensOptions {
+                compute_red_hessian: true,
+                rh_eigendecomp: true,
+                ..SensOptions::default()
+            },
+        );
+        let (mut raw, mut w, mut v) = (vec![0.0; np * np], vec![0.0; np], vec![0.0; np * np]);
+        crate::observation::unavailable(
+            "sensitivity.reduced_hessian.current_rhs_index",
+            "library owns selected-pin RHS loop; no per-RHS index hook",
+        );
+        if !crate::observation::scoped("sensitivity.reduced_hessian.schur_eigen_action", || {
+            app.compute_reduced_hessian_eigen(&mut raw, &mut w, &mut v)
+        }) || raw.iter().chain(&w).chain(&v).any(|x| !x.is_finite())
+        {
+            return Err(Withheld::Backsolve);
+        }
+        // gh#937: over the pin rows the Schur reduction returns −Ĥ in the minimization
+        // convention; the authored sense multiplies by the objective's sign.
+        let orient = -sign;
+        let normalized: Vec<f64> = (0..np * np)
+            .map(|index| orient * raw[(index % np) * np + index / np])
+            .collect();
+        // Negation keeps the eigenvectors and maps each eigenvalue w to orient·w.
+        let mut order: Vec<usize> = (0..np).collect();
+        order.sort_by(|a, b| (orient * w[*a]).total_cmp(&(orient * w[*b])));
+        let eigenvalues = order.iter().map(|k| orient * w[*k]).collect();
+        let eigenvectors = order
+            .iter()
+            .flat_map(|k| v[k * np..(k + 1) * np].iter().copied())
+            .collect();
+        // Ĥ = S_p·H·S_p / S_f, so H = S_f·Ĥ / (S_p·S_p) through the normalization.
+        let first = factor.layout().variables - np;
+        let coordinate_scales: Vec<f64> = (0..np)
+            .map(|k| factor.column_scale(OriginalCol::new(first + k)))
+            .collect();
+        let objective_scale = factor.objective_scale();
+        let values = (0..np * np)
+            .map(|index| {
+                let (i, j) = (index / np, index % np);
+                normalized[index] * objective_scale / (coordinate_scales[i] * coordinate_scales[j])
+            })
+            .collect();
+        Ok(ReducedHessian {
+            values,
+            normalized,
+            eigenvalues,
+            eigenvectors,
+            coordinate_scales,
+            objective_scale,
         })
-        .collect();
-    Ok(ReducedHessian {
-        values,
-        normalized,
-        eigenvalues,
-        eigenvectors,
-        coordinate_scales,
-        objective_scale,
     })
 }
 

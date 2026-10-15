@@ -1230,19 +1230,27 @@ impl OwnedComputationStream {
             path: "operation.stream".to_owned(),
             reason: "stream already failed".to_owned(),
         })?;
-        let next = tokio::select! {
+        let mut settling = false;
+        let next = loop {
+            self.capture.checkpoint();
+            let next = tokio::select! {
                 biased;
                 next = std::future::poll_fn(|cx| stream.as_mut().poll_next(cx)) => next,
-                () = cancel.cancelled() => {
+                () = tokio::time::sleep(std::time::Duration::from_millis(250)), if self.observation.is_captured() => continue,
+                () = cancel.cancelled(), if !settling => {
                     if let Some(services) = self.state.config().get_extension::<super::execution::NativeExecutionContext>()
                         && services.must_settle() {
                         // Pull cancellation may differ from execution cancellation.
                         // Signal this invocation before waiting for its terminal data.
                         services.cancellation().cancel();
-                        std::future::poll_fn(|cx| stream.as_mut().poll_next(cx)).await
+                        settling = true;
+                        continue;
                     } else { cancel.checkpoint()?; unreachable_cancel()? }
                 },
+            };
+            break next;
         };
+        self.capture.checkpoint();
         unchanged_namespace(&self.prepared)?;
         let Some(batch) = next else {
             if !self.must_settle() {

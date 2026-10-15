@@ -450,6 +450,104 @@ impl RawMapCapture {
             inner_branch: self.inner.branch,
             inner_accuracy: self.inner.accuracy,
         });
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.integer(
+                "kinsol.raw_map.ordinal",
+                "ordinal",
+                i64::try_from(sample.ordinal).unwrap_or(i64::MAX),
+            );
+            context.text("kinsol.raw_map.role", &format!("{:?}", sample.role));
+            context.text("kinsol.raw_map.failure", &format!("{:?}", sample.failure));
+            context.text(
+                "kinsol.raw_map.inner_context",
+                &format!("{:?}", sample.inner_context),
+            );
+            context.boolean("kinsol.raw_map.successful_map", successful_map);
+            context.boolean("kinsol.raw_map.coordinate_prefix_partial", sample.partial);
+            context.text(
+                "kinsol.raw_map.coordinates",
+                &format!("{:?}", sample.coordinates),
+            );
+            // Residuals can have different physical units, so never collapse them
+            // into a dimensionful norm. Copy four source-associated scalar slots.
+            let scalar_coordinates = sample.values.len().min(4);
+            context.boolean(
+                "kinsol.raw_map.scalar_prefix_partial",
+                scalar_coordinates < sample.total_coordinates,
+            );
+            context.integer(
+                "kinsol.raw_map.captured_prefix.coordinates",
+                "count",
+                i64::try_from(sample.values.len()).unwrap_or(i64::MAX),
+            );
+            for (index, coordinate) in sample.values.iter().take(scalar_coordinates).enumerate() {
+                let prefix = format!("kinsol.raw_map.scalar.{index}");
+                context.source_ref(
+                    &format!("{prefix}.variable"),
+                    coordinate.variable.as_bytes(),
+                );
+                context.source_ref(&format!("{prefix}.row"), coordinate.row.as_bytes());
+                for (name, value, unit) in [
+                    ("residual", coordinate.residual, "source_coordinate"),
+                    (
+                        "physical_error_ratio",
+                        coordinate.physical_error_ratio,
+                        "ratio",
+                    ),
+                ] {
+                    if let Some(value) = value {
+                        context.gauge(&format!("{prefix}.{name}"), unit, value);
+                    } else {
+                        context.unavailable(&format!("{prefix}.{name}"), "latest source sample supplied no value; failed/inapplicable is distinct from zero");
+                    }
+                }
+            }
+            // Ratios are dimensionless and may be compared across physical tear
+            // coordinates. This maximum covers only the already captured prefix.
+            let ratio = sample
+                .values
+                .iter()
+                .filter_map(|coordinate| coordinate.physical_error_ratio)
+                .reduce(|a, b| {
+                    if a.is_nan() || b.is_nan() {
+                        f64::NAN
+                    } else {
+                        a.max(b)
+                    }
+                });
+            if let Some(ratio) = ratio {
+                context.gauge(
+                    "kinsol.raw_map.captured_prefix.max_physical_error_ratio",
+                    "ratio",
+                    ratio,
+                );
+            } else {
+                context.unavailable(
+                    "kinsol.raw_map.captured_prefix.max_physical_error_ratio",
+                    "no physical error ratio supplied for latest captured prefix",
+                );
+            }
+            if let Some(tolerance) = sample.inner_tolerance {
+                context.gauge("kinsol.raw_map.inner_tolerance", "native", tolerance);
+            } else {
+                context.unavailable(
+                    "kinsol.raw_map.inner_tolerance",
+                    "not supplied by inner owner",
+                );
+            }
+            for (name, reference) in [
+                ("start", sample.inner_start),
+                ("branch", sample.inner_branch),
+                ("accuracy", sample.inner_accuracy),
+            ] {
+                if let Some(reference) = reference {
+                    context.source_ref(
+                        &format!("kinsol.raw_map.inner_{name}"),
+                        reference.as_bytes(),
+                    );
+                }
+            }
+        }
         if successful_map {
             self.history.last_successful = Some(sample.clone());
         }
@@ -468,6 +566,10 @@ mod tests {
     use super::*;
     #[test]
     fn raw_map_context_survives_truncation_and_failed_latest_sample() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("raw-map-failure");
+        let _entered = operation.context().enter();
         let contract = crate::solver_tests::contract();
         let context = RawMapInnerContext {
             kind: RawMapContextKind::Frozen,
@@ -492,6 +594,51 @@ mod tests {
             None,
             RawMapRole::FixedPointEvaluation,
             Some(RawMapFailure::Trial),
+        );
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.successful_map")
+                .unwrap()
+                .latest,
+            Value::Boolean(false)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.failure")
+                .unwrap()
+                .latest,
+            Value::Text("Some(Trial)".into())
+        );
+        assert!(matches!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.scalar.0.residual")
+                .unwrap()
+                .latest,
+            Value::Unavailable(_)
+        ));
+        assert!(matches!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.captured_prefix.max_physical_error_ratio")
+                .unwrap()
+                .latest,
+            Value::Unavailable(_)
+        ));
+        assert!(
+            snapshot
+                .sources
+                .iter()
+                .any(|source| source.name == "kinsol.raw_map.inner_branch")
         );
         let history = capture.finish();
         assert_eq!(history.omitted, 2);
@@ -562,6 +709,10 @@ mod tests {
     }
     #[test]
     fn raw_map_capture_marks_partial_coordinates_and_unknown_physical_authority() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("raw-map-partial-scalars");
+        let _entered = operation.context().enter();
         let mut contract = crate::solver_tests::contract();
         contract.variables = vec![contract.variables[0].clone(); 1000];
         contract.rows = vec![contract.rows[0]; 1000];
@@ -583,9 +734,99 @@ mod tests {
         assert_eq!(last.values.len(), SAMPLE_COORDINATES);
         assert_eq!(last.values[0].physical_tolerance, None);
         assert_eq!(last.values[0].physical_error_ratio, None);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.scalar.0.residual")
+                .unwrap()
+                .latest,
+            Value::Number(1.0)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.scalar_prefix_partial")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
+        );
+        assert!(matches!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.captured_prefix.max_physical_error_ratio")
+                .unwrap()
+                .latest,
+            Value::Unavailable(_)
+        ));
+    }
+    #[test]
+    fn raw_map_ratio_maximum_covers_only_retained_coordinates() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("raw-map-prefix-ratio");
+        let _entered = operation.context().enter();
+        let mut contract = crate::solver_tests::contract();
+        let dimension = SAMPLE_COORDINATES + 1;
+        contract.variables = vec![contract.variables[0].clone(); dimension];
+        contract.rows = vec![contract.rows[0]; dimension];
+        let inputs = vec![0.0; dimension];
+        let mut outputs = vec![2.0; dimension];
+        outputs[SAMPLE_COORDINATES - 1] = 7.0;
+        outputs[SAMPLE_COORDINATES] = 1000.0;
+        let mut capture =
+            RawMapCapture::new(&contract, contract.identity, 0, true, &vec![0.5; dimension])
+                .unwrap();
+        capture.record(
+            &contract,
+            &inputs,
+            Some(&outputs),
+            RawMapRole::FixedPointEvaluation,
+            None,
+        );
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let metric = |name: &str| {
+            &snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap()
+                .latest
+        };
+        assert_eq!(
+            metric("kinsol.raw_map.captured_prefix.max_physical_error_ratio"),
+            &Value::Number(14.0)
+        );
+        assert_eq!(
+            metric("kinsol.raw_map.coordinate_prefix_partial"),
+            &Value::Boolean(true)
+        );
+        assert_eq!(
+            metric("kinsol.raw_map.scalar_prefix_partial"),
+            &Value::Boolean(true)
+        );
+        assert_eq!(
+            metric("kinsol.raw_map.captured_prefix.coordinates"),
+            &Value::Integer(SAMPLE_COORDINATES as i64)
+        );
+        assert_eq!(
+            metric("kinsol.raw_map.scalar.0.physical_error_ratio"),
+            &Value::Number(4.0)
+        );
     }
     #[test]
     fn raw_map_capture_preserves_nonfinite_observations_in_json() {
+        use pse_diagnostics::observation::{NonFinite, ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("raw-map-nonfinite-scalars");
+        let _entered = operation.context().enter();
         let contract = crate::solver_tests::contract();
         let mut capture = RawMapCapture::new(&contract, contract.identity, 1, true, &[1.]).unwrap();
         capture.record(
@@ -608,6 +849,27 @@ mod tests {
         assert_eq!(
             value["samples"][0]["values"][0]["physical_error_ratio"]["kind"],
             "nonfinite"
+        );
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.scalar.0.residual")
+                .unwrap()
+                .latest,
+            Value::NonFinite(NonFinite::NegativeInfinity)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "kinsol.raw_map.captured_prefix.max_physical_error_ratio")
+                .unwrap()
+                .latest,
+            Value::NonFinite(NonFinite::PositiveInfinity)
         );
     }
     #[test]

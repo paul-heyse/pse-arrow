@@ -324,6 +324,10 @@ impl PreparedSupport {
         outputs: &[usize],
         cancel: &Arc<AtomicBool>,
     ) -> Result<Self, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.support_output_selections", "count", 1);
+            context.phase("math.support_output_selection")
+        });
         let construction = tracing::info_span!(
             "pse.case.support_selection",
             product = "support_selection",
@@ -664,6 +668,10 @@ impl PreparedSupport {
         limits: EvaluationLimits,
         cancel: &Arc<AtomicBool>,
     ) -> Result<library::ScalarProducts, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.scalar_preparation_calls", "count", 1);
+            context.phase("math.scalar_preparation")
+        });
         limits.check()?;
         fn collect(
             stages: &[Stage],
@@ -744,6 +752,9 @@ impl PreparedSupport {
         )?;
         if cancel.load(Ordering::Acquire) {
             return Err(MathError::Cancelled);
+        }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.scalar_preparation_completed", "count", 1);
         }
         Ok(cache.freeze())
     }
@@ -1181,6 +1192,10 @@ impl PreparedBody {
         stages: Vec<Stage>,
         remaining: &mut usize,
     ) -> Result<Self, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.prepared_body_constructions", "count", 1);
+            context.phase("math.prepared_body_construction")
+        });
         if slots == 0 || inputs > slots || outputs.is_empty() || outputs.iter().any(|&i| i >= slots)
         {
             return Err(MathError::Contract("prepared body layout".into()));
@@ -1341,6 +1356,20 @@ impl PreparedBody {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedSupport, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.support_preparation_calls", "count", 1);
+            context.gauge(
+                "math.support_selected_outputs",
+                "count",
+                outputs.len() as f64,
+            );
+            context.gauge(
+                "math.support_selected_coordinates",
+                "count",
+                coordinates.len() as f64,
+            );
+            context.phase("math.support_preparation")
+        });
         self.check_selection(outputs, coordinates)?;
         if cancel.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
@@ -1367,6 +1396,9 @@ impl PreparedBody {
             outputs,
             coordinates,
         );
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.support_preparation_completed", "count", 1);
+        }
         Ok(support)
     }
     /// Conservative all-branch incidence, including opaque value-only providers.
@@ -1386,6 +1418,10 @@ impl PreparedBody {
         mut remaining: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedSupport, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.support_constructions", "count", 1);
+            context.phase("math.support_construction")
+        });
         let construction = tracing::info_span!(
             "pse.case.support_construction",
             product = "support",
@@ -1487,6 +1523,14 @@ impl PreparedBody {
         let derivative_operations = allowance.derivatives;
         construction.record("success", true);
         construction.record("derivative_operations", derivative_operations as u64);
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.support_constructions_completed", "count", 1);
+            context.count(
+                "math.completed_support_derivative_calls",
+                "calls",
+                derivative_operations as u64,
+            );
+        }
         Ok(PreparedSupport {
             data: Arc::new(PreparedSupportData {
                 body: self.clone(),
@@ -1825,6 +1869,14 @@ impl PreparedBody {
     pub fn expression(&self, output: usize) -> Option<&Atom> {
         self.expressions.get(output).and_then(Option::as_ref)
     }
+    /// Resolve a retained expression symbol through the admitted input layout. This is
+    /// a storage offset, including compact layouts, never a library registration ordinal.
+    pub(crate) fn input_slot(&self, symbol: Symbol) -> Option<usize> {
+        self.symbols
+            .get(&symbol)
+            .copied()
+            .filter(|&slot| slot < self.inputs)
+    }
     /// Whether coefficient views must retain a domain/control obligation.
     pub fn has_obligations(&self) -> bool {
         has_obligations(&self.stages)
@@ -1900,6 +1952,20 @@ impl PreparedBody {
         prepared_support: &PreparedSupport,
         retained_scalars: Option<&library::ScalarProducts>,
     ) -> Result<CompiledBody, MathError> {
+        let _phase = pse_diagnostics::observation::current().map(|context| {
+            context.count("math.compiled_body_constructions", "count", 1);
+            context.gauge(
+                "math.compiled_selected_outputs",
+                "count",
+                outputs.len() as f64,
+            );
+            context.gauge(
+                "math.compiled_selected_coordinates",
+                "count",
+                coordinates.len() as f64,
+            );
+            context.phase("math.compiled_body_construction")
+        });
         let construction = tracing::info_span!(
             "pse.case.compiled_body_construction",
             product = "compiled_artifact",
@@ -1969,6 +2035,15 @@ impl PreparedBody {
         .filter(|requested| {
             *requested <= order && (!directional || *requested == DerivativeOrder::First)
         }) {
+            let _order_phase = pse_diagnostics::observation::current().map(|context| {
+                context.count("math.compiled_order_constructions", "count", 1);
+                context.gauge(
+                    "math.compiled_derivative_order",
+                    "order",
+                    requested as u8 as f64,
+                );
+                context.phase("math.compiled_order_construction")
+            });
             let order_construction = tracing::info_span!(
                 "pse.case.compiled_order_construction",
                 product = "compiled_order",
@@ -2054,6 +2129,9 @@ impl PreparedBody {
             layouts[requested] = Some(layout);
             programs[requested] = Some(program);
             order_construction.record("success", true);
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("math.compiled_order_constructions_completed", "count", 1);
+            }
         }
         let evidence_bytes = applicability_extent(&stages)
             .saturating_mul(4)
@@ -2143,6 +2221,9 @@ impl PreparedBody {
             scalar_builds,
         };
         construction.record("success", true);
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.compiled_body_constructions_completed", "count", 1);
+        }
         Ok(compiled)
     }
 }
@@ -2774,7 +2855,18 @@ impl Worker {
             self.frame.resize(entries, f64::NAN);
         }
         if self.programs[order].is_none() {
+            let _phase = pse_diagnostics::observation::current().map(|context| {
+                context.count("math.evaluator_template_instantiations", "count", 1);
+                context.phase("math.evaluator_template_instantiation")
+            });
             self.programs[order] = Some(template.clone());
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count(
+                    "math.evaluator_template_instantiations_completed",
+                    "count",
+                    1,
+                );
+            }
         }
         self.used_bytes = used;
         self.check_scope()
@@ -6580,6 +6672,93 @@ mod compact_tests {
                 .unwrap()
                 .hessians,
             [18.]
+        );
+    }
+
+    #[test]
+    fn observation_counts_actual_preparation_and_lazy_evaluator_instantiation() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let body = analytic_body(4096);
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("math preparation");
+        let context = operation.context();
+        let _entered = context.enter();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let support = body
+            .prepare_support(&[0], &[Y, X], DerivativeOrder::First, &cancel)
+            .unwrap();
+        let scalars = support
+            .prepare_scalars(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        let program = support
+            .compile_reusing(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+                &scalars,
+            )
+            .unwrap();
+        let snapshot = || {
+            context
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60))
+        };
+        let count = |name: &str| {
+            snapshot()
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .map(|metric| metric.cumulative.clone())
+        };
+        assert_eq!(count("math.support_constructions"), Some(Value::Count(1)));
+        assert_eq!(
+            count("math.scalar_preparation_calls"),
+            Some(Value::Count(1))
+        );
+        assert_eq!(
+            count("math.compiled_body_constructions_completed"),
+            Some(Value::Count(1))
+        );
+        assert_eq!(
+            count("math.compiled_order_constructions"),
+            Some(Value::Count(2))
+        );
+        assert_eq!(
+            count("math.scalar_constructions_completed"),
+            Some(Value::Count(1))
+        );
+        assert!(matches!(count("math.scalar_cache_reuses"), Some(Value::Count(n)) if n > 0));
+        assert_eq!(count("math.evaluator_template_instantiations"), None);
+        let mut worker = program.worker();
+        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        assert_eq!(
+            count("math.evaluator_template_instantiations"),
+            Some(Value::Count(1))
+        );
+        worker.prepare_order(DerivativeOrder::First).unwrap();
+        worker.prepare_order(DerivativeOrder::First).unwrap();
+        assert_eq!(
+            count("math.evaluator_template_instantiations_completed"),
+            Some(Value::Count(2))
+        );
+        // Rejection is a preparation attempt, and never starts support construction.
+        assert!(
+            body.prepare_support(&[usize::MAX], &[Y, X], DerivativeOrder::First, &cancel)
+                .is_err()
+        );
+        assert_eq!(
+            count("math.support_preparation_calls"),
+            Some(Value::Count(2))
+        );
+        assert_eq!(count("math.support_constructions"), Some(Value::Count(1)));
+        assert_eq!(
+            count("math.support_constructions_completed"),
+            Some(Value::Count(1))
         );
     }
 }

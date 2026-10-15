@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 pub(super) const SOURCE: &str = "package k4 { def Root { var x:Scalar; port outlet:Scalar=x; let selected:Scalar=x*x; let unrelated:Scalar=x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x; eq balance:x*x==4; } }";
 
-pub(super) fn definition(
+pub(super) async fn definition(
     owner: &WorkflowRuntime,
 ) -> (
     Workspace,
@@ -48,7 +48,9 @@ pub(super) fn definition(
             Default::default(),
             Default::default(),
             &physical,
+            &CancelSource::new(),
         )
+        .await
         .unwrap();
     (workspace, revision, root, context)
 }
@@ -99,7 +101,7 @@ fn artifact_counts(service: &MathService) -> (usize, usize) {
 }
 
 pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Duration, Value) {
-    let (workspace, revision, root, context) = definition(owner);
+    let (workspace, revision, root, context) = definition(owner).await;
     let service = owner.runtime.math();
     let cancel = CancelSource::new();
     let instance = pse_modeling::specialize::root_instance(root);
@@ -334,7 +336,10 @@ pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Du
         .prepare_modeling_observations(
             workspace.clone(),
             model.clone(),
-            BTreeSet::from([selected_row]),
+            model
+                .compiled()
+                .observation_structure(&BTreeSet::from([selected_row]))
+                .unwrap(),
             Default::default(),
             &cancel,
         )

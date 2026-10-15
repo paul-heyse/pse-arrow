@@ -158,7 +158,14 @@ fn dispatch<T: Send>(
     environment: impl Fn(&(dyn Fn() + Sync)) -> Result<(), ProfileWorkerFailure> + Sync,
     spawn: impl Fn(usize) -> Result<(), String>,
 ) -> (Vec<T>, usize, Vec<ProfileWorkerFailure>) {
+    let observation = pse_diagnostics::observation::current();
+    let _phase = pse_diagnostics::observation::phase("profile.dispatch");
     if workers == 1 {
+        if count != 0
+            && let Some(context) = &observation
+        {
+            context.count("profile.workers_started", "count", 1);
+        }
         return (
             (0..count)
                 .map(|i| chain_worker(|| run(i)).unwrap_or_else(|e| failed(i, e)))
@@ -172,6 +179,10 @@ fn dispatch<T: Send>(
     let mut scheduling = Vec::new();
     let started = std::thread::scope(|scope| {
         let work = || {
+            let _entered = observation.as_ref().map(|context| context.enter());
+            if let Some(context) = &observation {
+                context.count("profile.workers_started", "count", 1);
+            }
             environment(&|| loop {
                 let index = next.fetch_add(1, Ordering::Relaxed);
                 if index >= count {
@@ -208,6 +219,10 @@ fn dispatch<T: Send>(
         }
         started
     });
+    if let Some(context) = &observation {
+        context.count("profile.worker_failures", "count", scheduling.len() as u64);
+        context.gauge("profile.actual_parallelism", "count", started as f64);
+    }
     let detail = if scheduling.is_empty() {
         "no profile worker completed the unstarted chain".into()
     } else {
@@ -557,6 +572,26 @@ impl ChainPolicy<'_> {
         &self,
         mut solve: impl FnMut(f64, &[f64]) -> Result<Solution, PinFailure>,
     ) -> ProfileChain {
+        let mut operation = pse_diagnostics::observation::current().map(|parent| {
+            parent.child(
+                "profile.chain",
+                pse_diagnostics::observation::Relationship::Nested,
+            )
+        });
+        let context = operation.as_ref().map(|operation| operation.context());
+        let _entered = context.as_ref().map(|context| context.enter());
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("profile.chain_attempts", "count", 1);
+            context.source_ref("profile.parameter", self.parameter.to_string());
+            context.text(
+                "profile.end",
+                if self.end == IntervalEnd::Lower {
+                    "lower"
+                } else {
+                    "upper"
+                },
+            );
+        }
         let direction = if self.end == IntervalEnd::Lower {
             -1.0
         } else {
@@ -578,9 +613,17 @@ impl ChainPolicy<'_> {
             detail: None,
             points: Vec::new(),
         };
-        let end = |mut chain: ProfileChain, value: Option<f64>, outcome, detail| {
+        let mut end = |mut chain: ProfileChain, value: Option<f64>, outcome, detail| {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("profile.chains_returned", "count", 1);
+                context.text("profile.interval_outcome", &format!("{outcome:?}"));
+                context.boolean("profile.interval_available", value.is_some());
+            }
             chain.bound = IntervalBound { value, outcome };
             chain.detail = detail;
+            if let Some(operation) = operation.take() {
+                operation.finish(pse_diagnostics::observation::Outcome::Completed);
+            }
             chain
         };
         if self.limit.is_finite() && (self.limit - estimate).abs() <= self.bound_tolerance {
@@ -619,12 +662,33 @@ impl ChainPolicy<'_> {
             let index = chain.points.len();
             let seed = base.3;
             let result = self.execution.stopped().map_or_else(
-                || solve(value, &base.2),
+                || {
+                    let _phase = pse_diagnostics::observation::phase("profile.pinned_fit");
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("profile.pinned_fit_attempts", "count", 1);
+                        context.gauge("profile.pinned_value", "parameter coordinate", value);
+                        context.boolean("profile.seed_from_chain", seed.is_some());
+                    }
+                    solve(value, &base.2)
+                },
                 |stop| Err(ProblemError::stopped(stop, "the profile chain stopped").into()),
             );
             match result {
                 Err(failure) => {
                     let subdivides = failure.subdivides();
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("profile.failed_points", "count", 1);
+                        context.boolean("profile.point_accepted", false);
+                        context.unavailable(
+                            "profile.statistic",
+                            "failed point supplied no qualified statistic",
+                        );
+                        context.boolean("profile.failure_subdivides", subdivides);
+                        context.boolean(
+                            "profile.callback_terminal_failure",
+                            failure.callback_terminal_failure,
+                        );
+                    }
                     let detail = failure.detail();
                     chain.points.push(ProfilePoint {
                         value,
@@ -651,6 +715,11 @@ impl ChainPolicy<'_> {
                     let increase = solution.objective - self.optimum;
                     let r = (2.0 * increase.max(0.0)).sqrt();
                     let below = increase < -lower;
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("profile.solved_points", "count", 1);
+                        context.gauge("profile.statistic", "signed-root likelihood ratio", r);
+                        context.boolean("profile.point_accepted", !below);
+                    }
                     chain.points.push(ProfilePoint {
                         value,
                         seed,
@@ -1214,5 +1283,92 @@ mod worker_tests {
         assert_eq!(attempts.load(Ordering::Relaxed), 0);
         assert_eq!(failures, vec![ProfileWorkerFailure::Panic; 2]);
         assert_eq!(results, vec![Err(ProfileWorkerFailure::Panic); 4]);
+    }
+
+    #[test]
+    fn observation_profile_dispatch_transports_context_and_counts_actual_started_workers() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("profile workers");
+        let context = operation.context();
+        let _entered = context.enter();
+        let (results, started, failures) = dispatch(
+            4,
+            2,
+            2 * 1024 * 1024,
+            |index| {
+                assert_eq!(
+                    pse_diagnostics::observation::current().unwrap().id(),
+                    context.id()
+                );
+                index
+            },
+            |_, _| usize::MAX,
+            |run| {
+                run();
+                Ok(())
+            },
+            |index| {
+                if index == 0 {
+                    Err("injected unavailable worker".into())
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(results, vec![0, 1, 2, 3]);
+        assert_eq!(started, 1);
+        assert_eq!(failures.len(), 1);
+        assert_eq!(
+            pse_diagnostics::observation::current().unwrap().id(),
+            context.id()
+        );
+        let snapshot = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let count = |name: &str| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .map(|metric| metric.cumulative.clone())
+        };
+        assert_eq!(count("profile.workers_started"), Some(Value::Count(1)));
+        assert_eq!(count("profile.worker_failures"), Some(Value::Count(1)));
+    }
+
+    #[test]
+    fn observation_stopped_profile_point_does_not_invent_an_attempted_pin() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("stopped profile chain");
+        let context = operation.context();
+        let _entered = context.enter();
+        let execution = execution();
+        execution.cancel.store(true, Ordering::Release);
+        let chain = policy(&execution).run(|_, _| panic!("cancelled chain called a pin"));
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+        let parent = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(parent.children.len(), 1);
+        let snapshot = hub
+            .reader(parent.children[0].id)
+            .unwrap()
+            .snapshot(std::time::Duration::from_secs(60));
+        let metric = |name: &str| snapshot.metrics.iter().find(|metric| metric.name == name);
+        assert!(metric("profile.pinned_fit_attempts").is_none());
+        assert_eq!(
+            metric("profile.failed_points").unwrap().cumulative,
+            Value::Count(1)
+        );
+        assert_eq!(
+            metric("profile.interval_available").unwrap().latest,
+            Value::Boolean(false)
+        );
+        assert_eq!(
+            metric("profile.failure_subdivides").unwrap().latest,
+            Value::Boolean(false)
+        );
     }
 }

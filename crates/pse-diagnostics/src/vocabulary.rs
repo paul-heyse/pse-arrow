@@ -27,8 +27,9 @@ crate::impl_diagnostic! {
 
 /// Closed platform diagnostic spellings shared by native and portable boundaries.
 macro_rules! vocabulary {
-    ($name:ident as $sql:literal { $($variant:ident => ($text:literal, $description:literal)),* $(,)? }) => {
+    ($(#[$meta:meta])* $name:ident as $sql:literal { $($variant:ident => ($text:literal, $description:literal)),* $(,)? }) => {
         #[doc = "Stable platform diagnostic vocabulary."]
+        $(#[$meta])*
         #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, strum::EnumString, strum::Display, strum::VariantArray, strum::IntoStaticStr, serde::Serialize, serde::Deserialize)]
         #[serde(try_from = "String", into = "String")]
         #[strum(const_into_str, parse_err_ty = VocabularyError, parse_err_fn = Self::unknown_member)]
@@ -780,3 +781,60 @@ impl DiagnosticRule {
         }
     }
 }
+
+vocabulary! { #[doc = "Relationship semantics are independent of interval nesting."] Relationship as "diagnostic_relationship" {
+    Nested => ("Nested", "Execution nesting, with potentially overlapping intervals."),
+    DependencyWait => ("DependencyWait", "Waiting for an identified dependency."),
+    SharedProduction => ("SharedProduction", "One producer shared by independently owned waiters."),
+    Reuse => ("Reuse", "Consumption of an already constructed product."),
+    Continuation => ("Continuation", "Subsequent related work, without implied interval nesting."),
+} }
+
+vocabulary! { #[doc = "Scientific owner-supplied terminal explanation; observation does not enforce it."] OperationOutcome as "diagnostic_outcome" {
+    Completed => ("Completed", "Owner scope ended normally; no scientific acceptance is implied."),
+    Failed => ("Failed", "Owner reported failure."),
+    Cancelled => ("Cancelled", "Owner reported cancellation."),
+    Interrupted => ("Interrupted", "Scope was dropped without an explicit terminal explanation."),
+} }
+
+vocabulary! { #[doc = "Nonfinite observations preserve their actual category, never fabricated zeroes."] NonFinite as "diagnostic_nonfinite" {
+    Nan => ("Nan", "Not a number."),
+    PositiveInfinity => ("PositiveInfinity", "Positive infinity."),
+    NegativeInfinity => ("NegativeInfinity", "Negative infinity."),
+} }
+
+vocabulary! { #[doc = "Strength of an explanation, independent of its display wording."] StatementKind as "diagnostic_statementkind" {
+    Established => ("Established", "Directly observed or derived from compatible published facts."),
+    Hypothesis => ("Hypothesis", "A possible explanation requiring a further discriminating observation."),
+    Limitation => ("Limitation", "A limitation preventing the stated interpretation."),
+} }
+
+vocabulary! { #[doc = "An explicit next observation, never an implicit scientific evaluation."] NextObservation as "diagnostic_nextobservation" {
+    InspectRelated => ("InspectRelated", "Follow a known related producer or waiter."),
+    CpuProfile => ("CpuProfile", "Explicit userspace CPU sampling of the actual process."),
+    TimelineCapture => ("TimelineCapture", "Explicit bounded timeline capture."),
+    OptionalAllocationProbe => ("OptionalAllocationProbe", "Allocation/retention instrumentation is optional and not integrated here."),
+    OptionalWaitProbe => ("OptionalWaitProbe", "Scheduling/blocking instrumentation is optional; the resource cause is unproved."),
+    AwaitOwnerCheckpoint => ("AwaitOwnerCheckpoint", "An owner checkpoint is needed; inspection does not invoke the owner."),
+} }
+
+vocabulary! { #[doc = "Explicitly selected diagnostic mechanism; neither performs scientific evaluation."] CaptureKind as "diagnostic_capturekind" {
+    Cpu => ("Cpu", "Inclusive process/task user CPU samples, including Rust and linked native stacks. Existing threads and subsequently inherited threads/forked tasks are sampled; unrelated concurrent work and forked descendants are not operation-exclusive CPU. Separate descendant recordings can overlap inherited samples and must not be summed."),
+    Timeline => ("Timeline", "Owner-published actual-time operation, phase, metric and relationship events."),
+} }
+
+vocabulary! { #[doc = "Exporter state, independent of target outcome, cancellation and drain."] CaptureStatus as "diagnostic_capturestatus" {
+    Running => ("Running", "Owned collector is active; a flushed readable prefix may already exist."),
+    Completed => ("Completed", "Requested collection ended without an observed exporter failure."),
+    Stopped => ("Stopped", "Caller stopped collection; this says nothing about the target operation."),
+    Partial => ("Partial", "Readable evidence exists with explicit collection limits or failures."),
+    Failed => ("Failed", "Selected useful evidence could not be established."),
+} }
+
+vocabulary! { #[doc = "Meaning of one retained output."] CaptureOutputKind as "diagnostic_captureoutputkind" {
+    Perfetto => ("Perfetto", "Standard binary Perfetto Trace packet stream."),
+    PerfData => ("PerfData", "Original perf recording, retained independently of conversion success."),
+    Samply => ("Samply", "Save-only Samply profile; no server or browser is started."),
+    Symbols => ("Symbols", "Bounded decoded frame-name evidence from perf script."),
+    ToolLog => ("ToolLog", "Capture-owned external tool diagnostics."),
+} }

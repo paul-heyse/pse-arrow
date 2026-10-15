@@ -3,10 +3,17 @@
 
 //! Shared diagnostic vocabulary and lossless native engine causes.
 
+mod document;
+pub use document::ClosedDuration;
+
+pub mod inspection;
+pub mod observation;
+
 mod vocabulary;
 pub use vocabulary::{
-    DiagnosticCode, DiagnosticObservationKind, DiagnosticRule, DiagnosticStage, FailureClass,
-    VocabularyError,
+    CaptureKind, CaptureOutputKind, CaptureStatus, DiagnosticCode, DiagnosticObservationKind,
+    DiagnosticRule, DiagnosticStage, FailureClass, NextObservation, NonFinite, OperationOutcome,
+    Relationship, StatementKind, VocabularyError,
 };
 
 /// Source-owned attribution without a dependency on semantic identity crates.

@@ -124,6 +124,13 @@ fn pounce_convex_qp_matches_highs() {
 /// batch remains cold and retains no native state or numerical seed.
 #[test]
 fn pounce_convex_batch_matches_single_solves() {
+    use pse_diagnostics::observation::{ObservationHub, Outcome, Policy};
+    let hub = ObservationHub::new(Policy {
+        max_metrics: 64,
+        ..Policy::default()
+    });
+    let operation = hub.start("pounce-convex-real-batch");
+    let _entered = operation.context().enter();
     let snapshot = execution::Snapshot::observe(&execution::LINKED);
     if !execution::adapter(Backend::PounceConvex).linked() {
         return;
@@ -193,6 +200,20 @@ fn pounce_convex_batch_matches_single_solves() {
     };
     let first = batch(&mut retained);
     let second = batch(&mut retained);
+    let snapshot = operation
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    let members: Vec<_> = snapshot
+        .children
+        .iter()
+        .filter(|child| child.kind == "pounce_convex.member")
+        .collect();
+    assert_eq!(members.len(), 12);
+    assert!(
+        members
+            .iter()
+            .all(|child| child.outcome == Some(Outcome::Completed))
+    );
     assert_eq!(first.len(), 4);
     assert!(retained.is_empty());
     for (k, ((single, cold), repeated)) in singles.iter().zip(&first).zip(&second).enumerate() {

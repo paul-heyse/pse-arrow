@@ -275,10 +275,13 @@ impl TangentWorkspace {
                 && held.pattern.col_ptr() == pattern.col_ptr()
                 && held.pattern.row_idx() == pattern.row_idx()
         });
+        crate::observation::boolean("arclength.faer.symbolic_reused", compatible);
         if !compatible {
             self.storage = None;
-            let symbolic =
-                lu::factorize_symbolic_lu(pattern, Default::default()).map_err(sparse_error)?;
+            let symbolic = crate::observation::scoped("arclength.faer.symbolic", || {
+                lu::factorize_symbolic_lu(pattern, Default::default())
+            })
+            .map_err(sparse_error)?;
             let request = symbolic
                 .factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default())
                 .or(symbolic.solve_in_place_scratch::<f64>(1, Par::Seq));
@@ -302,6 +305,11 @@ impl TangentWorkspace {
         if held.scratch_bytes > bytes / 2 {
             return Err(ProblemError::memory("arclength LU scratch allowance"));
         }
+        crate::conditioning::publish_faer_storage(
+            "arclength.faer.storage",
+            matrix.val().len(),
+            held.scratch_bytes,
+        );
         Ok(held)
     }
 }
@@ -329,25 +337,38 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
         } = workspace.storage(request.family.key(), &matrix, request.limits.bytes)?;
         execution.check()?;
         work.factorizations += 1;
-        symbolic
-            .factorize_numeric_lu(
+        crate::observation::boolean("arclength.faer.factor.valid", false);
+        let factored = crate::observation::scoped("arclength.faer.factor", || {
+            symbolic.factorize_numeric_lu(
                 numeric,
                 matrix.as_ref(),
                 Par::Seq,
                 MemStack::new(memory),
                 Default::default(),
             )
-            .map_err(lu_error)?;
+        });
+        crate::observation::boolean("arclength.faer.factor.valid", factored.is_ok());
+        crate::observation::count(
+            if factored.is_ok() {
+                "arclength.faer.factor.succeeded"
+            } else {
+                "arclength.faer.factor.failed"
+            },
+            1,
+        );
+        factored.map_err(lu_error)?;
         execution.check()?;
         let mut x = Mat::zeros(d, 1);
         x[(d - 1, 0)] = 1.;
         work.backsolves += 1;
-        LuRef::new_unchecked(symbolic, numeric).solve_in_place_with_conj(
-            Conj::No,
-            x.as_mut(),
-            Par::Seq,
-            MemStack::new(memory),
-        );
+        crate::observation::scoped("arclength.faer.solve", || {
+            LuRef::new_unchecked(symbolic, numeric).solve_in_place_with_conj(
+                Conj::No,
+                x.as_mut(),
+                Par::Seq,
+                MemStack::new(memory),
+            )
+        });
         execution.check()?;
         if x.col(0).iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical(
@@ -1067,6 +1088,10 @@ mod tests {
     }
     #[test]
     fn sparse_border_keeps_orientation_through_parameter_turning_and_reports_actual_work() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("arclength-faer-work");
+        let _entered = operation.context().enter();
         let family = family();
         let mut curve = Curve {
             family: family.clone(),
@@ -1116,6 +1141,42 @@ mod tests {
             }
         );
         assert!(right.backward_error <= right.backward_limit);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        for (name, count) in [
+            ("arclength.faer.symbolic.calls", 1),
+            ("arclength.faer.factor.calls", 3),
+            ("arclength.faer.solve.calls", 3),
+        ] {
+            assert_eq!(
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .unwrap()
+                    .cumulative,
+                Value::Count(count)
+            );
+        }
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "arclength.faer.symbolic_reused")
+                .unwrap()
+                .latest,
+            Value::Boolean(true)
+        );
+        assert!(matches!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "arclength.faer.storage.numeric_fill")
+                .unwrap()
+                .latest,
+            Value::Unavailable(_)
+        ));
     }
     #[test]
     fn localized_actual_rank_transversality_and_curvature_distinguish_fold_from_branch_singularity()

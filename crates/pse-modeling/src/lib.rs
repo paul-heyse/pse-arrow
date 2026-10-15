@@ -26,14 +26,17 @@ pub mod specialize;
 mod temporal;
 pub mod types;
 
-pub use check::{CheckedPackage, FiniteReduction, Function, check, check_with};
+pub use check::{
+    CheckedPackage, FiniteReduction, Function, FunctionAdmission, FunctionContracts, check,
+    check_with,
+};
 pub use contextual::{BoundaryRef, PhysicalRefinement, TransferDirection};
 pub use physical_operations::PhysicalOperation;
 pub use pse_authoring::language::{Declaration, Selected};
 use pse_ids::SemanticId;
 pub use specialize::{Bindings, Limits, SpecializedModel, specialize};
 pub use specialize::{DeclarationId, InstanceId};
-pub use types::{PhysicalScope, Type, TypeContext};
+pub use types::{PhysicalScope, Type, TypeContext, TypeLookup, TypeScope};
 
 /// An attributable checking or specialization failure.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]

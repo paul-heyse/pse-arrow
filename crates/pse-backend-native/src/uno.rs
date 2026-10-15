@@ -353,18 +353,24 @@ pub fn solve(
             columns: vec![],
         },
     );
-    let status = slot.with_active(&mut context, || {
-        // SAFETY: stable activation lends the oracle only to sequential synchronous
-        // callbacks; initial is copied and the handle belongs to this worker.
-        unsafe {
-            ffi::pse_uno_solve(
-                handle.0.as_ptr(),
-                primal.as_ptr(),
-                native_n,
-                error.as_mut_ptr(),
-                error.len(),
-            )
-        }
+    crate::observation::unavailable(
+        "uno.iteration_detail",
+        "patched bridge exposes oracle and cancellation poll, no structured iteration/subproblem hook",
+    );
+    let status = crate::observation::scoped("uno.optimize", || {
+        slot.with_active(&mut context, || {
+            // SAFETY: stable activation lends the oracle only to sequential synchronous
+            // callbacks; initial is copied and the handle belongs to this worker.
+            unsafe {
+                ffi::pse_uno_solve(
+                    handle.0.as_ptr(),
+                    primal.as_ptr(),
+                    native_n,
+                    error.as_mut_ptr(),
+                    error.len(),
+                )
+            }
+        })
     });
     if !matches!(
         status,

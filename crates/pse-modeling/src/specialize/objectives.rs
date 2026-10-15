@@ -326,7 +326,7 @@ impl Engine<'_, '_> {
             },
             span: Span::default(),
         };
-        let types = self
+        let types: BTreeMap<_, _> = self
             .model
             .symbols
             .iter()

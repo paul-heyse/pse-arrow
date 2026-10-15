@@ -277,7 +277,11 @@ impl Input {
             preconditions: context.preconditions,
             scope: context.scope,
         };
-        expression::check_declaration(&self.environment.package, &context, self.declaration)?;
+        expression::check_declaration(
+            self.environment.package.as_ref(),
+            &context,
+            self.declaration,
+        )?;
         Ok(Product(recorder.into_products()))
     }
 }

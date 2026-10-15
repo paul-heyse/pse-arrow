@@ -29,7 +29,7 @@ fn occupied_job_slots(service: &MathService) -> usize {
 }
 
 pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Duration, Value) {
-    let (workspace, revision, root, context) = demand::definition(owner);
+    let (workspace, revision, root, context) = demand::definition(owner).await;
     let service = owner.runtime.math();
     let cancel = CancelSource::new();
     let instance = pse_modeling::specialize::root_instance(root);

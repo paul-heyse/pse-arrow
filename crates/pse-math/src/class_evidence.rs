@@ -17,7 +17,10 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use symbolica::atom::{Atom, AtomCore, Indeterminate};
+use symbolica::{
+    atom::{Atom, AtomCore, AtomView, Indeterminate, Symbol},
+    id::Replacement,
+};
 
 /// The algebraic evidence needed to consider coefficient backends.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -159,10 +162,20 @@ impl Allowance {
         if cancel.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
         }
-        self.charge(1)?;
-        Ok(expression.derivative(
+        self.charge(expression.as_view().get_byte_size().saturating_add(1))?;
+        let derivative = expression.derivative(
             Indeterminate::try_from(formal.clone()).map_err(|e| MathError::Library(e.clone()))?,
-        ))
+        );
+        checkpoint(cancel)?;
+        self.charge(derivative.as_view().get_byte_size())?;
+        Ok(derivative)
+    }
+    fn number(&mut self, expression: &Atom, cancel: &Arc<AtomicBool>) -> Result<f64, MathError> {
+        checkpoint(cancel)?;
+        self.charge(expression.as_view().get_byte_size())?;
+        let number = crate::coefficients::number(expression, cancel)?;
+        self.charge(1)?;
+        Ok(number)
     }
 }
 impl CasePlan {
@@ -172,6 +185,39 @@ impl CasePlan {
     /// Missing expressions, nonlinear rows and unrepresentable coefficients withhold only
     /// their own row; stale assumptions, exhausted work and cancellation remain errors.
     pub fn affine_row_facts(
+        &self,
+        values: &CaseValues,
+        base: &Facts,
+        limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Facts, MathError> {
+        let _phase = pse_diagnostics::observation::phase("affine.preparation");
+        for name in [
+            "selected_rows",
+            "retained_rows",
+            "contributions_examined",
+            "bound_output_reuses",
+            "candidate_coordinates",
+            "derivative_attempts",
+            "nonzero_coefficients",
+            "substitution_calls",
+            "established_rows",
+            "withheld_rows",
+            "refused_requests",
+            "formal_coordinates",
+            "input_symbols_examined",
+            "input_slots_examined",
+        ] {
+            observe(name, 0);
+        }
+        let result = self.affine_row_facts_inner(values, base, limit, cancel);
+        if result.is_err() {
+            observe("refused_requests", 1);
+        }
+        result
+    }
+
+    fn affine_row_facts_inner(
         &self,
         values: &CaseValues,
         base: &Facts,
@@ -204,6 +250,8 @@ impl CasePlan {
             .filter_map(|(row, affine)| affine.is_none().then_some(row.id))
             .collect::<BTreeSet<_>>();
         allowance.charge(selected.len())?;
+        observe("selected_rows", selected.len());
+        observe("retained_rows", base.affine.len() - selected.len());
         if !selected.is_empty() {
             let (formals, expressions, missing) = aggregate_expressions(
                 self,
@@ -213,7 +261,11 @@ impl CasePlan {
                 cancel,
             )?;
             for (index, row) in self.structure().rows().iter().enumerate() {
-                if !selected.contains(&row.id) || missing.contains(&Target::Row(row.id)) {
+                if !selected.contains(&row.id) {
+                    continue;
+                }
+                if missing.contains(&Target::Row(row.id)) {
+                    observe("withheld_rows", 1);
                     continue;
                 }
                 let expression = expressions
@@ -226,6 +278,14 @@ impl CasePlan {
                         Err(MathError::CoefficientRange) => None,
                         Err(error) => return Err(error),
                     };
+                observe(
+                    if facts.affine[index].is_some() {
+                        "established_rows"
+                    } else {
+                        "withheld_rows"
+                    },
+                    1,
+                );
             }
         }
         refresh_affine_key(base, &mut facts);
@@ -383,7 +443,12 @@ pub(crate) fn shape_facts(
     }
     facts.objective_degree = Some(0);
     facts.lexicographic_degree = Some(0);
-    allowance.charge(formals.len())?;
+    // The coefficient product still owns a full objective-column inventory. Selected-row
+    // preparation never constructs this whole-program projection.
+    allowance.charge(plan.columns().len())?;
+    let formals = (0..plan.columns().len())
+        .map(library::formal)
+        .collect::<Result<Vec<_>, _>>()?;
     facts.objective_linear = vec![true; formals.len()];
     for level in 0..plan.structure().objectives().len() {
         allowance.charge(
@@ -450,7 +515,7 @@ pub(crate) fn aggregate_objectives(
     let mut allowance = Allowance { remaining: limit };
     // Original rows have already been proved and retained as affine coefficients.
     // Rebuilding them here would spend the shared allowance on discarded products.
-    let (formals, expressions, _) = aggregate_expressions(
+    let (_, expressions, _) = aggregate_expressions(
         plan,
         values,
         Aggregation::Objectives,
@@ -473,6 +538,11 @@ pub(crate) fn aggregate_objectives(
                 .unwrap_or_else(|| Atom::num(0))
         })
         .collect();
+    // Coefficient projection consumes this dense objective coordinate product explicitly.
+    allowance.charge(plan.columns().len())?;
+    let formals = (0..plan.columns().len())
+        .map(library::formal)
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((formals, objectives, allowance.remaining))
 }
 #[derive(Clone, Copy)]
@@ -481,7 +551,91 @@ enum Aggregation<'a> {
     Objectives,
     Rows(&'a BTreeSet<SemanticId>),
 }
-type AggregatedExpressions = (Vec<Atom>, BTreeMap<Target, Atom>, BTreeSet<Target>);
+/// Explicit global identity: library symbol registration ordinals are never column indices.
+#[derive(Default)]
+struct FormalCoordinates {
+    symbols: BTreeMap<Symbol, (usize, Atom)>,
+    columns: BTreeMap<usize, Atom>,
+}
+impl FormalCoordinates {
+    fn get(&mut self, column: usize, allowance: &mut Allowance) -> Result<Atom, MathError> {
+        if let Some(formal) = self.columns.get(&column) {
+            return Ok(formal.clone());
+        }
+        allowance.charge(2)?;
+        let formal = library::formal(column)?;
+        let AtomView::Var(variable) = formal.as_view() else {
+            return Err(MathError::Contract(
+                "class coordinate is not a variable".into(),
+            ));
+        };
+        if self
+            .symbols
+            .insert(variable.get_symbol(), (column, formal.clone()))
+            .is_some()
+        {
+            return Err(MathError::Contract(
+                "duplicate class coordinate symbol".into(),
+            ));
+        }
+        self.columns.insert(column, formal.clone());
+        observe("formal_coordinates", 1);
+        Ok(formal)
+    }
+}
+type AggregatedExpressions = (FormalCoordinates, BTreeMap<Target, Atom>, BTreeSet<Target>);
+
+fn checkpoint(cancel: &Arc<AtomicBool>) -> Result<(), MathError> {
+    if cancel.load(Ordering::Relaxed) {
+        Err(MathError::Cancelled)
+    } else {
+        Ok(())
+    }
+}
+fn observe(name: &str, count: usize) {
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count(&format!("affine.{name}"), "count", count as u64);
+    }
+}
+
+/// One library traversal over the original tree. Symbolica 3.0.1 replace_no_norm returns
+/// immediately after a match and only descends into original children; inserted RHS atoms
+/// are not revisited. Normalization runs once after the traversal (id.rs).
+fn substitute(
+    expression: &Atom,
+    replacements: &[(Atom, Atom)],
+    allowance: &mut Allowance,
+    cancel: &Arc<AtomicBool>,
+) -> Result<Atom, MathError> {
+    checkpoint(cancel)?;
+    if replacements.is_empty() {
+        allowance.charge(expression.as_view().get_byte_size())?;
+        return Ok(expression.clone());
+    }
+    let extent = replacements
+        .iter()
+        .try_fold(1usize, |bytes, (_, replacement)| {
+            bytes
+                .checked_add(replacement.as_view().get_byte_size())
+                .ok_or(MathError::Limit("class symbolic substitution"))
+        })?;
+    allowance.charge(
+        expression
+            .as_view()
+            .get_byte_size()
+            .checked_mul(extent)
+            .ok_or(MathError::Limit("class symbolic substitution"))?,
+    )?;
+    observe("substitution_calls", 1);
+    let result = expression.replace_multiple(
+        replacements
+            .iter()
+            .map(|(formal, replacement)| Replacement::new(formal.clone(), replacement.clone())),
+    );
+    checkpoint(cancel)?;
+    allowance.charge(result.as_view().get_byte_size())?;
+    Ok(result)
+}
 
 fn aggregate_expressions(
     plan: &CasePlan,
@@ -490,113 +644,123 @@ fn aggregate_expressions(
     allowance: &mut Allowance,
     cancel: &Arc<AtomicBool>,
 ) -> Result<AggregatedExpressions, MathError> {
-    // Combine original contributions before differentiating: individual nonlinear terms
-    // may cancel across bodies, rows or objectives. Symbolica owns that normalization.
-    allowance.charge(
-        plan.columns()
-            .len()
-            .checked_mul(2)
-            .ok_or(MathError::Limit("class coordinate storage"))?,
-    )?;
-    let formals = (0..plan.columns().len())
-        .map(library::formal)
-        .collect::<Result<Vec<_>, _>>()?;
-    let columns: BTreeMap<_, _> = plan
-        .columns()
-        .iter()
-        .enumerate()
-        .map(|(i, &id)| (id, i))
-        .collect();
+    // Aggregate original contributions before proof: nonlinear terms may cancel across
+    // different bodies, aliases and contribution scales. Symbolica owns normalization.
+    let mut formals = FormalCoordinates::default();
     let mut expressions = BTreeMap::<Target, Atom>::new();
     let mut missing = BTreeSet::new();
-    for binding in plan.structure().instances() {
-        for contribution in &binding.contributions {
-            if cancel.load(Ordering::Relaxed) {
-                return Err(MathError::Cancelled);
+    // This cache belongs only to this request and its consumed assumptions. Both newly
+    // bound expressions and retained clones spend the same remaining allowance.
+    let mut bound = BTreeMap::<(usize, usize), Atom>::new();
+    let mut visit = |binding_index: usize, contribution_index: usize| -> Result<(), MathError> {
+        checkpoint(cancel)?;
+        observe("contributions_examined", 1);
+        let binding = &plan.structure().instances()[binding_index];
+        let contribution = &binding.contributions[contribution_index];
+        if missing.contains(&contribution.target) {
+            return Ok(());
+        }
+        let body = &plan.bodies()[&binding.body];
+        let Some(original) = body.expression(contribution.output) else {
+            if matches!(selected, Aggregation::Rows(_)) {
+                allowance.charge(1)?;
+                missing.insert(contribution.target);
+                expressions.remove(&contribution.target);
+                return Ok(());
             }
-            let requested = match selected {
-                Aggregation::All => true,
-                Aggregation::Objectives => matches!(contribution.target, Target::Objective(_)),
-                Aggregation::Rows(rows) => {
-                    matches!(contribution.target, Target::Row(row) if rows.contains(&row))
-                }
-            };
-            if !requested || missing.contains(&contribution.target) {
-                continue;
-            }
-            let Some(original) = plan.bodies()[&binding.body].expression(contribution.output)
-            else {
-                if matches!(selected, Aggregation::Rows(_)) {
-                    allowance.charge(1)?;
-                    missing.insert(contribution.target);
-                    expressions.remove(&contribution.target);
-                    continue;
-                }
-                return Err(MathError::Contract(
-                    "class symbolic dependency changed".into(),
-                ));
-            };
+            return Err(MathError::Contract(
+                "class symbolic dependency changed".into(),
+            ));
+        };
+        let key = (binding_index, contribution.output);
+        let expression = if let Some(expression) = bound.get(&key) {
+            allowance.charge(expression.as_view().get_byte_size())?;
+            observe("bound_output_reuses", 1);
+            expression.clone()
+        } else {
+            // Discover candidates in this output, then resolve them through the body's
+            // already admitted symbol layout. A wide multi-output binding must not cause
+            // unrelated inputs or plan formals to be constructed for this expression.
+            checkpoint(cancel)?;
             allowance.charge(original.as_view().get_byte_size())?;
-            let mut expression = original.clone();
-            // Simultaneous replacement prevents a global coordinate from being mistaken
-            // for a later body-local slot, including permuted/aliased physical bindings.
-            allowance.charge(binding.slots.len())?;
-            let replacements = binding
-                .slots
-                .iter()
-                .enumerate()
-                .map(|(slot, binding)| {
-                    let replacement = if let Some(&column) = columns.get(&binding.source()) {
-                        &formals[column] * Atom::num(binding.scale()) + Atom::num(binding.offset())
-                    } else {
-                        let value = values.scalars.get(&binding.source()).ok_or_else(|| {
-                            MathError::Contract("missing class assumption".into())
-                        })?;
-                        Atom::num(binding.scale() * value + binding.offset())
-                    };
-                    Ok((library::formal(slot)?, replacement))
-                })
-                .collect::<Result<Vec<_>, MathError>>()?
+            let symbols = original.get_all_symbols(true);
+            checkpoint(cancel)?;
+            allowance.charge(symbols.len())?;
+            observe("input_symbols_examined", symbols.len());
+            let mut inputs = symbols
                 .into_iter()
-                .filter(|(formal, replacement)| formal != replacement)
+                .filter_map(|symbol| body.input_slot(symbol).map(|slot| (slot, symbol)))
                 .collect::<Vec<_>>();
-            allowance.charge(replacements.len())?;
-            // Existing replacement supports a multiple-pattern map, handled through
-            // fresh inert symbols so no replacement can rebind another slot.
-            let temporaries = replacements
-                .iter()
-                .enumerate()
-                .map(|(slot, _)| library::formal(plan.columns().len() + binding.slots.len() + slot))
-                .collect::<Result<Vec<_>, _>>()?;
-            for ((formal, _), temporary) in replacements.iter().zip(&temporaries) {
-                allowance.charge(expression.as_view().get_byte_size())?;
-                expression = expression.replace(formal.clone()).with(temporary.clone());
+            inputs.sort_by_key(|(slot, _)| *slot);
+            allowance.charge(inputs.len())?;
+            observe("input_slots_examined", inputs.len());
+            let mut substitutions = Vec::with_capacity(inputs.len());
+            for (slot, symbol) in inputs {
+                checkpoint(cancel)?;
+                let binding = binding.slots.get(slot).ok_or_else(|| {
+                    MathError::Contract("class input outside binding layout".into())
+                })?;
+                let replacement = if let Some(&column) =
+                    plan.projection_topology().columns.get(&binding.source())
+                {
+                    formals.get(column, allowance)? * Atom::num(binding.scale())
+                        + Atom::num(binding.offset())
+                } else {
+                    let value = values
+                        .scalars
+                        .get(&binding.source())
+                        .ok_or_else(|| MathError::Contract("missing class assumption".into()))?;
+                    Atom::num(binding.scale() * value + binding.offset())
+                };
+                checkpoint(cancel)?;
+                allowance.charge(replacement.as_view().get_byte_size())?;
+                let formal = Atom::var(symbol);
+                if formal != replacement {
+                    substitutions.push((formal, replacement));
+                }
             }
-            for ((_, replacement), temporary) in replacements.iter().zip(&temporaries) {
-                let extent = expression
-                    .as_view()
-                    .get_byte_size()
-                    .checked_mul(replacement.as_view().get_byte_size().saturating_add(1))
-                    .ok_or(MathError::Limit("class symbolic substitution"))?;
-                allowance.charge(extent)?;
-                expression = expression
-                    .replace(temporary.clone())
-                    .with(replacement.clone());
+            let expression = substitute(original, &substitutions, allowance, cancel)?;
+            allowance.charge(expression.as_view().get_byte_size().saturating_add(1))?;
+            bound.insert(key, expression.clone());
+            expression
+        };
+        let previous = expressions
+            .remove(&contribution.target)
+            .unwrap_or_else(|| Atom::num(0));
+        allowance.charge(
+            previous
+                .as_view()
+                .get_byte_size()
+                .checked_add(expression.as_view().get_byte_size())
+                .ok_or(MathError::Limit("class aggregate expression"))?,
+        )?;
+        checkpoint(cancel)?;
+        let aggregate = previous + expression * Atom::num(contribution.scale);
+        checkpoint(cancel)?;
+        allowance.charge(aggregate.as_view().get_byte_size())?;
+        expressions.insert(contribution.target, aggregate);
+        Ok(())
+    };
+    match selected {
+        Aggregation::Rows(rows) => {
+            // Borrow the immutable original-contribution index; no unrelated bindings or
+            // outputs are searched to satisfy selected row demand.
+            for row in rows {
+                for &(binding, contribution) in plan.row_contributions(*row) {
+                    visit(binding, contribution)?;
+                }
             }
-            let previous = expressions
-                .remove(&contribution.target)
-                .unwrap_or_else(|| Atom::num(0));
-            allowance.charge(
-                previous
-                    .as_view()
-                    .get_byte_size()
-                    .checked_add(expression.as_view().get_byte_size())
-                    .ok_or(MathError::Limit("class aggregate expression"))?,
-            )?;
-            expressions.insert(
-                contribution.target,
-                previous + expression * Atom::num(contribution.scale),
-            );
+        }
+        Aggregation::All | Aggregation::Objectives => {
+            for (binding_index, binding) in plan.structure().instances().iter().enumerate() {
+                for (contribution_index, contribution) in binding.contributions.iter().enumerate() {
+                    if matches!(selected, Aggregation::All)
+                        || matches!(contribution.target, Target::Objective(_))
+                    {
+                        visit(binding_index, contribution_index)?;
+                    }
+                }
+            }
         }
     }
     Ok((formals, expressions, missing))
@@ -604,29 +768,53 @@ fn aggregate_expressions(
 
 fn prove_affine(
     expression: &Atom,
-    formals: &[Atom],
+    formals: &FormalCoordinates,
     allowance: &mut Allowance,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Option<AffineRow>, MathError> {
+    checkpoint(cancel)?;
     allowance.charge(expression.as_view().get_byte_size().saturating_mul(2))?;
+    // true is required for coordinates nested in rational-polynomial function variables.
+    // Symbols are conservative candidates, not a claim of exact semantic dependence.
+    let symbols = expression.get_all_symbols(true);
+    checkpoint(cancel)?;
+    allowance.charge(symbols.len())?;
+    let mut candidates = symbols
+        .iter()
+        .filter_map(|symbol| formals.symbols.get(symbol))
+        .map(|(column, formal)| (*column, formal.clone()))
+        .collect::<Vec<_>>();
+    candidates.sort_by_key(|(column, _)| *column);
+    observe("candidate_coordinates", candidates.len());
     let mut affine = AffineRow {
         entries: BTreeMap::new(),
         constant: 0.0,
     };
-    let mut zero = expression.clone();
-    for (column, formal) in formals.iter().enumerate() {
+    for (column, formal) in &candidates {
+        observe("derivative_attempts", 1);
         let derivative = allowance.derivative(expression, formal, cancel)?;
         if !derivative.is_constant() {
             return Ok(None);
         }
-        let coefficient = crate::coefficients::number(&derivative, cancel)?;
+        let coefficient = allowance.number(&derivative, cancel)?;
         if coefficient != 0.0 {
             allowance.charge(1)?;
-            affine.entries.insert(column, coefficient);
+            affine.entries.insert(*column, coefficient);
+            observe("nonzero_coefficients", 1);
         }
-        zero = zero.replace(formal.clone()).with(Atom::num(0));
     }
-    affine.constant = crate::coefficients::number(&zero, cancel)?;
+    let zeros = candidates
+        .into_iter()
+        .map(|(_, formal)| (formal, Atom::num(0)))
+        .collect::<Vec<_>>();
+    let zero = substitute(expression, &zeros, allowance, cancel)?;
+    if !zero.is_constant() {
+        return Err(MathError::Contract(
+            "unmapped class coordinate or residual symbol".into(),
+        ));
+    }
+    affine.constant = allowance.number(&zero, cancel)?;
+    checkpoint(cancel)?;
     Ok(Some(affine))
 }
 
@@ -649,4 +837,109 @@ fn refresh_affine_key(base: &Facts, facts: &mut Facts) {
         }
     }
     facts.key = hash.finish_hash();
+}
+
+#[cfg(test)]
+mod affine_controls {
+    use super::*;
+
+    fn coordinates(columns: &[usize], allowance: &mut Allowance) -> FormalCoordinates {
+        let mut coordinates = FormalCoordinates::default();
+        for &column in columns {
+            let _ = coordinates.get(column, allowance).unwrap();
+        }
+        coordinates
+    }
+
+    #[test]
+    fn affine_bulk_binding_qualifies_permutations_aliases_offsets_and_inserted_formals() {
+        crate::initialize().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let a = library::formal(0).unwrap();
+        let b = library::formal(1).unwrap();
+        let c = library::formal(2).unwrap();
+        let original = &a + &b * Atom::num(2) + &c * Atom::num(3);
+        let cases = [
+            (
+                vec![(a.clone(), b.clone()), (b.clone(), a.clone())],
+                BTreeMap::from([(0, 2.0), (1, 1.0), (2, 3.0)]),
+                0.0,
+            ),
+            (
+                vec![
+                    (a.clone(), &b + Atom::num(4)),
+                    (b.clone(), &a * Atom::num(2)),
+                    (c.clone(), a.clone()),
+                ],
+                BTreeMap::from([(0, 7.0), (1, 1.0)]),
+                4.0,
+            ),
+            (
+                vec![
+                    (a.clone(), &b * Atom::num(2) + Atom::num(1)),
+                    (b.clone(), &b * Atom::num(-3) + Atom::num(4)),
+                    (c.clone(), &b + Atom::num(5)),
+                ],
+                BTreeMap::from([(1, -1.0)]),
+                24.0,
+            ),
+        ];
+        for (replacements, entries, constant) in cases {
+            for replacements in [
+                replacements.clone(),
+                replacements.into_iter().rev().collect(),
+            ] {
+                let mut allowance = Allowance { remaining: 100_000 };
+                let bound = substitute(&original, &replacements, &mut allowance, &cancel).unwrap();
+                let formals = coordinates(&[0, 1, 2], &mut allowance);
+                let affine = prove_affine(&bound, &formals, &mut allowance, &cancel)
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(affine.entries, entries);
+                assert_eq!(affine.constant, constant);
+            }
+        }
+    }
+
+    #[test]
+    fn affine_candidates_preserve_global_indices_and_refuse_unmapped_nested_dependence() {
+        crate::initialize().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut allowance = Allowance { remaining: 100_000 };
+        let formals = coordinates(&[2, 40, 91], &mut allowance);
+        let x = library::formal(40).unwrap();
+        let expression = &x * Atom::num(7) + Atom::num(3);
+        let row = prove_affine(&expression, &formals, &mut allowance, &cancel)
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.entries, BTreeMap::from([(40, 7.0)]));
+        assert_eq!(row.constant, 3.0);
+        assert!(
+            prove_affine(&x.sin().exp(), &formals, &mut allowance, &cancel)
+                .unwrap()
+                .is_none()
+        );
+        let absent = FormalCoordinates::default();
+        assert!(matches!(
+            prove_affine(&x.sin().exp(), &absent, &mut allowance, &cancel),
+            Err(MathError::Contract(_))
+        ));
+        for constant in [0, 13] {
+            let row = prove_affine(&Atom::num(constant), &absent, &mut allowance, &cancel)
+                .unwrap()
+                .unwrap();
+            assert!(row.entries.is_empty());
+            assert_eq!(row.constant, f64::from(constant));
+        }
+        let mut exhausted = Allowance { remaining: 0 };
+        assert!(matches!(
+            prove_affine(&expression, &formals, &mut exhausted, &cancel),
+            Err(MathError::WorkLimit { .. })
+        ));
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            prove_affine(&expression, &formals, &mut allowance, &cancel),
+            Err(MathError::Cancelled)
+        ));
+    }
 }

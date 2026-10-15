@@ -52,7 +52,8 @@ impl datafusion::common::runtime::JoinSetTracer for TaskTracer {
     ) -> futures_util::future::BoxFuture<'static, Box<dyn Any + Send>> {
         let span = tracing::Span::current();
         let dispatch = tracing::dispatcher::get_default(Clone::clone);
-        future.instrument(span).with_subscriber(dispatch).boxed()
+        pse_diagnostics::observation::inherit(future.instrument(span).with_subscriber(dispatch))
+            .boxed()
     }
     fn trace_block(
         &self,
@@ -60,7 +61,13 @@ impl datafusion::common::runtime::JoinSetTracer for TaskTracer {
     ) -> Box<dyn FnOnce() -> Box<dyn Any + Send> + Send> {
         let span = tracing::Span::current();
         let dispatch = tracing::dispatcher::get_default(Clone::clone);
-        Box::new(move || tracing::dispatcher::with_default(&dispatch, || span.in_scope(work)))
+        let observation = pse_diagnostics::observation::current();
+        Box::new(move || {
+            let _observation = observation
+                .as_ref()
+                .map(pse_diagnostics::observation::ObservationContext::enter);
+            tracing::dispatcher::with_default(&dispatch, || span.in_scope(work))
+        })
     }
 }
 /// Install once, before the library instrumentation macro tries its own hook.
@@ -130,6 +137,8 @@ pub enum TerminalStatus {
 /// One invocation's explicit lifecycle, including errors before a stream is returned.
 #[derive(Debug)]
 pub struct OperationObservation {
+    diagnostic: Option<pse_diagnostics::observation::PhaseGuard>,
+    context: Option<pse_diagnostics::observation::ObservationContext>,
     span: tracing::Span,
     terminal: Option<TerminalStatus>,
 }
@@ -142,7 +151,19 @@ impl OperationObservation {
         } else {
             tracing::info_span!(target: "pse_engine::execution", "pse.operation", operation_id = NEXT.fetch_add(1, Ordering::Relaxed), operation_kind = kind, terminal = tracing::field::Empty, task_propagation = ?task_propagation())
         };
+        let context = pse_diagnostics::observation::current();
+        let diagnostic = context
+            .as_ref()
+            .map(|context| context.phase(format!("query.{kind}")));
+        if let Some(context) = &context {
+            context.count("query.requests", "requests", 1);
+            if policy == ObservationPolicy::Off {
+                context.unavailable("query.operator.metrics", "engine capture disabled");
+            }
+        }
         Self {
+            diagnostic,
+            context,
             span,
             terminal: None,
         }
@@ -156,6 +177,10 @@ impl OperationObservation {
         if self.terminal.is_none() {
             self.span.record("terminal", tracing::field::debug(status));
             self.terminal = Some(status);
+            if let Some(context) = &self.context {
+                context.text("query.terminal", &format!("{status:?}"));
+            }
+            self.diagnostic = None;
         }
     }
 }

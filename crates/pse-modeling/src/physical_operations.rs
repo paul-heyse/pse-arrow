@@ -784,6 +784,30 @@ impl PhysicalOperation {
         .map_err(|e| invalid(at, e.to_string()))
     }
 
+    /// Numerical result view of a reduced-law call inside its own reconstruction.
+    /// Other bodies retain the nominal result contract.
+    pub(crate) fn body_function_result<'a>(&self, result: &'a Type) -> std::borrow::Cow<'a, Type> {
+        if let Self::Reconstruction {
+            map,
+            reconstruction,
+            ..
+        } = self
+            && let Type::RefinedQuantity {
+                quantity,
+                refinement:
+                    crate::PhysicalRefinement::ReducedLaw {
+                        map: owner,
+                        reconstruction: family,
+                    },
+            } = result
+            && owner == map
+            && family == reconstruction
+        {
+            return std::borrow::Cow::Owned(Type::Quantity(quantity.clone()));
+        }
+        std::borrow::Cow::Borrowed(result)
+    }
+
     /// Explicitly consume admitted numerical roles only inside this operation's body.
     /// The original signature remains nominal at every call boundary.
     pub fn body_arguments(&self, arguments: &[(String, Type)]) -> Vec<(String, Type)> {
@@ -810,24 +834,10 @@ impl PhysicalOperation {
                             Type::Quantity(Scheme::Concrete(*coefficient))
                         }
                         Self::ReducedLaw { map, .. } => consume(ty, *map),
-                        Self::Reconstruction {
-                            map,
-                            reconstruction,
-                            ..
-                        } => match ty {
-                            Type::Function { arguments, result } => match result.as_ref() {
-                                Type::RefinedQuantity {
-                                    quantity,
-                                    refinement:
-                                        crate::PhysicalRefinement::ReducedLaw {
-                                            map: owner,
-                                            reconstruction: family,
-                                        },
-                                } if owner == map && family == reconstruction => Type::Function {
-                                    arguments: arguments.clone(),
-                                    result: Box::new(Type::Quantity(quantity.clone())),
-                                },
-                                _ => ty.clone(),
+                        Self::Reconstruction { .. } => match ty {
+                            Type::Function { arguments, result } => Type::Function {
+                                arguments: arguments.clone(),
+                                result: Box::new(self.body_function_result(result).into_owned()),
                             },
                             _ => ty.clone(),
                         },

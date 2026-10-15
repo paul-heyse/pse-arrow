@@ -451,9 +451,10 @@ pub fn predict(request: Request<'_>, execution: Execution) -> Result<Outcome, Ar
             proof_steps: Some(0),
         },
         || {
-            solver
-                .solve_parametric(previous, request.source, target, &options)
-                .map_err(error)
+            crate::observation::scoped("pounce.qp.parametric_attempt", || {
+                solver.solve_parametric(previous, request.source, target, &options)
+            })
+            .map_err(error)
         },
     );
     if let Some(cause) = state.failure.borrow().clone() {
@@ -461,6 +462,27 @@ pub fn predict(request: Request<'_>, execution: Execution) -> Result<Outcome, Ar
     }
     execution.check()?;
     let solution = result?;
+    crate::observation::count("pounce.qp.refactors", u64::from(solution.stats.n_refactor));
+    crate::observation::count(
+        "pounce.qp.schur_updates",
+        u64::from(solution.stats.n_schur_updates),
+    );
+    crate::observation::count(
+        "pounce.qp.working_set_changes",
+        u64::from(solution.stats.n_working_set_changes),
+    );
+    crate::observation::gauge(
+        "pounce.qp.seconds",
+        "seconds",
+        solution.stats.time.as_secs_f64(),
+    );
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.text(
+            "pounce.qp.parametric_source",
+            &format!("{:?}", solution.stats.parametric_source),
+        );
+        context.boolean("pounce.qp.used_phase1", solution.stats.used_phase1);
+    }
     if solution
         .x
         .iter()

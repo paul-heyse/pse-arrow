@@ -9,6 +9,7 @@ mod envelopes;
 mod fold;
 mod functions;
 mod group;
+mod lexical;
 mod physical_operations;
 mod process;
 pub use process::{
@@ -472,6 +473,7 @@ pub(crate) struct Engine<'a, 'b> {
     indexed_arguments: BTreeMap<String, Vec<(Vec<Value>, Expr)>>,
     function_stack: Vec<DeclarationId>,
     function_types: BTreeMap<String, Type>,
+    lexical_bases: lexical::LexicalBases,
     preset_stack: Vec<DeclarationId>,
     local_serial: usize,
     continuity_done: BTreeSet<SemanticId>,
@@ -603,6 +605,7 @@ pub fn specialize_with_discretizer(
         indexed_arguments: BTreeMap::new(),
         function_stack: Vec::new(),
         function_types: BTreeMap::new(),
+        lexical_bases: lexical::LexicalBases::default(),
         preset_stack: Vec::new(),
         local_serial: 0,
         continuity_done: BTreeSet::new(),
@@ -965,6 +968,7 @@ impl Engine<'_, '_> {
     ) -> Result<Value> {
         self.checkpoint()?;
         let value = Evaluator {
+            lexical_bases: Some(&self.lexical_bases),
             package: self.p,
             physical: self.c,
             at,
@@ -1002,6 +1006,7 @@ impl Engine<'_, '_> {
                 )
             })?;
         let mut evaluator = Evaluator {
+            lexical_bases: Some(&self.lexical_bases),
             package: self.p,
             physical: self.c,
             at,
@@ -1340,6 +1345,7 @@ impl Engine<'_, '_> {
     fn predicate(&self, at: DeclarationId, env: &Environment, role: &str) -> Result<bool> {
         let p = self.p.predicate_at(at, role, 0)?;
         Evaluator {
+            lexical_bases: Some(&self.lexical_bases),
             package: self.p,
             physical: self.c,
             at,
@@ -1471,6 +1477,7 @@ impl Engine<'_, '_> {
             env.insert(format!("scope.{n}"), v.clone());
         }
         let (_, mut env) = Evaluator {
+            lexical_bases: Some(&self.lexical_bases),
             package: self.p,
             physical: self.c,
             at: definition,
@@ -1768,7 +1775,7 @@ impl Engine<'_, '_> {
                         let expected = self.c.resolve(
                             &parameter.r#type,
                             &BTreeSet::new(),
-                            &self.p.named_types(definition),
+                            self.lexical_bases.evaluation(self.p, definition).as_ref(),
                             definition,
                         )?;
                         let supplied = Value::Set(vec![point]);
@@ -2075,7 +2082,7 @@ impl Engine<'_, '_> {
                             span: Span::default(),
                         }
                     };
-                    let types = self
+                    let types: BTreeMap<_, _> = self
                         .model
                         .symbols
                         .iter()
@@ -2566,7 +2573,7 @@ impl Engine<'_, '_> {
             .expression_at(id, "contribution.expression", 0)?
             .clone();
         let mut expression = self.rewrite(instance, &expression, &env, &[id])?;
-        let types = self
+        let types: BTreeMap<_, _> = self
             .model
             .symbols
             .iter()
