@@ -3339,6 +3339,7 @@ impl CanonicalStore {
         after: Option<u64>,
         limit: usize,
     ) -> Result<Vec<RunSummary>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Page, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -3358,6 +3359,7 @@ impl CanonicalStore {
                 .collect()
         }).await
             }).await
+        }).await
     }
     /// Exact scalar metadata for one retained seed; payload selection requires its manifest.
     pub async fn result_seed(
@@ -3365,6 +3367,7 @@ impl CanonicalStore {
         key: &str,
     ) -> Result<Option<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
@@ -3387,6 +3390,7 @@ impl CanonicalStore {
                 .await
             })
             .await
+        }).await
     }
     /// Filter sealed complete-original inventory before cutoff; admission remains independent.
     pub async fn result_seed_candidates(
@@ -3397,6 +3401,7 @@ impl CanonicalStore {
         attempt: Option<&str>,
     ) -> Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Page, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -3421,6 +3426,7 @@ impl CanonicalStore {
                 .collect()
         }).await
             }).await
+        }).await
     }
     /// Narrow immutable seed headers for one explicit attempt, ordered by scientific step.
     pub async fn result_seed_page(
@@ -3429,6 +3435,7 @@ impl CanonicalStore {
         after: Option<u64>,
     ) -> Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Page, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -3445,6 +3452,7 @@ impl CanonicalStore {
                 .collect()
         }).await
             }).await
+        }).await
     }
     /// Renew the current live worker fence; expired or cancelled workers cannot revive.
     pub async fn renew_attempt(

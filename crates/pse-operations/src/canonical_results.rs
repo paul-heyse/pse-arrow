@@ -913,6 +913,7 @@ impl CanonicalStore {
         run_key: &str,
         attempt_key: &str,
     ) -> Result<CompletionRead, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Selection, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         let (owner, run, attempt) = self
@@ -957,6 +958,7 @@ impl CanonicalStore {
             chunks,
         })
             }).await
+        }).await
     }
 
     /// Fetch only an ordinal in the frozen original-completion set.
@@ -1182,6 +1184,7 @@ impl CanonicalStore {
         batch_count: u64,
         ordinal: u64,
     ) -> Result<ResultPayload, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         if !self.db.same_driver(&owner.store.db) {
             return Err(invalid("result read belongs to another store"));
         }
@@ -1212,6 +1215,7 @@ impl CanonicalStore {
             batch,
             owner: owner.clone(),
         })
+        }).await
     }
 
     /// Fetch one named admitted blob. Successful checked RPC completion precedes
@@ -1221,6 +1225,7 @@ impl CanonicalStore {
         read: &ResultRead,
         metadata: BlockMetadata,
     ) -> Result<ResultBlock, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         let activity = read.owner.store.selection_activity(&read.owner.selection)?;
         activity.scope(async {
         if !self.db.same_driver(&read.owner.store.db) {
@@ -1262,6 +1267,7 @@ impl CanonicalStore {
         let batch=self.hydrate_result_batch(batch,read.owner.clone()).await?;
         Ok(ResultBlock { metadata, batch, owner: read.owner.clone() })
             }).await
+        }).await
     }
 }
 
