@@ -362,7 +362,12 @@ fn project_response_evidence(
         // Each sample retains its own quantitative row locator even when the
         // semantic output node is shared. Sample/time/unit scope is in that row.
         let target = vertex(graph, nodes, row.output_id.to_string(), "output")?;
-        edge(graph, attempt, target, "produced_evidence", Some(item.locator.clone()))?;
+        // Production provenance describes the output's membership in this
+        // retained block. Quantitative claims below still identify every row.
+        let mut produced = item.locator.clone();
+        produced.row = None;
+        produced.field = None;
+        edge(graph, attempt, target, "produced_evidence", Some(produced))?;
         edge(graph, if recorded { parameter } else { attempt }, target,
             if recorded { "recorded_transient_response" } else { "withheld_response_claim" },
             Some(field_locator(&item.locator, "value")))?;

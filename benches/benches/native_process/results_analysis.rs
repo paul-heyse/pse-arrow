@@ -308,13 +308,11 @@ async fn graph(
                         assert_eq!(source_kind, "attempt");
                         assert_eq!(source, &format!("attempt:{}", expected.attempt));
                         assert_eq!(target_kind, "output");
-                        let mut evidence = evidence_locator(&row);
-                        assert!(evidence.row.is_some());
+                        let evidence = evidence_locator(&row);
+                        assert!(evidence.row.is_none());
                         assert!(evidence.field.is_none());
-                        evidence.field = Some("value".into());
-                        let (output, _) = original[&evidence];
-                        assert_eq!(target, &output.to_string());
-                        assert!(produced.insert(evidence));
+                        assert!(original.iter().any(|(locator, (output, _))| locator.artifact == evidence.artifact && locator.block == evidence.block && output.to_string() == *target));
+                        assert!(produced.insert((evidence, target.clone())));
                     }
                     "input_provenance" => {
                         assert_eq!(source_kind, "source_revision");
@@ -352,9 +350,16 @@ async fn graph(
     assert_eq!(edge_count, header.edge_count);
     if let Some(original) = original_evidence {
         assert_eq!(response_count as usize, original.len());
-        assert_eq!(produced.len(), original.len());
+        assert_eq!(seen, original.keys().cloned().collect::<BTreeSet<_>>(), "every original quantitative row has its exact value locator");
+        let expected_produced = original.iter().map(|(locator, (output, _))| {
+            let mut block = locator.clone();
+            block.row = None;
+            block.field = None;
+            (block, output.to_string())
+        }).collect::<BTreeSet<_>>();
+        assert_eq!(produced, expected_produced, "complete output membership for every actual response block");
         assert_eq!(provenance_count as usize, expected.sources.len());
-        assert!(edge_count > 2 * response_count + provenance_count, "family and trajectory interpretation remain independently addressable");
+        assert!(edge_count > response_count + produced.len() as u64 + provenance_count, "family and trajectory interpretation remain independently addressable");
     }
     ReadObservation {
         digest: hash.finish_hash(),
@@ -666,7 +671,7 @@ async fn prepare(
         serde_json::to_vec(&(2_u8, &controls, &run, &attempt)).unwrap()
     );
     assert!(header.node_count as usize > states + 2 + input_sources.len());
-    assert!(header.edge_count as usize > 2 * states * samples + input_sources.len());
+    assert!(header.edge_count as usize > states * samples + states + input_sources.len());
     assert!(header.node_count <= 4096 && header.edge_count <= 8192);
     mark(&mut phase_seconds, "analysis_activation", started);
     let started = Instant::now();

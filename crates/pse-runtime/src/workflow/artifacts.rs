@@ -664,6 +664,83 @@ mod tests {
             assert!(seen);
         }
     }
+
+    #[tokio::test]
+    async fn canonical_partial_event_analysis_retains_numeric_prefix_without_scalar_claims() {
+        use pse_relations::generated::runtime::{canonical_analysis_edges, computation_runs, scientific_contexts, simulation_events, simulation_samples, trajectory_endpoints};
+        use super::super::analyses::{AnalysisControls, AnalysisDirection};
+        let runtime = super::super::durable_tests::durable_runtime();
+        let mut physical = super::super::tests::physical();
+        physical.preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap());
+        physical.key = pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
+        // x(t)=1+2t reaches the terminal guard x=2 at t=0.5,
+        // before the fixed-horizon observations at 0.75 and 2 seconds.
+        let source = "package p { def Root { domain t:Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param p:Scalar=2; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p; eq initial:x[0{s}]==1{s}; let hit[i in t]:Time=x[i]-2{s}; } test stopped fixture { dof 0; route integrated; procedure integrate; endpoint fixed_horizon; integrate samples(0{s},0.25{s},0.75{s},2{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{s}); mode stop; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) terminal; } { child root:Root=Root(); } }";
+        let rows = pse_authoring::language::parse(source, pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+        let root = rows.iter().find(|row| row.name == "stopped").unwrap().declaration_id;
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
+        let profile = pse_backend_native::dynamics::Profile {
+            method: pse_backend_native::dynamics::Method::Diffsol,
+            end: 2., samples: vec![0., 0.25, 0.75, 2.],
+            sensitivity: pse_backend_native::dynamics::DynamicSensitivity::None,
+            ..Default::default()
+        };
+        let prepared = package.declared_simulation(root, super::super::tests::compiler_profile(), Some(profile), Default::default(), &crate::CancelSource::new()).await.unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        assert!(!result.usable(), "the fixed-horizon completion remains unsatisfied after the event");
+        let headers = computation_runs::Row::rows(&result.table("runtime.computation_runs").unwrap()).unwrap();
+        assert_eq!(headers.len(), 1);
+        assert_eq!(headers[0].trajectory_termination, Some(pse_model::generated::enums::TrajectoryTermination::Event));
+        assert_eq!(headers[0].response_available, Some(false));
+        assert!((headers[0].completed_time.unwrap() - 0.5).abs() < 1e-5);
+        let contexts = scientific_contexts::Row::rows(&result.table("runtime.scientific_contexts").unwrap()).unwrap();
+        let state = contexts[0].state[0].id;
+        let mut samples = simulation_samples::Row::rows(&result.table("runtime.simulation_samples").unwrap()).unwrap();
+        let state_samples = samples.iter().filter(|sample| sample.symbol_id == state).collect::<Vec<_>>();
+        assert_eq!(state_samples.len(), 2);
+        for sample in state_samples {
+            assert!((sample.value - (1. + 2. * sample.time)).abs() < 1e-6);
+            assert!(sample.time < 0.5);
+        }
+        let events = simulation_events::Row::rows(&result.table("runtime.simulation_events").unwrap()).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!((events[0].time - 0.5).abs() < 1e-5);
+        assert!((events[0].before - 2.).abs() < 1e-5);
+        let endpoints = trajectory_endpoints::Row::rows(&result.table("runtime.trajectory_endpoints").unwrap()).unwrap();
+        assert_eq!(endpoints.len(), 1);
+        assert!(!endpoints[0].endpoint_satisfied);
+        assert!((endpoints[0].time - events[0].time).abs() < 1e-8);
+        assert!((endpoints[0].state[0] - 2.).abs() < 1e-5);
+        let run = result.canonical_run_key().unwrap();
+        let attempt = result.canonical_attempt_key().unwrap();
+        let graph = runtime.result_analysis(run, attempt, &AnalysisControls { roots: vec![], direction: AnalysisDirection::Downstream }, CancellationToken::new()).await.unwrap();
+        let edges = canonical_analysis_edges::Row::rows(&graph.edges(None).await.unwrap()).unwrap();
+        let event_edge = edges.iter().find(|edge| edge.kind == "trajectory_event").unwrap();
+        assert!(event_edge.evidence_row.is_some());
+        assert!(edges.iter().all(|edge| !edge.kind.contains("parametric") && edge.kind != "recorded_transient_response"));
+        let artifact = runtime.scientific_artifact(event_edge.evidence_artifact.as_deref().unwrap()).await.unwrap();
+        assert_eq!(artifact.header().kind, "trajectory");
+        let retained_event = artifact.evidence(&ArtifactLocator { artifact: artifact.header().key.clone(), block: event_edge.evidence_block.unwrap(), row: event_edge.evidence_row, field: event_edge.evidence_field.clone() }, CancellationToken::new()).await.unwrap();
+        assert_eq!(simulation_events::Row::rows(&retained_event).unwrap(), events);
+        let read = runtime.canonical_store().unwrap().read_artifact(&artifact.header().key).await.unwrap();
+        let mut retained_samples = Vec::new();
+        let mut retained_endpoints = Vec::new();
+        for ordinal in 0..artifact.header().block_count {
+            let block = read.block(ordinal).await.unwrap();
+            match block.relation.as_str() {
+                "runtime.simulation_samples" => retained_samples.extend(simulation_samples::Row::rows(&artifact.block(ordinal, CancellationToken::new()).await.unwrap()).unwrap()),
+                "runtime.trajectory_endpoints" => retained_endpoints.extend(trajectory_endpoints::Row::rows(&artifact.block(ordinal, CancellationToken::new()).await.unwrap()).unwrap()),
+                _ => {}
+            }
+        }
+        read.release().await.unwrap();
+        retained_samples.sort_by_key(|row| (row.symbol_id, row.sample));
+        samples.sort_by_key(|row| (row.symbol_id, row.sample));
+        assert_eq!(retained_samples, samples);
+        assert_eq!(retained_endpoints, endpoints);
+        assert!(runtime.promote_scientific_artifact(run, attempt, ScientificArtifactKind::LocalAnalysis, "user", "partial-event-scalar-refusal", CancellationToken::new()).await.is_err());
+    }
+
 }
 
 #[cfg(test)]

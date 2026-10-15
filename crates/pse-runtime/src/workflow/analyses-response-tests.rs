@@ -246,3 +246,61 @@ fn response_selected_parameter_keeps_original_qualification_context() {
     assert_eq!(selection.iter().filter(|index| graph[**index].1 == "retained_context").count(), 3);
     assert!(!selection.contains(&nodes["attempt:exact"]));
 }
+
+#[test]
+fn response_actual_campaign_shape_preserves_complete_inventory_within_graph_caps() {
+    const OUTPUTS: usize = 128;
+    const SAMPLES: usize = 31;
+    let mut evidence = transient();
+    evidence.samples.clear();
+    evidence.responses.clear();
+    evidence.events.clear();
+    evidence.contexts[0].row.outputs = (0..OUTPUTS).map(|output| coordinate(20 + output as u8)).collect();
+    evidence.computations[0].row.completed_samples = Some(SAMPLES as i64);
+    evidence.computations[0].row.trajectory_termination = Some(TrajectoryTermination::Completed);
+    evidence.endpoints[0].row.endpoint_satisfied = true;
+    evidence.endpoints[0].row.prefix_complete = true;
+    evidence.endpoints[0].row.missing_observations.clear();
+    for sample in 0..SAMPLES {
+        let time = sample as f64 / (SAMPLES - 1) as f64;
+        evidence.modes.push(located(modeling_trajectory_modes::Row { run_id: run(), sample: sample as i64, time, mode: "initial".into() }, 6, sample as u64));
+        for output in 0..OUTPUTS {
+            let symbol = id(20 + output as u8);
+            let index = (sample * OUTPUTS + output) as u64;
+            evidence.samples.push(located(simulation_samples::Row { run_id: run(), sample: sample as i64, time, symbol_id: symbol, quantity_id: id(8), unit_id: id(9), value: time }, 3, index));
+            evidence.responses.push(located(response_sensitivities::Row { run_id: run(), experiment_id: InstanceId::from_id(id(3)), sample: sample as i64, time: Some(time), output_id: symbol, parameter_id: id(5), output_unit_id: id(9), parameter_unit_id: id(9), value: time }, 4, index));
+        }
+    }
+    let graph = graph(&evidence);
+    assert!(graph.node_count() <= ANALYSIS_NODES);
+    assert!(graph.edge_count() <= ANALYSIS_EDGES);
+    let quantitative = graph.edge_weights().filter(|(kind, _)| kind == "recorded_transient_response").map(|(_, locator)| locator.as_ref().unwrap().clone()).collect::<BTreeSet<_>>();
+    let original = evidence.responses.iter().map(|item| field_locator(&item.locator, "value")).collect::<BTreeSet<_>>();
+    assert_eq!(quantitative, original);
+    assert_eq!(quantitative.len(), OUTPUTS * SAMPLES);
+    assert_eq!(count(&graph, "withheld_response_claim"), 0);
+    assert_eq!(count(&graph, "produced_evidence"), OUTPUTS);
+    assert!(graph.edge_weights().filter(|(kind, _)| kind == "produced_evidence").all(|(_, locator)| {
+        let locator = locator.as_ref().unwrap();
+        locator.block == 4 && locator.row.is_none() && locator.field.is_none()
+    }));
+    for kind in ["response_coordinates", "response_completion", "response_endpoint"] {
+        assert_eq!(count(&graph, kind), OUTPUTS);
+        assert!(graph.edge_weights().filter(|(name, _)| name == kind).all(|(_, locator)| locator.as_ref().unwrap().row.is_some()));
+    }
+    assert_eq!(count(&graph, "trajectory_mode"), SAMPLES);
+}
+
+#[test]
+fn response_produced_provenance_preserves_distinct_blocks_and_quantitative_rows() {
+    let mut evidence = transient();
+    evidence.responses.push(located(evidence.responses[0].row.clone(), 7, 0));
+    let graph = graph(&evidence);
+    let produced = graph.edge_weights().filter(|(kind, _)| kind == "produced_evidence").map(|(_, locator)| locator.as_ref().unwrap().clone()).collect::<BTreeSet<_>>();
+    assert_eq!(produced.len(), 2);
+    assert_eq!(produced.iter().map(|locator| locator.block).collect::<BTreeSet<_>>(), BTreeSet::from([4, 7]));
+    assert!(produced.iter().all(|locator| locator.row.is_none() && locator.field.is_none()));
+    let quantitative = graph.edge_weights().filter(|(kind, _)| kind == "recorded_transient_response").map(|(_, locator)| locator.as_ref().unwrap().clone()).collect::<BTreeSet<_>>();
+    assert_eq!(quantitative.len(), 2);
+    assert!(quantitative.iter().all(|locator| locator.row == Some(0) && locator.field.as_deref() == Some("value")));
+}
