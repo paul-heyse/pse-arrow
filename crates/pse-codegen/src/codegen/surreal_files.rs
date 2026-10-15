@@ -35,7 +35,8 @@ DEFINE FUNCTION fn::pse_files_v1::reserve($expiry:int,$row:object,$run:option<st
     IF $row.owner_kind='result' {
         IF $run=NONE OR $attempt=NONE OR $generation=NONE OR $row.selection!=$attempt { THROW 'result file original fence missing'; };
         LET $writer=fn::pse_execution_v1::writer($expiry,$run,$attempt,$generation,$row.intent,'append');
-        IF $writer.pse_writer!='admitted' OR !$writer.attempt.ingestion_open OR $writer.attempt.closed { THROW 'result file writer refused'; };
+        IF $writer.pse_writer!='admitted' { RETURN $writer; };
+        IF !$writer.attempt.ingestion_open OR $writer.attempt.closed { THROW 'result file writer refused'; };
     } ELSE IF $row.owner_kind='artifact' {
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.selection) FOR UPDATE;
         IF $artifact=NONE OR $artifact.retiring OR $artifact.active OR $artifact.creation_expires_at<=time::micros() { THROW 'artifact file original creation unavailable'; };

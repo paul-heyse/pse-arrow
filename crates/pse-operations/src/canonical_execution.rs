@@ -28,7 +28,7 @@ tokio::task_local! { static APPEND_GROUP_REPLY_LOSS: bool; }
 
 /// Decode an acknowledged guarded refusal before the ordinary generated row codec.
 /// No driver error or later cancellation observation grants this classification.
-fn writer_response(mut row: Object) -> Result<Object, CanonicalError> {
+pub(crate) fn writer_response(mut row: Object) -> Result<Object, CanonicalError> {
     let Some(tag) = row.remove("pse_writer") else {
         return Ok(row);
     };

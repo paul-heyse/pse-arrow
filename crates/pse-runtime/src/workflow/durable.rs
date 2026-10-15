@@ -4492,6 +4492,61 @@ mod canonical_durable_codec {
         assert_eq!(record.attempt_id, attempt_id);
     }
     #[tokio::test]
+    async fn canonical_cancelled_file_reservation_settles_the_exact_study_attempt() {
+        let (runtime, claim) = study_claim_runtime().await;
+        let operations = runtime.operations().unwrap();
+        let fence = &claim.fence;
+        let point = operations.store.mark_study_started(&claim).await.unwrap();
+        let attempt_id = pse_operations::mint_id();
+        let mut attempt = DurableAttempt::claimed(
+            operations,
+            fence.clone(),
+            pse_operations::mint_id(),
+            attempt_id,
+        )
+        .unwrap();
+        attempt.start(Arc::new(|| {})).await.unwrap();
+        operations.store.cancel_study(&point.study).await.unwrap();
+        let operation = format!("cancelled-file:{}", fence.attempt());
+        let refusal = operations
+            .store
+            .reserve_result_file(fence, &operation, &result_payload_digest(b"[1]"))
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            &refusal,
+            pse_operations::canonical::CanonicalError::StudyCancellation {
+                run, attempt, generation, operation: original,
+            } if run == fence.run() && attempt == fence.attempt()
+                && *generation == fence.generation() && original == &operation
+        ));
+        let record = attempt.abandon(&Arc::new(refusal.into())).await;
+        let terminal = record.attempt.as_ref().unwrap();
+        assert_eq!(terminal.key, fence.attempt());
+        assert!(terminal.terminal && terminal.closed && !terminal.ingestion_open);
+        assert_eq!(terminal.outcome.as_deref(), Some("cancelled"));
+        assert_eq!(record.attempt_id, attempt_id);
+        assert!(record.completion.as_ref().unwrap().completion.is_none());
+        assert!(record.solutions.is_empty());
+        assert!(
+            pse_operations::canonical_execution::decode_result_descriptors(
+                record.manifest.as_ref().unwrap()
+            )
+            .unwrap()
+            .is_empty()
+        );
+        let settled = runtime
+            .record_study_attempt(&point, &claim.start, &record)
+            .await
+            .unwrap();
+        assert!(settled.settled && !settled.assigned);
+        let facts = pse_operations::canonical_studies::point_facts(&settled).unwrap();
+        assert_eq!(facts.lifecycle, pse_model::generated::enums::StudyPointState::Cancelled);
+        assert!(facts.native_started && !facts.scientific.usable);
+        assert_eq!(facts.attempt_count, 1);
+        drop(runtime);
+    }
+    #[tokio::test]
     async fn canonical_preentry_refusal_settles_only_acknowledged_cancellation() {
         let (operations, fence) = study_claimed().await;
         operations.store.cancel_study("cancel-study").await.unwrap();
