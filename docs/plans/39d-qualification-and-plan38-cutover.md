@@ -1,6 +1,6 @@
 ---
 title: Combined qualification and remaining Plan 38 cutover
-status: draft
+status: in-progress
 date: 2026-10-14
 adrs: []
 review_sources:
@@ -32,7 +32,7 @@ The original reference host is this Linux workstation. The selected persistence 
 | <a id="d0"></a>D0 | Selected 39a–c functional scope complete; investigations decided; new rule changes installed before their dependent code | One current consumer/scenario selection and real readiness assessment; reconcile inherited G0 amendments/support limits without mistaking ADR status for behavior | Planned |
 | <a id="d1"></a>D1 | D0; working protected preparation/installation boundary; RC01 guarantee explicitly selected | Fresh actual runtime/worker/Python producer capture and deployment/imported-byte association under the selected contract; failures stay failures | Planned |
 | <a id="d2"></a>D2 | D1; current owned v6 fixtures and working selected consumers | Assembled native, managed and installed-Python journeys across all eight inherited families and new review scenarios; exposed defects repaired and replacement closure checked | Planned |
-| <a id="d3"></a>D3 | D2 and actual scientific/reference profiles | Independent scientific, recovery and entered-pull interruption/disposal acceptance; applicable scope-end hygiene and manual native/powerset checks | Planned |
+| <a id="d3"></a>D3 | D2 and actual scientific/reference profiles | Independent scientific, recovery and entered-pull interruption/disposal acceptance; applicable scope-end hygiene and manual native/powerset checks | Partial — selected static repair complete; remaining acceptance planned |
 | <a id="d4"></a>D4 | D2/D3 functional acceptance; separate development artifact, original reference-profile state and matching allocation | Exact standalone native/managed prerequisites without incompatible producer injection, then all eleven selected measurements with honest reference-host conditions | Planned |
 | <a id="d5"></a>D5 | D1–D4 settled; all adopted contributions and support choices accounted for | Combined finding/rule/investigation/packet disposition, actual Outcomes, enduring documentation and eligible retirement; no unrelated campaign closure | Planned |
 
@@ -176,3 +176,36 @@ This companion specifies the transferred final scope and exact eleven measuremen
 ## Remaining-design handoff — 2026-10-14
 
 The maintainer authorized remaining functional/design changes but explicitly deferred the entire final campaign: actual PSE all-role strict captures/install/import, assembled integration/scientific/recovery/entered-pull checks, hygiene/manual checks and all eleven measurements. A1–A5 are implemented at their own Outcome. The finite preparation-operation correction and new-launch status correction complete identified functional prerequisites; their targeted checks do not execute D1–D4 or close D5. D0's final live prerequisite assessment remains necessary at campaign launch. Keep native/PyO3 source-review completeness, all current role associations and possible installer namespace changes conservative; fixture compilation evidence supplies none of those grants. No primary fixture was activated or regenerated for this slice.
+
+## Selected static repair outcome — 2026-10-14
+
+The maintainer subsequently authorized full Cargo check, continuing Clippy, Pyrefly and Ruff review and repair. This explicitly selects the static subset before D2; it does not start the deferred assembled/scientific campaign or establish D3's other obligations. Baseline: clean `main` at `d7855a9bb`. Initial Cargo check passed; Ruff reported **19 errors** and Pyrefly **67 error blocks**, separately retaining three suppressed negative-test diagnostics. Clippy exposed **four distinct source issues** across runtime and producer tooling as dependent crates became checkable. Failure baseline remains zero; none becomes an allowance.
+
+**Implemented:** precise nested operation-description types replace `dict[str, object]` where consumers inspect actual compiler/provider/placement selections. The placement slice remains nullable, matching existing explicit `none` selection. Typed deadline forwarding preserves the distinction between omitted clocks and supplied deadlines. Child preparation forwarding now passes the exact descriptor tuple explicitly rather than unpacking an untyped keyword map. Installer/PyO3 refusal checks have named owners; activity disappearance is reported directly rather than throwing and catching its own exception. Mock signatures and per-case closures express the subprocess modes and values they actually consume.
+
+**Implemented:** reload visibility and spool-write conditions are simplified without changing lookup order or drain behavior. Borrowed dep-info associations group the paths-by-unit map with the independently actual-associated unit set for both live and historical macro review; no identity framing, input check or serialized evidence changes. A streaming test uses lexical ownership instead of dropping a non-Drop wrapper. No general lint/type relaxation or new dependency was introduced. One documented `PTH100` exception remains at the lexical invocation-path owner: resolving symlinks would change name-dispatched Cargo/Rustup proxy semantics. The added actual symlink/parent-normalization control protects that contract.
+
+**Tested, zero-failure baseline, pinned environment and explicit Arrow force-validation:**
+
+| Selected scope | Command and result |
+|---|---|
+| Default/no-default workspace compilation, all targets | `scripts/pse-env --resource-class compile -- just check` and `just check --no-default-features`: passed, no warnings/errors |
+| Default/no-default workspace lint, all targets | `PSE_TEST_RESOURCE_STATE=/tmp/pse-friction-review-resources-uMrtOxGw scripts/pse-env --resource-class compile -- just clippy`: both passed; recipes use `--keep-going` and `-D warnings` |
+| Linked native workspace compilation, all targets | `scripts/pse-env --resource-class compile --native=solver,klu,isolation,uno,petsc -- .venv/bin/python -m scripts.arrow_validation check --keep-going --workspace --all-targets --locked --features pse-py/native-solvers,pse-tests-conformance/native-acceptance,pse-benches/native-process`: passed, no warnings/errors |
+| Linked native workspace lint, all targets | `scripts/pse-env --resource-class compile -- just lint-solver-contracts`: passed with the recipe's same linked native selection, `--keep-going`, `--no-deps` and `-D warnings` |
+| Configured Python product/tooling lint | `scripts/pse-env --resource-class light -- just lint-py`: passed, zero errors |
+| Configured Python product/tooling types and warnings | `scripts/pse-env --resource-class light -- just typecheck`: passed, zero diagnostics; three existing intentional invalid-input/read-only test suppressions reviewed and retained |
+
+**Tested:** the integrated tooling command `PSE_TEST_RESOURCE_STATE=/tmp/pse-friction-review-resources-uMrtOxGw scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_activity scripts.tests.test_host_admission scripts.tests.test_pse_env scripts.tests.test_native_operation.ManagerObservationTests scripts.tests.test_native_operation.DrainObservationTests scripts.tests.test_validation scripts.tests.test_producer_cargo scripts.tests.test_producer_deployment` passed **207**, zero failures. Negative fixture diagnostics were expected assertions; enclosing exit was zero. This covers exact clocks, partial observation, admission/guard lifetime, selection/refusal and installer/evidence boundaries without a canonical server.
+
+**Tested:** `PSE_TEST_RESOURCE_STATE=/tmp/pse-friction-review-resources-uMrtOxGw scripts/pse-env --resource-class compile -- .venv/bin/python -m scripts.arrow_validation nextest run -p xtask --bin xtask --no-default-features --locked -E 'test(producer_streamed_child_) | test(producer_historical_) | test(producer_observed_installer_arguments_) | test(producer_tokens_only_) | test(producer_dynamic_macro_review_) | test(producer_pest_preferred_)' --no-fail-fast` passed **14**, with **62 outside the filter**. Explicit force-validation is composed for the actual closure. Actual tiny compiler/historical reconstruction and streaming controls preserve the shared dep-info and drain contracts; they remain native-unqualified fixtures.
+
+**Tested:** `PSE_TEST_RESOURCE_STATE=/tmp/pse-friction-review-resources-uMrtOxGw scripts/pse-env --resource-class compile -- just unit-package pse-runtime local_parsed_reload` passed **six**, with **501 outside the filter**, under explicit force-validation. These exercise exact changed-data visibility, additions/removals, failed-parent preservation, inherited payloads and IR/fit continuity through the actual reload consumer. The enclosing command exited zero.
+
+Root `just turn-end` passed (ADR index and formatting); source inspection found only layout changes in its diff. Subsequent `just lint-py`, `just typecheck` and `just fmt-py-check`, through the light `scripts/pse-env` boundary, all passed: zero Ruff errors, zero Pyrefly diagnostics and all 242 Python files formatted. Integrated agent worktrees were clean and removed after their commits were merged. Raw selected logs are at `/tmp/pse39-static-repair.Jnh200`; the final continuing Clippy report is `build/assessment/20261015T001030.919912Z-clippy-3697664-323dc4`.
+
+**Interface-checked:** independent source review of the two Python repair commits and nullable slice correction found no material issue in clock omission, exact FD propagation, intent-only inspection, proxy invocation identity or refusal handling. It did not review Rust or establish scientific qualification.
+
+**A mistake made and corrected:** the initial explicit description type assumed every slice selection returned a string; the full checker exposed the supported nullable case, which the type now preserves. Explicit subprocess forwarding also exposed test mocks that omitted real `pass_fds`, stdout and timeout parameters; their signatures now reflect those calls rather than hiding errors behind casts or ignores.
+
+**Deliberate boundary:** the default report registry refused fenced-migration recovery. The existing supported private metadata registry was selected instead, and `just ready` passed; no default registry recovery or resource disposal was attempted. No all-role producer campaign, qualified installation/import, assembled scientific/store/recovery/signal journey, feature powerset, remaining hygiene/manual checks or measurement ran. D0–D2, the rest of D3, D4 and D5 remain pending. The 19 historical advisory Ruff diagnostics in 39b's previous Outcome are now repaired; that historical command/result remains unchanged.

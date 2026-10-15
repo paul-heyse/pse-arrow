@@ -684,9 +684,7 @@ def unadmitted_service_launch_drained(
     config = surreal_server.config_for(state, deadline=deadline)
     if surreal_server.storage_launch(state, config, deadline=deadline) != launch:
         return False
-    observed = operation.unit_observation(
-        unit, **operation.deadline_options(deadline)
-    )
+    observed = operation.unit_observation(unit, **operation.deadline_options(deadline))
     if (
         observed.get("LoadState") != "loaded"
         or observed.get("ActiveState") not in {"inactive", "failed"}
@@ -708,9 +706,7 @@ def unadmitted_service_launch_drained(
         or surreal_server.config_for(state, deadline=deadline) != config
         or surreal_server.read_json(state / "service-launch.json", deadline=deadline)
         != launch
-        or operation.unit_observation(
-            unit, **operation.deadline_options(deadline)
-        )
+        or operation.unit_observation(unit, **operation.deadline_options(deadline))
         != observed
     ):
         return False
@@ -1102,9 +1098,9 @@ def queue_parked_service(
     """Publish actual parking intent while the caller owns the service lifecycle."""
     from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
 
-    if surreal_server.config_for(
-        state, **operation.deadline_options(deadline)
-    ).get("parked"):
+    if surreal_server.config_for(state, **operation.deadline_options(deadline)).get(
+        "parked"
+    ):
         selected = str(state)
         with allocation_metadata(directory, deadline=deadline) as ledger:
             if selected not in ledger.setdefault("parked_services", []):
@@ -1286,9 +1282,7 @@ class Allocation:
                 return False
             if current == owner:
                 del state["owners"][self.nonce]
-        retire_empty_allocation(
-            self, **operation.deadline_options(deadline)
-        )
+        retire_empty_allocation(self, **operation.deadline_options(deadline))
         return True
 
 

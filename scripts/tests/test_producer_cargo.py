@@ -279,7 +279,10 @@ class ProducerCargoTests(unittest.TestCase):
         cargo.symlink_to(proxy)
         self.assertEqual(
             observer.cargo_executable(
-                {"PATH": str(directory), "CARGO": str(directory / "../proxy-links/cargo")}
+                {
+                    "PATH": str(directory),
+                    "CARGO": str(directory / "../proxy-links/cargo"),
+                }
             ),
             str(cargo),
         )

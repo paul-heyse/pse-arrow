@@ -279,9 +279,7 @@ def scope_owner(*, deadline: float | None = None) -> ScopeOwner | None:
                 part,
             )
         )
-        observed = unit_observation(
-            unit, **deadline_options(deadline)
-        )
+        observed = unit_observation(unit, **deadline_options(deadline))
         control = observed["ControlGroup"]
         invocation = observed["InvocationID"]
         if (
@@ -377,9 +375,7 @@ def drained(
             return DrainObservation(
                 selected, DrainPhase.POPULATED, "owned descendants remain"
             )
-        observed = unit_observation(
-            owner["unit"], **deadline_options(deadline)
-        )
+        observed = unit_observation(owner["unit"], **deadline_options(deadline))
         if observed.get("LoadState") == "not-found":
             # A group can repopulate while the manager is being observed.
             if populated(owner["group"]):
@@ -481,14 +477,7 @@ def owner_record(*, deadline: float | None = None, reserve: float = 0) -> Path |
             admission_remaining(deadline)
         owner = record.get("scope")
         if owner:
-            return (
-                path
-                if scope_owner(
-                    **deadline_options(deadline)
-                )
-                == owner
-                else None
-            )
+            return path if scope_owner(**deadline_options(deadline)) == owner else None
         pid = record["pid"]
         if start_identity(pid) != record["start"]:
             return None

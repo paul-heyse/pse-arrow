@@ -2034,7 +2034,11 @@ fn macro_caller_input_basis_with_reader(
         if !dep_info.actual_units.contains(&index) {
             return Ok(None);
         }
-        let Some(paths) = dep_info.paths_by_unit.get(&index).filter(|paths| !paths.is_empty()) else {
+        let Some(paths) = dep_info
+            .paths_by_unit
+            .get(&index)
+            .filter(|paths| !paths.is_empty())
+        else {
             return Ok(None);
         };
         let mut consumed = BTreeMap::new();
