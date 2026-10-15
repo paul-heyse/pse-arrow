@@ -6410,6 +6410,7 @@ name = "pse-operations"
 version = "0.0.1"
 dependencies = [
  "arrow-schema",
+ "flatbuffers",
  "futures-util",
  "libc",
  "miette",
@@ -6424,6 +6425,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "surrealdb",
+ "surrealdb-protocol",
  "surrealdb-sql",
  "surrealdb-syn",
  "thiserror 2.0.21",

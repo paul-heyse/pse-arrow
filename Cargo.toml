@@ -150,6 +150,7 @@ pyo3-introspection = "=0.29.2"
 
 # ---- runtime ----
 # Exact server parser/AST, only selected by maintenance catalog validation.
+surrealdb-protocol = { version = "=0.13.1", default-features = false, features = ["flatbuffers"] }
 surrealdb-syn = "=3.3.0"
 surrealdb-sql = "=3.3.0"
 surrealdb = { version = "=3.3.0", path = "vendor/surrealdb", default-features = false, features = [
