@@ -1,2 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Paul Heyse
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Fixture-owned Cargo output; never shared with the root target.
 /target/

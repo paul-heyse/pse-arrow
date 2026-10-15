@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 169
+revision: 170
 date: 2026-10-14
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 170 | 2026-10-14 | Proposed ADR-0189 / Plan39d: source-qualified executor compilation premises; separate immutable compiler/launcher evidence, authenticated installation transitions and current installed/import context (§5.3/§14.3). | Maintainer explicitly selected phase contexts; PSE_DESIGN_EDIT=1; independent phase-context target review Accept at Proposed strength; implementation/source qualification and assembled acceptance remain separate. |
 | 169 | 2026-10-14 | Plan39 remaining design within proposed ADR-0183/0189: exact revision-owned inventories and invocation-bound handoff; owned receiver rebinding and independent supplied import; finite strict preparation refresh and same-operation executor compilation (§5.3/§14.3/§14.4/§19.1). | Maintainer-authorized remaining-design execution; PSE_DESIGN_EDIT=1; independent preparation target review Accept at Proposed strength; targeted implementation checks remain distinct from explicitly deferred Plan39d qualification/measurements. |
 | 168 | 2026-10-14 | Proposed ADR-0189 / Plan39 RC01–RC02: exact local transitive source pins and guarded pure macro channels separate caller code identity from external-I/O grants; owned startup and sealed role evidence; strict Python installation consumes its actual Cargo realization (§3.1/§5.3/§14.3). | Maintainer-authorized execution and explicit guarded-owner choice; PSE_DESIGN_EDIT=1; independent bounded target review Accept at Proposed strength; selected implementation and Plan39d assembled acceptance remain distinct. |
 | 167 | 2026-10-14 | Proposed ADR-0188 / Plan38f G0: remove the unconsumed hashing setting and its accidental Python Runtime incompatibility; retain consumed resource identity and original strong ticket/prepaid late-response ownership (§14.3/§18.8/§21). | Maintainer-authorized execution and explicit identity choice; visible `.design-edit`; independent bounded target review Accept at Proposed strength; focused acceptance remains separate from Plan38g. |

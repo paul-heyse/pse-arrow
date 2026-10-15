@@ -11,13 +11,14 @@ owns server setup, resource allocation, maintenance, quiescing, backup and resto
 ## Setup and runtime ownership
 
 ```bash
-just surreal setup --state /path/to/private/state --interpretation pse.substrate.v5
+just surreal setup --state /path/to/private/state
 just surreal start --state /path/to/private/state
 just canonical-init /path/to/private/state
 ```
 
-The current generated interpretation is `pse.substrate.v5`. Initialization installs
-its complete schema and marker atomically in a fresh database. Ordinary opening validates
+Setup selects the current generated interpretation, described by the
+[local substrate guide](surreal-substrate.md#setup-and-state-ownership). Initialization
+installs its complete schema and marker atomically in a fresh database. Ordinary opening validates
 the selected interpretation and schema digest without DDL. Design-phase cutover regenerates
 owned state from current definitions and fixtures; it requires no old-data migration,
 backfill or historical reader. Current scientific document versions and current-version

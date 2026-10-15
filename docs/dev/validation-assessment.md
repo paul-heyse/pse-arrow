@@ -177,11 +177,15 @@ actual-build review contexts; the native-input variable names a JSON list of fil
 `PSE_PYTHON_PRODUCER_INPUTS` can select a distinct native-input list for Python.
 The capture command consumes these reviews; it does not create completeness or
 source-review assertions. Missing or ineligible inputs fail qualification.
-Python capture replays [Maturin's extension linking selection](https://github.com/PyO3/maturin/blob/v1.15.0/src/compile.rs#L834)
-with `PYO3_BUILD_EXTENSION_MODULE=1`; runtime and worker builds omit that switch.
+Python capture observes Maturin's actual Cargo child, including its extension
+linking selection and `PYO3_BUILD_EXTENSION_MODULE=1`; runtime and worker builds
+omit that switch. The single preparation operation refreshes selected executor
+families before any role capture. Runtime and worker captures precede the actual
+Maturin child, whose qualified sealed realization is required before installation
+continues. Historical evidence remains separate from current deployment validity.
 
-The runner installs the producer-profile extension first, captures the three actual
-deployment targets, then runs the eligible Python solve/reopen control with
+The runner completes all three actual captures and Python installation, then runs
+the eligible Python solve/reopen control with
 `PSE_PYTHON_DEPLOYMENT_OBSERVATION_OUTPUT` naming a fresh output file. The wrapper
 passes that output to the control only after recording the imported binary and its
 input captures. That control writes the

@@ -751,41 +751,67 @@ mod tests {
             &fs::read(fixture.evidence.join(format!("{name}.json"))).unwrap(),
         )
         .unwrap();
-        assert!(!context["preparation"]["preceding_compilations"]
-            .as_object()
-            .unwrap()
-            .is_empty());
-        assert!(context["preparation"]["first_compiled_contexts"]
-            .as_array()
-            .unwrap()
-            .is_empty());
+        assert!(
+            !context["preparation"]["preceding_compilations"]
+                .as_object()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            context["preparation"]["first_compiled_contexts"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
     fn producer_preparation_native_role_assertions_share_executor_and_retain_history() {
         let fixture = Fixture::new();
         let first = fixture.native_reviewed_selection("library", ProducerTarget::Library);
-        let second = fixture.native_reviewed_selection(
-            "worker",
-            ProducerTarget::Binary("worker".into()),
+        let second =
+            fixture.native_reviewed_selection("worker", ProducerTarget::Binary("worker".into()));
+        assert_ne!(
+            first.declarations.native_reviewed_source,
+            second.declarations.native_reviewed_source
         );
-        assert_ne!(first.declarations.native_reviewed_source,
-            second.declarations.native_reviewed_source);
         for (name, options) in [("library", &first), ("worker", &second)] {
             let identity = run(options).unwrap();
-            assert!(!identity.reasons.iter().any(|reason|
-                reason.contains("native ABI/binary/input completeness")
-                    || reason.contains("native/tool closure")), "{:?}", identity.reasons);
-            assert_eq!(identity.reviewed_owner_sources["native-closure"],
-                options.declarations.native_reviewed_source.as_ref().unwrap().as_str());
-            identity.deployment.as_ref().unwrap()
-                .verify_current(&identity.deployment.as_ref().unwrap().artifact.path).unwrap();
+            assert!(
+                !identity.reasons.iter().any(|reason| reason
+                    .contains("native ABI/binary/input completeness")
+                    || reason.contains("native/tool closure")),
+                "{:?}",
+                identity.reasons
+            );
+            assert_eq!(
+                identity.reviewed_owner_sources["native-closure"],
+                options
+                    .declarations
+                    .native_reviewed_source
+                    .as_ref()
+                    .unwrap()
+                    .as_str()
+            );
+            identity
+                .deployment
+                .as_ref()
+                .unwrap()
+                .verify_current(&identity.deployment.as_ref().unwrap().artifact.path)
+                .unwrap();
             let directory = fixture.evidence.join(format!("{name}.json.closure"));
             verify_historical_evidence(&directory).unwrap();
-            let index: serde_json::Value = serde_json::from_slice(
-                &fs::read(directory.join("index.json")).unwrap()).unwrap();
-            assert_eq!(index["declarations"]["native_reviewed_source"],
-                options.declarations.native_reviewed_source.as_ref().unwrap().as_str());
+            let index: serde_json::Value =
+                serde_json::from_slice(&fs::read(directory.join("index.json")).unwrap()).unwrap();
+            assert_eq!(
+                index["declarations"]["native_reviewed_source"],
+                options
+                    .declarations
+                    .native_reviewed_source
+                    .as_ref()
+                    .unwrap()
+                    .as_str()
+            );
             assert_eq!(index["declarations"]["native_inputs_complete"], true);
         }
         assert_shared_compilation(&fixture, "worker");
@@ -794,8 +820,8 @@ mod tests {
         fs::remove_file(fixture.directory.join("state.json")).unwrap();
         for name in ["library", "worker"] {
             fs::remove_file(fixture.evidence.join(format!("{name}.json"))).unwrap();
-            verify_historical_evidence(
-                &fixture.evidence.join(format!("{name}.json.closure"))).unwrap();
+            verify_historical_evidence(&fixture.evidence.join(format!("{name}.json.closure")))
+                .unwrap();
         }
     }
 
@@ -804,13 +830,17 @@ mod tests {
         let fixture = Fixture::new();
         let first = fixture.native_reviewed_selection("library", ProducerTarget::Library);
         run(&first).unwrap();
-        let mut stale = fixture.native_reviewed_selection(
-            "worker", ProducerTarget::Binary("worker".into()));
+        let mut stale =
+            fixture.native_reviewed_selection("worker", ProducerTarget::Binary("worker".into()));
         stale.declarations.native_reviewed_source = first.declarations.native_reviewed_source;
         let identity = run(&stale).unwrap();
         assert!(!identity.persistent_reuse_eligible);
-        assert!(identity.reasons.iter().any(|reason|
-            reason == "native/tool closure has no matching source-bound review"));
+        assert!(
+            identity
+                .reasons
+                .iter()
+                .any(|reason| reason == "native/tool closure has no matching source-bound review")
+        );
         assert_shared_compilation(&fixture, "worker");
     }
 
@@ -819,17 +849,31 @@ mod tests {
         let fixture = Fixture::new();
         let first = fixture.native_reviewed_selection("library", ProducerTarget::Library);
         run(&first).unwrap();
-        let mut second = fixture.native_reviewed_selection(
-            "worker", ProducerTarget::Binary("worker".into()));
+        let mut second =
+            fixture.native_reviewed_selection("worker", ProducerTarget::Binary("worker".into()));
         second.declarations.native_abi = Some("changed-native-abi.v2".into());
         second.declarations.native_reviewed_source =
             Some(native_review_basis(&second, &fixture.root).unwrap());
-        assert!(run(&second).unwrap_err().to_string()
-            .contains("premises or original outputs changed"));
+        assert!(
+            run(&second)
+                .unwrap_err()
+                .to_string()
+                .contains("premises or original outputs changed")
+        );
         assert!(fixture.directory.join("FAILED").is_file());
         assert!(!fixture.evidence.join("worker.json").exists());
-        assert!(!fixture.evidence.join("worker.json.closure/build.stdout").exists());
-        assert!(!fixture.evidence.join("worker.json.closure/build.status.json").exists());
+        assert!(
+            !fixture
+                .evidence
+                .join("worker.json.closure/build.stdout")
+                .exists()
+        );
+        assert!(
+            !fixture
+                .evidence
+                .join("worker.json.closure/build.status.json")
+                .exists()
+        );
     }
 
     #[test]
@@ -837,14 +881,22 @@ mod tests {
         let fixture = Fixture::new();
         let first = run(&fixture.selection("library")).unwrap();
         assert!(!first.persistent_reuse_eligible);
-        assert!(first.reasons.iter().any(|reason|
-            reason == "native ABI/binary/input completeness is unknown"));
+        assert!(
+            first
+                .reasons
+                .iter()
+                .any(|reason| reason == "native ABI/binary/input completeness is unknown")
+        );
         let mut second = fixture.selection("worker");
         second.production_target = ProducerTarget::Binary("worker".into());
         let second_identity = run(&second).unwrap();
         assert!(!second_identity.persistent_reuse_eligible);
-        assert!(second_identity.reasons.iter().any(|reason|
-            reason == "native ABI/binary/input completeness is unknown"));
+        assert!(
+            second_identity
+                .reasons
+                .iter()
+                .any(|reason| reason == "native ABI/binary/input completeness is unknown")
+        );
         let association = first.deployment.unwrap();
         association
             .verify_current(&association.artifact.path)

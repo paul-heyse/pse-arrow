@@ -143,3 +143,8 @@ The maintainer authorized all remaining design changes and investigations, with 
 This slice completes functional readiness/cutover contributions from 39d without starting D1–D4. The transferred 39 Plan38 packets remain acceptance/disposition obligations, not missing implementations. Final finding closure, actual native/source qualifications, successful qualified installation/import, assembled science/recovery/signal work, hygiene/manual checks, measurements and D5 retirement remain pending. Other active-plan campaigns and formal ADR status are unchanged.
 
 The maintainer subsequently selected full Cargo check/continuing Clippy/Pyrefly/Ruff repair. [39d's selected static Outcome](39d-qualification-and-plan38-cutover.md#selected-static-repair-outcome--2026-10-14) owns its current passing checks and focused regression evidence. This settles that selected static subset, including the historical advisory Ruff findings, while preserving all other final acceptance and measurement obligations.
+
+
+## Entire-remainder execution — 2026-10-14
+
+The maintainer authorized all remaining D0–D5 work. [39d’s prerequisite assessment](39d-qualification-and-plan38-cutover.md#final-campaign-prerequisite-assessment--2026-10-14) owns the integrated assertion correction, newly selected compiler/launcher/installer phase contract and remaining acceptance. Proposed ADR-0189 and its independent bounded assessment precede that correction; acceptance of the target is separate from implementation and source qualification. Earlier final-campaign deferrals retain their historical scope and no longer describe the selected execution. Capacity management stays with the maintainer; actual qualification still retains its selected admission/reference conditions.

@@ -11,7 +11,7 @@ places local preparation/rebinding, deployment and operational work first, then 
 [transferred qualification and cutover](39d-qualification-and-plan38-cutover.md).
 Plan 38a–f retain completed implementation/investigation outcomes; the inactive
 [Plan 38 coordinator](38-efficiency-and-solver-target.md) and [38g handoff](38g-qualification-and-cutover.md#turn-handoff--2026-10-14)
-preserve historical decisions and exact failed/scoped/not-run evidence. The owning Plan39 checkpoint records selected implementation; [39d's selected static Outcome](39d-qualification-and-plan38-cutover.md#selected-static-repair-outcome--2026-10-14) records the later authorized checker repairs. The remaining final campaign stays with that owner; this index does not establish acceptance.
+preserve historical decisions and exact failed/scoped/not-run evidence. The owning Plan39 checkpoint records selected implementation; [39d's selected static Outcome](39d-qualification-and-plan38-cutover.md#selected-static-repair-outcome--2026-10-14) records the later authorized checker repairs. [39d’s current prerequisite assessment](39d-qualification-and-plan38-cutover.md#final-campaign-prerequisite-assessment--2026-10-14) owns the authorized entire remainder and selected phase-context correction; this index does not establish acceptance.
 
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
 interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded
