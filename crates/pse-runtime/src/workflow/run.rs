@@ -343,7 +343,7 @@ impl RunResult {
                 result.report = Err(error.clone());
                 result.reset_result_projection();
             }
-            result.durability = RunDurability::Durable(Box::new(record));
+            result.durability = RunDurability::Durable(Arc::new(record));
         }
         result
     }
@@ -359,7 +359,7 @@ impl RunResult {
                 self.completion = Err(error);
                 self.reset_result_projection();
             }
-            self.durability = RunDurability::Durable(Box::new(record));
+            self.durability = RunDurability::Durable(Arc::new(record));
         }
         self
     }

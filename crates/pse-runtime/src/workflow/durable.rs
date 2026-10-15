@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
-use super::connected_results::pooled_response_owner;
+use super::connected_results::{pooled_response_owner, retain_metadata};
 use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryPool};
 use pse_backend_native::solve::{Compatibility, Event, ProgressTap, WarmPayload, WarmStart};
@@ -151,16 +151,24 @@ impl Operations {
         problem: &str,
         after: Option<u64>,
         limit: usize,
-    ) -> Result<Vec<pse_operations::canonical_execution::RunSummary>, WorkflowError> {
+    ) -> Result<pse_columnar::Leased<Vec<pse_operations::canonical_execution::RunSummary>>, WorkflowError> {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
                 let response = pooled_response_owner(&self.pool, "canonical:run-page-response", pse_operations::canonical::MetadataResponse::Page)?;
-                Ok(pse_operations::canonical::response_ownership_scope(
-                    response,
-                    self.store.execution_run_page(problem, after, limit),
-                )
-                .await?)
+                let rows = pse_operations::canonical::response_ownership_scope(
+                    response.clone(), self.store.execution_run_page(problem, after, limit),
+                ).await?;
+                let bytes = rows.iter().try_fold(rows.capacity().checked_mul(size_of::<pse_operations::canonical_execution::RunSummary>())
+                    .and_then(|bytes| bytes.checked_add(size_of::<pse_columnar::Leased<Vec<pse_operations::canonical_execution::RunSummary>>>() + 2 * size_of::<usize>()))
+                    .ok_or_else(|| contract("run summary retained extent"))?, |bytes, row| {
+                        [Some(&row.key), Some(&row.problem), Some(&row.revision), Some(&row.interpretation),
+                            row.current_attempt.as_ref(), row.terminal_attempt.as_ref(), row.terminal_class.as_ref()]
+                            .into_iter().flatten().try_fold(bytes, |bytes, value| bytes.checked_add(value.capacity()))
+                            .ok_or_else(|| contract("run summary retained extent"))
+                    })?;
+                let retained = Arc::new(retain_metadata(&self.pool, response, bytes)?);
+                Ok(pse_columnar::Leased::new(Arc::new(rows), retained))
             })
             .await
     }
@@ -173,13 +181,14 @@ impl Operations {
                     pooled_response_owner(&self.pool, "canonical:record-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
                 let read = Arc::new(
                     pse_operations::canonical::response_ownership_scope(
-                        response,
+                        response.clone(),
                         self.store.read_results(run, attempt),
                     )
                     .await?,
                 );
+                let read_owner = Arc::new(retain_metadata(&self.pool, response, read.retained_bytes()?)?);
                 let completion = pse_operations::canonical::response_ownership_scope(
-                    read.clone(),
+                    Arc::new((read.clone(), read_owner.clone())),
                     self.decode_completion(CompletionSelection::Full(&read)),
                 )
                 .await?;
@@ -189,7 +198,7 @@ impl Operations {
                     let response =
                         pooled_response_owner(&self.pool, "canonical:record-seed-page-response", pse_operations::canonical::MetadataResponse::Page)?;
                     let page = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((read.clone(), response)),
+                        Arc::new((read.clone(), read_owner.clone(), response)),
                         self.store.result_seed_page(attempt, after),
                     )
                     .await?;
@@ -219,6 +228,9 @@ impl Operations {
                         }
                     }
                 }
+                let metadata_owner = durable_metadata_owner(&self.pool, Some(read.run()), Some(read.attempt()),
+                    Some(read.manifest()), read.attempt().key.len(),
+                    solutions.capacity().checked_mul(size_of::<(usize, SolutionId)>()).ok_or_else(|| contract("durable solutions extent"))?)?;
                 Ok(DurableRecord {
                     attempt_id: completion.attempt_id,
                     attempt_key: Some(read.attempt().key.clone()),
@@ -228,6 +240,7 @@ impl Operations {
                     completion: Some(completion),
                     solutions,
                     _solutions_owner: None,
+                    _metadata_owner: Some(metadata_owner),
                 })
             })
             .await
@@ -500,10 +513,10 @@ pub enum RunDurability {
     #[default]
     Ephemeral,
     /// Exact retained execution, including observable write failure.
-    Durable(Box<DurableRecord>),
+    Durable(Arc<DurableRecord>),
 }
 /// A completed canonical attempt and its exact immutable selection, or an observable write failure.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct DurableRecord {
     /// Scientific lineage identity, distinct from the opaque native key.
     pub attempt_id: AttemptId,
@@ -520,7 +533,28 @@ pub struct DurableRecord {
     /// Eligible final seeds by their scientific step and artifact identity.
     pub solutions: Vec<(usize, SolutionId)>,
     _solutions_owner: Option<Arc<pse_columnar::AllocationLease>>,
+    _metadata_owner: Option<Arc<pse_columnar::MemoryReservation>>,
 }
+// One extent owner for the continuing native lifecycle metadata. Completion and
+// already-leased seed identities retain their independent scientific owners.
+fn durable_metadata_owner(
+    pool: &Arc<dyn MemoryPool>,
+    run: Option<&CanonicalRun>,
+    attempt: Option<&CanonicalAttempt>,
+    manifest: Option<&ResultManifest>,
+    attempt_key_bytes: usize,
+    solutions_bytes: usize,
+) -> Result<Arc<pse_columnar::MemoryReservation>, WorkflowError> {
+    use pse_model::HeapUsage;
+    let bytes = [size_of::<DurableRecord>(), 2 * size_of::<usize>(), attempt_key_bytes, solutions_bytes,
+        run.map_or(0, HeapUsage::heap_bytes), attempt.map_or(0, HeapUsage::heap_bytes),
+        manifest.map_or(0, HeapUsage::heap_bytes)]
+        .into_iter().try_fold(0usize, usize::checked_add).ok_or_else(|| contract("durable metadata extent"))?;
+    let owner = MemoryConsumer::new("canonical:durable-record-metadata").register(pool);
+    owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+    Ok(Arc::new(owner))
+}
+
 /// Typed scientific completion; data lives in bounded immutable chunks.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -739,6 +773,7 @@ pub(crate) struct DurableAttempt {
     claim_operation: String,
     fence: Arc<OnceLock<AttemptFence>>,
     run: OnceLock<CanonicalRun>,
+    metadata_owner: Option<Arc<pse_columnar::MemoryReservation>>,
     stream: Streamer,
     acknowledgments: Arc<PublicationAcks>,
     solutions: Vec<(usize, SolutionId)>,
@@ -749,6 +784,8 @@ pub(crate) struct DurableAttempt {
 impl DurableAttempt {
     pub(super) fn new(operations: &Operations) -> Result<Self, WorkflowError> {
         let operations = operations.admitted()?;
+        let metadata_owner = durable_metadata_owner(&operations.pool, None, None, None,
+            pse_schema::catalog::substrate::METADATA_ID_BYTES, 0)?;
         let attempt: AttemptId = pse_operations::mint_id();
         let fence = Arc::new(OnceLock::new());
         let acknowledgments = PublicationAcks::new(&operations.pool);
@@ -774,6 +811,7 @@ impl DurableAttempt {
             completion_owner: None,
             fence,
             run: OnceLock::new(),
+            metadata_owner: Some(metadata_owner),
             heartbeat: None,
         })
     }
@@ -784,6 +822,8 @@ impl DurableAttempt {
         attempt: AttemptId,
     ) -> Result<Self, WorkflowError> {
         let operations = operations.admitted()?;
+        let metadata_owner = durable_metadata_owner(&operations.pool, None, None, None,
+            pse_schema::catalog::substrate::METADATA_ID_BYTES, 0)?;
         let shared = Arc::new(OnceLock::new());
         let _ = shared.set(fence);
         let acknowledgments = PublicationAcks::new(&operations.pool);
@@ -809,8 +849,18 @@ impl DurableAttempt {
             completion_owner: None,
             fence: shared,
             run: OnceLock::new(),
+            metadata_owner: Some(metadata_owner),
             heartbeat: None,
         })
+    }
+    fn retain_run(&self, row: CanonicalRun) -> Result<(), WorkflowError> {
+        use pse_model::HeapUsage;
+        if self.run.get().is_some() { return Ok(()); }
+        let bytes = row.heap_bytes();
+        let owner = self.metadata_owner.as_ref().ok_or_else(|| contract("durable metadata owner absent"))?;
+        owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+        if self.run.set(row).is_err() { owner.shrink(bytes); }
+        Ok(())
     }
     pub(super) const fn attempt_id(&self) -> AttemptId {
         self.attempt
@@ -849,7 +899,7 @@ impl DurableAttempt {
                 .canonical_run(fence.run())
                 .await?
                 .ok_or_else(|| contract("claimed run absent"))?;
-            let _ = self.run.set(row);
+            self.retain_run(row)?;
             self.stream.ready.notify_one();
             return Ok(());
         }
@@ -889,7 +939,7 @@ impl DurableAttempt {
                 .canonical_run(self.fence()?.run())
                 .await?
                 .ok_or_else(|| contract("claimed horizon run absent"))?;
-            let _ = self.run.set(row);
+            self.retain_run(row)?;
             self.stream.ready.notify_one();
             return Ok(());
         }
@@ -952,7 +1002,7 @@ impl DurableAttempt {
             })
             .await?;
         drop(physical_rows);
-        let _ = self.run.set(row);
+        self.retain_run(row)?;
         let fence = self
             .operations
             .store
@@ -1357,16 +1407,17 @@ impl DurableAttempt {
             .get()
             .is_some_and(|fence| acknowledged_cancellation(error, fence))
     }
-    fn failed_record(&self, error: Arc<WorkflowError>) -> DurableRecord {
+    fn failed_record(&mut self, error: Arc<WorkflowError>) -> DurableRecord {
         DurableRecord {
             attempt_id: self.attempt,
             attempt_key: self.fence.get().map(|f| f.attempt().to_owned()),
-            run: self.run.get().cloned(),
+            run: self.run.take(),
             attempt: Err(error),
             manifest: None,
             completion: None,
             solutions: Vec::new(),
             _solutions_owner: None,
+            _metadata_owner: self.metadata_owner.take(),
         }
     }
     fn fence(&self) -> Result<&AttemptFence, WorkflowError> {
@@ -1684,6 +1735,8 @@ impl DurableAttempt {
                         FinishExportPhase::AcknowledgedSeal,
                     )
                     .await?;
+                    let metadata_owner = durable_metadata_owner(&self.operations.pool, Some(&run), Some(&attempt),
+                        Some(manifest.row()), attempt.key.len(), 0)?;
                     return Ok(DurableRecord {
                         attempt_id: self.attempt,
                         attempt_key: Some(attempt.key.clone()),
@@ -1700,6 +1753,7 @@ impl DurableAttempt {
                             Vec::new()
                         },
                         _solutions_owner: self.solutions_owner.take(),
+                        _metadata_owner: Some(metadata_owner),
                     });
                 }
                 Err(error) if canonical_cancellation(&error, &fence) => {
@@ -3508,6 +3562,26 @@ mod canonical_durable_codec {
             .unwrap();
         (operations, fence)
     }
+    #[test]
+    fn durable_record_aliases_retain_one_actual_metadata_allocation() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 * 1024));
+        let owner = durable_metadata_owner(&pool, None, None, None, 0, 0).unwrap();
+        let charged = pool.reserved();
+        let record = Arc::new(DurableRecord { attempt_id: pse_operations::mint_id(), attempt_key: None,
+            run: None, attempt: Err(Arc::new(contract("observable failure"))), manifest: None,
+            completion: None, solutions: Vec::new(), _solutions_owner: None, _metadata_owner: Some(owner) });
+        let original = RunDurability::Durable(record.clone());
+        let alias = original.clone();
+        assert_eq!(pool.reserved(), charged);
+        let RunDurability::Durable(alias_record) = &alias else { unreachable!() };
+        assert!(Arc::ptr_eq(&record, alias_record));
+        drop(record);
+        drop(original);
+        assert_eq!(pool.reserved(), charged);
+        drop(alias);
+        assert_eq!(pool.reserved(), 0);
+    }
+
     #[tokio::test]
     async fn canonical_standalone_read_entrypoints_refuse_unprepaid_metadata() {
         let runtime = super::super::durable_tests::durable_runtime();

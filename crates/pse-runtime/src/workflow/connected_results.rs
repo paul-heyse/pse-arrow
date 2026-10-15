@@ -4,7 +4,9 @@
 //! Exact canonical result selections over protected native files. Original row
 //! coordinates select recorded coverage; missing ranges stay missing.
 
-use super::{Runtime, WorkflowError, contract, result_blocks, result_files};
+use super::{Runtime, WorkflowError, contract, result_blocks};
+#[cfg(test)]
+use super::result_files;
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;

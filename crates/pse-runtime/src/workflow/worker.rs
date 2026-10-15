@@ -49,7 +49,7 @@ pub enum Processed {
         /// Exact canonical occurrence key.
         point: String,
         /// Retained completion or observable persistence failure.
-        record: Box<DurableRecord>,
+        record: Arc<DurableRecord>,
     },
     /// Shared policy settled one occurrence without native work.
     Settled {
@@ -1539,7 +1539,7 @@ impl Runtime {
             return Ok(Some((
                 Processed::Ran {
                     point: claim.point.key,
-                    record: Box::new(record),
+                    record: Arc::new(record),
                 },
                 None,
             )));
@@ -1550,7 +1550,7 @@ impl Runtime {
                 return Ok(Some((
                     Processed::Ran {
                         point: claim.point.key,
-                        record: Box::new(attempt.abandon(&Arc::new(error.into())).await),
+                        record: Arc::new(attempt.abandon(&Arc::new(error.into())).await),
                     },
                     None,
                 )));
@@ -1562,7 +1562,7 @@ impl Runtime {
             return Ok(Some((
                 Processed::Ran {
                     point: point.key,
-                    record: Box::new(record),
+                    record: Arc::new(record),
                 },
                 None,
             )));
@@ -1588,7 +1588,7 @@ impl Runtime {
             return Ok(Some((
                 Processed::Ran {
                     point: point.key,
-                    record: Box::new(record),
+                    record: Arc::new(record),
                 },
                 None,
             )));
