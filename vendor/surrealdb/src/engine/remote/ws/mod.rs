@@ -809,24 +809,48 @@ where
 {
     // Borrowed verification/correlation allocates no owned payload. Capture
     // only the matching request, instead of extending every concurrent grant.
-    let correlation = response_binary(&message)
+    let target = response_binary(&message)
         .map(|binary| metadata::root(binary).and_then(metadata::correlation))
         .transpose();
-    let context = correlation.as_ref().ok().and_then(|v| v.as_ref())
-        .and_then(|v| *v).and_then(|(session, id)| {
-            sessions.get(&session).and_then(|s| s.as_ref().ok())
-                .and_then(|s| s.pending_requests.get(&id))
-                .and_then(|p| p.request_context.clone())
-        });
+    let pending = match &target {
+        Ok(Some(metadata::Target::Reply { session, id })) => sessions.get(session)
+            .and_then(|state| match state {
+                Ok(state) => state.pending_requests.get(id),
+                Err(_) => None,
+            }),
+        _ => None,
+    };
+    let context = pending.as_ref().and_then(|pending| pending.request_context.clone());
+    let replay = match &target {
+        Ok(Some(metadata::Target::Reply { session, id })) => sessions.get(session)
+            .is_some_and(|state| match state {
+                Ok(state) => replay_cursor(&state).is_some_and(|cursor| cursor.awaiting == *id),
+                Err(_) => false,
+            }),
+        _ => false,
+    };
+    let live = match &target {
+        Ok(Some(metadata::Target::Live { session, query })) => sessions.get(session)
+            .is_some_and(|state| match state {
+                Ok(state) => state.live_queries.contains_key(query),
+                Err(_) => false,
+            }),
+        _ => false,
+    };
+    let matched = pending.is_some() || replay || live;
     let retained = context.as_ref().and_then(|c| c.payload_owner()).map(|o| o.retain_driver());
     let lifetime_retained = context.as_ref().and_then(|c| c.lifetime_owner()).map(|o| o.retain());
-    let preflight = match correlation {
-        Err(error) => Err(error),
+    let preflight = match &target {
+        Err(error) => Err(*error),
+        Ok(_) if !matched => Err("response has no installed request or live query recipient"),
         Ok(_) => match context.as_ref().and_then(|c| c.response_limits()) {
             Some(limits) => response_binary(&message)
                 .ok_or("metadata response has no binary frame")
                 .and_then(|binary| metadata::validate(binary, limits)),
-            None => Ok(()),
+            None if live => response_binary(&message)
+                .ok_or("live response has no binary frame")
+                .and_then(|binary| metadata::validate_live(binary, max_message_size.unwrap_or(binary.len()))),
+            None => Ok(()), // An actual generic SDK pending request/replay.
         },
     };
     // Struct/tuple fields drop in declaration order even if never polled.
@@ -2964,6 +2988,24 @@ mod tests {
         OwnedResponseFrame {
             bytes: surrealdb_types::encode(&value).unwrap(),
             monitor: Some((reserved.clone(), dropped.clone(), context.clone())),
+        }
+    }
+
+    #[tokio::test]
+    async fn unknown_reply_has_no_owned_decode_or_unfunded_metadata_path() {
+        let sessions = no_sessions();
+        let state = Arc::new(SessionState::default());
+        let session = Uuid::new_v4();
+        sessions.insert(session, Ok(state.clone()));
+        let sink = RwLock::new(futures::sink::drain::<OwnedResponseFrame>());
+        for (reply_session, reply_id) in [(session, 99), (Uuid::new_v4(), 0)] {
+            let frame = OwnedResponseFrame::binary(surrealdb_types::encode(
+                &DbResponse::success(Some(Value::Number(Number::Int(reply_id))), Some(reply_session),
+                    DbResult::Other(Value::String("unfunded".repeat(4096)))).into_value(),
+            ).unwrap());
+            assert_eq!(super::handle_owned_response(frame, None, &sessions, &sink).await,
+                HandleResult::Disconnected, "an unmatched reply never enters owned conversion");
+            assert!(state.pending_requests.is_empty());
         }
     }
 
