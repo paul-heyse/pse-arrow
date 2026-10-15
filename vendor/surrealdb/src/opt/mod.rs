@@ -1,6 +1,6 @@
 //! The different options and types for use in API functions
 
-pub use surrealdb_engine_api::{DispatchState, RequestContext};
+pub use surrealdb_engine_api::{DispatchState, RequestContext, ResponseLimits};
 
 pub mod auth;
 pub mod capabilities;

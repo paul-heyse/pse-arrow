@@ -21,15 +21,15 @@ use pse_columnar::{
 use pse_model::generated::runtime::{
     canonical_result_batches::Row as FileBatch, canonical_result_blocks::Row as Block,
 };
-use pse_operations::canonical_results::ResultRead;
+use pse_operations::{canonical::MetadataResponse, canonical_results::ResultRead};
 use std::{collections::BTreeMap, sync::Arc};
 
-const READ_BYTES: usize = 3 * result_files::MAX_FILE_BYTES;
 
 #[derive(Debug)]
 struct SnapshotInner {
     runtime: Runtime,
     read: Arc<ResultRead>,
+    _read_owner: Arc<MemoryReservation>,
     relation: pse_ids::SemanticId,
     schema: SchemaRef,
     batches: BTreeMap<String, FileBatch>,
@@ -58,6 +58,7 @@ impl ResultSnapshot {
     pub(super) async fn capture(
         runtime: &Runtime,
         read: Arc<ResultRead>,
+        read_owner: Arc<MemoryReservation>,
         relation: pse_ids::SemanticId,
         set: &str,
         schema: SchemaRef,
@@ -65,10 +66,13 @@ impl ResultSnapshot {
         end: u64,
     ) -> Result<Self, WorkflowError> {
         use pse_model::HeapUsage;
+        if read_owner.size() < read.retained_bytes()? {
+            return Err(contract("snapshot read metadata is not prepaid"));
+        }
         let owner = MemoryConsumer::new("canonical:result-snapshot-inventory")
             .register(&runtime.shared.pool());
         owner
-            .try_grow(size_of::<SnapshotInner>() + read.retained_bytes()?)
+            .try_grow(size_of::<SnapshotInner>())
             .map_err(pse_engine::EngineError::from)?;
         let mut batches = BTreeMap::new();
         let mut blocks = Vec::new();
@@ -79,37 +83,27 @@ impl ResultSnapshot {
             loop {
                 // Each bounded RPC page has its own prepaid temporary response scope.
                 // Transfer its exact retained strings/rows before growing inventories.
-                let response = Arc::new(
-                    MemoryConsumer::new("canonical:result-snapshot-page")
-                        .register(&runtime.shared.pool()),
-                );
-                response
-                    .try_grow(READ_BYTES)
-                    .map_err(pse_engine::EngineError::from)?;
-                let (page, descriptors) = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), response.clone())),
-                    async {
-                        let page = runtime
-                            .canonical_store()?
-                            .result_block_page(
-                                &read,
-                                set,
-                                &relation.to_string(),
-                                "0",
-                                start,
-                                end,
-                                after,
-                            )
-                            .await?;
-                        let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
-                        let descriptors = runtime
-                            .canonical_store()?
-                            .result_file_batch_descriptors(&read, set, &ordinals)
-                            .await?;
-                        Ok::<_, WorkflowError>((page, descriptors))
-                    },
-                )
-                .await?;
+                let response = super::connected_results::response_owner(runtime,
+                    "canonical:result-snapshot-page", MetadataResponse::Page)?;
+                let page = pse_operations::canonical::response_ownership_scope(
+                    Arc::new((read.clone(), read_owner.clone(), response.clone())),
+                    runtime.canonical_store()?.result_block_page(
+                        &read, set, &relation.to_string(), "0", start, end, after,
+                    ),
+                ).await?;
+                // The first page is retained while the descriptor RPC runs. Its
+                // own temporary allowance retires independently of the next RPC.
+                let page_bytes = page.capacity().checked_mul(size_of::<Block>())
+                    .and_then(|bytes| page.iter().try_fold(bytes, |n, row| n.checked_add(row.heap_bytes())))
+                    .ok_or_else(|| contract("snapshot page extent"))?;
+                let page_owner = super::connected_results::retain_metadata(&runtime.shared.pool(), response, page_bytes)?;
+                let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
+                let response = super::connected_results::response_owner(runtime,
+                    "canonical:result-snapshot-descriptors", MetadataResponse::Page)?;
+                let descriptors = pse_operations::canonical::response_ownership_scope(
+                    Arc::new((read.clone(), read_owner.clone(), response.clone())),
+                    runtime.canonical_store()?.result_file_batch_descriptors(&read, set, &ordinals),
+                ).await?;
                 if page.len() != descriptors.len() {
                     return Err(contract("snapshot descriptor coverage differs"));
                 }
@@ -155,6 +149,8 @@ impl ResultSnapshot {
                     }
                     blocks.push(block);
                 }
+                drop(page_owner);
+                drop(response);
                 if finished {
                     break;
                 }
@@ -163,6 +159,7 @@ impl ResultSnapshot {
         Ok(Self(Arc::new(SnapshotInner {
             runtime: runtime.clone(),
             read,
+            _read_owner: read_owner,
             relation,
             schema,
             batches,
@@ -188,7 +185,7 @@ impl ResultSnapshot {
     }
     #[cfg(all(test, feature = "canonical-tests"))]
     pub(super) fn inventory_reserved_bytes(&self) -> usize {
-        self.0._owner.size()
+        self.0._owner.size() + self.0._read_owner.size()
     }
     /// Existing configured native state, including its functions and shared pool.
     pub fn session_state(&self) -> SessionState {
@@ -253,15 +250,10 @@ impl ResultSnapshot {
             // the exact read ticket and a separately prepaid metadata response.
             // The file-shaped decode/footer grants cannot bound SDK metadata,
             // and connection activity alone does not retain this ResultRead.
-            let response = Arc::new(
-                MemoryConsumer::new("canonical:result-file-open-response")
-                    .register(&self.0.runtime.shared.pool()),
-            );
-            response
-                .try_grow(READ_BYTES)
-                .map_err(pse_engine::EngineError::from)?;
+            let response = super::connected_results::response_owner(&self.0.runtime,
+                "canonical:result-file-open-response", MetadataResponse::Header)?;
             let file = pse_operations::canonical::response_ownership_scope(
-                Arc::new((self.0.read.clone(), response)),
+                Arc::new((self.0.read.clone(), self.0._read_owner.clone(), response)),
                 self.0
                     .runtime
                     .canonical_store()?

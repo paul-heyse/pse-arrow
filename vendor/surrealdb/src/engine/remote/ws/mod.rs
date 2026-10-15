@@ -31,6 +31,9 @@ use crate::opt::IntoEndpoint;
 use crate::types::{Action, Array, HashMap, Notification, Number, SurrealValue, Value};
 use crate::{Connect, Error, Surreal};
 
+#[cfg(not(target_family = "wasm"))]
+mod metadata;
+
 pub(crate) const PATH: &str = "rpc";
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 /// One allowance for the entire acknowledged bounded restoration.
@@ -804,30 +807,28 @@ where
     S: Sink<M, Error = E> + Unpin + 'a,
     E: std::fmt::Debug + 'a,
 {
-    let retained: Vec<_> = sessions
-        .values()
-        .into_iter()
-        .filter_map(Result::ok)
-        .flat_map(|session| session.pending_requests.values())
-        .filter_map(|pending| {
-            pending
-                .request_context
-                .and_then(|context| context.payload_owner())
-        })
-        .map(|owner| owner.retain_driver())
-        .collect();
-    let lifetime_retained: Vec<_> = sessions
-        .values()
-        .into_iter()
-        .filter_map(Result::ok)
-        .flat_map(|session| session.pending_requests.values())
-        .filter_map(|pending| {
-            pending
-                .request_context
-                .and_then(|context| context.lifetime_owner())
-        })
-        .map(|owner| owner.retain())
-        .collect();
+    // Borrowed verification/correlation allocates no owned payload. Capture
+    // only the matching request, instead of extending every concurrent grant.
+    let correlation = response_binary(&message)
+        .map(|binary| metadata::root(binary).and_then(metadata::correlation))
+        .transpose();
+    let context = correlation.as_ref().ok().and_then(|v| v.as_ref())
+        .and_then(|v| *v).and_then(|(session, id)| {
+            sessions.get(&session).and_then(|s| s.as_ref().ok())
+                .and_then(|s| s.pending_requests.get(&id))
+                .and_then(|p| p.request_context.clone())
+        });
+    let retained = context.as_ref().and_then(|c| c.payload_owner()).map(|o| o.retain_driver());
+    let lifetime_retained = context.as_ref().and_then(|c| c.lifetime_owner()).map(|o| o.retain());
+    let preflight = match correlation {
+        Err(error) => Err(error),
+        Ok(_) => match context.as_ref().and_then(|c| c.response_limits()) {
+            Some(limits) => response_binary(&message)
+                .ok_or("metadata response has no binary frame")
+                .and_then(|binary| metadata::validate(binary, limits)),
+            None => Ok(()),
+        },
+    };
     // Struct/tuple fields drop in declaration order even if never polled.
     let owned = (message, retained, lifetime_retained);
     async move {
@@ -840,6 +841,19 @@ where
         let Some(binary) = response_binary(&message) else {
             return HandleResult::Ok;
         };
+        if let Err(error) = preflight {
+            // Refusal cannot authenticate remote completion. Drop the raw frame
+            // before notifying callers, and keep every pending owner until the
+            // physical socket halves drain. Never fall back to owned decoding.
+            drop(message);
+            let error = Error::serialization(error.into(), SerializationError::Deserialization);
+            for state in sessions.values().into_iter().flatten() {
+                for pending in state.pending_requests.values() {
+                    let _ = pending.response_channel.try_send(Err(error.clone()));
+                }
+            }
+            return HandleResult::Disconnected;
+        }
         match surrealdb_rpc::db_response_from_bytes(binary) {
             Ok(response) => {
                 // DbResponse owns its decoded Values (no frame borrow). Drain
@@ -2951,6 +2965,43 @@ mod tests {
             bytes: surrealdb_types::encode(&value).unwrap(),
             monitor: Some((reserved.clone(), dropped.clone(), context.clone())),
         }
+    }
+
+    #[tokio::test]
+    async fn metadata_preflight_refusal_keeps_owned_request_until_physical_drain() {
+        let sessions = no_sessions();
+        let state = Arc::new(SessionState::default());
+        let session = Uuid::new_v4();
+        sessions.insert(session, Ok(state.clone()));
+        let sink = RwLock::new(futures::sink::drain::<OwnedResponseFrame>());
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let dropped = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let activity = Arc::new(());
+        let weak = Arc::downgrade(&activity);
+        let context = crate::opt::RequestContext::new(std::time::Instant::now() + Duration::from_secs(30))
+            .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap())
+            .with_lifetime_owner(activity)
+            .with_response_limits(crate::opt::ResponseLimits {
+                wire_bytes: 4096, nodes: 64, depth: 8, container_items: 8,
+                string_length: 32, string_bytes: 128, blob_length: 0, blob_bytes: 0,
+            });
+        context.mark_dispatched();
+        let (sender, receiver) = async_channel::bounded(1);
+        state.pending_requests.insert(0, PendingRequest { request_context: Some(context.clone()),
+            _admission: None, interrupted_at: None, command: None, response_channel: sender });
+        let retired = state.pending_requests.get(&0).unwrap();
+        let frame = owned_response_frame(session, &context, &reserved, &dropped);
+        assert_eq!(super::handle_owned_response(frame, None, &sessions, &sink).await, HandleResult::Disconnected);
+        assert_eq!(dropped.load(std::sync::atomic::Ordering::Acquire), 1);
+        assert!(receiver.recv().await.unwrap().is_err());
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 4096);
+        assert!(weak.upgrade().is_some());
+        assert_eq!(state.pending_requests.len(), 1, "refusal is not an authentic completion");
+        drop(sink); // Socket-owner control: reset only after both physical halves.
+        super::reset_sessions(&sessions).await;
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        assert!(weak.upgrade().is_none());
+        assert!(retired.request_context.is_some());
     }
 
     #[tokio::test]

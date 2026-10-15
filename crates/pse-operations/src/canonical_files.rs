@@ -79,8 +79,9 @@ impl FileDescriptor {
         {
             return Err(configuration("sealed file identity or extent invalid"));
         }
+        validate_codec_schema(&self.encoding, &self.schema)?;
         match self.encoding.as_str() {
-            ARROW_IPC_FILE if self.batch_count > 0 && !self.schema.is_empty() => Ok(()),
+            ARROW_IPC_FILE if self.batch_count > 0 => Ok(()),
             OPAQUE_JSON | OPAQUE_BYTES if self.batch_count == 0 && self.schema.is_empty() => Ok(()),
             _ => Err(configuration("sealed file encoding coordinates invalid")),
         }
@@ -96,6 +97,22 @@ impl FileDescriptor {
         row.insert("schema", self.schema.clone());
         row.insert("interpretation", self.interpretation.clone());
         Ok(row)
+    }
+}
+
+/// Codec identity is a canonical semantic relation ID, not serialized Arrow
+/// schema text. Opaque formats have no schema identity at all.
+pub(crate) fn validate_codec_schema(encoding: &str, schema: &str) -> Result<(), CanonicalError> {
+    match encoding {
+        ARROW_IPC_FILE => {
+            let identity = pse_ids::SemanticId::parse_hex(schema).map_err(configuration)?;
+            if identity.to_string() != schema {
+                return Err(configuration("native file schema identity is not canonical"));
+            }
+            Ok(())
+        }
+        OPAQUE_JSON | OPAQUE_BYTES if schema.is_empty() => Ok(()),
+        _ => Err(configuration("sealed file codec/schema identity invalid")),
     }
 }
 
@@ -448,7 +465,7 @@ impl CanonicalStore {
         if !pending.acknowledged {
             #[cfg(all(test, feature = "canonical-tests"))]
             effect_pause("register").await;
-            let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",pending.row.clone()))).await?;
+            let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",pending.row.clone()))).await?;
             let mut saved = last_object(&mut response)?;
             saved.remove("id");
             if saved != pending.row {
@@ -871,6 +888,7 @@ impl CanonicalStore {
         result: Option<(&str, &str, &str)>,
         protection: &str,
     ) -> Result<(), CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         let owner = self.registered_file_owner().await?;
         let mut row = Object::new();
         row.insert("key", protection.to_owned());
@@ -884,13 +902,14 @@ impl CanonicalStore {
             row.insert("attempt", attempt.to_owned());
             row.insert("manifest", manifest.to_owned());
         }
-        let mut response=self.protected_query(&format!("file-ticket:{protection}"),crate::canonical::QueryEffect::Mutation,"canonical_files::admit_ticket",||Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::ticket($pse_rpc_expires_at,$row); COMMIT;").bind(("row",row.clone())))).await?;
+        let mut response=self.protected_query(&format!("file-ticket:{protection}"),crate::canonical::QueryEffect::Mutation,"canonical_files::admit_ticket",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; RETURN fn::pse_files_v1::ticket($pse_rpc_expires_at,$row); COMMIT;").bind(("row",row.clone())))).await?;
         let mut saved = last_object(&mut response)?;
         saved.remove("id");
         if saved != row {
             return Err(CanonicalError::OperationReused);
         }
         Ok(())
+        }).await
     }
     pub(crate) async fn file_descriptor(
         &self,
@@ -917,8 +936,9 @@ impl CanonicalStore {
         &self,
         instance: &str,
     ) -> Result<FileDescriptor, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         self.files.require_current()?;
-        let mut response=bounded_query(self.db.query("BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'admitted file physical instance unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'admitted file physical instance unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let mut row = last_object(&mut response)?;
         let descriptor = FileDescriptor {
             instance: text(&mut row, "key")?,
@@ -931,6 +951,7 @@ impl CanonicalStore {
         };
         descriptor.validate()?;
         Ok(descriptor)
+        }).await
     }
 }
 
@@ -952,6 +973,24 @@ mod tests {
             interpretation: crate::generated::surreal::INTERPRETATION.into(),
         }
     }
+    #[test]
+    fn native_file_schema_is_a_finite_codec_identity_and_opaque_schema_is_empty() {
+        let mut file = descriptor(b"content");
+        file.encoding = ARROW_IPC_FILE.into();
+        file.batch_count = 1;
+        file.schema = pse_ids::SemanticId::from_bytes([1; 16]).to_string();
+        file.validate().unwrap();
+        for schema in [String::new(), "schema".into(), "a".repeat(4097), "F".repeat(32)] {
+            file.schema = schema;
+            assert!(file.validate().is_err());
+        }
+        file = descriptor(b"content");
+        file.schema = pse_ids::SemanticId::from_bytes([1; 16]).to_string();
+        assert!(file.validate().is_err());
+        file.schema.clear();
+        file.validate().unwrap();
+    }
+
     #[test]
     fn receiver_payloads_are_readable_from_the_owning_service_state() {
         use std::os::unix::fs::MetadataExt;

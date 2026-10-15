@@ -8,7 +8,7 @@ use super::{Runtime, WorkflowError, contract, result_blocks, result_files};
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
-use pse_operations::canonical_results::ResultRead;
+use pse_operations::{canonical::MetadataResponse, canonical_results::ResultRead};
 use std::{
     collections::{BTreeMap, VecDeque},
     io::{BufWriter, Write},
@@ -17,28 +17,43 @@ use std::{
 
 #[cfg(all(test, feature = "canonical-tests"))]
 use std::time::Duration;
-// Metadata RPC responses have their own prepaid scope. Actual native file
-// footer/body allocations use file-shaped grants in ResultSnapshot.
-const READ_BYTES: usize = 3 * result_files::MAX_FILE_BYTES;
-
+// Metadata transport and retained storage have independent real lifetimes.
 pub(super) fn response_owner(
     runtime: &Runtime,
     name: &'static str,
+    profile: MetadataResponse,
 ) -> Result<Arc<MemoryReservation>, WorkflowError> {
-    pooled_response_owner(&runtime.shared.pool(), name)
+    pooled_response_owner(&runtime.shared.pool(), name, profile)
 }
 
-// Standalone Operations callers carry the same metadata allowance without
-// depending on a Runtime or a Python bridge's enclosing response scope.
 pub(super) fn pooled_response_owner(
     pool: &Arc<dyn MemoryPool>,
     name: &'static str,
+    profile: MetadataResponse,
 ) -> Result<Arc<MemoryReservation>, WorkflowError> {
     let owner = MemoryConsumer::new(name).register(pool);
-    owner
-        .try_grow(READ_BYTES)
-        .map_err(pse_engine::EngineError::from)?;
+    owner.try_grow(profile.allocation_bytes()).map_err(pse_engine::EngineError::from)?;
     Ok(Arc::new(owner))
+}
+
+/// Transfer only an actually unique response grant. An outstanding SDK/router
+/// hold prevents partitioning its allowance; that real overlap stays prepaid.
+pub(super) fn retain_metadata(
+    pool: &Arc<dyn MemoryPool>,
+    response: Arc<MemoryReservation>,
+    bytes: usize,
+) -> Result<MemoryReservation, WorkflowError> {
+    if bytes > response.size() {
+        return Err(contract("retained metadata exceeds admitted endpoint extent"));
+    }
+    match Arc::try_unwrap(response) {
+        Ok(response) => Ok(response.split(bytes)),
+        Err(_live_response) => {
+            let retained = MemoryConsumer::new("canonical:retained-metadata").register(pool);
+            retained.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+            Ok(retained)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -94,8 +109,9 @@ impl ResultAdmission {
 #[derive(Debug)]
 pub struct CanonicalResultReader {
     runtime: Runtime,
-    snapshot: super::ResultSnapshot,
     read: Arc<ResultRead>,
+    snapshot: super::ResultSnapshot,
+    read_owner: Arc<MemoryReservation>,
     relation: pse_ids::SemanticId,
     set: String,
     schema: SchemaRef,
@@ -110,7 +126,7 @@ pub struct CanonicalResultReader {
     output: Option<OutputFilter>,
     indexes: BTreeMap<String, OutputRows>,
     // Drop all metadata-backed pages and indexes before their shared grant.
-    metadata_owner: Option<Arc<MemoryReservation>>,
+    metadata_owner: Option<MemoryReservation>,
     _selection_owner: MemoryReservation,
 }
 impl CanonicalResultReader {
@@ -278,6 +294,26 @@ impl CanonicalResultReader {
         }
         outcome
     }
+    fn retained_page_bytes(&self) -> Result<usize, WorkflowError> {
+        use pse_model::HeapUsage;
+        let mut bytes = self.pending.capacity().checked_mul(size_of::<BlockMetadata>())
+            .ok_or_else(|| contract("result page extent"))?;
+        for block in &self.pending {
+            bytes = bytes.checked_add(block.heap_bytes()).ok_or_else(|| contract("result page extent"))?;
+        }
+        for (key, rows) in &self.indexes {
+            let heap = match rows {
+                OutputRows::Scalar(rows) => rows.capacity().checked_mul(size_of::<pse_model::generated::runtime::canonical_result_rows::Row>())
+                    .and_then(|size| rows.iter().try_fold(size, |n, row| n.checked_add(row.heap_bytes()))),
+                OutputRows::Dense(row) => Some(row.heap_bytes()),
+            }.ok_or_else(|| contract("result index extent"))?;
+            bytes = bytes.checked_add(size_of::<(String, OutputRows)>() + 128)
+                .and_then(|bytes| bytes.checked_add(key.capacity()))
+                .and_then(|bytes| bytes.checked_add(heap))
+                .ok_or_else(|| contract("result index extent"))?;
+        }
+        Ok(bytes)
+    }
     async fn next_checked(
         &mut self,
     ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
@@ -287,9 +323,10 @@ impl CanonicalResultReader {
                 if self.exhausted {
                     return Ok(None);
                 }
-                let owner = response_owner(&self.runtime, "canonical:result-metadata")?;
+                let owner = response_owner(&self.runtime, "canonical:result-metadata",
+                    if self.output.is_some() { MetadataResponse::OutputPage } else { MetadataResponse::Page })?;
                 let page = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((self.read.clone(), owner.clone())),
+                    Arc::new((self.read.clone(), self.read_owner.clone(), owner.clone())),
                     async {
                         let page = if let Some(filter) = &self.output {
                             let page = self
@@ -363,7 +400,8 @@ impl CanonicalResultReader {
                 )
                 .await?;
                 self.pending = page.into();
-                self.metadata_owner = Some(owner);
+                self.metadata_owner = Some(retain_metadata(&self.runtime.shared.pool(), owner,
+                    self.retained_page_bytes()?)?);
                 if self.pending.is_empty() {
                     continue;
                 }
@@ -532,7 +570,7 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_runs as rows;
-                let extent = response_owner(self, "canonical:result-header")?;
+                let extent = response_owner(self, "canonical:result-header", MetadataResponse::Header)?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
                     self.canonical_store()?.canonical_run(run),
@@ -561,7 +599,7 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_attempts as rows;
-                let extent = response_owner(self, "canonical:result-header")?;
+                let extent = response_owner(self, "canonical:result-header", MetadataResponse::Header)?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
                     self.canonical_store()?.canonical_attempt(attempt),
@@ -590,7 +628,7 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_result_manifests as rows;
-                let extent = response_owner(self, "canonical:result-header")?;
+                let extent = response_owner(self, "canonical:result-header", MetadataResponse::Header)?;
                 let store = self.canonical_store()?;
                 let read =
                     pse_operations::canonical::response_ownership_scope(extent.clone(), async {
@@ -633,13 +671,13 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let extent = response_owner(self, "canonical:result-selection")?;
+                let extent = response_owner(self, "canonical:result-selection", MetadataResponse::Selection)?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
                     self.canonical_store()?.latest_results(problem, classes),
                 )
                 .await?;
-                self.result_selection(read, relation, start, end, cancel, &extent)
+                self.result_selection(read, relation, start, end, cancel, extent)
                     .await
             })
             .await
@@ -664,13 +702,13 @@ impl Runtime {
                 if start > end {
                     return Err(contract("result row range is reversed"));
                 }
-                let extent = response_owner(self, "canonical:result-selection")?;
+                let extent = response_owner(self, "canonical:result-selection", MetadataResponse::Selection)?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
                     self.canonical_store()?.read_results(run, attempt),
                 )
                 .await?;
-                self.result_selection(read, relation, start, end, cancel, &extent)
+                self.result_selection(read, relation, start, end, cancel, extent)
                     .await
             })
             .await
@@ -682,7 +720,7 @@ impl Runtime {
         start: u64,
         end: u64,
         cancel: CancellationToken,
-        extent: &MemoryReservation,
+        extent: Arc<MemoryReservation>,
     ) -> Result<CanonicalResultReader, WorkflowError> {
         if start > end {
             return Err(contract("result row range is reversed"));
@@ -704,17 +742,16 @@ impl Runtime {
         // The schema is borrowed from the registry's charged immutable arena.
         // The snapshot owns the shared ResultRead allocation. This reader only
         // owns its additional set key; Arc aliases do not charge read metadata twice.
-        let retained = set.capacity();
-        if retained > extent.size() {
-            return Err(contract(
-                "result selection metadata exceeds its admitted response extent",
-            ));
-        }
-        let selection_owner = extent.split(retained);
+        let retained = set.capacity().checked_add(read.retained_bytes()?)
+            .ok_or_else(|| contract("selection retained extent"))?;
+        let retained = retain_metadata(&self.shared.pool(), extent, retained)?;
+        let selection_owner = retained.split(set.capacity());
+        let read_owner = Arc::new(retained);
         let read = Arc::new(read);
         let snapshot = super::ResultSnapshot::capture(
             self,
             read.clone(),
+            read_owner.clone(),
             spec.id,
             &set,
             schema.clone(),
@@ -726,6 +763,7 @@ impl Runtime {
             runtime: self.clone(),
             snapshot,
             read,
+            read_owner,
             relation: spec.id,
             set,
             schema,
@@ -851,6 +889,29 @@ mod result_admission_unit {
         Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass,
     };
 
+    #[test]
+    fn metadata_transfer_never_shrinks_live_sdk_or_alias_grants() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let response = pooled_response_owner(&pool, "test:metadata-response", MetadataResponse::Header).unwrap();
+        let original = response.size();
+        let sdk = response.clone();
+        let retained = Arc::new(retain_metadata(&pool, response, 4096).unwrap());
+        assert_eq!(sdk.size(), original, "actual SDK suffix retains its entire allowance");
+        assert_eq!(pool.reserved(), original + 4096);
+        let alias = retained.clone();
+        assert_eq!(pool.reserved(), original + 4096, "immutable aliases add no charge");
+        drop(retained);
+        drop(sdk);
+        assert_eq!(pool.reserved(), 4096);
+        drop(alias);
+        assert_eq!(pool.reserved(), 0);
+        let response = pooled_response_owner(&pool, "test:unique-metadata-response", MetadataResponse::Header).unwrap();
+        let retained = retain_metadata(&pool, response, 4096).unwrap();
+        assert_eq!(pool.reserved(), 4096, "a proven unique grant transfers without an overlapping allocation");
+        drop(retained);
+        assert_eq!(pool.reserved(), 0);
+    }
+
     #[tokio::test]
     async fn selected_reader_admits_decoded_stable_checks_in_one_actual_operation_scope() {
         let base = super::super::tests::runtime_on(
@@ -962,6 +1023,89 @@ mod canonical_connected_results_server_unit {
         RunRequest, TerminalClass, result_batch_key, result_payload_digest, result_set_key,
     };
     use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+    #[tokio::test]
+    async fn canonical_nonempty_multipage_reads_share_256mib_with_real_compiler_leases() {
+        use pse_compiler::workspace::{CompilerContext, WorkspaceLimits};
+        let local = super::super::tests::runtime_on(256 << 20, crate::math::MathPolicy {
+            workspace_bytes: 64 << 20, worker_bytes: 64 << 20,
+            artifact_bytes: 16 << 20, foreign_bytes: 8 << 20, inner_session_bytes: 0,
+            ..Default::default()
+        });
+        let runtime = super::super::durable_tests::durable_runtime_on(local);
+        let pool = runtime.shared.pool();
+        assert!(matches!(pool.memory_limit(), datafusion::execution::memory_pool::MemoryLimit::Finite(limit) if limit == 256 << 20));
+        let store = runtime.canonical_store().unwrap();
+        let source = store.edit("multipage-pressure", None, "source", &[]).await.unwrap();
+        store.begin_run(&RunRequest { key: "multipage-pressure".into(), revision: source,
+            sources: vec![], request: vec![1], source_selection: vec![2], attestation: vec![3] }).await.unwrap();
+        let fence = store.claim_run("multipage-pressure", "claim", "worker", Duration::from_secs(60)).await.unwrap();
+        let run_id = pse_operations::mint_id();
+        let validation = runtime.validation_context();
+        let mut batches = Vec::new();
+        for step in 0..65 {
+            let mut builder = solve_metrics::Builder::with_registry(runtime.registry(), 1, &validation).unwrap();
+            builder.push(solve_metrics::Row { run_id, step, namespace: "original".into(),
+                name: "temperature".into(), kind: NativeMetricKind::Real, real: Some(273.15 + step as f64),
+                integer: None, boolean: None, text: None, unavailable: None }).unwrap();
+            batches.push(builder.finish().unwrap());
+        }
+        let cursor = super::super::ResultCursor::from_retained(batches[0].batch().schema(), solve_metrics::RELATION_ID, &batches).unwrap();
+        super::super::result_projection::store_result_table(store, &fence, solve_metrics::RELATION_ID,
+            cursor, &pool, &PublicationAcks::new(&pool)).await.unwrap();
+        drop(batches);
+        let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this fixture publishes original finite observations and claims partial availability only.
+        unsafe { store.seal_attempt(&manifest, "seal", TerminalClass::Partial, &[1],
+            pse_operations::canonical_execution::SeedEligibility::Unavailable).await.unwrap(); }
+        let compiler_baseline = pool.reserved();
+        let physical = super::super::tests::physical();
+        let workspace = || runtime.native().workspace(CompilerContext {
+            quantities: physical.quantities.clone(), preconditions: physical.preconditions.clone(),
+            providers: BTreeMap::new(),
+        }, WorkspaceLimits::default()).unwrap();
+        let first_compiler = workspace();
+        let second_compiler = workspace();
+        assert_eq!(pool.reserved() - compiler_baseline, 128 << 20,
+            "two actual compiler generations retain their configured64MiB leases");
+        let baseline = pool.reserved();
+        let cancel = CancellationToken::new();
+        let mut reader = runtime.results(fence.run(), fence.attempt(), "runtime.solve_metrics", 0, 65, cancel.clone()).await.unwrap();
+        let snapshot = reader.snapshot();
+        assert_eq!(snapshot.blocks().len(), 65, "capture crosses the64-row metadata page boundary");
+        let selected = pool.reserved();
+        let alias = snapshot.clone();
+        assert_eq!(pool.reserved(), selected, "snapshot aliases share inventory and read ownership");
+        let mut rows = 0;
+        while let Some(batch) = reader.next_batch().await.unwrap() {
+            assert_eq!(batch.num_rows(), 1);
+            let values = batch.column_by_name("real").unwrap().as_any().downcast_ref::<Float64Array>().unwrap();
+            assert_eq!(values.value(0), 273.15 + rows as f64);
+            rows += 1;
+        }
+        assert_eq!(rows, 65, "every nonempty block opened and decoded");
+        drop(reader);
+        drop(snapshot);
+        assert!(pool.reserved() > baseline, "independent snapshot keeps its metadata/footer owners");
+        drop(alias);
+        assert_eq!(pool.reserved(), baseline, "last retained read releases exact resident storage");
+        let pressure = MemoryConsumer::new("test:required-result-pressure").register(&pool);
+        let remaining = (256 << 20) - pool.reserved();
+        pressure.try_grow(remaining - MetadataResponse::Selection.allocation_bytes() + 1).unwrap();
+        assert!(matches!(runtime.results(fence.run(), fence.attempt(), "runtime.solve_metrics", 0, 65,
+            CancellationToken::new()).await, Err(WorkflowError::Engine(_))));
+        drop(pressure);
+        let mut cancelled = runtime.results(fence.run(), fence.attempt(), "runtime.solve_metrics", 0, 65,
+            cancel.clone()).await.unwrap();
+        cancel.cancel();
+        assert!(cancelled.next_batch().await.is_err());
+        drop(cancelled);
+        assert_eq!(pool.reserved(), baseline);
+        drop(first_compiler);
+        drop(second_compiler);
+        assert_eq!(pool.reserved(), compiler_baseline);
+    }
+
     #[tokio::test]
     async fn canonical_empty_demand_has_registry_schema_without_ipc_or_absent_membership() {
         use super::super::durable::{StoredCompletion, TerminationCause, TerminationDetail};
@@ -1093,7 +1237,7 @@ mod canonical_connected_results_server_unit {
         );
         let retained = reader_metadata + snapshot_metadata;
         assert!(
-            retained < READ_BYTES / 16,
+            retained < MetadataResponse::Selection.allocation_bytes() / 16,
             "idle reader and snapshot retain actual metadata, not RPC envelopes"
         );
         assert_eq!(pool.reserved() - before_selection, retained);

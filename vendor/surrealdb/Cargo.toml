@@ -112,8 +112,8 @@ protocol-grpc = [
     "dep:tonic",
     "tonic?/gzip",
     "tonic?/zstd",
-    "dep:surrealdb-protocol",
     "surrealdb-types/proto",
+    "surrealdb-protocol/rpc",
     "tokio/time",
 ]
 protocol-http = [
@@ -345,9 +345,8 @@ optional = true
 default-features = false
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies.surrealdb-protocol]
-version = "0.13.1"
-features = ["rpc"]
-optional = true
+version = "=0.13.1"
+features = ["flatbuffers"]
 default-features = false
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies.tokio]
@@ -482,3 +481,6 @@ check-cfg = [
 ]
 
 [workspace]
+
+[dependencies.flatbuffers]
+version = "=25.12.19"

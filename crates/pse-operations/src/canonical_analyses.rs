@@ -136,7 +136,7 @@ fn invalid(message: &str) -> CanonicalError {
     CanonicalError::Configuration(message.into())
 }
 fn identity(value: &str) -> Result<(), CanonicalError> {
-    if value.is_empty() || value.len() > 4096 {
+    if value.is_empty() || value.len() > pse_schema::catalog::substrate::METADATA_ID_BYTES {
         return Err(CanonicalError::PayloadLimit);
     }
     Ok(())
@@ -192,11 +192,12 @@ impl CanonicalStore {
 
     /// Retrieve only the actual primary and physical source receipts of a run.
     pub async fn analysis_run_sources(&self, run: &str) -> Result<Vec<Revision>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Selection, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(run)?;
-            let mut response=bounded_query(self.db.query("SELECT VALUE revision FROM canonical_run_sources WHERE run=$run ORDER BY revision LIMIT 66;").bind(("run",run.to_owned()))).await?;
+            let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Selection, "SELECT VALUE revision FROM canonical_run_sources WHERE run=$run ORDER BY revision LIMIT 66;").bind(("run",run.to_owned()))).await?;
             let keys = response.take::<Vec<String>>(0)?;
             if keys.is_empty() || keys.len() > 65 {
                 return Err(CanonicalError::PayloadLimit);
@@ -212,6 +213,7 @@ impl CanonicalStore {
             Ok(sources)
         }).await
             }).await
+        }).await
     }
 
     /// Persist admitted graph pages, then activate exact complete membership.
@@ -267,7 +269,7 @@ impl CanonicalStore {
             for (ordinal, edge) in edges.iter().enumerate() {
                 identity(&edge.key)?;
                 identity(&edge.kind)?;
-                if edge.evidence_artifact.as_ref().is_some_and(|value|value.len()>4096)
+                if edge.evidence_artifact.as_ref().is_some_and(|value|value.len()>pse_schema::catalog::substrate::METADATA_ID_BYTES)
                     || edge.evidence_field.as_ref().is_some_and(|value|value.len()>128)
                     || edge.evidence_artifact.is_some()!=edge.evidence_block.is_some()
                     || (edge.evidence_artifact.is_none() && (edge.evidence_row.is_some() || edge.evidence_field.is_some()))
@@ -394,11 +396,12 @@ impl CanonicalStore {
     }
     /// Exact active header; incomplete or explicitly withdrawn graphs refuse reads.
     pub async fn analysis(&self, key: &str) -> Result<Analysis, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(key)?;
-            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.query("BEGIN; LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row; COMMIT;").bind(("key",key.to_owned())))).await?;
+            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row; COMMIT;").bind(("key",key.to_owned())))).await?;
             let index = result.num_statements().saturating_sub(2);
             Ok(wire::decode_canonical_analyses(
                 result
@@ -407,6 +410,7 @@ impl CanonicalStore {
             )?)
         }).await
             }).await
+        }).await
     }
     /// Ordered bounded graph nodes from one exact active analysis.
     pub async fn analysis_node_page(
@@ -464,12 +468,13 @@ impl CanonicalStore {
         after: Option<&str>,
         kind: &str,
     ) -> Result<Vec<Object>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Page, async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(key)?;
             let mut response = protected_query("canonical_analyses::analysis_page", || {
                 Ok(self
                     .db
-                    .query("BEGIN; RETURN fn::pse_analysis_v1::read($pse_rpc_expires_at, $key,$after,$kind); COMMIT;")
+                    .metadata_query(crate::canonical::MetadataResponse::Page, "BEGIN; RETURN fn::pse_analysis_v1::read($pse_rpc_expires_at, $key,$after,$kind); COMMIT;")
                     .bind(("key", key.to_owned()))
                     .bind(("after", after.unwrap_or("").to_owned()))
                     .bind(("kind", kind.to_owned())))
@@ -480,6 +485,7 @@ impl CanonicalStore {
                 return Err(CanonicalError::PayloadLimit);
             }
             Ok(rows)
+        }).await
         }).await
     }
 }

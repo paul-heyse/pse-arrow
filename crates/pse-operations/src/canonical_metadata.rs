@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+
+//! Endpoint-derived transport/intermediate metadata extents, distinct from IPC.
+
+use pse_schema::catalog::substrate as wire;
+
+/// Canonical metadata layouts. The wire preflight enforces these bounds before
+/// SurrealDB allocates owned Values; typed codecs retain their semantic checks.
+#[derive(Clone, Copy, Debug)]
+pub enum MetadataResponse {
+    /// At most two header rows, each below 32 declared fields. Run headers carry
+    /// request/source-selection bytes (up to the transport limit together).
+    Header,
+    /// Header/manifest/protection selection, including 256 CBOR descriptors.
+    Selection,
+    /// A 64-row descriptor or analysis page, each below 32 declared fields.
+    Page,
+    /// A 64-row scalar/dense output page, including encoded registry keys.
+    OutputPage,
+}
+impl MetadataResponse {
+    /// Limits include 32 statement envelopes of at most eight fields, errors,
+    /// and the root envelope. Keys are counted separately from their values.
+    pub fn limits(self) -> surrealdb::opt::ResponseLimits {
+        let rows = match self {
+            Self::Header | Self::Selection => 2,
+            Self::Page => crate::canonical_results::PAGE,
+            Self::OutputPage => 3 * crate::canonical_results::PAGE,
+        };
+        let nodes = 512 + rows * 32 * 2;
+        let strings = (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64)
+            .min(wire::RESULT_MESSAGE_BYTES);
+        let blobs = match self {
+            Self::Page => 0,
+            Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
+        };
+        surrealdb::opt::ResponseLimits {
+            wire_bytes: wire::RESULT_MESSAGE_BYTES,
+            nodes,
+            depth: 16,
+            container_items: match self {
+                Self::Selection => crate::canonical_execution::RESULT_SETS,
+                // source-selection readers admit up to 65 sources plus a sentinel.
+                _ => 66,
+            },
+            string_bytes: strings,
+            string_length: wire::METADATA_ID_BYTES,
+            blob_bytes: blobs,
+            blob_length: crate::canonical::PAYLOAD_BYTES,
+        }
+    }
+    /// Raw frame plus four simultaneous owned/intermediate representations.
+    /// 256 bytes per visited value/key covers Value slots, geometric Vec growth,
+    /// BTreeMap nodes and typed row/index copies at the pinned SDK. String/blob
+    /// occurrences are separately prepaid, even for repeated wire offsets.
+    pub fn allocation_bytes(self) -> usize {
+        let limits = self.limits();
+        limits.wire_bytes
+            + 4 * (limits.nodes * 256 + limits.string_bytes + limits.blob_bytes)
+            + 64 * 1024
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn metadata_layouts_fit_the_declared_row_field_envelope() {
+        let registry = pse_schema::registry().unwrap();
+        for name in ["canonical_runs", "canonical_attempts", "canonical_result_manifests",
+            "canonical_result_blocks", "canonical_result_batches", "canonical_result_rows",
+            "canonical_result_block_outputs", "canonical_file_instances", "canonical_artifacts",
+            "canonical_artifact_blocks", "canonical_analyses", "canonical_analysis_nodes", "canonical_analysis_edges"] {
+            let relation = registry.relation(&format!("runtime.{name}")).unwrap();
+            assert!(relation.columns.len() + 1 <= 32, "{name}: fields plus native id must fit metadata preflight");
+        }
+    }
+    #[test]
+    fn metadata_allowances_are_separate_from_physical_files() {
+        for profile in [MetadataResponse::Header, MetadataResponse::Selection,
+            MetadataResponse::Page, MetadataResponse::OutputPage] {
+            assert!(profile.allocation_bytes() < 2 * wire::RESULT_BLOCK_BYTES);
+            assert!(profile.limits().nodes >= 512 + 2 * 32 * 2);
+        }
+        assert_eq!(MetadataResponse::Page.limits().blob_bytes, 0);
+    }
+}

@@ -56,7 +56,7 @@ pub(crate) fn writer_response(mut row: Object) -> Result<Object, CanonicalError>
 pub const RESULT_BATCH_BYTES: usize = wire::RESULT_BLOCK_BYTES;
 /// Completion and closed descriptors are bounded metadata, never trajectories.
 pub const EXECUTION_METADATA_BYTES: usize = wire::RESULT_INDEX_BYTES;
-const RESULT_SETS: usize = 256;
+pub(crate) const RESULT_SETS: usize = 256;
 
 /// Conservative CBOR extent for the canonical codec's metadata budget.
 /// Decimal uses a fixed bound covering its tag and the longest signed decimal text;
@@ -2966,6 +2966,7 @@ fn file_binding(batch: &ResultBatch) -> String {
 }
 /// Verify a bounded exact batch before decoding its scientific contents.
 pub fn validate_result_batch(batch: &ResultBatch) -> Result<(), CanonicalError> {
+    crate::canonical_files::validate_codec_schema(&batch.encoding, &batch.schema)?;
     if batch.key != result_batch_key(&batch.attempt, &batch.result_set, batch.ordinal)
         || batch.digest != batch.file_digest
         || batch.payload_bytes == 0
@@ -3002,7 +3003,7 @@ fn identity(value: &str) -> Result<(), CanonicalError> {
             "execution identity must be nonempty".into(),
         ));
     }
-    if value.len() > 4096 {
+    if value.len() > pse_schema::catalog::substrate::METADATA_ID_BYTES {
         return Err(CanonicalError::PayloadLimit);
     }
     Ok(())
@@ -3594,13 +3595,14 @@ impl CanonicalStore {
     }
     /// Read a retained semantic execution independently of its current generation.
     pub async fn canonical_run(&self, key: &str) -> Result<Option<CanonicalRun>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = bounded_query(
                         self.db
-                            .query("RETURN fn::pse_history_v1::read_run($pse_rpc_expires_at,$key);")
+                            .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_run($pse_rpc_expires_at,$key);")
                             .bind(("key", key.to_owned())),
                     )
                     .await?;
@@ -3613,19 +3615,21 @@ impl CanonicalStore {
                 .await
             })
             .await
+        }).await
     }
     /// Read an explicit attempt; terminal history is independent of the latest pointer.
     pub async fn canonical_attempt(
         &self,
         key: &str,
     ) -> Result<Option<CanonicalAttempt>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = bounded_query(
                         self.db
-                            .query("RETURN fn::pse_history_v1::read_attempt($pse_rpc_expires_at,$key);")
+                            .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_attempt($pse_rpc_expires_at,$key);")
                             .bind(("key", key.to_owned())),
                     )
                     .await?;
@@ -3638,19 +3642,21 @@ impl CanonicalStore {
                 .await
             })
             .await
+        }).await
     }
     /// Read a closed manifest; admission additionally requires a terminal attempt.
     pub async fn canonical_result_manifest(
         &self,
         key: &str,
     ) -> Result<Option<ResultManifest>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = bounded_query(
                 self.db
-                    .query("RETURN fn::pse_history_v1::read_manifest($pse_rpc_expires_at,$key);")
+                    .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_manifest($pse_rpc_expires_at,$key);")
                     .bind(("key", key.to_owned())),
             )
             .await?;
@@ -3666,12 +3672,13 @@ impl CanonicalStore {
                 .await
             })
             .await
+        }).await
     }
     async fn ensure_execution_retained(&self, run: &str) -> Result<(), CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut retirement = bounded_query(
                 self.db
-                    .query(
+                    .metadata_query(crate::canonical::MetadataResponse::Header,
                         "SELECT key FROM ONLY type::record('canonical_result_retirements',$run);",
                     )
                     .bind(("run", run.to_owned())),

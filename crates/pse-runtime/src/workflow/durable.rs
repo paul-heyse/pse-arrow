@@ -155,7 +155,7 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response = pooled_response_owner(&self.pool, "canonical:run-page-response")?;
+                let response = pooled_response_owner(&self.pool, "canonical:run-page-response", pse_operations::canonical::MetadataResponse::Page)?;
                 Ok(pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.execution_run_page(problem, after, limit),
@@ -170,7 +170,7 @@ impl Operations {
         activity
             .scope(async {
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:record-selection-response")?;
+                    pooled_response_owner(&self.pool, "canonical:record-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
                 let read = Arc::new(
                     pse_operations::canonical::response_ownership_scope(
                         response,
@@ -187,7 +187,7 @@ impl Operations {
                 let mut after = None;
                 loop {
                     let response =
-                        pooled_response_owner(&self.pool, "canonical:record-seed-page-response")?;
+                        pooled_response_owner(&self.pool, "canonical:record-seed-page-response", pse_operations::canonical::MetadataResponse::Page)?;
                     let page = pse_operations::canonical::response_ownership_scope(
                         Arc::new((read.clone(), response)),
                         self.store.result_seed_page(attempt, after),
@@ -242,7 +242,7 @@ impl Operations {
         activity
             .scope(async {
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:completion-selection-response")?;
+                    pooled_response_owner(&self.pool, "canonical:completion-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.read_completion(run, attempt),
@@ -391,7 +391,7 @@ impl Operations {
         activity
             .scope(async {
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:recovery-header-response")?;
+                    pooled_response_owner(&self.pool, "canonical:recovery-header-response", pse_operations::canonical::MetadataResponse::Header)?;
                 let current = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.canonical_run(run),
@@ -403,7 +403,7 @@ impl Operations {
                     .as_ref()
                     .ok_or_else(|| contract("recovery attempt absent"))?;
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:recovery-header-response")?;
+                    pooled_response_owner(&self.pool, "canonical:recovery-header-response", pse_operations::canonical::MetadataResponse::Header)?;
                 let actual = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.canonical_attempt(attempt),
@@ -426,7 +426,7 @@ impl Operations {
                     ),
                 );
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:recovery-header-response")?;
+                    pooled_response_owner(&self.pool, "canonical:recovery-header-response", pse_operations::canonical::MetadataResponse::Header)?;
                 let current = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.canonical_run(run),
@@ -437,7 +437,7 @@ impl Operations {
                     true
                 } else {
                     let response =
-                        pooled_response_owner(&self.pool, "canonical:recovery-study-response")?;
+                        pooled_response_owner(&self.pool, "canonical:recovery-study-response", pse_operations::canonical::MetadataResponse::Selection)?;
                     pse_operations::canonical::response_ownership_scope(
                         response,
                         self.store.canonical_study_for_run(run),
@@ -2543,7 +2543,7 @@ async fn read_chunks_selection(
                 .saturating_add(64 * 1024),
         )
         .map_err(pse_engine::EngineError::from)?;
-    let response = pooled_response_owner(pool, "canonical:opaque-file-response")?;
+    let response = pooled_response_owner(pool, "canonical:opaque-file-response", pse_operations::canonical::MetadataResponse::Header)?;
     let response: Arc<dyn std::fmt::Debug + Send + Sync> = match read {
         CompletionSelection::Full(full) => Arc::new((full.clone(), response)),
         CompletionSelection::Slim(slim) => Arc::new((slim.clone(), response)),
@@ -2958,7 +2958,7 @@ impl Operations {
         if row.key != solution.to_string() {
             return Err(contract("stored seed identity differs from selection"));
         }
-        let response = pooled_response_owner(&self.pool, "canonical:seed-selection-response")?;
+        let response = pooled_response_owner(&self.pool, "canonical:seed-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
         let read = Arc::new(
             pse_operations::canonical::response_ownership_scope(
                 response,
@@ -3056,7 +3056,7 @@ impl Operations {
         let activity = self.store.admit_activity()?;
         activity
             .scope(async {
-                let response = pooled_response_owner(&self.pool, "canonical:seed-header-response")?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-header-response", pse_operations::canonical::MetadataResponse::Header)?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.result_seed(&solution.to_string()),
@@ -3065,7 +3065,7 @@ impl Operations {
                 .ok_or(SeedReadError::Missing { solution })?;
                 let (_admitted, read, capsule) = self.load_seed(solution, row).await?;
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:seed-promotion-sources-response")?;
+                    pooled_response_owner(&self.pool, "canonical:seed-promotion-sources-response", pse_operations::canonical::MetadataResponse::Selection)?;
                 let sources = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), response)),
                     self.store.analysis_run_sources(&capsule.header.run),
@@ -3080,7 +3080,7 @@ impl Operations {
                 let provenance = serde_json::to_vec(&(1_u8, &capsule.header, &capsule.manifest))
                     .map_err(|error| contract(error.to_string()))?;
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:seed-promotion-header-response")?;
+                    pooled_response_owner(&self.pool, "canonical:seed-promotion-header-response", pse_operations::canonical::MetadataResponse::Header)?;
                 let mut artifact = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), response)),
                     self.store
@@ -3104,9 +3104,7 @@ impl Operations {
                     owner,
                 );
                 let response = pooled_response_owner(
-                    &self.pool,
-                    "canonical:seed-promotion-publication-response",
-                )?;
+                    &self.pool, "canonical:seed-promotion-publication-response", pse_operations::canonical::MetadataResponse::Selection)?;
                 Ok(pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), response)),
                     self.store.persist_artifact(
@@ -3128,7 +3126,7 @@ impl Operations {
         activity
             .scope(async {
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:seed-artifact-response")?;
+                    pooled_response_owner(&self.pool, "canonical:seed-artifact-response", pse_operations::canonical::MetadataResponse::Header)?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     response.clone(),
                     self.store.read_artifact(artifact),
@@ -3197,7 +3195,7 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response = pooled_response_owner(&self.pool, "canonical:seed-header-response")?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-header-response", pse_operations::canonical::MetadataResponse::Header)?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.result_seed(&solution.to_string()),
@@ -3219,7 +3217,7 @@ impl Operations {
         activity
             .scope(async {
                 let response =
-                    pooled_response_owner(&self.pool, "canonical:seed-candidates-response")?;
+                    pooled_response_owner(&self.pool, "canonical:seed-candidates-response", pse_operations::canonical::MetadataResponse::Page)?;
                 let rows = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.result_seed_candidates(
@@ -3523,7 +3521,8 @@ mod canonical_durable_codec {
         runtime.close();
         drop(runtime);
         let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(
-            3 * super::super::result_files::MAX_FILE_BYTES - 1,
+            pse_operations::canonical::MetadataResponse::Header.allocation_bytes()
+                .min(pse_operations::canonical::MetadataResponse::Page.allocation_bytes()) - 1,
         ));
         let operations = Operations::from_store(
             store,

@@ -26,6 +26,9 @@ use surrealdb::{
     opt::{Config, WebsocketConfig},
     types::{Object, Value},
 };
+#[path = "canonical_metadata.rs"]
+mod metadata;
+pub use metadata::MetadataResponse;
 pub use transport::CanonicalQuerySample;
 use transport::{CanonicalClient, original_deadline, within_clock};
 

@@ -23,8 +23,8 @@ use surrealdb::types::{Object, Value};
 
 /// Bound on independently read scientific blobs, including IPC schema and EOS.
 pub const RESULT_BLOCK_BYTES: usize = wire::RESULT_BLOCK_BYTES;
-const PAGE: usize = 64;
-const IDENTITY_BYTES: usize = 4096;
+pub(crate) const PAGE: usize = 64;
+const IDENTITY_BYTES: usize = pse_schema::catalog::substrate::METADATA_ID_BYTES;
 
 // Closing a client must join automatic release RPCs, and must refuse while
 // returned owners still protect their exact selections. Fixture teardown uses
@@ -563,6 +563,7 @@ impl CanonicalStore {
         maximum: Option<f64>,
         missing: Option<bool>,
     ) -> Result<ResultOutputPage, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::OutputPage, async {
         let activity = read.owner.store.selection_activity(&read.owner.selection)?;
         activity.scope(async {
         if !self.db.same_driver(&read.owner.store.db) {
@@ -755,6 +756,7 @@ impl CanonicalStore {
         }
         Ok(page)
             }).await
+        }).await
     }
     /// Select the newest semantic run whose current terminal attempt has an
     /// explicitly requested recorded class. Empty classes include all outcomes.
@@ -764,6 +766,7 @@ impl CanonicalStore {
         problem: &str,
         classes: &[crate::canonical_execution::TerminalClass],
     ) -> Result<ResultRead, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Selection, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         identity(problem)?;
@@ -774,7 +777,7 @@ impl CanonicalStore {
             .iter()
             .map(|class| class.as_str().to_owned())
             .collect::<Vec<_>>();
-        let mut response=bounded_query(self.db.query("SELECT VALUE {run:key,attempt:terminal_attempt} FROM canonical_runs WHERE problem=$problem AND terminal_attempt != NONE AND terminal_class != NONE AND (array::len($classes)=0 OR terminal_class IN $classes) ORDER BY sequence DESC LIMIT 1;").bind(("problem",problem.to_owned())).bind(("classes",classes.clone()))).await?;
+        let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Selection, "SELECT VALUE {run:key,attempt:terminal_attempt} FROM canonical_runs WHERE problem=$problem AND terminal_attempt != NONE AND terminal_class != NONE AND (array::len($classes)=0 OR terminal_class IN $classes) ORDER BY sequence DESC LIMIT 1;").bind(("problem",problem.to_owned())).bind(("classes",classes.clone()))).await?;
         let mut rows = response.take::<Vec<Object>>(0)?;
         let mut row = rows
             .pop()
@@ -801,6 +804,7 @@ impl CanonicalStore {
         }
         Ok(read)
             }).await
+        }).await
     }
 
     async fn terminal_read_owner(
@@ -809,9 +813,10 @@ impl CanonicalStore {
         attempt_key: &str,
         lifetime: Duration,
     ) -> Result<(Arc<ReadOwner>, Run, Attempt), CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Selection, async {
         identity(run_key)?;
         identity(attempt_key)?;
-        let mut response=bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_runs',$run); SELECT * FROM ONLY type::record('canonical_attempts',$attempt);")
+        let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Selection, "SELECT * FROM ONLY type::record('canonical_runs',$run); SELECT * FROM ONLY type::record('canonical_attempts',$attempt);")
             .bind(("run",run_key.to_owned())).bind(("attempt",attempt_key.to_owned()))).await?;
         let run = response
             .take::<Option<Object>>(0)?
@@ -849,6 +854,7 @@ impl CanonicalStore {
             selection: protection,
         });
         Ok((owner, run, attempt))
+        }).await
     }
 
     /// Resolve only an admitted terminal attempt, then pin its immutable revision
@@ -859,6 +865,7 @@ impl CanonicalStore {
         run_key: &str,
         attempt_key: &str,
     ) -> Result<ResultRead, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Selection, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         let (owner, run, attempt) = self
@@ -868,7 +875,7 @@ impl CanonicalStore {
             .closed_manifest
             .as_deref()
             .ok_or_else(|| invalid("terminal attempt lacks closed manifest"))?;
-        let mut response=self.protected_query(&format!("result-creators:{}",run.key), crate::canonical::QueryEffect::Mutation, "canonical_results::read_results", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\n{RESULT_ADMISSION}\nSELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT;"))
+        let mut response=self.protected_query(&format!("result-creators:{}",run.key), crate::canonical::QueryEffect::Mutation, "canonical_results::read_results", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Selection, format!("{PROTECTED_BEGIN}\n{RESULT_ADMISSION}\nSELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT;"))
             .bind(("problem",owner.selection.revision().problem.clone()))
             .bind(("revision",owner.selection.revision().key.clone()))
             .bind(("sequence",canonical_codec::encode_uint(owner.selection.revision().sequence)?))
@@ -896,6 +903,7 @@ impl CanonicalStore {
             sets,
         })
             }).await
+        }).await
     }
 
     /// Pin one terminal completion without fetching its manifest descriptors or
@@ -993,6 +1001,7 @@ impl CanonicalStore {
         end: u64,
         after: Option<u64>,
     ) -> Result<Vec<BlockMetadata>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Page, async {
         let activity = read.owner.store.selection_activity(&read.owner.selection)?;
         activity.scope(async {
         if !self.db.same_driver(&read.owner.store.db) {
@@ -1012,7 +1021,7 @@ impl CanonicalStore {
         } else {
             ""
         };
-        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block_page", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block_page", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page, format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned()))
@@ -1046,6 +1055,7 @@ impl CanonicalStore {
             })
             .collect()
             }).await
+        }).await
     }
 
     /// Read one exact closed-descriptor member for its declared scientific codec.
@@ -1081,6 +1091,7 @@ impl CanonicalStore {
         set_key: &str,
         ordinals: &[u64],
     ) -> Result<Vec<ResultBatch>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Page, async {
         let activity = self.selection_activity(&read.owner.selection)?;
         activity.scope(async {
         self.files.require_current()?;
@@ -1089,11 +1100,12 @@ impl CanonicalStore {
         if ordinals.len()>64||ordinals.windows(2).any(|pair|pair[0]>=pair[1])||ordinals.iter().any(|ordinal|*ordinal>=set.batch_count){return Err(invalid("demanded file descriptor page exceeds exact manifest scope"));}
         if ordinals.is_empty(){return Ok(Vec::new());}
         let selected=ordinals.iter().map(|value|canonical_codec::encode_uint(*value)).collect::<Result<Vec<_>,_>>()?;
-        let mut response=self.protected_query(&read.run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptors",||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64; COMMIT;"))
+        let mut response=self.protected_query(&read.run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptors",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page, format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64; COMMIT;"))
         .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone())).bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?)).bind(("protection",read.owner.selection.key().to_owned())).bind(("set",set_key.to_owned())).bind(("selected",selected.clone())))).await?;
         let index=response.num_statements().saturating_sub(2);let page:Vec<Object>=response.take(index)?;
         if page.len()!=ordinals.len(){return Err(invalid("frozen demanded file inventory is incomplete"));}
         page.into_iter().zip(ordinals).map(|(row,ordinal)|{let batch=wire::decode_canonical_result_batches(row)?;crate::canonical_execution::validate_result_batch(&batch)?;if batch.ordinal!=*ordinal||batch.attempt!=read.attempt.key||batch.result_set!=set_key{return Err(invalid("frozen demanded file coordinate differs"));}Ok(batch)}).collect()
+        }).await
         }).await
     }
     /// Authenticate an exact frozen logical member before exposing its native file.
@@ -1102,6 +1114,7 @@ impl CanonicalStore {
         read: &ResultRead,
         batch: &ResultBatch,
     ) -> Result<crate::canonical_files::ProtectedFile, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         let activity = self.selection_activity(&read.owner.selection)?;
         activity
             .scope(async {
@@ -1124,6 +1137,7 @@ impl CanonicalStore {
                 self.open_physical_file(descriptor, read.owner.clone())
             })
             .await
+        }).await
     }
     async fn result_batch_descriptor(
         &self,
@@ -1131,7 +1145,8 @@ impl CanonicalStore {
         run: &Run,
         batch: &ResultBatch,
     ) -> Result<ResultBatch, CanonicalError> {
-        let mut response=self.protected_query(&run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptor",||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM ONLY type::record('canonical_result_batches',$batch); COMMIT;"))
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
+        let mut response=self.protected_query(&run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptor",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM ONLY type::record('canonical_result_batches',$batch); COMMIT;"))
         .bind(("problem",run.problem.clone())).bind(("revision",run.revision.clone())).bind(("sequence",canonical_codec::encode_uint(owner.selection.revision().sequence)?)).bind(("protection",owner.selection.key().to_owned())).bind(("batch",batch.key.clone())))).await?;
         let index = response.num_statements().saturating_sub(2);
         Ok(wire::decode_canonical_result_batches(
@@ -1139,6 +1154,7 @@ impl CanonicalStore {
                 .take::<Option<Object>>(index)?
                 .ok_or_else(|| invalid("file batch unavailable"))?,
         )?)
+        }).await
     }
     async fn hydrate_result_batch(
         &self,

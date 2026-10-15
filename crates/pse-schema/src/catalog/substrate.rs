@@ -23,6 +23,8 @@ pub const RESULT_INDEX_BYTES: usize = 128 * 1024;
 pub const ARTIFACT_APPEND_ROWS: usize = 64;
 /// Complete uncompressed native WebSocket message admission.
 pub const RESULT_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
+/// Maximum canonical metadata identity/string length at the response boundary.
+pub const METADATA_ID_BYTES: usize = 4096;
 /// Every valid index object contains at least the nonempty `key` field. The
 /// minimal CBOR map `{key: "a"}` occupies seven bytes; other mandatory fields
 /// only increase its extent. This ceiling protects loops, never chooses blocks.

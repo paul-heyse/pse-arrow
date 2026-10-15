@@ -190,7 +190,22 @@ pub struct RequestContext(
     Arc<Lifecycle>,
     Option<PayloadOwnership>,
     Option<RequestLifetimeOwnership>,
+    Option<ResponseLimits>,
 );
+
+/// Finite decoded metadata envelope for one actual request. Counts apply to
+/// occurrences, including repeated FlatBuffers offsets, before owned conversion.
+#[derive(Debug, Clone, Copy)]
+pub struct ResponseLimits {
+    pub wire_bytes: usize,
+    pub nodes: usize,
+    pub depth: usize,
+    pub container_items: usize,
+    pub string_bytes: usize,
+    pub string_length: usize,
+    pub blob_bytes: usize,
+    pub blob_length: usize,
+}
 
 /// Non-byte local activity ownership. Metadata clones share clearable cells;
 /// actual response handling retains separate holds until its local work drains.
@@ -486,7 +501,17 @@ impl RequestContext {
             }),
             None,
             None,
+            None,
         )
+    }
+
+    /// Apply the endpoint's finite borrowed metadata preflight.
+    pub fn with_response_limits(mut self, limits: ResponseLimits) -> Self {
+        self.3 = Some(limits);
+        self
+    }
+    pub fn response_limits(&self) -> Option<ResponseLimits> {
+        self.3
     }
 
     /// Keep non-byte local activity through actual terminal completion or drain.
@@ -527,6 +552,9 @@ impl RequestContext {
     /// Preserve both independent drain cells when a builder receives a current lifecycle.
     /// Copying the allocation out would strand it in retired old metadata.
     pub fn inherit_request_ownership(mut self, previous: &Self) -> Self {
+        if self.3.is_none() {
+            self.3 = previous.3;
+        }
         if let Some(previous) = &previous.1 {
             self.1 = Some(match self.1.take() {
                 Some(current) => current.join(previous.clone()),

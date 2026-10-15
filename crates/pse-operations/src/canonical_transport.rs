@@ -25,6 +25,7 @@ mod tests;
 tokio::task_local! {
     static OPERATION_DEADLINE: tokio::time::Instant;
     static RESPONSE_OWNER: Arc<dyn std::fmt::Debug + Send + Sync>;
+    static METADATA_RESPONSE: super::MetadataResponse;
 }
 
 #[derive(Debug)]
@@ -46,6 +47,15 @@ pub(crate) async fn response_ownership_scope<F: Future>(
         Err(_) => owner,
     };
     RESPONSE_OWNER.scope(owner, future).await
+}
+
+/// Every nested metadata RPC observes the endpoint's finite response layout,
+/// including source/protection reads reached by a selection operation.
+pub(crate) async fn metadata_scope<F: Future>(
+    profile: super::MetadataResponse,
+    future: F,
+) -> F::Output {
+    METADATA_RESPONSE.scope(profile, future).await
 }
 
 /// Capture before spawning: Tokio tasks do not inherit the submitting scope.
@@ -332,6 +342,16 @@ impl CanonicalClient {
         }
     }
 
+    /// Endpoint-shaped response admission, before the SDK expands wire values.
+    pub(crate) fn metadata_query<'r>(
+        &'r self,
+        profile: super::MetadataResponse,
+        query: impl Into<Cow<'r, str>>,
+    ) -> surrealdb::method::Query<'r, Client> {
+        self.query(query)
+            .request_context(self.context(false).with_response_limits(profile.limits()))
+    }
+
     pub(crate) fn control_query<'r>(
         &'r self,
         query: impl Into<Cow<'r, str>>,
@@ -357,6 +377,10 @@ impl CanonicalClient {
             RequestContext::control(deadline)
         } else {
             RequestContext::new(deadline)
+        };
+        let context = match METADATA_RESPONSE.try_with(|profile| profile.limits()) {
+            Ok(limits) => context.with_response_limits(limits),
+            Err(_) => context,
         };
         if self.blocked.load(Ordering::Acquire) {
             context.cancel();

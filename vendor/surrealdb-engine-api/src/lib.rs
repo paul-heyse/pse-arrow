@@ -34,7 +34,7 @@ use uuid::Uuid;
 
 pub mod request;
 pub mod session;
-pub use request::{DispatchState, RequestContext};
+pub use request::{DispatchState, RequestContext, ResponseLimits};
 
 pub use session::{Established, SessionEntry, SessionRegistry};
 
