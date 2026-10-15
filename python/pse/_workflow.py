@@ -194,7 +194,7 @@ class Runtime:
     def result_analysis(
         self, run: str, attempt: str, controls: AnalysisControls
     ) -> Analysis:
-        """Persist reported sensitivity evidence and exact result provenance."""
+        """Persist family-qualified response evidence and exact result provenance."""
         return Analysis(
             self._handle.result_analysis(run, attempt, codec.encode_json(controls))
         )

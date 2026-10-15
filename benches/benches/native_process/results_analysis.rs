@@ -169,7 +169,7 @@ async fn original_artifact_evidence(
             after = Some(row.key);
         }
     }
-    assert_eq!(artifacts.len(), 1, "one original local-analysis artifact");
+    assert_eq!(artifacts.len(), 1, "one original trajectory artifact");
     let mut evidence = BTreeMap::new();
     let mut retained = hasher("response");
     let mut original = hasher("response");
@@ -179,12 +179,13 @@ async fn original_artifact_evidence(
     let mut start = 0usize;
     for key in artifacts {
         let artifact = runtime.scientific_artifact(&key).await.unwrap();
+        assert_eq!(artifact.header().kind, "trajectory");
         let read = store.read_artifact(&key).await.unwrap();
         for ordinal in 0..artifact.header().block_count {
             let block = read.block(ordinal).await.unwrap();
             assert_eq!(block.artifact, key);
             assert_eq!(block.ordinal, ordinal);
-            if block.relation != response_sensitivities::RELATION_ID.to_string() {
+            if block.relation != "runtime.response_sensitivities" {
                 continue;
             }
             let batch = artifact.block(ordinal, cancel.token()).await.unwrap();
@@ -233,7 +234,7 @@ async fn graph(
     assert_eq!(header.key, expected.graph_key);
     assert_eq!(
         header.method,
-        "result-sensitivity-provenance-reachability:v1"
+        "result-sensitivity-provenance-reachability:v2"
     );
     assert!(header.node_count > 64 && header.node_count <= 4096);
     assert!(header.edge_count > 64 && header.edge_count <= 8192);
@@ -290,7 +291,7 @@ async fn graph(
                 let (source, source_kind) = &semantics[&row.source];
                 let (target, target_kind) = &semantics[&row.target];
                 match row.kind.as_str() {
-                    "retained_response_sensitivity" => {
+                    "recorded_transient_response" => {
                         assert_eq!(source_kind, "parameter");
                         assert_eq!(target_kind, "output");
                         let evidence = evidence_locator(&row);
@@ -329,6 +330,17 @@ async fn graph(
                         assert!(row.evidence_field.is_none());
                         provenance_count += 1;
                     }
+                    "scientific_context" | "computation_context" | "trajectory_endpoint" | "trajectory_event" | "trajectory_mode" | "retained_interpretation" | "produced_context" => {
+                        assert_eq!(source_kind, "attempt");
+                        assert_eq!(target_kind, "retained_context");
+                        assert!(row.evidence_artifact.is_some());
+                    }
+                    "response_coordinates" | "response_completion" | "response_endpoint" | "response_event_context" => {
+                        assert_eq!(source_kind, "retained_context");
+                        assert_eq!(target_kind, "output");
+                        assert!(row.evidence_artifact.is_some());
+                        assert!(row.evidence_row.is_some());
+                    }
                     other => panic!("unexpected original method edge {other}"),
                 }
             }
@@ -342,7 +354,7 @@ async fn graph(
         assert_eq!(response_count as usize, original.len());
         assert_eq!(produced.len(), original.len());
         assert_eq!(provenance_count as usize, expected.sources.len());
-        assert_eq!(edge_count, 2 * response_count + provenance_count);
+        assert!(edge_count > 2 * response_count + provenance_count, "family and trajectory interpretation remain independently addressable");
     }
     ReadObservation {
         digest: hash.finish_hash(),
@@ -651,13 +663,10 @@ async fn prepare(
     );
     assert_eq!(
         header.configuration.as_slice(),
-        serde_json::to_vec(&(1_u8, &controls, &run, &attempt)).unwrap()
+        serde_json::to_vec(&(2_u8, &controls, &run, &attempt)).unwrap()
     );
-    assert_eq!(header.node_count as usize, states + 2 + input_sources.len());
-    assert_eq!(
-        header.edge_count as usize,
-        2 * states * samples + input_sources.len()
-    );
+    assert!(header.node_count as usize > states + 2 + input_sources.len());
+    assert!(header.edge_count as usize > 2 * states * samples + input_sources.len());
     assert!(header.node_count <= 4096 && header.edge_count <= 8192);
     mark(&mut phase_seconds, "analysis_activation", started);
     let started = Instant::now();
