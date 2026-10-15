@@ -16,7 +16,13 @@ use pse_ids::{Frame, FramedHasher};
 use pse_model::SemanticFrame;
 #[cfg(all(test, feature = "canonical-tests"))]
 use std::time::Duration;
-use surrealdb::types::Object;
+use surrealdb::types::{Object, Value};
+
+#[cfg(all(test, feature = "canonical-tests"))]
+tokio::task_local! {
+    static ARTIFACT_APPEND_REPLY_LOSS: bool;
+    static ARTIFACT_APPEND_GROUPS: std::cell::Cell<usize>;
+}
 
 pub use pse_model::generated::runtime::{
     canonical_artifact_obligations::Row as ArtifactObligation, canonical_artifacts::Row as Artifact,
@@ -225,6 +231,26 @@ fn object(response: &mut surrealdb::IndexedResults) -> Result<Object, CanonicalE
         .ok_or(CanonicalError::IncompleteResponse)
 }
 
+/// Metadata uses the existing index envelope; the native driver also bounds
+/// the complete query/bindings, including the live RPC clock, before dispatch.
+fn artifact_metadata_extent(rows: &[Object]) -> Result<usize, CanonicalError> {
+    let values = rows.iter().cloned().map(Value::Object).collect::<Vec<_>>();
+    surrealdb::types::encode(&Value::Array(values.into()))
+        .map(|bytes| bytes.len())
+        .map_err(|error| invalid(&format!("artifact metadata encoding: {error}")))
+}
+fn validate_artifact_ack(rows: &[Object], acknowledged: &[String]) -> Result<(), CanonicalError> {
+    if rows.len() != acknowledged.len() {
+        return Err(CanonicalError::IncompleteResponse);
+    }
+    for (row, key) in rows.iter().zip(acknowledged) {
+        if row.get("key") != Some(&Value::String(key.clone())) {
+            return Err(CanonicalError::OperationReused);
+        }
+    }
+    Ok(())
+}
+
 /// An exact nonexpiring artifact read; cloned decoded arrays retain their actual byte allowances.
 #[derive(Clone, Debug)]
 pub struct ArtifactRead {
@@ -317,6 +343,36 @@ impl CanonicalStore {
             Ok(Artifact { key:format!("pse.artifact.v1:{primary_authority}:{creation_nonce}:{creation_expires_at}"),kind:kind.into(),revision:revision.key.clone(),primary_problem:revision.problem.clone(),primary_authority,creation_nonce,creation_expires_at,creation_request_digest:String::new(),interpretation:wire::INTERPRETATION.into(),provenance:provenance.into(),block_count,payload_bytes,active:false,retiring:false })
         }).await
     }
+    /// Attach already sealed metadata, validating every acknowledged original key.
+    /// Unknown completion remains ArtifactUnsettled at the caller; it cannot
+    /// authorize activation or an automatic retry under a renewed clock.
+    async fn append_artifact_metadata(&self, key: &str, rows: &[Object]) -> Result<(), CanonicalError> {
+        if rows.is_empty()
+            || rows.len() > pse_schema::catalog::substrate::ARTIFACT_APPEND_ROWS
+            || artifact_metadata_extent(rows)? > wire::RESULT_INDEX_BYTES
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let _phase = pse_diagnostics::observation::phase("artifact.metadata.attach");
+        let mut response = protected_query("canonical_artifacts::append_many", || Ok(
+            self.db.query("BEGIN; RETURN fn::pse_artifact_v1::append_many($pse_rpc_expires_at,$key,$blocks); COMMIT;")
+                .bind(("key", key.to_owned())).bind(("blocks", rows.to_vec()))
+        )).await?;
+        #[cfg(all(test, feature = "canonical-tests"))]
+        if ARTIFACT_APPEND_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false) {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        let index = response.num_statements().saturating_sub(2);
+        let keys = response.take::<Option<Vec<String>>>(index)?.ok_or(CanonicalError::IncompleteResponse)?;
+        validate_artifact_ack(rows, &keys)?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("canonical.artifact.metadata.groups_acknowledged", "groups", 1);
+            context.count("canonical.artifact.metadata.rows_acknowledged", "rows", rows.len() as u64);
+        }
+        #[cfg(all(test, feature = "canonical-tests"))]
+        let _ = ARTIFACT_APPEND_GROUPS.try_with(|groups| groups.set(groups.get() + 1));
+        Ok(())
+    }
     /// Stage bounded content and transfer exact producer closure to independent ownership atomically.
     pub async fn persist_artifact(
         &self,
@@ -352,14 +408,26 @@ impl CanonicalStore {
                 }
                 let row=wire::encode_canonical_artifacts(header)?;
                 protected_query("canonical_artifacts::begin",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,$inputs); COMMIT;").bind(("row",row.clone())).bind(("sources",roots.clone())).bind(("inputs",selected.clone())))).await?;
+                let mut metadata = Vec::new();
                 for block in blocks {
                     let intent=self.reserve_artifact_file(&header.key,&format!("artifact-file:{}",block.key),&header.creation_request_digest).await?;
                     let sealed=self.seal_file(&intent,block.payload.as_slice(),&block.encoding,block.batch_count,&block.schema).await?;
                     let descriptor=sealed.descriptor();
                     let stored=pse_model::generated::runtime::canonical_artifact_blocks::Row{key:block.key.clone(),artifact:block.artifact.clone(),ordinal:block.ordinal,relation:block.relation.clone(),file_instance:descriptor.instance.clone(),file_digest:descriptor.digest.clone(),file_batch_index:0,payload_bytes:descriptor.bytes,schema:descriptor.schema.clone(),encoding:descriptor.encoding.clone(),digest:block.digest.clone(),original_digest:block.original_digest.clone(),rows:block.rows};
                     let row=wire::encode_canonical_artifact_blocks(&stored)?;
-                    protected_query("canonical_artifacts::append",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::append($pse_rpc_expires_at,$key,$block); COMMIT;").bind(("key",header.key.clone())).bind(("block",row.clone())))).await?;
+                    metadata.push(row);
+                    if metadata.len() > pse_schema::catalog::substrate::ARTIFACT_APPEND_ROWS
+                        || artifact_metadata_extent(&metadata)? > wire::RESULT_INDEX_BYTES {
+                        let last = metadata.pop().ok_or(CanonicalError::IncompleteResponse)?;
+                        self.append_artifact_metadata(&header.key, &metadata).await?;
+                        metadata.clear();
+                        metadata.push(last);
+                        if artifact_metadata_extent(&metadata)? > wire::RESULT_INDEX_BYTES {
+                            return Err(CanonicalError::PayloadLimit);
+                        }
+                    }
                 }
+                if !metadata.is_empty() { self.append_artifact_metadata(&header.key, &metadata).await?; }
                 let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&header.key,owner_kind,owner))?;
                 let mut response=protected_query("canonical_artifacts::activate",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::activate($pse_rpc_expires_at,$key,$obligation); COMMIT;").bind(("key",header.key.clone())).bind(("obligation",obligation.clone())))).await?;
                 Ok(wire::decode_canonical_artifacts(object(&mut response)?)?)
@@ -517,6 +585,50 @@ mod canonical_artifact_tests {
             .await;
         }
     }
+    #[tokio::test]
+    async fn canonical_artifact_grouped_metadata_preserves_exact_files_and_replay() {
+        let (store, revision) = fixture().await;
+        let expected = [vec![1, 2], vec![3, 4, 5], vec![6]];
+        let mut intent = store.new_artifact(&revision, "test-grouped-capsules", vec![7], 3, 6).await.unwrap();
+        let blocks = expected.iter().enumerate().map(|(ordinal, bytes)|
+            artifact_block(&intent.key, ordinal as u64, &format!("capsule-{ordinal}"), bytes.clone(), "original", 1)
+        ).collect::<Vec<_>>();
+        seal_artifact_request(&mut intent, std::slice::from_ref(&revision), &[], &blocks, "user", "group-owner");
+        let saved = ARTIFACT_APPEND_GROUPS.scope(std::cell::Cell::new(0), async {
+            let saved = store.persist_artifact(&intent, std::slice::from_ref(&revision), &[], &blocks, "user", "group-owner").await.unwrap();
+            ARTIFACT_APPEND_GROUPS.with(|groups| assert_eq!(groups.get(), 1, "three sealed files attach in one acknowledged metadata transaction"));
+            saved
+        }).await;
+        let read = store.read_artifact(&saved.key).await.unwrap();
+        for (ordinal, bytes) in expected.iter().enumerate() {
+            let actual = read.block(ordinal as u64).await.unwrap();
+            assert_eq!(actual.payload.as_slice(), bytes.as_slice());
+            assert_eq!(actual.relation, format!("capsule-{ordinal}"));
+        }
+        read.release().await.unwrap();
+        let again = store.persist_artifact(&intent, std::slice::from_ref(&revision), &[], &blocks, "user", "group-owner").await.unwrap();
+        assert_eq!(again, saved, "exact original replay has unchanged immutable inventory");
+        let mut changed = blocks.clone(); changed[1].rows = 2;
+        assert!(matches!(store.persist_artifact(&intent, std::slice::from_ref(&revision), &[], &changed, "user", "group-owner").await, Err(CanonicalError::OperationReused)));
+        store.release_artifact(&saved.key, "user", "group-owner").await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_artifact_lost_group_ack_retains_unsettled_staging_without_activation() {
+        let (store, revision) = fixture().await;
+        let (intent, blocks) = content(&store, &revision, "audit", "lost-group-ack").await;
+        let error = ARTIFACT_APPEND_REPLY_LOSS.scope(true,
+            store.persist_artifact(&intent, std::slice::from_ref(&revision), &[], &blocks, "audit", "lost-group-ack")
+        ).await.unwrap_err();
+        assert!(matches!(error, CanonicalError::ArtifactUnsettled { .. }));
+        assert!(store.artifact(&intent.key).await.is_err(), "unknown ACK does not permit activation");
+        let mut staged = bounded_query(store.db.query("RETURN SELECT VALUE key FROM canonical_artifact_blocks WHERE artifact=$key;").bind(("key",intent.key.clone()))).await.unwrap();
+        assert_eq!(staged.take::<Vec<String>>(0).unwrap(), vec![blocks[0].key.clone()], "the real transaction committed; its ACK remains deliberately unknown");
+        store.release_artifact_intent(&intent, "audit", "lost-group-ack").await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
     #[tokio::test]
     async fn canonical_artifact_independent_owners_and_exact_copied_read() {
         let (store, revision) = fixture().await;
@@ -1092,5 +1204,21 @@ mod canonical_artifact_tests {
                 .unwrap()
         );
         store.remove_isolated_fixture().await.unwrap();
+    }
+}
+
+#[cfg(test)]
+mod artifact_ack_tests {
+    #![allow(clippy::unwrap_used, reason = "fixed immutable ACK controls")]
+    use super::*;
+    #[test]
+    fn artifact_metadata_ack_requires_exact_ordered_inventory() {
+        let rows = ["one", "two"].map(|key| {
+            let mut row = Object::new(); row.insert("key", key); row
+        });
+        assert!(validate_artifact_ack(&rows, &["one".into(), "two".into()]).is_ok());
+        assert!(matches!(validate_artifact_ack(&rows, &["one".into()]), Err(CanonicalError::IncompleteResponse)));
+        assert!(matches!(validate_artifact_ack(&rows, &["two".into(), "one".into()]), Err(CanonicalError::OperationReused)));
+        assert!(matches!(validate_artifact_ack(&rows, &["one".into(), "changed".into()]), Err(CanonicalError::OperationReused)));
     }
 }

@@ -4,7 +4,7 @@
 //! Owned selected scientific closure and attributed lifetime operations.
 
 pub(super) fn append(ddl: &mut String) {
-    ddl.push_str(FUNCTIONS);
+    ddl.push_str(&FUNCTIONS.replace("__ARTIFACT_APPEND_ROWS__", &pse_schema::catalog::substrate::ARTIFACT_APPEND_ROWS.to_string()));
 }
 
 const FUNCTIONS: &str = r#"
@@ -93,6 +93,14 @@ DEFINE FUNCTION fn::pse_artifact_v1::append($rpc_expiry:int,$key:string,$block:o
     IF $old!=NONE { IF object::remove($old,['id'])!=$block { THROW 'immutable artifact block changed'; }; }
     ELSE { IF $row.active { THROW 'artifact content sealed'; }; fn::pse_files_v1::attach($rpc_expiry,$block,'artifact',$key,'artifact:'+$block.key); CREATE ONLY type::record('canonical_artifact_blocks',$block.key) CONTENT $block; };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
+};
+// All rows attach under the caller's single metadata-only transaction. File
+// reservation/sealing has already completed outside this transaction.
+DEFINE FUNCTION fn::pse_artifact_v1::append_many($rpc_expiry:int,$key:string,$blocks:array) -> array {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    IF array::len($blocks)=0 OR array::len($blocks)>__ARTIFACT_APPEND_ROWS__ OR array::len(array::distinct($blocks.key))!=array::len($blocks) { THROW 'artifact metadata group extent or identity'; };
+    FOR $block IN $blocks { fn::pse_artifact_v1::append($rpc_expiry,$key,$block); };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $blocks.key;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::activate($rpc_expiry:int,$key:string,$obligation:object) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);

@@ -19,6 +19,8 @@ pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
 pub const RESULT_FILE_TARGET_BYTES: usize = 16 * 1024 * 1024;
 /// Native CBOR index/descriptor envelope admission per append.
 pub const RESULT_INDEX_BYTES: usize = 128 * 1024;
+/// Maximum metadata rows in one artifact attachment transaction.
+pub const ARTIFACT_APPEND_ROWS: usize = 64;
 /// Complete uncompressed native WebSocket message admission.
 pub const RESULT_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
 /// Every valid index object contains at least the nonempty `key` field. The

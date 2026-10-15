@@ -11,8 +11,7 @@ and [checkpoint](41-simulation-pipeline-efficiency-and-effectiveness.md#current-
 own adoption and the next route. Companions 41a–41f develop preparation, cancellation/admission,
 study/result boundaries, native worker/storage reuse, derivative/evaluator capabilities and
 causal diagnostics/qualification. [41a's Outcome](41a-source-specialization-and-selected-preparation.md#outcome--2026-10-15)
-owns completed preparation scope, and [41b's Outcome](41b-cancellation-shared-work-and-admission.md#outcome--2026-10-15) owns the delivered B0–B3 enablers. Broader
-41b, the other companions and full-series qualification remain open.
+owns completed preparation scope, and [41b's Outcome](41b-cancellation-shared-work-and-admission.md#outcome--2026-10-15) owns the delivered B0–B3 enablers. The remaining 41b B4/B5 and 41c C0–C5 are now authorized and in progress; RC01/RC02 are accepted, with ADR-0190 and blueprint revision 176 preceding C1. The other companions and full-series qualification remain open.
 This series does not supersede existing plans; reconciliation follows its execution.
 
 [Plan 40: Simulation performance diagnostics](40-simulation-performance-diagnostics.md)

@@ -651,6 +651,10 @@ obligations does not release another owner's content or require producer payload
 
 ### 19.3 Studies and reuse
 
+Local studies retain actual immutable model/physical owners and one shared admitted scientific payload. Public admission and local execution require no canonical store. Recording is an explicit effect over those retained sources, yielding a portable StudyDefinition with real receipts; durable startup validates it against canonical owners. Local handles do not serialize or contain fabricated source receipts. Recording does not repeat scientific admission or expand unselected lazy variants. Exact document bytes are retained when document ingress supports later recording; unavailable recording prerequisites refuse before effects.
+
+> Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
+
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
 **Implemented:** bounded immutable variant constructors use admitted source/revision operations and deterministic selected ordinals, avoiding Cartesian preparation at admission. Actual selected occurrences obtain complete physical/provider/source validation before dispatch. Explicit dependencies alone grant continuation/seed transfer; scheduling and recovery do not invent chains. Existing explicit-point inputs and lazy descriptors consume the same frontier and authoritative seed/effect owners. Lazy points remain Pending until selected scientific admission resolves actual seed need; native run creation follows that admission. Source activation and run creation recheck the exact admission fence at their mutation owners. Deterministic occurrence-qualified source revisions recover by exact receipt without changing the base head.
@@ -1087,6 +1091,8 @@ only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
+> Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
+
 > Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
 
 `EngineSettings` no longer accepts or exposes `hashing_may_use_pool`. Identical resolved
@@ -1181,6 +1187,8 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 ### 21.1 Extension module, canonical operations and Arrow streams
 
+> Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
+
 > Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A1/P-A2).
 
 Typed `solve_bound` at the existing package/revision receiver consumes a declared case,
@@ -1204,11 +1212,11 @@ together; these target APIs do not imply implementation or qualification.
 > ADR-0114 records the historical operational-store predecessor; its publication/job
 > surfaces are replaced by the authorized ADR-0164 implementation.
 
-`pse.Runtime(settings, *, substrate, producer=None, ephemeral=False)` attaches to the
+`pse.Runtime(settings, *, substrate=None, database=None, producer=None, ephemeral=False)` attaches to the
 canonical deployment and its shared memory budget. `settings` is an `EngineSettings` value
-and `substrate` explicitly selects the supervisor state directory. Ordinary construction
-is durable. `ephemeral=True` selects process-local result retention while preserving
-canonical source admission. An optional reviewed producer receipt is checked against the
+and `substrate`, when supplied, selects the supervisor state directory. Ordinary construction
+is durable and requires it. `ephemeral=True` without substrate/database/producer selects
+store-free local computation with admitted source ownership. Local study handles execute directly; explicit recording creates portable descriptors for durable startup. An optional reviewed producer receipt is checked against the
 actual loaded source/build attestation; it is not a caller-provided scientific qualification.
 The process-owned resource service retains one configured budget, spill directory and
 executor; conflicting settings refuse. Escaped Arrow buffers retain their accounted owners.

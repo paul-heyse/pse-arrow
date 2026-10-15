@@ -2440,6 +2440,14 @@ DEFINE FUNCTION fn::pse_artifact_v1::append($rpc_expiry:int,$key:string,$block:o
     ELSE { IF $row.active { THROW 'artifact content sealed'; }; fn::pse_files_v1::attach($rpc_expiry,$block,'artifact',$key,'artifact:'+$block.key); CREATE ONLY type::record('canonical_artifact_blocks',$block.key) CONTENT $block; };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
+// All rows attach under the caller's single metadata-only transaction. File
+// reservation/sealing has already completed outside this transaction.
+DEFINE FUNCTION fn::pse_artifact_v1::append_many($rpc_expiry:int,$key:string,$blocks:array) -> array {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    IF array::len($blocks)=0 OR array::len($blocks)>64 OR array::len(array::distinct($blocks.key))!=array::len($blocks) { THROW 'artifact metadata group extent or identity'; };
+    FOR $block IN $blocks { fn::pse_artifact_v1::append($rpc_expiry,$key,$block); };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $blocks.key;
+};
 DEFINE FUNCTION fn::pse_artifact_v1::activate($rpc_expiry:int,$key:string,$obligation:object) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$key) FOR UPDATE;

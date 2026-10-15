@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 175
+revision: 176
 date: 2026-10-15
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 176 | 2026-10-15 | Proposed ADR-0190 / Plan 41c C0/G0: owned local studies and explicit exact-source recording (§0.5/§19.3/§21/§21.1); existing-family response dispatch retains current certification promises. | Maintainer accepted RC01/RC02 and authorized implementation; visible `.design-edit`; execution evidence remains Plan 41b/41c, with full-series qualification open. |
 | 175 | 2026-10-15 | Plan 41a and enabling B1–B3 (§14.3): hierarchical private cancellation, independent finite shared-producer clocks, compiler authority before active dispatch and through actual join; borrowed inference/function views and direct selected preparation preserve existing scientific meaning. | Maintainer-authorized execution; within-contract ownership/cancellation corrections and consumed preparation setting. Targeted implementation acceptance remains at Plan 41a/41b; no complete-series qualification claim. |
 | 174 | 2026-10-15 | Plan 40 accepted RC01 (§23.1): lightweight operation diagnostics before preparation, current/cumulative/recent coverage, owner-safe context publication and independent same-host checkpoint reads; optional deep capture and separate scientific permission. | Maintainer accepted RC01 on 2026-10-14 and authorized 40a/40b execution; G0 contract installation, implementation/qualification remain at Plan 40. |
 | 173 | 2026-10-14 | Maintainer-selected practical measurement contract (§24.3): declared cases, actual samples/scientific assertions and owned drain; optional functional reference without exact source/environment/native-artifact proof. Record relevant differences and preserve real failures. | Explicit maintainer direction; PSE_DESIGN_EDIT=1; measurement tooling simplification, no new assurance campaign or universal performance claim. |

@@ -592,6 +592,24 @@ pub async fn pending_result_batch_rows(
     )?)?))
 }
 
+/// Inspect actual staged file coordinates in an isolated schema-boundary control.
+pub async fn pending_result_file_coordinates(
+    store: &crate::canonical::CanonicalStore,
+    fence: &crate::canonical_execution::AttemptFence,
+    output: &str,
+    ordinal: u64,
+) -> Result<Option<(String, String)>, crate::canonical::CanonicalError> {
+    use crate::{canonical::bounded_query, canonical_codec as codec,
+        canonical_execution::{result_batch_key, result_set_key}};
+    let set = result_set_key(fence.attempt(), output);
+    let key = result_batch_key(fence.attempt(), &set, ordinal);
+    let mut response = bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;")
+        .bind(("key",key)).bind(("attempt",fence.attempt().to_owned())).bind(("set",set))).await?;
+    let Some(mut row) = response.take::<Option<surrealdb::types::Object>>(0)? else { return Ok(None); };
+    Ok(Some((codec::decode_string(codec::required(&mut row,"file_instance")?)?,
+        codec::decode_string(codec::required(&mut row,"schema")?)?)))
+}
+
 /// Expire only an acknowledged current claim in a registered isolated fixture.
 pub async fn expire_acknowledged_attempt(
     store: &crate::canonical::CanonicalStore,

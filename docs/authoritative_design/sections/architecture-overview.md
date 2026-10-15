@@ -56,6 +56,8 @@ listed in [§6.14](schema-and-relations.md#section-6-14).
 
 ### 0.5 Current native process-simulator contract
 
+> Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
+
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md),
@@ -111,7 +113,7 @@ sensitivities, global identifiability and claims beyond local first-order validi
 outside the profile ([§13](workflows-and-results.md#section-13),
 [§15.5](numerical-execution.md#section-15-5), [§19](workflows-and-results.md#section-19)).
 
-**Workflows.** Rust and Python callers use immutable canonical model revisions, selected preparation, supervised native work and exact retained results. Ordinary execution retains its scientific outcome in the authenticated SurrealDB graph and relational substrate; explicit ephemeral execution keeps result observations local while canonical source admission remains required. Short guarded transactions establish revisions, claims and terminal admission; numerical work runs outside them. Native selectors and bounded Arrow streams connect problems, runs, outputs and persisted analysis ([§20.6](identity-and-publication.md#section-20-6), [§21](workflows-and-results.md#section-21)). Pyomo and IDAES remain reference tools in the clean-room parity harness. The registry generates public declaration contracts.
+**Workflows.** Rust and Python callers use immutable canonical model revisions, selected preparation, supervised native work and exact retained results. Ordinary execution retains its scientific outcome in the authenticated SurrealDB graph and relational substrate; explicit local execution owns admitted immutable model and physical inputs without canonical source admission. Local study admission is effect-free; explicit recording publishes the exact retained sources and creates portable recorded study descriptors. Short guarded transactions establish revisions, claims and terminal admission; numerical work runs outside them. Native selectors and bounded Arrow streams connect problems, runs, outputs and persisted analysis ([§20.6](identity-and-publication.md#section-20-6), [§21](workflows-and-results.md#section-21)). Pyomo and IDAES remain reference tools in the clean-room parity harness. The registry generates public declaration contracts.
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; implemented under maintainer authorization). Assembled qualification and measured performance remain separate evidence.
 

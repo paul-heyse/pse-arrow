@@ -1185,7 +1185,7 @@ mod result_projection_unit {
 
     #[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
     #[tokio::test]
-    async fn canonical_append_queue_groups_actual_run_projections_and_retries_cold_memory() {
+    async fn canonical_append_queue_real_projections_preserve_ack_boundaries_and_memory_refusal() {
         use pse_relations::generated::{
             enums::NativeMetricKind,
             runtime::{run_lineage, solve_metrics, solve_runs},
@@ -1249,12 +1249,12 @@ mod result_projection_unit {
         }
         assert_eq!(
             queue.items.len(),
-            2,
-            "real allocating RunResult projections group across relations"
+            0,
+            "each complete projection has joined its own schema-correct append"
         );
-        assert_eq!(queue.requests, 0);
+        assert_eq!(queue.requests, 2);
         queue.flush().await.unwrap();
-        assert_eq!(queue.requests, 1);
+        assert_eq!(queue.requests, 2);
         drop(queue);
 
         // A valid large queued immutable metric consumes enough optional bytes
@@ -1315,7 +1315,7 @@ mod result_projection_unit {
         )
         .await
         .unwrap();
-        assert!(!queue.items.is_empty());
+        assert!(queue.items.is_empty());
         let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) =
             operations.pool.memory_limit()
         else {
@@ -1326,19 +1326,14 @@ mod result_projection_unit {
         pressure
             .try_grow(limit - operations.pool.reserved() - 16)
             .unwrap();
-        store_run_result_table_queued(&mut queue, &result, run_lineage::RELATION_ID, None, None)
-            .await
-            .unwrap();
-        assert_eq!(
-            queue.projection_retries, 1,
-            "actual original projection memory failure gets exactly one drained cold retry"
-        );
+        let refused = store_run_result_table_queued(&mut queue, &result, run_lineage::RELATION_ID, None, None)
+            .await.unwrap_err();
+        assert!(projection_memory_refusal(&refused), "a live external owner prevents file encoding: {refused:?}");
+        assert!(queue.projection_retries <= 1, "a cold retry never renews or multiplies the operation");
+        assert!(acks.complete(&fence, &run_lineage::RELATION_ID.to_string()).is_err());
         drop(pressure);
         queue.flush().await.unwrap();
-        assert_eq!(
-            queue.requests, 2,
-            "large optional batch joins before cold original projection"
-        );
+        assert_eq!(queue.requests, 1, "only the prior completed metric was acknowledged");
         assert_eq!(
             pse_operations::testing::pending_result_batch_rows(
                 store,
@@ -1348,7 +1343,7 @@ mod result_projection_unit {
             )
             .await
             .unwrap(),
-            Some(1)
+            None
         );
         drop(queue);
         store.remove_isolated_fixture().await.unwrap();
@@ -1432,20 +1427,6 @@ mod result_projection_unit {
             })
             .unwrap();
         let metrics = metrics.finish().unwrap();
-        let mut parameters =
-            fit_parameters::Builder::with_registry(runtime.registry(), 1, &validation).unwrap();
-        parameters
-            .push(fit_parameters::Row {
-                run_id: pse_operations::mint_id(),
-                parameter_id: SemanticId::from_bytes([5; 16]),
-                fixed: false,
-                value: Some(2.0),
-                unit_id: SemanticId::NIL,
-                scale: 1.0,
-                at_bound: None,
-            })
-            .unwrap();
-        let parameters = parameters.finish().unwrap();
         let empty = solve_constraints::Builder::with_registry(runtime.registry(), 0, &validation)
             .unwrap()
             .finish()
@@ -1455,10 +1436,7 @@ mod result_projection_unit {
         let mut queue = ResultAppendQueue::new(store, &fence, &operations.pool, &acks);
         let idle = operations.pool.reserved();
         assert!(idle > before, "queue control is admitted before allocation");
-        for (id, table) in [
-            (solve_metrics::RELATION_ID, metrics),
-            (fit_parameters::RELATION_ID, parameters),
-        ] {
+        for (id, table) in [(solve_metrics::RELATION_ID, metrics)] {
             let original = [table];
             let cursor = super::super::ResultCursor::from_retained(
                 original[0].batch().schema(),
@@ -1467,9 +1445,9 @@ mod result_projection_unit {
             )
             .unwrap();
             assert!(cursor.owns_checked_buffers());
-            store_result_table_queued(&mut queue, id, cursor, None)
-                .await
-                .unwrap();
+            let mut position = ResultStreamPosition::default();
+            append_result_table_queued(&mut queue, id, cursor, &mut position, None)
+                .await.unwrap();
             assert!(
                 acks.complete(&fence, &id.to_string()).is_err(),
                 "issuing a queue item grants no ACK coverage"
@@ -1488,14 +1466,14 @@ mod result_projection_unit {
             );
         }
         assert_eq!(queue.requests, 0);
-        assert_eq!(queue.items.len(), 2);
+        assert_eq!(queue.items.len(), 1);
         assert!(
             operations.pool.reserved() > idle,
             "owned encoded items stay charged while queued"
         );
         store.cancel_study(study).await.unwrap();
-        // An empty relation first drains the completed nonempty relations, just
-        // as the production typed export does when it reaches empty membership.
+        // Empty membership must first drain the incomplete pending relation;
+        // cancellation cannot manufacture an ACK for that pending publication.
         let error = store_result_table_queued(
             &mut queue,
             solve_constraints::RELATION_ID,
@@ -1568,7 +1546,7 @@ mod result_projection_unit {
 
     #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_append_queue_packs_relations_and_flushes_before_empty_membership() {
+    async fn canonical_append_queue_separates_schemas_and_acknowledges_completed_tables() {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
         let runtime = super::super::durable_tests::durable_runtime();
         let super::super::Durability::Durable(operations) = runtime.durability() else {
@@ -1655,10 +1633,7 @@ mod result_projection_unit {
             store_result_table_queued(&mut queue, id, cursor, None)
                 .await
                 .unwrap();
-            assert!(
-                acks.complete(&fence, &id.to_string()).is_err(),
-                "issuing a queue item grants no ACK coverage"
-            );
+            acks.complete(&fence, &id.to_string()).unwrap();
             assert_eq!(
                 pse_operations::testing::pending_result_batch_rows(
                     store,
@@ -1668,16 +1643,21 @@ mod result_projection_unit {
                 )
                 .await
                 .unwrap(),
-                None,
-                "queueing produces no server append effects"
+                Some(1),
+                "table completion has an authentic server append acknowledgment"
             );
         }
-        assert_eq!(queue.requests, 0);
-        assert_eq!(queue.items.len(), 2);
-        assert!(
-            operations.pool.reserved() > idle,
-            "owned encoded items stay charged while queued"
-        );
+        assert_eq!(queue.requests, 2);
+        assert!(queue.items.is_empty());
+        let metrics_file = pse_operations::testing::pending_result_file_coordinates(
+            store, &fence, &solve_metrics::RELATION_ID.to_string(), 0,
+        ).await.unwrap().unwrap();
+        let parameters_file = pse_operations::testing::pending_result_file_coordinates(
+            store, &fence, &fit_parameters::RELATION_ID.to_string(), 0,
+        ).await.unwrap().unwrap();
+        assert_ne!(metrics_file.0, parameters_file.0, "unlike schemas use independent physical files");
+        assert_eq!(metrics_file.1, solve_metrics::RELATION_ID.to_string());
+        assert_eq!(parameters_file.1, fit_parameters::RELATION_ID.to_string());
         store_result_table_queued(
             &mut queue,
             solve_constraints::RELATION_ID,
@@ -1687,8 +1667,8 @@ mod result_projection_unit {
         .await
         .unwrap();
         assert_eq!(
-            queue.requests, 1,
-            "two small relations share one append submission"
+            queue.requests, 2,
+            "empty membership introduces no IPC append"
         );
         assert!(queue.items.is_empty());
         assert_eq!(
@@ -1918,7 +1898,7 @@ mod result_projection_unit {
             .unwrap();
         let acks = super::super::durable::PublicationAcks::new(&operations.pool);
         let pool: Arc<dyn MemoryPool> = Arc::new(
-            datafusion::execution::memory_pool::GreedyMemoryPool::new(8 << 20),
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(128 << 20),
         );
         let validation = runtime.validation_context();
         let mut builder =
@@ -1940,9 +1920,9 @@ mod result_projection_unit {
         let mut queue = ResultAppendQueue::new(store, &fence, &pool, &acks);
         let checked = super::super::ResultCursor::from_checked(builder.finish().unwrap());
         assert!(checked.owns_checked_buffers());
-        store_result_table_queued(&mut queue, solve_metrics::RELATION_ID, checked, None)
-            .await
-            .unwrap();
+        let mut position = ResultStreamPosition::default();
+        append_result_table_queued(&mut queue, solve_metrics::RELATION_ID, checked, &mut position, None)
+            .await.unwrap();
         assert_eq!(queue.requests, 0);
         assert!(!queue.items.is_empty());
         assert!(pool.reserved() > 256 * 1024);
@@ -1969,7 +1949,7 @@ mod result_projection_unit {
                 let reservation =
                     MemoryConsumer::new("allocating-append-cursor").register(&producer_pool);
                 reservation
-                    .try_grow((8 << 20) - (64 << 10))
+                    .try_grow((128 << 20) - (64 << 10))
                     .map_err(|error| {
                         Arc::new(WorkflowError::from(pse_engine::EngineError::from(error)))
                     })?;
@@ -2008,6 +1988,7 @@ mod result_projection_unit {
         );
         assert!(queue.items.is_empty() && queue._owner.is_none());
         assert_eq!(pool.reserved(), 0);
+        queue.finish(solve_metrics::RELATION_ID, position).await.unwrap();
         for id in [solve_metrics::RELATION_ID, fit_parameters::RELATION_ID] {
             acks.complete(&fence, &id.to_string()).unwrap();
             assert_eq!(
