@@ -172,3 +172,7 @@ Confirm all selected consumers migrated and replaced production paths/callers/te
 ## Authoring checkpoint
 
 This companion specifies the transferred final scope and exact eleven measurements; all packets are **Proposed**, not run. It preserves historical failed/incomplete versus scoped evidence and the closed 38a–f foundation/support decisions. The next execution prerequisite is completion of selected 39a–c work and their rule/investigation decisions, followed by D0. Authoring alone starts no campaign, changes no product behavior, disposes no resource and grants no whole-product qualification.
+
+## Remaining-design handoff — 2026-10-14
+
+The maintainer authorized remaining functional/design changes but explicitly deferred the entire final campaign: actual PSE all-role strict captures/install/import, assembled integration/scientific/recovery/entered-pull checks, hygiene/manual checks and all eleven measurements. A1–A5 are implemented at their own Outcome. The finite preparation-operation correction and new-launch status correction complete identified functional prerequisites; their targeted checks do not execute D1–D4 or close D5. D0's final live prerequisite assessment remains necessary at campaign launch. Keep native/PyO3 source-review completeness, all current role associations and possible installer namespace changes conservative; fixture compilation evidence supplies none of those grants. No primary fixture was activated or regenerated for this slice.

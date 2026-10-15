@@ -455,6 +455,10 @@ settings, requested starts and actual decision/attempt evidence. Reconstruction 
 the matching provider/build premises. A tolerant rerun creates a new execution and fresh
 admission/clock state through the original workflow supervisor; caller cancellation stays
 connected through drain. An exported seed is not a native continuation checkpoint.
+Owned in-process replay reconstruction supports an independent receiver over the same actual shared deployment, registry and native validation bindings. One receiving activity shares immutable object/index/parser and callable owners, directly admits source rows whose successful relation evidence was not retained, and renews physical invocation-sensitive evidence. Unknown coverage or foreign binding/resource owners refuse. Each distinct retained closure gets an independent local head, no durable origin and no held engagement. Repeated positions share only exact retained source/physical/provider/accelerator owners within that operation; positional outputs and allocation ownership remain complete. An explicit durable receiver remains durable and still needs acknowledged source publication before durable execution; no ephemeral fallback is inferred.
+
+Actual supplied documents retain their independent complete import checks under a receiving activity. Temporary logical/document/package lookups remove repeated searches without weakening trust. Same-format export converts an exact retained source once per operation but emits and accounts for every positional body and unchanged constructor index. No Python receiver parameter or replay version change follows from this internal correction.
+
 Replay transport schemas retain optional constructor fields independently of linked execution
 features; an absent method does not change the document type or grant execution capability.
 A full-output horizon retains its original horizon input separately from the materialized

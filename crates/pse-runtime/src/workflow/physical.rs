@@ -61,6 +61,38 @@ impl PhysicalContext {
                     .is_some_and(|other| batch.same_source(other))
             })
     }
+    /// Heap metadata copied by a context clone; arrays/quantity owners remain shared.
+    pub(super) fn metadata_bytes(&self) -> usize {
+        use pse_model::HeapUsage;
+        self.sources
+            .len()
+            .saturating_mul(
+                size_of::<FieldCheckedBatch>() + size_of::<pse_schema::model::RelationKey>() + 256,
+            )
+            .saturating_add(self.package.as_ref().map_or(0, |package| {
+                package.header.heap_bytes() + package.name.capacity() + 256
+            }))
+            .saturating_add(size_of::<Self>() + 256)
+    }
+    /// Renew only affected checks under this actual invocation, sharing immutable arrays.
+    pub(super) fn readmit_context(
+        &self,
+        runtime: &Runtime,
+        context: &pse_relations::validate::ValidationContext,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<Self, WorkflowError> {
+        let mut result = self.clone();
+        for (key, batch) in &mut result.sources {
+            let spec = runtime
+                .registry()
+                .relation_by_key(*key)
+                .ok_or_else(|| super::contract("physical source relation absent"))?;
+            *batch = batch
+                .readmit_context(runtime.registry(), spec, context, cancel)
+                .map_err(super::relation)?;
+        }
+        Ok(result)
+    }
     pub(super) fn retained_bytes(&self) -> usize {
         use pse_model::HeapUsage;
         let sources = self.sources.values().fold(0_usize, |bytes, batch| {

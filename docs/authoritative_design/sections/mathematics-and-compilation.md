@@ -903,6 +903,11 @@ immutable historical products retain their actual leases; cloned Salsa handles a
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Persisted complete dependencies govern reuse across restart; Salsa is an optional local accelerator. Immutable selected layouts and native products retain their live consumers and bounded accelerator owners, without whole ancestral source bundles. Binding edits reuse structure only when those values are not consumed structural literals.
 
+**Exact local access and receiving validity (Plan39 implementation within ADR-0183).**
+An immutable admitted revision owns ordered Scope, scoped/global Kind, Name and reverse-References buckets derived from its logical objects. Absence and ambiguity remain exact. Edits update affected bucket owners, including payload-only replacements; unchanged buckets and their allocation leases survive. Map containers can still copy once per edit. Cold selection and warm premise comparison use these access paths rather than scanning unrelated objects per query.
+
+The checked-selection handoff retains the exact source, actual physical/provider/binding owners and current invocation. Physical source evidence is renewed through the existing native admission owner; invocation-sensitive selected declaration checks run under that same scope. Preparation consumes an unchanged carried relation without repeating premise comparison. Different sources or invocations establish current eligibility, and warm basis use still checks the original cancellation/deadline. This source validity never replaces fresh numerical-state assessment.
+
 Complete preparation retention uses the exact selected source/dependency versions (including
 spans, absence and membership), root, actual instance, full structural bindings, specialization
 limits and consumed physical/provider context. Unrelated revisions can reuse unchanged

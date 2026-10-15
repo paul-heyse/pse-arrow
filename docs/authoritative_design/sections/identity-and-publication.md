@@ -215,6 +215,8 @@ authority. Generated invocations meet the same owner checks. Stock effectful and
 owners retain conservative caller/grammar requirements; a package name or metadata flag
 alone grants nothing. Relevant caller code still enters scientific identity.
 
+The proposed ADR-0189 finite preparation operation acquires target-local ownership before dependency setup, bootstraps the capture tool, then refreshes the selected executor-family union once before captures. Its actual writer descendants retain that exclusion; it is not host-wide admission or protection from arbitrary Cargo tools. A first exact executor compilation requires successful non-Fresh compiler evidence. Later Fresh reuse requires preceding compilation within that same operation and unchanged dependency-complete source/configuration/reviewed input/environment/native/absence and original-output premises. Actual Maturin child context remains authoritative; unknown families and terminal/incomplete operations refuse. Build-script output messages are associations, not independent proof of execution in that child. Sealed history and final original-path current verification retain their separate meanings.
+
 Deployment preparation owns startup observation before store effects, native join before
 scratch release, and only escaped observation data afterward. Strict captures preserve
 raw unit associations, consumed volatile inputs and selected artifacts in a sealed historical

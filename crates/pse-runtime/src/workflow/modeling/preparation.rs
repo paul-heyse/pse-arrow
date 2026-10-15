@@ -71,14 +71,21 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                scoped(cancel, deadline, async { Ok(()) }).await?;
                 let math = self.runtime.shared.math();
                 if !selected.carries(self) {
                     // Different sources/invocations must establish eligibility now;
                     // a retained checked relation never keeps a caller activity open.
-                    *selected = scoped(cancel, deadline,
-                        self.checked_selection(&selected.admission.request.roots.clone(), cancel)).await?;
+                    *selected = scoped(
+                        cancel,
+                        deadline,
+                        self.checked_selection(&selected.admission.request.roots.clone(), cancel),
+                    )
+                    .await?;
                     if !selected.carries(self) {
-                        return Err(contract("selected source/context differs from the local receiver"));
+                        return Err(contract(
+                            "selected source/context differs from the local receiver",
+                        ));
                     }
                 }
                 let key = math.basis_key(&selected.admission, root, instance, bindings, limits)?;
@@ -120,6 +127,7 @@ impl ModelingPackage {
                         selected.admission.versions.clone(),
                         selected.admission.metadata.clone(),
                     );
+                scoped(cancel, deadline, async { Ok(()) }).await?;
                 Ok((model, basis))
             })
             .await

@@ -72,7 +72,7 @@ before permitting installation. It does not run a sibling Python compilation. Or
 `target/debug/xtask producer-history-verify <role-build-evidence.json.closure>` and reads
 protected dep-info, inputs, graph and artifact association without live Cargo paths.
 Historical success never grants current receiving freshness; final actual artifact/input
-checks still refuse changed earlier roles.
+checks still refuse changed earlier roles. A target-local strict-operation guard is acquired before dependency setup and follows actual writer descendants. Executor families refresh once before role captures; exact same-operation compilation evidence can support later Fresh use. Unknown families, changed original outputs/premises and failed/incomplete operations refuse; retry uses a new output operation. This guard does not exclude arbitrary bare Cargo or replace host admission. Actual source/SDK/native qualification and final current-path association remain mandatory.
 
 **Exit status** is the command's own (pse-env replaces itself with it). `125` means the
 boundary failed — the line starting `pse-env:` says why and what to run; `126`/`127` mean the

@@ -842,7 +842,7 @@ impl ModelingPackage {
         }
         checkpoint(cancel)?;
         let revision = if record {
-            admit_revision(&self.runtime, Some(&self.revision), identity, &edits).await?
+            admit_revision(&self.runtime, Some(&self.revision), identity, &edits, Some(cancel)).await?
         } else {
             let admitted = AdmittedModelRevision::apply(&self.runtime, Some(&self.revision.admitted), &edits, Some(cancel))?;
             SourceRevision::admitted(admitted, identity, None, None)?

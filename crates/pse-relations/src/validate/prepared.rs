@@ -419,6 +419,10 @@ impl PreparedLocalContract {
     pub(crate) fn same_bindings(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.native_owner, &other.native_owner)
     }
+    /// Whether successful row evidence depends on the actual admission invocation.
+    pub fn has_scope_checks(&self) -> bool {
+        self.predicates.iter().any(|predicate| predicate.scoped)
+    }
     pub(crate) fn scope_checks(&self) -> std::collections::BTreeSet<String> {
         self.predicates
             .iter()
@@ -836,7 +840,11 @@ mod owner_tests {
         let foreign = ValidationContext::new(registry, super::super::planner::LocalPlanner);
         assert!(original.same_bindings(&original.clone()));
         assert!(original.same_bindings(&child));
-        assert!(!original.admission_scope().same_invocation(child.admission_scope()));
+        assert!(
+            !original
+                .admission_scope()
+                .same_invocation(child.admission_scope())
+        );
         assert!(!original.same_bindings(&foreign));
     }
 }

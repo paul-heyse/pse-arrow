@@ -26,12 +26,51 @@ fn rebind_retained_sources<'a>(
 ) -> Result<Vec<ModelingPackage>, WorkflowError> {
     let activity = runtime.admit_activity()?;
     activity.sync_scope(|| {
-        let count = sources.size_hint().1.ok_or_else(|| contract("retained replay positional extent absent"))?;
-        let bytes = count.checked_mul(std::mem::size_of::<ModelingPackage>().saturating_mul(2).saturating_add(1024))
-            .and_then(|bytes| bytes.checked_add(1024))
+        let count = sources
+            .size_hint()
+            .1
+            .ok_or_else(|| contract("retained replay positional extent absent"))?;
+        let source_extent = count
+            .checked_mul(size_of::<&ModelingPackage>() + 1024)
+            .and_then(|bytes| bytes.checked_add(256))
+            .ok_or_else(|| contract("retained replay source view extent"))?;
+        let _sources_owner = runtime
+            .shared
+            .math()
+            .reserve("replay:receiver-source-view", source_extent)?;
+        let sources = sources.collect::<Vec<_>>();
+        let mut seen: BTreeMap<_, Vec<&ModelingPackage>> = BTreeMap::new();
+        let bytes = sources
+            .iter()
+            .try_fold(1024usize, |bytes, source| {
+                let candidates = seen.entry(source.replay_source_owner_key()).or_default();
+                let duplicate = candidates
+                    .iter()
+                    .any(|original| source.same_replay_source(original));
+                if !duplicate {
+                    candidates.push(source);
+                }
+                bytes
+                    .checked_add(
+                        size_of::<ModelingPackage>()
+                            .checked_mul(2)?
+                            .checked_add(1024)?,
+                    )?
+                    .checked_add(if duplicate {
+                        source.physical.metadata_bytes()
+                    } else {
+                        0
+                    })
+            })
             .ok_or_else(|| contract("retained replay positional extent overflow"))?;
-        let owner = runtime.shared.math().reserve("replay:receiver-positions", bytes)?;
-        let mut packages = map_retained_sources(sources, |source| source.reconstruct_replay_source(runtime))?;
+        drop(seen);
+        let owner = runtime
+            .shared
+            .math()
+            .reserve("replay:receiver-positions", bytes)?;
+        let mut packages = map_retained_sources(sources.into_iter(), |source| {
+            source.reconstruct_replay_source(runtime)
+        })?;
         for package in &mut packages {
             package.replay_owner = Some(owner.clone());
         }
@@ -48,7 +87,10 @@ fn map_retained_sources<'a, T: Clone>(
     let mut output: Vec<T> = Vec::with_capacity(sources.size_hint().0);
     for source in sources {
         let candidates = memo.entry(source.replay_source_owner_key()).or_default();
-        if let Some((_, position)) = candidates.iter().find(|(original, _)| source.same_replay_source(original)) {
+        if let Some((_, position)) = candidates
+            .iter()
+            .find(|(original, _)| source.same_replay_source(original))
+        {
             let value = output[*position].clone();
             output.push(value);
         } else {
@@ -1922,7 +1964,7 @@ mod tests {
     use super::*;
     fn rows() -> Vec<pse_authoring::language::Declaration> {
         pse_authoring::language::parse(
-            "package p {param a:Scalar=1;def Root {var x:Scalar;eq e:x==a;}}",
+            "package p {def Root {param a:Scalar=1;var x:Scalar;eq e:x==a;}}",
             SemanticId::NIL,
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
@@ -1933,19 +1975,47 @@ mod tests {
     async fn retained_replay_positions_bind_exact_owners_once_and_keep_receiver_allocations() {
         let runtime = crate::workflow::tests::runtime();
         let physical = crate::workflow::tests::physical();
-        let a = runtime.modeling_package(rows(), physical.clone()).await.unwrap();
-        let b = runtime.modeling_package(rows(), physical.clone()).await.unwrap();
+        let a = runtime
+            .modeling_package(rows(), physical.clone())
+            .await
+            .unwrap();
+        let b = runtime
+            .modeling_package(rows(), physical.clone())
+            .await
+            .unwrap();
         assert_eq!(a.revision.identity(), b.revision.identity());
         let positions = [&a, &a, &b, &a];
         let mut conversions = 0;
         let wire = map_retained_sources(positions.into_iter(), |source| {
             conversions += 1;
             source.replay_source()
-        }).unwrap();
-        assert_eq!(conversions, 2, "same scientific hash cannot merge independent admitted owners");
+        })
+        .unwrap();
+        assert_eq!(
+            conversions, 2,
+            "same scientific hash cannot merge independent admitted owners"
+        );
+        let alternate = a
+            .clone()
+            .with_accelerators(pse_math::implicit::accelerators::Accelerators::standard());
+        assert!(!a.same_replay_source(&alternate));
+        let mut distinct_conversions = 0;
+        map_retained_sources([&a, &alternate].into_iter(), |source| {
+            distinct_conversions += 1;
+            source.replay_source()
+        })
+        .unwrap();
+        assert_eq!(
+            distinct_conversions, 2,
+            "an explicit accelerator owner cannot be replaced by another position"
+        );
         assert_eq!(wire.len(), 4);
-        assert_eq!(serde_json::to_value(&wire[0]).unwrap(), serde_json::to_value(&wire[3]).unwrap());
-        let receiver = Runtime::from_shared_local(runtime.shared.clone(), runtime.model.clone()).unwrap();
+        assert_eq!(
+            serde_json::to_value(&wire[0]).unwrap(),
+            serde_json::to_value(&wire[3]).unwrap()
+        );
+        let receiver =
+            Runtime::from_shared_local(runtime.shared.clone(), runtime.model.clone()).unwrap();
         let result = rebind_retained_sources(positions.into_iter(), &receiver).unwrap();
         assert_eq!(result.len(), 4);
         assert_eq!(result[0].revision_id(), result[1].revision_id());
@@ -1961,18 +2031,33 @@ mod tests {
         drop(borrower);
         assert!(retained.upgrade().is_none());
         receiver.close();
-        assert!(matches!(rebind_retained_sources(positions.into_iter(), &receiver), Err(WorkflowError::CallerClosed)));
+        assert!(matches!(
+            rebind_retained_sources(positions.into_iter(), &receiver),
+            Err(WorkflowError::CallerClosed)
+        ));
     }
     #[tokio::test]
     async fn supplied_replay_refuses_closed_receiver_and_duplicate_identity() {
         let runtime = crate::workflow::tests::runtime();
         let physical = crate::workflow::tests::physical();
-        let source = runtime.modeling_package(rows(), physical.clone()).await.unwrap();
+        let source = runtime
+            .modeling_package(rows(), physical.clone())
+            .await
+            .unwrap();
         let mut document = source.replay_source().unwrap();
         document.objects.push(document.objects[0].clone());
-        assert!(document.reconstruct(&runtime, physical.clone(), BTreeMap::new()).unwrap_err().to_string().contains("duplicate logical or lexical identity"));
+        assert!(
+            document
+                .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate logical or lexical identity")
+        );
         runtime.close();
-        assert!(matches!(document.reconstruct(&runtime, physical, BTreeMap::new()), Err(WorkflowError::CallerClosed)));
+        assert!(matches!(
+            document.reconstruct(&runtime, physical, BTreeMap::new()),
+            Err(WorkflowError::CallerClosed)
+        ));
     }
     #[tokio::test]
     async fn source_document_roundtrip_reconstructs_actual_production_package_without_store() {

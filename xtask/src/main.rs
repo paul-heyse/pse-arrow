@@ -283,9 +283,20 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string(&result)?);
             Ok(())
         }
-        Cmd::ProducerPreparationBegin { selection, directory, owner_pid, owner_start } => {
+        Cmd::ProducerPreparationBegin {
+            selection,
+            directory,
+            owner_pid,
+            owner_start,
+        } => {
             let selections = serde_json::from_slice(&std::fs::read(selection)?)?;
-            producer_identity::begin_preparation(&root, &directory, selections, owner_pid, &owner_start)
+            producer_identity::begin_preparation(
+                &root,
+                &directory,
+                selections,
+                owner_pid,
+                &owner_start,
+            )
         }
         Cmd::ProducerIdentity(args) => {
             let ProducerIdentityArgs {

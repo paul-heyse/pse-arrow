@@ -772,7 +772,7 @@ pub(super) async fn persist(
             return Ok(previous.clone());
         }
     }
-    admit_revision(runtime, previous, identity, &edits).await
+    admit_revision(runtime, previous, identity, &edits, None).await
 }
 
 /// Stage complete local ownership before issuing the existing durable effect.
@@ -781,9 +781,14 @@ async fn admit_revision(
     previous: Option<&SourceRevision>,
     identity: SourceRevisionHash,
     edits: &[ObjectEdit],
+    cancel: Option<&crate::CancelSource>,
 ) -> Result<SourceRevision, WorkflowError> {
-    let admitted =
-        AdmittedModelRevision::apply(runtime, previous.map(|p| p.admitted.as_ref()), edits, None)?;
+    let admitted = AdmittedModelRevision::apply(
+        runtime,
+        previous.map(|p| p.admitted.as_ref()),
+        edits,
+        cancel,
+    )?;
     let origin = match runtime.durability() {
         crate::workflow::Durability::Ephemeral => None,
         crate::workflow::Durability::Durable(_) => {
@@ -817,12 +822,73 @@ pub(super) struct CheckedSelection {
     providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
     runtime: Runtime,
     validation: Arc<pse_relations::validate::ValidationContext>,
+    _metadata: Arc<pse_columnar::AllocationLease>,
 }
 impl CheckedSelection {
-    fn new(package: &ModelingPackage, admission: Arc<super::SelectedAdmission>) -> Self {
-        Self { admission, source: package.revision.admitted.clone(),
-            physical: package.physical.clone(), providers: package.providers.clone(),
-            runtime: package.runtime.clone(), validation: package.runtime.admission_context() }
+    fn new(
+        package: &ModelingPackage,
+        admission: Arc<super::SelectedAdmission>,
+        cancel: &crate::CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        checkpoint(cancel)?;
+        let metadata = package.runtime.shared.math().reserve(
+            "modeling:checked-selection-relation",
+            package
+                .physical
+                .metadata_bytes()
+                .checked_add(size_of::<Self>() + 512)
+                .ok_or_else(|| contract("checked source relation metadata extent"))?,
+        )?;
+        let validation = package.runtime.admission_context();
+        let physical =
+            package
+                .physical
+                .readmit_context(&package.runtime, &validation, &cancel.token())?;
+        let spec = package
+            .runtime
+            .registry()
+            .relation("authored.modeling_declarations")
+            .ok_or_else(|| contract("selected declaration relation absent"))?;
+        let prepared = validation
+            .relation(package.runtime.registry(), spec)
+            .map_err(super::super::relation)?;
+        if prepared.has_scope_checks() {
+            let bytes = admission
+                .revision
+                .declarations()
+                .iter()
+                .try_fold(8192usize, |n, row| {
+                    n.checked_add(row.owned_bytes().checked_mul(32)?)
+                })
+                .ok_or_else(|| contract("selected scoped declaration extent"))?;
+            let _scratch = package
+                .runtime
+                .shared
+                .math()
+                .reserve("modeling:selected-scoped-rows", bytes)?;
+            let mut builder =
+                pse_relations::generated::authored::modeling_declarations::Builder::with_registry(
+                    package.runtime.registry(),
+                    admission.revision.declarations().len(),
+                    &validation,
+                )
+                .map_err(super::super::relation)?;
+            for row in admission.revision.declarations() {
+                checkpoint(cancel)?;
+                builder.push(row.clone()).map_err(super::super::relation)?;
+            }
+            builder.finish().map_err(super::super::relation)?;
+        }
+        checkpoint(cancel)?;
+        Ok(Self {
+            admission,
+            source: package.revision.admitted.clone(),
+            physical,
+            providers: package.providers.clone(),
+            runtime: package.runtime.clone(),
+            validation,
+            _metadata: metadata,
+        })
     }
     pub(super) fn carries(&self, package: &ModelingPackage) -> bool {
         Arc::ptr_eq(&self.source, &package.revision.admitted)
@@ -830,12 +896,23 @@ impl CheckedSelection {
             && Arc::ptr_eq(&self.providers, &package.providers)
             && Arc::ptr_eq(self.runtime.sessions(), package.runtime.sessions())
             && Arc::ptr_eq(self.runtime.registry(), package.runtime.registry())
-            && self.validation.admission_scope().same_invocation(package.runtime.admission_context().admission_scope())
+            && self
+                .validation
+                .admission_scope()
+                .same_invocation(package.runtime.admission_context().admission_scope())
             && self.admission.request.physical == package.physical.key
             && self.admission.request.providers.len() == package.providers.len()
-            && self.admission.request.providers.iter().zip(package.providers.iter()).all(|((name, key, configuration), (actual_name, actual))| {
-                name == actual_name && *key == actual.spec().key() && *configuration == actual.configuration_key()
-            })
+            && self
+                .admission
+                .request
+                .providers
+                .iter()
+                .zip(package.providers.iter())
+                .all(|((name, key, configuration), (actual_name, actual))| {
+                    name == actual_name
+                        && *key == actual.spec().key()
+                        && *configuration == actual.configuration_key()
+                })
     }
 }
 
@@ -1627,8 +1704,11 @@ impl ModelingPackage {
         if let Some(candidates) = math.modeling_cache.selected(&request) {
             for admission in candidates.rchunks(8).flat_map(|window| window.iter().rev()) {
                 checkpoint(cancel)?;
-                if admission.dependencies.matches_scoped(&self.revision.admitted, cancel)? {
-                    return Ok(CheckedSelection::new(self, admission.clone()));
+                if admission
+                    .dependencies
+                    .matches_scoped(&self.revision.admitted, cancel)?
+                {
+                    return CheckedSelection::new(self, admission.clone(), cancel);
                 }
             }
         }
@@ -1717,7 +1797,7 @@ impl ModelingPackage {
         });
         math.modeling_cache
             .retain_selected(generation, admission.clone());
-        Ok(CheckedSelection::new(self, admission))
+        CheckedSelection::new(self, admission, cancel)
     }
     fn compiler_lineage(&self) -> Result<crate::math::modeling::CompilerLineage, WorkflowError> {
         Ok(crate::math::modeling::CompilerLineage::new(
@@ -2234,12 +2314,16 @@ impl ModelingPackage {
         rebind::rebind(self, runtime)
     }
     /// Candidate only; all owners stay borrowed and exact premises are checked after lookup.
-    pub(in crate::workflow) fn replay_source_owner_key(&self) -> (usize, usize, usize, usize) {
+    pub(in crate::workflow) fn replay_source_owner_key(
+        &self,
+    ) -> (usize, usize, usize, usize, usize, usize) {
         (
             Arc::as_ptr(&self.revision.admitted) as usize,
             Arc::as_ptr(&self.physical.quantities) as usize,
             Arc::as_ptr(&self.physical.preconditions) as usize,
             Arc::as_ptr(&self.providers) as usize,
+            Arc::as_ptr(&self.accelerators) as usize,
+            Arc::as_ptr(&self.runtime.shared) as usize,
         )
     }
     /// Exact retained premises for operation-local coalescing, never a durable identity.
@@ -2247,13 +2331,15 @@ impl ModelingPackage {
         Arc::ptr_eq(&self.revision.admitted, &other.revision.admitted)
             && self.physical.same_sources(&other.physical)
             && Arc::ptr_eq(&self.providers, &other.providers)
+            && Arc::ptr_eq(&self.accelerators, &other.accelerators)
+            && Arc::ptr_eq(&self.runtime.shared, &other.runtime.shared)
     }
 }
 impl Runtime {
     pub(in crate::workflow) fn admit_replay_source(
         &self,
         document: &crate::workflow::replay::ReplaySourceDocument,
-        physical: super::PhysicalContext,
+        mut physical: super::PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         // Refuse cheap identity mismatches before copying actual supplied premises.
@@ -2323,6 +2409,17 @@ impl Runtime {
             .shared
             .math()
             .reserve("replay:source-reconstruction", bytes)?;
+        let validation = self.admission_context();
+        let cancel = crate::CancelSource::new();
+        for (key, batch) in &mut physical.sources {
+            let spec = self
+                .registry()
+                .relation_by_key(*key)
+                .ok_or_else(|| contract("supplied replay physical relation absent"))?;
+            *batch = batch
+                .readmit_context(self.registry(), spec, &validation, &cancel.token())
+                .map_err(super::super::relation)?;
+        }
         if document.interpretation != pse_operations::generated::surreal::INTERPRETATION
             || document.build != pse_backend_native::execution::LINKED.build_identity()
             || document.physical_identity != physical.identity()
@@ -2509,7 +2606,9 @@ impl Runtime {
         }
         let admitted = AdmittedModelRevision::apply(self, None, &edits, None)?;
         let revision = SourceRevision::admitted(admitted, identity, None, None)?;
-        self.package_from_revision(revision, physical, providers)
+        let package = self.package_from_revision(revision, physical, providers)?;
+        rebind::admit_rows(&package, self, &validation, &cancel)?;
+        Ok(package)
     }
 }
 
@@ -2686,9 +2785,13 @@ mod tests {
         forged.version.as_mut().unwrap().payload =
             payload(&(replacement, None::<FieldSpans>)).unwrap().into();
         // Keep its correspondence key deliberately unchanged: full equality refuses reuse.
-        let forged_owner =
-            AdmittedModelRevision::apply(&runtime, Some(&package.revision.admitted), &[forged], None)
-                .unwrap();
+        let forged_owner = AdmittedModelRevision::apply(
+            &runtime,
+            Some(&package.revision.admitted),
+            &[forged],
+            None,
+        )
+        .unwrap();
         assert!(!selected.admission.dependencies.matches(&forged_owner));
         let shadow = package
             .with_declarations(parse(
@@ -2937,51 +3040,141 @@ mod tests {
 mod plan39_selection_tests {
     use super::*;
     fn rows(value: u32) -> Vec<Declaration> {
-        pse_authoring::language::parse(&format!("package p {{param a:Scalar={value};def Root {{var x:Scalar;eq e:x==a;}}}}"),
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap()
+        pse_authoring::language::parse(
+            &format!("package p {{def Root {{param a:Scalar={value};var x:Scalar;eq e:x==a;}}}}"),
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap()
     }
     #[tokio::test]
     async fn plan39_checked_selection_carries_exact_source_context_and_invocation() {
         let runtime = crate::workflow::tests::runtime();
         let declarations = rows(1);
-        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-        let package = runtime.modeling_package(declarations, crate::workflow::tests::physical()).await.unwrap();
-        runtime.scope_activity(async {
-            let cancel = crate::CancelSource::new();
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
-            let mut selected = package.checked_selection_scoped(&[root], &cancel, deadline).await?;
-            assert!(selected.carries(&package));
-            let admission = selected.admission.clone();
-            package.prepare_selected_basis(&mut selected, root, pse_modeling::specialize::root_instance(root),
-                Default::default(), Default::default(), &cancel, deadline).await?;
-            assert!(Arc::ptr_eq(&admission, &selected.admission));
-            let mut foreign_physical = package.clone();
-            foreign_physical.physical = crate::workflow::tests::physical();
-            assert!(!selected.carries(&foreign_physical), "equal physical content is not the same owner");
-            let changed = package.with_declarations(rows(2)).await?;
-            assert!(!selected.carries(&changed));
-            changed.prepare_selected_basis(&mut selected, root, pse_modeling::specialize::root_instance(root),
-                Default::default(), Default::default(), &cancel, deadline).await?;
-            assert!(selected.carries(&changed));
-            assert_ne!(admission.dependencies, selected.admission.dependencies);
-            Ok::<_, WorkflowError>(())
-        }).await.unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        runtime
+            .scope_activity(async {
+                let cancel = crate::CancelSource::new();
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+                let mut selected = package
+                    .checked_selection_scoped(&[root], &cancel, deadline)
+                    .await?;
+                assert!(selected.carries(&package));
+                let admission = selected.admission.clone();
+                package
+                    .prepare_selected_basis(
+                        &mut selected,
+                        root,
+                        pse_modeling::specialize::root_instance(root),
+                        Default::default(),
+                        Default::default(),
+                        &cancel,
+                        deadline,
+                    )
+                    .await?;
+                assert!(Arc::ptr_eq(&admission, &selected.admission));
+                let cancelled = crate::CancelSource::new();
+                cancelled.cancel();
+                assert!(
+                    package
+                        .prepare_selected_basis(
+                            &mut selected,
+                            root,
+                            pse_modeling::specialize::root_instance(root),
+                            Default::default(),
+                            Default::default(),
+                            &cancelled,
+                            deadline
+                        )
+                        .await
+                        .is_err()
+                );
+                assert!(
+                    package
+                        .prepare_selected_basis(
+                            &mut selected,
+                            root,
+                            pse_modeling::specialize::root_instance(root),
+                            Default::default(),
+                            Default::default(),
+                            &cancel,
+                            std::time::Instant::now() - std::time::Duration::from_secs(1)
+                        )
+                        .await
+                        .is_err()
+                );
+                let mut foreign_physical = package.clone();
+                foreign_physical.physical = crate::workflow::tests::physical();
+                assert!(
+                    !selected.carries(&foreign_physical),
+                    "equal physical content is not the same owner"
+                );
+                let changed = package.with_declarations(rows(2)).await?;
+                assert!(!selected.carries(&changed));
+                changed
+                    .prepare_selected_basis(
+                        &mut selected,
+                        root,
+                        pse_modeling::specialize::root_instance(root),
+                        Default::default(),
+                        Default::default(),
+                        &cancel,
+                        deadline,
+                    )
+                    .await?;
+                assert!(selected.carries(&changed));
+                assert_ne!(admission.dependencies, selected.admission.dependencies);
+                Ok::<_, WorkflowError>(())
+            })
+            .await
+            .unwrap();
     }
     #[tokio::test]
     async fn plan39_checked_selection_new_invocation_reestablishes_relation() {
         let runtime = crate::workflow::tests::runtime();
         let declarations = rows(1);
-        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-        let package = runtime.modeling_package(declarations, crate::workflow::tests::physical()).await.unwrap();
-        let mut selected = runtime.scope_activity(package.checked_selection(&[root], &crate::CancelSource::new())).await.unwrap();
-        runtime.scope_activity(async {
-            assert!(!selected.carries(&package));
-            let cancel = crate::CancelSource::new();
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
-            package.prepare_selected_basis(&mut selected, root, pse_modeling::specialize::root_instance(root),
-                Default::default(), Default::default(), &cancel, deadline).await?;
-            assert!(selected.carries(&package));
-            Ok::<_, WorkflowError>(())
-        }).await.unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let mut selected = runtime
+            .scope_activity(package.checked_selection(&[root], &crate::CancelSource::new()))
+            .await
+            .unwrap();
+        runtime
+            .scope_activity(async {
+                assert!(!selected.carries(&package));
+                let cancel = crate::CancelSource::new();
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+                package
+                    .prepare_selected_basis(
+                        &mut selected,
+                        root,
+                        pse_modeling::specialize::root_instance(root),
+                        Default::default(),
+                        Default::default(),
+                        &cancel,
+                        deadline,
+                    )
+                    .await?;
+                assert!(selected.carries(&package));
+                Ok::<_, WorkflowError>(())
+            })
+            .await
+            .unwrap();
     }
 }

@@ -61,7 +61,10 @@ impl LoaderOrigins {
         };
         let mut encoded_by_package: BTreeMap<_, Vec<_>> = BTreeMap::new();
         for document in encoded {
-            encoded_by_package.entry(document.package()).or_default().push(document);
+            encoded_by_package
+                .entry(document.package())
+                .or_default()
+                .push(document);
         }
         let mut packages = Vec::with_capacity(bundles.len());
         for bundle in bundles {
@@ -91,7 +94,11 @@ impl LoaderOrigins {
                     fits,
                 });
             }
-            for document in encoded_by_package.get(&bundle.package.package_id.as_id()).into_iter().flatten() {
+            for document in encoded_by_package
+                .get(&bundle.package.package_id.as_id())
+                .into_iter()
+                .flatten()
+            {
                 documents.push(DocumentOrigin {
                     document: document.id(),
                     path: document.path().into(),
@@ -409,11 +416,17 @@ fn make_edit(
     let mut encoded_by_package: BTreeMap<_, Vec<_>> = BTreeMap::new();
     for document in parsed.encoded_data() {
         if encoded_by_id.insert(document.id(), document).is_some() {
-            return Err(contract("parsed reload repeats an encoded document identity"));
+            return Err(contract(
+                "parsed reload repeats an encoded document identity",
+            ));
         }
-        encoded_by_package.entry(document.package()).or_default().push(document.id());
+        encoded_by_package
+            .entry(document.package())
+            .or_default()
+            .push(document.id());
     }
-    let data = encoded_by_id.iter()
+    let data = encoded_by_id
+        .iter()
         .map(|(id, document)| (*id, document.content_hash()))
         .collect::<BTreeMap<_, _>>();
     // The captured data intents have no decoded Document wrapper, but retain the
@@ -425,7 +438,8 @@ fn make_edit(
                 .iter()
                 .any(|document| visible.contains(&document.id))
             {
-                if let Some(documents) = encoded_by_package.get(&bundle.package.package_id.as_id()) {
+                if let Some(documents) = encoded_by_package.get(&bundle.package.package_id.as_id())
+                {
                     visible.extend(documents.iter().copied());
                 }
             }
@@ -471,9 +485,7 @@ fn make_edit(
             continue;
         }
         let mut intent = row.clone();
-        if changed_data
-            && let Some(encoded) = encoded_by_id.get(id)
-        {
+        if changed_data && let Some(encoded) = encoded_by_id.get(id) {
             intent.content = Some(encoded.bytes().to_vec().into());
         }
         if parent.documents.contains_key(id) {
@@ -868,6 +880,7 @@ mod tests {
                 payload(&frame).unwrap(),
                 Vec::new(),
             )],
+            None,
         )
         .await
         .unwrap();
@@ -987,14 +1000,26 @@ mod tests {
     }
     #[tokio::test]
     async fn local_parsed_reload_replaces_exact_encoded_data_and_missing_supplier_refuses() {
-        use datafusion::arrow::{array::Int64Array, datatypes::{DataType, Field, Schema}, record_batch::RecordBatch};
+        use datafusion::arrow::{
+            array::Int64Array,
+            datatypes::{DataType, Field, Schema},
+            record_batch::RecordBatch,
+        };
         let encoded = |value| {
             let batch = RecordBatch::try_new(
-                Arc::new(Schema::new(vec![Field::new("n", DataType::Int64, false), Field::new("value", DataType::Int64, false)])),
-                vec![Arc::new(Int64Array::from(vec![1])), Arc::new(Int64Array::from(vec![value]))],
-            ).unwrap();
+                Arc::new(Schema::new(vec![
+                    Field::new("n", DataType::Int64, false),
+                    Field::new("value", DataType::Int64, false),
+                ])),
+                vec![
+                    Arc::new(Int64Array::from(vec![1])),
+                    Arc::new(Int64Array::from(vec![value])),
+                ],
+            )
+            .unwrap();
             let mut bytes = Vec::new();
-            let mut writer = parquet::arrow::ArrowWriter::try_new(&mut bytes, batch.schema(), None).unwrap();
+            let mut writer =
+                parquet::arrow::ArrowWriter::try_new(&mut bytes, batch.schema(), None).unwrap();
             writer.write(&batch).unwrap();
             writer.close().unwrap();
             bytes
@@ -1007,19 +1032,42 @@ mod tests {
         let runtime = crate::workflow::tests::runtime();
         let physical = crate::workflow::tests::physical();
         let cancel = crate::CancelSource::new();
-        let original = runtime.package_from_sources(&[inventory.clone()], physical.clone(), &cancel).await.unwrap();
-        let data_id = parent(&original).await.documents.values().find(|row| row.path == "data/bank.parquet").unwrap().document_id;
+        let original = runtime
+            .package_from_sources(&[inventory.clone()], physical.clone(), &cancel)
+            .await
+            .unwrap();
+        let data_id = parent(&original)
+            .await
+            .documents
+            .values()
+            .find(|row| row.path == "data/bank.parquet")
+            .unwrap()
+            .document_id;
         let new_bytes = encoded(3);
         inventory.insert("data/bank.parquet".into(), new_bytes.clone());
-        let changed = original.reload_from_parent(&[inventory.clone()], &cancel).await.unwrap();
-        let fresh = runtime.package_from_sources(&[inventory.clone()], physical, &cancel).await.unwrap();
+        let changed = original
+            .reload_from_parent(&[inventory.clone()], &cancel)
+            .await
+            .unwrap();
+        let fresh = runtime
+            .package_from_sources(&[inventory.clone()], physical, &cancel)
+            .await
+            .unwrap();
         assert_eq!(changed.revision.identity(), fresh.revision.identity());
-        assert_eq!(parent(&changed).await.frame.data, parent(&fresh).await.frame.data);
+        assert_eq!(
+            parent(&changed).await.frame.data,
+            parent(&fresh).await.frame.data
+        );
         let logical = format!("data:{data_id}");
         assert_eq!(original.local_object(&logical).unwrap().payload, old_bytes);
         assert_eq!(changed.local_object(&logical).unwrap().payload, new_bytes);
         inventory.remove("data/bank.parquet");
-        assert!(changed.reload_from_parent(&[inventory], &cancel).await.is_err());
+        assert!(
+            changed
+                .reload_from_parent(&[inventory], &cancel)
+                .await
+                .is_err()
+        );
         assert_eq!(changed.local_object(&logical).unwrap().payload, new_bytes);
     }
     #[tokio::test]

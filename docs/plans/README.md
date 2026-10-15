@@ -11,8 +11,7 @@ places local preparation/rebinding, deployment and operational work first, then 
 [transferred qualification and cutover](39d-qualification-and-plan38-cutover.md).
 Plan 38a–f retain completed implementation/investigation outcomes; the inactive
 [Plan 38 coordinator](38-efficiency-and-solver-target.md) and [38g handoff](38g-qualification-and-cutover.md#turn-handoff--2026-10-14)
-preserve historical decisions and exact failed/scoped/not-run evidence. Plan 39 is a draft
-authoring result, not product implementation or a resumed qualification campaign.
+preserve historical decisions and exact failed/scoped/not-run evidence. The owning Plan39 checkpoint records selected implementation and the explicitly deferred final qualification campaign; this index does not establish acceptance.
 
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
 interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded

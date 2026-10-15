@@ -1,6 +1,6 @@
 ---
 title: Exact local selection and receiver rebinding
-status: draft
+status: done
 date: 2026-10-14
 adrs: [ADR-0183]
 review_sources: [docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md]
@@ -12,7 +12,7 @@ doc_topics: [architecture, preparation, validation]
 
 ## Purpose, ownership and basis
 
-**Proposed.** This companion supplies the local scientific input corrections for
+This companion supplies the local scientific input corrections for
 [Plan 39](39-implementation-friction-and-codex-effectiveness.md): exact operation-shaped
 membership access for immutable source revisions, a carried relation between a checked
 selection and its actual receiver, and an internal rebinding operation for already owned
@@ -38,8 +38,7 @@ methods, new-state assessments and complete campaigns remain with their owners. 
 library, persistent cache, graph engine, service, generic certificate system or workflow
 framework is selected.
 
-All changes and verification below are proposed. This authoring work runs no product
-checks, builds, tests or services. Local package verification during execution is limited to
+The target and scenario tables below preserve the authored execution specification. The selected implementation Outcome records what subsequently changed and which checks ran; authoring alone established none of those results. Local package verification during execution is limited to
 compile checks and targeted tests. After **all** Plan 39 functional work and scheduled
 inquiries finish, [Plan 39d](39d-qualification-and-plan38-cutover.md) owns assembled integration,
 the remaining Plan 38 work and final qualification. A local A-packet does not start that
@@ -270,11 +269,11 @@ served soundly in the current format, with explicit compatibility/versioning aut
 
 | Packet | Prerequisite | Delivered boundary and verification | State |
 |---|---|---|---|
-| <a id="a1"></a>A1 — Exact immutable inventories | Existing complete admitted source, exact object equality and allocation owners | Revision-owned Scope, scoped/global Kind, Name and reverse-References access; edit staging updates all affected memberships. Cold selection and premise reads migrate; targeted inventory/edit oracle and collision/absence controls pass; remove production full-map per-query filtering. | Planned |
-| <a id="a2"></a>A2 — Carried checked relation | A1 exact membership access and existing actual request/context ownership | Cold/warm checked selection binds exact source and receiver context; preparation consumes the carried relation. All selection/basis callers migrate; targeted cross-source/context and warm preparation controls pass; remove immediate duplicate premise checks on unchanged handoff. | Planned |
-| <a id="a3"></a>A3 — Receiving-validity decision | Existing ADR-0183 validity/import distinction, actual source/physical/provider/validation/pool owners | Bounded investigation settles the compatibility table, resource lifetime and durable/local receiver branches. Record exact reuse, fresh admission or refusal outcomes and distinguishing controls at this owner; A4 cannot remove checks before these outcomes are settled. | Planned |
-| <a id="a4"></a>A4 — Owned-source rebinding | A3 settled receiving contract implemented in the lower operation; A1/A2 when reusing their products | Internal rebind and operation-local exact-source memo used by every `reconstruct_sources` source variant; positional mapping, new local head/no inherited origin, actual leases and fresh science retained. Targeted repeated-source/receiver/refusal/close controls pass; remove retained transport reconstruction and its whole-source scratch path. | Planned |
-| <a id="a5"></a>A5 — Indexed import/reload and portable-export decision | Existing independent importer/reload semantics; A3/A4 contract for distinguishing trusted and supplied routes | Temporary exact importer/reload lookups migrate all affected searches with complete validation; targeted malformed/duplicate/data/visibility controls pass. Settle same-format export memo versus retained positional duplication; preserve limits/indices and remove replaced repeated searches/conversion paths only when covered. | Planned |
+| <a id="a1"></a>A1 — Exact immutable inventories | Existing complete admitted source, exact object equality and allocation owners | Revision-owned Scope, scoped/global Kind, Name and reverse-References access; edit staging updates all affected memberships. Cold selection and premise reads migrate; targeted inventory/edit oracle and collision/absence controls pass; remove production full-map per-query filtering. | Done |
+| <a id="a2"></a>A2 — Carried checked relation | A1 exact membership access and existing actual request/context ownership | Cold/warm checked selection binds exact source and receiver context; preparation consumes the carried relation. All selection/basis callers migrate; targeted cross-source/context and warm preparation controls pass; remove immediate duplicate premise checks on unchanged handoff. | Done |
+| <a id="a3"></a>A3 — Receiving-validity decision | Existing ADR-0183 validity/import distinction, actual source/physical/provider/validation/pool owners | Bounded investigation settles the compatibility table, resource lifetime and durable/local receiver branches. Record exact reuse, fresh admission or refusal outcomes and distinguishing controls at this owner; A4 cannot remove checks before these outcomes are settled. | Done |
+| <a id="a4"></a>A4 — Owned-source rebinding | A3 settled receiving contract implemented in the lower operation; A1/A2 when reusing their products | Internal rebind and operation-local exact-source memo used by every `reconstruct_sources` source variant; positional mapping, new local head/no inherited origin, actual leases and fresh science retained. Targeted repeated-source/receiver/refusal/close controls pass; remove retained transport reconstruction and its whole-source scratch path. | Done |
+| <a id="a5"></a>A5 — Indexed import/reload and portable-export decision | Existing independent importer/reload semantics; A3/A4 contract for distinguishing trusted and supplied routes | Temporary exact importer/reload lookups migrate all affected searches with complete validation; targeted malformed/duplicate/data/visibility controls pass. Settle same-format export memo versus retained positional duplication; preserve limits/indices and remove replaced repeated searches/conversion paths only when covered. | Done |
 
 A1 and A3 can start independently. A2 consumes working exact inventory behavior, not merely
 an interface sketch. A4 depends on an actual receiving-validity result; agreement on a
@@ -374,15 +373,32 @@ throughput, memory or convergence claim; an end-to-end representative interactio
 is required only if such a benefit is claimed, using exact unchanged/edited/large unrelated
 source cases and actual receiver/export lifetimes.
 
-## Current checkpoint and handoff
+## Selected execution outcome — 2026-10-14
 
-**Proposed:** A1–A5 are planned. No functional changes, executed product verification or
-finding closure are claimed. The next executable work is A1 exact inventory ownership and
-A3 receiving-premise investigation, under the coordinator's execution authorization and
-shared-file assignment. Once their outcomes are available, proceed through the dependencies
-above; update this packet table instead of creating another status ledger. At completion,
-retain the source findings' exact closure limits, move enduring contracts to their existing
-owners through the normal decision/design route, and hand local evidence to Plan 39d for
-the combined Plan 39 qualification and Plan 38 cutover. The final Outcome must record actual
-evidence, a mistake corrected and deliberate deviations; this draft supplies none of those
-execution claims.
+### What was built
+
+**Implemented:** A1 revision-owned exact ordered Scope, scoped/global Kind, Name and reverse-References buckets now govern local inventory and premise access. Initial admission builds complete memberships; edits stage affected buckets, replace changed payload owners and preserve exact no-op/unrelated bucket owners. Objects/index maps, bucket leases and parser products are shareable; map containers still copy once per edit. Production full-map filtering for those questions is deleted. Cooperative cancel/deadline checks cover staged bucket work and exact comparisons; malformed logical/interpretation metadata is rejected before the no-op shortcut.
+
+**Implemented:** A2 carries exact source, physical/provider/native binding and actual invocation owners through the checked selection. Actual physical `readmit_context` and invocation-sensitive selected declaration checks establish current eligibility, including on warm candidates. The unchanged same-invocation preparation handoff no longer repeats source premise comparison. Different sources/scopes reacquire a checked relation. Warm basis paths check entry/final cancellation and the original supplied deadline. Copied physical wrappers have their own charged metadata.
+
+**A3 investigation decision, source-inspected and implemented:** the supported internal receiver shares the actual SharedRuntime, registry and immutable native-validation bindings, but may have an independent receiving invocation. Existing context identity alone was not successful source-row evidence: some construction paths drop generated checked batches. Rebinding therefore directly admits the retained typed declaration and bounded package/document/fit metadata rows once per distinct source/operation, without transport export, expression reparse or source-payload rehash. Physical batches renew their actual invocation-sensitive evidence over original arrays. Unknown source coverage, foreign native/registry owners or incompatible deployment resources refuse explicitly. No cross-owner transport fallback is hidden inside the trusted route. Broader compatible cross-owner admission needs a concrete consumer and specified validity contract.
+
+**Implemented:** A4 uses one admitted receiver activity and an operation-local exact-owner memo for all source variants. `[A,A,B,A]` keeps four positions with two bindings; independent same-hash owners, accelerator choices and deployment owners are not coalesced. Each distinct source gets an independent head/lineage with no source origin or held engagement. Original object/index/parser/physical/callable owners and leases survive; receiver wrappers and duplicate positional metadata are charged to their actual allocations. The internal transport round trip and whole-source reconstruction scratch path are deleted. Explicit durable receivers remain durable, receive no fabricated origin and still require source acknowledgement for durable execution; explicit local receivers remain ephemeral.
+
+**Implemented:** A5 external import uses a temporary borrowed exact logical lookup, retains independent full body/reference/identity checks and generated source-row admission, and admits the actual receiver activity. Reload uses exact document and package lookups while preserving visibility and inherited bytes. Same-format export memoizes conversion, emits every positional body and retains all constructor indices and duplicate final-byte accounting. No wire version, Python receiver API, dependency or native solver change was introduced.
+
+### Targeted evidence
+
+**Tested, zero-failure baseline:** `PSE_TEST_RESOURCE_STATE=/tmp/pse-friction-review-resources-uMrtOxGw just unit-package pse-runtime 'test(plan39_) | test(retained_receiver_) | test(retained_replay_) | test(supplied_replay_) | test(source_document_roundtrip_) | test(source_reconstruction_) | test(local_parsed_reload_) | test(indexed_parsed_reload_) | test(local_exact_premises_) | test(complete_namespace_inventory_)'` passed **19**, with **488 outside the filter**, under the explicit force-validation route. It covers the independent inventory oracle, edits/absence/collisions, checked handoff and original clocks, actual stable physical scope renewal/refusal, independent receiver heads, positional ownership, supplied malformed/duplicate bodies, and indexed data replacement/missing supplier refusal.
+
+**Tested:** the two selected lower relation controls `stable_checks_bind_once_and_reprepare_for_distinct_admission_scopes` and `preparation_reuses_exact_owner_and_schema_and_rejects_foreign_registry` passed with force-validation. The new `retained_validation_bindings_do_not_identify_an_invocation_or_equal_registry` control also passed under `just unit-package pse-relations` with explicit force-validation (one selected, 68 outside the filter). These are scoped owner controls, not full scientific or assembled qualification.
+
+### A mistake made and corrected
+
+Independent implementation review exposed missing physical wrapper charges, a no-op interpretation bypass, warm selection stamping a new invocation without renewing its sensitive checks, and a cached-basis cancellation gap. The actual owner/check paths now address them, with negative controls. The first selected runtime run had 16 passes and three failures: the new preparation fixtures and an older transport-roundtrip fixture used a runtime parameter outside its model definition. Moving that parameter into the root definition preserved the intended runtime-value scenario and produced the 19-test passing result; no compiler acceptance rule was weakened.
+
+### Deliberate deviations and handoff
+
+Successful source relation batches were not retained at every existing constructor. Necessary direct typed-row checks remain in owned rebinding rather than claiming that all validation disappeared or retaining a second full Arrow source solely for future rebind. Exact immutable parser/content/lexical facts are reused. The minimum foreign-owner branch is an explicit refusal, as the authored A3 contract permits.
+
+**Not run:** the actual durable-publication-close/native replay journey, all-role strict capture and successful qualified import, assembled scientific/recovery/interruption campaigns, scope-end hygiene/manual checks and all eleven measurements. The maintainer explicitly deferred that entire final campaign. No quantitative performance benefit or combined finding closure is claimed. Plan39/39d retain final acceptance, reconciliation and retirement; this companion's implementation completion does not close them.
