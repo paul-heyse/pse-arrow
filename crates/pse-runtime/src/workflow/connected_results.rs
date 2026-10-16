@@ -1489,6 +1489,7 @@ mod canonical_connected_results_server_unit {
                 .is_err()
         );
         cleanup.remove_isolated_fixture().await.unwrap();
+        pse_operations::testing::drain_result_releases(&store).await.unwrap();
         drop(cleanup);
         drop(store);
         drop(runtime);
@@ -1498,7 +1499,6 @@ mod canonical_connected_results_server_unit {
         assert_eq!(values.value(2), 273.15);
         assert!(pool.reserved() > baseline);
         drop(escaped);
-        pse_operations::testing::drain_result_releases(&store).await.unwrap();
         assert_eq!(pool.reserved(), baseline);
     }
     #[tokio::test]
