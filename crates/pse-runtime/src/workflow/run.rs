@@ -18,6 +18,23 @@ use pse_ids::SemanticId;
 use pse_model::generated::identities::RunId;
 use std::{collections::BTreeMap, sync::Arc};
 
+/// Existing native-submit ownership can be held at actual family worker entry by
+/// isolated unit controls. No release-build observer or execution policy is added.
+#[cfg(test)]
+type FamilyWorkerEntry = Arc<dyn Fn(&std::sync::atomic::AtomicBool) + Send + Sync>;
+#[cfg(test)]
+tokio::task_local! { static FAMILY_WORKER_ENTRY: FamilyWorkerEntry; }
+#[cfg(test)]
+pub(in crate::workflow) async fn observed_family_worker_entry<T>(
+    entry: FamilyWorkerEntry, work: impl Future<Output = T>,
+) -> T {
+    FAMILY_WORKER_ENTRY.scope(entry, work).await
+}
+#[cfg(test)]
+pub(in crate::workflow) fn family_worker_entry() -> Option<FamilyWorkerEntry> {
+    FAMILY_WORKER_ENTRY.try_with(Arc::clone).ok()
+}
+
 /// Public cancellation lease. Dropping the last public handle requests cancellation;
 /// the supervisor retains the actual native handle until its join completes.
 #[derive(Debug)]
@@ -1065,8 +1082,12 @@ impl super::PreparedFit {
             let cores = self.problem.profile.solver.controls.threads;
             let bytes = self.problem.bytes;
             let native = runtime.native().clone();
+            #[cfg(test)]
+            let entry = family_worker_entry();
             let mut dispatch = Some(move || {
                 native.submit_with(cores, bytes, submission, move |flag, progress| {
+                    #[cfg(test)]
+                    if let Some(entry) = entry { entry(&flag); }
                     let allowance = prepared
                         .problem
                         .profile

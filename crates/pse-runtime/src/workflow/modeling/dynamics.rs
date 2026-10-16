@@ -1117,7 +1117,11 @@ impl ModelingSimulation {
         let bytes = self
             .admission_bytes(retention)
             .map_err(crate::math::MathRuntimeError::from)?;
+        #[cfg(test)]
+        let entry = crate::workflow::run::family_worker_entry();
         let handle = service.submit_with(1, bytes, submission, move |flag, progress| {
+            #[cfg(test)]
+            if let Some(entry) = entry { entry(&flag); }
             #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
             {
                 let mut observer = observer;

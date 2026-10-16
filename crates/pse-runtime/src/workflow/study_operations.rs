@@ -376,14 +376,20 @@ pub(in crate::workflow) async fn counted_declared_admissions<T>(
         .await
 }
 
+#[cfg(test)]
+pub(in crate::workflow) async fn observed_declared_admission<T>(
+    observer: Box<dyn Fn() + Send + Sync>,
+    work: impl Future<Output = T>,
+) -> T {
+    DECLARED_ADMISSION_OBSERVER.scope(observer, work).await
+}
+
 #[cfg(all(test, feature = "canonical-tests"))]
 pub(in crate::workflow) async fn cancel_after_declared_admission<T>(
     work: impl Future<Output = T>,
     cancel: CancelSource,
 ) -> T {
-    DECLARED_ADMISSION_OBSERVER
-        .scope(Box::new(move || cancel.cancel()), work)
-        .await
+    observed_declared_admission(Box::new(move || cancel.cancel()), work).await
 }
 
 /// One operation's structural admission retained only while adjacent study points
@@ -748,6 +754,8 @@ impl StudyOperation {
         package: &ModelingPackage,
         cancel: &CancelSource,
     ) -> Result<PreparedStudyOperation, WorkflowError> {
+        let preparation_driver = package.runtime.shared.math().preparation_driver(cancel)?;
+        let cancel = &preparation_driver;
         self.source.check(package)?;
         if self.admitted_horizon.is_some()
             && !matches!(self.operation, OperationRequest::Horizon(_))
@@ -1071,8 +1079,8 @@ impl PreparedStudyOperation {
                     .start_modeling(vec![case.as_ref().clone()], false, cancel)
                     .await
             }
-            Self::Simulation(simulation) => simulation.start(),
-            Self::Fit(fit) => fit.start(),
+            Self::Simulation(simulation) => simulation.start_with_cancel(cancel),
+            Self::Fit(fit) => fit.start_with_cancel(cancel),
             Self::Horizon(horizon) => {
                 #[cfg(feature = "solver-diffsol")]
                 {
@@ -1125,6 +1133,8 @@ async fn declared(
         )
         .await?;
     validate_declared(case.case, case.route, &execution)?;
+    #[cfg(test)]
+    let _ = DECLARED_ADMISSION_OBSERVER.try_with(|observer| observer());
     Ok(execution)
 }
 fn validate_declared(

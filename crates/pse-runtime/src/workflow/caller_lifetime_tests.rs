@@ -167,3 +167,125 @@ async fn prepared_native_request_is_idle_and_cannot_start_after_caller_close() {
         .await
         .unwrap();
 }
+
+
+#[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
+#[derive(Default)]
+struct FamilyEntryDrain {
+    state: std::sync::Mutex<(bool, bool, bool)>,
+    changed: tokio::sync::Notify,
+    released: std::sync::Condvar,
+}
+#[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
+impl FamilyEntryDrain {
+    fn enter(&self, flag: &std::sync::atomic::AtomicBool) {
+        use std::sync::atomic::Ordering;
+        let mut state = self.state.lock().unwrap();
+        state.0 = true;
+        self.changed.notify_waiters();
+        let watchdog = std::time::Instant::now() + Duration::from_secs(10);
+        while !state.2 {
+            if flag.load(Ordering::Acquire) {
+                state.1 = true;
+                self.changed.notify_waiters();
+            }
+            assert!(std::time::Instant::now() < watchdog, "family worker entry was not drained");
+            state = self.released.wait_timeout(state, Duration::from_millis(5)).unwrap().0;
+        }
+    }
+    async fn wait(&self, stopped: bool) {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let changed = self.changed.notified();
+                let ready = { let state = self.state.lock().unwrap(); if stopped { state.1 } else { state.0 } };
+                if ready { break; }
+                changed.await;
+            }
+        }).await.unwrap();
+    }
+    fn release(&self) {
+        self.state.lock().unwrap().2 = true;
+        self.released.notify_all();
+    }
+}
+#[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
+struct FamilyEntryRelease(std::sync::Arc<FamilyEntryDrain>);
+#[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
+impl Drop for FamilyEntryRelease {
+    fn drop(&mut self) { self.0.release(); }
+}
+
+#[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
+async fn cancel_prepared_family_at_worker_entry(runtime: &Runtime, prepared: &PreparedStudyOperation) {
+    let baseline = runtime.shared.math().test_admission_snapshot();
+    let gate = std::sync::Arc::new(FamilyEntryDrain::default());
+    let _drain = FamilyEntryRelease(gate.clone());
+    let observed = gate.clone();
+    let cancel = crate::CancelSource::new();
+    let handle = super::run::observed_family_worker_entry(
+        std::sync::Arc::new(move |flag| observed.enter(flag)),
+        prepared.start(runtime, &cancel),
+    ).await.unwrap();
+    gate.wait(false).await;
+    let entered = runtime.shared.math().test_admission_snapshot();
+    assert!(entered.0 > baseline.0, "actual family worker retains its resource allocation");
+    assert_eq!(entered.1 + 1, baseline.1, "worker entered after active CPU admission");
+    assert_eq!(entered.2 + 1, baseline.2, "worker entered after native job admission");
+    let mut waiting = Box::pin(handle.wait());
+    assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+    cancel.cancel();
+    gate.wait(true).await;
+    assert!(futures_util::poll!(waiting.as_mut()).is_pending(), "caller stop must await issued worker return and join");
+    let stopping = runtime.shared.math().test_admission_snapshot();
+    assert_eq!((stopping.1, stopping.2), (entered.1, entered.2), "active resources remain held while worker teardown is gated");
+    assert!(stopping.0 > baseline.0, "the issued family worker still owns its charged allocation");
+    gate.release();
+    let result = tokio::time::timeout(Duration::from_secs(10), waiting).await.unwrap().unwrap();
+    assert!(!result.usable(), "an execution cancelled before its family producer starts cannot produce usable science");
+    assert!(result.canonical_run_key().is_none());
+    assert!(result.canonical_attempt_key().is_none());
+    let drained = runtime.shared.math().test_admission_snapshot();
+    assert_eq!((drained.1, drained.2), (baseline.1, baseline.2), "completion follows actual native join and resource release");
+}
+
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn prepared_study_simulation_forwards_caller_cancel_after_worker_dispatch_and_joins_drain() {
+    let runtime = tests::runtime();
+    let rows = pse_authoring::language::parse(
+        "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==1; eq initial:x[0{s}]==1{s}; } test plant fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); } { child root:Root=Root(); } }",
+        pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default(),
+    ).unwrap();
+    let case = rows.iter().find(|row| row.name == "plant").unwrap().declaration_id;
+    let mut physical = tests::physical();
+    physical.preconditions = std::sync::Arc::new(pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap());
+    physical.key = pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
+    let simulation = package.declared_simulation(case, tests::compiler_profile(), None, Default::default(), &crate::CancelSource::new()).await.unwrap();
+    let prepared = PreparedStudyOperation::Simulation(Box::new(simulation));
+    cancel_prepared_family_at_worker_entry(&runtime, &prepared).await;
+    let rerun = prepared.start(&runtime, &crate::CancelSource::new()).await.unwrap().wait().await.unwrap();
+    assert!(rerun.usable(), "{:?}", rerun.report());
+    let RunReport::Simulation(trajectory) = rerun.report().unwrap() else { panic!("original simulation"); };
+    assert_eq!(trajectory.report().samples.last().unwrap().time, 1.0);
+    assert!((trajectory.report().samples.last().unwrap().state[0] - 2.0).abs() < 1e-8);
+}
+
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn prepared_study_fit_forwards_caller_cancel_after_worker_dispatch_and_joins_drain() {
+    use super::fitting::regression;
+    use pse_backend_native::solve::HessianMode;
+    let runtime = tests::runtime();
+    let package = regression::package_on(runtime.clone(), false, regression::declared(), [1.; 4]).await;
+    let fit = package.prepare_fit(tests::id(32).into(), regression::profile(HessianMode::Exact, None), tests::compiler_profile(), Default::default(), &crate::CancelSource::new()).await.unwrap();
+    let prepared = PreparedStudyOperation::Fit(Box::new(fit));
+    cancel_prepared_family_at_worker_entry(&runtime, &prepared).await;
+    let rerun = prepared.start(&runtime, &crate::CancelSource::new()).await.unwrap().wait().await.unwrap();
+    assert!(rerun.usable(), "{:?}", rerun.report());
+    let RunReport::Fit(fit) = rerun.report().unwrap() else { panic!("original fit"); };
+    let (_, expected) = regression::analytic();
+    let candidate = fit.candidate.as_ref().unwrap();
+    assert_eq!(candidate.len(), expected.len());
+    for (actual, expected) in candidate.iter().zip(expected) { assert!((actual - expected).abs() < 1e-6); }
+}
