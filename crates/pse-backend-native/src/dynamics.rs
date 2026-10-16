@@ -601,7 +601,7 @@ pub fn gradient_observed(
     match profile.resolved_method()? {
         #[cfg(feature = "diffsol")]
         Method::Diffsol => {
-            integrator::gradient(oracle, profile, parameters, cotangent, cancel, progress)
+            integrator::gradient(oracle, profile, parameters, cotangent, cancel, progress, layout)
         }
         #[cfg(feature = "idas")]
         Method::Idas => idas::gradient(oracle, profile, parameters, cotangent, cancel, progress, (layout, memory)),
@@ -684,6 +684,21 @@ pub fn hessian_observed(
     })
 }
 
+/// Storage for the algebraic sample factor, its symbolic preparation and sparse
+/// construction overlap. Direct fill is a finite opaque allowance, independent
+/// of the input nonzeros; this is not an RSS observation.
+fn sample_elimination_bytes(c: &Contract, layout: &PreparedLayout) -> Option<usize> {
+    let algebraic = c.differential.iter().filter(|d| !**d).count();
+    if algebraic == 0 { return Some(0); }
+    let entries = layout.nonzeros();
+    let sparse = entries.checked_mul(size_of::<faer::sparse::Triplet<usize, usize, f64>>())?
+        .checked_add(c.states.len().checked_mul(size_of::<Option<usize>>())?)?
+        .checked_add(algebraic.checked_mul(size_of::<usize>())?)?
+        .checked_add(entries.checked_mul(size_of::<f64>() + 2 * size_of::<usize>())?)?
+        .checked_add(algebraic.checked_add(1)?.checked_mul(2 * size_of::<usize>())?)?;
+    PreparedLayout::direct_bytes(algebraic, entries)?.checked_add(sparse)
+}
+
 /// The jump of the adjoint at an observed sample, shared by both adjoint backends
 /// (ADR-0110 item 3). With `c` the cotangent of the sample's outputs `y = g(x, p)`, the
 /// differential adjoint gains `dJ/dx_d` and the gradient gains `dJ/dp` over the contract
@@ -699,11 +714,12 @@ pub(crate) fn sample_jump(
     output: faer::sparse::SparseColMatRef<'_, usize, f64>,
     rhs: Option<faer::sparse::SparseColMatRef<'_, usize, f64>>,
     cotangent: &[f64],
+    preparation: &mut SampleEliminationPreparation,
 ) -> Result<(Vec<f64>, Vec<f64>), ProblemError> {
     if output.nrows() != cotangent.len() || output.ncols() < differential.len() {
         return Err(ProblemError::internal("adjoint jump extent"));
     }
-    let eliminated = SampleElimination::new(differential, rhs, output.ncols())?
+    let eliminated = SampleElimination::prepared(differential, rhs, output.ncols(), preparation)?
         .solve(transposed_product(output, cotangent))?;
     Ok((eliminated.state, eliminated.parameters))
 }
@@ -753,12 +769,70 @@ pub(crate) struct SampleElimination<'a> {
     #[cfg(test)]
     factorizations: usize,
 }
+/// One adjoint owner's last compatible algebraic symbolic analysis. Only the
+/// canonical pattern is reusable; every sample builds a fresh numeric factor.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+#[derive(Default)]
+pub(crate) struct SampleEliminationPreparation {
+    layout: Option<Arc<PreparedLayout>>,
+    columns: Vec<usize>,
+    rows: Vec<usize>,
+    symbolic: Option<faer::sparse::linalg::solvers::SymbolicLu<usize>>,
+    #[cfg(test)]
+    constructions: usize,
+}
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+impl SampleEliminationPreparation {
+    fn with_layout(layout: Arc<PreparedLayout>) -> Self {
+        Self { layout: Some(layout), ..Self::default() }
+    }
+    fn symbolic(
+        &mut self,
+        matrix: faer::sparse::SparseColMatRef<'_, usize, f64>,
+    ) -> Result<faer::sparse::linalg::solvers::SymbolicLu<usize>, ProblemError> {
+        let pattern = matrix.symbolic();
+        if self.columns == pattern.col_ptr() && self.rows == pattern.row_idx()
+            && let Some(symbolic) = &self.symbolic
+        {
+            crate::observation::count("dynamics.sample_elimination.symbolic_reuses", 1);
+            return Ok(symbolic.clone());
+        }
+        // An incompatible pattern cannot use the previous analysis. Release it
+        // before constructing the replacement instead of retaining two factors.
+        self.symbolic = None;
+        self.columns = Vec::new();
+        self.rows = Vec::new();
+        let symbolic = crate::observation::scoped("dynamics.sample_elimination.faer.symbolic", || {
+            faer::sparse::linalg::solvers::SymbolicLu::try_new(pattern)
+        }).map_err(|error| ProblemError::numerical(format!("adjoint jump constraint LU: {error:?}")))?;
+        let mut columns = Vec::with_capacity(pattern.col_ptr().len());
+        columns.extend_from_slice(pattern.col_ptr());
+        let mut rows = Vec::with_capacity(pattern.row_idx().len());
+        rows.extend_from_slice(pattern.row_idx());
+        self.columns = columns;
+        self.rows = rows;
+        self.symbolic = Some(symbolic.clone());
+        #[cfg(test)]
+        { self.constructions += 1; }
+        crate::observation::count("dynamics.sample_elimination.symbolic_constructions", 1);
+        Ok(symbolic)
+    }
+}
 #[cfg(any(feature = "diffsol", feature = "idas"))]
 impl<'a> SampleElimination<'a> {
+    #[cfg(test)]
     pub(crate) fn new(
         differential: &[bool],
         rhs: Option<faer::sparse::SparseColMatRef<'a, usize, f64>>,
         width: usize,
+    ) -> Result<Self, ProblemError> {
+        Self::prepared(differential, rhs, width, &mut SampleEliminationPreparation::default())
+    }
+    pub(crate) fn prepared(
+        differential: &[bool],
+        rhs: Option<faer::sparse::SparseColMatRef<'a, usize, f64>>,
+        width: usize,
+        preparation: &mut SampleEliminationPreparation,
     ) -> Result<Self, ProblemError> {
         let n = differential.len();
         if width < n {
@@ -787,6 +861,9 @@ impl<'a> SampleElimination<'a> {
             for column in &algebraic {
                 for k in f.col_range(*column) {
                     if let (Some(i), Some(j)) = (slot[f.row_idx()[k]], slot[*column]) {
+                        if preparation.layout.as_ref().is_some_and(|layout| layout.get(*column, f.row_idx()[k]).is_none()) {
+                            return Err(ProblemError::Contract("adjoint algebraic partial outside declared support".into()));
+                        }
                         triplets.push(faer::sparse::Triplet::new(j, i, f.val()[k]));
                     }
                 }
@@ -796,13 +873,7 @@ impl<'a> SampleElimination<'a> {
                 .map_err(|e| {
                 ProblemError::memory(format!("adjoint jump constraint block: {e:?}"))
             })?;
-            let symbolic =
-                crate::observation::scoped("dynamics.sample_elimination.faer.symbolic", || {
-                    faer::sparse::linalg::solvers::SymbolicLu::try_new(transposed.symbolic())
-                })
-                .map_err(|e| {
-                    ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}"))
-                })?;
+            let symbolic = preparation.symbolic(transposed.as_ref())?;
             let factor =
                 crate::observation::scoped("dynamics.sample_elimination.faer.factor", || {
                     faer::sparse::linalg::solvers::Lu::try_new_with_symbolic(
@@ -1687,6 +1758,7 @@ impl Profile {
             .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
         bytes
             .checked_add(self.native_scatter_bytes(layout, DynamicDemand::Base)?)
+            .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
             .and_then(|bytes| if self.method == Method::Diffsol { Some(bytes) } else {
                 bytes.checked_add(PreparedLayout::direct_bytes(n, layout.nonzeros())?)
             })
@@ -1801,6 +1873,7 @@ impl Profile {
             .ok_or_else(|| ProblemError::memory("second-order adjoint extent overflow"))?;
         bytes
             .checked_add(self.native_scatter_bytes(layout, DynamicDemand::ExactHessian)?)
+            .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
             .and_then(|bytes| bytes.checked_add(PreparedLayout::direct_bytes(n.checked_mul(2)?, layout.nonzeros().checked_mul(3)?)?.checked_mul(directions.len())?))
             .ok_or_else(|| ProblemError::memory("second-order scatter extent overflow"))
     }
@@ -2862,5 +2935,46 @@ mod sample_elimination_tests {
             assert!(singular.solve(vec![1., 1., 1.]).is_err());
             assert!(!singular.ready);
         }
+    }
+    #[test]
+    fn sample_elimination_reuses_only_symbolic_pattern_across_changed_samples() {
+        let mut preparation = SampleEliminationPreparation::default();
+        let f = matrix(2.);
+        let mut first = SampleElimination::prepared(&[true, false], Some(f.as_ref()), 3, &mut preparation).unwrap();
+        assert_eq!(first.solve(vec![7., 4., 11.]).unwrap().parameters, vec![1.]);
+        drop(first);
+        let changed = matrix(4.);
+        let mut next = SampleElimination::prepared(&[true, false], Some(changed.as_ref()), 3, &mut preparation).unwrap();
+        assert_eq!(next.solve(vec![7., 4., 11.]).unwrap().parameters, vec![6.]);
+        assert_eq!(preparation.constructions, 1);
+        assert_eq!(next.factorizations, 1);
+        drop(next);
+        let zero = matrix(0.);
+        if let Ok(mut singular) = SampleElimination::prepared(&[true, false], Some(zero.as_ref()), 3, &mut preparation) {
+            assert!(singular.solve(vec![7., 4., 11.]).is_err());
+        }
+        assert_eq!(preparation.constructions, 1);
+        let f = matrix(2.);
+        let mut recovered = SampleElimination::prepared(&[true, false], Some(f.as_ref()), 3, &mut preparation).unwrap();
+        assert_eq!(recovered.solve(vec![7., 4., 11.]).unwrap().parameters, vec![1.]);
+        assert_eq!(preparation.constructions, 1);
+    }
+    #[test]
+    fn sample_elimination_changed_support_rebuilds_and_unknown_support_refuses() {
+        let layout = Arc::new(PreparedLayout::new(2, std::iter::empty(), usize::MAX).unwrap());
+        let mut preparation = SampleEliminationPreparation::with_layout(layout);
+        let f = matrix(2.);
+        SampleElimination::prepared(&[true, false], Some(f.as_ref()), 3, &mut preparation).unwrap();
+        let diagonal = faer::sparse::SparseColMat::try_new_from_triplets(2, 2, &[
+            faer::sparse::Triplet::new(0, 0, 2.), faer::sparse::Triplet::new(1, 1, 3.)
+        ]).unwrap();
+        let mut next = SampleElimination::prepared(&[false, false], Some(diagonal.as_ref()), 2, &mut preparation).unwrap();
+        assert_eq!(next.solve(vec![2., 3.]).unwrap().state, vec![0., 0.]);
+        assert_eq!(preparation.constructions, 2);
+        let unknown = faer::sparse::SparseColMat::try_new_from_triplets(2, 2, &[
+            faer::sparse::Triplet::new(0, 0, 2.), faer::sparse::Triplet::new(1, 1, 3.),
+            faer::sparse::Triplet::new(1, 0, 1.)
+        ]).unwrap();
+        assert!(matches!(SampleElimination::prepared(&[false, false], Some(unknown.as_ref()), 2, &mut preparation), Err(ProblemError::Contract(_))));
     }
 }

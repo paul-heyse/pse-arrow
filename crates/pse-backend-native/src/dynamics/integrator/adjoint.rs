@@ -97,16 +97,17 @@ pub(in crate::dynamics) fn gradient(
     cotangent: Cotangent<'_>,
     cancel: Cancellation,
     progress: Arc<crate::solve::Progress>,
+    layout: Arc<PreparedLayout>,
 ) -> Result<Gradient, ProblemError> {
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
     let mut report = Report::new(profile, SampleRetention::Full);
     let mut outcome = Outcome::default();
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
         DiffsolLinear::FaerLu => {
-            schemes::<linear::FaerLu>(&shared, profile, &mut report, cotangent, &mut outcome)
+            schemes::<linear::FaerLu>(&shared, profile, &mut report, cotangent, &mut outcome, layout)
         }
         DiffsolLinear::Klu => {
-            schemes::<linear::Klu>(&shared, profile, &mut report, cotangent, &mut outcome)
+            schemes::<linear::Klu>(&shared, profile, &mut report, cotangent, &mut outcome, layout)
         }
     }));
     shared.contain(result, &mut report);
@@ -137,6 +138,7 @@ fn schemes<LS: LinearSolver<M>>(
     r: &mut Report,
     cotangent: Cotangent<'_>,
     out: &mut Outcome,
+    layout: Arc<PreparedLayout>,
 ) -> Result<(), ProblemError> {
     let np = shared.contract.parameters.len();
     let boundaries = p.boundaries();
@@ -161,6 +163,7 @@ fn schemes<LS: LinearSolver<M>>(
         shared,
         p,
         segments: &segments,
+        elimination: RefCell::new(SampleEliminationPreparation::with_layout(layout)),
     };
     match p.diffsol.method {
         DiffsolMethod::Bdf => passes.run(
@@ -260,6 +263,7 @@ struct Passes<'s, 'o> {
     shared: &'s Rc<Shared<'o>>,
     p: &'s Profile,
     segments: &'s Segments,
+    elimination: RefCell<SampleEliminationPreparation>,
 }
 impl<'o> Passes<'_, 'o> {
     /// The forward pass stores its checkpoints; the cotangent reads its samples; the
@@ -518,6 +522,7 @@ impl<'o> Passes<'_, 'o> {
             output.as_ref().as_ref(),
             rhs.as_ref().map(|j| j.as_ref().as_ref()),
             &weights[i * m..(i + 1) * m],
+            &mut self.elimination.borrow_mut(),
         )?;
         let (Some(adjoint), Some(partial)) = (state.s.first_mut(), state.sg.first_mut()) else {
             return Err(ProblemError::internal("adjoint channel"));

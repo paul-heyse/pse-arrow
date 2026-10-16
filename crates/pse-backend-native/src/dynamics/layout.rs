@@ -68,7 +68,7 @@ impl PreparedLayout {
     pub fn nonzeros(&self) -> usize { self.rows.len() }
     /// Destination of a declared state partial. Sparse column lookup also handles
     /// subset and noncanonical oracle output without another coordinate owner.
-    #[cfg(any(feature = "idas", test))]
+    #[cfg(any(feature = "idas", feature = "diffsol", test))]
     pub(super) fn get(&self, col: usize, row: usize) -> Option<usize> {
         slot(&self.columns, &self.rows, col, row)
     }

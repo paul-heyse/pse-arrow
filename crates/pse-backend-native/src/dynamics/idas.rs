@@ -84,6 +84,7 @@ struct Context<'a> {
     colors: Vec<Vec<usize>>,
     /// Inverse Jacobi diagonal of the current Newton matrix (Krylov preconditioner).
     inverse_diagonal: Vec<f64>,
+    sample_elimination: SampleEliminationPreparation,
 }
 impl Context<'_> {
     fn evaluate(
@@ -1362,6 +1363,7 @@ impl<'a> Session<'a> {
                 trial_policy: config.trial_failures,
                 callback: CallbackState::new(execution),
                 initial_ic_residual: None,
+                sample_elimination: SampleEliminationPreparation::with_layout(layout.clone()),
                 layout,
                 newton_values,
                 newton_values_b,
@@ -3018,10 +3020,11 @@ impl Session<'_> {
             None
         };
         let differential = self.callback.contract.differential.clone();
-        let mut elimination = SampleElimination::new(
+        let mut elimination = SampleElimination::prepared(
             &differential,
             rhs.as_ref().map(|j| j.as_ref().as_ref()),
             output.ncols(),
+            &mut self.callback.sample_elimination,
         )?;
         let first = elimination.solve(transposed_product(output.as_ref().as_ref(), cotangent))?;
         let directions = self.backward_mut()?.directions.clone();
