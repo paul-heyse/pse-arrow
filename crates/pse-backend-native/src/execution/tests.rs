@@ -1490,3 +1490,28 @@ fn empty_pounce_reset_releases_retained_charge_and_preserves_required_refusal() 
         Err(ProblemError::Reuse { .. })
     ));
 }
+
+#[test]
+fn workflow_owner_is_lane_local_and_ends_before_independent_parking() {
+    use std::{cell::Cell, rc::Rc};
+    struct LocalOwner(Rc<Cell<usize>>);
+    impl Drop for LocalOwner {
+        fn drop(&mut self) { self.0.set(self.0.get() + 1); }
+    }
+    let dropped = Rc::new(Cell::new(0));
+    let mut retained = Retained::default();
+    assert!(retained.workflow_owner::<LocalOwner>(|| Err(ProblemError::Cancelled)).is_err());
+    let (_, reused) = retained.workflow_owner(|| Ok(LocalOwner(dropped.clone()))).unwrap();
+    assert!(!reused);
+    retained.clear(); // Backend session changes do not destroy the operation's owner.
+    let (_, reused) = retained.workflow_owner::<LocalOwner>(|| panic!("must reuse")).unwrap();
+    assert!(reused);
+    assert!(matches!(retained.workflow_owner(|| Ok(7usize)), Err(ProblemError::Contract(_))));
+    assert_eq!(dropped.get(), 0);
+    retained.reset_independent().unwrap();
+    assert_eq!(dropped.get(), 1);
+    let (_, reused) = retained.workflow_owner(|| Ok(LocalOwner(dropped.clone()))).unwrap();
+    assert!(!reused);
+    drop(retained);
+    assert_eq!(dropped.get(), 2);
+}

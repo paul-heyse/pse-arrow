@@ -459,6 +459,7 @@ struct Advanced {
 #[derive(Debug)]
 struct Plant {
     experiment: IntegratedExperiment,
+    worker_bytes: usize,
     /// The integration column of each driven input.
     columns: Vec<usize>,
     /// The differential states, whose ends anchor the next period.
@@ -466,6 +467,10 @@ struct Plant {
     start: f64,
     period: f64,
     time_limit: Duration,
+}
+struct PlantWorker {
+    inner: crate::workflow::dynamics::DynamicWorker,
+    _charge: Arc<dyn pse_math::AllocationOwner>,
 }
 impl Plant {
     fn time(&self, k: usize) -> f64 {
@@ -479,26 +484,21 @@ impl Plant {
         }
         parameters
     }
-    fn execution(&self, flag: &Arc<AtomicBool>) -> native::solve::Execution {
-        let mut execution =
-            native::solve::Execution::new(flag.clone(), &native::solve::Controls::default());
-        execution.time_limit = self.time_limit;
-        execution
+    fn execution(&self, scope: pse_kernels::ExecutionScope) -> Result<native::solve::Execution, ProblemError> {
+        let controls = native::solve::Controls { time_limit: self.time_limit, ..Default::default() };
+        native::solve::Execution::within(scope.cancellation().clone(), &controls, scope)
     }
     /// The consistently initialized start at `t₀` under `applied`: the simulation's initial
     /// condition, integrated over the first period sampled at its start only.
     fn initial(
         &self,
+        worker: &mut crate::workflow::dynamics::DynamicWorker,
         applied: &[f64],
         execution: &native::solve::Execution,
     ) -> Result<native::dynamics::Sample, ProblemError> {
         use native::dynamics::Oracle;
         let integration = self.integration(applied);
         let contract = &self.experiment.program.contract;
-        let mut worker = self
-            .experiment
-            .program
-            .worker(execution.scope()?, self.experiment.snapshots.clone())?;
         let initial = worker.evaluate(
             0,
             native::dynamics::Function::Initial,
@@ -519,6 +519,7 @@ impl Plant {
             .experiment
             .window(self.start, self.time(1), vec![self.start])?;
         let report = self.experiment.integrate_window(
+            worker,
             &window,
             &integration,
             &anchors,
@@ -535,6 +536,7 @@ impl Plant {
     /// schedule), sampled at `tₖ₊₁`.
     fn period(
         &self,
+        worker: &mut crate::workflow::dynamics::DynamicWorker,
         k: usize,
         applied: &[f64],
         anchors: &[f64],
@@ -543,6 +545,7 @@ impl Plant {
         let end = self.time(k + 1);
         let window = self.experiment.window(self.time(k), end, vec![end])?;
         let report = self.experiment.integrate_window(
+            worker,
             &window,
             &self.integration(applied),
             anchors,
@@ -897,6 +900,7 @@ impl Admitted {
             sources,
             provenance,
             plant: Arc::new(Plant {
+                worker_bytes: plant.bytes,
                 experiment: IntegratedExperiment {
                     snapshot: plant.snapshot().clone(),
                     program: plant.program(),
@@ -1253,6 +1257,9 @@ pub(super) struct Loop {
     /// The differential states at the current sample, in the plant's normalized
     /// coordinates.
     anchors: Vec<f64>,
+    /// The horizon's original provider cancellation/deadline owner. Each plant IVP
+    /// has fresh local controls without renewing this enclosing scope.
+    plant_scope: pse_kernels::ExecutionScope,
     priors: Vec<f64>,
     /// The last accepted step of each role, which seeds the next one.
     accepted: [Option<usize>; 2],
@@ -1301,7 +1308,9 @@ impl Loop {
             .iter()
             .flat_map(|e| e.arrival.iter().map(|(_, _, initial)| *initial))
             .collect();
+        let plant_scope = pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), cancel.deadline());
         Self {
+            plant_scope,
             applied: admitted.initial.clone(),
             admitted,
             staged,
@@ -1443,7 +1452,7 @@ impl Loop {
         }
         let applied = self.applied.clone();
         let start = self
-            .plant(move |plant, execution| plant.initial(&applied, execution))
+            .plant(move |plant, worker, execution| plant.initial(worker, &applied, execution))
             .await?;
         self.anchor(start);
         for k in 0..self.admitted.steps {
@@ -1460,7 +1469,7 @@ impl Loop {
             let applied = self.applied.clone();
             let anchors = self.anchors.clone();
             let end = self
-                .plant(move |plant, execution| plant.period(k, &applied, &anchors, execution))
+                .plant(move |plant, worker, execution| plant.period(worker, k, &applied, &anchors, execution))
                 .await?;
             if matches!(
                 self.admitted.output,
@@ -1551,15 +1560,24 @@ impl Loop {
     /// Plant work on the session thread beside the solves' retained native state.
     async fn plant<T: Send + 'static>(
         &self,
-        work: impl FnOnce(&Plant, &native::solve::Execution) -> Result<T, ProblemError> + Send + 'static,
+        work: impl FnOnce(&Plant, &mut crate::workflow::dynamics::DynamicWorker, &native::solve::Execution) -> Result<T, ProblemError> + Send + 'static,
     ) -> Result<T, WorkflowError> {
         let _phase = pse_diagnostics::observation::phase("horizon.plant");
         let plant = self.admitted.plant.clone();
+        let scope = self.plant_scope.clone();
         Ok(self
             .staged
-            .native(self.admitted.threads, &self.cancel, move |_, flag, _| {
-                let execution = plant.execution(flag);
-                work(&plant, &execution).map_err(MathRuntimeError::from)
+            .native_in_task(self.admitted.threads, scope.clone(), &self.cancel, move |retained, _, _| {
+                let execution = plant.execution(scope.clone())?;
+                let (owner, reused) = retained.workflow_owner(|| {
+                    let charge = plant.experiment.snapshots.reserve(plant.worker_bytes)?;
+                    let inner = plant.experiment.worker_scoped(scope)?;
+                    Ok(PlantWorker { inner, _charge: charge })
+                })?;
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count(if reused { "horizon.plant_worker_reuses" } else { "horizon.plant_worker_constructions" }, "count", 1);
+                }
+                work(&plant, &mut owner.inner, &execution).map_err(MathRuntimeError::from)
             })
             .await?)
     }

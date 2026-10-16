@@ -1094,6 +1094,42 @@ impl Oracle for DynamicWorker {
     }
 }
 
+// An anchored window borrows its lane's mathematical/provider worker. Its native IVP
+// remains fresh, while compiled scratch and provider owners never leave that lane.
+impl Oracle for &mut DynamicWorker {
+    fn contract(&self) -> &native::Contract {
+        (**self).contract()
+    }
+    fn support(&self, mode: usize, function: Function) -> Vec<native::SupportEntry> {
+        (**self).support(mode, function)
+    }
+    fn snapshot_owner(&self, bytes: usize) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+        (**self).snapshot_owner(bytes)
+    }
+    fn evaluate(
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        derivatives: bool,
+    ) -> Result<native::Evaluation, ProblemError> {
+        (**self).evaluate(mode, function, time, state, parameters, derivatives)
+    }
+    fn weighted_hessian(
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+    ) -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
+        (**self).weighted_hessian(mode, function, time, state, parameters, weights)
+    }
+}
+
 pub(crate) fn profile_identity(
     p: &SimulationProfile,
 ) -> Result<pse_ids::roles::ProfileHash, ProblemError> {

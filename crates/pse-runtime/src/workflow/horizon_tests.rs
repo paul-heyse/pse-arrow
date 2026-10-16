@@ -523,7 +523,9 @@ async fn horizon_reuses_prepared_view() {
         controller.analysis.solver.backend = settings;
         let sqp = backend == Backend::Pounce;
         let before = runtime.native().preparations();
-        let handle = runtime
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let observed = hub.start("retained horizon plant");
+        let handle = pse_diagnostics::observation::scope(Some(observed.context()), runtime
             .start_horizon(
                 Horizon {
                     output: crate::workflow::StudyOutputDemand::Full {},
@@ -538,11 +540,16 @@ async fn horizon_reuses_prepared_view() {
                     controller: Some(controller),
                 },
                 &crate::CancelSource::new(),
-            )
+            ))
             .await
             .unwrap();
         let result = handle.wait().await.unwrap();
         let after = runtime.native().preparations();
+        let snapshot = observed.reader().snapshot(std::time::Duration::from_secs(60));
+        for (name, expected) in [("horizon.plant_worker_constructions", 2), ("horizon.plant_worker_reuses", STEPS - 1)] {
+            assert_eq!(snapshot.metrics.iter().find(|metric| metric.name == name).unwrap().cumulative,
+                pse_diagnostics::observation::Value::Count(expected as u64), "{backend:?}: {name}");
+        }
         assert!(result.usable(), "{backend:?}: {:?}", result.assessments());
         assert_eq!(
             after.views - before.views,

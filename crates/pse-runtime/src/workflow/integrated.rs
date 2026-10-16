@@ -200,8 +200,19 @@ impl IntegratedExperiment {
         &self,
         execution: &Execution,
     ) -> Result<super::dynamics::DynamicWorker, ProblemError> {
-        self.program
-            .worker(execution.scope()?, self.snapshots.clone())
+        self.worker_scoped(execution.scope()?)
+    }
+    /// Bind retained mathematical/provider ownership to the original operation,
+    /// independently of the fresh native IVPs it will serve.
+    pub(crate) fn worker_scoped(
+        &self,
+        scope: pse_kernels::ExecutionScope,
+    ) -> Result<super::dynamics::DynamicWorker, ProblemError> {
+        let worker = self.program.worker(scope, self.snapshots.clone())?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("dynamics.workflow_worker_constructions", "count", 1);
+        }
+        Ok(worker)
     }
     /// Integrate once at the consumer's values, with forward sensitivities or none.
     /// Integrations borrow the admitted outer worker; they never enqueue nested native jobs.
@@ -438,6 +449,7 @@ impl IntegratedExperiment {
     /// integration columns or none. The window's oracle anchors every differential start.
     pub(crate) fn integrate_window(
         &self,
+        worker: &mut super::dynamics::DynamicWorker,
         window: &Window,
         integration: &[f64],
         anchors: &[f64],
@@ -449,11 +461,11 @@ impl IntegratedExperiment {
                 "an adjoint product is a gradient, not an integration",
             ));
         }
-        let mut oracle = native::dynamics::Anchored::new(
-            self.program
-                .worker(execution.scope()?, self.snapshots.clone())?,
-            false,
-        )?;
+        execution.check()?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("dynamics.window_ivp_initializations", "count", 1);
+        }
+        let mut oracle = native::dynamics::Anchored::new(worker, false)?;
         let profile = oracle.profile(&attempt(&window.profile, execution, sensitivity));
         let report = native::dynamics::integrate_with_progress_observed(
             &mut oracle,
@@ -471,6 +483,7 @@ impl IntegratedExperiment {
     /// are charged against the attempt's foreign allowance.
     pub(crate) fn window_gradient(
         &self,
+        worker: &mut super::dynamics::DynamicWorker,
         window: &Window,
         integration: &[f64],
         anchors: &[f64],
@@ -482,11 +495,11 @@ impl IntegratedExperiment {
                 "adjoint gradients need the worker's admitted foreign allowance".into(),
             )
         })?;
-        let mut oracle = native::dynamics::Anchored::new(
-            self.program
-                .worker(execution.scope()?, self.snapshots.clone())?,
-            true,
-        )?;
+        execution.check()?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("dynamics.window_adjoint_initializations", "count", 1);
+        }
+        let mut oracle = native::dynamics::Anchored::new(worker, true)?;
         let profile = oracle.profile(&attempt(
             &window.profile,
             execution,

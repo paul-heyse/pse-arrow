@@ -960,6 +960,14 @@ impl ShootingProblem {
     /// nodes of one pass that chains the windows from the start at those controls, so the
     /// continuity rows hold there.
     pub fn initial_point(&self, execution: &Execution) -> Result<Vec<f64>, ProblemError> {
+        let mut worker = self.experiment.worker(execution)?;
+        self.initial_point_with_worker(&mut worker, execution)
+    }
+    fn initial_point_with_worker(
+        &self,
+        worker: &mut super::dynamics::DynamicWorker,
+        execution: &Execution,
+    ) -> Result<Vec<f64>, ProblemError> {
         let mut x = self
             .controls
             .iter()
@@ -969,6 +977,7 @@ impl ShootingProblem {
         let mut anchors = self.start.clone();
         for window in self.windows.iter().take(self.windows.len() - 1) {
             let report = self.experiment.integrate_window(
+                worker,
                 window,
                 &integration,
                 &anchors,
@@ -1024,17 +1033,7 @@ struct Point {
 impl Point {
     fn compatible(&self, source: &Arc<ShootingProblem>, execution: &Execution, x: &[f64]) -> bool {
         Arc::ptr_eq(&self.source, source)
-            && self.execution.started == execution.started
-            && self.execution.time_limit == execution.time_limit
-            && Arc::ptr_eq(&self.execution.cancel, &execution.cancel)
-            && Arc::ptr_eq(&self.execution.abandonment, &execution.abandonment)
-            && (match (&self.execution.enclosing_scope, &execution.enclosing_scope) {
-                (None, None) => true,
-                (Some(a), Some(b)) => {
-                    a.deadline() == b.deadline() && Arc::ptr_eq(a.cancellation(), b.cancellation())
-                }
-                _ => false,
-            })
+            && same_execution(&self.execution, execution)
             && self.x.len() == x.len()
             && self
                 .x
@@ -1049,8 +1048,49 @@ struct ShootingOracle {
     problem: Arc<ShootingProblem>,
     execution: Execution,
     point: Option<Point>,
+    /// One mathematical/provider worker on this serial attempt lane; native histories
+    /// are created and destroyed separately for each window invocation.
+    worker: Option<WindowWorker>,
+}
+#[derive(Debug)]
+struct WindowWorker {
+    source: Arc<ShootingProblem>,
+    execution: Execution,
+    inner: super::dynamics::DynamicWorker,
+}
+fn same_execution(a: &Execution, b: &Execution) -> bool {
+    a.started == b.started
+        && a.time_limit == b.time_limit
+        && Arc::ptr_eq(&a.cancel, &b.cancel)
+        && Arc::ptr_eq(&a.abandonment, &b.abandonment)
+        && match (&a.enclosing_scope, &b.enclosing_scope) {
+            (None, None) => true,
+            (Some(a), Some(b)) => a.deadline() == b.deadline()
+                && Arc::ptr_eq(a.cancellation(), b.cancellation()),
+            _ => false,
+        }
 }
 impl ShootingOracle {
+    fn prepare_worker(&mut self) -> Result<(), ProblemError> {
+        self.execution.check()?;
+        let compatible = self.worker.as_ref().is_some_and(|worker| {
+            Arc::ptr_eq(&worker.source, &self.problem)
+                && same_execution(&worker.execution, &self.execution)
+        });
+        if !compatible {
+            // End the incompatible provider ownership before rebuilding it; never
+            // retarget an existing provider to another attempt's execution scope.
+            self.worker = None;
+            self.worker = Some(WindowWorker {
+                source: self.problem.clone(),
+                execution: self.execution.clone(),
+                inner: self.problem.experiment.worker(&self.execution)?,
+            });
+        } else if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("dynamics.workflow_worker_reuses", "count", 1);
+        }
+        Ok(())
+    }
     fn evaluate(&mut self, x: &[f64], requested: DerivativeOrder) -> Result<&Point, ProblemError> {
         let _phase = pse_diagnostics::observation::phase("shooting.trial");
         if let Some(context) = pse_diagnostics::observation::current() {
@@ -1112,6 +1152,9 @@ impl ShootingOracle {
             DynamicSensitivity::None
         };
         let integration = p.integration(x);
+        self.prepare_worker()?;
+        let worker = &mut self.worker.as_mut()
+            .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?.inner;
         let reports = p
             .windows
             .iter()
@@ -1139,6 +1182,7 @@ impl ShootingOracle {
                     context.phase("shooting.window")
                 });
                 p.experiment.integrate_window(
+                    worker,
                     window,
                     &integration,
                     p.anchors(k, x),
@@ -1287,6 +1331,9 @@ impl ShootingOracle {
         let mut total = vec![0.; x.len()];
         if !p.integral.is_empty() && !x.is_empty() {
             let integration = p.integration(x);
+            self.prepare_worker()?;
+            let worker = &mut self.worker.as_mut()
+                .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?.inner;
             let m = p.experiment.program.contract.outputs.len();
             let nq = p.experiment.program.contract.quadratures.len();
             for (k, window) in p.windows.iter().enumerate() {
@@ -1299,6 +1346,7 @@ impl ShootingOracle {
                     Ok(w)
                 };
                 let (_, gradient) = p.experiment.window_gradient(
+                    worker,
                     window,
                     &integration,
                     p.anchors(k, x),
@@ -1465,9 +1513,10 @@ impl ShootingProblem {
                 .math
                 .foreign_allowance(&solver.controls),
         );
+        let mut worker = self.experiment.worker(&execution)?;
         let initial = match initial {
             Some(x) => x.to_vec(),
-            None => self.initial_point(&execution)?,
+            None => self.initial_point_with_worker(&mut worker, &execution)?,
         };
         if initial.len() != self.contract.variables.len() {
             return Err(ProblemError::Contract("shooting initial point extent".into()).into());
@@ -1503,6 +1552,11 @@ impl ShootingProblem {
                         problem: self.clone(),
                         execution: execution.clone(),
                         point: None,
+                        worker: Some(WindowWorker {
+                            source: self.clone(),
+                            execution: execution.clone(),
+                            inner: worker,
+                        }),
                     }),
                     initial: &initial,
                     presolve: &solver.presolve,
@@ -1547,6 +1601,7 @@ impl ShootingProblem {
                 problem: self.clone(),
                 execution: execution.clone(),
                 point: None,
+                worker: None,
             };
             let point = match oracle.evaluate(&x, DerivativeOrder::Value) {
                 Ok(point) => point,

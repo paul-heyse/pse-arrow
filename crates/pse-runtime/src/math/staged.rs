@@ -1042,7 +1042,7 @@ impl NativeSession {
     /// # Errors
     /// Admission failure, cancellation before admission, a closed session or the step's own
     /// error.
-    #[cfg(any(test, feature = "solver-diffsol"))]
+    #[cfg(test)]
     pub(crate) async fn run<T: Send + 'static>(
         &self,
         cores: usize,

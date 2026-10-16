@@ -837,6 +837,9 @@ pub struct Retained {
     session_charge: Option<Box<dyn Any + Send>>,
     advance: Option<(crate::kkt::Advance, Option<Box<dyn Any + Send>>)>,
     reuse_history: ReuseHistory,
+    /// One operation-local workflow owner on this native thread, independent of
+    /// adapter session replacement. It never crosses scope destruction or parking.
+    workflow: Option<Box<dyn Any>>,
 }
 impl std::fmt::Debug for Retained {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -878,6 +881,7 @@ impl Retained {
     /// Only profiles with an accepted neutral reset may park a native object. Others
     /// take the fresh-object fallback; immutable external programs are unaffected.
     pub fn reset_independent(&mut self) -> Result<(), ProblemError> {
+        self.workflow = None;
         self.release();
         #[cfg(feature = "scip")]
         if let Some((Backend::Scip, state)) = &mut self.session
@@ -919,6 +923,25 @@ impl Retained {
         // no native object remains. Initial construction of a new sequence is distinct.
         self.reuse_history = discarded;
         Ok(())
+    }
+    /// Borrow one workflow owner for the enclosing staged operation. A different
+    /// owner type is a contract error, never an implicit cache replacement. The
+    /// owner is destroyed on this thread at scope exit or independent reset.
+    ///
+    /// # Errors
+    /// Construction failure or a conflicting workflow owner type.
+    pub fn workflow_owner<T: Any>(
+        &mut self,
+        build: impl FnOnce() -> Result<T, ProblemError>,
+    ) -> Result<(&mut T, bool), ProblemError> {
+        let reused = self.workflow.is_some();
+        if self.workflow.is_none() {
+            self.workflow = Some(Box::new(build()?));
+        }
+        let owner = self.workflow.as_mut()
+            .and_then(|owner| owner.downcast_mut::<T>())
+            .ok_or_else(|| ProblemError::Contract("native workflow owner type differs".into()))?;
+        Ok((owner, reused))
     }
     /// Relinquish idle direct HiGHS state on its owning thread for a waiting Uno
     /// scheduler reset. Immutable starts and independent response factors survive.

@@ -184,6 +184,7 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
                 problem: problem.clone(),
                 execution,
                 point: None,
+                worker: None,
             };
             let mut rows = vec![0.; problem.rows.len()];
             let value = oracle.objective(&x).unwrap();
@@ -333,6 +334,7 @@ async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
         problem: demanded.clone(),
         execution: Execution::new(Arc::default(), &solver().controls),
         point: None,
+        worker: None,
     };
     oracle.objective(&[0., 1.]).unwrap();
     oracle.objective(&[-0., 1.]).unwrap();
@@ -1446,4 +1448,48 @@ async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowan
             .initial,
         constructor.initial
     );
+}
+
+/// Changed IVPs retain mathematical scratch, never native trajectories; forward and
+/// adjoint upgrades agree with an independently constructed oracle at the new point.
+#[tokio::test]
+async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
+    use pse_diagnostics::observation::{ObservationHub, Value};
+    for method in methods() {
+        let simulation = tracking(method).await;
+        let problem = Arc::new(simulation.shooting(request(&simulation, ShootingMethod::Multiple, vec![1.], true)).unwrap());
+        let mut execution = Execution::new(Arc::default(), &solver().controls);
+        execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
+        let hub = ObservationHub::new(Default::default());
+        let observed = hub.start("retained shooting lane");
+        let entered = observed.context().enter();
+        let mut oracle = ShootingOracle { problem: problem.clone(), execution: execution.clone(), point: None, worker: None };
+        oracle.objective(&[0.4, 1.2, 0.3]).unwrap();
+        let identity = oracle.worker.as_ref().unwrap().inner.buffer_identity(0, native::dynamics::Function::Rhs);
+        let x = [0.6, 1.1, 0.4];
+        let value = oracle.objective(&x).unwrap();
+        let mut gradient = vec![0.; x.len()];
+        oracle.gradient(&x, &mut gradient).unwrap();
+        let mut jacobian = vec![0.; problem.pattern.row_idx().len()];
+        oracle.jacobian(&x, &mut jacobian).unwrap();
+        assert_eq!(identity, oracle.worker.as_ref().unwrap().inner.buffer_identity(0, native::dynamics::Function::Rhs));
+        let snapshot = observed.reader().snapshot(std::time::Duration::from_secs(60));
+        let count = |name| snapshot.metrics.iter().find(|metric| metric.name == name).unwrap().cumulative.clone();
+        assert_eq!(count("dynamics.workflow_worker_constructions"), Value::Count(1));
+        assert_eq!(count("dynamics.window_ivp_initializations"), Value::Count(6));
+        assert_eq!(count("dynamics.window_adjoint_initializations"), Value::Count(2));
+        drop(entered);
+        let mut fresh = ShootingOracle { problem, execution, point: None, worker: None };
+        let tolerance = 64. * simulation.profile().rtol;
+        assert!((fresh.objective(&x).unwrap() - value).abs() <= tolerance * value.abs().max(1.));
+        let mut fresh_gradient = vec![0.; x.len()];
+        fresh.gradient(&x, &mut fresh_gradient).unwrap();
+        let mut fresh_jacobian = vec![0.; jacobian.len()];
+        fresh.jacobian(&x, &mut fresh_jacobian).unwrap();
+        for (a, b) in gradient.iter().chain(&jacobian).zip(fresh_gradient.iter().chain(&fresh_jacobian)) {
+            assert!((a-b).abs() <= tolerance * b.abs().max(1.), "{method:?}: {a} vs {b}");
+        }
+        oracle.execution.cancel.store(true, std::sync::atomic::Ordering::Release);
+        assert!(matches!(oracle.gradient(&x, &mut gradient), Err(ProblemError::Cancelled)));
+    }
 }

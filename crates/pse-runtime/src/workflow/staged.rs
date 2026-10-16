@@ -626,29 +626,6 @@ impl Staged {
         }
         results
     }
-    /// Run native work that is not a solve beside the sequence's retained native state (a
-    /// rolling horizon's plant integration, Plan 22 Y5c): on the session thread, under its
-    /// own admission of `cores` CPU permits and outside any adapter's scope, so the state a
-    /// later solve reuses survives when `cores` equals that solve's threads. It records no
-    /// step.
-    ///
-    /// # Errors
-    /// Admission, cancellation before admission, a lost session or the work's own error.
-    #[cfg(feature = "solver-diffsol")]
-    pub(in crate::workflow) async fn native<T: Send + 'static>(
-        &self,
-        cores: usize,
-        cancel: &crate::CancelSource,
-        work: impl FnOnce(
-            &mut pse_backend_native::execution::Retained,
-            &Arc<std::sync::atomic::AtomicBool>,
-            &Arc<crate::math::WorkerBudget>,
-        ) -> Result<T, crate::math::MathRuntimeError>
-        + Send
-        + 'static,
-    ) -> Result<T, crate::math::MathRuntimeError> {
-        self.session.run(cores, None, cancel, work).await
-    }
     /// Run proposal work under the original target's cancellation owner and deadline,
     /// including the wait for CPU admission and the native session reply.
     #[cfg(feature = "solver-diffsol")]
