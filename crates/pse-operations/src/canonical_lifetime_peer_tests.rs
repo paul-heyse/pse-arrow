@@ -89,11 +89,14 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
         }),
     };
     use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
-    let retained_bytes = 64 * 1024 + crate::canonical::MetadataResponse::Protection.allocation_bytes();
+    // Refused overlapping admission attaches the original whole response grant
+    // instead of an independently allocated retained-metadata grant.
+    let retained_bytes = crate::canonical::MetadataResponse::Selection.allocation_bytes();
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(retained_bytes));
     let allocation = MemoryConsumer::new("test:queued-protection-metadata").register(&pool);
     allocation.try_grow(retained_bytes).unwrap();
     let allocation: Arc<dyn std::fmt::Debug + Send + Sync> = Arc::new(allocation);
+    let late_sdk = allocation.clone();
     selection.retain_metadata_owner(allocation.clone()).unwrap();
     selection.retain_metadata_owner(allocation.clone()).unwrap();
     assert!(selection.retain_metadata_owner(Arc::new(())).is_err());
@@ -104,6 +107,8 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
     // blocked at the actual ProblemTurns admission queue. Its activity remains.
     assert_eq!(store.result_read_drain.live(), 0);
     assert_eq!(pool.reserved(), retained_bytes, "queued cleanup retains actual metadata after the facade drops");
+    drop(late_sdk);
+    assert_eq!(pool.reserved(), retained_bytes, "late original SDK release cannot retire queued cleanup's fallback grant");
     assert!(matches!(
         store.disconnect().await,
         Err(CanonicalError::ConnectionBusy { .. })

@@ -60,14 +60,33 @@ pub(super) fn retain_metadata(
 
 /// Retained protected rows also prepay their final release response. That small
 /// grant follows the read into queued cleanup and uncertain-release recovery.
-pub(super) fn retain_protected_metadata(
+pub(super) fn retain_protected_metadata<F>(
     pool: &Arc<dyn MemoryPool>,
     response: Arc<MemoryReservation>,
     bytes: usize,
-) -> Result<MemoryReservation, WorkflowError> {
-    let bytes = bytes.checked_add(MetadataResponse::Protection.allocation_bytes())
-        .ok_or_else(|| contract("protected metadata allocation extent"))?;
-    retain_metadata(pool, response, bytes)
+    attach_fallback: F,
+) -> Result<MemoryReservation, WorkflowError>
+where
+    F: FnOnce(Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<(), pse_operations::canonical::CanonicalError>,
+{
+    let Some(bytes) = bytes.checked_add(MetadataResponse::Protection.allocation_bytes())
+        .filter(|bytes| *bytes <= response.size()) else {
+            attach_fallback(response)?;
+            return Err(contract("protected metadata allocation extent"));
+        };
+    match Arc::try_unwrap(response) {
+        Ok(response) => Ok(response.split(bytes)),
+        Err(response) => {
+            let retained = MemoryConsumer::new("canonical:retained-protected-metadata").register(pool);
+            if let Err(source) = retained.try_grow(bytes) {
+                // Admission can fail while the SDK still owns the original
+                // response. Keep that whole grant through refused-read cleanup.
+                attach_fallback(response)?;
+                return Err(pse_engine::EngineError::from(source).into());
+            }
+            Ok(retained)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -656,7 +675,8 @@ impl Runtime {
                             .map_err(WorkflowError::from)
                     })
                     .await?;
-                let read_owner = Arc::new(retain_protected_metadata(&self.shared.pool(), extent.clone(), read.retained_bytes()?)?);
+                let read_owner = Arc::new(retain_protected_metadata(&self.shared.pool(), extent.clone(), read.retained_bytes()?,
+                    |owner| read.retain_metadata_owner(owner))?);
                 read.retain_metadata_owner(read_owner)?;
                 let validation = self.validation_context();
                 let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
@@ -760,7 +780,8 @@ impl Runtime {
         // owns its additional set key; Arc aliases do not charge read metadata twice.
         let retained = set.capacity().checked_add(read.retained_bytes()?)
             .ok_or_else(|| contract("selection retained extent"))?;
-        let retained = retain_protected_metadata(&self.shared.pool(), extent, retained)?;
+        let retained = retain_protected_metadata(&self.shared.pool(), extent, retained,
+            |owner| read.retain_metadata_owner(owner))?;
         let selection_owner = retained.split(set.capacity());
         let read_owner = Arc::new(retained);
         let read = Arc::new(read);
@@ -935,7 +956,7 @@ mod result_admission_unit {
         let response = pooled_response_owner(&pool, "test:protected-metadata-response", MetadataResponse::Selection).unwrap();
         let original = response.size();
         let sdk = response.clone();
-        let retained = Arc::new(retain_protected_metadata(&pool, response, 4096).unwrap());
+        let retained = Arc::new(retain_protected_metadata(&pool, response, 4096, |_| panic!("successful overlap must not attach the original grant")).unwrap());
         assert_eq!(sdk.size(), original);
         assert_eq!(retained.size(), bytes);
         assert_eq!(pool.reserved(), original + bytes);
@@ -947,12 +968,43 @@ mod result_admission_unit {
         assert_eq!(pool.reserved(), 0);
 
         let response = pooled_response_owner(&pool, "test:unique-protected-response", MetadataResponse::Selection).unwrap();
-        let retained = retain_protected_metadata(&pool, response, 4096).unwrap();
+        let retained = retain_protected_metadata(&pool, response, 4096, |_| panic!("unique transfer must not attach the original grant")).unwrap();
         assert_eq!(pool.reserved(), bytes);
         drop(retained);
         assert_eq!(pool.reserved(), 0);
         let response = pooled_response_owner(&pool, "test:protected-overflow", MetadataResponse::Selection).unwrap();
-        assert!(retain_protected_metadata(&pool, response, usize::MAX).is_err());
+        let mut fallback = None;
+        assert!(retain_protected_metadata(&pool, response, usize::MAX, |owner| { fallback = Some(owner); Ok(()) }).is_err());
+        assert!(fallback.is_some(), "checked extent failure retains the original grant through cleanup");
+        drop(fallback);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[tokio::test]
+    async fn protected_metadata_refusal_keeps_original_grant_through_late_sdk_and_queued_cleanup() {
+        let original = MetadataResponse::Selection.allocation_bytes();
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(original));
+        let response = pooled_response_owner(&pool, "test:refused-protected-response", MetadataResponse::Selection).unwrap();
+        let sdk = response.clone();
+        let mut cleanup_owner = None;
+        assert!(retain_protected_metadata(&pool, response, 4096, |owner| {
+            cleanup_owner = Some(owner);
+            Ok(())
+        }).is_err());
+        assert_eq!(sdk.size(), original, "failed admission never shrinks the live SDK grant");
+        assert!(cleanup_owner.is_some(), "refused read transfers its original grant to cleanup");
+        let (sdk_drain, sdk_drained) = tokio::sync::oneshot::channel();
+        let (cleanup_drain, cleanup_drained) = tokio::sync::oneshot::channel();
+        let late_sdk = tokio::spawn(async move { let _ = sdk_drained.await; drop(sdk); });
+        let queued_cleanup = tokio::spawn(async move { let _ = cleanup_drained.await; drop(cleanup_owner); });
+        assert_eq!(pool.reserved(), original, "SDK and cleanup share one original allocation");
+        sdk_drain.send(()).unwrap();
+        late_sdk.await.unwrap();
+        assert_eq!(pool.reserved(), original, "SDK drain alone cannot retire queued cleanup's grant");
+        let refused = MemoryConsumer::new("test:refused-cleanup-reuse").register(&pool);
+        assert!(refused.try_grow(1).is_err());
+        cleanup_drain.send(()).unwrap();
+        queued_cleanup.await.unwrap();
         assert_eq!(pool.reserved(), 0);
     }
 
@@ -1283,8 +1335,8 @@ mod canonical_connected_results_server_unit {
         );
         let retained = reader_metadata + snapshot_metadata;
         assert!(
-            retained < MetadataResponse::Selection.allocation_bytes() / 16,
-            "idle reader and snapshot retain actual metadata, not RPC envelopes"
+            retained - MetadataResponse::Protection.allocation_bytes() < MetadataResponse::Selection.allocation_bytes() / 16,
+            "idle reader retains actual metadata plus its prepaid final cleanup response"
         );
         assert_eq!(pool.reserved() - before_selection, retained);
         assert_eq!(selected.schema().fields(), schema.fields());

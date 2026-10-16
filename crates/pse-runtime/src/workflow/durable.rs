@@ -186,7 +186,7 @@ impl Operations {
                     )
                     .await?,
                 );
-                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?)?);
+                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
                 read.retain_metadata_owner(read_owner.clone())?;
                 let completion = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone())),
@@ -262,7 +262,7 @@ impl Operations {
                     self.store.read_completion(run, attempt),
                 )
                 .await?;
-                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?)?);
+                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
                 read.retain_metadata_owner(read_owner)?;
                 self.decode_completion(CompletionSelection::Slim(&read))
                     .await
@@ -3023,7 +3023,7 @@ impl Operations {
             )
             .await?,
         );
-        let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?)?);
+        let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
         read.retain_metadata_owner(read_owner)?;
         if read.attempt().seed_manifest.as_deref() != Some(read.manifest().key.as_str())
             || row.attempt_generation != read.attempt().generation
