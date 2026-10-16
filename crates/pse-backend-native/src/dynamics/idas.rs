@@ -19,7 +19,6 @@ use crate::{
     solve::{Assurance, Backend, Execution, NativeTermination, Preconditioner, Progress},
 };
 use std::{
-    collections::HashMap,
     ffi::{c_int, c_long, c_void},
     marker::PhantomData,
     rc::Rc,
@@ -67,18 +66,8 @@ struct Context<'a> {
     callback: CallbackState,
     /// Actual first residual outcome of the current IDACalcIC phase, not a later trial.
     initial_ic_residual: Option<bool>,
-    /// CSC pattern of the Newton matrix: the state columns of every mode's support plus
-    /// the diagonal, sorted by row within each column.
-    columns: Vec<ffi::sunindextype>,
-    rows: Vec<ffi::sunindextype>,
-    /// CSC pattern of the adjoint Newton matrix `cjB·M + ∂f/∂yᵀ`: the transposed pattern.
-    columns_b: Vec<ffi::sunindextype>,
-    rows_b: Vec<ffi::sunindextype>,
-    /// Forward union-entry destinations in the adjoint pattern.
-    transpose_slots: Vec<usize>,
-    partial_slots: PartialSlots,
-    diagonal_slots: Vec<usize>,
-    diagonal_slots_b: Vec<usize>,
+    /// One immutable all-mode layout shared with the preparation/admission owner.
+    layout: Arc<PreparedLayout>,
     newton_values: Vec<f64>,
     newton_values_b: Vec<f64>,
     /// CSC pattern of the second-order adjoint's block lower-triangular Newton matrix: the
@@ -458,70 +447,13 @@ fn transposed(j: &Jacobian, v: &[f64]) -> Vec<f64> {
     );
     out
 }
-/// CSC index arrays of `n` columns from sorted `(column, row)` pairs.
-#[allow(
-    clippy::type_complexity,
-    reason = "the two SUNDIALS CSC index arrays, returned together"
-)]
-fn csc(
-    n: usize,
-    pairs: &[(usize, usize)],
-) -> Result<(Vec<ffi::sunindextype>, Vec<ffi::sunindextype>), ProblemError> {
-    let mut columns = vec![0];
-    let mut rows = Vec::with_capacity(pairs.len());
-    let mut next = pairs.iter().peekable();
-    for col in 0..n {
-        while let Some(&(_, row)) = next.next_if(|(c, _)| *c == col) {
-            rows.push(index(row)?);
-        }
-        columns.push(index(rows.len())?);
-    }
-    Ok((columns, rows))
-}
-/// The position of `row` in CSC column `col`.
-fn slot(
-    columns: &[ffi::sunindextype],
-    rows: &[ffi::sunindextype],
-    col: usize,
-    row: usize,
-) -> Option<usize> {
-    let range = columns[col] as usize..columns[col + 1] as usize;
-    rows[range.clone()]
-        .binary_search(&(row as ffi::sunindextype))
-        .ok()
-        .map(|k| range.start + k)
-}
-/// Prepared sparse destinations for actual state partials. The oracle may return
-/// a subset or noncanonical rows; neither changes the admitted union destinations.
-struct PartialSlots {
-    states: usize,
-    destinations: HashMap<(usize, usize), usize>,
-}
-impl PartialSlots {
-    fn new(columns: &[ffi::sunindextype], rows: &[ffi::sunindextype]) -> Self {
-        let states = columns.len() - 1;
-        let destinations = (0..states)
-            .flat_map(|col| {
-                (columns[col] as usize..columns[col + 1] as usize)
-                    .map(move |k| ((col, rows[k] as usize), k))
-            })
-            .collect();
-        Self {
-            states,
-            destinations,
-        }
-    }
-    fn get(&self, col: usize, row: usize) -> Option<usize> {
-        self.destinations.get(&(col, row)).copied()
-    }
-}
 fn scatter_partials(
     source: faer::sparse::SparseColMatRef<'_, usize, f64>,
-    slots: &PartialSlots,
+    slots: &PreparedLayout,
     transpose: Option<&[usize]>,
     values: &mut [f64],
 ) -> bool {
-    for col in 0..slots.states {
+    for col in 0..slots.states() {
         for k in source.col_range(col) {
             let Some(target) = slots.get(col, source.row_idx()[k]) else {
                 return false;
@@ -615,14 +547,14 @@ unsafe extern "C" fn jacobian(
             return c.failure();
         };
         c.newton_values.fill(0.0);
-        for (col, &target) in c.diagonal_slots.iter().enumerate() {
+        for (col, &target) in c.layout.diagonal_slots.iter().enumerate() {
             if c.contract.differential[col] {
                 c.newton_values[target] += cj;
             }
         }
         if !scatter_partials(
             j.as_ref().as_ref(),
-            &c.partial_slots,
+            &c.layout,
             None,
             &mut c.newton_values,
         ) {
@@ -633,8 +565,8 @@ unsafe extern "C" fn jacobian(
             return -1;
         }
         // SAFETY: IDAS passes the KLU matrix `linear_solver` created with `n` columns and
-        // room for `c.rows.len()` nonzeros; `values` has one entry per pattern row.
-        unsafe { publish(matrix, &c.columns, &c.rows, &c.newton_values) };
+        // room for `c.layout.rows.len()` nonzeros; `values` has one entry per pattern row.
+        unsafe { publish(matrix, &c.layout.columns, &c.layout.rows, &c.newton_values) };
         0
     }));
     finish_callback(c, result)
@@ -949,15 +881,15 @@ unsafe extern "C" fn jacobian_b(
             return c.failure();
         };
         c.newton_values_b.fill(0.0);
-        for (col, &target) in c.diagonal_slots_b.iter().enumerate() {
+        for (col, &target) in c.layout.diagonal_slots_b.iter().enumerate() {
             if c.contract.differential[col] {
                 c.newton_values_b[target] += cj;
             }
         }
         if !scatter_partials(
             j.as_ref().as_ref(),
-            &c.partial_slots,
-            Some(&c.transpose_slots),
+            &c.layout,
+            Some(&c.layout.transpose_slots),
             &mut c.newton_values_b,
         ) {
             c.callback.terminal = Some((
@@ -967,8 +899,8 @@ unsafe extern "C" fn jacobian_b(
             return -1;
         }
         // SAFETY: IDAS passes the KLU matrix `create_backward` made with `n` columns and
-        // room for `c.rows_b.len()` nonzeros; `values` has one entry per pattern row.
-        unsafe { publish(matrix, &c.columns_b, &c.rows_b, &c.newton_values_b) };
+        // room for `c.layout.rows_b.len()` nonzeros; `values` has one entry per pattern row.
+        unsafe { publish(matrix, &c.layout.columns_b, &c.layout.rows_b, &c.newton_values_b) };
         0
     }));
     finish_callback(c, result)
@@ -1129,7 +1061,7 @@ unsafe extern "C" fn jacobian_bs(
                 }
             }
             for k in symbolic.col_range(col) {
-                let Some(union) = c.partial_slots.get(col, symbolic.row_idx()[k]) else {
+                let Some(union) = c.layout.get(col, symbolic.row_idx()[k]) else {
                     return outside(c);
                 };
                 for target in c.partial_slots_bs[union] {
@@ -1152,8 +1084,8 @@ unsafe extern "C" fn jacobian_bs(
             };
             // Rows of one colour share no state, so each state entry belongs to one row.
             for row in color {
-                for k in c.columns_b[row] as usize..c.columns_b[row + 1] as usize {
-                    let state = c.rows_b[k] as usize;
+                for k in c.layout.columns_b[row] as usize..c.layout.columns_b[row + 1] as usize {
+                    let state = c.layout.rows_b[k] as usize;
                     let target = c.coupling_slots_bs[k];
                     values[target] += v[state];
                 }
@@ -1351,6 +1283,7 @@ fn initialization_option(start: IdasInitialization) -> i32 {
     }
 }
 struct StatePreparation<'a> {
+    layout: Option<Arc<PreparedLayout>>,
     time: f64,
     parameters: Vec<f64>,
     map: Vec<usize>,
@@ -1385,53 +1318,23 @@ impl<'a> Session<'a> {
         let c = oracle.contract().clone();
         let n = c.states.len();
         execution.check()?;
-        if let Some(allowance) = execution.memory
-            && scatter_storage_bound(n, false).is_none_or(|bytes| bytes > allowance)
-        {
-            return Err(ProblemError::memory(
-                "IDAS prepared scatter exceeds foreign allowance",
-            ));
+        let allowance = execution.memory.unwrap_or(usize::MAX);
+        let layout = match config.layout { Some(layout) => layout, None => oracle.prepared_layout(allowance)? };
+        if layout.states() != n {
+            return Err(ProblemError::internal("IDAS prepared layout state extent"));
         }
+        let bytes = layout.scatter_bytes(DynamicDemand::Base)?
+            .checked_add(layout.linear_bytes(config.linear)?)
+            .ok_or_else(|| ProblemError::memory("IDAS selected workspace extent"))?;
+        if bytes > allowance {
+            return Err(ProblemError::memory("IDAS selected workspace exceeds foreign allowance"));
+        }
+        crate::observation::integer("idas.layout.nonzeros", "entries", i64::try_from(layout.nonzeros()).unwrap_or(i64::MAX));
+        crate::observation::integer("idas.layout.bytes", "bytes", i64::try_from(layout.retained_bytes()).unwrap_or(i64::MAX));
+        crate::observation::integer("idas.linear.workspace.bytes", "bytes", i64::try_from(layout.linear_bytes(config.linear)?).unwrap_or(i64::MAX));
         let map = config.map;
-        let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
-        for mode in 0..c.events.len() {
-            pattern.extend(
-                oracle
-                    .support(mode, Function::Rhs)
-                    .into_iter()
-                    .map(|entry| (entry.row.get(), entry.col.get()))
-                    .filter(|&(row, col)| col < n && row < n)
-                    .map(|(row, col)| (col, row)),
-            );
-        }
-        pattern.sort_unstable();
-        pattern.dedup();
-        let (columns, rows) = csc(n, &pattern)?;
-        let mut transposed: Vec<_> = pattern.iter().map(|&(col, row)| (row, col)).collect();
-        transposed.sort_unstable();
-        let (columns_b, rows_b) = csc(n, &transposed)?;
-        let diagonal_slots = (0..n)
-            .map(|i| {
-                slot(&columns, &rows, i, i)
-                    .ok_or_else(|| ProblemError::internal("IDAS diagonal absent"))
-            })
-            .collect::<Result<_, _>>()?;
-        let diagonal_slots_b = (0..n)
-            .map(|i| {
-                slot(&columns_b, &rows_b, i, i)
-                    .ok_or_else(|| ProblemError::internal("IDAS adjoint diagonal absent"))
-            })
-            .collect::<Result<_, _>>()?;
-        let transpose_slots = pattern
-            .iter()
-            .map(|&(col, row)| {
-                slot(&columns_b, &rows_b, row, col)
-                    .ok_or_else(|| ProblemError::internal("IDAS transpose entry absent"))
-            })
-            .collect::<Result<_, _>>()?;
-        let partial_slots = PartialSlots::new(&columns, &rows);
-        let newton_values = vec![0.0; rows.len()];
-        let newton_values_b = vec![0.0; rows_b.len()];
+        let newton_values = vec![0.0; layout.rows.len()];
+        let newton_values_b = vec![0.0; layout.rows_b.len()];
         let mut s = Self {
             observation_generation: crate::observation::generation(),
             observation_counters: std::cell::RefCell::default(),
@@ -1459,14 +1362,7 @@ impl<'a> Session<'a> {
                 trial_policy: config.trial_failures,
                 callback: CallbackState::new(execution),
                 initial_ic_residual: None,
-                columns,
-                rows,
-                columns_b,
-                rows_b,
-                transpose_slots,
-                partial_slots,
-                diagonal_slots,
-                diagonal_slots_b,
+                layout,
                 newton_values,
                 newton_values_b,
                 columns_bs: Vec::new(),
@@ -1549,6 +1445,7 @@ impl<'a> Session<'a> {
         integration: &[f64],
         p: &Profile,
         directions: &[usize],
+        layout: Option<Arc<PreparedLayout>>,
         execution: Execution,
     ) -> Result<Self, ProblemError> {
         let forward = p.forward() || !directions.is_empty();
@@ -1557,6 +1454,7 @@ impl<'a> Session<'a> {
             oracle,
             integration,
             StatePreparation {
+                layout,
                 time: p.start,
                 parameters: p.parameters_at(integration, p.start),
                 map,
@@ -1660,7 +1558,7 @@ impl<'a> Session<'a> {
         let mut rates = Vec::new();
         if !directions.is_empty() {
             if let Some(allowance) = self.callback.callback.execution.memory
-                && scatter_storage_bound(n, true).is_none_or(|bytes| bytes > allowance)
+                && self.callback.layout.scatter_bytes(DynamicDemand::ExactHessian)?.gt(&allowance)
             {
                 return Err(ProblemError::memory(
                     "IDAS second-order scatter exceeds foreign allowance",
@@ -1669,7 +1567,7 @@ impl<'a> Session<'a> {
             // The transposed pattern of `∂f/∂yᵀ` on both diagonal blocks of the 2n Newton
             // matrix and on the coupling block `∂(∇²(λᵀf)·d)_x/∂λ` below them: column j of
             // the coupling holds `(∇²f_j·d)_x`, nonzero only where f_j depends on the state.
-            let (columns, rows) = (&self.callback.columns_b, &self.callback.rows_b);
+            let (columns, rows) = (&self.callback.layout.columns_b, &self.callback.layout.rows_b);
             let mut pairs = Vec::with_capacity(3 * rows.len());
             for (column, row) in [(0, 0), (0, n), (n, n)] {
                 for col in 0..n {
@@ -1681,20 +1579,19 @@ impl<'a> Session<'a> {
             pairs.sort_unstable();
             // Greedy colouring of the residual rows by their state support.
             let mut colors: Vec<Vec<usize>> = Vec::new();
-            let mut owned: Vec<Vec<bool>> = Vec::new();
+            let mut owned: Vec<Vec<i64>> = Vec::new();
             for j in 0..n {
                 let support = &rows[columns[j] as usize..columns[j + 1] as usize];
                 let color = owned
                     .iter()
-                    .position(|states| support.iter().all(|i| !states[*i as usize]))
+                    .position(|states| support.iter().all(|i| states.binary_search(i).is_err()))
                     .unwrap_or_else(|| {
-                        owned.push(vec![false; n]);
+                        owned.push(Vec::new());
                         colors.push(Vec::new());
                         owned.len() - 1
                     });
-                for i in support {
-                    owned[color][*i as usize] = true;
-                }
+                owned[color].extend_from_slice(support);
+                owned[color].sort_unstable();
                 colors[color].push(j);
             }
             self.callback.colors = colors;
@@ -1708,10 +1605,10 @@ impl<'a> Session<'a> {
             };
             c.partial_slots_bs = (0..n)
                 .flat_map(|col| {
-                    (c.columns[col] as usize..c.columns[col + 1] as usize).map(move |k| (col, k))
+                    (c.layout.columns[col] as usize..c.layout.columns[col + 1] as usize).map(move |k| (col, k))
                 })
                 .map(|(col, k)| {
-                    let row = c.rows[k] as usize;
+                    let row = c.layout.rows[k] as usize;
                     Ok([target(row, col)?, target(n + row, n + col)?])
                 })
                 .collect::<Result<_, ProblemError>>()?;
@@ -1720,10 +1617,10 @@ impl<'a> Session<'a> {
                 .collect::<Result<_, ProblemError>>()?;
             c.coupling_slots_bs = (0..n)
                 .flat_map(|row| {
-                    (c.columns_b[row] as usize..c.columns_b[row + 1] as usize)
+                    (c.layout.columns_b[row] as usize..c.layout.columns_b[row + 1] as usize)
                         .map(move |k| (row, k))
                 })
-                .map(|(row, k)| target(row, n + c.rows_b[k] as usize))
+                .map(|(row, k)| target(row, n + c.layout.rows_b[k] as usize))
                 .collect::<Result<_, _>>()?;
 
             for _ in 0..width {
@@ -1755,7 +1652,7 @@ impl<'a> Session<'a> {
                     ffi::SUNSparseMatrix(
                         index(n)?,
                         index(n)?,
-                        index(self.callback.rows.len())?,
+                        index(self.callback.layout.rows.len())?,
                         0,
                         self.ctx,
                     )
@@ -2906,7 +2803,7 @@ impl Session<'_> {
         let (size, quadratures, nonzeros) = if second {
             (2 * n, 2 * width, self.callback.rows_bs.len())
         } else {
-            (n, width, self.callback.rows_b.len())
+            (n, width, self.callback.layout.rows_b.len())
         };
         let ids: Vec<_> = self
             .callback
@@ -3337,6 +3234,7 @@ pub(super) fn integrate_with_samples(
             profile: p,
             integration,
             directions: &[],
+            admission: None,
         },
         cancel,
         progress,
@@ -3394,29 +3292,10 @@ pub(super) fn initialize_consistent(
     let allowance = execution.memory.ok_or_else(|| {
         contract("consistent initialization requires a finite foreign memory allowance")
     })?;
-    // Native KLU fill can be dense. Bound the planned shape before allocating foreign
-    // vectors/matrices; deployment owns enforcement of opaque native allocations.
-    let vectors = dimension
-        .unwrap_or(0)
-        .checked_mul(2)
-        .and_then(|v| v.checked_add(12));
-    let bytes = n
-        .checked_mul(n)
-        .and_then(|v| v.checked_mul(32))
-        .and_then(|v| {
-            n.checked_mul(vectors?)
-                .and_then(|w| w.checked_mul(8))
-                .and_then(|w| v.checked_add(w))
-        })
-        .ok_or_else(|| {
-            ProblemError::memory("consistent initialization workspace shape overflow")
-        })?;
-    let bytes = bytes
-        .checked_add(
-            scatter_storage_bound(n, false)
-                .ok_or_else(|| ProblemError::memory("IDAS prepared scatter extent overflow"))?,
-        )
-        .ok_or_else(|| ProblemError::memory("consistent initialization scatter extent overflow"))?;
+    let layout = oracle.prepared_layout(allowance)?;
+    let bytes = layout.scatter_bytes(DynamicDemand::Base)?
+        .checked_add(layout.linear_bytes(request.linear)?)
+        .ok_or_else(|| ProblemError::memory("consistent initialization workspace extent"))?;
     if bytes > allowance {
         return Err(ProblemError::memory(
             "consistent initialization workspace exceeds foreign allowance",
@@ -3427,6 +3306,7 @@ pub(super) fn initialize_consistent(
         oracle,
         parameters,
         StatePreparation {
+            layout: Some(layout),
             time: request.time,
             parameters: parameters.to_vec(),
             map: (0..parameters.len()).collect(),
@@ -3636,8 +3516,9 @@ pub(super) fn gradient(
     cotangent: Cotangent<'_>,
     cancel: Cancellation,
     progress: Arc<Progress>,
+    admission: (Arc<PreparedLayout>, usize),
 ) -> Result<Gradient, ProblemError> {
-    backward_route(oracle, p, integration, &[], cotangent, cancel, progress)
+    backward_route(oracle, p, integration, &[], cotangent, cancel, progress, admission)
 }
 /// The gradient and the Hessian over `directions` of the cotangent's functional, by
 /// forward-over-adjoint second-order sensitivities (ADR-0110 item 4). The caller admitted
@@ -3650,6 +3531,7 @@ pub(super) fn hessian(
     cotangent: Cotangent<'_>,
     cancel: Cancellation,
     progress: Arc<Progress>,
+    admission: (Arc<PreparedLayout>, usize),
 ) -> Result<Gradient, ProblemError> {
     backward_route(
         oracle,
@@ -3659,6 +3541,7 @@ pub(super) fn hessian(
         cotangent,
         cancel,
         progress,
+        admission,
     )
 }
 /// One forward pass with checkpoints, the cotangent of its samples, and the backward pass
@@ -3671,6 +3554,7 @@ fn backward_route(
     cotangent: Cotangent<'_>,
     cancel: Cancellation,
     progress: Arc<Progress>,
+    admission: (Arc<PreparedLayout>, usize),
 ) -> Result<Gradient, ProblemError> {
     let mut observer = IgnoreSamples;
     let mut output = SampleOutput {
@@ -3683,6 +3567,7 @@ fn backward_route(
             profile: p,
             integration,
             directions,
+            admission: Some(admission),
         },
         cancel,
         progress,
@@ -3732,6 +3617,7 @@ struct NumericalRequest<'a> {
     profile: &'a Profile,
     integration: &'a [f64],
     directions: &'a [usize],
+    admission: Option<(Arc<PreparedLayout>, usize)>,
 }
 /// One IDAS attempt: the forward pass, then `after` once it completed, with every failure
 /// and stop kept in the report.
@@ -3747,13 +3633,14 @@ fn attempt<T>(
         profile: p,
         integration,
         directions,
+        admission,
     } = request;
     let execution = Execution {
         cancel,
         started: Instant::now(),
         time_limit: p.time_limit,
         progress,
-        memory: None,
+        memory: admission.as_ref().map(|(_, memory)| *memory),
         work_admission: None,
         callback_work_owner: true,
         enclosing_scope: None,
@@ -3782,7 +3669,7 @@ fn attempt<T>(
         Err(error) => return (failure(r, error), None, 0),
     };
     r.requested_initial = initial.values;
-    let mut s = match Session::new(oracle, integration, p, directions, execution.clone()) {
+    let mut s = match Session::new(oracle, integration, p, directions, admission.map(|(layout, _)| layout), execution.clone()) {
         Ok(session) => session,
         Err(error) => return (failure(r, error), None, 0),
     };
@@ -3854,13 +3741,11 @@ mod initialization_tests {
             ],
         )
         .unwrap();
-        let slots = PartialSlots::new(&columns, &rows);
-        let destinations_capacity = slots.destinations.capacity();
-        let occupied = slots.destinations.capacity()
-            * (size_of::<((usize, usize), usize)>() + size_of::<usize>());
-        assert!(scatter_storage_bound(3, false).unwrap() >= occupied);
-        assert!(scatter_storage_bound(usize::MAX, true).is_none());
-        assert!(scatter_storage_bound(3, true).unwrap() > scatter_storage_bound(3, false).unwrap());
+        let slots = PreparedLayout::new(3, pattern.iter().map(|&(col, row)|
+            SupportEntry::new(OriginalRow::new(row), OriginalCol::new(col))), usize::MAX).unwrap();
+        let occupied = slots.retained_bytes();
+        assert!(slots.scatter_bytes(DynamicDemand::Base).unwrap() >= occupied);
+        assert!(slots.scatter_bytes(DynamicDemand::ExactHessian).unwrap() > slots.scatter_bytes(DynamicDemand::Base).unwrap());
         let mut forward = vec![0.; rows.len()];
         let mut backward = vec![0.; rows_b.len()];
         assert!(scatter_partials(
@@ -3875,7 +3760,7 @@ mod initialization_tests {
             Some(&destinations),
             &mut backward
         ));
-        assert_eq!(slots.destinations.capacity(), destinations_capacity);
+        assert_eq!(slots.retained_bytes(), occupied);
         assert_eq!(forward, [0., -4., -7., 0., 3., 0.]);
         for &(col, row) in &pattern {
             assert_eq!(
@@ -4072,6 +3957,32 @@ mod initialization_tests {
         assert!(point.state.iter().all(|v| v.abs() < 1e-8));
         assert!(point.rates.iter().all(|v| *v == 0.0));
         assert!(report.assessment.unwrap().roles_preserved);
+    }
+    #[test]
+    fn public_ic_admits_selected_klu_and_krylov_workspaces_before_callbacks() {
+        use pse_model::scalars::PositiveCount;
+        for linear in [IdasLinear::Klu,
+            IdasLinear::Spgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::Jacobi },
+            IdasLinear::Spfgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::Jacobi }] {
+            let mut request = request();
+            request.linear = linear;
+            let mut oracle = IcOracle::new();
+            let layout = oracle.prepared_layout(1 << 20).unwrap();
+            let bytes = layout.scatter_bytes(DynamicDemand::Base).unwrap() + layout.linear_bytes(linear).unwrap();
+            let mut refused = execution();
+            refused.memory = Some(bytes - 1);
+            assert!(initialize_consistent(&mut oracle, &[], &request, refused).is_err());
+            assert_eq!(oracle.residual_calls, 0);
+            let mut admitted = execution();
+            admitted.memory = Some(bytes);
+            let report = initialize_consistent(&mut oracle, &[], &request, admitted).unwrap();
+            assert_eq!(report.termination.name, "IDA_SUCCESS", "{linear:?}: {:?}", report.error);
+            let point = report.candidate.unwrap();
+            assert_eq!(point.state[0], 2.0);
+            assert!((point.state[1] - 4.0).abs() < 1e-8);
+            assert!((point.rates[0] + 2.0).abs() < 1e-8);
+            assert!(report.assessment.unwrap().roles_preserved);
+        }
     }
     #[test]
     fn public_ic_native_cap_keeps_failed_status_counters_and_original_assessment() {

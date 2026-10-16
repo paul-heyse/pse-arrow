@@ -12,6 +12,10 @@ use std::{
     time::Duration,
 };
 
+mod layout;
+pub use layout::PreparedLayout;
+#[cfg(feature = "idas")]
+use layout::{csc, slot};
 mod anchored;
 pub use anchored::Anchored;
 #[cfg(feature = "idas")]
@@ -586,7 +590,8 @@ pub fn gradient_observed(
     if profile.sensitivity != DynamicSensitivity::Adjoint {
         return Err(contract("a gradient needs the adjoint sensitivity profile"));
     }
-    let reserved = profile.checkpoint_bytes(oracle.contract())?;
+    let layout = oracle.prepared_layout(memory)?;
+    let reserved = profile.checkpoint_bytes(oracle.contract(), &layout)?;
     if reserved > memory {
         return Err(ProblemError::memory(format!(
             "adjoint checkpoint estimate of {reserved} bytes exceeds the {memory}-byte allowance"
@@ -599,7 +604,7 @@ pub fn gradient_observed(
             integrator::gradient(oracle, profile, parameters, cotangent, cancel, progress)
         }
         #[cfg(feature = "idas")]
-        Method::Idas => idas::gradient(oracle, profile, parameters, cotangent, cancel, progress),
+        Method::Idas => idas::gradient(oracle, profile, parameters, cotangent, cancel, progress, (layout, memory)),
         _ => Err(ProblemError::unsupported(
             "requested dynamic backend is not linked",
         )),
@@ -662,7 +667,8 @@ pub fn hessian_observed(
     let profile = &resolved;
     snapshot.validate_for(crate::execution::adapter(crate::solve::Backend::Idas))?;
     profile.validate(oracle.contract(), parameters)?;
-    let reserved = profile.admit_second_order(oracle.contract(), directions)?;
+    let layout = oracle.prepared_layout(memory)?;
+    let reserved = profile.admit_second_order(oracle.contract(), directions, &layout)?;
     if reserved > memory {
         return Err(ProblemError::memory(format!(
             "second-order adjoint estimate of {reserved} bytes exceeds the {memory}-byte allowance"
@@ -670,7 +676,7 @@ pub fn hessian_observed(
     }
     let progress = Arc::new(crate::solve::Progress::new(256));
     idas::hessian(
-        oracle, profile, parameters, directions, cotangent, cancel, progress,
+        oracle, profile, parameters, directions, cotangent, cancel, progress, (layout, memory),
     )
     .map(|mut g| {
         g.reserved_bytes = reserved;
@@ -1478,7 +1484,7 @@ impl Profile {
                 Err(cause) => causes.push(Arc::new(cause)),
             }
             let order = if demand == DynamicDemand::ExactHessian {
-                match profile.admit_second_order(c, directions) {
+                match profile.validate_second_order(c, directions) {
                     Ok(_) => {}
                     Err(
                         cause @ (ProblemError::Limit { .. }
@@ -1639,19 +1645,15 @@ impl Profile {
     fn segments(&self) -> usize {
         self.boundaries().len() + 1
     }
-    /// Conservative storage for prepared sparse IDAS scatter destinations. The
-    /// all-mode union is bounded by the square state shape before querying support;
-    /// second-order block maps are charged only for that requested demand.
+    /// Known sparse layout/value storage plus the selected native linear workspace.
     pub fn native_scatter_bytes(
         &self,
-        c: &Contract,
+        layout: &PreparedLayout,
         demand: DynamicDemand,
     ) -> Result<usize, ProblemError> {
-        if self.method == Method::Diffsol {
-            return Ok(0);
-        }
-        scatter_storage_bound(c.states.len(), demand == DynamicDemand::ExactHessian)
-            .ok_or_else(|| ProblemError::memory("IDAS prepared scatter extent overflow"))
+        if self.method == Method::Diffsol { return Ok(0); }
+        layout.scatter_bytes(demand)?.checked_add(layout.linear_bytes(self.idas.linear)?)
+            .ok_or_else(|| ProblemError::memory("IDAS prepared workspace extent"))
     }
     /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
     /// charged against the caller's allowance before native work. The count is the smaller
@@ -1659,7 +1661,7 @@ impl Profile {
     /// method state bounded by a BDF difference table (the largest), each IDAS checkpoint
     /// its history array, and the replay holds `steps_between_checkpoints` Hermite points
     /// per segment (two interpolants on Diffsol). Accounting, not an RSS claim.
-    pub fn checkpoint_bytes(&self, c: &Contract) -> Result<usize, ProblemError> {
+    pub fn checkpoint_bytes(&self, c: &Contract, layout: &PreparedLayout) -> Result<usize, ProblemError> {
         let n = c.states.len();
         let steps = self.adjoint.steps_between_checkpoints.into_inner();
         let segments = self.segments();
@@ -1684,7 +1686,10 @@ impl Profile {
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
         bytes
-            .checked_add(self.native_scatter_bytes(c, DynamicDemand::Base)?)
+            .checked_add(self.native_scatter_bytes(layout, DynamicDemand::Base)?)
+            .and_then(|bytes| if self.method == Method::Diffsol { Some(bytes) } else {
+                bytes.checked_add(PreparedLayout::direct_bytes(n, layout.nonzeros())?)
+            })
             .ok_or_else(|| ProblemError::memory("adjoint scatter extent overflow"))
     }
     /// The second-order route's admission (ADR-0110 item 4), before native work: the
@@ -1698,7 +1703,12 @@ impl Profile {
         &self,
         c: &Contract,
         directions: &[usize],
+        layout: &PreparedLayout,
     ) -> Result<usize, ProblemError> {
+        self.validate_second_order(c, directions)?;
+        self.second_order_bytes(c, directions, layout)
+    }
+    fn validate_second_order(&self, c: &Contract, directions: &[usize]) -> Result<(), ProblemError> {
         if self.sensitivity != DynamicSensitivity::Adjoint {
             return Err(contract(
                 "an exact transient Hessian needs the adjoint sensitivity profile",
@@ -1757,6 +1767,11 @@ impl Profile {
         if cells > self.max_cells {
             return Err(ProblemError::memory("dynamic result cell allowance"));
         }
+        Ok(())
+    }
+    fn second_order_bytes(&self, c: &Contract, directions: &[usize], layout: &PreparedLayout) -> Result<usize, ProblemError> {
+        let n = c.states.len();
+        let width = self.integration_width(c.parameters.len());
         let steps = self.adjoint.steps_between_checkpoints.into_inner();
         let segments = self.segments();
         // Each IDAS checkpoint holds its history array for the state and every state
@@ -1785,7 +1800,8 @@ impl Profile {
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("second-order adjoint extent overflow"))?;
         bytes
-            .checked_add(self.native_scatter_bytes(c, DynamicDemand::ExactHessian)?)
+            .checked_add(self.native_scatter_bytes(layout, DynamicDemand::ExactHessian)?)
+            .and_then(|bytes| bytes.checked_add(PreparedLayout::direct_bytes(n.checked_mul(2)?, layout.nonzeros().checked_mul(3)?)?.checked_mul(directions.len())?))
             .ok_or_else(|| ProblemError::memory("second-order scatter extent overflow"))
     }
     fn method_refusals(&self, c: &Contract) -> Vec<ProblemError> {
@@ -2081,23 +2097,6 @@ impl Profile {
         Ok(cells)
     }
 }
-fn scatter_storage_bound(states: usize, second: bool) -> Option<usize> {
-    let entries = states.checked_mul(states)?;
-    // At most twice the occupied buckets, rounded up for the hash-table group,
-    // with a conservative aligned bucket/control allowance and table header.
-    let buckets = entries
-        .checked_mul(2)?
-        .max(16)
-        .checked_next_power_of_two()?;
-    let bytes = buckets.checked_mul(64)?.checked_add(128)?;
-    if second {
-        bytes
-            .checked_add(entries.checked_mul(3 * size_of::<usize>())?)?
-            .checked_add(states.checked_mul(2 * size_of::<usize>())?)
-    } else {
-        Some(bytes)
-    }
-}
 /// Function value and raw partials with respect to state followed by parameters.
 #[derive(Clone, Debug)]
 pub struct Evaluation {
@@ -2142,6 +2141,27 @@ pub trait Oracle: std::fmt::Debug {
     fn contract(&self) -> &Contract;
     /// Complete all-branch sparse support for the selected function and mode.
     fn support(&self, mode: usize, function: Function) -> Vec<SupportEntry>;
+    /// Shared complete all-mode native layout. Prepared production owners override
+    /// this to return their existing immutable layout. The default supports local
+    /// oracle implementations and bounds support overlap before layout allocation.
+    fn prepared_layout(&self, allowance: usize) -> Result<Arc<PreparedLayout>, ProblemError> {
+        let modes = self.contract().events.len();
+        let mut support_bytes = modes.checked_mul(size_of::<Vec<SupportEntry>>())
+            .ok_or_else(|| ProblemError::memory("IDAS support headers extent"))?;
+        if support_bytes > allowance { return Err(ProblemError::memory("IDAS support headers exceed allowance")); }
+        let mut supports = Vec::with_capacity(modes);
+        for mode in 0..self.contract().events.len() {
+            let support = self.support(mode, Function::Rhs);
+            support_bytes = support_bytes.checked_add(support.capacity().checked_mul(size_of::<SupportEntry>())
+                .ok_or_else(|| ProblemError::memory("IDAS support source extent"))?)
+                .ok_or_else(|| ProblemError::memory("IDAS support source extent"))?;
+            if support_bytes > allowance { return Err(ProblemError::memory("IDAS source support exceeds allowance")); }
+            supports.push(support);
+        }
+        Ok(Arc::new(PreparedLayout::new(self.contract().states.len(),
+            supports.iter().flat_map(|support| support.iter().copied()),
+            allowance - support_bytes)?))
+    }
     /// Reserve an independently retained owned derivative snapshot before its
     /// allocation. Adapters forward this to the actual allocation owner.
     fn snapshot_owner(

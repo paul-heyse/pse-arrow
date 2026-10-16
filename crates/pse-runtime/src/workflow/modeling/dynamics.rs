@@ -756,6 +756,8 @@ impl ModelingSimulation {
     pub fn contract(&self) -> &native::Contract {
         &self.contract
     }
+    /// Complete all-mode state support shared by native admission and execution.
+    pub fn native_layout(&self) -> &native::PreparedLayout { self.layout.native() }
     /// The integration parameter values: the contract's unscheduled parameters in
     /// declared order, then every interval of every scheduled input
     /// ([`native::Profile::parameters_at`] gives the contract values at a time).
@@ -2852,6 +2854,14 @@ impl ModelingPackage {
             .len()
             .checked_mul(size_of::<(f64, usize)>())
             .ok_or_else(|| contract_error("dynamic sample coverage extent"))?;
+        let layout = Arc::new(
+            crate::workflow::dynamics::DynamicLayout::new(
+                &programs,
+                &coordinates,
+                profile.max_cells,
+            )
+            .map_err(|e| WorkflowError::Math(e.into()))?,
+        );
         let bytes = programs.iter().try_fold(
             cells
                 .checked_mul(64)
@@ -2863,9 +2873,8 @@ impl ModelingPackage {
                 .and_then(|n| n.checked_add(4 << 20))
                 .and_then(|n| {
                     n.checked_add(
-                        profile
-                            .native_scatter_bytes(&contract, native::DynamicDemand::Base)
-                            .ok()?,
+                        profile.native_scatter_bytes(layout.native(), native::DynamicDemand::Base).ok()?
+                            .checked_sub(if profile.method == native::Method::Diffsol { 0 } else { layout.native().retained_bytes() })?,
                     )
                 })
                 .ok_or_else(|| contract_error("dynamic result extent"))?,
@@ -3001,14 +3010,6 @@ impl ModelingPackage {
                     .ok_or_else(|| contract_error("dynamic projection storage"))?,
             )
             .ok_or_else(|| contract_error("dynamic projection storage"))?;
-        let layout = Arc::new(
-            crate::workflow::dynamics::DynamicLayout::new(
-                &programs,
-                &coordinates,
-                profile.max_cells,
-            )
-            .map_err(|e| WorkflowError::Math(e.into()))?,
-        );
         let bytes = bytes
             .checked_add(layout.retained_bytes())
             .and_then(|n| n.checked_add(layout.worker_bytes()))

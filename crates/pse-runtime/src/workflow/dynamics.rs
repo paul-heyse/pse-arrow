@@ -362,6 +362,7 @@ pub(crate) struct DynamicCoordinates {
 /// Program-fixed coordinate chains, support and canonical sparse templates.
 #[derive(Debug)]
 pub(crate) struct DynamicLayout {
+    native: Arc<native::PreparedLayout>,
     chain: Vec<f64>,
     functions: BTreeMap<(usize, Function), Arc<FunctionLayout>>,
 }
@@ -479,10 +480,18 @@ impl DynamicLayout {
                 return Err(ProblemError::internal("duplicate dynamic function"));
             }
         }
-        Ok(Self { chain, functions })
+        let native = Arc::new(native::PreparedLayout::new(
+            coordinates.state.len(),
+            functions.iter().filter(|((_, function), _)| *function == Function::Rhs)
+                .flat_map(|(_, layout)| layout.pairs.iter().copied()),
+            max_cells.checked_mul(64).ok_or_else(|| ProblemError::memory("dynamic native layout allowance extent"))?,
+        )?);
+        Ok(Self { chain, functions, native })
     }
+    pub(crate) fn native(&self) -> &Arc<native::PreparedLayout> { &self.native }
     pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + self.native.retained_bytes()
             + self.chain.capacity() * size_of::<f64>()
             + self
                 .functions
@@ -867,6 +876,12 @@ impl Oracle for DynamicWorker {
     }
     fn contract(&self) -> &native::Contract {
         &self.contract
+    }
+    fn prepared_layout(&self, allowance: usize) -> Result<Arc<native::PreparedLayout>, ProblemError> {
+        if self.layout.native.retained_bytes() > allowance {
+            return Err(ProblemError::memory("dynamic native layout exceeds allowance"));
+        }
+        Ok(self.layout.native.clone())
     }
     fn support(&self, mode: usize, function: Function) -> Vec<native::SupportEntry> {
         self.functions
