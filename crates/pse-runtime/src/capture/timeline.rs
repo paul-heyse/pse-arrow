@@ -712,18 +712,17 @@ pub(super) fn run(
                     }
                     // Preserve every known source gap before fallible packet output can stop
                     // projection. Source loss and writer/output loss are independent facts.
-                    document(state).loss.source_partial |=
-                        super::source_partial(&image, &selected)
-                            || image.operations.iter().any(|operation| {
-                                selected.contains(&operation.id)
-                                    && (operation.interval_partial
-                                        || operation.detail_partial
-                                        || operation.coverage.sampled
-                                        || operation.coverage.dropped_detail > 0
-                                        || operation.metrics.iter().any(|metric| {
-                                            metric.history_partial || metric.history_dropped > 0
-                                        }))
-                            });
+                    document(state).loss.source_partial |= super::source_partial(&image, &selected)
+                        || image.operations.iter().any(|operation| {
+                            selected.contains(&operation.id)
+                                && (operation.interval_partial
+                                    || operation.detail_partial
+                                    || operation.coverage.sampled
+                                    || operation.coverage.dropped_detail > 0
+                                    || operation.metrics.iter().any(|metric| {
+                                        metric.history_partial || metric.history_dropped > 0
+                                    }))
+                        });
                     for operation in &image.operations {
                         if !selected.contains(&operation.id) {
                             continue;

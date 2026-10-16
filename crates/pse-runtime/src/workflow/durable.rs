@@ -4132,8 +4132,7 @@ mod canonical_durable_codec {
                     &format!("accepted-prefix:{}", fence.attempt()),
                     "__prefix",
                     0,
-                    pse_operations::canonical_execution::ResultPayload::new([7].to_vec())
-                        .unwrap(),
+                    pse_operations::canonical_execution::ResultPayload::new([7].to_vec()).unwrap(),
                     1,
                 )
                 .await

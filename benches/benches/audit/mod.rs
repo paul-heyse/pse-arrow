@@ -196,10 +196,10 @@ impl Drop for Audit {
             return;
         };
         state.publisher_stop.store(true, Ordering::Release);
-        if let Some(publisher) = self.publisher.take() {
-            if publisher.join().is_err() {
-                state.error("audit publisher panicked");
-            }
+        if let Some(publisher) = self.publisher.take()
+            && publisher.join().is_err()
+        {
+            state.error("audit publisher panicked");
         }
         let interrupted = state.stop_requested.load(Ordering::Acquire);
         let status = if state.cleanup_failures.load(Ordering::Relaxed) > 0
@@ -391,10 +391,10 @@ pub(crate) async fn with_owner<T>(
         Err(panic) => {
             let cleanup = owner.cleanup_fixtures().await;
             cleanup_result(cleanup.is_ok());
-            if let Err(error) = cleanup {
-                if let Some(state) = state() {
-                    state.error(format!("fixture cleanup after failure: {error}"));
-                }
+            if let Err(error) = cleanup
+                && let Some(state) = state()
+            {
+                state.error(format!("fixture cleanup after failure: {error}"));
             }
             std::panic::resume_unwind(panic)
         }
@@ -425,10 +425,10 @@ pub(crate) fn with_owner_sync<T>(
         Err(panic) => {
             let cleanup = executor.block_on(owner.cleanup_fixtures());
             cleanup_result(cleanup.is_ok());
-            if let Err(error) = cleanup {
-                if let Some(state) = state() {
-                    state.error(format!("fixture cleanup after failure: {error}"));
-                }
+            if let Err(error) = cleanup
+                && let Some(state) = state()
+            {
+                state.error(format!("fixture cleanup after failure: {error}"));
             }
             std::panic::resume_unwind(panic)
         }
@@ -454,10 +454,10 @@ pub(crate) async fn wait_ref(
     } else {
         handle.wait().await
     };
-    if result.is_ok() {
-        if let Some(state) = state() {
-            state.joins.fetch_add(1, Ordering::Relaxed);
-        }
+    if result.is_ok()
+        && let Some(state) = state()
+    {
+        state.joins.fetch_add(1, Ordering::Relaxed);
     }
     checkpoint();
     result
@@ -478,10 +478,10 @@ pub(crate) async fn finish<T>(
     } else {
         finish.await
     };
-    if result.is_ok() {
-        if let Some(state) = state() {
-            state.joins.fetch_add(1, Ordering::Relaxed);
-        }
+    if result.is_ok()
+        && let Some(state) = state()
+    {
+        state.joins.fetch_add(1, Ordering::Relaxed);
     }
     checkpoint();
     result

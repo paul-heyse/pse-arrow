@@ -2329,10 +2329,8 @@ mod canonical_connected_results_server_unit {
                 "progress",
                 "__progress",
                 0,
-                pse_operations::canonical_execution::ResultPayload::new(
-                    progress_payload.to_vec(),
-                )
-                .unwrap(),
+                pse_operations::canonical_execution::ResultPayload::new(progress_payload.to_vec())
+                    .unwrap(),
                 1,
             )
             .await

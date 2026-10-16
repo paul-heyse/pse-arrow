@@ -74,6 +74,21 @@ pub(super) async fn open(
     let producer = if receipt.is_some() {
         startup.producer.clone().map(Into::into)
     } else {
+        let configuration = std::sync::Arc::new(|| {
+            #[allow(
+                unsafe_code,
+                reason = "controlled worker observes its immutable reconstruction configuration"
+            )]
+            // SAFETY: this supervised worker's controlled reconstruction lifetime
+            // excludes all current-environment writers.
+            let environment = unsafe {
+                pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(&|| Ok(()))?
+            };
+            pse_runtime::math::portable::RuntimeConfigurationObservation::new(
+                Vec::new(),
+                environment,
+            )
+        });
         // SAFETY: the controlled worker's own code observes its receiving artifact.
         // Reconstruction is immutable Rust math without caller/plugin/provider
         // callbacks or direct executable-map mutation. Native operations retain
@@ -88,18 +103,7 @@ pub(super) async fn open(
             math.observe_local_runtime(
                 pse_runtime::math::portable::ExpectedProducerTarget::WORKER,
                 local_code_anchor as *const () as usize,
-                std::sync::Arc::new(|| {
-                    // SAFETY: this supervised worker's controlled reconstruction
-                    // lifetime excludes all current-environment writers.
-                    let environment =
-                        pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(
-                            &|| Ok(()),
-                        )?;
-                    pse_runtime::math::portable::RuntimeConfigurationObservation::new(
-                        Vec::new(),
-                        environment,
-                    )
-                }),
+                configuration,
                 deadline,
                 &cancelled,
             )

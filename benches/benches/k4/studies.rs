@@ -207,7 +207,7 @@ async fn definition(
         .collect();
     let admitted = package
         .admit_study(
-            &workflow::StudyInputs::Explicit((&points).to_vec()),
+            &workflow::StudyInputs::Explicit(points.to_vec()),
             &workflow::StudyOutputDemand::Full {},
             &audit::cancel_source(),
         )
@@ -575,14 +575,13 @@ pub(super) fn measure(
                 })).await;
                 let _drain_stage=audit::stage("managed_receiver_drain_and_fixture_teardown");
                 let drain=Instant::now();
-                if let Some(receiver)=&mut receiver {
-                    if let Err(error)=receiver.finish() {
+                if let Some(receiver)=&mut receiver
+                    && let Err(error)=receiver.finish() {
                         // Preserve the original scientific failure when one already
                         // exists; the audit separately records failed receiver drain.
                         let _=std::io::Write::write_all(&mut std::io::stderr(),format!("{error}\n").as_bytes());
                         if let Err(panic)=result { std::panic::resume_unwind(panic); }
                         panic!("{error}");
-                    }
                 }
                 let receiver_drain_seconds=drain.elapsed().as_secs_f64();
                 drop(receiver);

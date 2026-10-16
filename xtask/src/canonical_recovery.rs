@@ -456,7 +456,7 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
                     && saved.payload.iter().all(|byte| *byte == 0xa7),
                 "staged payload changed"
             ),
-            _ => unreachable!("only two selected names"),
+            name => anyhow::bail!("unexpected selected recovery member: {name}"),
         }
     }
     {
@@ -490,42 +490,6 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
     }
     store.disconnect().await?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn recovery_creation_intent_retains_exact_native_codec_fields() -> Result<()> {
-        let intent = pse_operations::canonical_analyses::Analysis {
-            key: "pse.analysis.v2:original-authority:nonce:123456".into(),
-            revision: FIRST.into(),
-            method: "recovery-authority.v1".into(),
-            configuration: vec![0, 255, 1].into(),
-            input_digest: "empty".into(),
-            primary_problem: PROBLEM.into(),
-            primary_authority: "original-authority".into(),
-            creation_nonce: "exact-original-nonce".into(),
-            creation_request_digest: "sealed-original-request".into(),
-            creation_expires_at: 123456,
-            interpretation: INTERPRETATION.into(),
-            node_count: 0,
-            edge_count: 0,
-            active: false,
-            retiring: false,
-        };
-        let native = pse_operations::generated::surreal::encode_canonical_analyses(&intent)?;
-        let bytes = serde_json::to_vec(&native)?;
-        let decoded = pse_operations::generated::surreal::decode_canonical_analyses(
-            serde_json::from_slice(&bytes)?,
-        )?;
-        ensure!(
-            decoded == intent,
-            "saved creation intent was reconstructed differently"
-        );
-        Ok(())
-    }
 }
 
 /// Seed an explicit two-file terminal partial observation for the installed
@@ -714,4 +678,40 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
         "relation": "runtime.solve_metrics", "terminal_class": "partial",
         "first_page_ordinals": [0, 1], "file_instances": files,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recovery_creation_intent_retains_exact_native_codec_fields() -> Result<()> {
+        let intent = pse_operations::canonical_analyses::Analysis {
+            key: "pse.analysis.v2:original-authority:nonce:123456".into(),
+            revision: FIRST.into(),
+            method: "recovery-authority.v1".into(),
+            configuration: vec![0, 255, 1].into(),
+            input_digest: "empty".into(),
+            primary_problem: PROBLEM.into(),
+            primary_authority: "original-authority".into(),
+            creation_nonce: "exact-original-nonce".into(),
+            creation_request_digest: "sealed-original-request".into(),
+            creation_expires_at: 123456,
+            interpretation: INTERPRETATION.into(),
+            node_count: 0,
+            edge_count: 0,
+            active: false,
+            retiring: false,
+        };
+        let native = pse_operations::generated::surreal::encode_canonical_analyses(&intent)?;
+        let bytes = serde_json::to_vec(&native)?;
+        let decoded = pse_operations::generated::surreal::decode_canonical_analyses(
+            serde_json::from_slice(&bytes)?,
+        )?;
+        ensure!(
+            decoded == intent,
+            "saved creation intent was reconstructed differently"
+        );
+        Ok(())
+    }
 }

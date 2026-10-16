@@ -39,7 +39,7 @@ extend-ignore-identifiers-re = [
   "^SCIP[A-Za-z0-9_]*$",
   "^IDA_[A-Z0-9_]+$",
   "^OT_[A-Za-z]+$",
-  "^dmumps_struc$", # Exact upstream C header stem, not prose.
+  "^dmumps_struc$",      # Exact upstream C header stem, not prose.
 ]
 
 [default.extend-words]

@@ -3080,8 +3080,7 @@ mod canonical_studies_server_unit {
                         &format!("sibling-batch-{index}"),
                         "temperature_kelvin",
                         0,
-                        crate::canonical_execution::ResultPayload::new(original.to_vec())
-                            .unwrap(),
+                        crate::canonical_execution::ResultPayload::new(original.to_vec()).unwrap(),
                         1,
                     )
                     .await
