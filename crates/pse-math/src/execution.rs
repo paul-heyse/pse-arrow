@@ -2079,6 +2079,7 @@ impl PreparedBody {
                 entries: frame,
                 instructions: 0,
                 modules: 0,
+                #[cfg(feature = "compiled-evaluator")]
                 native_prepaid: self.is_flat_arithmetic(),
                 local_order: if local_branches {
                     requested
@@ -3453,6 +3454,7 @@ struct BuildAllowance {
     modules: usize,
     /// Flat arithmetic modules were included by the selected-source preflight.
     /// Opaque control/provider construction consumes the installed owner's prepaid capacity.
+    #[cfg(feature = "compiled-evaluator")]
     native_prepaid: bool,
 }
 fn provider_request_order(

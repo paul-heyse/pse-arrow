@@ -3,19 +3,18 @@
 //! Explicit scalar C++ preparation; shared code and independently loaded scratch.
 use crate::{MathError, library};
 use std::{
-    fs::File,
     io::Read,
     os::unix::process::CommandExt,
     process::{Child, Command, ExitStatus, Stdio},
     sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}},
     time::Duration,
 };
-use symbolica::evaluate::{CompiledRealEvaluator, ExportSettings, ExpressionEvaluator, InlineASM};
+use symbolica::{atom::Symbol, evaluate::{CompiledRealEvaluator, ExportSettings, ExpressionEvaluator, ExportedInstructions, InlineASM, Instruction}};
 
 const FUNCTION: &str = "pse_value";
 const COMPILER: &str = "/usr/bin/g++";
 const FLAGS: &[&str] = &[
-    "-std=c++17", "-O2", "-shared", "-fPIC", "-fno-fast-math",
+    "-std=c++17", "-O2", "-pipe", "-fPIC", "-fno-fast-math",
     "-fno-unsafe-math-optimizations", "-ffp-contract=off", "-march=x86-64", "-mtune=generic",
 ];
 
@@ -63,31 +62,146 @@ impl Evaluator {
     }
 }
 
-/// Only the exact compiler driver below enters this owned process group. Its
-/// children inherit the group and workload placement. Every unsuccessful exit
-/// kills that group and joins the driver before directory/storage release.
-struct CompilerChild { child: Child, joined: bool }
-impl Drop for CompilerChild {
-    fn drop(&mut self) {
-        if !self.joined {
-            if let Ok(raw) = i32::try_from(self.child.id())
-                && let Some(group) = rustix::process::Pid::from_raw(raw)
-            {
-                let _ = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+// These are source bounds for Symbolica 3.0.1 export.rs, not compiler RSS
+// estimates. Generic scalar export spells usize/i64 indices in <=20 digits,
+// finite f64 constants as scientific notation, and the fixed wrappers below.
+// Registered constants/subevaluators and opaque function/control channels refuse.
+// This is not a validator for arbitrary Symbolica evaluators: its sole production
+// caller receives library::bounded_evaluator products. library::exact_evaluator
+// uses Atom::evaluator_multiple's empty FunctionMap and never registers functions;
+// ScalarProducts has no public insertion route. This producer boundary excludes
+// unused external bodies, which export_cpp emits but export_instructions omits.
+fn export_bound(export: &ExportedInstructions<f64>) -> Result<usize, MathError> {
+    if !export.constant_functions.is_empty() || !export.sub_evaluators.is_empty()
+        || export.constants.iter().any(|value| !value.is_finite())
+    {
+        return Err(MathError::Contract("compiled scalar export requires finite provider-free constants".into()));
+    }
+    let mut bytes = 4096usize.checked_add(export.output_count.checked_mul(128)
+        .ok_or(MathError::Limit("compiled output export extent"))?)
+        .ok_or(MathError::Limit("compiled output export extent"))?;
+    for instruction in &export.instructions {
+        let operands = match instruction {
+            Instruction::Add(_, arguments, _) | Instruction::Mul(_, arguments, _) => arguments.len(),
+            Instruction::Pow(..) | Instruction::Assign(..) => 1,
+            Instruction::Powf(..) => 2,
+            Instruction::Fun(_, call, _) => {
+                let (symbol, tags, arguments) = call.as_ref();
+                if !tags.is_empty() || arguments.len() != 1
+                    || ![Symbol::EXP, Symbol::LOG, Symbol::SIN, Symbol::COS, Symbol::SQRT, Symbol::ABS, Symbol::CONJ].contains(symbol)
+                {
+                    return Err(MathError::Contract("compiled scalar export refuses opaque function channels".into()));
+                }
+                1
             }
-            let _ = self.child.wait();
+            _ => return Err(MathError::Contract("compiled scalar export refuses opaque instruction channels".into())),
+        };
+        bytes = bytes.checked_add(operands.checked_mul(64)
+            .and_then(|n| n.checked_add(256))
+            .ok_or(MathError::Limit("compiled instruction export extent"))?)
+            .ok_or(MathError::Limit("compiled instruction export extent"))?;
+    }
+    Ok(bytes)
+}
+
+const CAPTURE: usize = 4096;
+const READER_STACK: usize = 64 << 10;
+
+/// Keep the group leader waitable (WNOWAIT) until every owned group member has
+/// stopped. Its reserved PID prevents signalling a replacement numeric PGID.
+struct CompilerChild { child: Child, group: rustix::process::Pid, joined: bool }
+impl CompilerChild {
+    fn drain(&mut self) -> std::io::Result<ExitStatus> {
+        loop {
+            let _ = rustix::process::kill_process_group(self.group, rustix::process::Signal::KILL);
+            match group_running(self.group.as_raw_pid()) {
+                Ok(false) => break,
+                // Observation errors cannot release resources still used by an
+                // unknown group member. Retain the leader and retry cleanup.
+                Ok(true) | Err(_) => std::thread::sleep(Duration::from_millis(5)),
+            }
         }
+        let status = self.child.wait()?;
+        self.joined = true;
+        Ok(status)
     }
 }
-fn wait(compiler: &mut CompilerChild, cancelled: &AtomicBool) -> Result<ExitStatus, MathError> {
+impl Drop for CompilerChild {
+    fn drop(&mut self) {
+        if !self.joined { let _ = self.drain(); }
+    }
+}
+fn group_running(group: i32) -> std::io::Result<bool> {
+    for entry in std::fs::read_dir("/proc")? {
+        let entry = entry?;
+        if entry.file_name().as_encoded_bytes().iter().any(|c| !c.is_ascii_digit()) { continue; }
+        let stat = match std::fs::read_to_string(entry.path().join("stat")) {
+            Ok(stat) => stat,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error),
+        };
+        let Some((_, tail)) = stat.rsplit_once(") ") else { continue; };
+        let mut fields = tail.split_whitespace();
+        let state = fields.next();
+        let _parent = fields.next();
+        if fields.next().and_then(|value| value.parse::<i32>().ok()) == Some(group)
+            && !matches!(state, Some("Z" | "X"))
+        { return Ok(true); }
+    }
+    Ok(false)
+}
+fn wait(compiler: &CompilerChild, cancelled: &AtomicBool) -> Result<(), MathError> {
+    use rustix::process::{WaitId, WaitIdOptions, waitid};
     loop {
         if cancelled.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
-        if let Some(status) = compiler.child.try_wait().map_err(|e| MathError::Library(e.to_string()))? {
-            compiler.joined = true;
-            return Ok(status);
-        }
-        std::thread::sleep(Duration::from_millis(10));
+        if waitid(WaitId::Pid(compiler.group), WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT)
+            .map_err(|e| MathError::Library(e.to_string()))?.is_some()
+        { return Ok(()); }
+        std::thread::sleep(Duration::from_millis(5));
     }
+}
+fn run_compiler(
+    mut command: Command,
+    cancelled: &AtomicBool,
+) -> Result<(), MathError> {
+    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).process_group(0);
+    let child = command.spawn().map_err(|e| MathError::Library(e.to_string()))?;
+    let group = rustix::process::Pid::from_child(&child);
+    let mut compiler = CompilerChild { child, group, joined: false };
+    let mut stderr = compiler.child.stderr.take().ok_or_else(|| MathError::Library("missing compiler stderr pipe".into()))?;
+    // Drain all bytes so a noisy compiler cannot block; retain only a bounded
+    // prefix. The thread stack, capture and conversion overlap were prepaid.
+    let reader = std::thread::Builder::new().name("pse-cpp-stderr".into()).stack_size(READER_STACK)
+        .spawn(move || -> std::io::Result<Vec<u8>> {
+            let mut prefix = Vec::with_capacity(CAPTURE);
+            let mut chunk = [0u8; 1024];
+            loop {
+                let size = stderr.read(&mut chunk)?;
+                if size == 0 { return Ok(prefix); }
+                let keep = size.min(CAPTURE - prefix.len());
+                prefix.extend_from_slice(&chunk[..keep]);
+            }
+        }).map_err(|e| MathError::Library(e.to_string()))?;
+    let observed = wait(&compiler, cancelled);
+    // Always drain before releasing temporary outputs, including driver failure
+    // and a nominally successful driver that left an executing child behind.
+    let status = compiler.drain();
+    let diagnostics = reader.join().map_err(|_| MathError::Library("compiler stderr reader panicked".into()))?
+        .map_err(|e| MathError::Library(e.to_string()));
+    observed?;
+    let status = status.map_err(|e| MathError::Library(e.to_string()))?;
+    let diagnostics = diagnostics?;
+    if !status.success() {
+        return Err(MathError::Library(format!("compiled scalar compiler {status}: {}", String::from_utf8_lossy(&diagnostics))));
+    }
+    Ok(())
+}
+fn compiler_command(path: &str, limit: usize, directory: &std::path::Path) -> Command {
+    // prlimit installs the hard per-output file limit before exec, inherited by
+    // cc1plus/as/ld. Separate compile/link phases own one named output each.
+    let mut command = Command::new("/usr/bin/prlimit");
+    command.arg(format!("--fsize={limit}:{limit}")).arg("--core=0:0").arg("--").arg(path).env("TMPDIR", directory);
+    command
 }
 
 pub(crate) fn compile(
@@ -111,34 +225,47 @@ fn compile_with(
     let storage = library::storage(evaluator)?;
     let scratch = storage.numeric_entries.checked_mul(size_of::<f64>())
         .ok_or(MathError::Limit("compiled template scratch"))?;
+    let source_bound = export_bound(&evaluator.export_instructions())?;
+    // export.rs builds argument String vectors, joined expressions and formatted
+    // assignments while the growing result String remains live. Eight complete
+    // source populations cover these capacities/temporaries for the admitted
+    // fixed-width channels, plus the separately counted instruction view.
+    let export_peak = source_bound.checked_mul(8)
+        .and_then(|n| n.checked_add(storage.instruction_bytes))
+        .ok_or(MathError::Limit("compiled export construction extent"))?;
+    let fixed = scratch.checked_add(size_of::<Template>() + size_of::<Evaluator>() + (64 << 10))
+        .and_then(|n| n.checked_add(READER_STACK + 16 * CAPTURE))
+        .ok_or(MathError::Limit("compiled module metadata extent"))?;
+    let output_capacity = module_bytes.checked_sub(export_peak)
+        .and_then(|n| n.checked_sub(fixed))
+        .and_then(|n| n.checked_sub(source_bound))
+        .filter(|n| *n >= 3)
+        .ok_or(MathError::Limit("compiled source/output preflight allowance"))?;
+    // Object file, shared file and its loaded file-backed image coexist. The
+    // fixed allowance above separately covers page rounding/loader metadata.
+    let object_limit = output_capacity / 3;
+    let code_limit = output_capacity / 3;
     let source = evaluator.export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None))
         .map_err(MathError::Library)?;
-    let metadata = size_of::<Template>() + size_of::<Evaluator>() + 4096;
-    let before = source.len().checked_add(scratch).and_then(|n| n.checked_add(metadata))
-        .filter(|n| *n <= module_bytes).ok_or(MathError::Limit("compiled source/module storage"))?;
+    if source.len() > source_bound || source.capacity() > source_bound.saturating_mul(2) {
+        return Err(MathError::Contract("compiled export exceeded its source-qualified bound".into()));
+    }
     let directory = tempfile::Builder::new().prefix("pse-math-native-").tempdir()
         .map_err(|e| MathError::Library(e.to_string()))?;
     let source_path = directory.path().join("value.cpp");
     let library_path = directory.path().join("value.so");
-    let stderr_path = directory.path().join("compiler.stderr");
+    let object_path = directory.path().join("value.o");
     std::fs::write(&source_path, source).map_err(|e| MathError::Library(e.to_string()))?;
-    let stderr = File::create(&stderr_path).map_err(|e| MathError::Library(e.to_string()))?;
-    let mut command = Command::new(compiler_path);
-    command.args(FLAGS).arg(&source_path).arg("-o").arg(&library_path)
-        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(stderr).process_group(0);
-    let mut child = CompilerChild { child: command.spawn().map_err(|e| MathError::Library(e.to_string()))?, joined: false };
-    let status = wait(&mut child, cancelled)?;
-    if !status.success() {
-        let mut detail = String::new();
-        File::open(&stderr_path).map_err(|e| MathError::Library(e.to_string()))?
-            .take(4096).read_to_string(&mut detail).map_err(|e| MathError::Library(e.to_string()))?;
-        return Err(MathError::Library(format!("compiled scalar compiler {status}: {detail}")));
-    }
+    let mut compile = compiler_command(compiler_path, object_limit, directory.path());
+    compile.args(FLAGS).arg("-c").arg(&source_path).arg("-o").arg(&object_path);
+    run_compiler(compile, cancelled)?;
+    let mut link = compiler_command(compiler_path, code_limit, directory.path());
+    link.arg("-shared").arg("-Wl,-z,max-page-size=4096").arg(&object_path).arg("-o").arg(&library_path);
+    run_compiler(link, cancelled)?;
     let code_bytes = usize::try_from(std::fs::metadata(&library_path)
         .map_err(|e| MathError::Library(e.to_string()))?.len())
         .map_err(|_| MathError::Limit("compiled executable extent"))?;
-    before.checked_add(code_bytes).filter(|n| *n <= module_bytes)
-        .ok_or(MathError::Limit("compiled executable/module storage"))?;
+    if code_bytes > code_limit { return Err(MathError::Contract("compiler exceeded enforced output file limit".into())); }
     if cancelled.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
     let loaded = CompiledRealEvaluator::load(&library_path, FUNCTION).map_err(MathError::Library)?;
     if loaded.get_input_len() != evaluator.get_input_len() || loaded.get_output_len() != evaluator.get_output_len() {
@@ -179,6 +306,92 @@ mod tests {
     }
 
     #[test]
+    fn native_scalar_driver_exit_drains_live_children_before_return() {
+        for exit in [0, 7] {
+            let fixture = tempfile::tempdir().unwrap();
+            let marker = fixture.path().join("child");
+            let quoted = marker.to_string_lossy().replace('\'', "'\"'\"'");
+            let mut command = Command::new("/bin/sh");
+            command.arg("-c").arg(format!("sleep 60 &\nprintf '%s\\n' \"$!\" > '{quoted}'\nexit {exit}\n"));
+            let result = run_compiler(command, &AtomicBool::new(false));
+            assert_eq!(result.is_ok(), exit == 0);
+            let child = std::fs::read_to_string(marker).unwrap();
+            assert_stopped_at_return(child.trim());
+        }
+    }
+
+    #[test]
+    fn native_scalar_export_bound_covers_supported_scalar_channels_and_refuses_unknowns() {
+        crate::initialize().unwrap();
+        let x = parse!("pse_native_bound::x");
+        let y = parse!("pse_native_bound::y");
+        let expressions = [
+            &x + &y, &x * &y, x.pow(-1), x.pow(3), x.pow(&y),
+            x.exp(), x.log(), x.sin(), x.cos(), x.sqrt(), x.abs(), x.conj(),
+        ];
+        let evaluator = Atom::evaluator_multiple(&expressions, &[x, y])
+            .horner_iterations(0).cpe_iterations(Some(0)).build().unwrap()
+            .map_coeff(&|coefficient| coefficient.to_real().unwrap().to_f64());
+        let export = evaluator.export_instructions();
+        let bound = export_bound(&export).unwrap();
+        let source = evaluator.export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None)).unwrap();
+        assert!(source.len() <= bound && source.capacity() <= 2 * bound);
+        for value in [f64::MAX, f64::MIN, f64::MIN_POSITIVE, f64::from_bits(1), -0.] {
+            assert!(format!("{value:e}").len() + 3 <= 64);
+        }
+        let mut tagged = evaluator.export_instructions();
+        let Some(Instruction::Fun(_, call, _)) = tagged.instructions.iter_mut().find(|instruction| matches!(instruction, Instruction::Fun(..))) else { panic!("builtin function export"); };
+        call.1.push("opaque".into());
+        assert!(export_bound(&tagged).is_err());
+        let mut control = evaluator.export_instructions();
+        control.instructions.push(Instruction::Goto(0));
+        assert!(export_bound(&control).is_err());
+        let mut nonfinite = evaluator.export_instructions();
+        nonfinite.constants.push(f64::INFINITY);
+        assert!(export_bound(&nonfinite).is_err());
+        let mut overflow = evaluator.export_instructions();
+        overflow.output_count = usize::MAX;
+        assert!(matches!(export_bound(&overflow), Err(MathError::Limit(_))));
+    }
+
+    #[test]
+    fn native_scalar_export_preflight_covers_wide_argument_temporary_overlap() {
+        crate::initialize().unwrap();
+        let parameters = (0..256).map(|i| library::formal(i).unwrap()).collect::<Vec<_>>();
+        let sum = parameters.iter().fold(Atom::num(0), |value, parameter| value + parameter);
+        let product = parameters.iter().fold(Atom::num(1), |value, parameter| value * parameter);
+        let evaluator = Atom::evaluator_multiple(&[sum, product], &parameters)
+            .horner_iterations(0).cpe_iterations(Some(0)).build().unwrap()
+            .map_coeff(&|coefficient| coefficient.to_real().unwrap().to_f64());
+        let bound = export_bound(&evaluator.export_instructions()).unwrap();
+        let source = evaluator.export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None)).unwrap();
+        assert!(source.len() <= bound && source.capacity() <= 2 * bound);
+        // A too-small module refuses before invoking even a deliberately invalid
+        // compiler path; the effect boundary is behind export/output preflight.
+        assert!(matches!(compile_with(&evaluator, bound, &Arc::new(AtomicBool::new(false)), "/no/compiler"), Err(MathError::Limit("compiled source/output preflight allowance"))));
+    }
+
+    #[test]
+    fn native_scalar_compiler_diagnostics_and_file_output_are_bounded() {
+        let fixture = tempfile::tempdir().unwrap();
+        let noisy = fixture.path().join("noisy");
+        std::fs::write(&noisy, "#!/bin/sh\nhead -c 1048576 /dev/zero | tr '\\000' x >&2\nexit 1\n").unwrap();
+        std::fs::set_permissions(&noisy, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let error = compile_with(&arithmetic(), 1 << 20, &Arc::new(AtomicBool::new(false)), noisy.to_str().unwrap());
+        let Err(MathError::Library(detail)) = error else { panic!("noisy compiler must fail"); };
+        assert!(detail.len() < CAPTURE + 128);
+        let oversized = fixture.path().join("oversized");
+        std::fs::write(&oversized, "#!/bin/sh\nprev=\nfor arg; do if [ \"$prev\" = -o ]; then out=$arg; fi; prev=$arg; done\ndd if=/dev/zero of=\"$out\" bs=4096 count=1024 2>/dev/null\n").unwrap();
+        std::fs::set_permissions(&oversized, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(matches!(compile_with(&arithmetic(), 1 << 20, &Arc::new(AtomicBool::new(false)), oversized.to_str().unwrap()), Err(MathError::Library(_))));
+    }
+
+    fn assert_stopped_at_return(child: &str) {
+        let stat = std::fs::read_to_string(format!("/proc/{child}/stat"));
+        assert!(stat.as_ref().map_or(true, |stat| stat.rsplit_once(") ").is_some_and(|(_, tail)| matches!(tail.as_bytes().first(), Some(b'Z' | b'X')))), "owned compiler descendant still executing at return");
+    }
+
+    #[test]
     fn native_scalar_cancelled_compiler_drains_owned_group_and_removes_partial_output() {
         let fixture = tempfile::tempdir().unwrap();
         let marker = fixture.path().join("compiler-started");
@@ -212,13 +425,8 @@ mod tests {
         let source = std::path::Path::new(lines.next().unwrap());
         assert!(!source.parent().unwrap().exists(), "cancelled preparation retained partial source/output");
         let child = lines.next().unwrap();
-        // A killed orphan can remain a zombie until the host reaps it; it must
-        // never remain executing after the owned driver has been joined.
-        for _ in 0..100 {
-            let stat = std::fs::read_to_string(format!("/proc/{child}/stat"));
-            if stat.as_ref().map_or(true, |stat| stat.rsplit_once(") ").is_some_and(|(_, tail)| tail.starts_with('Z'))) { return; }
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        panic!("owned compiler descendant still executing after cancellation");
+        // Drain is part of compile_with: the descendant must already be dead
+        // at return, not merely stop during a later grace-period poll.
+        assert_stopped_at_return(child);
     }
 }

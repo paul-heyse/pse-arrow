@@ -143,10 +143,11 @@ pub enum Evaluator {
     #[default]
     Interpreted,
     /// Fixed conservative Linux x86-64 C++ profile. The finite allowance covers
-    /// each generated module's source, executable and template metadata; worker
-    /// numeric scratch remains independently charged from the exported stack.
+    /// each module's export temporaries, named compiler outputs, loaded code,
+    /// template metadata and bounded diagnostic reader; worker numeric scratch
+    /// remains independently charged from the exported stack.
     CompiledScalar {
-        /// Prepaid source/executable/metadata capacity for each arithmetic block.
+        /// Prepaid complete native preparation/module capacity for each arithmetic block.
         module_bytes: usize,
     },
 }
@@ -156,7 +157,7 @@ impl Evaluator {
     pub fn identity(self) -> &'static str {
         match self {
             Self::Interpreted => "interpreted-f64-v1",
-            Self::CompiledScalar { .. } => "symbolica-3.0.1-cpp-scalar-value-v1;g++;/usr/bin/g++;O2;c++17;noasm;no-fast-math;no-unsafe-math;fp-contract-off;x86-64-generic",
+            Self::CompiledScalar { .. } => "symbolica-3.0.1-cpp-scalar-value-v2;g++;/usr/bin/g++;O2;c++17;pipe;two-phase;page-4096;noasm;no-fast-math;no-unsafe-math;fp-contract-off;x86-64-generic",
         }
     }
     /// Per-module physical capacity carried by the compilation owner.
