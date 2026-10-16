@@ -254,7 +254,14 @@ mod tests {
             value_type: fb::ValueType::Int64, value: Some(integer.as_union_value()),
         });
         let field = fb::KeyValue::create(&mut builder, &fb::KeyValueArgs { key: Some(id_text), value: Some(value) });
-        let fields = builder.create_vector(&[field, field]);
+        let session_key = builder.create_string("session");
+        let bytes = builder.create_vector(&[1_u8; 16]);
+        let uuid = fb::Uuid::create(&mut builder, &fb::UuidArgs { bytes: Some(bytes) });
+        let uuid = fb::Value::create(&mut builder, &fb::ValueArgs {
+            value_type: fb::ValueType::Uuid, value: Some(uuid.as_union_value()),
+        });
+        let session = fb::KeyValue::create(&mut builder, &fb::KeyValueArgs { key: Some(session_key), value: Some(uuid) });
+        let fields = builder.create_vector(&[field, field, session]);
         let object = fb::Object::create(&mut builder, &fb::ObjectArgs { items: Some(fields) });
         let value = fb::Value::create(&mut builder, &fb::ValueArgs {
             value_type: fb::ValueType::Object, value: Some(object.as_union_value()),

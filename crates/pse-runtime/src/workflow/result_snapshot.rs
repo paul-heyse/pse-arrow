@@ -29,7 +29,6 @@ use std::{collections::BTreeMap, sync::Arc};
 struct SnapshotInner {
     runtime: Runtime,
     read: Arc<ResultRead>,
-    _read_owner: Arc<MemoryReservation>,
     relation: pse_ids::SemanticId,
     schema: SchemaRef,
     batches: BTreeMap<String, FileBatch>,
@@ -40,6 +39,8 @@ struct SnapshotInner {
     admission: Arc<pse_relations::validate::ValidationContext>,
     cache: tokio::sync::Mutex<Option<CachedFile>>,
     _owner: MemoryReservation,
+    // File/selection owners and inventories drop before their shared read charge.
+    _read_owner: Arc<MemoryReservation>,
 }
 
 #[derive(Debug)]
