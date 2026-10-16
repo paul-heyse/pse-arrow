@@ -142,7 +142,7 @@ fn catalog_map(info: &Object, category: &str) -> Result<Object, CanonicalError> 
 }
 
 fn append_catalog(definitions: &mut Definitions, values: &Object) -> Result<(), CanonicalError> {
-    for (_, value) in values.iter() {
+    for value in values.values() {
         let Value::String(sql) = value else {
             return Err(invalid("catalog definition is not a string"));
         };
@@ -313,7 +313,7 @@ impl CanonicalStore {
                         .map(|(name, value)| (name.clone(), value.clone()))
                         .collect();
                     append_catalog(&mut observed, &managed_functions)?;
-                    for (name, _) in managed_tables.iter() {
+                    for name in managed_tables.keys() {
                         if !name
                             .bytes()
                             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
@@ -329,12 +329,12 @@ impl CanonicalStore {
                         append_catalog(&mut observed, &catalog_map(&table_info, "fields")?)?;
                         append_catalog(&mut observed, &catalog_map(&table_info, "indexes")?)?;
                         for category in ["events", "lives"] {
-                            if let Some(Value::Object(entries)) = table_info.get(category) {
-                                if !entries.is_empty() {
-                                    return Err(invalid(format!(
-                                        "unowned {category} on managed table {name}"
-                                    )));
-                                }
+                            if let Some(Value::Object(entries)) = table_info.get(category)
+                                && !entries.is_empty()
+                            {
+                                return Err(invalid(format!(
+                                    "unowned {category} on managed table {name}"
+                                )));
                             }
                         }
                     }

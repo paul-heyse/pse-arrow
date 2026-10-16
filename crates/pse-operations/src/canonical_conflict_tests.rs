@@ -121,7 +121,7 @@ async fn finish(store: &CanonicalStore, revision: &Revision, key: &str) -> Strin
             &format!("append-{key}"),
             "values",
             0,
-            crate::canonical_execution::ResultPayload::new((&[42]).to_vec()).unwrap(),
+            crate::canonical_execution::ResultPayload::new([42].to_vec()).unwrap(),
             1,
         )
         .await
@@ -247,6 +247,8 @@ async fn exact_terminal_seal_and_unrelated_source_creator_commute_both_orders() 
             .bind(("active", format!("active_attempt:{}",fence.attempt())))).await.unwrap();
         assert!(roots.take::<Option<Object>>(0).unwrap().is_none());
         assert!(roots.take::<Option<Object>>(1).unwrap().is_some());
+        // SAFETY: this fixture owns the frozen manifest and synthetic partial
+        // completion; replay uses the same terminal class and exposes no seeds.
         unsafe {
             store
                 .seal_attempt(
@@ -364,6 +366,8 @@ async fn exact_terminal_root_release_and_source_collection_preserve_run_both_ord
         }
         // A definite conflict rebuilds the same seal, never another scientific
         // attempt. A completed seal's same-identity replay is also unchanged.
+        // SAFETY: the fixture owns the exact frozen observations and synthetic
+        // partial completion in either commit order, with no seed eligibility.
         unsafe {
             store
                 .seal_attempt(
@@ -972,7 +976,7 @@ async fn exact_cancelled_study_finalizer_has_only_summary_publication_authority(
             "summary-append",
             "values",
             0,
-            crate::canonical_execution::ResultPayload::new((&[42]).to_vec()).unwrap(),
+            crate::canonical_execution::ResultPayload::new([42].to_vec()).unwrap(),
             1,
         )
         .await

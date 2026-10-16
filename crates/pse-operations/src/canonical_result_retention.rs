@@ -226,7 +226,7 @@ mod canonical_result_retention_server_unit {
                     &format!("append-{}-{ordinal}", request.key),
                     "values",
                     ordinal,
-                    crate::canonical_execution::ResultPayload::new((&[ordinal as u8, 17]).to_vec())
+                    crate::canonical_execution::ResultPayload::new([ordinal as u8, 17].to_vec())
                         .unwrap(),
                     1,
                 )

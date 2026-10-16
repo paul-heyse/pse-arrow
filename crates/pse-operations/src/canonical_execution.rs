@@ -400,7 +400,7 @@ mod canonical_execution_server_unit {
                     "value-0",
                     "values",
                     0,
-                    ResultPayload::new((&[1]).to_vec()).unwrap(),
+                    ResultPayload::new([1].to_vec()).unwrap(),
                     1,
                 )
                 .await
@@ -416,7 +416,7 @@ mod canonical_execution_server_unit {
                             "extra",
                             "unadvertised",
                             0,
-                            ResultPayload::new((&[9]).to_vec()).unwrap(),
+                            ResultPayload::new([9].to_vec()).unwrap(),
                             1,
                         )
                         .await
@@ -429,7 +429,7 @@ mod canonical_execution_server_unit {
                             "value-1",
                             "values",
                             1,
-                            ResultPayload::new((&[2]).to_vec()).unwrap(),
+                            ResultPayload::new([2].to_vec()).unwrap(),
                             1,
                         )
                         .await
@@ -515,7 +515,7 @@ mod canonical_execution_server_unit {
                         "extra",
                         "unadvertised",
                         0,
-                        ResultPayload::new((&[9]).to_vec()).unwrap(),
+                        ResultPayload::new([9].to_vec()).unwrap(),
                         1,
                     )
                     .await
@@ -742,7 +742,7 @@ mod canonical_execution_server_unit {
                 "before-cancel",
                 "observations",
                 0,
-                ResultPayload::new((&[7]).to_vec()).unwrap(),
+                ResultPayload::new([7].to_vec()).unwrap(),
                 1,
             )
             .await
@@ -766,7 +766,7 @@ mod canonical_execution_server_unit {
                     "before-cancel",
                     "observations",
                     0,
-                    ResultPayload::new((&[7]).to_vec()).unwrap(),
+                    ResultPayload::new([7].to_vec()).unwrap(),
                     1
                 )
                 .await
@@ -816,7 +816,7 @@ mod canonical_execution_server_unit {
                         &format!("late-{index}"),
                         "observations",
                         1,
-                        ResultPayload::new((&[8]).to_vec()).unwrap(),
+                        ResultPayload::new([8].to_vec()).unwrap(),
                         1
                     )
                     .await
@@ -915,7 +915,7 @@ mod canonical_execution_server_unit {
                 &format!("batch-{key}"),
                 "__seeds",
                 0,
-                ResultPayload::new((&payload).to_vec()).unwrap(),
+                ResultPayload::new(payload.to_vec()).unwrap(),
                 1,
             )
             .await
@@ -1029,8 +1029,9 @@ mod canonical_execution_server_unit {
             replay.seed_manifest.as_deref(),
             Some(manifest.row().key.as_str())
         );
-        // SAFETY: deliberately changed replay must fail, never remove eligibility.
         assert!(
+            // SAFETY: fixture-owned frozen observations and partial completion are
+            // unchanged; only the replay's eligibility is deliberately inconsistent.
             unsafe {
                 store
                     .seal_attempt(
@@ -1145,7 +1146,7 @@ mod canonical_execution_server_unit {
                 "batch-0",
                 "values",
                 0,
-                ResultPayload::new((&[1, 2]).to_vec()).unwrap(),
+                ResultPayload::new([1, 2].to_vec()).unwrap(),
                 2,
             )
             .await
@@ -1158,7 +1159,7 @@ mod canonical_execution_server_unit {
                     "batch-0",
                     "values",
                     0,
-                    ResultPayload::new((&[1, 2]).to_vec()).unwrap(),
+                    ResultPayload::new([1, 2].to_vec()).unwrap(),
                     2
                 )
                 .await
@@ -1171,7 +1172,7 @@ mod canonical_execution_server_unit {
                     "batch-0",
                     "values",
                     0,
-                    ResultPayload::new((&[1, 3]).to_vec()).unwrap(),
+                    ResultPayload::new([1, 3].to_vec()).unwrap(),
                     2
                 )
                 .await
@@ -1184,7 +1185,7 @@ mod canonical_execution_server_unit {
                     "changed-batch",
                     "values",
                     0,
-                    ResultPayload::new((&[1, 3]).to_vec()).unwrap(),
+                    ResultPayload::new([1, 3].to_vec()).unwrap(),
                     2
                 )
                 .await
@@ -1197,7 +1198,7 @@ mod canonical_execution_server_unit {
                     "gap",
                     "values",
                     2,
-                    ResultPayload::new((&[4]).to_vec()).unwrap(),
+                    ResultPayload::new([4].to_vec()).unwrap(),
                     1
                 )
                 .await
@@ -1212,7 +1213,7 @@ mod canonical_execution_server_unit {
                     "late",
                     "values",
                     1,
-                    ResultPayload::new((&[5]).to_vec()).unwrap(),
+                    ResultPayload::new([5].to_vec()).unwrap(),
                     1
                 )
                 .await
@@ -1307,7 +1308,7 @@ mod canonical_execution_server_unit {
                     "stale",
                     "values",
                     1,
-                    ResultPayload::new((&[5]).to_vec()).unwrap(),
+                    ResultPayload::new([5].to_vec()).unwrap(),
                     1
                 )
                 .await
@@ -1416,7 +1417,7 @@ mod canonical_execution_server_unit {
                         &format!("concurrent-batch-{index}"),
                         "temperature_kelvin",
                         0,
-                        ResultPayload::new((&original).to_vec()).unwrap(),
+                        ResultPayload::new(original.to_vec()).unwrap(),
                         4,
                     )
                     .await
@@ -1470,7 +1471,7 @@ mod canonical_execution_server_unit {
                             &format!("concurrent-late-{index}"),
                             "temperature_kelvin",
                             1,
-                            ResultPayload::new((&[0]).to_vec()).unwrap(),
+                            ResultPayload::new([0].to_vec()).unwrap(),
                             1
                         )
                         .await
@@ -1527,7 +1528,7 @@ mod canonical_execution_server_unit {
                     &operation,
                     "values",
                     0,
-                    ResultPayload::new((&payload).to_vec()).unwrap(),
+                    ResultPayload::new(payload.to_vec()).unwrap(),
                     1
                 ),
                 store.close_result_ingestion(&fence, &close)
@@ -1546,7 +1547,7 @@ mod canonical_execution_server_unit {
                         &format!("late-{index}"),
                         "values",
                         1,
-                        ResultPayload::new((&[index]).to_vec()).unwrap(),
+                        ResultPayload::new([index].to_vec()).unwrap(),
                         1
                     )
                     .await
@@ -1667,7 +1668,7 @@ mod canonical_execution_server_unit {
                 "first",
                 "diagnostics",
                 0,
-                ResultPayload::new((&[7]).to_vec()).unwrap(),
+                ResultPayload::new([7].to_vec()).unwrap(),
                 1,
             )
             .await
@@ -1698,7 +1699,7 @@ mod canonical_execution_server_unit {
                     "stale",
                     "diagnostics",
                     1,
-                    ResultPayload::new((&[8]).to_vec()).unwrap(),
+                    ResultPayload::new([8].to_vec()).unwrap(),
                     1
                 )
                 .await
@@ -1759,7 +1760,7 @@ mod canonical_execution_server_unit {
                 "cancel-first",
                 "values",
                 0,
-                ResultPayload::new((&[1]).to_vec()).unwrap(),
+                ResultPayload::new([1].to_vec()).unwrap(),
                 1,
             )
             .await
@@ -1887,7 +1888,7 @@ mod canonical_execution_server_unit {
                 "missing-first",
                 "values",
                 0,
-                ResultPayload::new((&[1]).to_vec()).unwrap(),
+                ResultPayload::new([1].to_vec()).unwrap(),
                 1,
             )
             .await
@@ -1898,7 +1899,7 @@ mod canonical_execution_server_unit {
                 "missing-second",
                 "values",
                 1,
-                ResultPayload::new((&[2]).to_vec()).unwrap(),
+                ResultPayload::new([2].to_vec()).unwrap(),
                 1,
             )
             .await

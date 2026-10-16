@@ -567,7 +567,7 @@ mod canonical_server_unit {
                 "still-live",
                 "values",
                 0,
-                crate::canonical_execution::ResultPayload::new((&[1]).to_vec()).unwrap(),
+                crate::canonical_execution::ResultPayload::new([1].to_vec()).unwrap(),
                 1,
             )
             .await

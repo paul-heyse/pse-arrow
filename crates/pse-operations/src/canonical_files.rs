@@ -29,11 +29,11 @@ struct EffectPause {
 tokio::task_local! { static FILE_EFFECT_PAUSE: EffectPause; }
 #[cfg(all(test, feature = "canonical-tests"))]
 async fn effect_pause(kind: &str) {
-    if let Ok(pause) = FILE_EFFECT_PAUSE.try_with(Clone::clone) {
-        if pause.kind == kind {
-            pause.ready.notify_one();
-            pause.resume.notified().await;
-        }
+    if let Ok(pause) = FILE_EFFECT_PAUSE.try_with(Clone::clone)
+        && pause.kind == kind
+    {
+        pause.ready.notify_one();
+        pause.resume.notified().await;
     }
 }
 

@@ -455,6 +455,10 @@ fn plan_nodes<'a>(value: &'a Value, nodes: &mut Vec<&'a Object>) {
         _ => {}
     }
 }
+#[allow(
+    clippy::panic,
+    reason = "test-only plan assertion fails when the native operator is missing or malformed"
+)]
 fn operator(node: &Object) -> &str {
     match node.get("operator").or_else(|| node.get("operation")) {
         Some(Value::String(name)) => name,
@@ -509,6 +513,10 @@ fn assert_native_plan(plan: &Value, indexed: Option<&str>, noindex: bool) {
         }
     }
 }
+#[allow(
+    clippy::panic,
+    reason = "test-only cardinality assertion fails when the native Fetch detail is malformed"
+)]
 fn assert_executed_cardinality(plan: &Value, rows: usize) {
     // At 3.3, trailing EXPLAIN FULL invokes AnalyzePlan and reports total_rows.
     // Legacy Fetch.count is also post-LIMIT. Neither is a count of examined rows.

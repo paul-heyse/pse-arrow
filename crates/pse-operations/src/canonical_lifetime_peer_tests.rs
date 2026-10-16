@@ -354,6 +354,10 @@ async fn final_fixture_teardown_seals_admission_and_joins_actual_response_work()
     assert!(received.try_recv().is_err());
 }
 
+#[allow(
+    clippy::unwrap_used,
+    reason = "test-only wire fixture requires its current-thread runtime to initialize successfully"
+)]
 async fn decision_wire_fixture(
     mut store: crate::canonical::CanonicalStore,
 ) -> crate::canonical::CanonicalStore {

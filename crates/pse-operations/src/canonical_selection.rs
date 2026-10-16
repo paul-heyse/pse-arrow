@@ -2854,7 +2854,8 @@ mod canonical_server_unit {
             logical: "acquired-absence".into(),
             version: None,
         }]);
-        let mut window = SelectedRecheckWindow::new(&selected, &[acquired.clone()]).unwrap();
+        let mut window =
+            SelectedRecheckWindow::new(&selected, std::slice::from_ref(&acquired)).unwrap();
         assert_eq!(
             store
                 .qualify_selection_window(&selected, &mut window)
@@ -3332,7 +3333,8 @@ mod canonical_server_unit {
             }]),
         ];
         for dependency in &absent {
-            let mut window = SelectedRecheckWindow::new(&source, &[dependency.clone()]).unwrap();
+            let mut window =
+                SelectedRecheckWindow::new(&source, std::slice::from_ref(dependency)).unwrap();
             assert_eq!(
                 store
                     .qualify_selection_window(&source, &mut window)

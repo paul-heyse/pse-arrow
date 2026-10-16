@@ -4349,10 +4349,6 @@ mod canonical_server_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
-    #[expect(
-        clippy::panic,
-        reason = "intentional unwind verifies replacement client teardown on a current-thread test runtime"
-    )]
     async fn initialization_replacement_transport_drains_on_current_thread_unwind() {
         let (mut store, options) = initialization_fixture().await;
         store
