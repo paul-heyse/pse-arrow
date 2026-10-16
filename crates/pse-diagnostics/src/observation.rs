@@ -2230,6 +2230,37 @@ mod tests {
         assert!(hub.reader(reader.id()).is_none());
     }
     #[test]
+    fn active_root_survives_history_pressure_and_eviction_never_rebinds_its_child() {
+        let (hub, _) = setup(Policy {
+            max_operations: 3,
+            ..Policy::default()
+        });
+        let root = hub.start("study.root");
+        let root_reader = root.reader();
+        let child = root.context().child("study.active.lane", Relationship::Nested);
+        child.context().count("actual.requests", "calls", 3);
+        for _ in 0..20 {
+            hub.start("completed.history").finish(Outcome::Completed);
+            let snapshot = hub.reader(root_reader.id()).unwrap().snapshot(WINDOW);
+            assert!(snapshot.outcome.is_none());
+            assert_eq!(snapshot.children.len(), 1);
+            assert_eq!(snapshot.children[0].id, child.context().id());
+            assert_eq!(hub.list(0, usize::MAX).operations.len(), 3);
+        }
+        root.finish(Outcome::Completed);
+        let replacement = hub.start("study.replacement");
+        assert_ne!(replacement.context().id(), root_reader.id());
+        assert!(hub.reader(root_reader.id()).is_none());
+        assert!(replacement.reader().snapshot(WINDOW).children.is_empty());
+        let retained = root_reader.snapshot(WINDOW);
+        assert_eq!(retained.id, root_reader.id());
+        assert_eq!(retained.outcome, Some(Outcome::Completed));
+        assert_eq!(retained.children[0].id, child.context().id());
+        let active = hub.reader(child.context().id()).unwrap().snapshot(WINDOW);
+        assert!(active.outcome.is_none());
+        assert_eq!(metric(&active, "actual.requests").cumulative, Value::Count(3));
+    }
+    #[test]
     fn producer_contention_is_loss_not_wait_and_terminal_survives() {
         let (hub, clock) = setup(Policy::default());
         let operation = hub.start("occupied");

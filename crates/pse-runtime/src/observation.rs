@@ -660,6 +660,12 @@ mod tests {
             },
             directory.path().to_owned(),
         );
+        let root = owner.hub().start("oldest.active.root");
+        let active = root.context().child(
+            "latest.active.lane",
+            pse_diagnostics::observation::Relationship::Nested,
+        );
+        active.context().count("actual.requests", "calls", 3);
         for _ in 0..110 {
             let completed = owner.hub().start("completed.history");
             for index in 0..64 {
@@ -669,8 +675,6 @@ mod tests {
             }
             completed.finish(pse_diagnostics::observation::Outcome::Completed);
         }
-        let active = owner.hub().start("latest.active");
-        active.context().count("actual.requests", "calls", 3);
         owner.publish().unwrap();
         let image = read_checkpoint(&owner.checkpoint_path()).unwrap();
         assert!(
@@ -683,6 +687,10 @@ mod tests {
                 .iter()
                 .any(|operation| operation.id == active.context().id())
         );
+        let retained_root = image.operations.iter().find(|operation| operation.id == root.context().id()).unwrap();
+        assert!(retained_root.outcome.is_none());
+        assert_eq!(retained_root.children.len(), 1);
+        assert_eq!(retained_root.children[0].id, active.context().id());
         assert!(std::fs::metadata(owner.checkpoint_path()).unwrap().len() <= IMAGE_BYTES as u64);
         owner.release().unwrap();
     }

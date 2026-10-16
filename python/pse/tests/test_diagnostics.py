@@ -3,11 +3,15 @@
 """Diagnostic boundaries use copied facts and never require a scientific store."""
 
 import gc
+import os
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
 
 import msgspec
+import pyarrow as pa
 import pytest
 
 import pse
@@ -21,16 +25,21 @@ from pse.contracts.documents import (
     DiagnosticProcessPage,
     InspectionDocument,
     InspectionRequest,
+    MetricSnapshot,
+    NativeCountersKinsol,
+    WorkObservation,
 )
 from pse.contracts.enums import (
     CaptureKind,
     CaptureStatus,
+    NativeBackend,
     NativeSolveIntent,
     OperationOutcome,
+    PresolvePolicyKind,
     StatementKind,
 )
 from pse.tests.test_local_runtime import physical_documents
-from pse.tests.test_native_workflow import declaration, revision
+from pse.tests.test_native_workflow import declaration, package_documents, revision
 
 
 @pytest.mark.unit
@@ -95,6 +104,178 @@ def observed_runtime(
     reader = observations.reader(page.operations[-1].id)
     assert reader is not None
     return runtime, observations, reader
+
+
+def diagnostic_native_solve(runtime: pse.Runtime) -> pse.RunHandle:
+    physical = runtime.physical_from_documents(physical_documents())
+    package = runtime.modeling_from_documents(
+        [
+            package_documents(
+                "package diagnostic { def Root { var x:Scalar; eq balance:x==3; "
+                "annotation start x(0); } }"
+            )
+        ],
+        physical,
+    )
+    selected = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
+    return package.prepare_solve(
+        selected,
+        pse.SolveSettings(
+            intent=NativeSolveIntent.ROOT,
+            backend=NativeBackend.KINSOL,
+            presolve=PresolvePolicyKind.OFF,
+        ),
+    ).start()
+
+
+def diagnostic_scientific_probe(
+    settings: pse.EngineSettings,
+) -> tuple[bool, float, WorkObservation, NativeCountersKinsol, bool, bool, int]:
+    """Fresh-process probe compares actual native work independently of the hub."""
+    runtime = pse.Runtime(settings, ephemeral=True)
+    try:
+        handle = diagnostic_native_solve(runtime)
+        result = handle.wait()
+        summary = result.attempt_summary
+        step = summary.steps[0]
+        assert step.work is not None and step.work.evaluations is not None
+        assert step.work.evaluations > 0
+        assert step.native_observations is not None
+        counters = step.native_observations.counters
+        assert isinstance(counters, NativeCountersKinsol)
+        assert counters.function_evaluations is not None
+        assert counters.function_evaluations > 0
+        observations = runtime.observations()
+        page = observations.list(limit=32)
+        before: list[
+            tuple[pse.OperationObservations, tuple[MetricSnapshot, ...], ClosedDuration | None]
+        ] = []
+        for operation in page.operations:
+            reader = observations.reader(operation.id)
+            assert reader is not None
+            snapshot = reader.snapshot()
+            before.append((reader, snapshot.metrics, snapshot.observed_at))
+        for _ in range(8):
+            for reader, metrics, observed_at in before:
+                copied = reader.inspect().operation
+                assert copied is not None
+                assert copied.metrics == metrics
+                assert copied.observed_at == observed_at
+        assert result.attempt_summary == summary
+        values = (
+            pa.table(result.table("runtime.solve_variables"))
+            .column("value")
+            .to_pylist()
+        )
+        assert values == pytest.approx([3.0])
+        if not page.coverage.enabled:
+            absent = handle.observations()
+            if absent is not None:
+                snapshot = absent.snapshot()
+                assert not snapshot.coverage.enabled
+                assert not snapshot.coverage.available
+                assert not snapshot.metrics
+        return (
+            result.usable, values[0], step.work, counters,
+            page.coverage.enabled, page.coverage.available, len(page.operations),
+        )
+    finally:
+        runtime.close()
+
+
+@pytest.mark.unit
+def test_diagnostics_environment_opt_out_preserves_actual_native_work_in_fresh_processes(
+    inspection_settings: pse.EngineSettings, tmp_path: Path,
+) -> None:
+    program = """
+import sys
+import pse
+from pse import codec
+from pse.tests.test_diagnostics import diagnostic_scientific_probe
+settings = pse.EngineSettings(
+    memory_limit_bytes=int(sys.argv[1]), threads=2, target_partitions=1,
+    spill_dir=sys.argv[2], max_spill_bytes=1 << 30, batch_size=7,
+    cache=pse.CacheSettings(
+        working_bytes=16 << 30, metadata_bytes=8 << 20, concurrent_loads=2,
+        inflight_bytes=64 << 20, inspection_bytes=4 << 20,
+    ),
+)
+print(codec.encode_json(diagnostic_scientific_probe(settings)).decode())
+"""
+    probes = []
+    for mode in ("on", "off"):
+        spill = tmp_path / f"{mode}-spill"
+        spill.mkdir()
+        environment = dict(os.environ, PSE_DIAGNOSTICS=mode, PSE_DIAGNOSTICS_DIR=str(tmp_path / mode))
+        process = subprocess.run(
+            [sys.executable, "-c", program, str(inspection_settings.memory_limit_bytes), str(spill)],
+            env=environment, capture_output=True, text=True, check=True, timeout=120,
+        )
+        probes.append(codec.decode_json(process.stdout, tuple[bool, float, WorkObservation, NativeCountersKinsol, bool, bool, int]))
+    enabled, disabled = probes
+    assert enabled[:4] == disabled[:4], "observation opt-out cannot add scientific requests or change the root"
+    assert enabled[0]
+    assert enabled[4:6] == (True, True)
+    assert enabled[6] > 0
+    assert disabled[4:] == (False, False, 0), "disabled observations are absent, not zero scientific work"
+
+
+@pytest.mark.unit
+def test_nonempty_native_checkpoint_related_python_and_cli_reads_are_passive(
+    inspection_settings: pse.EngineSettings,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        handle = diagnostic_native_solve(runtime)
+        result = handle.wait()
+        assert result.usable
+        summary = result.attempt_summary
+        observations = runtime.observations()
+        reader = handle.observations()
+        assert reader is not None
+        original = reader.snapshot()
+        assert original.children, "actual native dispatch must publish its related owner"
+        request = InspectionRequest(version=1, operation=reader.id, window=ClosedDuration(secs=60, nanos=0), include_related=True, related_limit=32)
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                document = diagnostics.inspect_checkpoint(observations.checkpoint, request)
+                if document.operation is not None and document.related and document.operation.outcome == original.outcome:
+                    break
+            except pse.InspectionError:
+                pass
+            assert time.monotonic() < deadline, "publisher must expose nonempty actual related work"
+            time.sleep(0.02)
+        expected_related = {child.id for child in original.children}
+        assert {child.id for child in document.related} == expected_related
+        assert document.operation is not None
+        assert document.operation.metrics
+        retained = {operation.id: operation.metrics for operation in (document.operation, *document.related)}
+        for _ in range(8):
+            assert diagnostics.main(["inspect", str(observations.checkpoint), diagnostics.operation_text(reader.id), "--json", "--related-limit", "32"]) == 0
+            copied = codec.decode_json(capsys.readouterr().out, InspectionDocument)
+            assert copied.operation is not None
+            assert copied.operation.id == reader.id
+            assert copied.operation.outcome == original.outcome
+            assert {child.id for child in copied.related} == expected_related
+            for operation in (copied.operation, *copied.related):
+                assert operation.metrics == retained[operation.id]
+            assert reader.snapshot().metrics == original.metrics
+            assert result.attempt_summary == summary
+        # Discover an owned copy of the actual nonempty publication, independent of
+        # unrelated process files in the shared publisher directory.
+        checkpoint_copy = tmp_path / observations.checkpoint.name
+        checkpoint_copy.write_bytes(observations.checkpoint.read_bytes())
+        assert diagnostics.main(["list", "--directory", str(tmp_path), "--json", "--limit", "32"]) == 0
+        discovered = codec.decode_json(capsys.readouterr().out, DiagnosticProcessPage)
+        selected = next(process for process in discovered.processes if process.checkpoint == str(checkpoint_copy))
+        assert any(operation.id == reader.id for operation in selected.operations)
+    finally:
+        runtime.close()
 
 
 @pytest.mark.unit

@@ -762,6 +762,83 @@ mod tests {
         caller.release().unwrap();
     }
     #[test]
+    fn inspection_evicted_root_is_absent_while_exact_child_and_reader_remain_available() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy { max_operations: 2, ..Policy::default() }, directory.path().to_owned());
+        let root = owner.hub().start("root");
+        let reader = root.reader();
+        let child = root.context().child("active.child", Relationship::Nested);
+        child.context().count("actual.requests", "calls", 3);
+        root.finish(pse_diagnostics::observation::Outcome::Completed);
+        let replacement = owner.hub().start("replacement");
+        owner.publish().unwrap();
+        let request = InspectionRequest::new(reader.id());
+        for document in [owner.inspect(request.clone()), inspect_checkpoint(&owner.checkpoint_path(), request.clone()).unwrap()] {
+            let copied: InspectionDocument = serde_json::from_slice(&serde_json::to_vec(&document).unwrap()).unwrap();
+            assert_eq!(copied.request.operation, reader.id());
+            assert!(copied.operation.is_none());
+            assert!(copied.related.is_empty());
+            assert!(copied.transport.partial);
+        }
+        let retained = inspect_snapshot(reader.snapshot(Duration::from_secs(60)), request);
+        assert_eq!(retained.operation.unwrap().children[0].id, child.context().id());
+        assert!(retained.transport.partial, "copied root alone cannot fabricate child coverage");
+        let active = inspect_checkpoint(&owner.checkpoint_path(), InspectionRequest::new(child.context().id())).unwrap();
+        assert_eq!(active.operation.as_ref().unwrap().id, child.context().id());
+        assert!(active.operation.as_ref().unwrap().outcome.is_none());
+        assert!(owner.inspect(InspectionRequest::new(replacement.context().id())).related.is_empty());
+        owner.release().unwrap();
+    }
+    #[test]
+    fn inspection_serialization_preserves_producer_generations_resets_and_loss() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy { detail_capacity: 1, max_metrics: 2, ..Policy::default() }, directory.path().to_owned());
+        let operation = owner.hub().start("native.checkpoints");
+        let context = operation.context();
+        context.count_value("native.calls", "calls", 100, 7);
+        context.count_value("native.calls", "calls", 105, 7);
+        context.count_value("native.calls", "calls", 2, 8);
+        context.count_value("native.calls", "calls", 5, 8);
+        context.integer("native.exact", "count", i64::MAX);
+        context.count("refused.extra", "calls", 1);
+        operation.finish(pse_diagnostics::observation::Outcome::Completed);
+        context.count("native.calls", "calls", 999);
+        owner.publish().unwrap();
+        let before = owner.reader(context.id()).unwrap().snapshot(Duration::from_secs(60));
+        for _ in 0..8 {
+            let documents = [owner.inspect(InspectionRequest::new(context.id())), inspect_checkpoint(&owner.checkpoint_path(), InspectionRequest::new(context.id())).unwrap()];
+            for document in documents {
+                let copied: InspectionDocument = serde_json::from_slice(&serde_json::to_vec(&document).unwrap()).unwrap();
+                assert!(copied.statements.iter().any(|statement| statement.code == "coverage.partial"));
+                let reset = copied.statements.iter().find(|statement| statement.code == "metric.reset").unwrap();
+                assert_eq!(reset.kind, StatementKind::Limitation);
+                assert_eq!(reset.evidence[0].operation, context.id());
+                assert!(reset.evidence[0].partial);
+                let snapshot = copied.operation.unwrap();
+                assert_eq!(snapshot.id, context.id());
+                assert_eq!(snapshot.outcome, before.outcome);
+                assert_eq!(snapshot.coverage.dropped_updates, 1);
+                assert!(snapshot.coverage.refused_items > 0);
+                assert!(snapshot.coverage.dropped_detail > 0);
+                assert!(snapshot.coverage.curtailed && snapshot.interval_partial && snapshot.detail_partial);
+                let calls = snapshot.metrics.iter().find(|metric| metric.name == "native.calls").unwrap();
+                assert_eq!(calls.latest, Value::Count(5));
+                assert_eq!(calls.cumulative, Value::Count(8));
+                assert_eq!(calls.generation, 8);
+                assert_eq!(calls.resets, 1);
+                assert!(calls.cumulative_partial && calls.recent_partial && calls.history_partial);
+                assert!(calls.history.iter().any(|point| point.reset));
+                assert_eq!(calls.history.first().unwrap().first_generation, 7);
+                assert_eq!(calls.history.last().unwrap().generation, 8);
+                assert_eq!(snapshot.metrics.iter().find(|metric| metric.name == "native.exact").unwrap().latest, Value::Integer(i64::MAX));
+            }
+        }
+        let after = owner.reader(context.id()).unwrap().snapshot(Duration::from_secs(60));
+        assert_eq!(serde_json::to_vec(&before.metrics).unwrap(), serde_json::to_vec(&after.metrics).unwrap());
+        assert_eq!(before.observed_at, after.observed_at);
+        owner.release().unwrap();
+    }
+    #[test]
     fn inspection_discovery_keeps_corruption_and_has_bounded_pages() {
         let directory = tempfile::tempdir().unwrap();
         for name in ["a.json", "b.json", "c.json"] {
