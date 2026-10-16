@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-07, DP-09, PS-10]
 blueprint: [§0.5, §19.3, §21, §21.1]
 review: docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md#f09
-evidence: Interface-checked
+evidence: Tested — Plan 41c targeted native local/recording controls and public Python no-store/lazy/recorded-source controls, 2026-10-15; combined qualification remains with Plan 41f
 supersedes: []
 superseded-by: null
 revisit: A new portable scientific input form cannot retain exact admitted source identity through explicit recording.
@@ -47,7 +47,7 @@ No-store explicit/lazy controls exercise the public boundary. Recording controls
 
 ### Confirmation
 
-Interface-checked against SourceRevision's optional canonical origin, PhysicalContext's admitted rows, current public study publication and the existing durable descriptor. Executed evidence and current finding disposition belong to Plan 41c; this proposed record does not claim implementation acceptance.
+Tested on 2026-10-15 through the named native local/recording controls and public Python no-store/lazy-source controls in Plan 41c's Outcome. The retained owner can carry genuine canonical-origin attribution without requiring publication; explicit recording supplies the portable descriptor. Plan 41c owns detailed results and exclusions; combined qualification remains with Plan 41f. Proposed status is unchanged pending the decision-PR route.
 
 ## Pros and cons
 

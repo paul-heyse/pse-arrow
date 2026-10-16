@@ -449,17 +449,28 @@ def test_canonical_result_selection_and_progress_reopen(
         for row in pa.table(provenance.edges()).to_pylist()
     )
     response_edges = pa.table(provenance.edges()).to_pylist()
-    optimal = next(row for row in response_edges if row["kind"] == "retained_optimal_parametric_primal")
+    optimal = next(
+        row
+        for row in response_edges
+        if row["kind"] == "retained_optimal_parametric_primal"
+    )
     assert optimal["evidence_field"] == "primal"
     evidence_artifact = reopened.scientific_artifact(optimal["evidence_artifact"])
     assert evidence_artifact.kind == "local-analysis"
-    quantitative = pa.table(evidence_artifact.block(optimal["evidence_block"])).to_pylist()[optimal["evidence_row"]]
+    quantitative = pa.table(
+        evidence_artifact.block(optimal["evidence_block"])
+    ).to_pylist()[optimal["evidence_row"]]
     assert quantitative["primal"] is not None
     assert quantitative["step"] == 0
-    validity_edge = next(row for row in response_edges if row["kind"] == "response_validity")
-    original_validity = pa.table(evidence_artifact.block(validity_edge["evidence_block"])).to_pylist()[validity_edge["evidence_row"]]["validity"]
+    validity_edge = next(
+        row for row in response_edges if row["kind"] == "response_validity"
+    )
+    original_validity = pa.table(
+        evidence_artifact.block(validity_edge["evidence_block"])
+    ).to_pylist()[validity_edge["evidence_row"]]["validity"]
     assert original_validity["certified"]
-    assert original_validity["licq"] and original_validity["second_order"]
+    assert original_validity["licq"]
+    assert original_validity["second_order"]
     assert original_validity["root_rank"] is None
     # A selection refusal after copied scientific admission retains its exact
     # outstanding staging owner/read identity, without inventing an analysis.
@@ -1239,27 +1250,49 @@ def _assert_owned_delayed_canonical_sigint(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("active_bound", (False, True))
+@pytest.mark.parametrize("active_bound", [False, True])
 def test_result_analysis_root_scope_and_withheld_neighborhood(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
     active_bound: bool,
 ) -> None:
     runtime = canonical_substrate.runtime(inspection_settings)
-    source = SOURCE.replace("annotation bounds x(0,10)", "annotation bounds x(2,10)").replace("annotation start x(1)", "annotation start x(2)") if active_bound else SOURCE
+    source = (
+        SOURCE.replace(
+            "annotation bounds x(0,10)", "annotation bounds x(2,10)"
+        ).replace("annotation start x(1)", "annotation start x(2)")
+        if active_bound
+        else SOURCE
+    )
     package, case = _package(runtime, source)
-    settings = msgspec.structs.replace(_settings(), backend=NativeBackend.KINSOL, intent=NativeSolveIntent.ROOT)
-    parameter = next(member.id for member in package.inspect(case, settings).members if member.lineage.path == "a" or member.lineage.path.endswith(".a"))
-    settings = msgspec.structs.replace(settings, sensitivity=SensitivityRequest(parameters=(parameter,)))
+    settings = msgspec.structs.replace(
+        _settings(), backend=NativeBackend.IPOPT, intent=NativeSolveIntent.ROOT
+    )
+    parameter = next(
+        member.id
+        for member in package.inspect(case, settings).members
+        if member.lineage.path == "a" or member.lineage.path.endswith(".a")
+    )
+    settings = msgspec.structs.replace(
+        settings, sensitivity=SensitivityRequest(parameters=(parameter,))
+    )
     result = package.prepare_solve(case, settings).start().wait()
     assert result.usable
     assert result.canonical_run_key is not None
     assert result.canonical_attempt_key is not None
-    graph = runtime.result_analysis(result.canonical_run_key, result.canonical_attempt_key, pse.AnalysisControls(roots=(), direction="downstream"))
+    graph = runtime.result_analysis(
+        result.canonical_run_key,
+        result.canonical_attempt_key,
+        pse.AnalysisControls(roots=(), direction="downstream"),
+    )
     edges = pa.table(graph.edges()).to_pylist()
     kinds = {row["kind"] for row in edges}
     assert not any("optimal_parametric" in kind for kind in kinds)
-    artifact_key = next(row["evidence_artifact"] for row in edges if row["evidence_artifact"] is not None)
+    artifact_key = next(
+        row["evidence_artifact"]
+        for row in edges
+        if row["evidence_artifact"] is not None
+    )
     artifact = runtime.scientific_artifact(artifact_key)
     assert artifact.kind == "local-analysis"
     blocks = pa.table(artifact.metadata()).to_pylist()[0]["block_count"]
@@ -1272,14 +1305,17 @@ def test_result_analysis_root_scope_and_withheld_neighborhood(
         if "request_identity" in table.column_names and "intent" in table.column_names:
             routes.extend(table.to_pylist())
     assert len(validity) == 1
-    assert routes and all(row["intent"] == "root" for row in routes)
+    assert routes
+    assert all(row["intent"] == "root" for row in routes)
     original = validity[0]["validity"]
-    assert original["licq"] is None and original["second_order"] is None
+    assert original["licq"] is None
+    assert original["second_order"] is None
     if active_bound:
         assert not original["certified"]
         assert original["reason"] == "neighborhood_unavailable"
         assert "retained_root_parametric_primal" not in kinds
     else:
-        assert original["certified"] and original["root_rank"] == 1
+        assert original["certified"]
+        assert original["root_rank"] == 1
         assert original["root_neighborhood"]
         assert "retained_root_parametric_primal" in kinds

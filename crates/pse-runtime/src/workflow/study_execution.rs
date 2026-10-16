@@ -4,8 +4,8 @@
 use super::modeling::assessment::Obligations;
 use super::staged::Staged;
 use super::{
-    ModelingPackage, PreparedStudyOperation, RunReport, RunRequest, RunResult, AdmittedStudy, LocalStudy, StudyDefinition,
-    WorkflowError,
+    AdmittedStudy, LocalStudy, ModelingPackage, PreparedStudyOperation, RunReport, RunRequest,
+    RunResult, StudyDefinition, WorkflowError,
 };
 use futures_util::{FutureExt, StreamExt};
 use pse_diagnostics::{DiagnosticRule, DiagnosticStage};
@@ -117,24 +117,44 @@ impl StudyReport {
 impl super::Runtime {
     /// Execute and join a genuinely recorded study through the existing durable observer.
     pub async fn execute_study(
-        &self, definition: &StudyDefinition, maximum_points: usize, cancel: &crate::CancelSource,
+        &self,
+        definition: &StudyDefinition,
+        maximum_points: usize,
+        cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
         super::study::creation_checkpoint(cancel)?;
-        if maximum_points == 0 || maximum_points > super::MAXIMUM_STUDY_POINTS || definition.point_count() > maximum_points {
+        if maximum_points == 0
+            || maximum_points > super::MAXIMUM_STUDY_POINTS
+            || definition.point_count() > maximum_points
+        {
             return Err(super::contract("bounded recorded study extent"));
         }
         definition.validate_roles()?;
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            let physical = self.physical_source(&definition.physical, cancel).await?;
-            let revision = self.canonical_store()?.revision(&definition.modeling_revision).await?
-                .ok_or_else(|| super::contract("recorded study model revision absent"))?;
-            let package = self.modeling_revision(revision, physical, BTreeMap::new()).await?;
-            let (report, preparations) = crate::math::counted(package.study_durable(definition, maximum_points, cancel)).await;
-            let mut report = report?;
-            report.preparations = preparations;
-            Ok(report)
-        }).await
+        activity
+            .scope(async {
+                let physical = self.physical_source(&definition.physical, cancel).await?;
+                let revision = self
+                    .canonical_store()?
+                    .revision(&definition.modeling_revision)
+                    .await?
+                    .ok_or_else(|| super::contract("recorded study model revision absent"))?;
+                let package = self
+                    .modeling_revision(revision, physical, BTreeMap::new())
+                    .await?;
+                // Admission and joined observation have large, disjoint future
+                // layouts. Keep this phase out of its caller's polling frame.
+                let (report, preparations) = crate::math::counted(Box::pin(package.study_durable(
+                    definition,
+                    maximum_points,
+                    cancel,
+                )))
+                .await;
+                let mut report = report?;
+                report.preparations = preparations;
+                Ok(report)
+            })
+            .await
     }
 }
 
@@ -147,18 +167,25 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
         if !self.same_replay_source(&local.package) {
-            return Err(super::contract("local study belongs to a different immutable model owner"));
+            return Err(super::contract(
+                "local study belongs to a different immutable model owner",
+            ));
         }
         let activity = self.runtime.admit_activity()?;
-        activity.scope(async {
-            let _observation = pse_diagnostics::observation::phase("study.execute");
-            let (report, preparations) = crate::math::counted(
-                local.package.study_inner(&local.science, maximum_points, cancel)
-            ).await;
-            let mut report = report?;
-            report.preparations = preparations;
-            Ok(report)
-        }).await
+        activity
+            .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.execute");
+                let (report, preparations) = crate::math::counted(local.package.study_inner(
+                    &local.science,
+                    maximum_points,
+                    cancel,
+                ))
+                .await;
+                let mut report = report?;
+                report.preparations = preparations;
+                Ok(report)
+            })
+            .await
     }
     async fn study_durable(
         &self,
@@ -176,10 +203,11 @@ impl ModelingPackage {
             ));
         }
         self.runtime.ensure_managed_primary(cancel).await?;
-        let handle = self
-            .runtime
-            .start_recorded_study(definition.clone(), cancel)
-            .await?;
+        let handle = Box::pin(
+            self.runtime
+                .start_recorded_study(definition.clone(), cancel),
+        )
+        .await?;
         let mut cancellation_recorded = false;
         let inventory = loop {
             if cancel.token().is_cancelled() && !cancellation_recorded {
@@ -1836,7 +1864,11 @@ mod occurrence_execution_tests {
             })
             .collect();
         let definition = package
-            .admit_study(&crate::workflow::StudyInputs::Explicit((&points).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &crate::CancelSource::new())
+            .admit_study(
+                &crate::workflow::StudyInputs::Explicit((&points).to_vec()),
+                &crate::workflow::StudyOutputDemand::Full {},
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         (package, definition)
@@ -1850,17 +1882,42 @@ mod occurrence_execution_tests {
         let identity = super::super::OperationSource::of(&package);
         let cancel = crate::CancelSource::new();
         let missing = runtime.record_study(&local, &cancel).await.unwrap_err();
-        assert!(missing.to_string().contains("exact admitted physical document bytes"));
+        assert!(
+            missing
+                .to_string()
+                .contains("exact admitted physical document bytes")
+        );
         drop(package);
         let report = local.execute(2, &cancel).await.unwrap();
-        assert!(report.outcomes.iter().all(|outcome| outcome.scientific.usable));
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .all(|outcome| outcome.scientific.usable)
+        );
         assert_eq!(report.definition.points[0].operation.source, identity);
-        assert_eq!(report.definition.points[0].binding_hash, report.definition.points[1].binding_hash);
-        assert_eq!(report.outcomes.iter().map(|outcome| outcome.key).collect::<Vec<_>>(), vec![OccurrenceKey(0), OccurrenceKey(1)]);
+        assert_eq!(
+            report.definition.points[0].binding_hash,
+            report.definition.points[1].binding_hash
+        );
+        assert_eq!(
+            report
+                .outcomes
+                .iter()
+                .map(|outcome| outcome.key)
+                .collect::<Vec<_>>(),
+            vec![OccurrenceKey(0), OccurrenceKey(1)]
+        );
         drop(local);
-        assert!(source.upgrade().is_some(), "escaped report retains exact scientific source");
+        assert!(
+            source.upgrade().is_some(),
+            "escaped report retains exact scientific source"
+        );
         drop(report);
-        assert!(source.upgrade().is_none(), "joined source owner drains with last report");
+        assert!(
+            source.upgrade().is_none(),
+            "joined source owner drains with last report"
+        );
     }
 
     #[tokio::test]
@@ -1915,7 +1972,11 @@ mod occurrence_execution_tests {
         };
         let before = package.runtime.shared.math().preparations().views;
         let definition = package
-            .admit_study(&StudyInputs::Lazy(variants), &crate::workflow::StudyOutputDemand::Full {}, &crate::CancelSource::new())
+            .admit_study(
+                &StudyInputs::Lazy(variants),
+                &crate::workflow::StudyOutputDemand::Full {},
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert_eq!(package.runtime.shared.math().preparations().views, before);

@@ -1,6 +1,6 @@
 ---
 title: Cancellation shared work and admission
-status: in-progress
+status: done
 date: 2026-10-15
 adrs: []
 review_sources:
@@ -71,8 +71,8 @@ A smaller opaque compiler envelope is a distinct alternative requiring complete 
 | B1 | B0 child/bookkeeping slice; existing hierarchical cancellation capability | Change child propagation and all production callers, including the simultaneous study frontier handling correction. Test public selection/specialization cancellation, already-cancelled parents, sibling/upward isolation, minimum deadlines, blocked study points and issued-work drain. Remove redundant signal-only bridges only after their classification/bookkeeping consumers have moved. | Completed — public selection/specialization, child isolation and blocked-study drain controls passed |
 | B2 | B0 producer-policy decision; B1 for public composed controls | Implement independent immutable waiter clocks and the selected shared-producer lifetime in both frontier/completion flights. Remove first-waiter deadline capture. Exercise short-A/long-B, reversed arrival, explicit caller cancellation, expiry, all leaving and joined retirement; prevent duplicate active replacement and preserve cache/refusal semantics. | Completed — independent caller/producer clocks and compiled Python setting boundary tested |
 | B3 | B0 exclusion/lock-order decision; B1 for caller cancellation composition | Move exclusive compiler admission before active job dispatch across keyed and direct preparation/publication consumers. Carry authority through head use and detached handling. A gated A/B/C control must show cancelled/expired B leaves without A finishing or B acquiring an active worker, while A and later coherent head use remain valid. Remove late blocking exclusion paths for migrated work. | Completed — pre-dispatch compiler authority, actual join retention and coherent head/private routes tested |
-| B4 | Implemented 41c C3; retained-state/borrower evidence | Settle residual pressure need and select existing-owner coordination only if demonstrated. If adopted, integrate actual result and math consumers, bounded retries, lock order and idle-only release; test borrowed versus idle owners, cancellation suffixes and concurrent requests. Otherwise record supported no-adoption reasoning and its limits. | Planned |
-| B5 | B1–B3 actual migrations and targeted controls; B4 investigated and dispositioned | Complete local public/flight/compiler composition and replacement deletion; hand evidence and support limits to 41f. Check no caller owns another's clock and no request releases active foreign resources merely because its waiter ended. | Planned |
+| B4 | Implemented 41c C3; retained-state/borrower evidence | Settle residual pressure need and select existing-owner coordination only if demonstrated. If adopted, integrate actual result and math consumers, bounded retries, lock order and idle-only release; test borrowed versus idle owners, cancellation suffixes and concurrent requests. Otherwise record supported no-adoption reasoning and its limits. | Completed — supported no-adoption after the nonempty 256 MiB control |
+| B5 | B1–B3 actual migrations and targeted controls; B4 investigated and dispositioned | Complete local public/flight/compiler composition and replacement deletion; hand evidence and support limits to 41f. Check no caller owns another's clock and no request releases active foreign resources merely because its waiter ended. | Completed — composition clocks, family cancellation and consumer inventory |
 
 B2 and B3 are independently deliverable after their B0 slices; neither depends on all source preparation corrections in 41a. B4 follows actual C3 delivery, not an agreed metadata interface, and is not a prerequisite for unrelated numerical reuse. The shared `math/modeling`, `math/preparation`, job and study coordination surfaces require explicit editing ownership when parallel work starts. A declared interface does not satisfy a migration or drain prerequisite.
 
@@ -92,7 +92,7 @@ For O07, consume nonempty metadata paging after C3, distinguish real live metada
 
 Review S02/S04/S10 are the main scenario routes, with S01 preserving revision/value behavior. B1 must precede long dependent simulation reruns; targeted gates can establish behavior without a cold statistical campaign. 41f owns assembled qualification, scope-end hygiene/manual checks and final diagnostic consumer acceptance. Native numerical correctness and original-space checks remain required, while environment/provenance proof and hard comparative performance criteria are excluded permanently.
 
-The native table and Outcome own current delivery. B4 and its dependent B5 remain outside the current A/B enabling execution; B4 still requires implemented C3 and actual residual pressure evidence. Enduring lifetime contracts are recorded at blueprint §14.3. Older plan bodies and statuses retain their existing ownership.
+The native table and [remaining-scope Outcome](#remaining-scope-outcome--2026-10-15) own current delivery. B0–B5 are complete at targeted scope; B4 selected supported no-adoption after C3. The earlier Outcome below records the original B0–B3 enabling selection. Enduring lifetime contracts are recorded at blueprint §14.3. Older plan bodies and statuses retain their existing ownership.
 
 ## Outcome — 2026-10-15
 
@@ -170,7 +170,7 @@ The first Python invocation stopped before collection because the shared
 `/tmp/pytest-of-paul` directory belongs to another user. Its contents and ownership were
 left intact. `just ready` passed, and selecting this run's fresh owned temporary directory
 allowed all four assertions to run. No substrate or absent scientific asset was acquired.
-B0–B3 are complete; B4/B5 and full 41f acceptance remain open.
+B0–B3 completed in this enabling selection. The remaining-scope Outcome closes B4/B5; full 41f acceptance remains open.
 
 **Interface-checked:** independent review exposed missing clocks after model preparation,
 a warm held-model hit, value rebind and initialization artifact waits. These are corrected
@@ -201,6 +201,18 @@ assertions were preserved. Other fixture/identity corrections are recorded at 41
 No required B1–B3 correction was dropped. The preparation policy was named independently
 of `admission_wait`; no caller clock enters scientific identity. Review-driven clock
 normalization extends through the actual selected preparation consumers so an omitted
-clock is not reintroduced after a phase boundary. B4 remains dependent on C3's actual
-metadata correction and evidence, and B5 remains open with it. No legacy cold campaign,
+clock is not reintroduced after a phase boundary. B4/B5 subsequently completed in the
+remaining-scope Outcome after C3's actual metadata correction and evidence. No legacy cold campaign,
 statistical timing criterion or eliminated environment/provenance proof was introduced.
+
+## Remaining-scope Outcome — 2026-10-15
+
+**Tested — B4, zero-failure target:** `canonical_nonempty_multipage_reads_share_256mib_with_real_compiler_leases` passed in the native, force-validated runtime selection recorded at [41c](41c-studies-response-artifacts-and-result-resources.md#outcome--2026-10-15). It published and decoded all 65 nonempty blocks across the 64-row page boundary in the unchanged 256 MiB pool while two actual compiler workspaces retained their 64 MiB leases. Snapshot aliases shared their charges; pressure refused honestly; cancellation and tracked cleanup restored the exact baseline.
+
+**Interface-checked / implemented decision:** no residual need for cross-owner idle eviction was established. O07 closes with supported no-adoption: no new retention manager, pool callback, capacity increase or RSS-derived shrink. Borrowed compiler state remained protected. This does not establish absence of contention for every future workload or qualify unexamined idle/borrower combinations.
+
+**Implemented / Tested — B5:** a consumer review found two composite omissions. `prepare_bound_operation_with_admission` and `StudyOperation::prepare` now resolve one preparation driver before their phases; Simulation/Fit starts use the existing `start_with_cancel`. The native selection passed `composite_study_preparation_omitted_clock_expires_between_structural_and_numeric_phases` and both `prepared_study_*_forwards_caller_cancel_after_worker_dispatch_and_joins_drain` controls. They retain the original caller token, refuse expiry without renewing numeric preparation, hold real CPU/job/allocation ownership through gated worker return, and rerun original simulation/regression assertions successfully. Worker-entry cancellation is tested; this adds no claim about every native method's mid-iteration interruption.
+
+**Interface-checked:** current Rust/Python/benchmark/campaign consumers use owned local admission and explicit recording/durable startup; no reachable removed admission/publication API remains in the inspected product/caller scopes. Existing shared flights keep service-owned producer clocks, and compiler authority still transfers before active dispatch through actual join. Updated native stubs come from the compiled API. No compatibility execution path was retained.
+
+**Boundary:** B0–B5 are complete. 41c owns its protocol and public acceptance outcomes; the broad native selection's failures remain honestly recorded there. Full 41f assembled qualification/hygiene and separate D/E work remain open. This companion stays available because the active series consumes its evidence; older plans are not reconciled or retired by this delivery.

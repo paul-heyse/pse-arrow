@@ -311,7 +311,14 @@ async fn graph(
                         let evidence = evidence_locator(&row);
                         assert!(evidence.row.is_none());
                         assert!(evidence.field.is_none());
-                        assert!(original.iter().any(|(locator, (output, _))| locator.artifact == evidence.artifact && locator.block == evidence.block && output.to_string() == *target));
+                        assert!(
+                            original
+                                .iter()
+                                .any(|(locator, (output, _))| locator.artifact
+                                    == evidence.artifact
+                                    && locator.block == evidence.block
+                                    && output.to_string() == *target)
+                        );
                         assert!(produced.insert((evidence, target.clone())));
                     }
                     "input_provenance" => {
@@ -328,12 +335,21 @@ async fn graph(
                         assert!(row.evidence_field.is_none());
                         provenance_count += 1;
                     }
-                    "scientific_context" | "computation_context" | "trajectory_endpoint" | "trajectory_event" | "trajectory_mode" | "retained_interpretation" | "produced_context" => {
+                    "scientific_context"
+                    | "computation_context"
+                    | "trajectory_endpoint"
+                    | "trajectory_event"
+                    | "trajectory_mode"
+                    | "retained_interpretation"
+                    | "produced_context" => {
                         assert_eq!(source_kind, "attempt");
                         assert_eq!(target_kind, "retained_context");
                         assert!(row.evidence_artifact.is_some());
                     }
-                    "response_coordinates" | "response_completion" | "response_endpoint" | "response_event_context" => {
+                    "response_coordinates"
+                    | "response_completion"
+                    | "response_endpoint"
+                    | "response_event_context" => {
                         assert_eq!(source_kind, "retained_context");
                         assert_eq!(target_kind, "output");
                         assert!(row.evidence_artifact.is_some());
@@ -350,16 +366,29 @@ async fn graph(
     assert_eq!(edge_count, header.edge_count);
     if let Some(original) = original_evidence {
         assert_eq!(response_count as usize, original.len());
-        assert_eq!(seen, original.keys().cloned().collect::<BTreeSet<_>>(), "every original quantitative row has its exact value locator");
-        let expected_produced = original.iter().map(|(locator, (output, _))| {
-            let mut block = locator.clone();
-            block.row = None;
-            block.field = None;
-            (block, output.to_string())
-        }).collect::<BTreeSet<_>>();
-        assert_eq!(produced, expected_produced, "complete output membership for every actual response block");
+        assert_eq!(
+            seen,
+            original.keys().cloned().collect::<BTreeSet<_>>(),
+            "every original quantitative row has its exact value locator"
+        );
+        let expected_produced = original
+            .iter()
+            .map(|(locator, (output, _))| {
+                let mut block = locator.clone();
+                block.row = None;
+                block.field = None;
+                (block, output.to_string())
+            })
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            produced, expected_produced,
+            "complete output membership for every actual response block"
+        );
         assert_eq!(provenance_count as usize, expected.sources.len());
-        assert!(edge_count > response_count + produced.len() as u64 + provenance_count, "family and trajectory interpretation remain independently addressable");
+        assert!(
+            edge_count > response_count + produced.len() as u64 + provenance_count,
+            "family and trajectory interpretation remain independently addressable"
+        );
     }
     ReadObservation {
         digest: hash.finish_hash(),

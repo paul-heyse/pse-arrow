@@ -335,16 +335,23 @@ class Runtime:
 
     def record_study(self, local: LocalStudy) -> StudyDefinition:
         """Publish exact retained inputs and return a portable recorded definition."""
-        return codec.decode_json(self._handle.record_study(local._handle), StudyDefinition)
+        return codec.decode_json(
+            self._handle.record_study(
+                local._handle,  # noqa: SLF001 - same native ownership boundary
+            ),
+            StudyDefinition,
+        )
 
     def execute_study(
         self, definition: StudyDefinition, *, controls: StudyRunControls | None = None
     ) -> StudyReport:
         """Join recorded durable execution and retain its original result report."""
-        return StudyReport(self._handle.execute_study(
-            codec.encode_json(definition),
-            controls=None if controls is None else codec.encode_json(controls),
-        ))
+        return StudyReport(
+            self._handle.execute_study(
+                codec.encode_json(definition),
+                controls=None if controls is None else codec.encode_json(controls),
+            )
+        )
 
     def start_study(self, definition: StudyDefinition) -> StudyHandle:
         """Start durable workers from a genuinely recorded portable definition."""

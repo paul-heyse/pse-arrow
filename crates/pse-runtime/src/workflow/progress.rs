@@ -49,11 +49,16 @@ impl Runtime {
                     .await?,
                 );
                 let read_owner = Arc::new(super::connected_results::retain_protected_metadata(
-                    &self.shared.pool(), response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner),
+                    &self.shared.pool(),
+                    response,
+                    read.retained_bytes()?,
+                    |owner| read.retain_metadata_owner(owner),
                 )?);
                 read.retain_metadata_owner(read_owner.clone())?;
                 let response = super::connected_results::response_owner(
-                    self, "canonical:progress-coverage-response", MetadataResponse::Header,
+                    self,
+                    "canonical:progress-coverage-response",
+                    MetadataResponse::Header,
                 )?;
                 let operations = super::Operations::from_store(
                     self.canonical_store()?.clone(),
@@ -118,7 +123,7 @@ impl ProgressStream {
         }
         if self.ordinal == self.batches {
             self.read = None;
-        self.read_owner = None;
+            self.read_owner = None;
             self.owner = None;
             return Ok(None);
         }
@@ -158,7 +163,10 @@ impl ProgressStream {
             "canonical:progress-file-response",
             MetadataResponse::Page,
         )?;
-        let read_owner = self.read_owner.as_ref().ok_or_else(|| super::contract("progress metadata owner closed"))?;
+        let read_owner = self
+            .read_owner
+            .as_ref()
+            .ok_or_else(|| super::contract("progress metadata owner closed"))?;
         let response = Arc::new((read.clone(), read_owner.clone(), response, owner.clone()));
         let descriptors = pse_operations::canonical::response_ownership_scope(
             response.clone(),

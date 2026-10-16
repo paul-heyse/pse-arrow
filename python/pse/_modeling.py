@@ -14,6 +14,7 @@ from pse._build import (
     ModelingLimits,
     NativeAttempt,
     SimulationSettings,
+    _NativeLocalStudy,
     _NativeModelingConformance,
     _NativeModelingDiagnostics,
     _NativeModelingDiagnosticSamples,
@@ -26,7 +27,6 @@ from pse._build import (
     _NativeModelingPackage,
     _NativeModelingResult,
     _NativeModelingTrajectory,
-    _NativeLocalStudy,
     _NativeStudyReport,
 )
 from pse._inspection import TableStream
@@ -49,6 +49,7 @@ from pse.contracts.documents import (
     InitializationOverrides,
     JacobianDiagnosticControls,
     KnowledgeControls,
+    LazyStudyDefinition,
     LinearDiagnosticControls,
     ModelingInspection,
     ModelingNonlinearPolicy,
@@ -61,7 +62,6 @@ from pse.contracts.documents import (
     RecycleRequest,
     SolveSettings,
     SourceDelta,
-    LazyStudyDefinition,
     StudyPointDefinition,
     StudyRequest,
     StudyRunControls,
@@ -76,17 +76,23 @@ from pse.contracts.enums import (
 from pse.contracts.identities import DeclarationId, FitId, RunId
 from pse.contracts.values import ContentHash, SemanticId
 
-@attrs.frozen
+
 class LocalStudy:
     """Owned local scientific intent; recording is an explicit runtime operation."""
 
-    _handle: _NativeLocalStudy
+    # This is an opaque behavioral owner, not a serializable row contract.
+    __slots__ = ("_handle",)
+
+    def __init__(self, handle: _NativeLocalStudy) -> None:
+        self._handle = handle
 
     def execute(self, *, controls: StudyRunControls | None = None) -> "StudyReport":
         """Execute using retained owners after the originating package is released."""
-        return StudyReport(self._handle.execute(
-            controls=None if controls is None else codec.encode_json(controls)
-        ))
+        return StudyReport(
+            self._handle.execute(
+                controls=None if controls is None else codec.encode_json(controls)
+            )
+        )
 
     @property
     def points(self) -> tuple[StudyPointDefinition, ...]:
@@ -946,7 +952,7 @@ class ModelingPackage:
             raise TypeError(message)
         return StudyReport(
             self._handle.study(
-                local._handle,
+                local._handle,  # noqa: SLF001 - same native ownership boundary
                 controls=None if controls is None else codec.encode_json(controls),
             )
         )

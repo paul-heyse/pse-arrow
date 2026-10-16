@@ -106,16 +106,28 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
     // Drop removes the reader count synchronously while the original release is
     // blocked at the actual ProblemTurns admission queue. Its activity remains.
     assert_eq!(store.result_read_drain.live(), 0);
-    assert_eq!(pool.reserved(), retained_bytes, "queued cleanup retains actual metadata after the facade drops");
+    assert_eq!(
+        pool.reserved(),
+        retained_bytes,
+        "queued cleanup retains actual metadata after the facade drops"
+    );
     drop(late_sdk);
-    assert_eq!(pool.reserved(), retained_bytes, "late original SDK release cannot retire queued cleanup's fallback grant");
+    assert_eq!(
+        pool.reserved(),
+        retained_bytes,
+        "late original SDK release cannot retire queued cleanup's fallback grant"
+    );
     assert!(matches!(
         store.disconnect().await,
         Err(CanonicalError::ConnectionBusy { .. })
     ));
     drop(held);
     store.result_read_drain.drain().await.unwrap();
-    assert_eq!(pool.reserved(), 0, "actual tracked cleanup and SDK drain release metadata");
+    assert_eq!(
+        pool.reserved(),
+        0,
+        "actual tracked cleanup and SDK drain release metadata"
+    );
     assert_eq!(
         received.recv().await.unwrap(),
         crate::canonical::RELEASE_PROTECTION
@@ -144,15 +156,25 @@ async fn failed_release_retains_exact_authority_until_explicit_original_grant_re
         interpretation: "test".into(),
     };
     use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
-    let retained_bytes = 64 * 1024 + crate::canonical::MetadataResponse::Protection.allocation_bytes();
+    let retained_bytes =
+        64 * 1024 + crate::canonical::MetadataResponse::Protection.allocation_bytes();
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(retained_bytes));
     let allocation = MemoryConsumer::new("test:failed-protection-metadata").register(&pool);
     allocation.try_grow(retained_bytes).unwrap();
     store
         .result_read_drain
-        .release_protection(issuing, revision, "original-grant".into(), Some(Arc::new(allocation)))
+        .release_protection(
+            issuing,
+            revision,
+            "original-grant".into(),
+            Some(Arc::new(allocation)),
+        )
         .complete(Err(CanonicalError::Timeout));
-    assert_eq!(pool.reserved(), retained_bytes, "failure recovery owns original metadata");
+    assert_eq!(
+        pool.reserved(),
+        retained_bytes,
+        "failure recovery owns original metadata"
+    );
     store.close();
     assert_eq!(store.result_read_drain.live(), 0);
     assert!(matches!(
@@ -164,7 +186,11 @@ async fn failed_release_retains_exact_authority_until_explicit_original_grant_re
         Err(CanonicalError::ConnectionBusy { .. })
     ));
     store.recover_protection_releases().await.unwrap();
-    assert_eq!(pool.reserved(), 0, "acknowledged original cleanup releases its actual allocation");
+    assert_eq!(
+        pool.reserved(),
+        0,
+        "acknowledged original cleanup releases its actual allocation"
+    );
     assert_eq!(
         received.recv().await.unwrap(),
         crate::canonical::RELEASE_PROTECTION

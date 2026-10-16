@@ -73,10 +73,7 @@ async fn plant_on(runtime: Runtime) -> (ModelingPackage, DeclarationId) {
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     (
-        runtime
-            .modeling_package(rows, physical)
-            .await
-            .unwrap(),
+        runtime.modeling_package(rows, physical).await.unwrap(),
         root,
     )
 }
@@ -408,7 +405,11 @@ async fn scoped_study_admission_preserves_individual_point_bindings() {
         points.push(submitted);
     }
     let definition = package
-        .admit_study(&crate::workflow::StudyInputs::Explicit((&points).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
+        .admit_study(
+            &crate::workflow::StudyInputs::Explicit((&points).to_vec()),
+            &crate::workflow::StudyOutputDemand::Full {},
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(definition.points.len(), 2);
@@ -452,7 +453,11 @@ async fn scoped_study_admission_transitions_from_declared_case_to_horizon() {
     )));
     horizon.policy.key = OccurrenceKey(1);
     let definition = package
-        .admit_study(&crate::workflow::StudyInputs::Explicit((&[declared, horizon]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
+        .admit_study(
+            &crate::workflow::StudyInputs::Explicit((&[declared, horizon]).to_vec()),
+            &crate::workflow::StudyOutputDemand::Full {},
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(definition.points.len(), 2);
@@ -547,10 +552,17 @@ async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOpera
 async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
     let (package, case) = plant().await;
     let definition = package
-        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(OperationRequest::Simulation(SimulationOperation {
-                case,
-                profile: None,
-            }))]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
+        .admit_study(
+            &crate::workflow::StudyInputs::Explicit(
+                (&[point(OperationRequest::Simulation(SimulationOperation {
+                    case,
+                    profile: None,
+                }))])
+                    .to_vec(),
+            ),
+            &crate::workflow::StudyOutputDemand::Full {},
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     let p: super::super::StudyPointDefinition =
@@ -587,7 +599,11 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
         },
     });
     let definition = package
-        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(request)]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
+        .admit_study(
+            &crate::workflow::StudyInputs::Explicit((&[point(request)]).to_vec()),
+            &crate::workflow::StudyOutputDemand::Full {},
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     let p = &definition.points[0];
@@ -606,7 +622,13 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let (package, case) = plant().await;
     let request = horizon(&package, case).await;
     let definition = package
-        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(OperationRequest::Horizon(Box::new(request.clone())))]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
+        .admit_study(
+            &crate::workflow::StudyInputs::Explicit(
+                (&[point(OperationRequest::Horizon(Box::new(request.clone())))]).to_vec(),
+            ),
+            &crate::workflow::StudyOutputDemand::Full {},
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     let p = &definition.points[0];
@@ -623,7 +645,13 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let mut equivalent = request.clone();
     equivalent.inputs[0].initial = quantity(&package, 353.15, "Temperature", "K");
     let other = package
-        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(OperationRequest::Horizon(Box::new(equivalent)))]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
+        .admit_study(
+            &crate::workflow::StudyInputs::Explicit(
+                (&[point(OperationRequest::Horizon(Box::new(equivalent)))]).to_vec(),
+            ),
+            &crate::workflow::StudyOutputDemand::Full {},
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(
@@ -639,7 +667,13 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let mut wrong = request;
     wrong.inputs[0].initial = quantity(&package, 1., "Time", "s");
     let error = package
-        .admit_study(&crate::workflow::StudyInputs::Explicit((&[point(OperationRequest::Horizon(Box::new(wrong)))]).to_vec()), &crate::workflow::StudyOutputDemand::Full {}, &CancelSource::new())
+        .admit_study(
+            &crate::workflow::StudyInputs::Explicit(
+                (&[point(OperationRequest::Horizon(Box::new(wrong)))]).to_vec(),
+            ),
+            &crate::workflow::StudyOutputDemand::Full {},
+            &CancelSource::new(),
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -743,21 +777,38 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
     );
 }
 
-
 /// Acknowledged durable source plus a closed real caller makes accidental recording
 /// observable as a refusal. Local science must complete with all recording effects denied.
-#[cfg(all(feature = "canonical-tests", any(feature = "solver-diffsol", feature = "solver-ipopt")))]
+#[cfg(all(
+    feature = "canonical-tests",
+    any(feature = "solver-diffsol", feature = "solver-ipopt")
+))]
 async fn deny_recording_after_durable_source(package: &ModelingPackage) {
-    assert!(matches!(package.runtime.durability(), super::super::Durability::Durable(_)));
+    assert!(matches!(
+        package.runtime.durability(),
+        super::super::Durability::Durable(_)
+    ));
     let origin = package.canonical_revision().unwrap();
     let store = package.runtime.canonical_store().unwrap();
-    assert_eq!(store.revision(&origin.key).await.unwrap().unwrap().key, origin.key);
+    assert_eq!(
+        store.revision(&origin.key).await.unwrap().unwrap().key,
+        origin.key
+    );
     store.close();
-    assert!(store.admit_activity().is_err(), "the actual source/run publication caller is closed");
-    assert!(store.revision(&origin.key).await.is_err(), "the denial control also refuses a real canonical read");
+    assert!(
+        store.admit_activity().is_err(),
+        "the actual source/run publication caller is closed"
+    );
+    assert!(
+        store.revision(&origin.key).await.is_err(),
+        "the denial control also refuses a real canonical read"
+    );
 }
 
-#[cfg(all(feature = "canonical-tests", any(feature = "solver-diffsol", feature = "solver-ipopt")))]
+#[cfg(all(
+    feature = "canonical-tests",
+    any(feature = "solver-diffsol", feature = "solver-ipopt")
+))]
 fn original_local_result(report: &super::super::StudyReport, index: usize) -> &RunResult {
     let outcome = &report.outcomes[index];
     assert!(outcome.scientific.usable, "{outcome:?}");
@@ -767,7 +818,10 @@ fn original_local_result(report: &super::super::StudyReport, index: usize) -> &R
     let super::super::StudyOccurrenceResult::Ephemeral(result) = occurrence else {
         panic!("full local study must retain its original ephemeral result: {occurrence:?}");
     };
-    assert!(matches!(result.durability(), super::super::RunDurability::Ephemeral));
+    assert!(matches!(
+        result.durability(),
+        super::super::RunDurability::Ephemeral
+    ));
     assert!(result.canonical_run_key().is_none());
     assert!(result.canonical_attempt_key().is_none());
     assert!(result.usable(), "{:?}", result.assessments());
@@ -776,71 +830,165 @@ fn original_local_result(report: &super::super::StudyReport, index: usize) -> &R
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
 #[tokio::test]
-async fn durable_origin_local_simulation_keeps_original_full_and_compact_results_without_recording() {
+async fn durable_origin_local_simulation_keeps_original_full_and_compact_results_without_recording()
+{
     use super::super::{RunReport, StudyDetailDemand, StudyInputs, StudyOutputDemand};
     let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
     let origin = package.canonical_revision().unwrap().key.clone();
     deny_recording_after_durable_source(&package).await;
     let cancel = CancelSource::new();
-    let inputs = StudyInputs::Explicit(vec![point(OperationRequest::Simulation(SimulationOperation { case, profile: None }))]);
-    let full = package.admit_study(&inputs, &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    let inputs = StudyInputs::Explicit(vec![point(OperationRequest::Simulation(
+        SimulationOperation {
+            case,
+            profile: None,
+        },
+    ))]);
+    let full = package
+        .admit_study(&inputs, &StudyOutputDemand::Full {}, &cancel)
+        .await
+        .unwrap();
     let report = package.study(&full, 1, &cancel).await.unwrap();
     let original = original_local_result(&report, 0);
-    let RunReport::Simulation(trajectory) = original.report().unwrap() else { panic!("original simulation"); };
+    let RunReport::Simulation(trajectory) = original.report().unwrap() else {
+        panic!("original simulation");
+    };
     assert_eq!(trajectory.report().samples.len(), 2);
     assert_eq!(trajectory.report().samples.last().unwrap().time, 1.0);
     assert!((trajectory.report().samples.last().unwrap().state[0] - 1.0).abs() < 1e-8);
 
-    let compact = package.admit_study(&inputs, &StudyOutputDemand::Compact {
-        detail: StudyDetailDemand::default(), failed_detail: StudyDetailDemand::default(),
-    }, &cancel).await.unwrap();
+    let compact = package
+        .admit_study(
+            &inputs,
+            &StudyOutputDemand::Compact {
+                detail: StudyDetailDemand::default(),
+                failed_detail: StudyDetailDemand::default(),
+            },
+            &cancel,
+        )
+        .await
+        .unwrap();
     let report = compact.execute(1, &cancel).await.unwrap();
-    assert!(report.outcomes[0].scientific.usable, "{:?}", report.outcomes[0]);
+    assert!(
+        report.outcomes[0].scientific.usable,
+        "{:?}",
+        report.outcomes[0]
+    );
     let occurrence = report.results[0].as_ref().unwrap();
-    assert!(matches!(occurrence, super::super::StudyOccurrenceResult::Compact(_)));
+    assert!(matches!(
+        occurrence,
+        super::super::StudyOccurrenceResult::Compact(_)
+    ));
     assert!(occurrence.stored_keys().is_none());
     occurrence.completion().unwrap();
-    assert_eq!(package.canonical_revision().unwrap().key, origin, "local execution preserves its original source attribution");
-    assert!(package.runtime.canonical_store().unwrap().admit_activity().is_err());
+    assert_eq!(
+        package.canonical_revision().unwrap().key,
+        origin,
+        "local execution preserves its original source attribution"
+    );
+    assert!(
+        package
+            .runtime
+            .canonical_store()
+            .unwrap()
+            .admit_activity()
+            .is_err()
+    );
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
 #[tokio::test]
-async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrences_without_recording() {
-    use super::super::{RunReport, SelectedStudyVariant, SourceChoice, SourceDelta, StudyInputs, StudyOutputDemand, StudyVariants};
+async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrences_without_recording()
+ {
+    use super::super::{
+        RunReport, SelectedStudyVariant, SourceChoice, SourceDelta, StudyInputs, StudyOutputDemand,
+        StudyVariants,
+    };
     let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
     let requested = |key| {
-        let mut selected = point(OperationRequest::Simulation(SimulationOperation { case, profile: None }));
+        let mut selected = point(OperationRequest::Simulation(SimulationOperation {
+            case,
+            profile: None,
+        }));
         selected.policy.key = OccurrenceKey(key);
         selected
     };
     let variants = StudyVariants {
-        version: Version, source: OperationSource::of(&package),
-        choices: vec![SourceChoice { alternatives: vec![
-            SourceDelta { parent: package.revision_id().into(), ..Default::default() },
-            // Unselected invalid science must neither construct nor publish a source.
-            SourceDelta { parent: package.revision_id().into(), removals: vec![DeclarationId::from_bytes([0; 16])], ..Default::default() },
-        ] }],
+        version: Version,
+        source: OperationSource::of(&package),
+        choices: vec![SourceChoice {
+            alternatives: vec![
+                SourceDelta {
+                    parent: package.revision_id().into(),
+                    ..Default::default()
+                },
+                SourceDelta {
+                    parent: package.revision_id().into(),
+                    ..Default::default()
+                },
+                // Unselected invalid science must neither construct nor publish a source.
+                SourceDelta {
+                    parent: package.revision_id().into(),
+                    removals: vec![DeclarationId::from_bytes([0; 16])],
+                    ..Default::default()
+                },
+            ],
+        }],
         selected: vec![
-            SelectedStudyVariant { ordinal: 0, point: requested(23) },
-            SelectedStudyVariant { ordinal: 0, point: requested(5) },
+            SelectedStudyVariant {
+                ordinal: 0,
+                point: requested(23),
+            },
+            SelectedStudyVariant {
+                ordinal: 1,
+                point: requested(5),
+            },
         ],
     };
     deny_recording_after_durable_source(&package).await;
     let cancel = CancelSource::new();
     let before = package.runtime.shared.math().preparations().views;
-    let local = package.admit_study(&StudyInputs::Lazy(variants), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
-    assert_eq!(package.runtime.shared.math().preparations().views, before, "lazy admission does not construct selected science");
+    let local = package
+        .admit_study(
+            &StudyInputs::Lazy(variants),
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        package.runtime.shared.math().preparations().views,
+        before,
+        "lazy admission does not construct selected science"
+    );
     let report = local.execute(2, &cancel).await.unwrap();
-    assert_eq!(report.outcomes.iter().map(|outcome| outcome.key).collect::<Vec<_>>(), vec![OccurrenceKey(23), OccurrenceKey(5)]);
+    assert_eq!(
+        report
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.key)
+            .collect::<Vec<_>>(),
+        vec![OccurrenceKey(23), OccurrenceKey(5)]
+    );
     for index in 0..2 {
         let original = original_local_result(&report, index);
-        let RunReport::Simulation(trajectory) = original.report().unwrap() else { panic!("original selected simulation"); };
+        let RunReport::Simulation(trajectory) = original.report().unwrap() else {
+            panic!("original selected simulation");
+        };
         assert_eq!(trajectory.report().samples.last().unwrap().time, 1.0);
         assert!((trajectory.report().samples.last().unwrap().state[0] - 1.0).abs() < 1e-8);
     }
-    assert_ne!(report.results[0].as_ref().unwrap().run_id(), report.results[1].as_ref().unwrap().run_id());
-    assert!(package.runtime.canonical_store().unwrap().admit_activity().is_err());
+    assert_ne!(
+        report.results[0].as_ref().unwrap().run_id(),
+        report.results[1].as_ref().unwrap().run_id()
+    );
+    assert!(
+        package
+            .runtime
+            .canonical_store()
+            .unwrap()
+            .admit_activity()
+            .is_err()
+    );
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
@@ -848,28 +996,60 @@ async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrenc
 async fn durable_origin_local_fit_keeps_original_regression_without_recording() {
     use super::super::{RunReport, StudyInputs, StudyOutputDemand, fitting::regression};
     use pse_backend_native::solve::{Backend, SolveIntent};
-    let package = regression::package_on(super::super::durable_tests::durable_runtime(), false, regression::declared(), [1.; 4]).await;
+    let package = regression::package_on(
+        super::super::durable_tests::durable_runtime(),
+        false,
+        regression::declared(),
+        [1.; 4],
+    )
+    .await;
     deny_recording_after_durable_source(&package).await;
     let request = OperationRequest::Fit(FitOperation {
         fit: super::super::tests::id(32).into(),
         settings: FitOperationSettings {
-            solver: SolveSettings { intent: SolveIntent::Optimize, backend: Some(Backend::Ipopt), ..Default::default() },
-            simulations: BTreeMap::new(), rank_tolerance: 1e-8, max_cells: 100_000,
-            derivatives: FitDerivatives::Responses, experiment_workers: pse_model::scalar!(PositiveCount(1)), uncertainty: None,
+            solver: SolveSettings {
+                intent: SolveIntent::Optimize,
+                backend: Some(Backend::Ipopt),
+                ..Default::default()
+            },
+            simulations: BTreeMap::new(),
+            rank_tolerance: 1e-8,
+            max_cells: 100_000,
+            derivatives: FitDerivatives::Responses,
+            experiment_workers: pse_model::scalar!(PositiveCount(1)),
+            uncertainty: None,
         },
     });
     let cancel = CancelSource::new();
-    let local = package.admit_study(&StudyInputs::Explicit(vec![point(request)]), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    let local = package
+        .admit_study(
+            &StudyInputs::Explicit(vec![point(request)]),
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
+        .await
+        .unwrap();
     let report = local.execute(1, &cancel).await.unwrap();
     let original = original_local_result(&report, 0);
-    let RunReport::Fit(fit) = original.report().unwrap() else { panic!("original regression fit"); };
+    let RunReport::Fit(fit) = original.report().unwrap() else {
+        panic!("original regression fit");
+    };
     let (_, expected) = regression::analytic();
     let candidate = fit.candidate.as_ref().unwrap();
     assert_eq!(candidate.len(), expected.len());
-    for (actual, expected) in candidate.iter().zip(expected) { assert!((actual - expected).abs() < 1e-6); }
+    for (actual, expected) in candidate.iter().zip(expected) {
+        assert!((actual - expected).abs() < 1e-6);
+    }
     assert_eq!(fit.predictions.len(), 4);
     assert!(fit.checks_complete);
-    assert!(package.runtime.canonical_store().unwrap().admit_activity().is_err());
+    assert!(
+        package
+            .runtime
+            .canonical_store()
+            .unwrap()
+            .admit_activity()
+            .is_err()
+    );
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
@@ -877,11 +1057,17 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
 async fn durable_origin_local_horizon_keeps_original_two_step_plant_without_recording() {
     use super::super::{HorizonDecision, StudyInputs, StudyOutputDemand};
     let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
-    let mut request = horizon(&package, case).await;
-    request.controller = None;
+    let request = horizon(&package, case).await;
     deny_recording_after_durable_source(&package).await;
     let cancel = CancelSource::new();
-    let local = package.admit_study(&StudyInputs::Explicit(vec![point(OperationRequest::Horizon(Box::new(request)))]), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    let local = package
+        .admit_study(
+            &StudyInputs::Explicit(vec![point(OperationRequest::Horizon(Box::new(request)))]),
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
+        .await
+        .unwrap();
     let report = local.execute(1, &cancel).await.unwrap();
     let original = original_local_result(&report, 0);
     let horizon = original.horizon().unwrap();
@@ -889,9 +1075,18 @@ async fn durable_origin_local_horizon_keeps_original_two_step_plant_without_reco
     assert_eq!(horizon.steps.len(), 2);
     for (index, step) in horizon.steps.iter().enumerate() {
         assert_eq!(step.time, index as f64 * 0.5);
-        assert_eq!(step.decision, HorizonDecision::OpenLoop);
-        assert_eq!(step.applied, vec![353.15]);
-        assert!(step.reached.iter().all(|value| value.is_finite()));
+        assert_eq!(step.decision, HorizonDecision::Solved);
+        assert_eq!(step.applied.len(), 1);
+        assert!((step.applied[0] - 353.15).abs() < 1e-6);
+        assert_eq!(step.reached.len(), 1);
+        assert!((step.reached[0] - (1.0 + 53.15 * (index + 1) as f64 * 0.5)).abs() < 1e-5);
     }
-    assert!(package.runtime.canonical_store().unwrap().admit_activity().is_err());
+    assert!(
+        package
+            .runtime
+            .canonical_store()
+            .unwrap()
+            .admit_activity()
+            .is_err()
+    );
 }

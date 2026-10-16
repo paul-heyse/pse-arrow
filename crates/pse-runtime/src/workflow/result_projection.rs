@@ -1326,14 +1326,33 @@ mod result_projection_unit {
         pressure
             .try_grow(limit - operations.pool.reserved() - 16)
             .unwrap();
-        let refused = store_run_result_table_queued(&mut queue, &result, run_lineage::RELATION_ID, None, None)
-            .await.unwrap_err();
-        assert!(projection_memory_refusal(&refused), "a live external owner prevents file encoding: {refused:?}");
-        assert!(queue.projection_retries <= 1, "a cold retry never renews or multiplies the operation");
-        assert!(acks.complete(&fence, &run_lineage::RELATION_ID.to_string()).is_err());
+        let refused = store_run_result_table_queued(
+            &mut queue,
+            &result,
+            run_lineage::RELATION_ID,
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            projection_memory_refusal(&refused),
+            "a live external owner prevents file encoding: {refused:?}"
+        );
+        assert!(
+            queue.projection_retries <= 1,
+            "a cold retry never renews or multiplies the operation"
+        );
+        assert!(
+            acks.complete(&fence, &run_lineage::RELATION_ID.to_string())
+                .is_err()
+        );
         drop(pressure);
         queue.flush().await.unwrap();
-        assert_eq!(queue.requests, 1, "only the prior completed metric was acknowledged");
+        assert_eq!(
+            queue.requests, 1,
+            "only the prior completed metric was acknowledged"
+        );
         assert_eq!(
             pse_operations::testing::pending_result_batch_rows(
                 store,
@@ -1447,7 +1466,8 @@ mod result_projection_unit {
             assert!(cursor.owns_checked_buffers());
             let mut position = ResultStreamPosition::default();
             append_result_table_queued(&mut queue, id, cursor, &mut position, None)
-                .await.unwrap();
+                .await
+                .unwrap();
             assert!(
                 acks.complete(&fence, &id.to_string()).is_err(),
                 "issuing a queue item grants no ACK coverage"
@@ -1650,12 +1670,27 @@ mod result_projection_unit {
         assert_eq!(queue.requests, 2);
         assert!(queue.items.is_empty());
         let metrics_file = pse_operations::testing::pending_result_file_coordinates(
-            store, &fence, &solve_metrics::RELATION_ID.to_string(), 0,
-        ).await.unwrap().unwrap();
+            store,
+            &fence,
+            &solve_metrics::RELATION_ID.to_string(),
+            0,
+        )
+        .await
+        .unwrap()
+        .unwrap();
         let parameters_file = pse_operations::testing::pending_result_file_coordinates(
-            store, &fence, &fit_parameters::RELATION_ID.to_string(), 0,
-        ).await.unwrap().unwrap();
-        assert_ne!(metrics_file.0, parameters_file.0, "unlike schemas use independent physical files");
+            store,
+            &fence,
+            &fit_parameters::RELATION_ID.to_string(),
+            0,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_ne!(
+            metrics_file.0, parameters_file.0,
+            "unlike schemas use independent physical files"
+        );
         assert_eq!(metrics_file.1, solve_metrics::RELATION_ID.to_string());
         assert_eq!(parameters_file.1, fit_parameters::RELATION_ID.to_string());
         store_result_table_queued(
@@ -1754,14 +1789,20 @@ mod result_projection_unit {
             .unwrap();
         let acks = super::super::durable::PublicationAcks::new(&operations.pool);
         let pool: Arc<dyn MemoryPool> = Arc::new(
-            datafusion::execution::memory_pool::GreedyMemoryPool::new(128 * 1024),
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(128 << 20),
         );
-        // This real producer-owned payload/encoder allowance fits. An optional
-        // 256KiB queue cannot fit and must not add a new admission requirement.
+        // Pressure denies only the optional queue at construction. Once that
+        // other borrower leaves, the mandatory cold file encoder has its actual
+        // allowance; disabling batching must not fabricate a smaller encoder.
         let producer = MemoryConsumer::new("cold-append-producer").register(&pool);
         producer.try_grow(64 * 1024).unwrap();
+        let pressure = MemoryConsumer::new("cold-append-other-borrower").register(&pool);
+        pressure
+            .try_grow((128 << 20) - 64 * 1024 - 128 * 1024)
+            .unwrap();
         let mut queue = ResultAppendQueue::new(store, &fence, &pool, &acks);
         assert!(queue._owner.is_none());
+        drop(pressure);
         let id = fit_parameters::RELATION_ID;
         let mut builder = fit_parameters::Builder::with_registry(
             runtime.registry(),
@@ -1921,8 +1962,15 @@ mod result_projection_unit {
         let checked = super::super::ResultCursor::from_checked(builder.finish().unwrap());
         assert!(checked.owns_checked_buffers());
         let mut position = ResultStreamPosition::default();
-        append_result_table_queued(&mut queue, solve_metrics::RELATION_ID, checked, &mut position, None)
-            .await.unwrap();
+        append_result_table_queued(
+            &mut queue,
+            solve_metrics::RELATION_ID,
+            checked,
+            &mut position,
+            None,
+        )
+        .await
+        .unwrap();
         assert_eq!(queue.requests, 0);
         assert!(!queue.items.is_empty());
         assert!(pool.reserved() > 256 * 1024);
@@ -1988,7 +2036,10 @@ mod result_projection_unit {
         );
         assert!(queue.items.is_empty() && queue._owner.is_none());
         assert_eq!(pool.reserved(), 0);
-        queue.finish(solve_metrics::RELATION_ID, position).await.unwrap();
+        queue
+            .finish(solve_metrics::RELATION_ID, position)
+            .await
+            .unwrap();
         for id in [solve_metrics::RELATION_ID, fit_parameters::RELATION_ID] {
             acks.complete(&fence, &id.to_string()).unwrap();
             assert_eq!(

@@ -41,6 +41,7 @@ from pse._build import (
 from pse._inspection import TableStream, registry_table
 from pse._modeling import (
     CompactStudyResult,
+    LocalStudy,
     ModelingConformance,
     ModelingDiagnostics,
     ModelingDiagnosticSamples,
@@ -53,7 +54,6 @@ from pse._modeling import (
     ModelingPackage,
     ModelingResult,
     ModelingTrajectory,
-    LocalStudy,
     StudyReport,
 )
 from pse._runs import (
@@ -202,6 +202,7 @@ __all__ = [
     "LinearDiagnosticControls",
     "LiveSimulationCursor",
     "LiveSimulationEvent",
+    "LocalStudy",
     "ModelingConformance",
     "ModelingDiagnosticPolicy",
     "ModelingDiagnosticSamples",
@@ -262,7 +263,6 @@ __all__ = [
     "StudyInputsExplicit",
     "StudyInputsLazy",
     "StudyPointStatus",
-    "LocalStudy",
     "StudyReport",
     "StudyResults",
     "StudyRunControls",

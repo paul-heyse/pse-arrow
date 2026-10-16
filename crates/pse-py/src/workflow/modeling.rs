@@ -98,7 +98,6 @@ pub(super) fn from_documents(
         owner: runtime.owner.clone(),
         inner,
         limits: Default::default(),
-
     })
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -117,7 +116,6 @@ impl NativeModelingPackage {
             owner,
             inner,
             limits: Default::default(),
-
         }
     }
 }
@@ -219,7 +217,6 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-
         })
     }
     fn with_delta(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
@@ -240,7 +237,6 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-
         })
     }
     fn reload_from_parent(
@@ -263,7 +259,6 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-
         })
     }
     fn with_fit_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
@@ -286,7 +281,6 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-
         })
     }
 
@@ -326,7 +320,6 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner: self.inner.clone(),
             limits: limits.limits,
-
         }
     }
 
@@ -711,24 +704,49 @@ impl NativeModelingPackage {
     /// Admit local scientific intent without publication prerequisites.
     fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<NativeLocalStudy> {
         let request = documents::decode_versioned::<native::StudyRequest, 6>(
-            py, "operation", request, self.owner.shared.budget().math.workspace_bytes,
+            py,
+            "operation",
+            request,
+            self.owner.shared.budget().math.workspace_bytes,
         )?;
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner,
-            self.inner.admit_study(&request.inputs, &request.output, &cancel),
-            || cancel.cancel())?;
-        Ok(NativeLocalStudy { inner, owner: self.owner.clone() })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .admit_study(&request.inputs, &request.output, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeLocalStudy {
+            inner,
+            owner: self.owner.clone(),
+        })
     }
     /// Execute using the owned admitted model and physical context.
     #[pyo3(signature=(local, *, controls=None))]
-    fn study(&self, py: Python<'_>, local: &NativeLocalStudy, controls: Option<&[u8]>) -> PyResult<NativeStudyReport> {
+    fn study(
+        &self,
+        py: Python<'_>,
+        local: &NativeLocalStudy,
+        controls: Option<&[u8]>,
+    ) -> PyResult<NativeStudyReport> {
         let native::StudyRunControls { maximum_points } = documents::controls(
-            py, "study", controls, self.owner.shared.budget().math.workspace_bytes,
+            py,
+            "study",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
         )?;
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner,
-            self.inner.study(&local.inner, maximum_points, &cancel), || cancel.cancel())?;
-        Ok(NativeStudyReport { inner: Arc::new(inner), owner: local.owner.clone() })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.study(&local.inner, maximum_points, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeStudyReport {
+            inner: Arc::new(inner),
+            owner: local.owner.clone(),
+        })
     }
     fn inspect(&self, py: Python<'_>, case_id: &str, settings: &[u8]) -> PyResult<Vec<u8>> {
         let settings = settings::solve_profile(py, settings)?;
@@ -1582,17 +1600,36 @@ pub(crate) struct NativeLocalStudy {
 impl NativeLocalStudy {
     #[pyo3(signature=(*, controls=None))]
     fn execute(&self, py: Python<'_>, controls: Option<&[u8]>) -> PyResult<NativeStudyReport> {
-        let native::StudyRunControls { maximum_points } = documents::controls(py, "study", controls, self.owner.shared.budget().math.workspace_bytes)?;
+        let native::StudyRunControls { maximum_points } = documents::controls(
+            py,
+            "study",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner, self.inner.execute(maximum_points, &cancel), || cancel.cancel())?;
-        Ok(NativeStudyReport { inner: Arc::new(inner), owner: self.owner.clone() })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.execute(maximum_points, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeStudyReport {
+            inner: Arc::new(inner),
+            owner: self.owner.clone(),
+        })
     }
     #[getter]
-    fn points(&self, py: Python<'_>) -> PyResult<Vec<u8>> { documents::encode(py, &self.inner.points) }
+    fn points(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        documents::encode(py, &self.inner.points)
+    }
     #[getter]
-    fn variants(&self, py: Python<'_>) -> PyResult<Vec<u8>> { documents::encode(py, &self.inner.variants) }
+    fn variants(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        documents::encode(py, &self.inner.variants)
+    }
     #[getter]
-    fn modeling_revision(&self) -> String { self.inner.modeling_revision.clone() }
+    fn modeling_revision(&self) -> String {
+        self.inner.modeling_revision.clone()
+    }
 }
 
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]

@@ -107,7 +107,9 @@ pub(crate) fn validate_codec_schema(encoding: &str, schema: &str) -> Result<(), 
         ARROW_IPC_FILE => {
             let identity = pse_ids::SemanticId::parse_hex(schema).map_err(configuration)?;
             if identity.to_string() != schema {
-                return Err(configuration("native file schema identity is not canonical"));
+                return Err(configuration(
+                    "native file schema identity is not canonical",
+                ));
             }
             Ok(())
         }
@@ -980,7 +982,12 @@ mod tests {
         file.batch_count = 1;
         file.schema = pse_ids::SemanticId::from_bytes([1; 16]).to_string();
         file.validate().unwrap();
-        for schema in [String::new(), "schema".into(), "a".repeat(4097), "F".repeat(32)] {
+        for schema in [
+            String::new(),
+            "schema".into(),
+            "a".repeat(4097),
+            "F".repeat(32),
+        ] {
             file.schema = schema;
             assert!(file.validate().is_err());
         }

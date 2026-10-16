@@ -430,38 +430,66 @@ impl Runtime {
     /// Publish the exact retained scientific inputs, without repeating admission or
     /// expanding lazy variants. Missing byte owners or sinks refuse before effects.
     pub async fn record_study(
-        &self, local: &LocalStudy, cancel: &crate::CancelSource,
+        &self,
+        local: &LocalStudy,
+        cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
-        let documents = local.package.physical.documents.as_ref()
-            .ok_or_else(|| contract("study recording requires exact admitted physical document bytes"))?;
+        let documents = local.package.physical.documents.as_ref().ok_or_else(|| {
+            contract("study recording requires exact admitted physical document bytes")
+        })?;
         let operations = self.operations()?;
         self.canonical_store()?;
         creation_checkpoint(cancel)?;
         local.science.validate_roles()?;
-        let extent = documents.bundles().iter().flat_map(|bundle| &bundle.documents)
-            .try_fold(0usize, |total, document| total.checked_add(document.bytes().len())
-                .and_then(|n| n.checked_add(document.path.len() + 256)))
+        let extent = documents
+            .bundles()
+            .iter()
+            .flat_map(|bundle| &bundle.documents)
+            .try_fold(0usize, |total, document| {
+                total
+                    .checked_add(document.bytes().len())
+                    .and_then(|n| n.checked_add(document.path.len() + 256))
+            })
             .ok_or_else(|| contract("study physical document extent"))?;
-        let _owner = self.shared.math().reserve("study:physical-recording", extent)?;
+        let _owner = self
+            .shared
+            .math()
+            .reserve("study:physical-recording", extent)?;
         let mut sources = BTreeMap::new();
-        for document in documents.bundles().iter().flat_map(|bundle| &bundle.documents) {
-            if sources.insert(document.path.clone(), document.bytes().to_vec()).is_some() {
+        for document in documents
+            .bundles()
+            .iter()
+            .flat_map(|bundle| &bundle.documents)
+        {
+            if sources
+                .insert(document.path.clone(), document.bytes().to_vec())
+                .is_some()
+            {
                 return Err(contract("study physical document path is ambiguous"));
             }
         }
-        if sources.is_empty() { return Err(contract("study recording requires physical document bytes")); }
+        if sources.is_empty() {
+            return Err(contract("study recording requires physical document bytes"));
+        }
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            let revision = local.package.record_study_source(self, cancel).await?;
-            let physical = creation_effect(cancel, operations.put_sources(&sources)).await?;
-            let mut science = local.science.clone();
-            science.modeling_revision = revision;
-            if let Some(lazy) = &mut science.variants {
-                lazy.variants.retain_parent(&science.modeling_revision);
-            }
-            Ok(StudyDefinition { version: Version, physical,
-                modeling_revision: science.modeling_revision, variants: science.variants, points: science.points })
-        }).await
+        activity
+            .scope(async {
+                let revision = local.package.record_study_source(self, cancel).await?;
+                let physical = creation_effect(cancel, operations.put_sources(&sources)).await?;
+                let mut science = local.science.clone();
+                science.modeling_revision = revision;
+                if let Some(lazy) = &mut science.variants {
+                    lazy.variants.retain_parent(&science.modeling_revision);
+                }
+                Ok(StudyDefinition {
+                    version: Version,
+                    physical,
+                    modeling_revision: science.modeling_revision,
+                    variants: science.variants,
+                    points: science.points,
+                })
+            })
+            .await
     }
 
     fn study_creation_operations(&self) -> Result<&Operations, WorkflowError> {
@@ -483,7 +511,9 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.request");
                 self.study_creation_operations()?;
-                let context = self.physical_from_sources(&plan.sources.physical, cancel).await?;
+                let context = self
+                    .physical_from_sources(&plan.sources.physical, cancel)
+                    .await?;
                 let package = creation_effect(
                     cancel,
                     self.package_from_sources(&plan.sources.modeling, context, cancel),
@@ -495,8 +525,7 @@ impl Runtime {
                 )
                 .await?;
                 let definition = self.record_study(&definition, cancel).await?;
-                self.start_recorded_study(definition, cancel)
-                    .await
+                self.start_recorded_study(definition, cancel).await
             })
             .await
     }
@@ -2381,17 +2410,23 @@ pub struct LocalStudy {
 }
 impl std::ops::Deref for LocalStudy {
     type Target = AdmittedStudy;
-    fn deref(&self) -> &Self::Target { &self.science }
+    fn deref(&self) -> &Self::Target {
+        &self.science
+    }
 }
 #[cfg(test)]
 impl std::ops::DerefMut for LocalStudy {
-    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.science }
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.science
+    }
 }
 impl LocalStudy {
     /// Execute with the retained model and physical context, independent of store setup.
-    pub async fn execute(&self, maximum_points: usize, cancel: &crate::CancelSource)
-        -> Result<super::StudyReport, WorkflowError>
-    {
+    pub async fn execute(
+        &self,
+        maximum_points: usize,
+        cancel: &crate::CancelSource,
+    ) -> Result<super::StudyReport, WorkflowError> {
         self.package.study(self, maximum_points, cancel).await
     }
 }
@@ -2432,28 +2467,56 @@ impl StudyDefinition {
 
     /// Project the recorded transport into the common admitted scientific payload.
     pub fn science(&self) -> AdmittedStudy {
-        AdmittedStudy { modeling_revision: self.modeling_revision.clone(), variants: self.variants.clone(), points: self.points.clone() }
+        AdmittedStudy {
+            modeling_revision: self.modeling_revision.clone(),
+            variants: self.variants.clone(),
+            points: self.points.clone(),
+        }
     }
     /// Validate the common scientific policy, without constructing lazy variants.
-    pub fn validate_roles(&self) -> Result<(), WorkflowError> { self.view().validate_roles() }
+    pub fn validate_roles(&self) -> Result<(), WorkflowError> {
+        self.view().validate_roles()
+    }
     fn view(&self) -> StudyScience<'_> {
-        StudyScience { modeling_revision: &self.modeling_revision, variants: self.variants.as_ref(), points: &self.points }
+        StudyScience {
+            modeling_revision: &self.modeling_revision,
+            variants: self.variants.as_ref(),
+            points: &self.points,
+        }
     }
     /// Number of selected occurrences.
-    pub fn point_count(&self) -> usize { self.variants.as_ref().map_or(self.points.len(), |lazy| lazy.variants.selected.len()) }
+    pub fn point_count(&self) -> usize {
+        self.variants
+            .as_ref()
+            .map_or(self.points.len(), |lazy| lazy.variants.selected.len())
+    }
     /// Shared occurrence graph.
-    pub fn graph(&self) -> OccurrenceGraph { self.view().graph() }
+    pub fn graph(&self) -> OccurrenceGraph {
+        self.view().graph()
+    }
 }
 impl AdmittedStudy {
     fn view(&self) -> StudyScience<'_> {
-        StudyScience { modeling_revision: &self.modeling_revision, variants: self.variants.as_ref(), points: &self.points }
+        StudyScience {
+            modeling_revision: &self.modeling_revision,
+            variants: self.variants.as_ref(),
+            points: &self.points,
+        }
     }
     /// Validate the common occurrence policy without copying scientific descriptors.
-    pub fn validate_roles(&self) -> Result<(), WorkflowError> { self.view().validate_roles() }
+    pub fn validate_roles(&self) -> Result<(), WorkflowError> {
+        self.view().validate_roles()
+    }
     /// Number of selected occurrences.
-    pub fn point_count(&self) -> usize { self.variants.as_ref().map_or(self.points.len(), |lazy| lazy.variants.selected.len()) }
+    pub fn point_count(&self) -> usize {
+        self.variants
+            .as_ref()
+            .map_or(self.points.len(), |lazy| lazy.variants.selected.len())
+    }
     /// Common occurrence graph.
-    pub fn graph(&self) -> OccurrenceGraph { self.view().graph() }
+    pub fn graph(&self) -> OccurrenceGraph {
+        self.view().graph()
+    }
 }
 struct StudyScience<'a> {
     modeling_revision: &'a str,
@@ -2518,29 +2581,39 @@ impl super::ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<LocalStudy, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
-        activity.scope(async {
-        // Local admission owns execution placement as well as scientific inputs.
-        // Family preparations embed this Runtime, so projecting only at dispatch
-        // would still let simulations/fitting/horizons create durable attempts.
-        let mut package = self.clone();
-        package.runtime = package.runtime.clone().with_durability(super::DurabilitySelection::Ephemeral)?;
-        let science = match inputs {
-            super::StudyInputs::Explicit(points) => package.admit_study_points(points, output, cancel).await?,
-            super::StudyInputs::Lazy(variants) => {
-                creation_checkpoint(cancel)?;
-                output.validate(&package.runtime)?;
-                variants.check_parent(&package)?;
-                let mut retained = variants.clone();
-                retained.retain_parent(package.source_attribution());
-                AdmittedStudy {
-                    modeling_revision: package.source_attribution().into(),
-                    points: vec![],
-                    variants: Some(super::LazyStudyDefinition { variants: retained, output: output.clone() }),
-                }
-            }
-        };
-        Ok(LocalStudy { package, science })
-        }).await
+        activity
+            .scope(async {
+                // Local admission owns execution placement as well as scientific inputs.
+                // Family preparations embed this Runtime, so projecting only at dispatch
+                // would still let simulations/fitting/horizons create durable attempts.
+                let mut package = self.clone();
+                package.runtime = package
+                    .runtime
+                    .clone()
+                    .with_durability(super::DurabilitySelection::Ephemeral)?;
+                let science = match inputs {
+                    super::StudyInputs::Explicit(points) => {
+                        package.admit_study_points(points, output, cancel).await?
+                    }
+                    super::StudyInputs::Lazy(variants) => {
+                        creation_checkpoint(cancel)?;
+                        output.validate(&package.runtime)?;
+                        variants.check_parent(&package)?;
+                        let mut retained = variants.clone();
+                        retained.retain_parent(package.source_attribution());
+                        AdmittedStudy {
+                            modeling_revision: package.source_attribution().into(),
+                            points: vec![],
+                            variants: Some(super::LazyStudyDefinition {
+                                variants: retained,
+                                output: output.clone(),
+                            }),
+                        }
+                    }
+                };
+                Ok(LocalStudy { package, science })
+            })
+            .await
     }
     pub(in crate::workflow) async fn admit_one_study_point(
         &self,
@@ -2742,11 +2815,7 @@ mod creation_authority_tests {
         let (plan, definition) = inputs();
         let cancel = crate::CancelSource::new();
         refused_before_creation(runtime.start_study(plan, &cancel).await);
-        refused_before_creation(
-            runtime
-                .start_recorded_study(definition, &cancel)
-                .await,
-        );
+        refused_before_creation(runtime.start_recorded_study(definition, &cancel).await);
         assert!(runtime.canonical().is_err());
     }
 
@@ -2767,11 +2836,7 @@ mod creation_authority_tests {
         let before = store.study_page(None).await.unwrap();
         let cancel = crate::CancelSource::new();
         refused_before_creation(runtime.start_study(plan, &cancel).await);
-        refused_before_creation(
-            runtime
-                .start_recorded_study(definition, &cancel)
-                .await,
-        );
+        refused_before_creation(runtime.start_recorded_study(definition, &cancel).await);
         assert!(store.revision(&receipt).await.unwrap().is_none());
         assert_eq!(store.study_page(None).await.unwrap(), before);
         // Explicit recording reads retain their independent authority.

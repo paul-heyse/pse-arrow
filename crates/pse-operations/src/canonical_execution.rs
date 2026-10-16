@@ -3367,13 +3367,15 @@ impl CanonicalStore {
         key: &str,
     ) -> Result<Option<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
-        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
-        let activity = self.admit_activity()?;
-        activity
-            .scope(async {
-                within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    identity(key)?;
-                    let mut result = bounded_query(
+        crate::canonical::transport::metadata_scope(
+            crate::canonical::MetadataResponse::Header,
+            async {
+                let activity = self.admit_activity()?;
+                activity
+                    .scope(async {
+                        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                            identity(key)?;
+                            let mut result = bounded_query(
                         self.db
                             .query(
                                 "RETURN fn::pse_history_v1::read_seed($pse_rpc_expires_at,$key);",
@@ -3381,16 +3383,18 @@ impl CanonicalStore {
                             .bind(("key", key.to_owned())),
                     )
                     .await?;
-                    result
-                        .take::<Option<Object>>(0)?
-                        .map(wire::decode_canonical_result_seeds)
-                        .transpose()
-                        .map_err(Into::into)
-                })
-                .await
-            })
-            .await
-        }).await
+                            result
+                                .take::<Option<Object>>(0)?
+                                .map(wire::decode_canonical_result_seeds)
+                                .transpose()
+                                .map_err(Into::into)
+                        })
+                        .await
+                    })
+                    .await
+            },
+        )
+        .await
     }
     /// Filter sealed complete-original inventory before cutoff; admission remains independent.
     pub async fn result_seed_candidates(
@@ -3686,7 +3690,8 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut retirement = bounded_query(
                 self.db
-                    .metadata_query(crate::canonical::MetadataResponse::Header,
+                    .metadata_query(
+                        crate::canonical::MetadataResponse::Header,
                         "SELECT key FROM ONLY type::record('canonical_result_retirements',$run);",
                     )
                     .bind(("run", run.to_owned())),

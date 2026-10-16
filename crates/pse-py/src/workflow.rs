@@ -8,11 +8,11 @@ mod routes;
 mod settings;
 mod source_settlement;
 pub(crate) use modeling::{
-    ModelingDiagnosticSettings, ModelingLimits, NativeModelingConformance,
+    ModelingDiagnosticSettings, ModelingLimits, NativeLocalStudy, NativeModelingConformance,
     NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
     NativeModelingInitialization, NativeModelingInitializationAttempt, NativeModelingKnowledge,
     NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingPackage,
-    NativeModelingResult, NativeModelingTrajectory, NativeLocalStudy, NativeStudyReport,
+    NativeModelingResult, NativeModelingTrajectory, NativeStudyReport,
 };
 use routes::{NativeEligibility, NativeRoute};
 mod strategies;
@@ -946,9 +946,7 @@ impl NativeRuntime {
             }),
             || cancel.cancel(),
         )?;
-        Ok(NativePhysicalContext {
-            inner,
-        })
+        Ok(NativePhysicalContext { inner })
     }
     /// Exact canonical run metadata through its generated one-row Arrow contract.
     fn run_record(&self, py: Python<'_>, run: &str) -> PyResult<inspection::TableStream> {
@@ -1398,10 +1396,19 @@ impl NativeRuntime {
             &self.owner,
             self.recording_operation(&connection_stop, |recording| async move {
                 (async {
-                    let mut reader = recording
-                        .results(run, attempt, relation, start, end, operation_cancel.clone())
-                        .await?;
-                    reader.export_ipc(std::path::Path::new(destination)).await
+                    // Keep the two large native phase futures out of this
+                    // Python-thread polling frame. Their owned readers and
+                    // cancellation/drain contract remain unchanged.
+                    let mut reader = Box::pin(recording.results(
+                        run,
+                        attempt,
+                        relation,
+                        start,
+                        end,
+                        operation_cancel.clone(),
+                    ))
+                    .await?;
+                    Box::pin(reader.export_ipc(std::path::Path::new(destination))).await
                 })
                 .await
             }),
@@ -1474,35 +1481,74 @@ impl NativeRuntime {
     fn record_study(&self, py: Python<'_>, local: &NativeLocalStudy) -> PyResult<Vec<u8>> {
         let cancel = CancelSource::new();
         let operation_stop = cancel.clone();
-        let inner = blocking(py, &self.owner,
+        let inner = blocking(
+            py,
+            &self.owner,
             self.recording_operation(&cancel, |recording| async move {
                 recording.record_study(&local.inner, &operation_stop).await
-            }), || cancel.cancel())?;
+            }),
+            || cancel.cancel(),
+        )?;
         documents::encode(py, &inner)
     }
     /// Join recorded durable execution and retain the original result report.
     #[pyo3(signature=(definition, *, controls=None))]
-    fn execute_study(&self, py: Python<'_>, definition: &[u8], controls: Option<&[u8]>) -> PyResult<NativeStudyReport> {
-        let definition = documents::study_definition(py, definition, self.owner.shared.budget().math.workspace_bytes)?;
-        let native::StudyRunControls { maximum_points } = documents::controls(py, "study", controls, self.owner.shared.budget().math.workspace_bytes)?;
+    fn execute_study(
+        &self,
+        py: Python<'_>,
+        definition: &[u8],
+        controls: Option<&[u8]>,
+    ) -> PyResult<NativeStudyReport> {
+        let definition = documents::study_definition(
+            py,
+            definition,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let native::StudyRunControls { maximum_points } = documents::controls(
+            py,
+            "study",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let cancel = CancelSource::new();
         let operation_stop = cancel.clone();
-        let inner = blocking(py, &self.owner,
+        let inner = blocking(
+            py,
+            &self.owner,
             self.recording_operation(&cancel, |recording| async move {
-                recording.execute_study(&definition, maximum_points, &operation_stop).await
-            }), || cancel.cancel())?;
-        Ok(NativeStudyReport { inner: Arc::new(inner), owner: self.owner.clone() })
+                Box::pin(recording.execute_study(&definition, maximum_points, &operation_stop))
+                    .await
+            }),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeStudyReport {
+            inner: Arc::new(inner),
+            owner: self.owner.clone(),
+        })
     }
     /// Start only a genuinely recorded portable study definition.
     fn start_study(&self, py: Python<'_>, definition: &[u8]) -> PyResult<NativeStudyHandle> {
-        let definition = documents::study_definition(py, definition, self.owner.shared.budget().math.workspace_bytes)?;
+        let definition = documents::study_definition(
+            py,
+            definition,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let cancel = CancelSource::new();
         let operation_stop = cancel.clone();
-        let inner = blocking(py, &self.owner,
+        let inner = blocking(
+            py,
+            &self.owner,
             self.recording_operation(&cancel, |recording| async move {
-                recording.start_recorded_study(definition, &operation_stop).await
-            }), || cancel.cancel())?;
-        Ok(NativeStudyHandle { inner, owner: self.owner.clone() })
+                recording
+                    .start_recorded_study(definition, &operation_stop)
+                    .await
+            }),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeStudyHandle {
+            inner,
+            owner: self.owner.clone(),
+        })
     }
     /// A handle on a durable study of this runtime's store.
     fn study(&self, py: Python<'_>, study_id: &str) -> PyResult<NativeStudyHandle> {

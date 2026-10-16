@@ -206,7 +206,11 @@ async fn definition(
         })
         .collect();
     let admitted = package
-        .admit_study(&workflow::StudyInputs::Explicit((&points).to_vec()), &workflow::StudyOutputDemand::Full {}, &audit::cancel_source())
+        .admit_study(
+            &workflow::StudyInputs::Explicit((&points).to_vec()),
+            &workflow::StudyOutputDemand::Full {},
+            &audit::cancel_source(),
+        )
         .await
         .unwrap();
     assert_eq!(

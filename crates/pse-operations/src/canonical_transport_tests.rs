@@ -1955,79 +1955,150 @@ fn canonical_statistics_exact_sample_fits_default_text_bound() {
     );
 }
 
-
 #[derive(Clone, Copy, Debug)]
-enum MetadataFault { Valid, LongString, SharedCopies, UnknownId, UnknownSession, DuplicateId, MalformedId }
+enum MetadataFault {
+    Valid,
+    LongString,
+    SharedCopies,
+    UnknownId,
+    UnknownSession,
+    DuplicateId,
+    MalformedId,
+}
 
 fn metadata_peer_frame(request: &Object, fault: MetadataFault) -> Vec<u8> {
     use surrealdb::types::ToFlatbuffers;
     use surrealdb_protocol::fb::v1 as fb;
-    fn object<'a>(builder: &mut flatbuffers::FlatBufferBuilder<'a>, fields: &[(&str, flatbuffers::WIPOffset<fb::Value<'a>>)])
-        -> flatbuffers::WIPOffset<fb::Value<'a>> {
-        let entries = fields.iter().map(|(key, value)| {
-            let key = builder.create_string(key);
-            fb::KeyValue::create(builder, &fb::KeyValueArgs { key: Some(key), value: Some(*value) })
-        }).collect::<Vec<_>>();
+    fn object<'a>(
+        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+        fields: &[(&str, flatbuffers::WIPOffset<fb::Value<'a>>)],
+    ) -> flatbuffers::WIPOffset<fb::Value<'a>> {
+        let entries = fields
+            .iter()
+            .map(|(key, value)| {
+                let key = builder.create_string(key);
+                fb::KeyValue::create(
+                    builder,
+                    &fb::KeyValueArgs {
+                        key: Some(key),
+                        value: Some(*value),
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
         let items = builder.create_vector(&entries);
         let object = fb::Object::create(builder, &fb::ObjectArgs { items: Some(items) });
-        fb::Value::create(builder, &fb::ValueArgs { value_type: fb::ValueType::Object, value: Some(object.as_union_value()) })
+        fb::Value::create(
+            builder,
+            &fb::ValueArgs {
+                value_type: fb::ValueType::Object,
+                value: Some(object.as_union_value()),
+            },
+        )
     }
     let mut builder = flatbuffers::FlatBufferBuilder::new();
-    let Value::Number(surrealdb::types::Number::Int(actual_id)) = request.get("id").unwrap() else { panic!("native request id must be an integer") };
+    let Value::Number(surrealdb::types::Number::Int(actual_id)) = request.get("id").unwrap() else {
+        panic!("native request id must be an integer")
+    };
     let id = match fault {
         MetadataFault::UnknownId => Value::Number(surrealdb::types::Number::Int(*actual_id + 100)),
         MetadataFault::MalformedId => Value::String("not an integer".into()),
         _ => request.get("id").unwrap().clone(),
-    }.to_fb(&mut builder).unwrap();
+    }
+    .to_fb(&mut builder)
+    .unwrap();
     let session = match fault {
         MetadataFault::UnknownSession => Value::Uuid(uuid::Uuid::new_v4().into()),
         _ => request.get("session").unwrap().clone(),
-    }.to_fb(&mut builder).unwrap();
+    }
+    .to_fb(&mut builder)
+    .unwrap();
     let result = match fault {
         MetadataFault::Valid | MetadataFault::LongString | MetadataFault::SharedCopies => {
             let value = match fault {
                 MetadataFault::SharedCopies => {
                     let text = builder.create_string(&"s".repeat(4096));
-                    let string = fb::StringValue::create(&mut builder, &fb::StringValueArgs { value: Some(text) });
-                    let value = fb::Value::create(&mut builder, &fb::ValueArgs {
-                        value_type: fb::ValueType::String, value: Some(string.as_union_value()),
-                    });
+                    let string = fb::StringValue::create(
+                        &mut builder,
+                        &fb::StringValueArgs { value: Some(text) },
+                    );
+                    let value = fb::Value::create(
+                        &mut builder,
+                        &fb::ValueArgs {
+                            value_type: fb::ValueType::String,
+                            value: Some(string.as_union_value()),
+                        },
+                    );
                     let values = builder.create_vector(&[value, value, value]);
-                    let array = fb::Array::create(&mut builder, &fb::ArrayArgs { values: Some(values) });
-                    fb::Value::create(&mut builder, &fb::ValueArgs {
-                        value_type: fb::ValueType::Array, value: Some(array.as_union_value()),
-                    })
+                    let array = fb::Array::create(
+                        &mut builder,
+                        &fb::ArrayArgs {
+                            values: Some(values),
+                        },
+                    );
+                    fb::Value::create(
+                        &mut builder,
+                        &fb::ValueArgs {
+                            value_type: fb::ValueType::Array,
+                            value: Some(array.as_union_value()),
+                        },
+                    )
                 }
-                MetadataFault::LongString => Value::String("s".repeat(4097)).to_fb(&mut builder).unwrap(),
+                MetadataFault::LongString => {
+                    Value::String("s".repeat(4097)).to_fb(&mut builder).unwrap()
+                }
                 _ => Value::Bool(true).to_fb(&mut builder).unwrap(),
             };
             let status = Value::String("OK".into()).to_fb(&mut builder).unwrap();
             let time = Value::String("0ns".into()).to_fb(&mut builder).unwrap();
-            let statement = object(&mut builder, &[("status", status), ("time", time), ("result", value)]);
+            let statement = object(
+                &mut builder,
+                &[("status", status), ("time", time), ("result", value)],
+            );
             let statements = builder.create_vector(&[statement]);
-            let array = fb::Array::create(&mut builder, &fb::ArrayArgs { values: Some(statements) });
-            fb::Value::create(&mut builder, &fb::ValueArgs {
-                value_type: fb::ValueType::Array, value: Some(array.as_union_value()),
-            })
+            let array = fb::Array::create(
+                &mut builder,
+                &fb::ArrayArgs {
+                    values: Some(statements),
+                },
+            );
+            fb::Value::create(
+                &mut builder,
+                &fb::ValueArgs {
+                    value_type: fb::ValueType::Array,
+                    value: Some(array.as_union_value()),
+                },
+            )
         }
         _ => {
             // Generated verifier permits an absent optional StringValue field;
             // types3.3 owned conversion expects it. An accidental owned fallback
             // would panic before routing, so this is a revealing negative control.
-            let string = fb::StringValue::create(&mut builder, &fb::StringValueArgs { value: None });
-            fb::Value::create(&mut builder, &fb::ValueArgs {
-                value_type: fb::ValueType::String, value: Some(string.as_union_value()),
-            })
+            let string =
+                fb::StringValue::create(&mut builder, &fb::StringValueArgs { value: None });
+            fb::Value::create(
+                &mut builder,
+                &fb::ValueArgs {
+                    value_type: fb::ValueType::String,
+                    value: Some(string.as_union_value()),
+                },
+            )
         }
     };
     let mut fields = vec![("id", id), ("session", session), ("result", result)];
-    if matches!(fault, MetadataFault::DuplicateId) { fields.push(("id", id)); }
+    if matches!(fault, MetadataFault::DuplicateId) {
+        fields.push(("id", id));
+    }
     let root = object(&mut builder, &fields);
     builder.finish_minimal(root);
     builder.finished_data().to_vec()
 }
 
-async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool, profile: crate::canonical::MetadataResponse) {
+async fn canonical_metadata_preflight_peer(
+    fault: MetadataFault,
+    cancelled: bool,
+    profile: crate::canonical::MetadataResponse,
+) {
     use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -2041,8 +2112,12 @@ async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool
         let mut released = Some(released);
         let mut frame_written = Some(frame_written);
         while let Some(Ok(Message::Binary(bytes))) = socket.next().await {
-            let Value::Object(request) = surrealdb::types::decode(&bytes).unwrap() else { continue };
-            if request.get("id").is_none_or(|id| matches!(id, Value::None)) { continue; }
+            let Value::Object(request) = surrealdb::types::decode(&bytes).unwrap() else {
+                continue;
+            };
+            if request.get("id").is_none_or(|id| matches!(id, Value::None)) {
+                continue;
+            }
             let method = request.get("method").and_then(Value::as_string).unwrap();
             let frame = if method == "query" {
                 entered.take().unwrap().send(()).unwrap();
@@ -2052,38 +2127,83 @@ async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool
                 let mut reply = Object::new();
                 reply.insert("id", request.get("id").unwrap().clone());
                 reply.insert("session", request.get("session").unwrap().clone());
-                reply.insert("result", if method == "version" { Value::String("3.3.0".into()) } else { Value::None });
+                reply.insert(
+                    "result",
+                    if method == "version" {
+                        Value::String("3.3.0".into())
+                    } else {
+                        Value::None
+                    },
+                );
                 surrealdb::types::encode(&Value::Object(reply)).unwrap()
             };
             if method == "query" && matches!(fault, MetadataFault::Valid) {
                 use surrealdb_protocol::fb::v1 as fb;
                 let mut builder = flatbuffers::FlatBufferBuilder::new();
-                let string = fb::StringValue::create(&mut builder, &fb::StringValueArgs { value: None });
-                let result = fb::Value::create(&mut builder, &fb::ValueArgs {
-                    value_type: fb::ValueType::String, value: Some(string.as_union_value()),
-                });
+                let string =
+                    fb::StringValue::create(&mut builder, &fb::StringValueArgs { value: None });
+                let result = fb::Value::create(
+                    &mut builder,
+                    &fb::ValueArgs {
+                        value_type: fb::ValueType::String,
+                        value: Some(string.as_union_value()),
+                    },
+                );
                 let key = builder.create_string("result");
-                let field = fb::KeyValue::create(&mut builder, &fb::KeyValueArgs { key: Some(key), value: Some(result) });
+                let field = fb::KeyValue::create(
+                    &mut builder,
+                    &fb::KeyValueArgs {
+                        key: Some(key),
+                        value: Some(result),
+                    },
+                );
                 let items = builder.create_vector(&[field]);
-                let object = fb::Object::create(&mut builder, &fb::ObjectArgs { items: Some(items) });
-                let global = fb::Value::create(&mut builder, &fb::ValueArgs {
-                    value_type: fb::ValueType::Object, value: Some(object.as_union_value()),
-                });
+                let object =
+                    fb::Object::create(&mut builder, &fb::ObjectArgs { items: Some(items) });
+                let global = fb::Value::create(
+                    &mut builder,
+                    &fb::ValueArgs {
+                        value_type: fb::ValueType::Object,
+                        value: Some(object.as_union_value()),
+                    },
+                );
                 builder.finish_minimal(global);
-                socket.send(Message::Binary(builder.finished_data().to_vec().into())).await.unwrap();
+                socket
+                    .send(Message::Binary(builder.finished_data().to_vec().into()))
+                    .await
+                    .unwrap();
             }
             socket.send(Message::Binary(frame.into())).await.unwrap();
-            if method == "query" { frame_written.take().unwrap().send(()).unwrap(); }
+            if method == "query" {
+                frame_written.take().unwrap().send(()).unwrap();
+            }
         }
     });
     let options = crate::canonical::CanonicalOptions {
-        endpoint: format!("ws://{address}"), namespace: "namespace".into(), database: "database".into(),
-        username: "owner".into(), password: "test".into(), selection_username: "viewer".into(),
-        selection_password: "test".into(), state_path: std::path::PathBuf::new(), initializer_nonce: None,
+        endpoint: format!("ws://{address}"),
+        namespace: "namespace".into(),
+        database: "database".into(),
+        username: "owner".into(),
+        password: "test".into(),
+        selection_username: "viewer".into(),
+        selection_password: "test".into(),
+        state_path: std::path::PathBuf::new(),
+        initializer_nonce: None,
     };
-    let sdk = Surreal::new::<Ws>((address, Config::new().bounded_requests()
-        .websocket(WebsocketConfig::new().max_message_size(4 << 20)).unwrap())).await.unwrap();
-    let client = Arc::new(super::CanonicalClient::new(sdk, Duration::from_secs(5), &options));
+    let sdk = Surreal::new::<Ws>((
+        address,
+        Config::new()
+            .bounded_requests()
+            .websocket(WebsocketConfig::new().max_message_size(4 << 20))
+            .unwrap(),
+    ))
+    .await
+    .unwrap();
+    let client = Arc::new(super::CanonicalClient::new(
+        sdk,
+        Duration::from_secs(5),
+        &options,
+    ));
     let bytes = profile.allocation_bytes();
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(bytes));
     let owner = MemoryConsumer::new("test:actual-metadata-preflight").register(&pool);
@@ -2097,58 +2217,116 @@ async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool
         if matches!(fault, MetadataFault::SharedCopies) {
             let mut limits = profile.limits();
             limits.string_bytes = 8192; // Three references need12288 plus envelope keys.
-            query = query.request_context(RequestContext::new(Instant::now() + Duration::from_secs(5))
-                .with_response_limits(limits));
+            query = query.request_context(
+                RequestContext::new(Instant::now() + Duration::from_secs(5))
+                    .with_response_limits(limits),
+            );
         }
         query.await
     }));
-    tokio::time::timeout(Duration::from_secs(2), arrived).await.unwrap().unwrap();
+    tokio::time::timeout(Duration::from_secs(2), arrived)
+        .await
+        .unwrap()
+        .unwrap();
     if cancelled {
         caller.abort();
         assert!(caller.await.unwrap_err().is_cancelled());
-        assert_eq!(pool.reserved(), bytes, "caller cancellation is not physical response drain");
+        assert_eq!(
+            pool.reserved(),
+            bytes,
+            "caller cancellation is not physical response drain"
+        );
         assert!(weak.upgrade().is_some());
         let next = MemoryConsumer::new("test:metadata-reuse-refusal").register(&pool);
         assert!(next.try_grow(1).is_err());
         release.send(()).unwrap();
     } else {
         release.send(()).unwrap();
-        let response = tokio::time::timeout(Duration::from_secs(2), caller).await.unwrap().unwrap();
+        let response = tokio::time::timeout(Duration::from_secs(2), caller)
+            .await
+            .unwrap()
+            .unwrap();
         if matches!(fault, MetadataFault::Valid) {
-            assert_eq!(response.unwrap().take::<Value>(0).unwrap(), Value::Bool(true));
+            assert_eq!(
+                response.unwrap().take::<Value>(0).unwrap(),
+                Value::Bool(true)
+            );
         } else {
-            assert!(response.is_err(), "{fault:?} must refuse before owned response conversion");
+            assert!(
+                response.is_err(),
+                "{fault:?} must refuse before owned response conversion"
+            );
         }
     }
-    tokio::time::timeout(Duration::from_secs(2), frame_arrival).await.unwrap().unwrap();
+    tokio::time::timeout(Duration::from_secs(2), frame_arrival)
+        .await
+        .unwrap()
+        .unwrap();
     tokio::time::timeout(Duration::from_secs(2), async {
-        while pool.reserved() != 0 { tokio::task::yield_now().await; }
-    }).await.unwrap();
+        while pool.reserved() != 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
     client.disconnect().await.unwrap();
-    tokio::time::timeout(Duration::from_secs(2), server).await.unwrap().unwrap();
-    assert_eq!(pool.reserved(), 0, "physical driver drain releases the exact grant");
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        pool.reserved(),
+        0,
+        "physical driver drain releases the exact grant"
+    );
     assert!(weak.upgrade().is_none());
 }
 
 #[tokio::test]
 async fn canonical_metadata_preflight_accepts_valid_and_refuses_field_and_shared_copy_extents() {
-    for fault in [MetadataFault::Valid, MetadataFault::LongString, MetadataFault::SharedCopies] {
-        canonical_metadata_preflight_peer(fault, false, crate::canonical::MetadataResponse::Page).await;
+    for fault in [
+        MetadataFault::Valid,
+        MetadataFault::LongString,
+        MetadataFault::SharedCopies,
+    ] {
+        canonical_metadata_preflight_peer(fault, false, crate::canonical::MetadataResponse::Page)
+            .await;
     }
 }
 #[tokio::test]
 async fn canonical_metadata_preflight_refuses_unmatched_duplicate_and_malformed_correlations() {
-    for fault in [MetadataFault::UnknownId, MetadataFault::UnknownSession, MetadataFault::DuplicateId, MetadataFault::MalformedId] {
-        canonical_metadata_preflight_peer(fault, false, crate::canonical::MetadataResponse::Page).await;
+    for fault in [
+        MetadataFault::UnknownId,
+        MetadataFault::UnknownSession,
+        MetadataFault::DuplicateId,
+        MetadataFault::MalformedId,
+    ] {
+        canonical_metadata_preflight_peer(fault, false, crate::canonical::MetadataResponse::Page)
+            .await;
     }
 }
 #[tokio::test]
 async fn canonical_metadata_preflight_keeps_cancelled_suffix_until_actual_physical_drain() {
-    canonical_metadata_preflight_peer(MetadataFault::SharedCopies, true, crate::canonical::MetadataResponse::Page).await;
+    canonical_metadata_preflight_peer(
+        MetadataFault::SharedCopies,
+        true,
+        crate::canonical::MetadataResponse::Page,
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn canonical_metadata_preflight_protection_ack_and_cancelled_cleanup_suffix() {
-    canonical_metadata_preflight_peer(MetadataFault::Valid, false, crate::canonical::MetadataResponse::Protection).await;
-    canonical_metadata_preflight_peer(MetadataFault::SharedCopies, true, crate::canonical::MetadataResponse::Protection).await;
+    canonical_metadata_preflight_peer(
+        MetadataFault::Valid,
+        false,
+        crate::canonical::MetadataResponse::Protection,
+    )
+    .await;
+    canonical_metadata_preflight_peer(
+        MetadataFault::SharedCopies,
+        true,
+        crate::canonical::MetadataResponse::Protection,
+    )
+    .await;
 }

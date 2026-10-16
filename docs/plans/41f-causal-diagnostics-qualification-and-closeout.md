@@ -69,8 +69,8 @@ Own fixture/worker/capture resources explicitly. Cancel/stop and join only owned
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| F0 | Principal O08 and current observation foundation; owning package hypotheses | Settle bounded fact/relationship/unit/generation meanings and selected consumer fields, including current root/managed partiality. Identify which existing counters suffice and any minimal missing producer fact. No generic accounting/proof framework. | In progress — A/B meanings implemented and exercised; other scope remains |
-| F1 | F0's relevant slice and actual owning A/B/C/D/E implementation | Integrate selected producer facts and interpretation incrementally. Test actual counts, unchanged scientific requests, opt-out, overflow/loss/reset, active-root retention/partiality and managed scope where changed. Regenerate public contracts when declarations change; delete replaced duplicate counters/views. | In progress — A/B producers integrated and exercised; other scope remains |
+| F0 | Principal O08 and current observation foundation; owning package hypotheses | Settle bounded fact/relationship/unit/generation meanings and selected consumer fields, including current root/managed partiality. Identify which existing counters suffice and any minimal missing producer fact. No generic accounting/proof framework. | In progress — A/B/C meanings implemented and exercised; D/E and broader scope remain |
+| F1 | F0's relevant slice and actual owning A/B/C/D/E implementation | Integrate selected producer facts and interpretation incrementally. Test actual counts, unchanged scientific requests, opt-out, overflow/loss/reset, active-root retention/partiality and managed scope where changed. Regenerate public contracts when declarations change; delete replaced duplicate counters/views. | In progress — A/B/C producers integrated and exercised; D/E and broader scope remain |
 | F2 | G1; A6/B5/C5/D6/E5 delivery evidence; F1 coverage; inquiry outcomes settled | Select risk-directed assembled cases and commands by S01–S10 and changed interfaces. Confirm actual consumer/deletion inventory and known exclusions; no automatic old campaign import. | Planned |
 | F3 | F2; relevant local/native/public contracts implemented | Qualify edit/re-solve, local/durable study composition, response meaning, sparse methods, fitting/window reuse and scientific failure semantics through selected complete journeys. Retain independent original assertions and report zero-baseline results. | Planned |
 | F4 | F2; B1–B3, C3/C4 and F1 implemented | Qualify interruption/shared clocks/queue/drain, genuine nonempty managed result read and publication retry/failure, active-owner live/recent navigation and actual Rust/Python/placement boundaries. Track owned cleanup separately from test-body outcomes. | Planned |
@@ -117,3 +117,16 @@ acceptance, F2 assembled selection, F3/F4 combined journeys, F5 hygiene/manual c
 F6/F7 series closure/reconciliation. The current slice does not close O08 or those packets.
 It supplies no elapsed speedup, whole-product scientific qualification or environment/
 provenance proof, and it starts no old cold or statistical benchmark campaign.
+
+## B/C diagnostic delivery — 2026-10-15
+
+**Implemented:** the scoped F0/F1 slice distinguishes artifact file sealing from
+bounded already-sealed metadata attachment. `artifact.metadata.attach` is the actual
+attachment phase; `canonical.artifact.metadata.groups_acknowledged` and
+`canonical.artifact.metadata.rows_acknowledged` advance only after exact ordered
+ACK validation. An unknown ACK remains unsettled and cannot activate content.
+Metadata response bounds and continuing/cleanup grants remain resource-owner
+facts, separate from file payload/decode bounds and process RSS. The
+[operator guide](../dev/simulation-diagnostics.md#artifact-publication-work) explains
+these meanings. 41c owns the actual controlled protocol results. This incremental
+slice leaves the other F0/F1 contexts and F2–F7 open.

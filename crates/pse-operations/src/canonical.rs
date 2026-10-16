@@ -512,14 +512,24 @@ impl ProtectedSelection {
         owner: Arc<dyn std::fmt::Debug + Send + Sync>,
     ) -> Result<(), CanonicalError> {
         if let Some(existing) = self.owner.metadata_owner.get() {
-            return if Arc::ptr_eq(existing, &owner) { Ok(()) } else {
-                Err(CanonicalError::Configuration("protected metadata allocation owner differs".into()))
+            return if Arc::ptr_eq(existing, &owner) {
+                Ok(())
+            } else {
+                Err(CanonicalError::Configuration(
+                    "protected metadata allocation owner differs".into(),
+                ))
             };
         }
         if self.owner.metadata_owner.set(owner.clone()).is_err()
-            && self.owner.metadata_owner.get().is_none_or(|existing| !Arc::ptr_eq(existing, &owner))
+            && self
+                .owner
+                .metadata_owner
+                .get()
+                .is_none_or(|existing| !Arc::ptr_eq(existing, &owner))
         {
-            return Err(CanonicalError::Configuration("protected metadata allocation owner differs".into()));
+            return Err(CanonicalError::Configuration(
+                "protected metadata allocation owner differs".into(),
+            ));
         }
         Ok(())
     }
@@ -569,8 +579,11 @@ impl ProtectedSelection {
                 "source protection was released".into(),
             ));
         }
-        transport::optional_response_ownership_scope(self.owner.metadata_owner.get().cloned(),
-            store.renew_protection(self, lifetime)).await
+        transport::optional_response_ownership_scope(
+            self.owner.metadata_owner.get().cloned(),
+            store.renew_protection(self, lifetime),
+        )
+        .await
     }
     /// Relinquish this reader. The final follower awaits exact protection cleanup.
     /// Other live followers retain their authority until they finish or drop.
@@ -593,15 +606,17 @@ impl ProtectedSelection {
             let fixture = store.fixture_lifetime.clone();
             let metadata_owner = owner.metadata_owner.get().cloned();
             let task = executor.spawn(async move {
-                let result = transport::optional_response_ownership_scope(metadata_owner, activity
-                    .scope(async move {
+                let result = transport::optional_response_ownership_scope(
+                    metadata_owner,
+                    activity.scope(async move {
                         let result = store.release_protection(&revision, &key).await;
                         if result.is_ok() {
                             owner.acknowledge_release();
                         }
                         result
-                    }))
-                    .await;
+                    }),
+                )
+                .await;
                 drop(activity);
                 // The last fixture borrower may physically disconnect here.
                 // Its own cleanup continuation must already have ended.
@@ -678,11 +693,17 @@ impl Drop for ProtectionOwner {
             };
             let metadata_owner = self.metadata_owner.take();
             let release = store.result_read_drain.release_protection(
-                store.clone(), revision.clone(), key.clone(), metadata_owner.clone(),
+                store.clone(),
+                revision.clone(),
+                key.clone(),
+                metadata_owner.clone(),
             );
             executor.spawn(async move {
-                let result = transport::optional_response_ownership_scope(metadata_owner,
-                    store.release_protection(&revision, &key)).await;
+                let result = transport::optional_response_ownership_scope(
+                    metadata_owner,
+                    store.release_protection(&revision, &key),
+                )
+                .await;
                 if let Err(error) = &result {
                     operation_failed("canonical::protection_drop", error);
                 }
@@ -1799,8 +1820,9 @@ impl CanonicalStore {
             return Ok(());
         }
         let activity = selection.owner.activity()?;
-        transport::optional_response_ownership_scope(selection.owner.metadata_owner.get().cloned(), activity
-            .scope(async {
+        transport::optional_response_ownership_scope(
+            selection.owner.metadata_owner.get().cloned(),
+            activity.scope(async {
                 let store = selection.owner.store.as_ref().ok_or_else(|| {
                     CanonicalError::Configuration("protection issuing store unavailable".into())
                 })?;
@@ -1809,8 +1831,9 @@ impl CanonicalStore {
                     .await?;
                 selection.owner.acknowledge_release();
                 Ok(())
-            }))
-            .await
+            }),
+        )
+        .await
     }
     pub(crate) async fn release_protection(
         &self,
@@ -2994,7 +3017,7 @@ mod description_unit {
                 activity: std::sync::Mutex::new(None),
                 executor: None,
                 released: std::sync::atomic::AtomicBool::new(false),
-                        metadata_owner: std::sync::OnceLock::new(),
+                metadata_owner: std::sync::OnceLock::new(),
                 key: protection.into(),
                 revision: Revision {
                     key: revision.into(),
@@ -3822,7 +3845,7 @@ mod canonical_server_unit {
                 activity: std::sync::Mutex::new(Some(store.admit_activity().unwrap())),
                 executor: Some(tokio::runtime::Handle::current()),
                 released: std::sync::atomic::AtomicBool::new(false),
-                        metadata_owner: std::sync::OnceLock::new(),
+                metadata_owner: std::sync::OnceLock::new(),
             }),
         };
         let mut response = bounded_query(

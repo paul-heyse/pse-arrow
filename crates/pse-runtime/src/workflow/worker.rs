@@ -21,6 +21,26 @@ use std::{
 };
 use tokio::io::{AsyncRead, AsyncReadExt};
 
+// Keep construction temporaries out of the frame that polls the phase, and
+// prevent nested phase polling from being inlined into one large stack frame.
+// These boundaries affect workflow orchestration, not native numerical kernels.
+#[inline(never)]
+fn boxed_worker_action<F, Fut>(action: F) -> std::pin::Pin<Box<Fut>>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future,
+{
+    Box::pin(action())
+}
+
+#[inline(never)]
+fn poll_worker_action<F: Future>(
+    work: std::pin::Pin<&mut F>,
+    context: &mut std::task::Context<'_>,
+) -> std::task::Poll<F::Output> {
+    work.poll(context)
+}
+
 /// Exact canonical physical source receipt, separate from compiler physical context identity.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -1289,7 +1309,7 @@ impl Runtime {
         if recovery
             && !cancel.token().is_cancelled()
             && let Some(action) = self
-                .recover_next_study(recovery_position, group, cancel)
+                .worker_action(|| self.recover_next_study(recovery_position, group, cancel))
                 .await?
         {
             if matches!(action, Processed::Maintenance { .. }) {
@@ -1339,8 +1359,16 @@ impl Runtime {
                             },
                             None => None,
                         };
+                        let action_lane = &mut *lane;
                         if let Some(result) = self
-                            .observe_study_candidate(operations, candidate, lane, cancel)
+                            .worker_action(move || {
+                                self.observe_study_candidate(
+                                    operations,
+                                    candidate,
+                                    action_lane,
+                                    cancel,
+                                )
+                            })
                             .await?
                         {
                             return Ok(result);
@@ -1355,7 +1383,10 @@ impl Runtime {
                     },
                     None => None,
                 };
-                if self.finalize_canonical_study(&study.key).await? {
+                if self
+                    .worker_action(|| self.finalize_canonical_study(&study.key))
+                    .await?
+                {
                     return Ok((Processed::Finalized { study: study.key }, None));
                 }
                 if maintenance {
@@ -1486,6 +1517,21 @@ impl Runtime {
             scope.point().revision,
             operations.worker()
         );
+        fn launch_bytes<F, Fut>(_: &F) -> usize
+        where
+            F: FnOnce(DurableAttempt) -> Fut,
+            Fut: Future,
+        {
+            size_of::<Fut>()
+        }
+        // Prepay the launch frame before claiming an attempt. A later heap
+        // allocation must not introduce a new refusal after that durable effect.
+        let launch_extent =
+            launch_bytes(&|attempt| prepared.operation.start_attempt(self, cancel, attempt));
+        let _launch_owner = self
+            .shared
+            .math()
+            .reserve("study:worker-launch", launch_extent)?;
         let claim = match operations
             .store()
             .claim_study_point(
@@ -1597,7 +1643,8 @@ impl Runtime {
             .scope()
             .ok_or_else(|| contract("worker native lane source permission absent"))?;
         let result = held.during(cancel, async {
-            let handle = prepared.operation.start_attempt(self, cancel, attempt).await?;
+            let mut launch = boxed_worker_action(|| prepared.operation.start_attempt(self, cancel, attempt));
+            let handle = futures_util::future::poll_fn(|context| poll_worker_action(launch.as_mut(), context)).await?;
             tokio::select! {result=handle.wait()=>result,()=cancel.cancelled()=>{handle.cancel();handle.wait().await}}
         }).await?;
         let record = match result.durability() {
@@ -1666,6 +1713,26 @@ impl Runtime {
             examined: repair.examined,
         }))
     }
+    /// Isolate a concrete phase's layout while charging its actual heap owner.
+    async fn worker_action<T, F, Fut>(&self, action: F) -> Result<T, WorkflowError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<T, WorkflowError>>,
+    {
+        fn action_bytes<F, Fut>(_: &F) -> usize
+        where
+            F: FnOnce() -> Fut,
+            Fut: Future,
+        {
+            size_of::<Fut>()
+        }
+        let _action_owner = self
+            .shared
+            .math()
+            .reserve("study:worker-action", action_bytes(&action))?;
+        let mut work = boxed_worker_action(action);
+        futures_util::future::poll_fn(|context| poll_worker_action(work.as_mut(), context)).await
+    }
     async fn group_lane(
         &self,
         recovery: bool,
@@ -1675,7 +1742,18 @@ impl Runtime {
         stop: &crate::CancelSource,
     ) -> Result<Processed, WorkflowError> {
         let cancel = crate::CancelSource::new();
-        let work = self.work_once_scoped(recovery, recovery_position, Some(group), lane, &cancel);
+        let operation_cancel = &cancel;
+        let action = move || {
+            let lane = lane;
+            self.work_once_scoped(
+                recovery,
+                recovery_position,
+                Some(group),
+                lane,
+                operation_cancel,
+            )
+        };
+        let work = self.worker_action(action);
         tokio::pin!(work);
         let result = tokio::select! {
             result = &mut work => result,

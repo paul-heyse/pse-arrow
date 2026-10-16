@@ -26,7 +26,8 @@ type FamilyWorkerEntry = Arc<dyn Fn(&std::sync::atomic::AtomicBool) + Send + Syn
 tokio::task_local! { static FAMILY_WORKER_ENTRY: FamilyWorkerEntry; }
 #[cfg(test)]
 pub(in crate::workflow) async fn observed_family_worker_entry<T>(
-    entry: FamilyWorkerEntry, work: impl Future<Output = T>,
+    entry: FamilyWorkerEntry,
+    work: impl Future<Output = T>,
 ) -> T {
     FAMILY_WORKER_ENTRY.scope(entry, work).await
 }
@@ -1087,7 +1088,9 @@ impl super::PreparedFit {
             let mut dispatch = Some(move || {
                 native.submit_with(cores, bytes, submission, move |flag, progress| {
                     #[cfg(test)]
-                    if let Some(entry) = entry { entry(&flag); }
+                    if let Some(entry) = entry {
+                        entry(&flag);
+                    }
                     let allowance = prepared
                         .problem
                         .profile

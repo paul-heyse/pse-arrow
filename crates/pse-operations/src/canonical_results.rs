@@ -99,8 +99,11 @@ impl ResultReadDrain {
                 if entry.done.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
                 }
-                crate::canonical::transport::optional_response_ownership_scope(entry._metadata_owner.clone(),
-                    entry.store.release_protection(&entry.revision, &entry.key)).await?;
+                crate::canonical::transport::optional_response_ownership_scope(
+                    entry._metadata_owner.clone(),
+                    entry.store.release_protection(&entry.revision, &entry.key),
+                )
+                .await?;
                 entry.done.store(true, std::sync::atomic::Ordering::Release);
                 drain
                     .failed_protections
@@ -240,14 +243,31 @@ impl CompletionRead {
     /// Actual completion selection storage, without a manifest inventory.
     pub fn retained_bytes(&self) -> Result<usize, CanonicalError> {
         use pse_model::HeapUsage;
-        [size_of::<Self>(), self.run.heap_bytes(), self.attempt.heap_bytes(),
-            self.chunks.as_ref().map_or(0, HeapUsage::heap_bytes), size_of::<ReadOwner>(), 2 * size_of::<usize>(),
-            self.owner.store.handle_heap_bytes().ok_or(CanonicalError::PayloadLimit)?,
-            self.owner.selection.retained_bytes().ok_or(CanonicalError::PayloadLimit)?]
-            .into_iter().try_fold(0usize, usize::checked_add).ok_or(CanonicalError::PayloadLimit)
+        [
+            size_of::<Self>(),
+            self.run.heap_bytes(),
+            self.attempt.heap_bytes(),
+            self.chunks.as_ref().map_or(0, HeapUsage::heap_bytes),
+            size_of::<ReadOwner>(),
+            2 * size_of::<usize>(),
+            self.owner
+                .store
+                .handle_heap_bytes()
+                .ok_or(CanonicalError::PayloadLimit)?,
+            self.owner
+                .selection
+                .retained_bytes()
+                .ok_or(CanonicalError::PayloadLimit)?,
+        ]
+        .into_iter()
+        .try_fold(0usize, usize::checked_add)
+        .ok_or(CanonicalError::PayloadLimit)
     }
     /// Carry this selection's actual metadata through its protected cleanup.
-    pub fn retain_metadata_owner(&self, owner: Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<(), CanonicalError> {
+    pub fn retain_metadata_owner(
+        &self,
+        owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<(), CanonicalError> {
         self.owner.selection.retain_metadata_owner(owner)
     }
     /// Exact admitted terminal receipt containing the completion header.
@@ -276,7 +296,10 @@ pub struct ResultRead {
 impl ResultRead {
     /// Retain allocation through file borrowers, tracked release and uncertain
     /// cleanup recovery, independently of the last public reader facade.
-    pub fn retain_metadata_owner(&self, owner: Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<(), CanonicalError> {
+    pub fn retain_metadata_owner(
+        &self,
+        owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<(), CanonicalError> {
         self.owner.selection.retain_metadata_owner(owner)
     }
     /// Owned selection metadata, including actual collection and string
@@ -1138,30 +1161,34 @@ impl CanonicalStore {
         read: &ResultRead,
         batch: &ResultBatch,
     ) -> Result<crate::canonical_files::ProtectedFile, CanonicalError> {
-        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
-        let activity = self.selection_activity(&read.owner.selection)?;
-        activity
-            .scope(async {
-                self.files.require_current()?;
-                if !read.belongs_to(self)
-                    || batch.attempt != read.attempt.key
-                    || batch.ordinal >= read.set(&batch.result_set)?.batch_count
-                {
-                    return Err(invalid("file batch outside admitted manifest"));
-                }
-                let original = self
-                    .result_batch_descriptor(&read.owner, &read.run, batch)
-                    .await?;
-                if &original != batch {
-                    return Err(invalid(
-                        "file batch descriptor differs from admitted catalog",
-                    ));
-                }
-                let descriptor = self.file_descriptor(batch).await?;
-                self.open_physical_file(descriptor, read.owner.clone())
-            })
-            .await
-        }).await
+        crate::canonical::transport::metadata_scope(
+            crate::canonical::MetadataResponse::Header,
+            async {
+                let activity = self.selection_activity(&read.owner.selection)?;
+                activity
+                    .scope(async {
+                        self.files.require_current()?;
+                        if !read.belongs_to(self)
+                            || batch.attempt != read.attempt.key
+                            || batch.ordinal >= read.set(&batch.result_set)?.batch_count
+                        {
+                            return Err(invalid("file batch outside admitted manifest"));
+                        }
+                        let original = self
+                            .result_batch_descriptor(&read.owner, &read.run, batch)
+                            .await?;
+                        if &original != batch {
+                            return Err(invalid(
+                                "file batch descriptor differs from admitted catalog",
+                            ));
+                        }
+                        let descriptor = self.file_descriptor(batch).await?;
+                        self.open_physical_file(descriptor, read.owner.clone())
+                    })
+                    .await
+            },
+        )
+        .await
     }
     async fn result_batch_descriptor(
         &self,

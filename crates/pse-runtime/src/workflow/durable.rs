@@ -151,22 +151,52 @@ impl Operations {
         problem: &str,
         after: Option<u64>,
         limit: usize,
-    ) -> Result<pse_columnar::Leased<Vec<pse_operations::canonical_execution::RunSummary>>, WorkflowError> {
+    ) -> Result<
+        pse_columnar::Leased<Vec<pse_operations::canonical_execution::RunSummary>>,
+        WorkflowError,
+    > {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response = pooled_response_owner(&self.pool, "canonical:run-page-response", pse_operations::canonical::MetadataResponse::Page)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:run-page-response",
+                    pse_operations::canonical::MetadataResponse::Page,
+                )?;
                 let rows = pse_operations::canonical::response_ownership_scope(
-                    response.clone(), self.store.execution_run_page(problem, after, limit),
-                ).await?;
-                let bytes = rows.iter().try_fold(rows.capacity().checked_mul(size_of::<pse_operations::canonical_execution::RunSummary>())
-                    .and_then(|bytes| bytes.checked_add(size_of::<pse_columnar::Leased<Vec<pse_operations::canonical_execution::RunSummary>>>() + 2 * size_of::<usize>()))
-                    .ok_or_else(|| contract("run summary retained extent"))?, |bytes, row| {
-                        [Some(&row.key), Some(&row.problem), Some(&row.revision), Some(&row.interpretation),
-                            row.current_attempt.as_ref(), row.terminal_attempt.as_ref(), row.terminal_class.as_ref()]
-                            .into_iter().flatten().try_fold(bytes, |bytes, value| bytes.checked_add(value.capacity()))
-                            .ok_or_else(|| contract("run summary retained extent"))
-                    })?;
+                    response.clone(),
+                    self.store.execution_run_page(problem, after, limit),
+                )
+                .await?;
+                let bytes = rows.iter().try_fold(
+                    rows.capacity()
+                        .checked_mul(size_of::<pse_operations::canonical_execution::RunSummary>())
+                        .and_then(|bytes| {
+                            bytes.checked_add(
+                                size_of::<
+                                    pse_columnar::Leased<
+                                        Vec<pse_operations::canonical_execution::RunSummary>,
+                                    >,
+                                >() + 2 * size_of::<usize>(),
+                            )
+                        })
+                        .ok_or_else(|| contract("run summary retained extent"))?,
+                    |bytes, row| {
+                        [
+                            Some(&row.key),
+                            Some(&row.problem),
+                            Some(&row.revision),
+                            Some(&row.interpretation),
+                            row.current_attempt.as_ref(),
+                            row.terminal_attempt.as_ref(),
+                            row.terminal_class.as_ref(),
+                        ]
+                        .into_iter()
+                        .flatten()
+                        .try_fold(bytes, |bytes, value| bytes.checked_add(value.capacity()))
+                        .ok_or_else(|| contract("run summary retained extent"))
+                    },
+                )?;
                 let retained = Arc::new(retain_metadata(&self.pool, response, bytes)?);
                 Ok(pse_columnar::Leased::new(Arc::new(rows), retained))
             })
@@ -177,8 +207,11 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:record-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:record-selection-response",
+                    pse_operations::canonical::MetadataResponse::Selection,
+                )?;
                 let read = Arc::new(
                     pse_operations::canonical::response_ownership_scope(
                         response.clone(),
@@ -186,7 +219,12 @@ impl Operations {
                     )
                     .await?,
                 );
-                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
+                let read_owner = Arc::new(retain_protected_metadata(
+                    &self.pool,
+                    response,
+                    read.retained_bytes()?,
+                    |owner| read.retain_metadata_owner(owner),
+                )?);
                 read.retain_metadata_owner(read_owner.clone())?;
                 let completion = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone())),
@@ -196,8 +234,11 @@ impl Operations {
                 let mut solutions = Vec::new();
                 let mut after = None;
                 loop {
-                    let response =
-                        pooled_response_owner(&self.pool, "canonical:record-seed-page-response", pse_operations::canonical::MetadataResponse::Page)?;
+                    let response = pooled_response_owner(
+                        &self.pool,
+                        "canonical:record-seed-page-response",
+                        pse_operations::canonical::MetadataResponse::Page,
+                    )?;
                     let page = pse_operations::canonical::response_ownership_scope(
                         Arc::new((read.clone(), read_owner.clone(), response)),
                         self.store.result_seed_page(attempt, after),
@@ -229,9 +270,17 @@ impl Operations {
                         }
                     }
                 }
-                let metadata_owner = durable_metadata_owner(&self.pool, Some(read.run()), Some(read.attempt()),
-                    Some(read.manifest()), read.attempt().key.len(),
-                    solutions.capacity().checked_mul(size_of::<(usize, SolutionId)>()).ok_or_else(|| contract("durable solutions extent"))?)?;
+                let metadata_owner = durable_metadata_owner(
+                    &self.pool,
+                    Some(read.run()),
+                    Some(read.attempt()),
+                    Some(read.manifest()),
+                    read.attempt().key.len(),
+                    solutions
+                        .capacity()
+                        .checked_mul(size_of::<(usize, SolutionId)>())
+                        .ok_or_else(|| contract("durable solutions extent"))?,
+                )?;
                 Ok(DurableRecord {
                     attempt_id: completion.attempt_id,
                     attempt_key: Some(read.attempt().key.clone()),
@@ -255,14 +304,22 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:completion-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:completion-selection-response",
+                    pse_operations::canonical::MetadataResponse::Selection,
+                )?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     response.clone(),
                     self.store.read_completion(run, attempt),
                 )
                 .await?;
-                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
+                let read_owner = Arc::new(retain_protected_metadata(
+                    &self.pool,
+                    response,
+                    read.retained_bytes()?,
+                    |owner| read.retain_metadata_owner(owner),
+                )?);
                 read.retain_metadata_owner(read_owner)?;
                 self.decode_completion(CompletionSelection::Slim(&read))
                     .await
@@ -406,8 +463,11 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:recovery-header-response", pse_operations::canonical::MetadataResponse::Header)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:recovery-header-response",
+                    pse_operations::canonical::MetadataResponse::Header,
+                )?;
                 let current = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.canonical_run(run),
@@ -418,8 +478,11 @@ impl Operations {
                     .current_attempt
                     .as_ref()
                     .ok_or_else(|| contract("recovery attempt absent"))?;
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:recovery-header-response", pse_operations::canonical::MetadataResponse::Header)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:recovery-header-response",
+                    pse_operations::canonical::MetadataResponse::Header,
+                )?;
                 let actual = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.canonical_attempt(attempt),
@@ -441,8 +504,11 @@ impl Operations {
                         "worker authority expired before durable scientific completion".into(),
                     ),
                 );
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:recovery-header-response", pse_operations::canonical::MetadataResponse::Header)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:recovery-header-response",
+                    pse_operations::canonical::MetadataResponse::Header,
+                )?;
                 let current = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.canonical_run(run),
@@ -452,8 +518,11 @@ impl Operations {
                 let cancelled = if current.cancelled {
                     true
                 } else {
-                    let response =
-                        pooled_response_owner(&self.pool, "canonical:recovery-study-response", pse_operations::canonical::MetadataResponse::Selection)?;
+                    let response = pooled_response_owner(
+                        &self.pool,
+                        "canonical:recovery-study-response",
+                        pse_operations::canonical::MetadataResponse::Selection,
+                    )?;
                     pse_operations::canonical::response_ownership_scope(
                         response,
                         self.store.canonical_study_for_run(run),
@@ -549,12 +618,22 @@ fn durable_metadata_owner(
     solutions_bytes: usize,
 ) -> Result<Arc<pse_columnar::MemoryReservation>, WorkflowError> {
     use pse_model::HeapUsage;
-    let bytes = [size_of::<DurableRecord>(), 2 * size_of::<usize>(), attempt_key_bytes, solutions_bytes,
-        run.map_or(0, HeapUsage::heap_bytes), attempt.map_or(0, HeapUsage::heap_bytes),
-        manifest.map_or(0, HeapUsage::heap_bytes)]
-        .into_iter().try_fold(0usize, usize::checked_add).ok_or_else(|| contract("durable metadata extent"))?;
+    let bytes = [
+        size_of::<DurableRecord>(),
+        2 * size_of::<usize>(),
+        attempt_key_bytes,
+        solutions_bytes,
+        run.map_or(0, HeapUsage::heap_bytes),
+        attempt.map_or(0, HeapUsage::heap_bytes),
+        manifest.map_or(0, HeapUsage::heap_bytes),
+    ]
+    .into_iter()
+    .try_fold(0usize, usize::checked_add)
+    .ok_or_else(|| contract("durable metadata extent"))?;
     let owner = MemoryConsumer::new("canonical:durable-record-metadata").register(pool);
-    owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+    owner
+        .try_grow(bytes)
+        .map_err(pse_engine::EngineError::from)?;
     Ok(Arc::new(owner))
 }
 
@@ -787,8 +866,14 @@ pub(crate) struct DurableAttempt {
 impl DurableAttempt {
     pub(super) fn new(operations: &Operations) -> Result<Self, WorkflowError> {
         let operations = operations.admitted()?;
-        let metadata_owner = durable_metadata_owner(&operations.pool, None, None, None,
-            pse_schema::catalog::substrate::METADATA_ID_BYTES, 0)?;
+        let metadata_owner = durable_metadata_owner(
+            &operations.pool,
+            None,
+            None,
+            None,
+            pse_schema::catalog::substrate::METADATA_ID_BYTES,
+            0,
+        )?;
         let attempt: AttemptId = pse_operations::mint_id();
         let fence = Arc::new(OnceLock::new());
         let acknowledgments = PublicationAcks::new(&operations.pool);
@@ -825,8 +910,14 @@ impl DurableAttempt {
         attempt: AttemptId,
     ) -> Result<Self, WorkflowError> {
         let operations = operations.admitted()?;
-        let metadata_owner = durable_metadata_owner(&operations.pool, None, None, None,
-            pse_schema::catalog::substrate::METADATA_ID_BYTES, 0)?;
+        let metadata_owner = durable_metadata_owner(
+            &operations.pool,
+            None,
+            None,
+            None,
+            pse_schema::catalog::substrate::METADATA_ID_BYTES,
+            0,
+        )?;
         let shared = Arc::new(OnceLock::new());
         let _ = shared.set(fence);
         let acknowledgments = PublicationAcks::new(&operations.pool);
@@ -858,11 +949,20 @@ impl DurableAttempt {
     }
     fn retain_run(&self, row: CanonicalRun) -> Result<(), WorkflowError> {
         use pse_model::HeapUsage;
-        if self.run.get().is_some() { return Ok(()); }
+        if self.run.get().is_some() {
+            return Ok(());
+        }
         let bytes = row.heap_bytes();
-        let owner = self.metadata_owner.as_ref().ok_or_else(|| contract("durable metadata owner absent"))?;
-        owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
-        if self.run.set(row).is_err() { owner.shrink(bytes); }
+        let owner = self
+            .metadata_owner
+            .as_ref()
+            .ok_or_else(|| contract("durable metadata owner absent"))?;
+        owner
+            .try_grow(bytes)
+            .map_err(pse_engine::EngineError::from)?;
+        if self.run.set(row).is_err() {
+            owner.shrink(bytes);
+        }
         Ok(())
     }
     pub(super) const fn attempt_id(&self) -> AttemptId {
@@ -1738,8 +1838,14 @@ impl DurableAttempt {
                         FinishExportPhase::AcknowledgedSeal,
                     )
                     .await?;
-                    let metadata_owner = durable_metadata_owner(&self.operations.pool, Some(&run), Some(&attempt),
-                        Some(manifest.row()), attempt.key.len(), 0)?;
+                    let metadata_owner = durable_metadata_owner(
+                        &self.operations.pool,
+                        Some(&run),
+                        Some(&attempt),
+                        Some(manifest.row()),
+                        attempt.key.len(),
+                        0,
+                    )?;
                     return Ok(DurableRecord {
                         attempt_id: self.attempt,
                         attempt_key: Some(attempt.key.clone()),
@@ -2600,7 +2706,11 @@ async fn read_chunks_selection(
                 .saturating_add(64 * 1024),
         )
         .map_err(pse_engine::EngineError::from)?;
-    let response = pooled_response_owner(pool, "canonical:opaque-file-response", pse_operations::canonical::MetadataResponse::Header)?;
+    let response = pooled_response_owner(
+        pool,
+        "canonical:opaque-file-response",
+        pse_operations::canonical::MetadataResponse::Header,
+    )?;
     let response: Arc<dyn std::fmt::Debug + Send + Sync> = match read {
         CompletionSelection::Full(full) => Arc::new((full.clone(), response)),
         CompletionSelection::Slim(slim) => Arc::new((slim.clone(), response)),
@@ -3015,7 +3125,11 @@ impl Operations {
         if row.key != solution.to_string() {
             return Err(contract("stored seed identity differs from selection"));
         }
-        let response = pooled_response_owner(&self.pool, "canonical:seed-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
+        let response = pooled_response_owner(
+            &self.pool,
+            "canonical:seed-selection-response",
+            pse_operations::canonical::MetadataResponse::Selection,
+        )?;
         let read = Arc::new(
             pse_operations::canonical::response_ownership_scope(
                 response.clone(),
@@ -3023,7 +3137,12 @@ impl Operations {
             )
             .await?,
         );
-        let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
+        let read_owner = Arc::new(retain_protected_metadata(
+            &self.pool,
+            response,
+            read.retained_bytes()?,
+            |owner| read.retain_metadata_owner(owner),
+        )?);
         read.retain_metadata_owner(read_owner)?;
         if read.attempt().seed_manifest.as_deref() != Some(read.manifest().key.as_str())
             || row.attempt_generation != read.attempt().generation
@@ -3115,7 +3234,11 @@ impl Operations {
         let activity = self.store.admit_activity()?;
         activity
             .scope(async {
-                let response = pooled_response_owner(&self.pool, "canonical:seed-header-response", pse_operations::canonical::MetadataResponse::Header)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:seed-header-response",
+                    pse_operations::canonical::MetadataResponse::Header,
+                )?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.result_seed(&solution.to_string()),
@@ -3123,8 +3246,11 @@ impl Operations {
                 .await?
                 .ok_or(SeedReadError::Missing { solution })?;
                 let (_admitted, read, capsule) = self.load_seed(solution, row).await?;
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:seed-promotion-sources-response", pse_operations::canonical::MetadataResponse::Selection)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:seed-promotion-sources-response",
+                    pse_operations::canonical::MetadataResponse::Selection,
+                )?;
                 let sources = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), response)),
                     self.store.analysis_run_sources(&capsule.header.run),
@@ -3138,8 +3264,11 @@ impl Operations {
                     serde_json::to_vec(&capsule).map_err(|error| contract(error.to_string()))?;
                 let provenance = serde_json::to_vec(&(1_u8, &capsule.header, &capsule.manifest))
                     .map_err(|error| contract(error.to_string()))?;
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:seed-promotion-header-response", pse_operations::canonical::MetadataResponse::Header)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:seed-promotion-header-response",
+                    pse_operations::canonical::MetadataResponse::Header,
+                )?;
                 let mut artifact = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), response)),
                     self.store
@@ -3163,7 +3292,10 @@ impl Operations {
                     owner,
                 );
                 let response = pooled_response_owner(
-                    &self.pool, "canonical:seed-promotion-publication-response", pse_operations::canonical::MetadataResponse::Selection)?;
+                    &self.pool,
+                    "canonical:seed-promotion-publication-response",
+                    pse_operations::canonical::MetadataResponse::Selection,
+                )?;
                 Ok(pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), response)),
                     self.store.persist_artifact(
@@ -3184,15 +3316,22 @@ impl Operations {
         let activity = self.store.admit_activity()?;
         activity
             .scope(async {
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:seed-artifact-response", pse_operations::canonical::MetadataResponse::Header)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:seed-artifact-response",
+                    pse_operations::canonical::MetadataResponse::Header,
+                )?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     response.clone(),
                     self.store.read_artifact(artifact),
                 )
                 .await?;
-                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response,
-                    read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
+                let read_owner = Arc::new(retain_protected_metadata(
+                    &self.pool,
+                    response,
+                    read.retained_bytes()?,
+                    |owner| read.retain_metadata_owner(owner),
+                )?);
                 read.retain_metadata_owner(read_owner.clone())?;
                 if read.header().kind != "seed" || read.header().block_count != 1 {
                     return Err(contract("artifact is not a seed capsule"));
@@ -3203,8 +3342,11 @@ impl Operations {
                 file_owner
                     .try_grow(4 * super::result_files::MAX_FILE_BYTES)
                     .map_err(pse_engine::EngineError::from)?;
-                let response = pooled_response_owner(&self.pool, "canonical:seed-artifact-block-response",
-                    pse_operations::canonical::MetadataResponse::Header)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:seed-artifact-block-response",
+                    pse_operations::canonical::MetadataResponse::Header,
+                )?;
                 let block = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read_owner, file_owner, response)),
                     read.block(0),
@@ -3259,7 +3401,11 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response = pooled_response_owner(&self.pool, "canonical:seed-header-response", pse_operations::canonical::MetadataResponse::Header)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:seed-header-response",
+                    pse_operations::canonical::MetadataResponse::Header,
+                )?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.result_seed(&solution.to_string()),
@@ -3280,8 +3426,11 @@ impl Operations {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
-                let response =
-                    pooled_response_owner(&self.pool, "canonical:seed-candidates-response", pse_operations::canonical::MetadataResponse::Page)?;
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:seed-candidates-response",
+                    pse_operations::canonical::MetadataResponse::Page,
+                )?;
                 let rows = pse_operations::canonical::response_ownership_scope(
                     response,
                     self.store.result_seed_candidates(
@@ -3577,13 +3726,23 @@ mod canonical_durable_codec {
         let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 * 1024));
         let owner = durable_metadata_owner(&pool, None, None, None, 0, 0).unwrap();
         let charged = pool.reserved();
-        let record = Arc::new(DurableRecord { attempt_id: pse_operations::mint_id(), attempt_key: None,
-            run: None, attempt: Err(Arc::new(contract("observable failure"))), manifest: None,
-            completion: None, solutions: Vec::new(), _solutions_owner: None, _metadata_owner: Some(owner) });
+        let record = Arc::new(DurableRecord {
+            attempt_id: pse_operations::mint_id(),
+            attempt_key: None,
+            run: None,
+            attempt: Err(Arc::new(contract("observable failure"))),
+            manifest: None,
+            completion: None,
+            solutions: Vec::new(),
+            _solutions_owner: None,
+            _metadata_owner: Some(owner),
+        });
         let original = RunDurability::Durable(record.clone());
         let alias = original.clone();
         assert_eq!(pool.reserved(), charged);
-        let RunDurability::Durable(alias_record) = &alias else { unreachable!() };
+        let RunDurability::Durable(alias_record) = &alias else {
+            unreachable!()
+        };
         assert!(Arc::ptr_eq(&record, alias_record));
         drop(record);
         drop(original);
@@ -3605,8 +3764,10 @@ mod canonical_durable_codec {
         runtime.close();
         drop(runtime);
         let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(
-            pse_operations::canonical::MetadataResponse::Header.allocation_bytes()
-                .min(pse_operations::canonical::MetadataResponse::Page.allocation_bytes()) - 1,
+            pse_operations::canonical::MetadataResponse::Header
+                .allocation_bytes()
+                .min(pse_operations::canonical::MetadataResponse::Page.allocation_bytes())
+                - 1,
         ));
         let operations = Operations::from_store(
             store,

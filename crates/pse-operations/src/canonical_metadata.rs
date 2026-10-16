@@ -32,8 +32,8 @@ impl MetadataResponse {
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
         };
         let nodes = 512 + rows * 32 * 2;
-        let strings = (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64)
-            .min(wire::RESULT_MESSAGE_BYTES);
+        let strings =
+            (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
             Self::Protection | Self::Page => 0,
             Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
@@ -43,7 +43,9 @@ impl MetadataResponse {
             // visited node beyond copied strings for this scalar ACK layout.
             wire_bytes: if matches!(self, Self::Protection) {
                 nodes * 128 + strings
-            } else { wire::RESULT_MESSAGE_BYTES },
+            } else {
+                wire::RESULT_MESSAGE_BYTES
+            },
             nodes,
             depth: 16,
             container_items: match self {
@@ -76,23 +78,45 @@ mod tests {
     #[test]
     fn metadata_layouts_fit_the_declared_row_field_envelope() {
         let registry = pse_schema::registry().unwrap();
-        for name in ["canonical_runs", "canonical_attempts", "canonical_result_manifests",
-            "canonical_result_blocks", "canonical_result_batches", "canonical_result_rows",
-            "canonical_result_block_outputs", "canonical_file_instances", "canonical_artifacts",
-            "canonical_artifact_blocks", "canonical_analyses", "canonical_analysis_nodes", "canonical_analysis_edges"] {
+        for name in [
+            "canonical_runs",
+            "canonical_attempts",
+            "canonical_result_manifests",
+            "canonical_result_blocks",
+            "canonical_result_batches",
+            "canonical_result_rows",
+            "canonical_result_block_outputs",
+            "canonical_file_instances",
+            "canonical_artifacts",
+            "canonical_artifact_blocks",
+            "canonical_analyses",
+            "canonical_analysis_nodes",
+            "canonical_analysis_edges",
+        ] {
             let relation = registry.relation(&format!("runtime.{name}")).unwrap();
-            assert!(relation.columns.len() + 1 <= 32, "{name}: fields plus native id must fit metadata preflight");
+            assert!(
+                relation.columns.len() + 1 <= 32,
+                "{name}: fields plus native id must fit metadata preflight"
+            );
         }
     }
     #[test]
     fn metadata_allowances_are_separate_from_physical_files() {
-        for profile in [MetadataResponse::Protection, MetadataResponse::Header, MetadataResponse::Selection,
-            MetadataResponse::Page, MetadataResponse::OutputPage] {
+        for profile in [
+            MetadataResponse::Protection,
+            MetadataResponse::Header,
+            MetadataResponse::Selection,
+            MetadataResponse::Page,
+            MetadataResponse::OutputPage,
+        ] {
             assert!(profile.allocation_bytes() < 2 * wire::RESULT_BLOCK_BYTES);
             assert!(profile.limits().nodes >= 512 + 2 * 32 * 2);
         }
         assert_eq!(MetadataResponse::Page.limits().blob_bytes, 0);
         assert_eq!(MetadataResponse::Protection.limits().blob_bytes, 0);
-        assert!(MetadataResponse::Protection.allocation_bytes() < MetadataResponse::Header.allocation_bytes());
+        assert!(
+            MetadataResponse::Protection.allocation_bytes()
+                < MetadataResponse::Header.allocation_bytes()
+        );
     }
 }

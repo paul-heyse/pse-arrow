@@ -4,7 +4,10 @@
 //! Owned selected scientific closure and attributed lifetime operations.
 
 pub(super) fn append(ddl: &mut String) {
-    ddl.push_str(&FUNCTIONS.replace("__ARTIFACT_APPEND_ROWS__", &pse_schema::catalog::substrate::ARTIFACT_APPEND_ROWS.to_string()));
+    ddl.push_str(&FUNCTIONS.replace(
+        "__ARTIFACT_APPEND_ROWS__",
+        &pse_schema::catalog::substrate::ARTIFACT_APPEND_ROWS.to_string(),
+    ));
 }
 
 const FUNCTIONS: &str = r#"

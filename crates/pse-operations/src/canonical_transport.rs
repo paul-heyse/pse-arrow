@@ -56,7 +56,13 @@ pub(crate) async fn optional_response_ownership_scope<F: Future>(
     future: F,
 ) -> F::Output {
     match owner {
-        Some(owner) => response_ownership_scope(owner, metadata_scope(super::MetadataResponse::Protection, future)).await,
+        Some(owner) => {
+            response_ownership_scope(
+                owner,
+                metadata_scope(super::MetadataResponse::Protection, future),
+            )
+            .await
+        }
         None => future.await,
     }
 }

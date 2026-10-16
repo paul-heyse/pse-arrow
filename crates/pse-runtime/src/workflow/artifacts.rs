@@ -5,10 +5,10 @@
 use super::{Runtime, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_model::HeapUsage;
-use std::sync::Arc;
 use pse_operations::canonical::MetadataResponse;
 use pse_operations::canonical_artifacts::{Artifact, ArtifactLocator};
 use pse_relations::columnar::RelationRow;
+use std::sync::Arc;
 
 /// A bounded original recovery document is a settlement capability, never a reader.
 #[derive(Clone, Debug)]
@@ -95,20 +95,35 @@ pub(super) fn response_artifact_kind<'a>(
     use pse_model::generated::enums::ComputationKind;
     let contexts = contexts.collect::<Vec<_>>();
     let computations = computations.collect::<Vec<_>>();
-    if contexts.is_empty() { return Err(contract("response analysis lacks admitted scientific context")); }
+    if contexts.is_empty() {
+        return Err(contract(
+            "response analysis lacks admitted scientific context",
+        ));
+    }
     if contexts.iter().all(|context| context.time.is_some())
         && !computations.is_empty()
-        && computations.iter().all(|header| header.kind == ComputationKind::Simulation)
-        && contexts.iter().all(|context| computations.iter().any(|header| header.run_id == context.run_id))
+        && computations
+            .iter()
+            .all(|header| header.kind == ComputationKind::Simulation)
+        && contexts.iter().all(|context| {
+            computations
+                .iter()
+                .any(|header| header.run_id == context.run_id)
+        })
     {
         return Ok(ScientificArtifactKind::Trajectory);
     }
-    if contexts.iter().all(|context| context.time.is_none() && (context.model_id.is_some() || context.fit_id.is_some()))
-        && computations.iter().all(|header| header.kind != ComputationKind::Simulation)
+    if contexts.iter().all(|context| {
+        context.time.is_none() && (context.model_id.is_some() || context.fit_id.is_some())
+    }) && computations
+        .iter()
+        .all(|header| header.kind != ComputationKind::Simulation)
     {
         return Ok(ScientificArtifactKind::LocalAnalysis);
     }
-    Err(contract("response analysis scientific family is missing or conflicting"))
+    Err(contract(
+        "response analysis scientific family is missing or conflicting",
+    ))
 }
 
 /// A restartable independent scientific owner. Each read acquires current permission.
@@ -118,12 +133,19 @@ pub struct ScientificArtifact {
     header: Arc<Artifact>,
     _metadata_owner: Arc<MemoryReservation>,
 }
-fn retained_artifact_header(runtime: &Runtime, header: &Artifact) -> Result<Arc<MemoryReservation>, WorkflowError> {
-    let bytes = size_of::<Artifact>().checked_add(header.heap_bytes())
+fn retained_artifact_header(
+    runtime: &Runtime,
+    header: &Artifact,
+) -> Result<Arc<MemoryReservation>, WorkflowError> {
+    let bytes = size_of::<Artifact>()
+        .checked_add(header.heap_bytes())
         .and_then(|bytes| bytes.checked_add(2 * size_of::<usize>()))
         .ok_or_else(|| contract("artifact retained header extent"))?;
-    let owner = MemoryConsumer::new("canonical:artifact-retained-header").register(&runtime.shared.pool());
-    owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+    let owner =
+        MemoryConsumer::new("canonical:artifact-retained-header").register(&runtime.shared.pool());
+    owner
+        .try_grow(bytes)
+        .map_err(pse_engine::EngineError::from)?;
     Ok(Arc::new(owner))
 }
 impl ScientificArtifact {
@@ -136,7 +158,11 @@ impl ScientificArtifact {
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::canonical_artifacts as rows;
-        let owner = super::connected_results::response_owner(&self.runtime, "canonical:artifact-metadata", MetadataResponse::Header)?;
+        let owner = super::connected_results::response_owner(
+            &self.runtime,
+            "canonical:artifact-metadata",
+            MetadataResponse::Header,
+        )?;
         let row = pse_operations::canonical::response_ownership_scope(
             owner.clone(),
             self.runtime.canonical_store()?.artifact(&self.header.key),
@@ -165,14 +191,18 @@ impl ScientificArtifact {
         ordinal: u64,
         cancel: CancellationToken,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let owner = Arc::new(MemoryConsumer::new("canonical:scientific-artifact-read")
-            .register(&self.runtime.shared.pool()));
+        let owner = Arc::new(
+            MemoryConsumer::new("canonical:scientific-artifact-read")
+                .register(&self.runtime.shared.pool()),
+        );
         owner
             .try_grow(4 * super::result_files::MAX_FILE_BYTES)
             .map_err(pse_engine::EngineError::from)?;
         let response = super::connected_results::response_owner(
             &self.runtime,
-            "canonical:artifact-block-selection-response", MetadataResponse::Selection)?;
+            "canonical:artifact-block-selection-response",
+            MetadataResponse::Selection,
+        )?;
         let read = pse_operations::canonical::response_ownership_scope(
             response.clone(),
             self.runtime
@@ -181,11 +211,22 @@ impl ScientificArtifact {
         )
         .await?;
         let read_owner = Arc::new(super::connected_results::retain_protected_metadata(
-            &self.runtime.shared.pool(), response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner),
+            &self.runtime.shared.pool(),
+            response,
+            read.retained_bytes()?,
+            |owner| read.retain_metadata_owner(owner),
         )?);
         read.retain_metadata_owner(read_owner.clone())?;
-        let response = super::connected_results::response_owner(&self.runtime, "canonical:artifact-block-response", MetadataResponse::Header)?;
-        let block = pse_operations::canonical::response_ownership_scope(Arc::new((response, owner.clone(), read_owner)), read.block(ordinal)).await?;
+        let response = super::connected_results::response_owner(
+            &self.runtime,
+            "canonical:artifact-block-response",
+            MetadataResponse::Header,
+        )?;
+        let block = pse_operations::canonical::response_ownership_scope(
+            Arc::new((response, owner.clone(), read_owner)),
+            read.block(ordinal),
+        )
+        .await?;
         let spec = self
             .runtime
             .registry()
@@ -370,19 +411,33 @@ impl Runtime {
         owner_kind: &str,
         owner: &str,
     ) -> Result<ScientificArtifact, WorkflowError> {
-        let response = super::connected_results::response_owner(self, "canonical:seed-artifact-promotion", MetadataResponse::Header)?;
+        let response = super::connected_results::response_owner(
+            self,
+            "canonical:seed-artifact-promotion",
+            MetadataResponse::Header,
+        )?;
         let header = pse_operations::canonical::response_ownership_scope(
-            response.clone(), self.operations()?.promote_seed(solution, owner_kind, owner),
-        ).await?;
+            response.clone(),
+            self.operations()?.promote_seed(solution, owner_kind, owner),
+        )
+        .await?;
         let metadata_owner = match retained_artifact_header(self, &header) {
             Ok(owner) => owner,
-            Err(source) => return Err(WorkflowError::ArtifactTransferUnsettled {
-                analysis: None, artifact: Box::new(header), owner_kind: owner_kind.into(), owner: owner.into(),
-                read: None, source: Box::new(source),
-            }),
+            Err(source) => {
+                return Err(WorkflowError::ArtifactTransferUnsettled {
+                    analysis: None,
+                    artifact: Box::new(header),
+                    owner_kind: owner_kind.into(),
+                    owner: owner.into(),
+                    read: None,
+                    source: Box::new(source),
+                });
+            }
         };
         Ok(ScientificArtifact {
-            runtime: self.clone(), header: Arc::new(header), _metadata_owner: metadata_owner,
+            runtime: self.clone(),
+            header: Arc::new(header),
+            _metadata_owner: metadata_owner,
         })
     }
     /// Reopen an independent artifact without consulting producer result availability.
@@ -395,7 +450,9 @@ impl Runtime {
             .scope(async {
                 let response = super::connected_results::response_owner(
                     self,
-                    "canonical:scientific-artifact-header-response", MetadataResponse::Header)?;
+                    "canonical:scientific-artifact-header-response",
+                    MetadataResponse::Header,
+                )?;
                 let header = pse_operations::canonical::response_ownership_scope(
                     response.clone(),
                     self.canonical_store()?.artifact(key),
@@ -414,7 +471,9 @@ impl Runtime {
                 }
                 let metadata_owner = retained_artifact_header(self, &header)?;
                 Ok(ScientificArtifact {
-                    runtime: self.clone(), header: Arc::new(header), _metadata_owner: metadata_owner,
+                    runtime: self.clone(),
+                    header: Arc::new(header),
+                    _metadata_owner: metadata_owner,
                 })
             })
             .await
@@ -631,15 +690,41 @@ mod tests {
         );
         // The same producer can supply a truthful trajectory graph while the
         // stronger scalar artifact promise above remains unavailable.
-        let analysis = runtime.result_analysis(
-            run, attempt,
-            &super::super::analyses::AnalysisControls { roots: vec![], direction: super::super::analyses::AnalysisDirection::Downstream },
-            CancellationToken::new(),
-        ).await.unwrap();
-        let graph_rows = pse_relations::generated::runtime::canonical_analysis_edges::Row::rows(&analysis.edges(None).await.unwrap()).unwrap();
-        assert!(graph_rows.iter().any(|edge| edge.kind == "scientific_context"));
-        assert!(!graph_rows.iter().any(|edge| edge.kind.contains("parametric")));
-        let graph_artifact = runtime.scientific_artifact(graph_rows.iter().find_map(|edge| edge.evidence_artifact.as_deref()).unwrap()).await.unwrap();
+        let analysis = runtime
+            .result_analysis(
+                run,
+                attempt,
+                &super::super::analyses::AnalysisControls {
+                    roots: vec![],
+                    direction: super::super::analyses::AnalysisDirection::Downstream,
+                },
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let graph_rows = pse_relations::generated::runtime::canonical_analysis_edges::Row::rows(
+            &analysis.edges(None).await.unwrap(),
+        )
+        .unwrap();
+        assert!(
+            graph_rows
+                .iter()
+                .any(|edge| edge.kind == "scientific_context")
+        );
+        assert!(
+            !graph_rows
+                .iter()
+                .any(|edge| edge.kind.contains("parametric"))
+        );
+        let graph_artifact = runtime
+            .scientific_artifact(
+                graph_rows
+                    .iter()
+                    .find_map(|edge| edge.evidence_artifact.as_deref())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(graph_artifact.header().kind, "trajectory");
         let mut retired = false;
         for _ in 0..32 {
@@ -692,69 +777,175 @@ mod tests {
 
     #[tokio::test]
     async fn canonical_partial_event_analysis_retains_numeric_prefix_without_scalar_claims() {
-        use pse_relations::generated::runtime::{canonical_analysis_edges, computation_runs, scientific_contexts, simulation_events, simulation_samples, trajectory_endpoints};
         use super::super::analyses::{AnalysisControls, AnalysisDirection};
+        use pse_relations::generated::runtime::{
+            canonical_analysis_edges, computation_runs, scientific_contexts, simulation_events,
+            simulation_samples, trajectory_endpoints,
+        };
         let runtime = super::super::durable_tests::durable_runtime();
         let mut physical = super::super::tests::physical();
-        physical.preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap());
-        physical.key = pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
+        physical.preconditions = Arc::new(
+            pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
+        );
+        physical.key = pse_compiler::workspace::physical_identity(
+            &physical.quantities,
+            &physical.preconditions,
+        );
         // x(t)=1+2t reaches the terminal guard x=2 at t=0.5,
         // before the fixed-horizon observations at 0.75 and 2 seconds.
         let source = "package p { def Root { domain t:Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param p:Scalar=2; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p; eq initial:x[0{s}]==1{s}; let hit[i in t]:Time=x[i]-2{s}; } test stopped fixture { dof 0; route integrated; procedure integrate; endpoint fixed_horizon; integrate samples(0{s},0.25{s},0.75{s},2{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{s}); mode stop; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) terminal; } { child root:Root=Root(); } }";
-        let rows = pse_authoring::language::parse(source, pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
-        let root = rows.iter().find(|row| row.name == "stopped").unwrap().declaration_id;
+        let rows = pse_authoring::language::parse(
+            source,
+            pse_ids::SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "stopped")
+            .unwrap()
+            .declaration_id;
         let package = runtime.modeling_package(rows, physical).await.unwrap();
         let profile = pse_backend_native::dynamics::Profile {
             method: pse_backend_native::dynamics::Method::Diffsol,
-            end: 2., samples: vec![0., 0.25, 0.75, 2.],
+            end: 2.,
+            samples: vec![0., 0.25, 0.75, 2.],
+            parameter_scales: vec![1.],
             sensitivity: pse_backend_native::dynamics::DynamicSensitivity::None,
             ..Default::default()
         };
-        let prepared = package.declared_simulation(root, super::super::tests::compiler_profile(), Some(profile), Default::default(), &crate::CancelSource::new()).await.unwrap();
+        let prepared = package
+            .declared_simulation(
+                root,
+                super::super::tests::compiler_profile(),
+                Some(profile),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
         let result = prepared.start().unwrap().wait().await.unwrap();
-        assert!(!result.usable(), "the fixed-horizon completion remains unsatisfied after the event");
-        let headers = computation_runs::Row::rows(&result.table("runtime.computation_runs").unwrap()).unwrap();
+        assert!(
+            !result.usable(),
+            "the fixed-horizon completion remains unsatisfied after the event"
+        );
+        let headers =
+            computation_runs::Row::rows(&result.table("runtime.computation_runs").unwrap())
+                .unwrap();
         assert_eq!(headers.len(), 1);
-        assert_eq!(headers[0].trajectory_termination, Some(pse_model::generated::enums::TrajectoryTermination::Event));
+        assert_eq!(
+            headers[0].trajectory_termination,
+            Some(pse_model::generated::enums::TrajectoryTermination::Event)
+        );
         assert_eq!(headers[0].response_available, Some(false));
         assert!((headers[0].completed_time.unwrap() - 0.5).abs() < 1e-5);
-        let contexts = scientific_contexts::Row::rows(&result.table("runtime.scientific_contexts").unwrap()).unwrap();
+        let contexts =
+            scientific_contexts::Row::rows(&result.table("runtime.scientific_contexts").unwrap())
+                .unwrap();
         let state = contexts[0].state[0].id;
-        let mut samples = simulation_samples::Row::rows(&result.table("runtime.simulation_samples").unwrap()).unwrap();
-        let state_samples = samples.iter().filter(|sample| sample.symbol_id == state).collect::<Vec<_>>();
+        let mut samples =
+            simulation_samples::Row::rows(&result.table("runtime.simulation_samples").unwrap())
+                .unwrap();
+        let state_samples = samples
+            .iter()
+            .filter(|sample| sample.symbol_id == state)
+            .collect::<Vec<_>>();
         assert_eq!(state_samples.len(), 2);
         for sample in state_samples {
             assert!((sample.value - (1. + 2. * sample.time)).abs() < 1e-6);
             assert!(sample.time < 0.5);
         }
-        let events = simulation_events::Row::rows(&result.table("runtime.simulation_events").unwrap()).unwrap();
+        let events =
+            simulation_events::Row::rows(&result.table("runtime.simulation_events").unwrap())
+                .unwrap();
         assert_eq!(events.len(), 1);
         assert!((events[0].time - 0.5).abs() < 1e-5);
         assert!((events[0].before - 2.).abs() < 1e-5);
-        let endpoints = trajectory_endpoints::Row::rows(&result.table("runtime.trajectory_endpoints").unwrap()).unwrap();
+        let endpoints =
+            trajectory_endpoints::Row::rows(&result.table("runtime.trajectory_endpoints").unwrap())
+                .unwrap();
         assert_eq!(endpoints.len(), 1);
         assert!(!endpoints[0].endpoint_satisfied);
         assert!((endpoints[0].time - events[0].time).abs() < 1e-8);
         assert!((endpoints[0].state[0] - 2.).abs() < 1e-5);
         let run = result.canonical_run_key().unwrap();
         let attempt = result.canonical_attempt_key().unwrap();
-        let graph = runtime.result_analysis(run, attempt, &AnalysisControls { roots: vec![], direction: AnalysisDirection::Downstream }, CancellationToken::new()).await.unwrap();
+        let graph = runtime
+            .result_analysis(
+                run,
+                attempt,
+                &AnalysisControls {
+                    roots: vec![],
+                    direction: AnalysisDirection::Downstream,
+                },
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
         let edges = canonical_analysis_edges::Row::rows(&graph.edges(None).await.unwrap()).unwrap();
-        let event_edge = edges.iter().find(|edge| edge.kind == "trajectory_event").unwrap();
+        let event_edge = edges
+            .iter()
+            .find(|edge| edge.kind == "trajectory_event")
+            .unwrap();
         assert!(event_edge.evidence_row.is_some());
-        assert!(edges.iter().all(|edge| !edge.kind.contains("parametric") && edge.kind != "recorded_transient_response"));
-        let artifact = runtime.scientific_artifact(event_edge.evidence_artifact.as_deref().unwrap()).await.unwrap();
+        assert!(
+            edges.iter().all(|edge| !edge.kind.contains("parametric")
+                && edge.kind != "recorded_transient_response")
+        );
+        let artifact = runtime
+            .scientific_artifact(event_edge.evidence_artifact.as_deref().unwrap())
+            .await
+            .unwrap();
         assert_eq!(artifact.header().kind, "trajectory");
-        let retained_event = artifact.evidence(&ArtifactLocator { artifact: artifact.header().key.clone(), block: event_edge.evidence_block.unwrap(), row: event_edge.evidence_row, field: event_edge.evidence_field.clone() }, CancellationToken::new()).await.unwrap();
-        assert_eq!(simulation_events::Row::rows(&retained_event).unwrap(), events);
-        let read = runtime.canonical_store().unwrap().read_artifact(&artifact.header().key).await.unwrap();
+        let retained_event = artifact
+            .evidence(
+                &ArtifactLocator {
+                    artifact: artifact.header().key.clone(),
+                    block: event_edge.evidence_block.unwrap(),
+                    row: event_edge.evidence_row,
+                    field: event_edge.evidence_field.clone(),
+                },
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            simulation_events::Row::rows(&retained_event).unwrap(),
+            events
+        );
+        let read = runtime
+            .canonical_store()
+            .unwrap()
+            .read_artifact(&artifact.header().key)
+            .await
+            .unwrap();
         let mut retained_samples = Vec::new();
         let mut retained_endpoints = Vec::new();
         for ordinal in 0..artifact.header().block_count {
             let block = read.block(ordinal).await.unwrap();
             match block.relation.as_str() {
-                "runtime.simulation_samples" => retained_samples.extend(simulation_samples::Row::rows(&artifact.block(ordinal, CancellationToken::new()).await.unwrap()).unwrap()),
-                "runtime.trajectory_endpoints" => retained_endpoints.extend(trajectory_endpoints::Row::rows(&artifact.block(ordinal, CancellationToken::new()).await.unwrap()).unwrap()),
+                "runtime.simulation_samples" => retained_samples.extend(
+                    simulation_samples::Row::rows(
+                        &artifact
+                            .block(ordinal, CancellationToken::new())
+                            .await
+                            .unwrap(),
+                    )
+                    .unwrap(),
+                ),
+                "runtime.trajectory_endpoints" => retained_endpoints.extend(
+                    trajectory_endpoints::Row::rows(
+                        &artifact
+                            .block(ordinal, CancellationToken::new())
+                            .await
+                            .unwrap(),
+                    )
+                    .unwrap(),
+                ),
                 _ => {}
             }
         }
@@ -763,9 +954,20 @@ mod tests {
         samples.sort_by_key(|row| (row.symbol_id, row.sample));
         assert_eq!(retained_samples, samples);
         assert_eq!(retained_endpoints, endpoints);
-        assert!(runtime.promote_scientific_artifact(run, attempt, ScientificArtifactKind::LocalAnalysis, "user", "partial-event-scalar-refusal", CancellationToken::new()).await.is_err());
+        assert!(
+            runtime
+                .promote_scientific_artifact(
+                    run,
+                    attempt,
+                    ScientificArtifactKind::LocalAnalysis,
+                    "user",
+                    "partial-event-scalar-refusal",
+                    CancellationToken::new()
+                )
+                .await
+                .is_err()
+        );
     }
-
 }
 
 #[cfg(test)]

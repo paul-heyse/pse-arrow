@@ -55,3 +55,23 @@ classify a request as payload or alter replay eligibility. Actual terminal/drain
 paths release this nonbyte activity independently of held context/map aliases;
 unpolled builders retain lexical ownership. The canonical adapter uses this seam
 to account for physical connection activity through real request completion.
+
+Plan 41c adds optional endpoint `ResponseLimits` to the same RequestContext.
+Native response ingress verifies the borrowed FlatBuffers envelope and installed
+request/replay/LIVE recipient before owned conversion, then enforces endpoint
+node, depth, container, string and blob occurrence limits. Repeated wire offsets
+count as repeated owned copies. Unknown addressed recipients and malformed
+correlations refuse before owned decoding; pending owners remain until physical
+socket drain. Sessionless frames follow upstream's ignored-response behavior and
+are discarded before owned decoding. Installed generic pending requests preserve
+their ordinary decoder contract; installed LIVE queries use finite expanded
+verification and the pinned RPC decoder's CREATE/UPDATE/DELETE grammar. The
+pinned RPC decoder does not support KILLED despite its types/stream vocabulary.
+
+The actual frame drops before owned response delivery can wake its consumer.
+Nested canonical response scopes compose their actual allocation owners, including
+retained protected metadata and the separately bounded cleanup response allowance.
+A late SDK borrower prevents a consumer from shrinking the original allowance;
+failed retained admission carries that original grant through protected cleanup.
+Payload-free refusal warnings expose the reason, correlation and frame extent;
+they never print response values or credentials.

@@ -5,8 +5,8 @@
 
 use crate::{
     canonical::{
-        CanonicalError, CanonicalStore, MetadataResponse, ProtectedSelection, Revision, bounded_query,
-        protected_query,
+        CanonicalError, CanonicalStore, MetadataResponse, ProtectedSelection, Revision,
+        bounded_query, protected_query,
     },
     canonical_codec as codec,
     canonical_results::ResultRead,
@@ -56,7 +56,10 @@ impl ArtifactBlock {
     /// Bind a Runtime-validated standalone native IPC file to its exact schema.
     /// Capsules retain their original JSON/opaque encoding instead.
     pub fn native_file(mut self, schema: &str) -> Result<Self, CanonicalError> {
-        crate::canonical_files::validate_codec_schema(crate::canonical_files::ARROW_IPC_FILE, schema)?;
+        crate::canonical_files::validate_codec_schema(
+            crate::canonical_files::ARROW_IPC_FILE,
+            schema,
+        )?;
         if schema.is_empty()
             || !self.payload.starts_with(b"ARROW1")
             || !self.payload.ends_with(b"ARROW1")
@@ -269,14 +272,25 @@ impl ArtifactRead {
     /// Retained metadata extent shared by all consumers of this acquisition.
     pub fn retained_bytes(&self) -> Result<usize, CanonicalError> {
         use pse_model::HeapUsage;
-        [size_of::<Self>(), self.header.heap_bytes(),
-            self.selection.retained_bytes().ok_or(CanonicalError::PayloadLimit)?,
-            self.store.handle_heap_bytes().ok_or(CanonicalError::PayloadLimit)?]
-            .into_iter().try_fold(0usize, usize::checked_add)
-            .ok_or(CanonicalError::PayloadLimit)
+        [
+            size_of::<Self>(),
+            self.header.heap_bytes(),
+            self.selection
+                .retained_bytes()
+                .ok_or(CanonicalError::PayloadLimit)?,
+            self.store
+                .handle_heap_bytes()
+                .ok_or(CanonicalError::PayloadLimit)?,
+        ]
+        .into_iter()
+        .try_fold(0usize, usize::checked_add)
+        .ok_or(CanonicalError::PayloadLimit)
     }
     /// Keep the continuing allocation through protected release and SDK drain.
-    pub fn retain_metadata_owner(&self, owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<(), CanonicalError> {
+    pub fn retain_metadata_owner(
+        &self,
+        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<(), CanonicalError> {
         self.selection.retain_metadata_owner(owner)
     }
     /// Original protected acquisition identity for explicit uncertainty attribution.
@@ -360,7 +374,11 @@ impl CanonicalStore {
     /// Attach already sealed metadata, validating every acknowledged original key.
     /// Unknown completion remains ArtifactUnsettled at the caller; it cannot
     /// authorize activation or an automatic retry under a renewed clock.
-    async fn append_artifact_metadata(&self, key: &str, rows: &[Object]) -> Result<(), CanonicalError> {
+    async fn append_artifact_metadata(
+        &self,
+        key: &str,
+        rows: &[Object],
+    ) -> Result<(), CanonicalError> {
         if rows.is_empty()
             || rows.len() > pse_schema::catalog::substrate::ARTIFACT_APPEND_ROWS
             || artifact_metadata_extent(rows)? > wire::RESULT_INDEX_BYTES
@@ -373,15 +391,26 @@ impl CanonicalStore {
                 .bind(("key", key.to_owned())).bind(("blocks", rows.to_vec()))
         )).await?;
         #[cfg(all(test, feature = "canonical-tests"))]
-        if ARTIFACT_APPEND_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false) {
+        if ARTIFACT_APPEND_REPLY_LOSS
+            .try_with(|lost| *lost)
+            .unwrap_or(false)
+        {
             return Err(CanonicalError::IncompleteResponse);
         }
         let index = response.num_statements().saturating_sub(2);
         let keys = response.take::<Vec<String>>(index)?;
         validate_artifact_ack(rows, &keys)?;
         if let Some(context) = pse_diagnostics::observation::current() {
-            context.count("canonical.artifact.metadata.groups_acknowledged", "groups", 1);
-            context.count("canonical.artifact.metadata.rows_acknowledged", "rows", rows.len() as u64);
+            context.count(
+                "canonical.artifact.metadata.groups_acknowledged",
+                "groups",
+                1,
+            );
+            context.count(
+                "canonical.artifact.metadata.rows_acknowledged",
+                "rows",
+                rows.len() as u64,
+            );
         }
         #[cfg(all(test, feature = "canonical-tests"))]
         let _ = ARTIFACT_APPEND_GROUPS.try_with(|groups| groups.set(groups.get() + 1));
@@ -603,16 +632,55 @@ mod canonical_artifact_tests {
     async fn canonical_artifact_grouped_metadata_preserves_exact_files_and_replay() {
         let (store, revision) = fixture().await;
         let expected = [vec![1, 2], vec![3, 4, 5], vec![6]];
-        let mut intent = store.new_artifact(&revision, "test-grouped-capsules", vec![7], 3, 6).await.unwrap();
-        let blocks = expected.iter().enumerate().map(|(ordinal, bytes)|
-            artifact_block(&intent.key, ordinal as u64, &format!("capsule-{ordinal}"), bytes.clone(), "original", 1)
-        ).collect::<Vec<_>>();
-        seal_artifact_request(&mut intent, std::slice::from_ref(&revision), &[], &blocks, "user", "group-owner");
-        let saved = ARTIFACT_APPEND_GROUPS.scope(std::cell::Cell::new(0), async {
-            let saved = store.persist_artifact(&intent, std::slice::from_ref(&revision), &[], &blocks, "user", "group-owner").await.unwrap();
-            ARTIFACT_APPEND_GROUPS.with(|groups| assert_eq!(groups.get(), 1, "three sealed files attach in one acknowledged metadata transaction"));
-            saved
-        }).await;
+        let mut intent = store
+            .new_artifact(&revision, "test-grouped-capsules", vec![7], 3, 6)
+            .await
+            .unwrap();
+        let blocks = expected
+            .iter()
+            .enumerate()
+            .map(|(ordinal, bytes)| {
+                artifact_block(
+                    &intent.key,
+                    ordinal as u64,
+                    &format!("capsule-{ordinal}"),
+                    bytes.clone(),
+                    "original",
+                    1,
+                )
+            })
+            .collect::<Vec<_>>();
+        seal_artifact_request(
+            &mut intent,
+            std::slice::from_ref(&revision),
+            &[],
+            &blocks,
+            "user",
+            "group-owner",
+        );
+        let saved = ARTIFACT_APPEND_GROUPS
+            .scope(std::cell::Cell::new(0), async {
+                let saved = store
+                    .persist_artifact(
+                        &intent,
+                        std::slice::from_ref(&revision),
+                        &[],
+                        &blocks,
+                        "user",
+                        "group-owner",
+                    )
+                    .await
+                    .unwrap();
+                ARTIFACT_APPEND_GROUPS.with(|groups| {
+                    assert_eq!(
+                        groups.get(),
+                        1,
+                        "three sealed files attach in one acknowledged metadata transaction"
+                    )
+                });
+                saved
+            })
+            .await;
         let read = store.read_artifact(&saved.key).await.unwrap();
         for (ordinal, bytes) in expected.iter().enumerate() {
             let actual = read.block(ordinal as u64).await.unwrap();
@@ -620,11 +688,40 @@ mod canonical_artifact_tests {
             assert_eq!(actual.relation, format!("capsule-{ordinal}"));
         }
         read.release().await.unwrap();
-        let again = store.persist_artifact(&intent, std::slice::from_ref(&revision), &[], &blocks, "user", "group-owner").await.unwrap();
-        assert_eq!(again, saved, "exact original replay has unchanged immutable inventory");
-        let mut changed = blocks.clone(); changed[1].rows = 2;
-        assert!(matches!(store.persist_artifact(&intent, std::slice::from_ref(&revision), &[], &changed, "user", "group-owner").await, Err(CanonicalError::OperationReused)));
-        store.release_artifact(&saved.key, "user", "group-owner").await.unwrap();
+        let again = store
+            .persist_artifact(
+                &intent,
+                std::slice::from_ref(&revision),
+                &[],
+                &blocks,
+                "user",
+                "group-owner",
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            again, saved,
+            "exact original replay has unchanged immutable inventory"
+        );
+        let mut changed = blocks.clone();
+        changed[1].rows = 2;
+        assert!(matches!(
+            store
+                .persist_artifact(
+                    &intent,
+                    std::slice::from_ref(&revision),
+                    &[],
+                    &changed,
+                    "user",
+                    "group-owner"
+                )
+                .await,
+            Err(CanonicalError::OperationReused)
+        ));
+        store
+            .release_artifact(&saved.key, "user", "group-owner")
+            .await
+            .unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -632,14 +729,44 @@ mod canonical_artifact_tests {
     async fn canonical_artifact_lost_group_ack_retains_unsettled_staging_without_activation() {
         let (store, revision) = fixture().await;
         let (intent, blocks) = content(&store, &revision, "audit", "lost-group-ack").await;
-        let error = ARTIFACT_APPEND_REPLY_LOSS.scope(true,
-            store.persist_artifact(&intent, std::slice::from_ref(&revision), &[], &blocks, "audit", "lost-group-ack")
-        ).await.unwrap_err();
+        let error = ARTIFACT_APPEND_REPLY_LOSS
+            .scope(
+                true,
+                store.persist_artifact(
+                    &intent,
+                    std::slice::from_ref(&revision),
+                    &[],
+                    &blocks,
+                    "audit",
+                    "lost-group-ack",
+                ),
+            )
+            .await
+            .unwrap_err();
         assert!(matches!(error, CanonicalError::ArtifactUnsettled { .. }));
-        assert!(store.artifact(&intent.key).await.is_err(), "unknown ACK does not permit activation");
-        let mut staged = bounded_query(store.db.query("RETURN SELECT VALUE key FROM canonical_artifact_blocks WHERE artifact=$key;").bind(("key",intent.key.clone()))).await.unwrap();
-        assert_eq!(staged.take::<Vec<String>>(0).unwrap(), vec![blocks[0].key.clone()], "the real transaction committed; its ACK remains deliberately unknown");
-        store.release_artifact_intent(&intent, "audit", "lost-group-ack").await.unwrap();
+        assert!(
+            store.artifact(&intent.key).await.is_err(),
+            "unknown ACK does not permit activation"
+        );
+        let mut staged = bounded_query(
+            store
+                .db
+                .query(
+                    "RETURN SELECT VALUE key FROM canonical_artifact_blocks WHERE artifact=$key;",
+                )
+                .bind(("key", intent.key.clone())),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            staged.take::<Vec<String>>(0).unwrap(),
+            vec![blocks[0].key.clone()],
+            "the real transaction committed; its ACK remains deliberately unknown"
+        );
+        store
+            .release_artifact_intent(&intent, "audit", "lost-group-ack")
+            .await
+            .unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -1228,11 +1355,22 @@ mod artifact_ack_tests {
     #[test]
     fn artifact_metadata_ack_requires_exact_ordered_inventory() {
         let rows = ["one", "two"].map(|key| {
-            let mut row = Object::new(); row.insert("key", key); row
+            let mut row = Object::new();
+            row.insert("key", key);
+            row
         });
         assert!(validate_artifact_ack(&rows, &["one".into(), "two".into()]).is_ok());
-        assert!(matches!(validate_artifact_ack(&rows, &["one".into()]), Err(CanonicalError::IncompleteResponse)));
-        assert!(matches!(validate_artifact_ack(&rows, &["two".into(), "one".into()]), Err(CanonicalError::OperationReused)));
-        assert!(matches!(validate_artifact_ack(&rows, &["one".into(), "changed".into()]), Err(CanonicalError::OperationReused)));
+        assert!(matches!(
+            validate_artifact_ack(&rows, &["one".into()]),
+            Err(CanonicalError::IncompleteResponse)
+        ));
+        assert!(matches!(
+            validate_artifact_ack(&rows, &["two".into(), "one".into()]),
+            Err(CanonicalError::OperationReused)
+        ));
+        assert!(matches!(
+            validate_artifact_ack(&rows, &["one".into(), "changed".into()]),
+            Err(CanonicalError::OperationReused)
+        ));
     }
 }

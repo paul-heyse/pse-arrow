@@ -24,7 +24,6 @@ use pse_model::generated::runtime::{
 use pse_operations::{canonical::MetadataResponse, canonical_results::ResultRead};
 use std::{collections::BTreeMap, sync::Arc};
 
-
 #[derive(Debug)]
 struct SnapshotInner {
     runtime: Runtime,
@@ -67,7 +66,9 @@ impl ResultSnapshot {
         end: u64,
     ) -> Result<Self, WorkflowError> {
         use pse_model::HeapUsage;
-        let required = read.retained_bytes()?.checked_add(MetadataResponse::Protection.allocation_bytes())
+        let required = read
+            .retained_bytes()?
+            .checked_add(MetadataResponse::Protection.allocation_bytes())
             .ok_or_else(|| contract("snapshot protected metadata extent"))?;
         if read_owner.size() < required {
             return Err(contract("snapshot read metadata is not prepaid"));
@@ -87,27 +88,52 @@ impl ResultSnapshot {
             loop {
                 // Each bounded RPC page has its own prepaid temporary response scope.
                 // Transfer its exact retained strings/rows before growing inventories.
-                let response = super::connected_results::response_owner(runtime,
-                    "canonical:result-snapshot-page", MetadataResponse::Page)?;
+                let response = super::connected_results::response_owner(
+                    runtime,
+                    "canonical:result-snapshot-page",
+                    MetadataResponse::Page,
+                )?;
                 let page = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone(), response.clone())),
                     runtime.canonical_store()?.result_block_page(
-                        &read, set, &relation.to_string(), "0", start, end, after,
+                        &read,
+                        set,
+                        &relation.to_string(),
+                        "0",
+                        start,
+                        end,
+                        after,
                     ),
-                ).await?;
+                )
+                .await?;
                 // The first page is retained while the descriptor RPC runs. Its
                 // own temporary allowance retires independently of the next RPC.
-                let page_bytes = page.capacity().checked_mul(size_of::<Block>())
-                    .and_then(|bytes| page.iter().try_fold(bytes, |n, row| n.checked_add(row.heap_bytes())))
+                let page_bytes = page
+                    .capacity()
+                    .checked_mul(size_of::<Block>())
+                    .and_then(|bytes| {
+                        page.iter()
+                            .try_fold(bytes, |n, row| n.checked_add(row.heap_bytes()))
+                    })
                     .ok_or_else(|| contract("snapshot page extent"))?;
-                let page_owner = super::connected_results::retain_metadata(&runtime.shared.pool(), response, page_bytes)?;
+                let page_owner = super::connected_results::retain_metadata(
+                    &runtime.shared.pool(),
+                    response,
+                    page_bytes,
+                )?;
                 let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
-                let response = super::connected_results::response_owner(runtime,
-                    "canonical:result-snapshot-descriptors", MetadataResponse::Page)?;
+                let response = super::connected_results::response_owner(
+                    runtime,
+                    "canonical:result-snapshot-descriptors",
+                    MetadataResponse::Page,
+                )?;
                 let descriptors = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone(), response.clone())),
-                    runtime.canonical_store()?.result_file_batch_descriptors(&read, set, &ordinals),
-                ).await?;
+                    runtime
+                        .canonical_store()?
+                        .result_file_batch_descriptors(&read, set, &ordinals),
+                )
+                .await?;
                 if page.len() != descriptors.len() {
                     return Err(contract("snapshot descriptor coverage differs"));
                 }
@@ -254,8 +280,11 @@ impl ResultSnapshot {
             // the exact read ticket and a separately prepaid metadata response.
             // The file-shaped decode/footer grants cannot bound SDK metadata,
             // and connection activity alone does not retain this ResultRead.
-            let response = super::connected_results::response_owner(&self.0.runtime,
-                "canonical:result-file-open-response", MetadataResponse::Header)?;
+            let response = super::connected_results::response_owner(
+                &self.0.runtime,
+                "canonical:result-file-open-response",
+                MetadataResponse::Header,
+            )?;
             let file = pse_operations::canonical::response_ownership_scope(
                 Arc::new((self.0.read.clone(), self.0._read_owner.clone(), response)),
                 self.0

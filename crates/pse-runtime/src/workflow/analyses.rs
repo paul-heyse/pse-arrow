@@ -87,7 +87,10 @@ fn edge(
 ) -> Result<(), WorkflowError> {
     // Identical context references can qualify many rows at the same scope.
     // Deduplicate only exact edges; different block/row/field locators survive.
-    if graph.edges_connecting(source, target).any(|existing| existing.weight() == &(kind.into(), evidence.clone())) {
+    if graph
+        .edges_connecting(source, target)
+        .any(|existing| existing.weight() == &(kind.into(), evidence.clone()))
+    {
         return Ok(());
     }
     if graph.edge_count() >= ANALYSIS_EDGES {
@@ -127,7 +130,13 @@ fn selected(
     // A selected claim keeps its admitted context without traversing unrelated
     // responses sharing that immutable evidence owner.
     use petgraph::visit::EdgeRef;
-    let context = graph.edge_references().filter(|edge| result.contains(&edge.target()) && graph[edge.source()].1 == "retained_context").map(|edge| edge.source()).collect::<Vec<_>>();
+    let context = graph
+        .edge_references()
+        .filter(|edge| {
+            result.contains(&edge.target()) && graph[edge.source()].1 == "retained_context"
+        })
+        .map(|edge| edge.source())
+        .collect::<Vec<_>>();
     result.extend(context);
     Ok(result)
 }
@@ -177,10 +186,20 @@ fn located_rows<R: pse_relations::columnar::RelationRow>(
     artifact: &str,
     block: u64,
 ) -> Result<Vec<Located<R>>, WorkflowError> {
-    Ok(R::rows(batch).map_err(relation)?.into_iter().enumerate().map(|(row, value)| Located {
-        row: value,
-        locator: ArtifactLocator { artifact: artifact.into(), block, row: Some(row as u64), field: None },
-    }).collect())
+    Ok(R::rows(batch)
+        .map_err(relation)?
+        .into_iter()
+        .enumerate()
+        .map(|(row, value)| Located {
+            row: value,
+            locator: ArtifactLocator {
+                artifact: artifact.into(),
+                block,
+                row: Some(row as u64),
+                field: None,
+            },
+        })
+        .collect())
 }
 impl ResponseEvidence {
     fn push(
@@ -212,22 +231,43 @@ impl ResponseEvidence {
             "runtime.parametric_sensitivities" => rows!(parametric),
             "runtime.response_sensitivities" => rows!(responses),
             _ => {
-                self.interpretation.push(ArtifactLocator { artifact: artifact.into(), block, row: None, field: None });
+                self.interpretation.push(ArtifactLocator {
+                    artifact: artifact.into(),
+                    block,
+                    row: None,
+                    field: None,
+                });
             }
         }
         Ok(())
     }
-    fn scalar_family(&self, run: pse_model::generated::identities::RunId, step: i64) -> Option<ResponseFamily> {
+    fn scalar_family(
+        &self,
+        run: pse_model::generated::identities::RunId,
+        step: i64,
+    ) -> Option<ResponseFamily> {
         use pse_model::generated::enums::NativeSolveIntent;
-        let contexts = self.contexts.iter().filter(|context| context.row.step == step && context.row.time.is_none()).collect::<Vec<_>>();
+        let contexts = self
+            .contexts
+            .iter()
+            .filter(|context| context.row.step == step && context.row.time.is_none())
+            .collect::<Vec<_>>();
         // Route rows have no run_id. Ambiguous step ownership cannot borrow a
         // different run's route, even when its numerical rows happen to agree.
-        if contexts.is_empty() || contexts.iter().any(|context| context.row.run_id != run || context.row.model_id.is_none() || context.row != contexts[0].row) {
+        if contexts.is_empty()
+            || contexts.iter().any(|context| {
+                context.row.run_id != run
+                    || context.row.model_id.is_none()
+                    || context.row != contexts[0].row
+            })
+        {
             return None;
         }
         let mut routes = self.routes.iter().filter(|route| route.row.step == step);
         let first = &routes.next()?.row;
-        if routes.any(|route| route.row.request_identity != first.request_identity || route.row.intent != first.intent) {
+        if routes.any(|route| {
+            route.row.request_identity != first.request_identity || route.row.intent != first.intent
+        }) {
             return None;
         }
         match first.intent {
@@ -236,51 +276,115 @@ impl ResponseEvidence {
             _ => None,
         }
     }
-    fn scalar_certified(&self, run: pse_model::generated::identities::RunId, step: i64, family: ResponseFamily) -> bool {
+    fn scalar_certified(
+        &self,
+        run: pse_model::generated::identities::RunId,
+        step: i64,
+        family: ResponseFamily,
+    ) -> bool {
         use pse_model::generated::enums::DerivedQuantity;
-        let rows = self.validity.iter().filter(|row| row.row.run_id == run && row.row.step == step && row.row.quantity == DerivedQuantity::ParametricSensitivity).collect::<Vec<_>>();
-        !rows.is_empty() && rows.iter().all(|row| {
-            let v = &row.row.validity;
-            if !v.certified || v.reason.is_some() { return false; }
-            match family {
-                ResponseFamily::Root => v.root_rank.is_some()
-                    && v.root_rank_cutoff.is_some()
-                    && v.root_rank_relative_cutoff.is_some()
-                    && v.root_backward_error.is_some()
-                    && v.root_backward_error_limit.is_some()
-                    && v.root_neighborhood.as_ref().is_some_and(|value| !value.is_empty())
-                    && v.licq.is_none() && v.strict_complementarity.is_none() && v.second_order.is_none(),
-                ResponseFamily::Optimal => v.licq == Some(true)
-                    && v.strict_complementarity == Some(true)
-                    && v.second_order == Some(true)
-                    && v.weakly_active == Some(0)
-                    && v.root_rank.is_none() && v.root_rank_cutoff.is_none()
-                    && v.root_rank_relative_cutoff.is_none() && v.root_backward_error.is_none()
-                    && v.root_backward_error_limit.is_none() && v.root_neighborhood.is_none(),
-            }
-        })
+        let rows = self
+            .validity
+            .iter()
+            .filter(|row| {
+                row.row.run_id == run
+                    && row.row.step == step
+                    && row.row.quantity == DerivedQuantity::ParametricSensitivity
+            })
+            .collect::<Vec<_>>();
+        !rows.is_empty()
+            && rows.iter().all(|row| {
+                let v = &row.row.validity;
+                if !v.certified || v.reason.is_some() {
+                    return false;
+                }
+                match family {
+                    ResponseFamily::Root => {
+                        v.root_rank.is_some()
+                            && v.root_rank_cutoff.is_some()
+                            && v.root_rank_relative_cutoff.is_some()
+                            && v.root_backward_error.is_some()
+                            && v.root_backward_error_limit.is_some()
+                            && v.root_neighborhood
+                                .as_ref()
+                                .is_some_and(|value| !value.is_empty())
+                            && v.licq.is_none()
+                            && v.strict_complementarity.is_none()
+                            && v.second_order.is_none()
+                    }
+                    ResponseFamily::Optimal => {
+                        v.licq == Some(true)
+                            && v.strict_complementarity == Some(true)
+                            && v.second_order == Some(true)
+                            && v.weakly_active == Some(0)
+                            && v.root_rank.is_none()
+                            && v.root_rank_cutoff.is_none()
+                            && v.root_rank_relative_cutoff.is_none()
+                            && v.root_backward_error.is_none()
+                            && v.root_backward_error_limit.is_none()
+                            && v.root_neighborhood.is_none()
+                    }
+                }
+            })
     }
     // Simulation publication records sensitivity availability, not a scalar
     // local certificate. Partial/event trajectories retain this weaker meaning.
-    fn transient_recorded(&self, row: &pse_model::generated::runtime::response_sensitivities::Row) -> bool {
+    fn transient_recorded(
+        &self,
+        row: &pse_model::generated::runtime::response_sensitivities::Row,
+    ) -> bool {
         use pse_model::generated::enums::ComputationKind;
-        let Some(time) = row.time else { return false; };
-        let headers = self.computations.iter().filter(|header| header.row.run_id == row.run_id).collect::<Vec<_>>();
-        let contexts = self.contexts.iter().filter(|context| context.row.run_id == row.run_id).collect::<Vec<_>>();
-        let endpoints = self.endpoints.iter().filter(|endpoint| endpoint.row.run_id == row.run_id).collect::<Vec<_>>();
+        let Some(time) = row.time else {
+            return false;
+        };
+        let headers = self
+            .computations
+            .iter()
+            .filter(|header| header.row.run_id == row.run_id)
+            .collect::<Vec<_>>();
+        let contexts = self
+            .contexts
+            .iter()
+            .filter(|context| context.row.run_id == row.run_id)
+            .collect::<Vec<_>>();
+        let endpoints = self
+            .endpoints
+            .iter()
+            .filter(|endpoint| endpoint.row.run_id == row.run_id)
+            .collect::<Vec<_>>();
         !headers.is_empty()
-            && headers.iter().all(|header| header.row == headers[0].row && header.row.kind == ComputationKind::Simulation
-                && header.row.response_available == Some(true)
-                && header.row.completed_time.is_some_and(|end| time <= end)
-                && header.row.completed_samples.is_some_and(|count| row.sample >= 0 && row.sample < count))
-            && !contexts.is_empty() && contexts.iter().all(|context| context.row == contexts[0].row
-                && context.row.time.is_some()
-                && context.row.instance_id == Some(row.experiment_id)
-                && context.row.inputs.iter().any(|coordinate| coordinate.id == row.parameter_id))
-            && !endpoints.is_empty() && endpoints.iter().all(|endpoint| endpoint.row == endpoints[0].row && time <= endpoint.row.time)
-            && self.samples.iter().any(|sample| sample.row.run_id == row.run_id
-                && sample.row.sample == row.sample && sample.row.time == time
-                && sample.row.symbol_id == row.output_id && sample.row.unit_id == row.output_unit_id)
+            && headers.iter().all(|header| {
+                header.row == headers[0].row
+                    && header.row.kind == ComputationKind::Simulation
+                    && header.row.response_available == Some(true)
+                    && header.row.completed_time.is_some_and(|end| time <= end)
+                    && header
+                        .row
+                        .completed_samples
+                        .is_some_and(|count| row.sample >= 0 && row.sample < count)
+            })
+            && !contexts.is_empty()
+            && contexts.iter().all(|context| {
+                context.row == contexts[0].row
+                    && context.row.time.is_some()
+                    && context.row.instance_id == Some(row.experiment_id)
+                    && context
+                        .row
+                        .inputs
+                        .iter()
+                        .any(|coordinate| coordinate.id == row.parameter_id)
+            })
+            && !endpoints.is_empty()
+            && endpoints
+                .iter()
+                .all(|endpoint| endpoint.row == endpoints[0].row && time <= endpoint.row.time)
+            && self.samples.iter().any(|sample| {
+                sample.row.run_id == row.run_id
+                    && sample.row.sample == row.sample
+                    && sample.row.time == time
+                    && sample.row.symbol_id == row.output_id
+                    && sample.row.unit_id == row.output_unit_id
+            })
     }
 }
 fn evidence_context(
@@ -292,14 +396,28 @@ fn evidence_context(
     locator: &ArtifactLocator,
 ) -> Result<(), WorkflowError> {
     let mut identity = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-    identity.str("pse.analysis.evidence-coordinate.v2").str(&locator.artifact).u64(locator.block);
+    identity
+        .str("pse.analysis.evidence-coordinate.v2")
+        .str(&locator.artifact)
+        .u64(locator.block);
     // Fields are distinct edges over the same retained row/block owner.
     identity.part(&serde_json::to_vec(&locator.row).map_err(|error| contract(error.to_string()))?);
-    let context = vertex(graph, nodes, format!("evidence:{}", identity.finish_hash().to_hex()), "retained_context")?;
+    let context = vertex(
+        graph,
+        nodes,
+        format!("evidence:{}", identity.finish_hash().to_hex()),
+        "retained_context",
+    )?;
     if target == attempt {
         return edge(graph, attempt, context, kind, Some(locator.clone()));
     }
-    edge(graph, attempt, context, "produced_context", Some(locator.clone()))?;
+    edge(
+        graph,
+        attempt,
+        context,
+        "produced_context",
+        Some(locator.clone()),
+    )?;
     edge(graph, context, target, kind, Some(locator.clone()))
 }
 fn project_response_evidence(
@@ -326,33 +444,113 @@ fn project_response_evidence(
     retain!(&evidence.events, "trajectory_event");
     retain!(&evidence.modes, "trajectory_mode");
     for locator in &evidence.interpretation {
-        evidence_context(graph, nodes, attempt, attempt, "retained_interpretation", locator)?;
+        evidence_context(
+            graph,
+            nodes,
+            attempt,
+            attempt,
+            "retained_interpretation",
+            locator,
+        )?;
     }
     for item in &evidence.parametric {
         let row = &item.row;
         let family = evidence.scalar_family(row.run_id, row.step);
         let family_name = family.map_or("unclassified", ResponseFamily::name);
         let parameter = vertex(graph, nodes, row.parameter_id.to_string(), "parameter")?;
-        let target_name = if row.target_kind == NumericalTarget::Objective { "objective".into() } else { row.target_id.to_string() };
-        let original = vertex(graph, nodes, target_name.clone(), target_kind(row.target_kind))?;
-        let target = vertex(graph, nodes, format!("{family_name}:{}:step:{}:{target_name}", row.run_id, row.step), "scoped_response")?;
-        edge(graph, target, original, "scientific_coordinate", Some(item.locator.clone()))?;
-        edge(graph, attempt, target, "produced_evidence", Some(item.locator.clone()))?;
-        for context in evidence.contexts.iter().filter(|c| c.row.run_id == row.run_id && c.row.step == row.step) {
-            evidence_context(graph, nodes, attempt, target, "response_coordinates", &context.locator)?;
+        let target_name = if row.target_kind == NumericalTarget::Objective {
+            "objective".into()
+        } else {
+            row.target_id.to_string()
+        };
+        let original = vertex(
+            graph,
+            nodes,
+            target_name.clone(),
+            target_kind(row.target_kind),
+        )?;
+        let target = vertex(
+            graph,
+            nodes,
+            format!(
+                "{family_name}:{}:step:{}:{target_name}",
+                row.run_id, row.step
+            ),
+            "scoped_response",
+        )?;
+        edge(
+            graph,
+            target,
+            original,
+            "scientific_coordinate",
+            Some(item.locator.clone()),
+        )?;
+        edge(
+            graph,
+            attempt,
+            target,
+            "produced_evidence",
+            Some(item.locator.clone()),
+        )?;
+        for context in evidence
+            .contexts
+            .iter()
+            .filter(|c| c.row.run_id == row.run_id && c.row.step == row.step)
+        {
+            evidence_context(
+                graph,
+                nodes,
+                attempt,
+                target,
+                "response_coordinates",
+                &context.locator,
+            )?;
         }
         for route in evidence.routes.iter().filter(|r| r.row.step == row.step) {
-            evidence_context(graph, nodes, attempt, target, "response_family", &field_locator(&route.locator, "intent"))?;
+            evidence_context(
+                graph,
+                nodes,
+                attempt,
+                target,
+                "response_family",
+                &field_locator(&route.locator, "intent"),
+            )?;
         }
-        for validity in evidence.validity.iter().filter(|v| v.row.run_id == row.run_id && v.row.step == row.step) {
-            evidence_context(graph, nodes, attempt, target, "response_validity", &field_locator(&validity.locator, "validity"))?;
+        for validity in evidence
+            .validity
+            .iter()
+            .filter(|v| v.row.run_id == row.run_id && v.row.step == row.step)
+        {
+            evidence_context(
+                graph,
+                nodes,
+                attempt,
+                target,
+                "response_validity",
+                &field_locator(&validity.locator, "validity"),
+            )?;
         }
         for (field, value) in [("primal", row.primal), ("dual", row.dual)] {
-            if value.is_none() { continue; }
-            let certified = family.is_some_and(|family| evidence.scalar_certified(row.run_id, row.step, family)
-                && (family != ResponseFamily::Root || (field == "primal" && row.target_kind == NumericalTarget::Variable)));
-            let kind = if certified { format!("retained_{family_name}_parametric_{field}") } else { format!("withheld_{family_name}_parametric_{field}") };
-            edge(graph, if certified { parameter } else { attempt }, target, &kind, Some(field_locator(&item.locator, field)))?;
+            if value.is_none() {
+                continue;
+            }
+            let certified = family.is_some_and(|family| {
+                evidence.scalar_certified(row.run_id, row.step, family)
+                    && (family != ResponseFamily::Root
+                        || (field == "primal" && row.target_kind == NumericalTarget::Variable))
+            });
+            let kind = if certified {
+                format!("retained_{family_name}_parametric_{field}")
+            } else {
+                format!("withheld_{family_name}_parametric_{field}")
+            };
+            edge(
+                graph,
+                if certified { parameter } else { attempt },
+                target,
+                &kind,
+                Some(field_locator(&item.locator, field)),
+            )?;
         }
     }
     for item in &evidence.responses {
@@ -368,23 +566,75 @@ fn project_response_evidence(
         produced.row = None;
         produced.field = None;
         edge(graph, attempt, target, "produced_evidence", Some(produced))?;
-        edge(graph, if recorded { parameter } else { attempt }, target,
-            if recorded { "recorded_transient_response" } else { "withheld_response_claim" },
-            Some(field_locator(&item.locator, "value")))?;
-        for context in evidence.contexts.iter().filter(|c| c.row.run_id == row.run_id) {
-            evidence_context(graph, nodes, attempt, target, "response_coordinates", &context.locator)?;
+        edge(
+            graph,
+            if recorded { parameter } else { attempt },
+            target,
+            if recorded {
+                "recorded_transient_response"
+            } else {
+                "withheld_response_claim"
+            },
+            Some(field_locator(&item.locator, "value")),
+        )?;
+        for context in evidence
+            .contexts
+            .iter()
+            .filter(|c| c.row.run_id == row.run_id)
+        {
+            evidence_context(
+                graph,
+                nodes,
+                attempt,
+                target,
+                "response_coordinates",
+                &context.locator,
+            )?;
         }
-        for header in evidence.computations.iter().filter(|h| h.row.run_id == row.run_id) {
-            evidence_context(graph, nodes, attempt, target, "response_completion", &header.locator)?;
+        for header in evidence
+            .computations
+            .iter()
+            .filter(|h| h.row.run_id == row.run_id)
+        {
+            evidence_context(
+                graph,
+                nodes,
+                attempt,
+                target,
+                "response_completion",
+                &header.locator,
+            )?;
         }
-        for endpoint in evidence.endpoints.iter().filter(|e| e.row.run_id == row.run_id) {
-            evidence_context(graph, nodes, attempt, target, "response_endpoint", &endpoint.locator)?;
+        for endpoint in evidence
+            .endpoints
+            .iter()
+            .filter(|e| e.row.run_id == row.run_id)
+        {
+            evidence_context(
+                graph,
+                nodes,
+                attempt,
+                target,
+                "response_endpoint",
+                &endpoint.locator,
+            )?;
         }
         // The quantitative row itself preserves exact sample/time/output/unit
         // coordinates. Its matching sample and mode remain in the same retained
         // trajectory; avoid duplicating a graph edge per output/sample metadata.
-        for event in evidence.events.iter().filter(|e| e.row.run_id == row.run_id) {
-            evidence_context(graph, nodes, attempt, target, "response_event_context", &event.locator)?;
+        for event in evidence
+            .events
+            .iter()
+            .filter(|e| e.row.run_id == row.run_id)
+        {
+            evidence_context(
+                graph,
+                nodes,
+                attempt,
+                target,
+                "response_event_context",
+                &event.locator,
+            )?;
         }
     }
     Ok(())
@@ -410,7 +660,11 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analyses as rows;
-                let owner = super::connected_results::response_owner(&self.runtime, "canonical:analysis-header", MetadataResponse::Header)?;
+                let owner = super::connected_results::response_owner(
+                    &self.runtime,
+                    "canonical:analysis-header",
+                    MetadataResponse::Header,
+                )?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     owner.clone(),
                     self.runtime.canonical_store()?.analysis(&self.key),
@@ -438,7 +692,11 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_nodes as rows;
-                let owner = super::connected_results::response_owner(&self.runtime, "canonical:analysis-page", MetadataResponse::Page)?;
+                let owner = super::connected_results::response_owner(
+                    &self.runtime,
+                    "canonical:analysis-page",
+                    MetadataResponse::Page,
+                )?;
                 let page = pse_operations::canonical::response_ownership_scope(
                     owner.clone(),
                     self.runtime
@@ -470,7 +728,11 @@ impl AnalysisHandle {
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_edges as rows;
-                let owner = super::connected_results::response_owner(&self.runtime, "canonical:analysis-page", MetadataResponse::Page)?;
+                let owner = super::connected_results::response_owner(
+                    &self.runtime,
+                    "canonical:analysis-page",
+                    MetadataResponse::Page,
+                )?;
                 let page = pse_operations::canonical::response_ownership_scope(
                     owner.clone(),
                     self.runtime
@@ -514,7 +776,9 @@ impl Runtime {
             .scope(async {
                 let response = super::connected_results::response_owner(
                     self,
-                    "canonical:analysis-selection-response", MetadataResponse::Header)?;
+                    "canonical:analysis-selection-response",
+                    MetadataResponse::Header,
+                )?;
                 pse_operations::canonical::response_ownership_scope(
                     response,
                     self.canonical_store()?.analysis(key),
@@ -672,120 +936,284 @@ impl Runtime {
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        controls.validate()?;
-        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        let owner = MemoryConsumer::new("canonical:result-analysis").register(&self.shared.pool());
-        owner
-            .try_grow(128 * 1024 * 1024)
-            .map_err(pse_engine::EngineError::from)?;
-        let response=super::connected_results::response_owner(self,"canonical:result-analysis-selection-response", MetadataResponse::Selection)?;
-        let input = Arc::new(pse_operations::canonical::response_ownership_scope(
-            response.clone(), self.canonical_store()?.read_results(run, attempt),
-        ).await?);
-        let input_owner = Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(), response, input.retained_bytes()?, |owner| input.retain_metadata_owner(owner))?);
-        input.retain_metadata_owner(input_owner.clone())?;
-        let response=super::connected_results::response_owner(self,"canonical:result-analysis-sources-response", MetadataResponse::Selection)?;
-        let sources = pse_operations::canonical::response_ownership_scope(
-            Arc::new((input.clone(),input_owner.clone(),response)),self.canonical_store()?.analysis_run_sources(run),
-        ).await?;
-        let revision = sources
-            .iter()
-            .find(|source| source.key == input.run().revision)
-            .ok_or_else(|| contract("analysis primary result source absent"))?
-            .clone();
-        let mut graph = Graph::new();
-        let mut nodes = BTreeMap::new();
-        let attempt_node = vertex(
-            &mut graph,
-            &mut nodes,
-            format!("attempt:{attempt}"),
-            "attempt",
-        )?;
-        for source in &sources {
-            let node = vertex(
-                &mut graph,
-                &mut nodes,
-                format!("revision:{}", source.key),
-                "source_revision",
-            )?;
-            edge(&mut graph, node, attempt_node, "input_provenance", None)?;
-        }
-        let mut dispatch = ResponseEvidence::default();
-        for name in ["runtime.scientific_contexts", "runtime.computation_runs"] {
-            let spec = self.registry().relation(name).ok_or_else(|| contract("response dispatch relation absent"))?;
-            let Some(set) = input.sets().iter().find(|set| set.name == spec.id.to_string()) else { continue; };
-            let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec).map_err(|error| contract(error.to_string()))?;
-            let snapshot = super::ResultSnapshot::capture(self, input.clone(), input_owner.clone(), spec.id, &set.key, schema, 0, u64::MAX).await?;
-            for block in snapshot.blocks() {
-                let batch = snapshot.read_block(block, &cancel).await?;
-                owner.try_grow(batch.batch().get_array_memory_size().saturating_mul(4)).map_err(pse_engine::EngineError::from)?;
-                dispatch.push(name, &batch, "dispatch", block.ordinal)?;
-            }
-        }
-        let kind = super::artifacts::response_artifact_kind(
-            dispatch.contexts.iter().map(|item| &item.row),
-            dispatch.computations.iter().map(|item| &item.row),
-        )?;
-        drop(dispatch);
-        let staging_owner=format!("analysis-staging:{}",pse_operations::mint_id::<pse_model::generated::identities::RunId>());
-        let artifact=match self.promote_scientific_artifact(run,attempt,kind,"audit",&staging_owner,cancel.clone()).await {
-            Ok(artifact)=>artifact,
-            Err(source)=>{
-                if let WorkflowError::Canonical(pse_operations::canonical::CanonicalError::ArtifactUnsettled{intent,..})=&source {
-                    return Err(WorkflowError::ArtifactTransferUnsettled {analysis:None,artifact:intent.clone(),owner_kind:"audit".into(),owner:staging_owner,read:None,source:Box::new(source)});
+        activity
+            .scope(async {
+                controls.validate()?;
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                let owner =
+                    MemoryConsumer::new("canonical:result-analysis").register(&self.shared.pool());
+                owner
+                    .try_grow(128 * 1024 * 1024)
+                    .map_err(pse_engine::EngineError::from)?;
+                let response = super::connected_results::response_owner(
+                    self,
+                    "canonical:result-analysis-selection-response",
+                    MetadataResponse::Selection,
+                )?;
+                let input = Arc::new(
+                    pse_operations::canonical::response_ownership_scope(
+                        response.clone(),
+                        self.canonical_store()?.read_results(run, attempt),
+                    )
+                    .await?,
+                );
+                let input_owner = Arc::new(super::connected_results::retain_protected_metadata(
+                    &self.shared.pool(),
+                    response,
+                    input.retained_bytes()?,
+                    |owner| input.retain_metadata_owner(owner),
+                )?);
+                input.retain_metadata_owner(input_owner.clone())?;
+                let response = super::connected_results::response_owner(
+                    self,
+                    "canonical:result-analysis-sources-response",
+                    MetadataResponse::Selection,
+                )?;
+                let sources = pse_operations::canonical::response_ownership_scope(
+                    Arc::new((input.clone(), input_owner.clone(), response)),
+                    self.canonical_store()?.analysis_run_sources(run),
+                )
+                .await?;
+                let revision = sources
+                    .iter()
+                    .find(|source| source.key == input.run().revision)
+                    .ok_or_else(|| contract("analysis primary result source absent"))?
+                    .clone();
+                let mut graph = Graph::new();
+                let mut nodes = BTreeMap::new();
+                let attempt_node = vertex(
+                    &mut graph,
+                    &mut nodes,
+                    format!("attempt:{attempt}"),
+                    "attempt",
+                )?;
+                for source in &sources {
+                    let node = vertex(
+                        &mut graph,
+                        &mut nodes,
+                        format!("revision:{}", source.key),
+                        "source_revision",
+                    )?;
+                    edge(&mut graph, node, attempt_node, "input_provenance", None)?;
                 }
-                return Err(source);
-            }
-        };
-        let transfer_error=|source:WorkflowError,analysis:Option<String>,read:Option<String>|WorkflowError::ArtifactTransferUnsettled {analysis,artifact:Box::new(artifact.header().clone()),owner_kind:"audit".into(),owner:staging_owner.clone(),read,source:Box::new(source)};
-        let response=super::connected_results::response_owner(self,"canonical:analysis-artifact-selection-response", MetadataResponse::Selection).map_err(|source|transfer_error(source,None,None))?;
-        let artifact_read=pse_operations::canonical::response_ownership_scope(response.clone(),self.canonical_store()?.read_artifact(&artifact.header().key)).await.map_err(|source|transfer_error(source.into(),None,None))?;
-        let read_owner = Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(), response,
-            artifact_read.retained_bytes().map_err(|source| transfer_error(source.into(), None, Some(artifact_read.read_key().to_owned())))?, |owner| artifact_read.retain_metadata_owner(owner))
-            .map_err(|source| transfer_error(source, None, Some(artifact_read.read_key().to_owned())))?);
-        artifact_read.retain_metadata_owner(read_owner.clone()).map_err(|source| transfer_error(source.into(), None, Some(artifact_read.read_key().to_owned())))?;
-        let read_key=artifact_read.read_key().to_owned();
-        let graph_result:Result<AnalysisHandle,WorkflowError>=async {
-        let mut evidence = ResponseEvidence::default();
-        for ordinal in 0..artifact.header().block_count {
-            let response=super::connected_results::response_owner(self,"canonical:analysis-artifact-response", MetadataResponse::Header)?;
-            let payload = Arc::new(MemoryConsumer::new("canonical:analysis-artifact-payload").register(&self.shared.pool()));
-            payload.try_grow(4 * super::result_files::MAX_FILE_BYTES).map_err(pse_engine::EngineError::from)?;
-            let block=pse_operations::canonical::response_ownership_scope(Arc::new((response, payload, read_owner.clone())),artifact_read.block(ordinal)).await?;
-            let relation_name=block.relation.as_str();
-            let spec=self.registry().relation(relation_name).ok_or_else(||contract("analysis copied relation unavailable"))?;
-            let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
-            let decoded=super::result_files::decode_result_file(block.payload.as_slice(),schema,usize::try_from(block.rows).map_err(|_|contract("analysis row extent"))?)?;
-            let batch=pse_relations::columnar::FieldCheckedBatch::admit(self.registry(),spec,decoded,&self.validation_context(),&cancel).map_err(pse_engine::EngineError::from)?;
-            owner.try_grow(batch.batch().get_array_memory_size().saturating_mul(4)).map_err(pse_engine::EngineError::from)?;
-            evidence.push(relation_name, &batch, &artifact.header().key, ordinal)?;
-        }
-        project_response_evidence(&evidence, &mut graph, &mut nodes, attempt_node)?;
-        let configuration = serde_json::to_vec(&(2_u8, controls, run, attempt))
-            .map_err(|error| contract(error.to_string()))?;
-        let handle=self.store_analysis_graph(
-            &revision,
-            &sources,
-            std::slice::from_ref(&artifact_read),
-            "result-sensitivity-provenance-reachability:v2",
-            configuration,
-            graph,
-            nodes,
-            controls,
-        )
-        .await?;
-        Ok(handle)
-        }.await;
-        let handle=graph_result.map_err(|source|{
-            let analysis=match &source {WorkflowError::Canonical(pse_operations::canonical::CanonicalError::AnalysisUnsettled{intent,..})=>Some(intent.key.clone()),_=>None};
-            transfer_error(source,analysis,Some(read_key.clone()))
-        })?;
-        self.canonical_store()?.release_artifact_intent(artifact.header(),"audit",&staging_owner).await.map_err(|source|transfer_error(source.into(),Some(handle.key().to_owned()),Some(read_key.clone())))?;
-        artifact_read.release().await.map_err(|source|transfer_error(source.into(),Some(handle.key().to_owned()),Some(read_key)))?;
-        Ok(handle)
-
-        }).await
+                let mut dispatch = ResponseEvidence::default();
+                for name in ["runtime.scientific_contexts", "runtime.computation_runs"] {
+                    let spec = self
+                        .registry()
+                        .relation(name)
+                        .ok_or_else(|| contract("response dispatch relation absent"))?;
+                    let Some(set) = input
+                        .sets()
+                        .iter()
+                        .find(|set| set.name == spec.id.to_string())
+                    else {
+                        continue;
+                    };
+                    let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
+                        .map_err(|error| contract(error.to_string()))?;
+                    let snapshot = super::ResultSnapshot::capture(
+                        self,
+                        input.clone(),
+                        input_owner.clone(),
+                        spec.id,
+                        &set.key,
+                        schema,
+                        0,
+                        u64::MAX,
+                    )
+                    .await?;
+                    for block in snapshot.blocks() {
+                        let batch = snapshot.read_block(block, &cancel).await?;
+                        owner
+                            .try_grow(batch.batch().get_array_memory_size().saturating_mul(4))
+                            .map_err(pse_engine::EngineError::from)?;
+                        dispatch.push(name, &batch, "dispatch", block.ordinal)?;
+                    }
+                }
+                let kind = super::artifacts::response_artifact_kind(
+                    dispatch.contexts.iter().map(|item| &item.row),
+                    dispatch.computations.iter().map(|item| &item.row),
+                )?;
+                drop(dispatch);
+                let staging_owner = format!(
+                    "analysis-staging:{}",
+                    pse_operations::mint_id::<pse_model::generated::identities::RunId>()
+                );
+                let artifact = match self
+                    .promote_scientific_artifact(
+                        run,
+                        attempt,
+                        kind,
+                        "audit",
+                        &staging_owner,
+                        cancel.clone(),
+                    )
+                    .await
+                {
+                    Ok(artifact) => artifact,
+                    Err(source) => {
+                        if let WorkflowError::Canonical(
+                            pse_operations::canonical::CanonicalError::ArtifactUnsettled {
+                                intent,
+                                ..
+                            },
+                        ) = &source
+                        {
+                            return Err(WorkflowError::ArtifactTransferUnsettled {
+                                analysis: None,
+                                artifact: intent.clone(),
+                                owner_kind: "audit".into(),
+                                owner: staging_owner,
+                                read: None,
+                                source: Box::new(source),
+                            });
+                        }
+                        return Err(source);
+                    }
+                };
+                let transfer_error =
+                    |source: WorkflowError, analysis: Option<String>, read: Option<String>| {
+                        WorkflowError::ArtifactTransferUnsettled {
+                            analysis,
+                            artifact: Box::new(artifact.header().clone()),
+                            owner_kind: "audit".into(),
+                            owner: staging_owner.clone(),
+                            read,
+                            source: Box::new(source),
+                        }
+                    };
+                let response = super::connected_results::response_owner(
+                    self,
+                    "canonical:analysis-artifact-selection-response",
+                    MetadataResponse::Selection,
+                )
+                .map_err(|source| transfer_error(source, None, None))?;
+                let artifact_read = pse_operations::canonical::response_ownership_scope(
+                    response.clone(),
+                    self.canonical_store()?
+                        .read_artifact(&artifact.header().key),
+                )
+                .await
+                .map_err(|source| transfer_error(source.into(), None, None))?;
+                let read_owner = Arc::new(
+                    super::connected_results::retain_protected_metadata(
+                        &self.shared.pool(),
+                        response,
+                        artifact_read.retained_bytes().map_err(|source| {
+                            transfer_error(
+                                source.into(),
+                                None,
+                                Some(artifact_read.read_key().to_owned()),
+                            )
+                        })?,
+                        |owner| artifact_read.retain_metadata_owner(owner),
+                    )
+                    .map_err(|source| {
+                        transfer_error(source, None, Some(artifact_read.read_key().to_owned()))
+                    })?,
+                );
+                artifact_read
+                    .retain_metadata_owner(read_owner.clone())
+                    .map_err(|source| {
+                        transfer_error(
+                            source.into(),
+                            None,
+                            Some(artifact_read.read_key().to_owned()),
+                        )
+                    })?;
+                let read_key = artifact_read.read_key().to_owned();
+                let graph_result: Result<AnalysisHandle, WorkflowError> = async {
+                    let mut evidence = ResponseEvidence::default();
+                    for ordinal in 0..artifact.header().block_count {
+                        let response = super::connected_results::response_owner(
+                            self,
+                            "canonical:analysis-artifact-response",
+                            MetadataResponse::Header,
+                        )?;
+                        let payload = Arc::new(
+                            MemoryConsumer::new("canonical:analysis-artifact-payload")
+                                .register(&self.shared.pool()),
+                        );
+                        payload
+                            .try_grow(4 * super::result_files::MAX_FILE_BYTES)
+                            .map_err(pse_engine::EngineError::from)?;
+                        let block = pse_operations::canonical::response_ownership_scope(
+                            Arc::new((response, payload, read_owner.clone())),
+                            artifact_read.block(ordinal),
+                        )
+                        .await?;
+                        let relation_name = block.relation.as_str();
+                        let spec = self
+                            .registry()
+                            .relation(relation_name)
+                            .ok_or_else(|| contract("analysis copied relation unavailable"))?;
+                        let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
+                            .map_err(|error| contract(error.to_string()))?;
+                        let decoded = super::result_files::decode_result_file(
+                            block.payload.as_slice(),
+                            schema,
+                            usize::try_from(block.rows)
+                                .map_err(|_| contract("analysis row extent"))?,
+                        )?;
+                        let batch = pse_relations::columnar::FieldCheckedBatch::admit(
+                            self.registry(),
+                            spec,
+                            decoded,
+                            &self.validation_context(),
+                            &cancel,
+                        )
+                        .map_err(pse_engine::EngineError::from)?;
+                        owner
+                            .try_grow(batch.batch().get_array_memory_size().saturating_mul(4))
+                            .map_err(pse_engine::EngineError::from)?;
+                        evidence.push(relation_name, &batch, &artifact.header().key, ordinal)?;
+                    }
+                    project_response_evidence(&evidence, &mut graph, &mut nodes, attempt_node)?;
+                    let configuration = serde_json::to_vec(&(2_u8, controls, run, attempt))
+                        .map_err(|error| contract(error.to_string()))?;
+                    let handle = self
+                        .store_analysis_graph(
+                            &revision,
+                            &sources,
+                            std::slice::from_ref(&artifact_read),
+                            "result-sensitivity-provenance-reachability:v2",
+                            configuration,
+                            graph,
+                            nodes,
+                            controls,
+                        )
+                        .await?;
+                    Ok(handle)
+                }
+                .await;
+                let handle = graph_result.map_err(|source| {
+                    let analysis = match &source {
+                        WorkflowError::Canonical(
+                            pse_operations::canonical::CanonicalError::AnalysisUnsettled {
+                                intent,
+                                ..
+                            },
+                        ) => Some(intent.key.clone()),
+                        _ => None,
+                    };
+                    transfer_error(source, analysis, Some(read_key.clone()))
+                })?;
+                self.canonical_store()?
+                    .release_artifact_intent(artifact.header(), "audit", &staging_owner)
+                    .await
+                    .map_err(|source| {
+                        transfer_error(
+                            source.into(),
+                            Some(handle.key().to_owned()),
+                            Some(read_key.clone()),
+                        )
+                    })?;
+                artifact_read.release().await.map_err(|source| {
+                    transfer_error(source.into(), Some(handle.key().to_owned()), Some(read_key))
+                })?;
+                Ok(handle)
+            })
+            .await
     }
 }
 impl ModelingSolvePreparation {
@@ -1139,7 +1567,16 @@ mod canonical_analyses_server_unit {
         );
         // An independently retained evidence artifact survives removal of its
         // graph owner as well as the producer's result retirement.
-        runtime.canonical_store().unwrap().retain_artifact(&evidence_artifact.header().key, "user", "independent-response-consumer").await.unwrap();
+        runtime
+            .canonical_store()
+            .unwrap()
+            .retain_artifact(
+                &evidence_artifact.header().key,
+                "user",
+                "independent-response-consumer",
+            )
+            .await
+            .unwrap();
         let mut declarations = pse_authoring::language::parse(
             super::super::durable_tests::LINEAR,
             pse_ids::SemanticId::NIL,
@@ -1191,10 +1628,24 @@ mod canonical_analyses_server_unit {
             }
         }
         assert!(runtime.analysis(post.key()).await.is_err());
-        assert!(runtime.scientific_artifact(&evidence_artifact.header().key).await.unwrap().evidence(
-            &ArtifactLocator { artifact: evidence_artifact.header().key.clone(), block: evidence.evidence_block.unwrap(), row: evidence.evidence_row, field: evidence.evidence_field.clone() },
-            CancellationToken::new(),
-        ).await.is_ok(), "graph retirement cannot release another consumer's retained artifact");
+        assert!(
+            runtime
+                .scientific_artifact(&evidence_artifact.header().key)
+                .await
+                .unwrap()
+                .evidence(
+                    &ArtifactLocator {
+                        artifact: evidence_artifact.header().key.clone(),
+                        block: evidence.evidence_block.unwrap(),
+                        row: evidence.evidence_row,
+                        field: evidence.evidence_field.clone()
+                    },
+                    CancellationToken::new(),
+                )
+                .await
+                .is_ok(),
+            "graph retirement cannot release another consumer's retained artifact"
+        );
 
         let mut retired = false;
         for _ in 0..32 {

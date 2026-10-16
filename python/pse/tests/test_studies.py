@@ -488,7 +488,9 @@ def test_compact_study_retains_selected_original_member_or_declared_empty_relati
         presolve=PresolvePolicyKind.OFF,
     )
     original = runtime.execute_study(
-        runtime.record_study(package.admit_study(study_request(point(case, settings, 7))))
+        runtime.record_study(
+            package.admit_study(study_request(point(case, settings, 7)))
+        )
     ).result(0)
     assert isinstance(original, pse.StoredResult)
     original_table = pa.table(original.table("runtime.solve_variables"))
@@ -1132,11 +1134,17 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
             limits=WorkLimits(attempts=4, evaluations=500),
         ),
     )
-    alone = runtime.execute_study(runtime.record_study(package.admit_study(study_request(point(case, settings, 3)))))
+    alone = runtime.execute_study(
+        runtime.record_study(
+            package.admit_study(study_request(point(case, settings, 3)))
+        )
+    )
     paired = runtime.execute_study(
-        runtime.record_study(package.admit_study(
-            study_request(point(case, settings, 7), point(case, settings, 11))
-        ))
+        runtime.record_study(
+            package.admit_study(
+                study_request(point(case, settings, 7), point(case, settings, 11))
+            )
+        )
     )
     assert alone.outcome(0).scientific.usable, codec.encode_json(
         alone.outcome(0)
@@ -1163,7 +1171,9 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
         ),
     )
     refused = runtime.execute_study(
-        runtime.record_study(package.admit_study(study_request(point(case, unsupported, 13))))
+        runtime.record_study(
+            package.admit_study(study_request(point(case, unsupported, 13)))
+        )
     )
     outcome = refused.outcome(0)
     assert not outcome.scientific.usable
@@ -1196,19 +1206,21 @@ def test_capped_related_root_study_charges_prediction_and_screening(
     )
     scalar, one = _physical_ids("Scalar", "dimensionless")
     study = runtime.execute_study(
-        runtime.record_study(package.admit_study(
-            study_request(
-                point(case, settings, 0),
-                point(
-                    case,
-                    settings,
-                    1,
-                    predecessor=0,
-                    continuation=True,
-                    assignments=(assignment("a", 9.0, scalar, one),),
-                ),
+        runtime.record_study(
+            package.admit_study(
+                study_request(
+                    point(case, settings, 0),
+                    point(
+                        case,
+                        settings,
+                        1,
+                        predecessor=0,
+                        continuation=True,
+                        assignments=(assignment("a", 9.0, scalar, one),),
+                    ),
+                )
             )
-        ))
+        )
     )
     assert all(study.outcome(index).scientific.usable for index in range(2)), tuple(
         codec.encode_json(study.outcome(index)).decode() for index in range(2)
@@ -1261,11 +1273,19 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     retained = definition.variants.variants
     assert retained.source == package.operation_source
     assert retained.selected[0].point.policy.key == 17
-    assert retained.choices[0].alternatives[0].parent == package.canonical_revision
+    local_parent = definition.modeling_revision
+    assert local_parent == (package.canonical_revision or package.revision_id)
+    assert retained.choices[0].alternatives[0].parent == local_parent
     with pytest.raises(TypeError):
         codec.encode_json(definition)
     recorded = runtime.record_study(definition)
     assert codec.decode_json(codec.encode_json(recorded), type(recorded)) == recorded
+    assert recorded.variants is not None
+    assert (
+        recorded.variants.variants.choices[0].alternatives[0].parent
+        == recorded.modeling_revision
+    )
+    assert retained.choices[0].alternatives[0].parent == local_parent
 
 
 @pytest.mark.component
@@ -1276,11 +1296,13 @@ def test_local_study_runs_without_store_and_retains_source_after_package_release
     package, case = _package(runtime)
     assert package.canonical_revision is None
     settings = pse.SolveSettings(
-        backend=NativeBackend.KINSOL,
+        backend=NativeBackend.IPOPT,
         intent=NativeSolveIntent.ROOT,
         presolve=PresolvePolicyKind.OFF,
     )
-    local = package.admit_study(study_request(point(case, settings, 7), point(case, settings, 11)))
+    local = package.admit_study(
+        study_request(point(case, settings, 7), point(case, settings, 11))
+    )
     assert isinstance(local, pse.LocalStudy)
     assert local.points[0].binding_hash == local.points[1].binding_hash
     with pytest.raises(TypeError):

@@ -1012,39 +1012,63 @@ mod binding_admission_unit {
 
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
-    async fn composite_study_preparation_omitted_clock_expires_between_structural_and_numeric_phases() {
+    async fn composite_study_preparation_omitted_clock_expires_between_structural_and_numeric_phases()
+     {
         use super::super::{
             CaseOperation, OperationRequest, OperationSource, PreparationSettings, StudyOperation,
             StudyOutputDemand,
         };
         use pse_backend_native::solve::{Backend, SolveIntent};
-        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
         use std::time::Duration;
         let limit = Duration::from_millis(500);
         let runtime = super::super::tests::runtime_on(
             4 << 30,
             crate::math::MathPolicy {
-                worker_bytes: 1 << 30, workspace_bytes: 1 << 30, foreign_bytes: 1 << 20,
-                preparation_limit: limit, ..Default::default()
+                worker_bytes: 1 << 30,
+                workspace_bytes: 1 << 30,
+                foreign_bytes: 1 << 20,
+                preparation_limit: limit,
+                ..Default::default()
             },
         );
         let rows = pse_authoring::language::parse(
             "package p { def Root { param a:Scalar=4; var x:Scalar; eq e:x*x==a; annotation start x(1); } }",
             SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default(),
         ).unwrap();
-        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
         let package = runtime.modeling_package(rows, physical()).await.unwrap();
         let operation = StudyOperation {
-            version: pse_model::document::Version, output: StudyOutputDemand::Full {},
+            version: pse_model::document::Version,
+            output: StudyOutputDemand::Full {},
             source: OperationSource::of(&package),
-            preparation: PreparationSettings { compiler: super::super::tests::compiler_profile(), limits: Default::default() },
+            preparation: PreparationSettings {
+                compiler: super::super::tests::compiler_profile(),
+                limits: Default::default(),
+            },
             operation: OperationRequest::DeclaredCase(CaseOperation {
-                case: root, route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
-                settings: crate::math::settings::SolveSettings { backend: Some(Backend::Kinsol), intent: SolveIntent::Root, ..Default::default() },
-            }), admitted_horizon: None,
+                case: root,
+                route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                settings: crate::math::settings::SolveSettings {
+                    backend: Some(Backend::Kinsol),
+                    intent: SolveIntent::Root,
+                    ..Default::default()
+                },
+            }),
+            admitted_horizon: None,
         };
         let driver = crate::CancelSource::new();
-        let (binding, _) = package.admit_operation_overlay(&operation, &PointOverlay::default(), &mut None, &driver).await.unwrap();
+        let (binding, _) = package
+            .admit_operation_overlay(&operation, &PointOverlay::default(), &mut None, &driver)
+            .await
+            .unwrap();
         for bound in [true, false] {
             let completed_structure = Arc::new(AtomicBool::new(false));
             let observed = completed_structure.clone();
@@ -1059,29 +1083,62 @@ mod binding_admission_unit {
                 }),
                 async {
                     if bound {
-                        package.prepare_bound_operation_with_admission(&operation, &binding, &mut None, &driver).await
+                        package
+                            .prepare_bound_operation_with_admission(
+                                &operation, &binding, &mut None, &driver,
+                            )
+                            .await
                     } else {
                         operation.prepare(&package, &driver).await
                     }
                 },
-            ).await.unwrap_err();
-            assert!(completed_structure.load(Ordering::Acquire), "structural phase completed before expiry");
-            assert!(matches!(&error, WorkflowError::Math(crate::math::MathRuntimeError::Solve(
-                pse_backend_native::ProblemError::Limit { kind: pse_backend_native::LimitKind::Time, .. }
-            ))), "{error:?}");
-            assert_eq!(runtime.shared.math().preparation_effects().function_assemblies, before.function_assemblies,
-                "expired composite cannot assemble the next numerical phase");
-            assert!(!driver.token().is_cancelled(), "expiry cannot cancel the caller");
-            assert!(driver.deadline().is_none(), "normalization does not mutate omitted caller input");
+            )
+            .await
+            .unwrap_err();
+            assert!(
+                completed_structure.load(Ordering::Acquire),
+                "structural phase completed before expiry"
+            );
+            assert!(
+                matches!(
+                    &error,
+                    WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                        pse_backend_native::ProblemError::Limit {
+                            kind: pse_backend_native::LimitKind::Time,
+                            ..
+                        }
+                    ))
+                ),
+                "{error:?}"
+            );
+            assert_eq!(
+                runtime
+                    .shared
+                    .math()
+                    .preparation_effects()
+                    .function_assemblies,
+                before.function_assemblies,
+                "expired composite cannot assemble the next numerical phase"
+            );
+            assert!(
+                !driver.token().is_cancelled(),
+                "expiry cannot cancel the caller"
+            );
+            assert!(
+                driver.deadline().is_none(),
+                "normalization does not mutate omitted caller input"
+            );
             // A new occurrence receives its own allowance and the identical science
             // remains preparable. This is distinct from renewing the expired occurrence.
             let fresh = crate::CancelSource::new();
             if bound {
-                package.prepare_bound_operation(&operation, &binding, &fresh).await.unwrap();
+                package
+                    .prepare_bound_operation(&operation, &binding, &fresh)
+                    .await
+                    .unwrap();
             } else {
                 operation.prepare(&package, &fresh).await.unwrap();
             }
         }
     }
-
 }
