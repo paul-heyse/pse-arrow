@@ -517,8 +517,8 @@ impl ModelingPackage {
                                     if matches!(action.kind, ActionKind::Start(_)
                                         | ActionKind::Wait(WaitReason::SeedResolution { .. })) {
                                         retained.insert(index, staged);
-                                    } else { staged.close().await; }
-                                } else { staged.close().await; }
+                                    } else { staged.finish_independent(&work_cancel).await?; }
+                                } else { staged.finish_independent(&work_cancel).await?; }
                             }
                         }
                     }
@@ -1005,7 +1005,9 @@ async fn execute_lane_inner(
                     result: Ok(Arc::new(result)),
                 });
             }
-            staged.close().await;
+            return LaneCompletion::Executed {
+                lanes: Vec::new(), points, staged: Some(staged),
+            };
         }
         Err(error) => {
             let error = Arc::new(error);

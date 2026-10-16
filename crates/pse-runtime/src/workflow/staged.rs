@@ -41,6 +41,7 @@ fn accuracy_stop(
     product: &mut (
         super::modeling::assessment::AssessedPoint,
         super::numerics::Completed,
+        Option<pse_kernels::ExecutionScope>,
     ),
     outcome: &Outcome,
     policy: &pse_model::numerics::NumericalPolicy,
@@ -59,6 +60,7 @@ fn batch_accuracy_stop(
     product: &mut Option<(
         super::modeling::assessment::AssessedPoint,
         super::numerics::Completed,
+        Option<pse_kernels::ExecutionScope>,
     )>,
     outcome: &Outcome,
     policy: &pse_model::numerics::NumericalPolicy,
@@ -144,6 +146,9 @@ pub(in crate::workflow) struct Staged {
     runtime: Runtime,
     session: NativeSession,
     records: Vec<Record>,
+    /// The actual completed original-assessment scope and profile, eligible only
+    /// until another step begins. Neutral parking never carries request seeds.
+    independent: Option<(pse_ids::ContentHash, Option<pse_kernels::ExecutionScope>)>,
     /// One event stream for every step (an authored sequence's run handle), or none: then
     /// every step reports its own.
     progress: Option<Arc<Progress>>,
@@ -161,6 +166,7 @@ impl Staged {
             runtime: runtime.clone(),
             session: runtime.native().open_session()?,
             records: Vec::new(),
+            independent: None,
             progress,
         })
     }
@@ -182,6 +188,7 @@ impl Staged {
                 .open_session_queued(cancel, deadline)
                 .await?,
             records: Vec::new(),
+            independent: None,
             progress,
         })
     }
@@ -224,6 +231,7 @@ impl Staged {
     }
     /// Record a step that ended before a native attempt. It seeds nothing.
     pub(in crate::workflow) fn refuse(&mut self) -> usize {
+        self.independent = None;
         self.records.push(Record {
             decision: refused(pse_model::generated::enums::CandidateRefusal::NoCandidate),
             values: BTreeMap::new(),
@@ -291,6 +299,7 @@ impl Staged {
         previous: Option<Predecessor>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        self.independent = None;
         let assessment = self
             .session
             .prepare(prepared.source.assessment(&prepared, obligations, cancel))
@@ -310,7 +319,7 @@ impl Staged {
             .clone()
             .unwrap_or_else(|| Arc::new(Progress::new(prepared.profile.controls.history)));
         let evaluated = prepared.clone();
-        let (outcome, (point, completion), strategy) = self
+        let (outcome, (point, completion, original_scope), strategy) = self
             .session
             .step(
                 prepared.solve.clone(),
@@ -339,12 +348,15 @@ impl Staged {
                         accuracy_stop: Some(accuracy_stop),
                         original: point.conclusion(&completion),
                         work: point.work.clone(),
-                        product: (point, completion),
+                        product: (point, completion, execution.cloned()),
                         retention,
                     }
                 },
             )
             .await?;
+        if completion.decision.permits_use() {
+            self.independent = Some((strategy.profile, original_scope));
+        }
         Ok(ModelingResult::from_assessment(
             prepared,
             run_id,
@@ -467,6 +479,7 @@ impl Staged {
         obligations: Obligations,
         cancel: &crate::CancelSource,
     ) -> Vec<Result<ModelingResult, Arc<WorkflowError>>> {
+        self.independent = None;
         /// What a point's result keeps: its binding, result owner and run.
         type Kept = (
             ModelingSolvePreparation,
@@ -553,7 +566,7 @@ impl Staged {
                             accuracy_stop: Some(batch_accuracy_stop),
                             original: point.conclusion(&completion),
                             work: point.work.clone(),
-                            product: Some((point, completion)),
+                            product: Some((point, completion, execution.cloned())),
                             retention,
                         }
                     }
@@ -595,12 +608,14 @@ impl Staged {
             }
         }
         .into_iter();
+        let mut independent = None;
         let results = bound
             .into_iter()
             .map(|b| {
                 let (prepared, owner, run_id) = b.map_err(Arc::new)?;
                 match solved.next().flatten() {
-                    Some(Ok((outcome, Some((point, completion)), trace))) => {
+                    Some(Ok((outcome, Some((point, completion, original_scope)), trace))) => {
+                        independent = Some((trace.profile, original_scope));
                         Ok(ModelingResult::from_assessment(
                             prepared,
                             run_id,
@@ -621,6 +636,9 @@ impl Staged {
                 }
             })
             .collect::<Vec<_>>();
+        if !results.is_empty() && results.iter().all(|result| result.as_ref().is_ok_and(|result| result.completion.decision.permits_use())) {
+            self.independent = independent;
+        }
         for result in &results {
             self.record(result);
         }
@@ -643,6 +661,23 @@ impl Staged {
         + 'static,
     ) -> Result<T, crate::math::MathRuntimeError> {
         self.session.run_in_task(cores, scope, cancel, work).await
+    }
+    /// End a completed independent request through the existing neutral reset.
+    /// Original assessment must permit use; cancelled, failed, unexecuted or
+    /// expired work closes instead. Clear request records before parking.
+    pub(in crate::workflow) async fn finish_independent(self, cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
+        let Self { runtime, session, records, independent, progress } = self;
+        let healthy = records.last().is_some_and(|record| record.decision.permits_use())
+            && !cancel.token().is_cancelled();
+        drop(records);
+        drop(progress);
+        drop(runtime);
+        if let Some((affinity, original_scope)) = independent.filter(|_| healthy) {
+            session.park_independent(affinity, original_scope, cancel).await?;
+        } else {
+            session.close().await;
+        }
+        Ok(())
     }
     /// Close the native session and wait for its thread to join.
     pub(in crate::workflow) async fn close(self) {
@@ -849,6 +884,63 @@ mod native_tests {
     }
     fn x(result: &ModelingResult) -> f64 {
         result.values.scalars[&symbol(result, "x")]
+    }
+
+    #[tokio::test]
+    async fn independent_completed_lane_reuses_thread_without_request_seed_or_native_history() {
+        let runtime = runtime();
+        let (package, analysis) = package_on(&runtime,
+            "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }").await;
+        let cancel = crate::CancelSource::new();
+        let mut staged = Staged::open(&runtime, None).unwrap();
+        let first_thread = staged.session.run(1, None, &cancel, |_, _, _| Ok(std::thread::current().id())).await.unwrap();
+        let result = staged.step(&package, &analysis, None, &Overlay::default(), Start::Specification,
+            Obligations::Final, None, pse_diagnostics::DiagnosticStage::StudyPolicy, &cancel).await.result.unwrap();
+        assert!(result.accepted, "{:?}", result.completion);
+        assert_eq!(staged.records.len(), 1);
+        let parameter = symbol(&result, "t");
+        staged.finish_independent(&cancel).await.unwrap();
+        let mut next = Staged::open(&runtime, None).unwrap();
+        assert!(next.records.is_empty());
+        assert!(next.predecessor().is_none());
+        let (thread, neutral, no_advance) = next.session.run(1, None, &cancel,
+            |retained, _, _| Ok((std::thread::current().id(), retained.is_empty(), retained.advance().is_none()))).await.unwrap();
+        assert_eq!(thread, first_thread, "the completed independent request parks its real native owner");
+        assert!(neutral && no_advance, "KINSOL has no accepted neutral numeric-state contract");
+        let changed = Overlay { parameters: BTreeMap::from([(parameter, 7.)]), ..Default::default() };
+        let changed = next.step(&package, &analysis, None, &changed, Start::Specification,
+            Obligations::Final, None, pse_diagnostics::DiagnosticStage::StudyPolicy, &cancel).await.result.unwrap();
+        assert!(changed.accepted);
+        assert!((x(&changed) - 9.).abs() < 1e-8, "changed values start independently");
+        next.close().await;
+        runtime.native().shutdown_native_lanes().await;
+    }
+
+    #[tokio::test]
+    async fn independent_failed_or_cancelled_lane_closes_instead_of_parking() {
+        for cancel_on_finish in [false, true] {
+            let runtime = runtime();
+            let (package, analysis) = package_on(&runtime,
+                "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }").await;
+            let cancel = crate::CancelSource::new();
+            let mut staged = Staged::open(&runtime, None).unwrap();
+            let first_thread = staged.session.run(1, None, &cancel, |_, _, _| Ok(std::thread::current().id())).await.unwrap();
+            let result = staged.step(&package, &analysis, None, &Overlay::default(), Start::Specification,
+                Obligations::Final, None, pse_diagnostics::DiagnosticStage::StudyPolicy, &cancel).await.result.unwrap();
+            assert!(result.accepted);
+            if cancel_on_finish { cancel.cancel(); } else {
+                let overlay = Overlay { parameters: BTreeMap::from([(symbol(&result, "t"), -10.)]), ..Default::default() };
+                let refused = staged.step(&package, &analysis, None, &overlay, Start::Specification,
+                    Obligations::Final, None, pse_diagnostics::DiagnosticStage::StudyPolicy, &cancel).await.result.unwrap();
+                assert!(!refused.accepted);
+            }
+            staged.finish_independent(&cancel).await.unwrap();
+            let next = Staged::open(&runtime, None).unwrap();
+            let thread = next.session.run(1, None, &crate::CancelSource::new(), |_, _, _| Ok(std::thread::current().id())).await.unwrap();
+            assert_ne!(thread, first_thread, "failed/cancelled requests destroy their owner");
+            next.close().await;
+            runtime.native().shutdown_native_lanes().await;
+        }
     }
 
     /// Homotopy steps change values only: they share one prepared structure and the

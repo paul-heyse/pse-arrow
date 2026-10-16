@@ -915,6 +915,9 @@ impl MathService {
                 )
             })
             .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("native.session.constructions", "count", 1);
+        }
         let (joined, receiver) = tokio::sync::oneshot::channel();
         let joined_population = population.clone();
         tokio::spawn(pse_operations::canonical::inherit_activity(async move {
@@ -960,6 +963,9 @@ impl MathService {
             })
             .or_else(|| lanes.iter().position(|lane| lane.population.idle()))?;
         let mut lane = lanes.remove(index);
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("native.session.pool_checkouts", "count", 1);
+        }
         Some(NativeSession {
             population: lane.population.clone(),
             dispatch: lane.dispatch.clone(),
@@ -1765,6 +1771,9 @@ impl NativeSession {
                 };
                 self.parked = true;
                 lanes.push(lane);
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("native.session.pool_returns", "count", 1);
+                }
                 false
             }
         };
