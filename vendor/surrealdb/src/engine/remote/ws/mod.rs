@@ -869,6 +869,9 @@ where
             return HandleResult::Ok;
         }
         if let Err(error) = preflight {
+            warn!(reason = error, wire_target = ?target, matched, replay, live,
+                frame_bytes = binary.len(),
+                "Native response refused before owned decoding");
             // Refusal cannot authenticate remote completion. Drop the raw frame
             // before notifying callers, and keep every pending owner until the
             // physical socket halves drain. Never fall back to owned decoding.
