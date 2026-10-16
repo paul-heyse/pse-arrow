@@ -159,6 +159,10 @@ remediation or statistical benchmarking. [39d's simulation audit](39d-qualificat
 owns AUD39-01–07, all eleven case positions, bounded evidence and remaining acceptance limits.
 Preparation amplification, disconnected parent cancellation, public ephemeral-study admission,
 dynamic result certification and overlapping result-read reservations require target corrections.
-Durable point protocol work remains a bounded investigation. These findings are **open, proposed corrections**, not scheduled
-implementation under this audit. Plan39 and Plan40e remain incomplete. Existing companion
-outcomes and eliminated environment/provenance-proof scope are unchanged.
+Durable point protocol work was a bounded investigation. The audit itself did not authorize
+production remediation. Subsequently authorized [Plan 41](41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
+owns the adopted corrections, settled protocol/resource choices and their selected assembled
+acceptance. [39d's correction handoff](39d-qualification-and-plan38-cutover.md#production-correction-handoff--2026-10-16)
+maps the historical observations to that owner. This does not qualify the original eleven-case
+campaign or complete Plan39/Plan40e. Existing companion outcomes and permanently eliminated
+environment/provenance-proof scope are unchanged.

@@ -489,3 +489,27 @@ ADR indexing and formatting. Its advisory safe-fix Ruff invocation reported **40
 findings in the pre-existing `python/pse/diagnostics.py` work; these are not a strict lint pass.
 One audit-owned lazy-import warning was corrected. No full hygiene/type/Clippy qualification
 was performed by this audit.
+
+## Production correction handoff — 2026-10-16
+
+The subsequent maintainer-authorized [Plan 41 Outcome](41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
+owns the production corrections and selected assembled acceptance. The original audit above
+remains a record of what failed, passed or was interrupted on its original source.
+
+| Historical observation | Adopted correction / bounded decision |
+| --- | --- |
+| AUD39-01 | A1 indexed root candidates with completeness, ordering and precedence retained. |
+| AUD39-02 | A2–A5 shared immutable lexical premises, fresh mutable overlays, selected preparation and shared projection lookup. |
+| AUD39-03 | B1–B3 parent cancellation, independent finite producer/waiter clocks and cancellable compiler admission through actual join. |
+| AUD39-04 | C1 honest owned local study admission with explicit exact-source recording; public Rust/Python no-store controls. |
+| AUD39-05 | C4 bounded already-sealed metadata grouping and exact ACK inventory. Broader unlike-payload batching and a new protocol are not adopted. |
+| AUD39-06 | C2 existing-family response artifacts with truthful scalar validity, transient coverage and withholding. |
+| AUD39-07 | C3 exact selection/page/SDK ownership, including the original 256 MiB observer pool, two compiler leases and nonempty managed reads. B4 supports no idle-eviction adoption after this correction. |
+
+**Tested — affected scope:** Plan41 records the actual current local/native/managed/Python
+commands and repaired evidence, including a 65-block read during occupied native work and
+retained original numerical results. Its bounded selection does not retroactively pass
+the interrupted cold/warm 32-block cases, complete the original 1,000-point sweep or certify
+the old result-graph cases. Those original campaign obligations remain at their existing
+owner. Timing speedups and whole-product scientific qualification are unclaimed;
+environment/provenance proof remains permanently eliminated.

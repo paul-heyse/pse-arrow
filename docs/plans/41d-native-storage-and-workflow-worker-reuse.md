@@ -1,6 +1,6 @@
 ---
 title: Native storage and workflow worker reuse
-status: in-progress
+status: done
 date: 2026-10-15
 review_sources: [docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md]
 scenario_sources: [docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md]
@@ -335,3 +335,9 @@ factor and optional scalar Value choices remain. Interpreter evaluation is the d
 providers and derivatives keep their declared interpreted support. No checkpoint
 frontier, new affine backend, primal-only presolve, statistical timing or environment/
 provenance proof campaign was added. Full-product qualification is not claimed.
+
+
+**Closure handoff — 2026-10-16:** package obligations are complete. The final
+[Plan 41 Outcome](41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
+owns assembled acceptance, scope-end checks and retirement; earlier dated checkpoint
+limits above remain historical and do not reopen completed handoff work.

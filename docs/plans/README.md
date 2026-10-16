@@ -10,9 +10,10 @@ Its [rule decisions](41-simulation-pipeline-efficiency-and-effectiveness.md#rule
 and [checkpoint](41-simulation-pipeline-efficiency-and-effectiveness.md#current-checkpoint)
 own adoption and the next route. Companions 41a–41f develop preparation, cancellation/admission,
 study/result boundaries, native worker/storage reuse, derivative/evaluator capabilities and
-causal diagnostics/qualification. [41a's Outcome](41a-source-specialization-and-selected-preparation.md#outcome--2026-10-15)
-owns completed preparation scope. [41b's remaining-scope Outcome](41b-cancellation-shared-work-and-admission.md#remaining-scope-outcome--2026-10-15) owns completed B0–B5, including supported no-adoption of idle eviction. [41c's Outcome](41c-studies-response-artifacts-and-result-resources.md#outcome--2026-10-15) owns completed C0–C5 delivery and targeted public/managed acceptance, with its exact remaining failure and qualification limits. RC01/RC02 are accepted, with ADR-0190 and blueprint revision 176 preceding C1. D/E work and full-series qualification remain open.
-This series does not supersede existing plans; reconciliation follows its execution.
+causal diagnostics/qualification. The [combined Outcome](41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
+links package delivery and assembled evidence; the coordinator's checkpoint owns remaining
+scope-end checks and documentation closure. This series does not supersede existing plans;
+reconciliation follows its execution.
 
 [Plan 40: Simulation performance diagnostics](40-simulation-performance-diagnostics.md)
 owns the adopted diagnostics review's F01–F06 and operator-accepted RC01. Its companions

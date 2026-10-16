@@ -74,9 +74,9 @@ Own fixture/worker/capture resources explicitly. Cancel/stop and join only owned
 | F2 | G1; A6/B5/C5/D6/E5 delivery evidence; F1 coverage; inquiry outcomes settled | Select risk-directed assembled cases and commands by S01–S10 and changed interfaces. Confirm actual consumer/deletion inventory and known exclusions; no automatic old campaign import. | Completed — S01–S10 risk-directed selection below; prior evidence retains its original scope |
 | F3 | F2; relevant local/native/public contracts implemented | Qualify edit/re-solve, local/durable study composition, response meaning, sparse methods, fitting/window reuse and scientific failure semantics through selected complete journeys. Retain independent original assertions and report zero-baseline results. | Completed — selected ordinary/public/managed numerical, work, interruption, loss/reset/opt-out and owned cleanup controls passed after the recorded repairs |
 | F4 | F2; B1–B3, C3/C4 and F1 implemented | Qualify interruption/shared clocks/queue/drain, genuine nonempty managed result read and publication retry/failure, active-owner live/recent navigation and actual Rust/Python/placement boundaries. Track owned cleanup separately from test-body outcomes. | Completed — selected ordinary/public/managed numerical, work, interruption, loss/reset/opt-out and owned cleanup controls passed after the recorded repairs |
-| F5 | Functional acceptance and selected optional adoption complete; scoped failures repaired | Reuse F3/F4 assembled evidence and complete only remaining selected integration/component/native/Python coverage, then `just hygiene` and manual governance/docs/native/powerset checks under the repository policy. Fix scoped failures and rerun affected commands; do not introduce quality baselines, duplicate campaigns or repeat product checks after documentation-only edits. | In progress — functional acceptance complete; scope-end hygiene and manual checks |
-| F6 | F3–F5 evidence and all required target choices settled | Reconcile the coordinator's F/O dispositions and rule implementation, transfer enduring contracts/guides through proper architecture/ADR routes, and write Outcomes with actual evidence, mistakes corrected and deliberate deviations. No unexamined scientific gates become passed. | Planned |
-| F7 | New scope fully implemented and F6 transfer complete | Reconcile relevant existing plan/status documents only now, without claiming their unrelated campaigns passed. Repair ownership/dependencies/inbound links and apply eligible review/plan retirement preflight under ADR-0096; preserve highest-numbered/consumed records and concurrent work. | Planned |
+| F5 | Functional acceptance and selected optional adoption complete; scoped failures repaired | Reuse F3/F4 assembled evidence and complete only remaining selected integration/component/native/Python coverage, then `just hygiene` and manual governance/docs/native/powerset checks under the repository policy. Fix scoped failures and rerun affected commands; do not introduce quality baselines, duplicate campaigns or repeat product checks after documentation-only edits. | In progress — resuming 125 unfinished feature combinations |
+| F6 | F3–F5 evidence and all required target choices settled | Reconcile the coordinator's F/O dispositions and rule implementation, transfer enduring contracts/guides through proper architecture/ADR routes, and write Outcomes with actual evidence, mistakes corrected and deliberate deviations. No unexamined scientific gates become passed. | In progress — awaiting F5 |
+| F7 | New scope fully implemented and F6 transfer complete | Reconcile relevant existing plan/status documents only now, without claiming their unrelated campaigns passed. Repair ownership/dependencies/inbound links and apply eligible review/plan retirement preflight under ADR-0096; preserve highest-numbered/consumed records and concurrent work. | In progress — older-plan handoff and retirement references being reconciled |
 
 F3 and F4 can select independent ready journeys after F2; shared file/resource execution still needs coordination. F5 is the combined scope-end check, not a check repeated after every package. F6/F7 are documentation/closure, not another testing campaign. The first F0/F1 slices must not wait for F2.
 
@@ -86,7 +86,7 @@ F3 and F4 can select independent ready journeys after F2; shared file/resource e
 
 Removed construction/replay/scans can be established by source and actual counters. No statistical benchmark, comparative timing campaign or hard simulation latency gate is required. A single complete representative run is useful only if it answers a remaining material question; do not treat historical partial samples as attribution to numerical convergence. Numerical superiority/speedup remains unclaimed without its own evidence. The user's permanent elimination of environment/provenance proof applies throughout.
 
-Completion requires integrated required corrections, settled optional decisions and adopted deliveries, removed replaced mechanisms, meaningful assembled acceptance, honest failure/omission reporting and enduring documentation transfer. Report command, mode, actual scope and zero-failure baseline, using Proposed/Interface-checked/Implemented/Tested/Measured appropriately. Do not sum overlapping tests or promote component passes to whole-product qualification. F0/F1 have the scoped A/B delivery below. F2–F7 remain Planned; no complete-series qualification or closeout is claimed.
+Completion requires integrated required corrections, settled optional decisions and adopted deliveries, removed replaced mechanisms, meaningful assembled acceptance, honest failure/omission reporting and enduring documentation transfer. Report command, mode, actual scope and zero-failure baseline, using Proposed/Interface-checked/Implemented/Tested/Measured appropriately. Do not sum overlapping tests or promote component passes to whole-product qualification. The dated incremental deliveries below retain their original limits. The assembled selection and Outcome supersede their then-open acceptance status; package evidence is not a whole-product qualification claim.
 
 ## A/B diagnostic delivery — 2026-10-15
 
@@ -182,3 +182,184 @@ issued child. The selected live/read controls use existing diagnostics; no profi
 needed to restate work already distinguished by direct counters. The selection excludes
 statistical timing, the old cold 32-block/1,000-point campaign, environment/provenance
 proof, new solver classes and unselected checkpoint/window-wave/JIT/SIMD mechanisms.
+
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** F0/F1 use existing finite operation observations at the actual owners.
+Active roots take priority over completed histories; an evicted parent is explicitly absent,
+never rebound to a replacement. Copied readers survive eviction; reset/generation/loss and
+opt-out remain explicit. The admitted managed-primary association is observed read-only.
+Known drain/owner replacement can return operational unavailability while durable scientific
+state stays incomplete; transient observer errors keep waiting conservatively. A refused
+control response stops and reaps its issued child. Pending original correction remains an
+auxiliary seed with declared recovery and the original finite budget, rather than a fabricated
+unsupported-capability terminal. Actual unsupported/resource/contract/cancel vetoes survive.
+
+**Tested/Measured — work counts only, 2026-10-16, zero-failure baseline:** the following
+composes package evidence with risk-directed assembled S01–S10 acceptance. Tests overlap;
+counts are not added into a purported whole-product total. Each initial failure and affected
+successful rerun is reported rather than relabeling the original run as passing.
+
+| Command and mode | Actual result / scope |
+| --- | --- |
+| `just codegen` | Passed all five publication groups, including directly embedded replay/variant versions and the actual compiled API stub. Ten scope-end generated equivalence leaves subsequently passed. |
+| `just py-sync-native-correctness` | Passed linked explicitly force-validated extension and actual API stub validation after migration of the separate native request gate to v7. |
+| `python3 -m unittest scripts.tests.test_primary_observation scripts.tests.test_surreal_server -q` | 214 passed; exact-owner live/drained/mismatch/unknown and supervisor behaviors. |
+| Focused runtime Nextest, all five solver features and `pse-math/compiled-evaluator`, local profile, configured `RUST_MIN_STACK=16777216` | 23 selected: 21 initially passed, two affected reruns passed after emitting real dropped detail and using the configured test stack. Current interrupted codecs, pending-original recovery, observer and control-child reaping covered. |
+| `just unit-package pse-diagnostics observation` | 30 passed, nine excluded; repeated after equivalent Clippy repairs with the same 30 passes. Active retention, exact absent parents, copied observations, loss and reset covered. |
+| Ordinary native Nextest command and exact filter below | 148 selected: 145 initially passed, three failed. The two reference recycle cases passed after explicit evaluator configuration; the edit/root oracle passed after consuming its frozen original engineering budget. All selected obligations covered after repair, not one fresh 148/148 run. |
+| Native Python selection: `test_diagnostics.py`, current evaluator-selector roundtrip and explicit/lazy local physical studies | 19 selected: 16 initially passed; three affected local-study controls passed after the native gate migrated from request v6 to v7. Diagnostic opt-out runs in a fresh process and checks actual native work/outcome. |
+| `just native-test --managed-primary-route --profile local --lib -p pse-runtime --features pse-math/compiled-evaluator -E <managed selection below> -j1` | Four selected: continuation and sixteen-lane cancellation passed initially; the smaller death/read fixtures first failed setup. After repairing the test-only lane guard, actual primary death passed. The 65-block read then exposed an incorrect global-drain test oracle; its final affected rerun passed. All four selected controls covered after repair and enclosing registered cleanup succeeded. |
+| `just native-python <task report path> --managed-primary-route python/pse/tests/test_studies.py::test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results --basetemp <fresh task directory> -vv --tb=short -n0` | One passed; genuine distinct durable occurrence/result reopen, 32.29 seconds observed, with successful enclosing registered cleanup. This elapsed observation is not a speedup claim. |
+| `python3 -m unittest scripts.tests.test_primary_observation scripts.tests.test_case_audit -q` | 13 passed after scope-end Python repairs. |
+| Installed native-correctness extension: `python3 -m pytest python/pse/tests/test_diagnostics.py -k diagnostic_cli -m unit -n0 --basetemp <fresh task directory> --tb=short` | Four passed, eight excluded after CLI/type/lint repairs. |
+| `just governance-tests --profile local` | 25 passed, zero skipped; codegen/family components of `just governance` also passed in hygiene. A redundant explicit `--no-fail-fast` argument was refused before tests; the recipe already supplies it. |
+
+All commands used `scripts/pse-env --` with the appropriate native/observer/exclusive role;
+actual Arrow-consuming correctness closures explicitly selected force-validation.
+Ordinary fixtures used a fresh functional SurrealDB 3.3.0 state; managed fixtures used a
+fresh exact reference-profile state and current worker. Stores started inside the admitted
+allocation and quiesced/stopped through registered routes in the driver's `finally` path.
+The existing incompatible default state, unrelated services, failure evidence and pins were
+preserved. Original-role 256 MiB observer and two real 64 MiB compiler leases remained.
+The 65 nonempty blocks were read while three genuine native owners were occupied, with
+pressure refusal, exact cancellation/recovery, distinct retained results and original numerical
+checks. Synthetic transport fixtures remain explicitly Partial, not scientific certificates.
+Primary death returned no fabricated terminal/result; actual owned process drain was checked.
+
+The ordinary command was `just native-test --profile local --no-fail-fast --lib
+-p pse-runtime -p pse-compiler -p pse-backend-native -p pse-math -p pse-diagnostics
+-p pse-operations --features pse-math/compiled-evaluator -j1 -E` with:
+
+```text
+test(local_authored_value_binding_and_structural_edit_journey) |
+  test(namespace_add_delete_shadow_import_and_absence) |
+  test(retained_physical_admissions_match_fresh) |
+  test(physical_visibility_change_rechecks) |
+  test(shared_frontier_and_completion_keep_each_waiters) |
+  test(shared_preparation_producer_expiry) |
+  test(parent_cancellation_refreshes_blocked) |
+  test(local_study_retains_actual_source) |
+  test(lazy_ephemeral_variants_keep_selected) |
+  test(explicit_recording_preserves_exact_retained) |
+  test(durable_origin_local_) |
+  test(canonical_nonempty_multipage_reads) |
+  test(canonical_artifact_grouped_metadata) |
+  test(canonical_artifact_lost_group_ack) |
+  test(artifact_metadata_ack_requires_exact) |
+  test(response_) |
+  test(public_ic_) |
+  test(dynamics::layout::tests) |
+  test(compiled_weighted_loss_gradient_and_exact_hessian) |
+  test(gauss_newton_hessian_matches_jtwj) |
+  test(steady_response_solves_the_compiled_implicit_closure) |
+  test(exact_transient_fit_hessian_satisfies) |
+  test(transient_fit_demand_cache_and_coherent_upgrade) |
+  test(prepared_fitting_relationships_preserve_mixed) |
+  test(shooting_lane_retains_worker) |
+  test(shooting_demand_upgrade_preserves) |
+  test(shooting_order_policy) |
+  test(horizon_reuses_prepared_view) |
+  test(independent_completed_lane) |
+  test(independent_failed_or_cancelled_lane) |
+  test(common_modeling_runs_park_only) |
+  test(initialization_restores_overlays_on_failure) |
+  test(initialization_restores_original_specification) |
+  test(reference_recycle_initialization_) |
+  test(kernel_regime_selection_executes) |
+  test(native_scalar) |
+  test(inspection_) |
+  test(observation::tests)
+```
+
+The managed filter selected exactly:
+
+```text
+test(managed_primary_multipage_read_overlaps_compiler_leases_and_original_science) |
+test(managed_primary_death_returns_incomplete_study_without_fabricated_terminal) |
+test(managed_primary_reopened_continuation_uses_shared_secant_and_original_correction) |
+test(managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_tail)
+```
+
+Recorded Nextest identifiers include the ordinary initial run
+`59febe74-b0de-408e-81af-b0dd624b64a1`, affected recycle/root run
+`18f82b89-b5ad-49d6-a479-50dbb6851e41`, final root run
+`10ecb62b-53ca-41ae-86d2-d167c436df7f`, managed initial run
+`af33e031-609a-4e15-869b-daab2b83bba6`, death/read repair run
+`3c12dab3-47de-4cd3-b547-9cd03a0b03cf`, and final read run
+`222f1cec-5358-48e9-b5fb-f29cfaec5a13`. Reports preserve initial failures;
+current acceptance follows the bounded repaired obligations above.
+
+### A mistake made and corrected
+
+Generated declaration migration alone missed the independent native Python header gate;
+public tests exposed it and it now requires the same current v7 request. Reference policy
+TOML and Python test/campaign constructors now carry the explicit required evaluator selector.
+A loss test emitted only counters and incorrectly expected bounded detail eviction; it now
+emits actual phase detail. Bare libtest's default stack did not match the configured 16 MiB
+route; the affected replay test passed with the supported setting.
+
+The new edit oracle first asserted an unrelated fixed root tolerance and then incorrectly
+assumed a global engineering fraction overrides the canonical fallback for an unscaled row.
+Source review and independent review established the frozen row's actual original budget.
+The final test checks the independently specified equation and either permitted root using
+that budget; it does not change production tolerances. The managed reader oracle first
+called global result-release drain while study source readers were deliberately alive.
+It now waits for this reader's exact charged metadata grant to return to its prior baseline,
+retaining SDK suffix ownership. The smaller managed setup originally violated a test-only
+exact-sixteen guard; allowing one through the unchanged profile's case-lane bound enables
+small decisive death/read cases without changing production admission or capacities.
+
+### Deviations from the plan, deliberate
+
+No profiler was rerun to restate causes already distinguished by source and actual work
+counters. No statistical timing, mandatory 32-block/1,000-point replay, latency gate or
+new solver-class campaign was added. Selected serial windows, achieved-demand replay,
+owner-local symbolic preparation with fresh factors, original reaction restrictions and
+explicit optional scalar Value compilation remain. Interpreter default, provider/derivative
+support and independent original physical assessment are unchanged. Environment/provenance
+proof is permanently eliminated, not deferred. The selected evidence does not establish
+whole-product qualification, arbitrary solver combinations, release/distribution, other
+platforms or unexercised scientific models; Plan39/40 and Plan28 keep their separate scope.
+
+### Scope-end checks and document closure
+
+**Tested — zero diagnostics, Linux/pinned toolchain:** `just hygiene` ran its complete
+continuing selection. Its original exit was 1 with six failing leaves: proposed ADR metadata,
+spelling, Ruff, Pyrefly and the two Clippy modes. Their affected repairs/reruns pass:
+`just adr-frontmatter-check` (119 records), `just lint-typos`, `just lint-py`, `just typecheck`
+(zero diagnostics, three pre-existing suppressions), `just clippy-default` and
+`just clippy-no-default`. Generated equivalence (all ten leaves), family checks, Rust docs
+and the remaining selected hygiene leaves passed in the original run. This is repaired
+composite hygiene evidence, not an unperformed fresh aggregate run.
+
+**Tested — full Clippy, no fail fast:** in the linked solver/KLU/isolation/Uno/PETSc
+environment, `python3 -m scripts.arrow_validation clippy --keep-going --no-deps --workspace
+--all-targets --all-features --locked -- -D warnings` passes, including all optional canonical,
+maintenance, benchmark, worker and scalar-compiled-evaluator targets. Default/no-default
+recipes also use `--keep-going --workspace --all-targets --locked -- -D warnings` and explicitly
+activate force-validation. No crate-wide lint relaxation or quality baseline was added.
+The scoped exceptions document intentional test assertions, deferred future construction
+and explicit independent authority inputs; source review found no material behavior change.
+
+**Tested — formatting:** `just turn-end` passed ADR indexing and Rust/Python/TOML formatting
+on the integrated repairs. Scope-end quality repairs include canonical fixture borrows,
+accurate test-helper feature gates, unchanged short-circuit capture guards, separately
+explained unsafe observation authorities and an error naming an unexpected recovery member.
+
+**Tested — owned cleanup:** final `just surreal status --state <owned state>` checks report
+both the ordinary and reference fixtures inactive/quiesced with no listener/process and no
+reservation. The global `just activity` observer separately returned unavailable for a
+historical unit disappearing during observation; it is not evidence of cleanup or empty
+success. Other services/records and all retained databases/evidence/pins remain intact.
+Both task repair worktrees were clean, their commits verified patch-equivalent on main,
+then removed with their branches. No remote publication or ADR status promotion occurred.
+
+**In progress — resumed feature checks:** 268/393 combinations passed before ENOSPC at 269;
+collector and host release also failed. After operator cargo clean/free space, normal
+admission reaping settled the owned allocation. Only the 125 unfinished commands are
+resuming, matched to the same enumeration and existing force-validation adapter. Passing
+source evidence remains; final F6/F7 retirement follows their completion.

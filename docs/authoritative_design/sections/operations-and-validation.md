@@ -436,6 +436,17 @@ That affected-scope evidence does not replace Plan 22's historical full basis, q
 unchanged or unexercised scientific scope, or close other plans' incomplete campaigns.
 Source integration and document reconciliation alone do not establish acceptance.
 
+Focused simulation-pipeline acceptance of 2026-10-16 belongs to the
+[Plan 41 Outcome](../../plans/41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation).
+It composes selected S01–S10 local/native/managed/Python journeys, independent original
+numerical assertions, causal work counts, cancellation/drain and nonempty retained result
+reads. Initial failures and successful affected reruns remain explicit; this is not a fresh
+whole-product campaign. The original 256 MiB observer and two compiler leases remain in
+the managed read control. Primary loss yields operational unavailability with incomplete
+science. This evidence neither replaces the historical full basis nor completes Plan39/40
+or Plan28 campaigns. No elapsed-speedup, arbitrary solver configuration or other-platform
+claim is made; environment/provenance proof is permanently eliminated.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

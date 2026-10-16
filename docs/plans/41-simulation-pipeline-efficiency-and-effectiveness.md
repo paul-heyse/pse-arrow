@@ -136,13 +136,15 @@ work, primary death preserving incomplete science, and public Python result reop
 Initial failures were corrected at their actual consumer/oracle boundaries; prior evidence
 keeps its original scope. Owned workers/stores stopped through their registered routes.
 
-F5 is in progress. `just hygiene` completed its full continuing selection and exposed six
-failing leaves. Python lint/types, spelling and proposed-ADR metadata are repaired and
-pass their affected reruns; generated equivalence and Rust docs passed. Full continuing
-workspace Clippy, including all features, is being repaired against zero diagnostics.
-F6/F7 enduring transfer, final Outcomes, older-plan reconciliation and eligible retirement
-follow the remaining scope-end checks. ADR-0190/0191 remain proposed. No whole-product,
-old Plan39/40 campaign, elapsed-speedup or environment/provenance proof claim is made.
+All six original hygiene failures pass repaired reruns; full workspace Clippy passes
+default, no-default and linked all-feature/all-target modes. Generated equivalence, family,
+Rust docs and 25 governance tests passed. Feature checks completed 268/393 combinations
+before ENOSPC at 269; collector and host release also could not write. The operator freed
+space with cargo clean. Normal admission reaping settled allocation
+`d2abc339fe874ed8b9b66b46bcfd8bf3`; only the 125 unfinished combinations are resuming after
+matching the prior successful selection. Passing source evidence is retained; the source
+is unchanged. F5 is in progress, then F6/F7 final Outcomes, links and retirement. ADR-0190/
+0191 stay proposed; no whole-product, older campaign, speedup or environment-proof claim.
 
 ## Authoring verification
 
@@ -180,3 +182,75 @@ concurrent work and all original review/older-plan bodies remain preserved.
 ## B/C execution closeout — 2026-10-15
 
 **Tested — targeted scope:** 41b B4/B5 and 41c C0–C5 completed with their named controls and exclusions at the companion Outcomes. The final managed Rust continuation and Python repeated-occurrence/result journeys both passed; registered service stop completed, and no owned worker/service or exclusive allocation remains. Integrated worktrees were removed. `just turn-end` passed indexing/formatting; its final advisory Ruff output contains 42 existing diagnostics, so no strict hygiene or full-series qualification is claimed. The two older numerical failures and the limits of crashed-primary observation remain explicit at 41c. Full D/E delivery, 41f acceptance and subsequent older-plan reconciliation remain open.
+
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** A–E deliver all fourteen corrective findings and settle all eight opportunity
+routes. Indexed import access, borrowed immutable inference/function premises and selected
+preparation remove established broad/repeated construction. Cancellation propagates downward,
+shared callers keep independent original clocks, producer policy is finite and compiler
+admission precedes active dispatch through actual join. Public Rust/Python studies own genuine
+local source/physical context, with explicit exact-source recording for durable use. Response
+artifacts use their existing family-qualified meanings. Result reads retain exact selected/page/
+SDK ownership and bounded already-sealed metadata grouping validates complete ACK inventory.
+Native layouts/accounting cover complete support and selected methods. Shooting/horizon and
+independent-run owners reuse neutral workers while changed IVPs reset. Completed exact fit
+curvature and sample symbolic preparation reuse valid products with fresh numerical factors.
+Optional scalar Value compilation is explicit; the interpreter remains the default.
+
+**Implemented:** F0/F1 extend existing diagnostics with actual causal work, retained active
+roots, explicit missing-parent/reset/loss meaning and copied readers. The exact admitted primary
+association distinguishes operational unavailability from durable scientific completion.
+Pending original correction preserves declared recovery and the original budget instead of
+fabricating a capability veto. Replaced broad constructions/duplicate paths and migrated
+historical wire consumers are removed; no compatibility execution path is introduced.
+
+**Tested/Measured — work counts only, 2026-10-16, zero-failure baseline:**
+[41f's Outcome](41f-causal-diagnostics-qualification-and-closeout.md#outcome-recorded-after-implementation)
+records actual commands, initial failures, successful affected reruns, independent science,
+interruption and enclosing cleanup. Its S01–S10 selection covers the changed local/native/
+managed/Python compositions. All 148 selected ordinary obligations, four managed Rust controls
+and selected public Python/diagnostic obligations are covered after repairs; these are composite
+results, not a fabricated fresh all-green run or a sum of overlapping tests. Earlier package
+Outcomes retain their exact scope. The 65-block managed read keeps the original observer pool
+and two genuine compiler leases during occupied three-point native work, then verifies distinct
+retained numerical results. Actual primary death leaves durable science incomplete. Enabled/
+disabled diagnostics preserve scientific call counts and outcomes. No numerical superiority,
+elapsed speedup or whole-product scientific qualification follows.
+
+**Interface-checked supported no-adoption:** achieved-demand replay rather than a new eager
+checkpoint frontier; existing affine routing rather than another backend; current full-reaction
+restrictions rather than primal-only presolve/FBBT activation; serial windows/trials rather than
+window waves; no idle-pressure eviction after correcting required metadata ownership. O03/O05
+adopt owner-local symbolic/native worker reuse, O02 bounded metadata grouping and O04 optional
+scalar compilation. Unselected candidates are settled outcomes, not deferred implementation.
+RC01–RC04 routes are applied within their accepted bounds; ADR-0190/0191 remain proposed under
+the existing decision-PR rule. Enduring meanings belong to blueprint §14.3/§14.5, §19.2–§21.5,
+§23.1/§24.2/§25 and the simulation diagnostics guide.
+
+### A mistake made and corrected
+
+Public consumer tests found a separately maintained native request-header version and policy
+constructors missed by declaration migration. They now consume the required current selector
+and v7 request; scientific replay/lazy variants v2 and study definition v11 are regenerated
+from their owners. The edit/root assertion originally imposed an unrelated tolerance; the
+corrected independent oracle uses its frozen original row budget and permits either valid
+root. The managed read initially requested global release while intentionally live study
+readers still existed; it now checks this read's exact reservation recovery after SDK drain.
+A loss fixture now creates actual detail before asserting dropped detail. These repairs and
+scope-end Clippy/Python corrections retain production scientific and ownership contracts.
+
+### Deviations from the plan, deliberate
+
+Small decisive managed death/read cases supplement the original sixteen-lane cancellation
+control; the test-only fixture guard admits one through the unchanged profile's lane bound.
+No capacity bump, scheduling policy, extra scientific diagnostic evaluation or profiler rerun
+was needed. Package and assembled checks are not the old Plan39 eleven-case campaign or full
+Plan40e acceptance. Their remaining work stays independently owned. Statistical benchmarks,
+hard timing criteria and eliminated environment/provenance proof have no deferred obligation.
+Unexercised models, arbitrary solver combinations, release/distribution and other platforms
+are outside this affected-scope evidence. Scope-end checks/document retirement remain in
+progress until the final closeout record below is filled.
