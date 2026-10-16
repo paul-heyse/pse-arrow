@@ -865,6 +865,9 @@ where
         let Some(binary) = response_binary(&message) else {
             return HandleResult::Ok;
         };
+        if matches!(target, Ok(Some(metadata::Target::Discard))) {
+            return HandleResult::Ok;
+        }
         if let Err(error) = preflight {
             // Refusal cannot authenticate remote completion. Drop the raw frame
             // before notifying callers, and keep every pending owner until the

@@ -24,6 +24,7 @@ pub(super) fn root(binary: &[u8]) -> Result<fb::Value<'_>, Refusal> {
 /// correlations are never grounds to construct an owned result tree.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Target {
+    Discard,
     Reply { session: Uuid, id: i64 },
     Live { session: Uuid, query: Uuid },
 }
@@ -35,7 +36,20 @@ pub(super) fn correlation(root: fb::Value<'_>) -> Result<Target, Refusal> {
     let object = root.value_as_object().ok_or("response envelope is not an object")?;
     let items = object.items().ok_or("response object has no fields")?;
     if items.len() > 8 { return Err("response envelope field limit") }
-    let mut session = None;
+    // Pinned handle_db_response ignores all sessionless/global responses. Keep
+    // that behavior before owned conversion, even when their result is large.
+    let mut raw_session = None;
+    for entry in items {
+        if entry.key() == Some("session") {
+            if raw_session.is_some() { return Err("duplicate response session") }
+            raw_session = entry.value();
+        }
+    }
+    let Some(raw_session) = raw_session else { return Ok(Target::Discard) };
+    if matches!(raw_session.value_type(), fb::ValueType::NONE | fb::ValueType::None | fb::ValueType::Null) {
+        return Ok(Target::Discard);
+    }
+    let session = uuid(raw_session)?;
     let mut id = None;
     let mut result = None;
     let mut error = false;
@@ -46,10 +60,7 @@ pub(super) fn correlation(root: fb::Value<'_>) -> Result<Target, Refusal> {
                 id = Some(entry.value().and_then(|v| v.value_as_int_64())
                     .ok_or("response id is not a signed integer")?.value());
             }
-            Some("session") => {
-                if session.is_some() { return Err("duplicate response session") }
-                session = Some(uuid(entry.value().ok_or("response session missing")?)?);
-            }
+            Some("session") => {}
             Some("result") => {
                 if result.is_some() { return Err("duplicate response result") }
                 result = Some(entry.value().ok_or("response result missing")?);
@@ -61,7 +72,6 @@ pub(super) fn correlation(root: fb::Value<'_>) -> Result<Target, Refusal> {
             _ => return Err("unknown response envelope field"),
         }
     }
-    let session = session.ok_or("response correlation has no session")?;
     if let Some(id) = id { return Ok(Target::Reply { session, id }) }
     // Pinned DbResult::Live grammar: no envelope id, and a notification object
     // with query UUID, action, original record and result. Arbitrary scientific

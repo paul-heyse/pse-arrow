@@ -2055,6 +2055,23 @@ async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool
                 reply.insert("result", if method == "version" { Value::String("3.3.0".into()) } else { Value::None });
                 surrealdb::types::encode(&Value::Object(reply)).unwrap()
             };
+            if method == "query" && matches!(fault, MetadataFault::Valid) {
+                use surrealdb_protocol::fb::v1 as fb;
+                let mut builder = flatbuffers::FlatBufferBuilder::new();
+                let string = fb::StringValue::create(&mut builder, &fb::StringValueArgs { value: None });
+                let result = fb::Value::create(&mut builder, &fb::ValueArgs {
+                    value_type: fb::ValueType::String, value: Some(string.as_union_value()),
+                });
+                let key = builder.create_string("result");
+                let field = fb::KeyValue::create(&mut builder, &fb::KeyValueArgs { key: Some(key), value: Some(result) });
+                let items = builder.create_vector(&[field]);
+                let object = fb::Object::create(&mut builder, &fb::ObjectArgs { items: Some(items) });
+                let global = fb::Value::create(&mut builder, &fb::ValueArgs {
+                    value_type: fb::ValueType::Object, value: Some(object.as_union_value()),
+                });
+                builder.finish_minimal(global);
+                socket.send(Message::Binary(builder.finished_data().to_vec().into())).await.unwrap();
+            }
             socket.send(Message::Binary(frame.into())).await.unwrap();
             if method == "query" { frame_written.take().unwrap().send(()).unwrap(); }
         }
