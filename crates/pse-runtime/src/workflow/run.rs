@@ -1507,16 +1507,25 @@ impl Runtime {
                     }
                 }
             }
-            staged.close().await;
-            let (report, modeling_failure) = match failure {
-                Some((step, error)) => (
+            let release_failure = if failure.is_some() {
+                staged.close().await;
+                None
+            } else {
+                staged.finish_independent(&cancel).await.err()
+            };
+            let (report, modeling_failure) = match (failure, release_failure) {
+                (Some((step, error)), _) => (
                     Err(error),
                     Some(ModelingFailure {
                         completed: results,
                         step: Some(step),
                     }),
                 ),
-                None => (Ok(RunReport::Modeling(results)), None),
+                (None, Some(error)) => (
+                    Err(Arc::new(error)),
+                    Some(ModelingFailure { completed: results, step: None }),
+                ),
+                (None, None) => (Ok(RunReport::Modeling(results)), None),
             };
             let cancelled = cancel.token().is_cancelled();
             let mut result = RunResult::joined(run_id, runtime, request, None, report);
