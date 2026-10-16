@@ -58,6 +58,18 @@ pub(super) fn retain_metadata(
     }
 }
 
+/// Retained protected rows also prepay their final release response. That small
+/// grant follows the read into queued cleanup and uncertain-release recovery.
+pub(super) fn retain_protected_metadata(
+    pool: &Arc<dyn MemoryPool>,
+    response: Arc<MemoryReservation>,
+    bytes: usize,
+) -> Result<MemoryReservation, WorkflowError> {
+    let bytes = bytes.checked_add(MetadataResponse::Protection.allocation_bytes())
+        .ok_or_else(|| contract("protected metadata allocation extent"))?;
+    retain_metadata(pool, response, bytes)
+}
+
 #[derive(Debug)]
 struct OutputFilter {
     output: String,
@@ -644,7 +656,7 @@ impl Runtime {
                             .map_err(WorkflowError::from)
                     })
                     .await?;
-                let read_owner = Arc::new(retain_metadata(&self.shared.pool(), extent.clone(), read.retained_bytes()?)?);
+                let read_owner = Arc::new(retain_protected_metadata(&self.shared.pool(), extent.clone(), read.retained_bytes()?)?);
                 read.retain_metadata_owner(read_owner)?;
                 let validation = self.validation_context();
                 let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
@@ -748,7 +760,7 @@ impl Runtime {
         // owns its additional set key; Arc aliases do not charge read metadata twice.
         let retained = set.capacity().checked_add(read.retained_bytes()?)
             .ok_or_else(|| contract("selection retained extent"))?;
-        let retained = retain_metadata(&self.shared.pool(), extent, retained)?;
+        let retained = retain_protected_metadata(&self.shared.pool(), extent, retained)?;
         let selection_owner = retained.split(set.capacity());
         let read_owner = Arc::new(retained);
         let read = Arc::new(read);
@@ -913,6 +925,34 @@ mod result_admission_unit {
         let retained = retain_metadata(&pool, response, 4096).unwrap();
         assert_eq!(pool.reserved(), 4096, "a proven unique grant transfers without an overlapping allocation");
         drop(retained);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn protected_metadata_prepays_cleanup_without_shrinking_live_sdk_grant() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let bytes = 4096 + MetadataResponse::Protection.allocation_bytes();
+        let response = pooled_response_owner(&pool, "test:protected-metadata-response", MetadataResponse::Selection).unwrap();
+        let original = response.size();
+        let sdk = response.clone();
+        let retained = Arc::new(retain_protected_metadata(&pool, response, 4096).unwrap());
+        assert_eq!(sdk.size(), original);
+        assert_eq!(retained.size(), bytes);
+        assert_eq!(pool.reserved(), original + bytes);
+        let cleanup = retained.clone();
+        drop(retained);
+        drop(sdk);
+        assert_eq!(pool.reserved(), bytes, "cleanup keeps metadata and its response allowance");
+        drop(cleanup);
+        assert_eq!(pool.reserved(), 0);
+
+        let response = pooled_response_owner(&pool, "test:unique-protected-response", MetadataResponse::Selection).unwrap();
+        let retained = retain_protected_metadata(&pool, response, 4096).unwrap();
+        assert_eq!(pool.reserved(), bytes);
+        drop(retained);
+        assert_eq!(pool.reserved(), 0);
+        let response = pooled_response_owner(&pool, "test:protected-overflow", MetadataResponse::Selection).unwrap();
+        assert!(retain_protected_metadata(&pool, response, usize::MAX).is_err());
         assert_eq!(pool.reserved(), 0);
     }
 

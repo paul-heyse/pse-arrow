@@ -67,7 +67,9 @@ impl ResultSnapshot {
         end: u64,
     ) -> Result<Self, WorkflowError> {
         use pse_model::HeapUsage;
-        if read_owner.size() < read.retained_bytes()? {
+        let required = read.retained_bytes()?.checked_add(MetadataResponse::Protection.allocation_bytes())
+            .ok_or_else(|| contract("snapshot protected metadata extent"))?;
+        if read_owner.size() < required {
             return Err(contract("snapshot read metadata is not prepaid"));
         }
         read.retain_metadata_owner(read_owner.clone())?;

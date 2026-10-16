@@ -89,9 +89,10 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
         }),
     };
     use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
-    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 * 1024));
+    let retained_bytes = 64 * 1024 + crate::canonical::MetadataResponse::Protection.allocation_bytes();
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(retained_bytes));
     let allocation = MemoryConsumer::new("test:queued-protection-metadata").register(&pool);
-    allocation.try_grow(64 * 1024).unwrap();
+    allocation.try_grow(retained_bytes).unwrap();
     let allocation: Arc<dyn std::fmt::Debug + Send + Sync> = Arc::new(allocation);
     selection.retain_metadata_owner(allocation.clone()).unwrap();
     selection.retain_metadata_owner(allocation.clone()).unwrap();
@@ -102,7 +103,7 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
     // Drop removes the reader count synchronously while the original release is
     // blocked at the actual ProblemTurns admission queue. Its activity remains.
     assert_eq!(store.result_read_drain.live(), 0);
-    assert_eq!(pool.reserved(), 64 * 1024, "queued cleanup retains actual metadata after the facade drops");
+    assert_eq!(pool.reserved(), retained_bytes, "queued cleanup retains actual metadata after the facade drops");
     assert!(matches!(
         store.disconnect().await,
         Err(CanonicalError::ConnectionBusy { .. })
@@ -138,14 +139,15 @@ async fn failed_release_retains_exact_authority_until_explicit_original_grant_re
         interpretation: "test".into(),
     };
     use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
-    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 * 1024));
+    let retained_bytes = 64 * 1024 + crate::canonical::MetadataResponse::Protection.allocation_bytes();
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(retained_bytes));
     let allocation = MemoryConsumer::new("test:failed-protection-metadata").register(&pool);
-    allocation.try_grow(64 * 1024).unwrap();
+    allocation.try_grow(retained_bytes).unwrap();
     store
         .result_read_drain
         .release_protection(issuing, revision, "original-grant".into(), Some(Arc::new(allocation)))
         .complete(Err(CanonicalError::Timeout));
-    assert_eq!(pool.reserved(), 64 * 1024, "failure recovery owns original metadata");
+    assert_eq!(pool.reserved(), retained_bytes, "failure recovery owns original metadata");
     store.close();
     assert_eq!(store.result_read_drain.live(), 0);
     assert!(matches!(

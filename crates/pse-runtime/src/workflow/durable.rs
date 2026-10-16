@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
-use super::connected_results::{pooled_response_owner, retain_metadata};
+use super::connected_results::{pooled_response_owner, retain_metadata, retain_protected_metadata};
 use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryPool};
 use pse_backend_native::solve::{Compatibility, Event, ProgressTap, WarmPayload, WarmStart};
@@ -186,7 +186,7 @@ impl Operations {
                     )
                     .await?,
                 );
-                let read_owner = Arc::new(retain_metadata(&self.pool, response, read.retained_bytes()?)?);
+                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?)?);
                 read.retain_metadata_owner(read_owner.clone())?;
                 let completion = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone())),
@@ -262,7 +262,7 @@ impl Operations {
                     self.store.read_completion(run, attempt),
                 )
                 .await?;
-                let read_owner = Arc::new(retain_metadata(&self.pool, response, read.retained_bytes()?)?);
+                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?)?);
                 read.retain_metadata_owner(read_owner)?;
                 self.decode_completion(CompletionSelection::Slim(&read))
                     .await
@@ -3023,7 +3023,7 @@ impl Operations {
             )
             .await?,
         );
-        let read_owner = Arc::new(retain_metadata(&self.pool, response, read.retained_bytes()?)?);
+        let read_owner = Arc::new(retain_protected_metadata(&self.pool, response, read.retained_bytes()?)?);
         read.retain_metadata_owner(read_owner)?;
         if read.attempt().seed_manifest.as_deref() != Some(read.manifest().key.as_str())
             || row.attempt_generation != read.attempt().generation

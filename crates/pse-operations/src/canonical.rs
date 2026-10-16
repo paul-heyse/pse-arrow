@@ -569,7 +569,8 @@ impl ProtectedSelection {
                 "source protection was released".into(),
             ));
         }
-        store.renew_protection(self, lifetime).await
+        transport::optional_response_ownership_scope(self.owner.metadata_owner.get().cloned(),
+            store.renew_protection(self, lifetime)).await
     }
     /// Relinquish this reader. The final follower awaits exact protection cleanup.
     /// Other live followers retain their authority until they finish or drop.

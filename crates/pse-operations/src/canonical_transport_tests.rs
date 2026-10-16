@@ -2027,7 +2027,7 @@ fn metadata_peer_frame(request: &Object, fault: MetadataFault) -> Vec<u8> {
     builder.finished_data().to_vec()
 }
 
-async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool) {
+async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool, profile: crate::canonical::MetadataResponse) {
     use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -2084,7 +2084,6 @@ async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool
     let sdk = Surreal::new::<Ws>((address, Config::new().bounded_requests()
         .websocket(WebsocketConfig::new().max_message_size(4 << 20)).unwrap())).await.unwrap();
     let client = Arc::new(super::CanonicalClient::new(sdk, Duration::from_secs(5), &options));
-    let profile = crate::canonical::MetadataResponse::Page;
     let bytes = profile.allocation_bytes();
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(bytes));
     let owner = MemoryConsumer::new("test:actual-metadata-preflight").register(&pool);
@@ -2134,16 +2133,22 @@ async fn canonical_metadata_preflight_peer(fault: MetadataFault, cancelled: bool
 #[tokio::test]
 async fn canonical_metadata_preflight_accepts_valid_and_refuses_field_and_shared_copy_extents() {
     for fault in [MetadataFault::Valid, MetadataFault::LongString, MetadataFault::SharedCopies] {
-        canonical_metadata_preflight_peer(fault, false).await;
+        canonical_metadata_preflight_peer(fault, false, crate::canonical::MetadataResponse::Page).await;
     }
 }
 #[tokio::test]
 async fn canonical_metadata_preflight_refuses_unmatched_duplicate_and_malformed_correlations() {
     for fault in [MetadataFault::UnknownId, MetadataFault::UnknownSession, MetadataFault::DuplicateId, MetadataFault::MalformedId] {
-        canonical_metadata_preflight_peer(fault, false).await;
+        canonical_metadata_preflight_peer(fault, false, crate::canonical::MetadataResponse::Page).await;
     }
 }
 #[tokio::test]
 async fn canonical_metadata_preflight_keeps_cancelled_suffix_until_actual_physical_drain() {
-    canonical_metadata_preflight_peer(MetadataFault::SharedCopies, true).await;
+    canonical_metadata_preflight_peer(MetadataFault::SharedCopies, true, crate::canonical::MetadataResponse::Page).await;
+}
+
+#[tokio::test]
+async fn canonical_metadata_preflight_protection_ack_and_cancelled_cleanup_suffix() {
+    canonical_metadata_preflight_peer(MetadataFault::Valid, false, crate::canonical::MetadataResponse::Protection).await;
+    canonical_metadata_preflight_peer(MetadataFault::SharedCopies, true, crate::canonical::MetadataResponse::Protection).await;
 }

@@ -9,6 +9,9 @@ use pse_schema::catalog::substrate as wire;
 /// SurrealDB allocates owned Values; typed codecs retain their semantic checks.
 #[derive(Clone, Copy, Debug)]
 pub enum MetadataResponse {
+    /// Release/renew transactions return at most the guard and protection rows,
+    /// statement acknowledgements, and bounded errors; they carry no payloads.
+    Protection,
     /// At most two header rows, each below 32 declared fields. Run headers carry
     /// request/source-selection bytes (up to the transport limit together).
     Header,
@@ -24,7 +27,7 @@ impl MetadataResponse {
     /// and the root envelope. Keys are counted separately from their values.
     pub fn limits(self) -> surrealdb::opt::ResponseLimits {
         let rows = match self {
-            Self::Header | Self::Selection => 2,
+            Self::Protection | Self::Header | Self::Selection => 2,
             Self::Page => crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
         };
@@ -32,14 +35,19 @@ impl MetadataResponse {
         let strings = (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64)
             .min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
-            Self::Page => 0,
+            Self::Protection | Self::Page => 0,
             Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
         };
         surrealdb::opt::ResponseLimits {
-            wire_bytes: wire::RESULT_MESSAGE_BYTES,
+            // Generated FlatBuffers tables/vectors need at most 128 bytes per
+            // visited node beyond copied strings for this scalar ACK layout.
+            wire_bytes: if matches!(self, Self::Protection) {
+                nodes * 128 + strings
+            } else { wire::RESULT_MESSAGE_BYTES },
             nodes,
             depth: 16,
             container_items: match self {
+                Self::Protection => 32,
                 Self::Selection => crate::canonical_execution::RESULT_SETS,
                 // source-selection readers admit up to 65 sources plus a sentinel.
                 _ => 66,
@@ -78,11 +86,13 @@ mod tests {
     }
     #[test]
     fn metadata_allowances_are_separate_from_physical_files() {
-        for profile in [MetadataResponse::Header, MetadataResponse::Selection,
+        for profile in [MetadataResponse::Protection, MetadataResponse::Header, MetadataResponse::Selection,
             MetadataResponse::Page, MetadataResponse::OutputPage] {
             assert!(profile.allocation_bytes() < 2 * wire::RESULT_BLOCK_BYTES);
             assert!(profile.limits().nodes >= 512 + 2 * 32 * 2);
         }
         assert_eq!(MetadataResponse::Page.limits().blob_bytes, 0);
+        assert_eq!(MetadataResponse::Protection.limits().blob_bytes, 0);
+        assert!(MetadataResponse::Protection.allocation_bytes() < MetadataResponse::Header.allocation_bytes());
     }
 }
