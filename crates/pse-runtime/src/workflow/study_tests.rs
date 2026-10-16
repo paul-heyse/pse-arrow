@@ -88,7 +88,7 @@ async fn admitted(
     let points = points(find("Root"), find("Failed"), find("Fixed"));
     let definition = package
         .admit_study(
-            &StudyInputs::Explicit((&points).to_vec()),
+            &StudyInputs::Explicit(points.to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
         )
@@ -896,7 +896,7 @@ async fn related_definition_with_primal_accuracy(
     }
     let definition = package
         .admit_study(
-            &StudyInputs::Explicit((&points).to_vec()),
+            &StudyInputs::Explicit(points.to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
         )
@@ -1581,7 +1581,7 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
             "summary-partial",
             "__effect_free_summary",
             0,
-            pse_operations::canonical_execution::ResultPayload::new((&[1]).to_vec()).unwrap(),
+            pse_operations::canonical_execution::ResultPayload::new([1].to_vec()).unwrap(),
             1,
         )
         .await
@@ -2174,7 +2174,7 @@ async fn parallel_study_definition(
         .collect::<Vec<_>>();
     let definition = package
         .admit_study(
-            &StudyInputs::Explicit((&points).to_vec()),
+            &StudyInputs::Explicit(points.to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
         )
@@ -4238,7 +4238,7 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
     }
     let definition = package
         .admit_study(
-            &StudyInputs::Explicit((&points).to_vec()),
+            &StudyInputs::Explicit(points.to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
         )
@@ -4311,7 +4311,7 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
     operation.settings.backend = Some(pse_backend_native::solve::Backend::Kinsol);
     let fixed_definition = package
         .admit_study(
-            &StudyInputs::Explicit((&[fixed_point]).to_vec()),
+            &StudyInputs::Explicit([fixed_point].to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
         )
@@ -4366,7 +4366,7 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     operation.settings.presolve = pse_backend_native::presolve::PolicyKind::Off;
     let definition = package
         .admit_study(
-            &StudyInputs::Explicit((&[requested]).to_vec()),
+            &StudyInputs::Explicit([requested].to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
         )

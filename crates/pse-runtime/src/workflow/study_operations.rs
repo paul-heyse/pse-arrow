@@ -377,7 +377,7 @@ pub(in crate::workflow) async fn counted_declared_admissions<T>(
         .await
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "canonical-tests", feature = "solver-kinsol")))]
 pub(in crate::workflow) async fn observed_declared_admission<T>(
     observer: Box<dyn Fn() + Send + Sync>,
     work: impl Future<Output = T>,

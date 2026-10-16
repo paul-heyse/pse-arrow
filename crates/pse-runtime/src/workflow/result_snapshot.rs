@@ -55,6 +55,10 @@ struct CachedFile {
 #[derive(Clone, Debug)]
 pub struct ResultSnapshot(Arc<SnapshotInner>);
 impl ResultSnapshot {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "snapshot admission keeps the prepaid read owner, relation schema and selected set bounds explicit"
+    )]
     pub(super) async fn capture(
         runtime: &Runtime,
         read: Arc<ResultRead>,

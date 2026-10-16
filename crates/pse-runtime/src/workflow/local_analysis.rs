@@ -42,44 +42,6 @@ fn observe_quantity<T>(name: &str, outcome: &Result<T, (WithheldReason, String)>
     }
 }
 
-#[cfg(test)]
-mod observation_tests {
-    use super::*;
-    #[test]
-    fn observation_local_quantity_withholding_is_independent_of_other_quantities() {
-        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
-        let operation = hub.start("quantity publication");
-        let _entered = operation.context().enter();
-        observe_quantity("sensitivity", &Ok::<_, (WithheldReason, String)>(()));
-        observe_quantity::<()>(
-            "reduced_hessian",
-            &Err((WithheldReason::LicqFailed, "dependent rows".into())),
-        );
-        let snapshot = operation
-            .reader()
-            .snapshot(std::time::Duration::from_secs(60));
-        let metric = |name| {
-            snapshot
-                .metrics
-                .iter()
-                .find(|metric| metric.name == name)
-                .unwrap()
-        };
-        assert_eq!(
-            metric("local.sensitivity.available").latest,
-            pse_diagnostics::observation::Value::Boolean(true)
-        );
-        assert_eq!(
-            metric("local.reduced_hessian.available").latest,
-            pse_diagnostics::observation::Value::Boolean(false)
-        );
-        assert_eq!(
-            metric("local.reduced_hessian.withheld").latest,
-            pse_diagnostics::observation::Value::Text(WithheldReason::LicqFailed.as_str().into())
-        );
-    }
-}
-
 /// The registry reason of a withheld quantity and its typed cause.
 pub(super) fn reason(withheld: &Withheld) -> WithheldReason {
     match withheld {
@@ -677,5 +639,43 @@ impl<'a> Units<'a> {
             .objective()
             .ok_or_else(|| contract("a sensitivity differentiates an objective"))?;
         self.canonical(objective.quantity)
+    }
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::*;
+    #[test]
+    fn observation_local_quantity_withholding_is_independent_of_other_quantities() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("quantity publication");
+        let _entered = operation.context().enter();
+        observe_quantity("sensitivity", &Ok::<_, (WithheldReason, String)>(()));
+        observe_quantity::<()>(
+            "reduced_hessian",
+            &Err((WithheldReason::LicqFailed, "dependent rows".into())),
+        );
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let metric = |name| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap()
+        };
+        assert_eq!(
+            metric("local.sensitivity.available").latest,
+            pse_diagnostics::observation::Value::Boolean(true)
+        );
+        assert_eq!(
+            metric("local.reduced_hessian.available").latest,
+            pse_diagnostics::observation::Value::Boolean(false)
+        );
+        assert_eq!(
+            metric("local.reduced_hessian.withheld").latest,
+            pse_diagnostics::observation::Value::Text(WithheldReason::LicqFailed.as_str().into())
+        );
     }
 }

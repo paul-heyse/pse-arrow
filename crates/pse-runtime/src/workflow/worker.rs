@@ -1767,13 +1767,13 @@ impl Runtime {
         };
         self.record_study_attempt(&point, &claim.start, &record)
             .await?;
-        return Ok(Some((
+        Ok(Some((
             Processed::Ran {
                 point: point.key,
                 record,
             },
             Some(result),
-        )));
+        )))
     }
 
     /// A separate rotating cursor gives later active studies bounded recovery

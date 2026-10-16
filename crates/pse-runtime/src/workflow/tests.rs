@@ -10,6 +10,10 @@ pub(super) fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
 /// Count actual producers once across nested observation owners in a unit control.
+#[cfg(any(
+    feature = "solver-kinsol",
+    all(feature = "solver-ipopt", feature = "solver-diffsol")
+))]
 pub(crate) fn observation_counts(
     hub: &pse_diagnostics::observation::ObservationHub,
     root: pse_diagnostics::observation::OperationReader,

@@ -13,7 +13,7 @@ use pse_diagnostics::observation::{OperationId, OperationSnapshot, Value};
 use std::{
     collections::HashMap,
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
@@ -192,12 +192,13 @@ impl<W: Write> Projection<W> {
                 track.begun = true;
             }
         }
-        if let Some(end) = end {
-            if end >= start && self.tracks.get(&key).is_some_and(|track| !track.ended) {
-                self.event(uuid, end, track_event::Type::SliceEnd, "", Vec::new())?;
-                if let Some(track) = self.tracks.get_mut(&key) {
-                    track.ended = true;
-                }
+        if let Some(end) = end
+            && end >= start
+            && self.tracks.get(&key).is_some_and(|track| !track.ended)
+        {
+            self.event(uuid, end, track_event::Type::SliceEnd, "", Vec::new())?;
+            if let Some(track) = self.tracks.get_mut(&key) {
+                track.ended = true;
             }
         }
         Ok(())
@@ -332,6 +333,10 @@ impl<W: Write> Projection<W> {
         }
         Ok(())
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "projection keeps phase identity, parent track, label and source clock bounds explicit"
+    )]
     fn phase(
         &mut self,
         operation: OperationId,
@@ -504,13 +509,14 @@ impl<W: Write> Projection<W> {
             },
         };
         if matches!(packet.kind, LifecycleKind::End) {
-            if let Some(track) = self.tracks.get(&key) {
-                if track.begun && !track.ended {
-                    let uuid = track.uuid;
-                    self.event(uuid, packet.at, track_event::Type::SliceEnd, "", Vec::new())?;
-                    if let Some(track) = self.tracks.get_mut(&key) {
-                        track.ended = true;
-                    }
+            if let Some(track) = self.tracks.get(&key)
+                && track.begun
+                && !track.ended
+            {
+                let uuid = track.uuid;
+                self.event(uuid, packet.at, track_event::Type::SliceEnd, "", Vec::new())?;
+                if let Some(track) = self.tracks.get_mut(&key) {
+                    track.ended = true;
                 }
             }
             return Ok(());
@@ -552,14 +558,14 @@ impl<W: Write> Projection<W> {
             &packet.name,
             annotations,
         )?;
-        if matches!(packet.kind, LifecycleKind::Begin) {
-            if let Some(track) = self.tracks.get_mut(&key) {
-                track.begun = true;
-            }
+        if matches!(packet.kind, LifecycleKind::Begin)
+            && let Some(track) = self.tracks.get_mut(&key)
+        {
+            track.begun = true;
         }
         Ok(())
     }
-    fn publish(&mut self, path: &PathBuf, started: Instant, dropped: u64) -> std::io::Result<()> {
+    fn publish(&mut self, path: &Path, started: Instant, dropped: u64) -> std::io::Result<()> {
         let flushed = self.output.flush();
         let mut state = document(&self.state);
         state.observed_duration = started.elapsed();
@@ -570,7 +576,7 @@ impl<W: Write> Projection<W> {
             .count();
         state.loss.queued_packets_dropped = dropped;
         let output = CaptureOutput {
-            path: path.clone(),
+            path: path.to_path_buf(),
             kind: CaptureOutputKind::Perfetto,
             bytes: self.output.bytes,
             readable_prefix_bytes: self.output.flushed,
@@ -672,111 +678,110 @@ pub(super) fn run(
                         }
                     }
                 };
-                if let Some(image) = image {
-                    if sequences.get(&paths[index]) != Some(&(image.sequence, selected.len())) {
-                        let mut growing = true;
-                        while growing {
-                            growing = false;
-                            for operation in &image.operations {
-                                if !selected.contains(&operation.id) {
-                                    continue;
-                                }
-                                for child in &operation.children {
-                                    if !selected.contains(&child.id) {
-                                        if selected.len() < 512 {
-                                            selected.push(child.id);
-                                            growing = true;
-                                            if child.id.process_instance
-                                                != operation.id.process_instance
-                                            {
-                                                if let Some(path) = path_for(request, child.id) {
-                                                    if !paths.contains(&path) && paths.len() < 16 {
-                                                        paths.push(path);
-                                                    } else if !paths.contains(&path) {
-                                                        document(state).loss.refused_items += 1;
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            document(state).loss.refused_items += 1;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        // Preserve every known source gap before fallible packet output can stop
-                        // projection. Source loss and writer/output loss are independent facts.
-                        document(state).loss.source_partial |=
-                            super::source_partial(&image, &selected)
-                                || image.operations.iter().any(|operation| {
-                                    selected.contains(&operation.id)
-                                        && (operation.interval_partial
-                                            || operation.detail_partial
-                                            || operation.coverage.sampled
-                                            || operation.coverage.dropped_detail > 0
-                                            || operation.metrics.iter().any(|metric| {
-                                                metric.history_partial || metric.history_dropped > 0
-                                            }))
-                                });
+                if let Some(image) = image
+                    && sequences.get(&paths[index]) != Some(&(image.sequence, selected.len()))
+                {
+                    let mut growing = true;
+                    while growing {
+                        growing = false;
                         for operation in &image.operations {
                             if !selected.contains(&operation.id) {
                                 continue;
                             }
-                            projection.operation(operation, image.clock.as_ref())?;
                             for child in &operation.children {
-                                projection.link(operation, child, image.clock.as_ref())?;
-                            }
-                        }
-                        for thread in &image.threads {
-                            if !selected.contains(&thread.operation) {
-                                continue;
-                            }
-                            let key = Key::Thread(thread.operation, thread.tid, thread.started_at);
-                            let parent = projection
-                                .tracks
-                                .get(&Key::Operation(thread.operation))
-                                .map(|track| track.uuid);
-                            let Some(uuid) = projection.track(
-                                key.clone(),
-                                &format!(
-                                    "native thread {} start {:?}",
-                                    thread.tid, thread.start_ticks
-                                ),
-                                parent,
-                                false,
-                            )?
-                            else {
-                                continue;
-                            };
-                            if let Some(clock) = &image.clock {
-                                if let Some(start) = clock.monotonic_timestamp(thread.started_at) {
-                                    projection.interval(
-                                        key,
-                                        uuid,
-                                        start,
-                                        thread
-                                            .finished_at
-                                            .and_then(|at| clock.monotonic_timestamp(at)),
-                                        "actual native thread scope",
-                                    )?;
+                                if !selected.contains(&child.id) {
+                                    if selected.len() < 512 {
+                                        selected.push(child.id);
+                                        growing = true;
+                                        if child.id.process_instance
+                                            != operation.id.process_instance
+                                            && let Some(path) = path_for(request, child.id)
+                                        {
+                                            if !paths.contains(&path) && paths.len() < 16 {
+                                                paths.push(path);
+                                            } else if !paths.contains(&path) {
+                                                document(state).loss.refused_items += 1;
+                                            }
+                                        }
+                                    } else {
+                                        document(state).loss.refused_items += 1;
+                                    }
                                 }
-                            } else {
-                                document(state).loss.unknown_clock = true;
                             }
                         }
-                        let mut state = document(state);
-                        let entry = target(&image, &selected);
-                        if let Some(existing) = state
-                            .targets
-                            .iter_mut()
-                            .find(|target| target.process == entry.process)
-                        {
-                            *existing = entry;
-                        } else if state.targets.len() < 16 {
-                            state.targets.push(entry);
-                        }
-                        sequences.insert(paths[index].clone(), (image.sequence, selected.len()));
                     }
+                    // Preserve every known source gap before fallible packet output can stop
+                    // projection. Source loss and writer/output loss are independent facts.
+                    document(state).loss.source_partial |=
+                        super::source_partial(&image, &selected)
+                            || image.operations.iter().any(|operation| {
+                                selected.contains(&operation.id)
+                                    && (operation.interval_partial
+                                        || operation.detail_partial
+                                        || operation.coverage.sampled
+                                        || operation.coverage.dropped_detail > 0
+                                        || operation.metrics.iter().any(|metric| {
+                                            metric.history_partial || metric.history_dropped > 0
+                                        }))
+                            });
+                    for operation in &image.operations {
+                        if !selected.contains(&operation.id) {
+                            continue;
+                        }
+                        projection.operation(operation, image.clock.as_ref())?;
+                        for child in &operation.children {
+                            projection.link(operation, child, image.clock.as_ref())?;
+                        }
+                    }
+                    for thread in &image.threads {
+                        if !selected.contains(&thread.operation) {
+                            continue;
+                        }
+                        let key = Key::Thread(thread.operation, thread.tid, thread.started_at);
+                        let parent = projection
+                            .tracks
+                            .get(&Key::Operation(thread.operation))
+                            .map(|track| track.uuid);
+                        let Some(uuid) = projection.track(
+                            key.clone(),
+                            &format!(
+                                "native thread {} start {:?}",
+                                thread.tid, thread.start_ticks
+                            ),
+                            parent,
+                            false,
+                        )?
+                        else {
+                            continue;
+                        };
+                        if let Some(clock) = &image.clock {
+                            if let Some(start) = clock.monotonic_timestamp(thread.started_at) {
+                                projection.interval(
+                                    key,
+                                    uuid,
+                                    start,
+                                    thread
+                                        .finished_at
+                                        .and_then(|at| clock.monotonic_timestamp(at)),
+                                    "actual native thread scope",
+                                )?;
+                            }
+                        } else {
+                            document(state).loss.unknown_clock = true;
+                        }
+                    }
+                    let mut state = document(state);
+                    let entry = target(&image, &selected);
+                    if let Some(existing) = state
+                        .targets
+                        .iter_mut()
+                        .find(|target| target.process == entry.process)
+                    {
+                        *existing = entry;
+                    } else if state.targets.len() < 16 {
+                        state.targets.push(entry);
+                    }
+                    sequences.insert(paths[index].clone(), (image.sequence, selected.len()));
                 }
                 index += 1;
             }
@@ -798,10 +803,10 @@ pub(super) fn run(
         }
         Ok(())
     })();
-    if let Err(CaptureError::Io(error)) = &result {
-        if error.kind() == std::io::ErrorKind::FileTooLarge {
-            document(state).loss.output_exhausted = true;
-        }
+    if let Err(CaptureError::Io(error)) = &result
+        && error.kind() == std::io::ErrorKind::FileTooLarge
+    {
+        document(state).loss.output_exhausted = true;
     }
     // Even a partial packet write preserves the previously complete flushed prefix.
     let flushed = projection.publish(&path, started, receiver.dropped.load(Ordering::Relaxed));

@@ -1207,7 +1207,7 @@ mod result_projection_unit {
         let result = prepared.start().unwrap().wait().await.unwrap();
         assert!(result.usable(), "{:?}", result.report());
         let super::super::Durability::Durable(operations) = runtime.durability() else {
-            unreachable!()
+            panic!("canonical projection fixture requires durable operations")
         };
         let store = operations.store();
         let revision = store
@@ -1319,7 +1319,7 @@ mod result_projection_unit {
         let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) =
             operations.pool.memory_limit()
         else {
-            unreachable!()
+            panic!("canonical projection fixture requires a finite shared pool")
         };
         let pressure =
             MemoryConsumer::new("test:typed-projection-cold-pressure").register(&operations.pool);
@@ -1376,7 +1376,7 @@ mod result_projection_unit {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
         let runtime = super::super::durable_tests::durable_runtime();
         let super::super::Durability::Durable(operations) = runtime.durability() else {
-            unreachable!()
+            panic!("canonical projection fixture requires durable operations")
         };
         let store = operations.store();
         let revision = store
@@ -1570,7 +1570,7 @@ mod result_projection_unit {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
         let runtime = super::super::durable_tests::durable_runtime();
         let super::super::Durability::Durable(operations) = runtime.durability() else {
-            unreachable!()
+            panic!("canonical projection fixture requires durable operations")
         };
         let store = operations.store();
         let revision = store
@@ -1760,7 +1760,7 @@ mod result_projection_unit {
     async fn canonical_append_queue_denied_control_preserves_cold_append_and_demand() {
         let runtime = super::super::durable_tests::durable_runtime();
         let super::super::Durability::Durable(operations) = runtime.durability() else {
-            unreachable!()
+            panic!("canonical projection fixture requires durable operations")
         };
         let store = operations.store();
         let revision = store
@@ -1910,7 +1910,7 @@ mod result_projection_unit {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
         let runtime = super::super::durable_tests::durable_runtime();
         let super::super::Durability::Durable(operations) = runtime.durability() else {
-            unreachable!()
+            panic!("canonical projection fixture requires durable operations")
         };
         let store = operations.store();
         let revision = store

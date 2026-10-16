@@ -2385,7 +2385,6 @@ impl Loop {
 }
 
 /// The O5 progress event of one completed sample.
-
 fn event(k: usize, step: &HorizonStep, elapsed: Duration) -> Event {
     let integer = |n: usize| Metric::Integer(i64::try_from(n).unwrap_or(i64::MAX));
     let mut values = BTreeMap::from([

@@ -1929,7 +1929,7 @@ mod occurrence_execution_tests {
             .collect();
         let definition = package
             .admit_study(
-                &crate::workflow::StudyInputs::Explicit((&points).to_vec()),
+                &crate::workflow::StudyInputs::Explicit(points.to_vec()),
                 &crate::workflow::StudyOutputDemand::Full {},
                 &crate::CancelSource::new(),
             )

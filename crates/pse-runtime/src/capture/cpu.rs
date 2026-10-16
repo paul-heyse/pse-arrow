@@ -438,21 +438,20 @@ pub(super) fn discover(
                         state.loss.source_partial = true;
                     }
                 }
-                if child.id.process_instance != operation.id.process_instance {
-                    if let Some(parent) = request.checkpoint.parent() {
-                        let path = parent.join(format!(
-                            "{:016x}-{:016x}.json",
-                            child.id.process_instance[0], child.id.process_instance[1]
-                        ));
-                        if !paths.contains(&path) {
-                            if paths.len() < 16 {
-                                paths.push(path);
-                            } else {
-                                let mut state = document(state);
-                                state.loss.refused_items =
-                                    state.loss.refused_items.saturating_add(1);
-                                state.loss.source_partial = true;
-                            }
+                if child.id.process_instance != operation.id.process_instance
+                    && let Some(parent) = request.checkpoint.parent()
+                {
+                    let path = parent.join(format!(
+                        "{:016x}-{:016x}.json",
+                        child.id.process_instance[0], child.id.process_instance[1]
+                    ));
+                    if !paths.contains(&path) {
+                        if paths.len() < 16 {
+                            paths.push(path);
+                        } else {
+                            let mut state = document(state);
+                            state.loss.refused_items = state.loss.refused_items.saturating_add(1);
+                            state.loss.source_partial = true;
                         }
                     }
                 }

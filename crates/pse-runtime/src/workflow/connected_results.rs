@@ -1425,7 +1425,7 @@ mod canonical_connected_results_server_unit {
             "independent snapshot keeps its metadata/footer owners"
         );
         drop(alias);
-        pse_operations::testing::drain_result_releases(&store)
+        pse_operations::testing::drain_result_releases(store)
             .await
             .unwrap();
         assert_eq!(
@@ -1466,7 +1466,7 @@ mod canonical_connected_results_server_unit {
         cancel.cancel();
         assert!(cancelled.next_batch().await.is_err());
         drop(cancelled);
-        pse_operations::testing::drain_result_releases(&store)
+        pse_operations::testing::drain_result_releases(store)
             .await
             .unwrap();
         assert_eq!(pool.reserved(), baseline);
@@ -1556,7 +1556,7 @@ mod canonical_connected_results_server_unit {
                         "completion",
                         "__completion",
                         0,
-                        pse_operations::canonical_execution::ResultPayload::new((&bytes).to_vec())
+                        pse_operations::canonical_execution::ResultPayload::new(bytes.to_vec())
                             .unwrap(),
                         bytes.len() as u64,
                     )
@@ -2330,7 +2330,7 @@ mod canonical_connected_results_server_unit {
                 "__progress",
                 0,
                 pse_operations::canonical_execution::ResultPayload::new(
-                    (&progress_payload).to_vec(),
+                    progress_payload.to_vec(),
                 )
                 .unwrap(),
                 1,

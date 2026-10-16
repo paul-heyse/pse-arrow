@@ -923,7 +923,7 @@ mod native_tests {
                             analysis.root,
                             analysis.instance,
                             analysis.bindings.clone(),
-                            analysis.limits.clone(),
+                            analysis.limits,
                             case,
                             analysis.order,
                             analysis.compiler,

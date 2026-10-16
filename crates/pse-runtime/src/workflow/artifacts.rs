@@ -1037,7 +1037,7 @@ mod response_ownership_tests {
         let pressure = MemoryConsumer::new("control:artifact-response-pressure").register(&pool);
         let datafusion::execution::memory_pool::MemoryLimit::Finite(capacity) = pool.memory_limit()
         else {
-            unreachable!("canonical fixture requires a finite shared pool");
+            panic!("canonical fixture requires a finite shared pool");
         };
         // Leave exactly one byte less than the metadata envelope, rather than
         // making all work impossible or changing the actual fixture capacity.

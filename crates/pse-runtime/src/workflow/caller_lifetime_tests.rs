@@ -176,6 +176,10 @@ struct FamilyEntryDrain {
     released: std::sync::Condvar,
 }
 #[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
+#[expect(
+    clippy::unwrap_used,
+    reason = "test synchronization poisoning and watchdog expiry must fail the native drain control"
+)]
 impl FamilyEntryDrain {
     fn enter(&self, flag: &std::sync::atomic::AtomicBool) {
         use std::sync::atomic::Ordering;
@@ -231,6 +235,10 @@ impl Drop for FamilyEntryRelease {
 }
 
 #[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
+#[expect(
+    clippy::unwrap_used,
+    reason = "shared test assertion requires successful worker entry and bounded native completion"
+)]
 async fn cancel_prepared_family_at_worker_entry(
     runtime: &Runtime,
     prepared: &PreparedStudyOperation,

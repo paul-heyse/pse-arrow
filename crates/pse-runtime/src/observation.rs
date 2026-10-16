@@ -593,6 +593,40 @@ pub(crate) fn child<F: Future>(kind: &'static str, future: F) -> impl Future<Out
     scope(context, future)
 }
 
+/// An observed execution interval; dropping it records return without owning native drain.
+pub(crate) struct ThreadScope {
+    diagnostics: Arc<Diagnostics>,
+    operation: OperationId,
+    tid: u32,
+    started_at: Duration,
+}
+impl Drop for ThreadScope {
+    fn drop(&mut self) {
+        let Ok(mut threads) = self.diagnostics.threads.try_lock() else {
+            self.diagnostics
+                .threads_partial
+                .store(true, Ordering::Relaxed);
+            return;
+        };
+        if let Some(entry) = threads.iter_mut().find(|entry| {
+            entry.operation == self.operation
+                && entry.tid == self.tid
+                && entry.started_at == self.started_at
+        }) {
+            entry.finished_at = Some(self.diagnostics.clock.now());
+        } else {
+            self.diagnostics
+                .threads_partial
+                .store(true, Ordering::Relaxed);
+        }
+    }
+}
+/// Enter an actual native-thread execution scope; this does not infer async thread affinity.
+pub(crate) fn native_execution_scope() -> Option<ThreadScope> {
+    let operation = pse_diagnostics::observation::current().map(|context| context.id());
+    process_diagnostics().execution(operation)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -783,38 +817,4 @@ mod tests {
         assert_eq!(b, second_context.id());
         assert!(pse_diagnostics::observation::current().is_none());
     }
-}
-
-/// An observed execution interval; dropping it records return without owning native drain.
-pub(crate) struct ThreadScope {
-    diagnostics: Arc<Diagnostics>,
-    operation: OperationId,
-    tid: u32,
-    started_at: Duration,
-}
-impl Drop for ThreadScope {
-    fn drop(&mut self) {
-        let Ok(mut threads) = self.diagnostics.threads.try_lock() else {
-            self.diagnostics
-                .threads_partial
-                .store(true, Ordering::Relaxed);
-            return;
-        };
-        if let Some(entry) = threads.iter_mut().find(|entry| {
-            entry.operation == self.operation
-                && entry.tid == self.tid
-                && entry.started_at == self.started_at
-        }) {
-            entry.finished_at = Some(self.diagnostics.clock.now());
-        } else {
-            self.diagnostics
-                .threads_partial
-                .store(true, Ordering::Relaxed);
-        }
-    }
-}
-/// Enter an actual native-thread execution scope; this does not infer async thread affinity.
-pub(crate) fn native_execution_scope() -> Option<ThreadScope> {
-    let operation = pse_diagnostics::observation::current().map(|context| context.id());
-    process_diagnostics().execution(operation)
 }

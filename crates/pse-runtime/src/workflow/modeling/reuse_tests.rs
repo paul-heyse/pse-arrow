@@ -1869,7 +1869,7 @@ async fn shared_frontier_and_completion_keep_each_waiters_clock_in_both_arrival_
             .unwrap();
         let workspace = package.pure_workspace().unwrap();
         let before = service.preparation_effects();
-        exercise_preparation_waiter_clocks(&service, short_first, |caller, deadline| {
+        exercise_preparation_waiter_clocks(service, short_first, |caller, deadline| {
             let service = service.clone();
             let key = key.clone();
             let workspace = workspace.clone();
@@ -1911,7 +1911,7 @@ async fn shared_frontier_and_completion_keep_each_waiters_clock_in_both_arrival_
                 .is_err(),
             "a cache hit must not bypass the caller's original clock"
         );
-        exercise_preparation_waiter_clocks(&service, short_first, |caller, deadline| {
+        exercise_preparation_waiter_clocks(service, short_first, |caller, deadline| {
             let service = service.clone();
             let key = key.clone();
             let workspace = workspace.clone();
@@ -1946,7 +1946,7 @@ async fn shared_frontier_and_completion_keep_each_waiters_clock_in_both_arrival_
         assert_eq!(service.basis_flights.active(), 0);
         service.clear_program_cache();
         exercise_preparation_waiter_departure(
-            &service,
+            service,
             |caller, deadline| {
                 let service = service.clone();
                 let key = key.clone();
@@ -1973,7 +1973,7 @@ async fn shared_frontier_and_completion_keep_each_waiters_clock_in_both_arrival_
             .await
             .unwrap();
         exercise_preparation_waiter_departure(
-            &service,
+            service,
             |caller, deadline| {
                 let service = service.clone();
                 let key = key.clone();
@@ -2032,7 +2032,7 @@ async fn shared_preparation_producer_expiry_is_typed_and_retries_only_after_drai
         .unwrap();
     let workspace = package.pure_workspace().unwrap();
     let before = service.preparation_effects();
-    let (release, blocker) = hold_preparation_cpu(&service).await;
+    let (release, blocker) = hold_preparation_cpu(service).await;
     let caller_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     let result = service
         .plan_frontier_keyed(

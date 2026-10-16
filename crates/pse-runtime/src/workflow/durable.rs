@@ -3941,7 +3941,7 @@ mod canonical_durable_codec {
                 "unobserved-progress",
                 "__progress",
                 0,
-                pse_operations::canonical_execution::ResultPayload::new((&bytes).to_vec()).unwrap(),
+                pse_operations::canonical_execution::ResultPayload::new(bytes.to_vec()).unwrap(),
                 1,
             )
             .await
@@ -4132,7 +4132,7 @@ mod canonical_durable_codec {
                     &format!("accepted-prefix:{}", fence.attempt()),
                     "__prefix",
                     0,
-                    pse_operations::canonical_execution::ResultPayload::new((&[7]).to_vec())
+                    pse_operations::canonical_execution::ResultPayload::new([7].to_vec())
                         .unwrap(),
                     1,
                 )
@@ -4508,7 +4508,7 @@ mod canonical_durable_codec {
                 "prefix",
                 "observations",
                 0,
-                pse_operations::canonical_execution::ResultPayload::new((&[7]).to_vec()).unwrap(),
+                pse_operations::canonical_execution::ResultPayload::new([7].to_vec()).unwrap(),
                 1,
             )
             .await
@@ -5381,7 +5381,7 @@ mod canonical_durable_codec {
                 "__progress",
                 0,
                 pse_operations::canonical_execution::ResultPayload::new(
-                    (&serde_json::to_vec(&[old]).unwrap()).to_vec(),
+                    serde_json::to_vec(&[old]).unwrap(),
                 )
                 .unwrap(),
                 1,

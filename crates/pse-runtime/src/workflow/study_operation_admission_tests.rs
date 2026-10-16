@@ -406,7 +406,7 @@ async fn scoped_study_admission_preserves_individual_point_bindings() {
     }
     let definition = package
         .admit_study(
-            &crate::workflow::StudyInputs::Explicit((&points).to_vec()),
+            &crate::workflow::StudyInputs::Explicit(points.to_vec()),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
@@ -454,7 +454,7 @@ async fn scoped_study_admission_transitions_from_declared_case_to_horizon() {
     horizon.policy.key = OccurrenceKey(1);
     let definition = package
         .admit_study(
-            &crate::workflow::StudyInputs::Explicit((&[declared, horizon]).to_vec()),
+            &crate::workflow::StudyInputs::Explicit([declared, horizon].to_vec()),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
@@ -554,11 +554,11 @@ async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
     let definition = package
         .admit_study(
             &crate::workflow::StudyInputs::Explicit(
-                (&[point(OperationRequest::Simulation(SimulationOperation {
+                [point(OperationRequest::Simulation(SimulationOperation {
                     case,
                     profile: None,
-                }))])
-                    .to_vec(),
+                }))]
+                .to_vec(),
             ),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
@@ -600,7 +600,7 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
     });
     let definition = package
         .admit_study(
-            &crate::workflow::StudyInputs::Explicit((&[point(request)]).to_vec()),
+            &crate::workflow::StudyInputs::Explicit([point(request)].to_vec()),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
@@ -624,7 +624,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let definition = package
         .admit_study(
             &crate::workflow::StudyInputs::Explicit(
-                (&[point(OperationRequest::Horizon(Box::new(request.clone())))]).to_vec(),
+                [point(OperationRequest::Horizon(Box::new(request.clone())))].to_vec(),
             ),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
@@ -647,7 +647,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let other = package
         .admit_study(
             &crate::workflow::StudyInputs::Explicit(
-                (&[point(OperationRequest::Horizon(Box::new(equivalent)))]).to_vec(),
+                [point(OperationRequest::Horizon(Box::new(equivalent)))].to_vec(),
             ),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
@@ -669,7 +669,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let error = package
         .admit_study(
             &crate::workflow::StudyInputs::Explicit(
-                (&[point(OperationRequest::Horizon(Box::new(wrong)))]).to_vec(),
+                [point(OperationRequest::Horizon(Box::new(wrong)))].to_vec(),
             ),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),

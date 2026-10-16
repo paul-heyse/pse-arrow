@@ -3241,13 +3241,18 @@ mod canonical_portable_body_tests {
             return producer(65);
         }
         fn anchor() {}
+        let observe = Arc::new(|| {
+            // SAFETY: this controlled fixture has no mutable interpreter configuration
+            // or provider callbacks beyond the explicit test configuration.
+            unsafe { observed_test_configuration(Vec::new()) }
+        });
         // SAFETY: this actual native test binary is a controlled immutable mathematical
         // reconstruction root with no additional interpreter configuration or provider callbacks.
         unsafe {
             ReplayAdmission::observe_local(
                 ExpectedProducerTarget::WORKER,
                 anchor as *const () as usize,
-                Arc::new(|| observed_test_configuration(Vec::new())),
+                observe,
             )
         }
         .unwrap()
@@ -3421,20 +3426,23 @@ mod canonical_portable_body_tests {
         let observations = Arc::new(AtomicUsize::new(0));
         let observed = observations.clone();
         fn anchor() {}
+        let observe = Arc::new(move || {
+            if observed.fetch_add(1, Ordering::Relaxed) < 2 {
+                // SAFETY: the controlled test executable uses only this explicit
+                // configuration and has no mutable interpreter or provider callbacks.
+                unsafe { observed_test_configuration(vec![7]) }
+            } else {
+                Err(std::io::Error::other(
+                    "cold miss unexpectedly observed producer context",
+                ))
+            }
+        });
         // SAFETY: the unit-test executable is the controlled anchor for this local replay fixture.
         let producer = unsafe {
             ReplayAdmission::observe_local(
                 ExpectedProducerTarget::WORKER,
                 anchor as *const () as usize,
-                Arc::new(move || {
-                    if observed.fetch_add(1, Ordering::Relaxed) < 2 {
-                        observed_test_configuration(vec![7])
-                    } else {
-                        Err(std::io::Error::other(
-                            "cold miss unexpectedly observed producer context",
-                        ))
-                    }
-                }),
+                observe,
             )
         }
         .unwrap();

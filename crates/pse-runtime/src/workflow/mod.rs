@@ -888,6 +888,10 @@ mod local_caller_tests {
                     pse_diagnostics::observation::Relationship::Nested,
                 );
                 let expected = lane.context().id();
+                #[expect(
+                    clippy::async_yields_async,
+                    reason = "construct under the lane context, then poll after leaving it to test captured inheritance"
+                )]
                 let inherited = crate::observation::scope(Some(lane.context()), async {
                     inherit_runtime_activity(async {
                         pse_diagnostics::observation::current().unwrap().id()
