@@ -644,6 +644,8 @@ impl Runtime {
                             .map_err(WorkflowError::from)
                     })
                     .await?;
+                let read_owner = Arc::new(retain_metadata(&self.shared.pool(), extent.clone(), read.retained_bytes()?)?);
+                read.retain_metadata_owner(read_owner)?;
                 let validation = self.validation_context();
                 let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
                     .map_err(super::relation)?;
