@@ -1578,16 +1578,16 @@ impl<'a> Session<'a> {
             }
             pairs.sort_unstable();
             // Greedy colouring of the residual rows by their state support.
-            let mut colors: Vec<Vec<usize>> = Vec::new();
-            let mut owned: Vec<Vec<i64>> = Vec::new();
+            let mut colors: Vec<Vec<usize>> = Vec::with_capacity(n);
+            let mut owned: Vec<Vec<i64>> = Vec::with_capacity(n);
             for j in 0..n {
                 let support = &rows[columns[j] as usize..columns[j + 1] as usize];
                 let color = owned
                     .iter()
                     .position(|states| support.iter().all(|i| states.binary_search(i).is_err()))
                     .unwrap_or_else(|| {
-                        owned.push(Vec::new());
-                        colors.push(Vec::new());
+                        owned.push(Vec::with_capacity(support.len()));
+                        colors.push(Vec::with_capacity(1));
                         owned.len() - 1
                     });
                 owned[color].extend_from_slice(support);
@@ -3523,6 +3523,7 @@ pub(super) fn gradient(
 /// The gradient and the Hessian over `directions` of the cotangent's functional, by
 /// forward-over-adjoint second-order sensitivities (ADR-0110 item 4). The caller admitted
 /// the second-order route and charged its estimate.
+#[allow(clippy::too_many_arguments, reason = "numerical inputs, cancellation and admitted native layout have distinct owners")]
 pub(super) fn hessian(
     oracle: &mut dyn Oracle,
     p: &Profile,
@@ -3546,6 +3547,7 @@ pub(super) fn hessian(
 }
 /// One forward pass with checkpoints, the cotangent of its samples, and the backward pass
 /// of the first-order route or, with `directions`, the second-order route.
+#[allow(clippy::too_many_arguments, reason = "numerical inputs, cancellation and admitted native layout have distinct owners")]
 fn backward_route(
     oracle: &mut dyn Oracle,
     p: &Profile,
