@@ -1,6 +1,6 @@
 ---
 title: Causal diagnostics, qualification and closeout
-status: in-progress
+status: done
 date: 2026-10-15
 adrs: []
 review_sources:
@@ -74,9 +74,9 @@ Own fixture/worker/capture resources explicitly. Cancel/stop and join only owned
 | F2 | G1; A6/B5/C5/D6/E5 delivery evidence; F1 coverage; inquiry outcomes settled | Select risk-directed assembled cases and commands by S01–S10 and changed interfaces. Confirm actual consumer/deletion inventory and known exclusions; no automatic old campaign import. | Completed — S01–S10 risk-directed selection below; prior evidence retains its original scope |
 | F3 | F2; relevant local/native/public contracts implemented | Qualify edit/re-solve, local/durable study composition, response meaning, sparse methods, fitting/window reuse and scientific failure semantics through selected complete journeys. Retain independent original assertions and report zero-baseline results. | Completed — selected ordinary/public/managed numerical, work, interruption, loss/reset/opt-out and owned cleanup controls passed after the recorded repairs |
 | F4 | F2; B1–B3, C3/C4 and F1 implemented | Qualify interruption/shared clocks/queue/drain, genuine nonempty managed result read and publication retry/failure, active-owner live/recent navigation and actual Rust/Python/placement boundaries. Track owned cleanup separately from test-body outcomes. | Completed — selected ordinary/public/managed numerical, work, interruption, loss/reset/opt-out and owned cleanup controls passed after the recorded repairs |
-| F5 | Functional acceptance and selected optional adoption complete; scoped failures repaired | Reuse F3/F4 assembled evidence and complete only remaining selected integration/component/native/Python coverage, then `just hygiene` and manual governance/docs/native/powerset checks under the repository policy. Fix scoped failures and rerun affected commands; do not introduce quality baselines, duplicate campaigns or repeat product checks after documentation-only edits. | In progress — resuming 125 unfinished feature combinations |
-| F6 | F3–F5 evidence and all required target choices settled | Reconcile the coordinator's F/O dispositions and rule implementation, transfer enduring contracts/guides through proper architecture/ADR routes, and write Outcomes with actual evidence, mistakes corrected and deliberate deviations. No unexamined scientific gates become passed. | In progress — awaiting F5 |
-| F7 | New scope fully implemented and F6 transfer complete | Reconcile relevant existing plan/status documents only now, without claiming their unrelated campaigns passed. Repair ownership/dependencies/inbound links and apply eligible review/plan retirement preflight under ADR-0096; preserve highest-numbered/consumed records and concurrent work. | In progress — older-plan handoff and retirement references being reconciled |
+| F5 | Functional acceptance and selected optional adoption complete; scoped failures repaired | Reuse F3/F4 assembled evidence and complete only remaining selected integration/component/native/Python coverage, then `just hygiene` and manual governance/docs/native/powerset checks under the repository policy. Fix scoped failures and rerun affected commands; do not introduce quality baselines, duplicate campaigns or repeat product checks after documentation-only edits. | Completed — repaired composite hygiene, full Clippy and manual checks pass |
+| F6 | F3–F5 evidence and all required target choices settled | Reconcile the coordinator's F/O dispositions and rule implementation, transfer enduring contracts/guides through proper architecture/ADR routes, and write Outcomes with actual evidence, mistakes corrected and deliberate deviations. No unexamined scientific gates become passed. | Completed — dispositions, enduring transfer and Outcomes reconciled |
+| F7 | New scope fully implemented and F6 transfer complete | Reconcile relevant existing plan/status documents only now, without claiming their unrelated campaigns passed. Repair ownership/dependencies/inbound links and apply eligible review/plan retirement preflight under ADR-0096; preserve highest-numbered/consumed records and concurrent work. | Completed — older-plan handoff, source-consumer preflight and owner release; final retirement recorded by coordinator |
 
 F3 and F4 can select independent ready journeys after F2; shared file/resource execution still needs coordination. F5 is the combined scope-end check, not a check repeated after every package. F6/F7 are documentation/closure, not another testing campaign. The first F0/F1 slices must not wait for F2.
 
@@ -290,7 +290,7 @@ Recorded Nextest identifiers include the ordinary initial run
 `10ecb62b-53ca-41ae-86d2-d167c436df7f`, managed initial run
 `af33e031-609a-4e15-869b-daab2b83bba6`, death/read repair run
 `3c12dab3-47de-4cd3-b547-9cd03a0b03cf`, and final read run
-`222f1cec-5358-48e9-b5fb-f29cfaec5a13`. Reports preserve initial failures;
+`222f1cec-5358-48e9-b5fb-f29cfaec5a13`. The recorded outcomes preserve initial failures;
 current acceptance follows the bounded repaired obligations above.
 
 ### A mistake made and corrected
@@ -358,8 +358,25 @@ success. Other services/records and all retained databases/evidence/pins remain 
 Both task repair worktrees were clean, their commits verified patch-equivalent on main,
 then removed with their branches. No remote publication or ADR status promotion occurred.
 
-**In progress — resumed feature checks:** 268/393 combinations passed before ENOSPC at 269;
-collector and host release also failed. After operator cargo clean/free space, normal
-admission reaping settled the owned allocation. Only the 125 unfinished commands are
-resuming, matched to the same enumeration and existing force-validation adapter. Passing
-source evidence remains; final F6/F7 retirement follows their completion.
+**Tested — bounded feature coverage, zero-failure target:** `just features-powerset`
+completed 268 of 393 depth-two commands before ENOSPC at 269. Its collector and host release
+also failed to write; the original aggregate is not relabeled passed. After operator cargo
+clean/free space, normal admission reaping settled its allocation. Cargo Hack 0.6.45's
+`cargo hack check --workspace --feature-powerset --depth 2 --locked --print-command-list`
+enumerated 393 commands; the completed 268-command prefix matched. The remaining 125 commands
+ran through the existing `scripts/cargo_feature_check.py` under the same native capability
+selection and completed 125/125 with zero errors/warnings, exit 0 including wrapper release.
+Thus all 393 selected obligations are covered by the composite result. `just features-no-default`
+subsequently passed 33/33 workspace packages, exit 0. These are bounded compile checks,
+not an exhaustive powerset or numerical qualification of every solver combination.
+Passing source evidence survives cargo clean; no source change or environment equivalence
+attestation was required. Original interrupted/failed reports keep their original status.
+
+**Implemented — closure and owner release:** F0–F7's adopted delivery, selected acceptance,
+enduring transfer, older-plan handoff and consumer preflight are complete. The coordinator
+owns the final reference/index/deletion transaction and documentation checks in its Outcome.
+This completed companion and the other five companions, resolved review and six inquiries
+are released for ADR-0096 retirement once their final snapshot is committed and inbound
+references relocated. The highest-numbered coordinator and proposed ADR-0190/0191 remain.
+No database, retained artifact, evidence pin or unrelated owner is released by this document
+retirement. No unqualified Plan39/40/28 campaign is closed.

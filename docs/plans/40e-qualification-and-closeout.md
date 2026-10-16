@@ -96,6 +96,14 @@ Close only after required functional scope, selected decisions, meaningful assem
 
 ## Current checkpoint
 
+The subsequent [Plan 41 Outcome](41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
+supplies affected pipeline acceptance for active-root retention, copied readers, loss/reset,
+fresh-process opt-out, native work counts and actual Rust/Python/managed result reads. It
+also records preparation corrections and exact-primary operational unavailability with
+incomplete science. These are usable foundations for this packet's selection, not completion
+of E0–E6. In particular, E3's useful deeper-profile/export obligation and this plan's assembled
+qualification remain independently owned here; no old 32-block case is retroactively passed.
+
 All E packages remain Planned and unexecuted. The focused 40a–40d deliveries and selected
 decisions now exist; E0 can select assembled journeys from their native Outcomes and the
 coordinator checkpoint. Current 40c/40d evidence includes generated Python consumers,
