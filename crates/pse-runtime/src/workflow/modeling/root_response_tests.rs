@@ -465,7 +465,7 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
     use crate::math::solves::{DerivedRequest, Outcome};
     use pse_backend_native::solve::StartPolicy;
     use pse_model::generated::enums::{
-        CandidateUse, NumericalAttemptObservation, NumericalEventKind,
+        CandidateUse, NumericalAttemptObservation, NumericalEventKind, NumericalOriginalConclusion,
     };
     use pse_model::strategy::{
         MechanismKind, NumericalStrategy, Phase, Position, ProfileRef, StartOrigin, Transition,
@@ -640,9 +640,19 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         Some(NumericalAttemptObservation::Auxiliary)
     );
     assert_eq!(finished[0].permission, Some(CandidateUse::SeedOnly));
+    assert_eq!(
+        finished[0].original_conclusion,
+        Some(NumericalOriginalConclusion::Unavailable)
+    );
+    assert_eq!(finished[0].transition, Some(Transition::Continue));
+    assert!(finished[0].failures.is_empty());
     assert_eq!(finished[0].derived_identity, Some(family));
     assert!(finished[0].start_identity.is_some());
     assert_eq!(finished[1].start_origin, Some(StartOrigin::Auxiliary));
+    assert_eq!(
+        finished[1].original_conclusion,
+        Some(NumericalOriginalConclusion::Satisfied)
+    );
     assert_eq!(finished[1].transition, Some(Transition::Finish));
     assert!(
         !scope

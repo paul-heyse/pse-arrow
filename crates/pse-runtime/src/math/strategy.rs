@@ -274,6 +274,7 @@ pub(crate) fn automatic_decision_key(
         if let Some(original) = &last.original {
             h.str(match original {
                 OriginalConclusion::Satisfied => "satisfied",
+                OriginalConclusion::AwaitingCorrection => "awaiting-correction",
                 OriginalConclusion::Refused { .. } => "refused",
                 OriginalConclusion::Unavailable { .. } => "unavailable",
             });
@@ -458,13 +459,19 @@ pub(crate) fn admit(
 #[derive(Clone, Debug)]
 pub(crate) enum OriginalConclusion {
     Satisfied,
+    /// An auxiliary result has not yet undergone original correction and assessment.
+    AwaitingCorrection,
     Refused { cause: Arc<ProblemError> },
     Unavailable { cause: Arc<ProblemError> },
 }
 impl OriginalConclusion {
+    /// Preserve actual producer failures without inventing a refusal for pending correction.
+    pub(crate) fn auxiliary(cause: Option<Arc<ProblemError>>) -> Self {
+        cause.map_or(Self::AwaitingCorrection, |cause| Self::Unavailable { cause })
+    }
     pub(crate) fn cause(&self) -> Option<Arc<ProblemError>> {
         match self {
-            Self::Satisfied => None,
+            Self::Satisfied | Self::AwaitingCorrection => None,
             Self::Refused { cause } | Self::Unavailable { cause } => Some(cause.clone()),
         }
     }
@@ -1181,7 +1188,7 @@ impl Trace {
                     charging_owner: work.map(|w| w.charging_owner),
                     original_identity: self.original,
                     decision_identity:event.decision,
-                    original_conclusion:event.original.as_ref().map(|conclusion|match conclusion {OriginalConclusion::Satisfied=>pse_model::generated::enums::NumericalOriginalConclusion::Satisfied,OriginalConclusion::Refused{..}=>pse_model::generated::enums::NumericalOriginalConclusion::Refused,OriginalConclusion::Unavailable{..}=>pse_model::generated::enums::NumericalOriginalConclusion::Unavailable}),
+                    original_conclusion:event.original.as_ref().map(|conclusion|match conclusion {OriginalConclusion::Satisfied=>pse_model::generated::enums::NumericalOriginalConclusion::Satisfied,OriginalConclusion::Refused{..}=>pse_model::generated::enums::NumericalOriginalConclusion::Refused,OriginalConclusion::AwaitingCorrection|OriginalConclusion::Unavailable{..}=>pse_model::generated::enums::NumericalOriginalConclusion::Unavailable}),
                     derived_identity: product.and_then(|p| p.derived),
                     profile_identity: actual.then(|| match product.and_then(|p| p.provider) {
                         Some(ProviderEvidence::Library(key)) => Some(key),

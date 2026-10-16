@@ -1370,7 +1370,7 @@ impl<D: Dispatch> StepDriver<'_, D> {
                         }
                         let decision=crate::workflow::numerics::auxiliary_start(screened && value.proposal.is_some());
                         let observation=cause.as_deref().map_or_else(||if screened && value.proposal.is_some() {pse_model::generated::enums::NumericalAttemptObservation::Auxiliary} else {observation},math::strategy::failure);
-                        math::strategy::Assessment {auxiliary:true,original:math::strategy::OriginalConclusion::Unavailable {cause:Arc::new(ProblemError::Unsupported("auxiliary result requires original correction".into()))},work:Vec::new(),retention:StepRetention {candidate:decision,session:SessionDisposition::Discard},observation,cause}
+                        math::strategy::Assessment {auxiliary:true,original:math::strategy::OriginalConclusion::auxiliary(cause.clone()),work:Vec::new(),retention:StepRetention {candidate:decision,session:SessionDisposition::Discard},observation,cause}
                     },
                     RungOutcome::Surrogate(value)=>{
                         if let Some(statistical)=&value.statistical {
@@ -1383,7 +1383,7 @@ impl<D: Dispatch> StepDriver<'_, D> {
                             fresh_start.set(Some(pse_model::strategy::StartOrigin::Surrogate));
                         }
                         let observation=if value.callback_terminal && math::strategy::permits_numerical_continuation(observation) {pse_model::generated::enums::NumericalAttemptObservation::ContractFailure} else {observation};
-                        math::strategy::Assessment {auxiliary:true,original:math::strategy::OriginalConclusion::Unavailable {cause:Arc::new(ProblemError::Unsupported("auxiliary result requires original correction".into()))},work:Vec::new(),retention:StepRetention {candidate:crate::workflow::numerics::auxiliary_start(value.proposal.is_some() && !value.callback_terminal),session:SessionDisposition::Discard},observation,cause:value.terminal.clone()}
+                        math::strategy::Assessment {auxiliary:true,original:math::strategy::OriginalConclusion::auxiliary(value.terminal.clone()),work:Vec::new(),retention:StepRetention {candidate:crate::workflow::numerics::auxiliary_start(value.proposal.is_some() && !value.callback_terminal),session:SessionDisposition::Discard},observation,cause:value.terminal.clone()}
                     },
                     RungOutcome::Path(value)=>{
                         if let Some(event)=value.events.first() {
@@ -1398,7 +1398,7 @@ impl<D: Dispatch> StepDriver<'_, D> {
                             let product_index=actual_products.borrow().iter().position(|p|p.derived==proposal.source().derivation);
                             if let Some(index)=product_index {actual_products.borrow_mut()[index].transport=value.connected.map(|p|p.transport);}
                         }
-                        math::strategy::Assessment {auxiliary:true,original:math::strategy::OriginalConclusion::Unavailable {cause:Arc::new(ProblemError::Unsupported("auxiliary result requires original correction".into()))},work:Vec::new(),retention:StepRetention {candidate:crate::workflow::numerics::auxiliary_start(value.proposal.is_some()),session:SessionDisposition::Discard},observation,cause:value.terminal.clone()}
+                        math::strategy::Assessment {auxiliary:true,original:math::strategy::OriginalConclusion::auxiliary(value.terminal.clone()),work:Vec::new(),retention:StepRetention {candidate:crate::workflow::numerics::auxiliary_start(value.proposal.is_some()),session:SessionDisposition::Discard},observation,cause:value.terminal.clone()}
                     },
                 },
             );

@@ -502,6 +502,56 @@ fn assessment(use_result: bool, auxiliary: bool, observation: Observation) -> As
         cause: None,
     }
 }
+fn auxiliary_assessment(observation: Observation) -> Assessment {
+    Assessment {
+        auxiliary: true,
+        original: OriginalConclusion::auxiliary(None),
+        work: Vec::new(),
+        retention: StepRetention {
+            candidate: numerics::auxiliary_start(true),
+            session: SessionDisposition::Discard,
+        },
+        observation,
+        cause: None,
+    }
+}
+
+#[test]
+fn pending_original_correction_requires_declared_continuation_and_keeps_actual_vetoes() {
+    let mut mechanism = strategy().mechanisms.remove(0);
+    let mut assessed = auxiliary_assessment(Observation::Auxiliary);
+    assert!(!assessed.original.satisfied());
+    assert!(assessed.original.cause().is_none());
+    assert_eq!(transition(&mechanism, &assessed), Transition::Stop);
+    mechanism.transitions.push(Transition::Continue);
+    assert_eq!(transition(&mechanism, &assessed), Transition::Continue);
+
+    // Pending original assessment cannot finish even if the native producer converged.
+    assessed.observation = Observation::Converged;
+    assert_eq!(transition(&mechanism, &assessed), Transition::Stop);
+    assessed.observation = Observation::Auxiliary;
+    let cause = Arc::new(ProblemError::Unsupported(
+        "actual auxiliary capability refusal".into(),
+    ));
+    assessed.original = OriginalConclusion::auxiliary(Some(cause.clone()));
+    assert!(Arc::ptr_eq(&assessed.original.cause().unwrap(), &cause));
+    assert_eq!(transition(&mechanism, &assessed), Transition::Stop);
+    let cause = Arc::new(ProblemError::numerical("actual failed auxiliary trajectory"));
+    assessed.original = OriginalConclusion::auxiliary(Some(cause.clone()));
+    assessed.observation = Observation::NumericalFailure;
+    assert!(Arc::ptr_eq(&assessed.original.cause().unwrap(), &cause));
+    assert_eq!(transition(&mechanism, &assessed), Transition::Recover);
+    assessed.original = OriginalConclusion::AwaitingCorrection;
+    for observation in [
+        Observation::CapabilityRefusal,
+        Observation::ContractFailure,
+        Observation::ResourceExhausted,
+        Observation::Cancelled,
+    ] {
+        assessed.observation = observation;
+        assert_eq!(transition(&mechanism, &assessed), Transition::Stop);
+    }
+}
 #[tokio::test]
 async fn failed_trajectory_can_run_declared_same_backend_profile_and_only_original_permission_finishes()
  {
@@ -889,33 +939,37 @@ async fn late_native_batch_member_keeps_actual_work_and_cannot_grant_original_pe
 
 #[tokio::test]
 async fn indivisible_assessment_cannot_authorize_a_result_after_the_original_deadline() {
-    let cancel = Arc::new(AtomicBool::new(false));
-    let enclosing = pse_kernels::ExecutionScope::new(
-        cancel.clone(),
-        std::time::Instant::now().checked_add(std::time::Duration::from_millis(100)),
-    );
-    let result = run(
-        &strategy(),
-        &enclosing,
-        facts,
-        |index, _| {
-            Ok(Attempt {
-                evidence: Vec::new(),
-                value: index,
-                observation: Observation::Converged,
-                work: charge(index),
-            })
-        },
-        |_, o| {
-            std::thread::sleep(std::time::Duration::from_millis(110));
-            assessment(true, false, o)
-        },
-    );
-    assert!(result.assessment.is_none());
-    assert!(result.value.is_none());
-    assert!(result.terminal.is_some());
-    assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
-    assert!(result.events.iter().all(|event| event.permission.is_none()));
+    for auxiliary in [false, true] {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let enclosing = pse_kernels::ExecutionScope::new(
+            cancel.clone(),
+            std::time::Instant::now().checked_add(std::time::Duration::from_millis(100)),
+        );
+        let result = run(
+            &strategy(),
+            &enclosing,
+            facts,
+            |index, _| {
+                assert_eq!(index, 0, "expired auxiliary work cannot dispatch correction");
+                Ok(Attempt {
+                    evidence: Vec::new(),
+                    value: index,
+                    observation: if auxiliary { Observation::Auxiliary } else { Observation::Converged },
+                    work: charge(index),
+                })
+            },
+            |_, o| {
+                std::thread::sleep(std::time::Duration::from_millis(110));
+                if auxiliary { auxiliary_assessment(o) } else { assessment(true, false, o) }
+            },
+        );
+        assert!(result.assessment.is_none());
+        assert!(result.value.is_none());
+        assert!(result.terminal.is_some());
+        assert_eq!(result.work.attempts, 1);
+        assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+        assert!(result.events.iter().all(|event| event.permission.is_none()));
+    }
 }
 
 #[tokio::test]
@@ -952,7 +1006,13 @@ async fn preparation_first_uses_entry_then_auxiliary_correction_requires_declare
                 work: charge(index),
             })
         },
-        |index, o| assessment(*index == 1, *index == 0, o),
+        |index, o| {
+            if *index == 0 {
+                auxiliary_assessment(o)
+            } else {
+                assessment(true, false, o)
+            }
+        },
     );
     assert_eq!(visited, [0, 1]);
     assert!(result.terminal.is_none());
@@ -961,6 +1021,14 @@ async fn preparation_first_uses_entry_then_auxiliary_correction_requires_declare
         Some(Transition::Finish)
     );
     assert_eq!(result.work.attempts, 2);
+    assert_eq!(result.work.evaluations, Some(6));
+    let auxiliary = result.events.iter()
+        .find(|event| event.observation == Some(Observation::Auxiliary))
+        .unwrap();
+    assert!(matches!(auxiliary.original, Some(OriginalConclusion::AwaitingCorrection)));
+    assert_eq!(auxiliary.permission, Some(CandidateUse::SeedOnly));
+    assert_eq!(auxiliary.transition, Some(Transition::Continue));
+    assert!(auxiliary.cause.is_none());
     // Fresh declared recovery is lawful; incoming Explicit keeps hard precedence.
     let mut auxiliary = facts(0);
     auxiliary.start = StartOrigin::Auxiliary;
@@ -991,11 +1059,43 @@ async fn preparation_first_uses_entry_then_auxiliary_correction_requires_declare
                 work: charge(index),
             })
         },
-        |_, o| assessment(false, true, o),
+        |_, o| auxiliary_assessment(o),
     );
     assert!(result.terminal.is_some());
     assert_eq!(result.work.attempts, 1);
     assert_eq!(result.events.last().unwrap().kind, EventKind::Refused);
+    assert_eq!(
+        result.events.last().unwrap().observation,
+        Some(Observation::CapabilityRefusal)
+    );
+
+    declaration.start.recovery.push(StartOrigin::Auxiliary);
+    declaration.limits.attempts = 1;
+    let result = run(
+        &declaration,
+        &scope(),
+        supplied,
+        |index, _| {
+            assert_eq!(index, 0, "original correction requires a remaining attempt");
+            Ok(Attempt {
+                evidence: Vec::new(),
+                value: index,
+                observation: Observation::Auxiliary,
+                work: charge(index),
+            })
+        },
+        |_, o| auxiliary_assessment(o),
+    );
+    assert_eq!(result.work.attempts, 1);
+    assert_eq!(result.work.evaluations, Some(3));
+    assert!(matches!(
+        result.terminal.as_deref(),
+        Some(ProblemError::Limit { .. })
+    ));
+    assert_eq!(
+        result.events.last().unwrap().observation,
+        Some(Observation::ResourceExhausted)
+    );
 }
 #[tokio::test]
 async fn optional_preparation_refusal_preserves_specification_entry_for_first_dispatch() {

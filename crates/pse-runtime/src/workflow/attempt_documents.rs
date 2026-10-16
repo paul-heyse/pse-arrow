@@ -127,7 +127,9 @@ impl From<&Event> for AttemptDecision {
             original: event.original.as_ref().map(|original| match original {
                 OriginalConclusion::Satisfied => AttemptOriginalConclusion::Satisfied,
                 OriginalConclusion::Refused { .. } => AttemptOriginalConclusion::Refused,
-                OriginalConclusion::Unavailable { .. } => AttemptOriginalConclusion::Unavailable,
+                OriginalConclusion::AwaitingCorrection | OriginalConclusion::Unavailable { .. } => {
+                    AttemptOriginalConclusion::Unavailable
+                }
             }),
         }
     }
@@ -630,5 +632,29 @@ mod tests {
         ));
         assert_eq!(projected.observation, Some(Observation::Converged));
         assert_eq!(projected.transition, Some(Transition::Stop));
+    }
+    #[test]
+    fn decision_projection_keeps_pending_correction_unavailable_and_auxiliary() {
+        let event = Event {
+            mechanism: 0,
+            kind: NumericalEventKind::Finished,
+            phase: Phase::Assessment,
+            original: Some(OriginalConclusion::AwaitingCorrection),
+            decision: None,
+            observation: Some(Observation::Auxiliary),
+            transition: Some(Transition::Continue),
+            permission: Some(pse_model::generated::enums::CandidateUse::SeedOnly),
+            work: None,
+            cause: None,
+        };
+        let projected = AttemptDecision::from(&event);
+        assert!(matches!(
+            projected.original,
+            Some(AttemptOriginalConclusion::Unavailable)
+        ));
+        assert_eq!(projected.observation, Some(Observation::Auxiliary));
+        assert_eq!(projected.transition, Some(Transition::Continue));
+        assert_eq!(projected.permission, event.permission);
+        assert!(event.cause.is_none());
     }
 }
