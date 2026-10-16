@@ -160,6 +160,97 @@ async fn receiver_output(stream: impl AsyncRead + Unpin) -> Result<Vec<u8>, Work
     }
     Ok(bytes)
 }
+
+async fn receiver_response(
+    mut command: tokio::process::Command,
+) -> Result<(std::process::ExitStatus, Vec<u8>, Vec<u8>), WorkflowError> {
+    command
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true);
+    let mut child = command
+        .spawn()
+        .map_err(|error| contract(format!("managed primary control: {error}")))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| contract("managed primary output pipe absent"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| contract("managed primary error pipe absent"))?;
+    tokio::try_join!(
+        async {
+            child
+                .wait()
+                .await
+                .map_err(|error| contract(format!("managed primary control: {error}")))
+        },
+        receiver_output(stdout),
+        receiver_output(stderr),
+    )
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct PrimaryScope {
+    unit: String,
+    group: String,
+    invocation: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct PrimaryOwner {
+    scope: PrimaryScope,
+    scope_inode: u64,
+}
+
+/// One startup-admitted receiver lifetime; a replacement cannot become this owner.
+pub(super) struct ManagedPrimary {
+    selected: super::NativeExecutionSelection,
+    owner: PrimaryOwner,
+}
+impl ManagedPrimary {
+    /// Only the supervisor's exact native drain observation permits unfinished exit.
+    pub(super) async fn drained(&self) -> Result<bool, WorkflowError> {
+        // The startup-selected immutable supervisor observes the original lifetime,
+        // even if the next native selection changes. No worker bytes are reopened.
+        let (receiver, _) = self.selected.managed_primary()?;
+        let mut command = tokio::process::Command::new(&receiver.supervisor_executable);
+        command
+            .arg(&receiver.supervisor_script)
+            .arg("observe-primary")
+            .arg("--state")
+            .arg(self.selected.receiver_state())
+            .arg("--canonical-database")
+            .arg(self.selected.database())
+            .arg("--primary-owner")
+            .arg(serde_json::to_string(&self.owner).map_err(|error| contract(error.to_string()))?);
+        let (status, stdout, _) = receiver_response(command).await?;
+        // A failed/unknown observation grants no release authority.
+        if !status.success() {
+            return Ok(false);
+        }
+        #[derive(serde::Deserialize)]
+        struct Observation {
+            canonical_database: String,
+            primary_owner: PrimaryOwner,
+            phase: String,
+        }
+        let observed: Observation = serde_json::from_slice(&stdout)
+            .map_err(|error| contract(format!("managed primary observation: {error}")))?;
+        if observed.canonical_database != self.selected.database()
+            || observed.primary_owner.scope.unit != self.owner.scope.unit
+            || observed.primary_owner.scope.group != self.owner.scope.group
+            || observed.primary_owner.scope.invocation != self.owner.scope.invocation
+            || observed.primary_owner.scope_inode != self.owner.scope_inode
+        {
+            return Err(contract("managed primary observation identity differs"));
+        }
+        Ok(observed.phase == "complete")
+    }
+}
 #[cfg(test)]
 mod receiver_tests {
     use super::*;
@@ -1140,7 +1231,7 @@ impl Runtime {
     pub(super) async fn ensure_managed_primary(
         &self,
         cancel: &crate::CancelSource,
-    ) -> Result<(), WorkflowError> {
+    ) -> Result<ManagedPrimary, WorkflowError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
         if cancel.token().is_cancelled() {
@@ -1166,33 +1257,8 @@ impl Runtime {
             .arg("--canonical-database")
             .arg(store.database())
             .arg("--observer-pid")
-            .arg(std::process::id().to_string())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .kill_on_drop(true);
-        let mut child = command
-            .spawn()
-            .map_err(|error| contract(format!("managed primary startup: {error}")))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| contract("managed primary output pipe absent"))?;
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| contract("managed primary error pipe absent"))?;
-        let response = async {
-            tokio::try_join!(
-                async {
-                    child
-                        .wait()
-                        .await
-                        .map_err(|error| contract(format!("managed primary startup: {error}")))
-                },
-                receiver_output(stdout),
-                receiver_output(stderr),
-            )
-        };
+            .arg(std::process::id().to_string());
+        let response = receiver_response(command);
         let (status, stdout, stderr) = tokio::select! {
             output = tokio::time::timeout(Duration::from_millis(profile.admission_wait_ms), response) =>
                 output.map_err(|_| contract("managed primary readiness deadline expired"))?
@@ -1208,14 +1274,16 @@ impl Runtime {
         #[derive(serde::Deserialize)]
         struct Ready {
             ready: bool,
+            canonical_database: String,
+            primary_owner: PrimaryOwner,
         }
         let ready: Ready = serde_json::from_slice(&stdout)
             .map_err(|error| contract(format!("managed primary readiness: {error}")))?;
-        if !ready.ready {
+        if !ready.ready || ready.canonical_database != selected.database() {
             return Err(contract("managed primary is not ready"));
         }
         selected.require_current()?;
-        Ok(())
+        Ok(ManagedPrimary { selected, owner: ready.primary_owner })
 
         }).await
     }

@@ -27,6 +27,18 @@ impl DiagnosticProjection for super::WorkflowError {
     fn boundary_diagnostic(&self, stage: DiagnosticStage) -> BoundaryDiagnostic {
         match self {
             Self::Boundary(d) => d.as_ref().clone(),
+            Self::StudyExecutionUnavailable { study } => {
+                let mut diagnostic =
+                    project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
+                diagnostic.rule = DiagnosticRule::WorkflowInternal;
+                diagnostic
+                    .observations
+                    .insert("study_key".into(), Observation::Text(study.to_string()));
+                diagnostic
+                    .observations
+                    .insert("detail".into(), Observation::Text(self.to_string()));
+                diagnostic
+            }
             Self::ConditionalAdmission { diagnostic, cause }
             | Self::ModelingAdmission { diagnostic, cause } => {
                 let mut d = diagnostic.as_ref().clone();

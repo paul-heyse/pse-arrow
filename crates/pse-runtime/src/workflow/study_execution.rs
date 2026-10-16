@@ -20,6 +20,55 @@ use std::{
     sync::Arc,
 };
 
+/// Cancellation is recorded once; healthy workers retain the joined-result contract.
+/// Receiver drain ends observation without inventing terminal scientific outcomes.
+async fn wait_study_inventory<T, Inventory, InventoryFuture, Cancel, CancelFuture, Observe, ObserveFuture>(
+    study: pse_model::generated::identities::StudyId,
+    cancel: &crate::CancelSource,
+    observation_interval: std::time::Duration,
+    mut inventory: Inventory,
+    mut record_cancel: Cancel,
+    mut receiver_drained: Observe,
+) -> Result<T, WorkflowError>
+where
+    Inventory: FnMut() -> InventoryFuture,
+    InventoryFuture: Future<Output = Result<Option<T>, WorkflowError>>,
+    Cancel: FnMut() -> CancelFuture,
+    CancelFuture: Future<Output = Result<(), WorkflowError>>,
+    Observe: FnMut() -> ObserveFuture,
+    ObserveFuture: Future<Output = Result<bool, WorkflowError>>,
+{
+    let mut cancellation_recorded = false;
+    let mut next_observation = tokio::time::Instant::now();
+    loop {
+        if cancel.token().is_cancelled() && !cancellation_recorded {
+            record_cancel().await?;
+            cancellation_recorded = true;
+        }
+        if let Some(inventory) = inventory().await? {
+            return Ok(inventory);
+        }
+        if tokio::time::Instant::now() >= next_observation {
+            if receiver_drained().await.unwrap_or(false) {
+                // Finalization can commit between the first header read and physical
+                // drain. Prefer its actual inventory over an operational failure.
+                if let Some(inventory) = inventory().await? {
+                    return Ok(inventory);
+                }
+                return Err(WorkflowError::StudyExecutionUnavailable { study });
+            }
+            // Reuse the admitted renewal cadence for manager observations. Header
+            // polling keeps its existing interval and does not spawn a control each time.
+            next_observation = tokio::time::Instant::now() + observation_interval;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+}
+
+#[cfg(test)]
+#[path = "study_observer_tests.rs"]
+mod observer_tests;
+
 /// One completed occurrence keeps an exact persisted handle in application mode.
 /// Explicit kernel tests may retain their requested native owner in memory.
 #[derive(Clone, Debug)]
@@ -202,23 +251,21 @@ impl ModelingPackage {
                 "bounded study extent and exact modeling revision",
             ));
         }
-        self.runtime.ensure_managed_primary(cancel).await?;
+        let primary = self.runtime.ensure_managed_primary(cancel).await?;
         let handle = Box::pin(
             self.runtime
                 .start_recorded_study(definition.clone(), cancel),
         )
         .await?;
-        let mut cancellation_recorded = false;
-        let inventory = loop {
-            if cancel.token().is_cancelled() && !cancellation_recorded {
-                handle.cancel().await?;
-                cancellation_recorded = true;
-            }
-            if let Some(inventory) = handle.terminal_inventory().await? {
-                break inventory;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        };
+        let inventory = wait_study_inventory(
+            handle.study_id(),
+            cancel,
+            self.runtime.operations()?.policy().heartbeat,
+            || handle.terminal_inventory(),
+            || async { handle.cancel().await.map(|_| ()) },
+            || primary.drained(),
+        )
+        .await?;
         let status = inventory.status;
         let facts = inventory.facts;
         let owner = inventory.owner;

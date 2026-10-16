@@ -126,7 +126,7 @@ canonical-init state:
 [group('local')]
 [doc('Targeted canonical server supervisor mechanism controls')]
 surreal-test:
-    "{{ py }}" -m unittest scripts.tests.test_surreal_server scripts.tests.test_surreal_mcp -v
+    "{{ py }}" -m unittest scripts.tests.test_surreal_server scripts.tests.test_surreal_mcp scripts.tests.test_primary_observation -v
 
 [group('local')]
 [doc('Disposable acknowledged-write, abrupt restart and offline backup/restore server control')]

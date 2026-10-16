@@ -213,6 +213,12 @@ pub use source_settlement::{SourceAcknowledgement, SourceSettlement};
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkflowError {
+    /// The admitted primary drained before durable finalization; records remain recoverable.
+    #[error("study {study} execution is unavailable: its managed primary drained before finalization; durable records require explicit recovery")]
+    StudyExecutionUnavailable {
+        /// Exact durable study whose unfinished records remain authoritative.
+        study: StudyId,
+    },
     /// Typed absence of an explicitly requested immutable scientific seed.
     #[error(transparent)]
     SeedRead(#[from] SeedReadError),
@@ -307,7 +313,7 @@ impl From<BoundaryDiagnostic> for WorkflowError {
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(this) {match this {Self::Input(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
+    code(this) {match this {Self::Input(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)|Self::StudyExecutionUnavailable{..}=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
     forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }

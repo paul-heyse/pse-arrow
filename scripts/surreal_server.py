@@ -3286,6 +3286,73 @@ def primary_drain_pid(
     return _primary_process(state, config, observation, recorded_primary(config))
 
 
+def primary_dispatch_owner(
+    state: Path,
+    config: dict[str, object],
+    database: str,
+    qualification: Path | None,
+) -> dict[str, object]:
+    """Bind dispatch to the ready receiver's actual kernel and manager lifetime."""
+    unit = primary_unit(state)
+    before = native_operation.unit_observation(unit, properties=("MemoryMax",))
+    group = before["ControlGroup"]
+    invocation = before["InvocationID"]
+    if (
+        not re.fullmatch(r"[a-f0-9]{32}", invocation)
+        or not group.startswith("/")
+        or group == "/"
+        or ".." in Path(group).parts
+        or not primary_ready(state, config, before, database, qualification)
+    ):
+        raise SupervisorError("Primary changed before dispatch observation admission")
+    inode = host_admission.group_identity(group)
+    after = native_operation.unit_observation(unit)
+    if (
+        inode is None
+        or after["InvocationID"] != invocation
+        or after["ControlGroup"] != group
+        or after["ActiveState"] != "active"
+        or host_admission.group_identity(group) != inode
+    ):
+        raise SupervisorError("Primary lifetime changed during dispatch observation admission")
+    return {
+        "scope": {"unit": unit, "group": group, "invocation": invocation},
+        "scope_inode": inode,
+    }
+
+
+def observe_primary(
+    state: Path, database: str | None, owner: dict[str, object]
+) -> dict[str, object]:
+    """Observe one admitted receiver, without starting, stopping or settling work."""
+    state = receiver_context(state, database)
+    config = config_for(state)
+    if database is None or config["database"] != database:
+        raise SupervisorError("Primary observation requires its canonical database")
+    scope = owner.get("scope")
+    if (
+        set(owner) != {"scope", "scope_inode"}
+        or not isinstance(scope, dict)
+        or set(scope) != {"unit", "group", "invocation"}
+        or scope.get("unit") != primary_unit(state)
+        or not isinstance(scope.get("group"), str)
+        or not str(scope["group"]).startswith("/")
+        or scope["group"] == "/"
+        or ".." in Path(str(scope["group"])).parts
+        or not isinstance(scope.get("invocation"), str)
+        or not re.fullmatch(r"[a-f0-9]{32}", str(scope["invocation"]))
+        or type(owner.get("scope_inode")) is not int
+        or integer(owner["scope_inode"]) <= 0
+    ):
+        raise SupervisorError("Primary observation owner is not the selected receiver")
+    observation = native_operation.drained(owner)
+    return {
+        "canonical_database": database,
+        "primary_owner": owner,
+        "phase": observation.phase.value,
+    }
+
+
 def _primary_process(
     state: Path,
     config: dict[str, object],
@@ -3666,6 +3733,7 @@ def _ensure_primary(
         return {
             "ready": True,
             "unit": primary_unit(state),
+            "primary_owner": primary_dispatch_owner(state, config, selected_database, qualification),
             "execution": allocation["execution"],
             "canonical_database": selected_database,
             "placement": placement_observation(state),
@@ -3775,6 +3843,7 @@ def _ensure_primary(
                 return {
                     "ready": True,
                     "unit": primary_unit(state),
+                    "primary_owner": primary_dispatch_owner(state, config, selected_database, qualification),
                     "execution": allocation["execution"],
                     "canonical_database": selected_database,
                     "placement": placement_observation(state),
@@ -8214,6 +8283,7 @@ def parser() -> argparse.ArgumentParser:
             "validate",
             "worker",
             "ensure-primary",
+            "observe-primary",
             "observer",
             "_serve",
         ],
@@ -8235,6 +8305,7 @@ def parser() -> argparse.ArgumentParser:
             )
         ),
     )
+    result.add_argument("--primary-owner", help="Exact owner returned by ensure-primary")
     result.add_argument(
         "--tool-root",
         type=Path,
@@ -8366,6 +8437,13 @@ def _dispatch(args: argparse.Namespace) -> int:
             args.canonical_database,
             args.qualification_native_entry,
         )
+    elif args.command == "observe-primary":
+        if args.primary_owner is None or len(args.primary_owner) > 4096:
+            raise SupervisorError("Primary observation requires a bounded admitted owner")
+        owner = json.loads(args.primary_owner)
+        if not isinstance(owner, dict):
+            raise SupervisorError("Primary observation owner must be an object")
+        output = observe_primary(args.state.absolute(), args.canonical_database, owner)
     elif args.command == "_serve":
         return serve(args.state.absolute())
     else:
