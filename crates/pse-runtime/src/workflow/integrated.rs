@@ -465,7 +465,7 @@ impl IntegratedExperiment {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("dynamics.window_ivp_initializations", "count", 1);
         }
-        let mut oracle = native::dynamics::Anchored::new(worker, false)?;
+        let mut oracle = worker.window(false)?;
         let profile = oracle.profile(&attempt(&window.profile, execution, sensitivity));
         let report = native::dynamics::integrate_with_progress_observed(
             &mut oracle,
@@ -499,7 +499,7 @@ impl IntegratedExperiment {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("dynamics.window_adjoint_initializations", "count", 1);
         }
-        let mut oracle = native::dynamics::Anchored::new(worker, true)?;
+        let mut oracle = worker.window(true)?;
         let profile = oracle.profile(&attempt(
             &window.profile,
             execution,

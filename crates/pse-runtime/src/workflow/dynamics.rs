@@ -609,6 +609,8 @@ impl DynamicWorker {
             layout,
             scope,
             snapshots,
+            #[cfg(feature = "solver-diffsol")]
+            observed_layout: None,
         })
     }
 }
@@ -747,8 +749,50 @@ pub(crate) struct DynamicWorker {
     layout: Arc<DynamicLayout>,
     scope: pse_kernels::ExecutionScope,
     snapshots: SnapshotAllocator,
+    #[cfg(feature = "solver-diffsol")]
+    observed_layout: Option<Arc<native::AnchoredLayout>>,
 }
 impl DynamicWorker {
+    /// Borrow an anchored view without retaining native integration history. Plain
+    /// views forward the base Arc; the observed quadrature transform is prepared
+    /// only on first actual adjoint demand and remains owned by this lane.
+    #[cfg(feature = "solver-diffsol")]
+    pub(crate) fn window(&mut self, observe_quadratures: bool) -> Result<native::Anchored<&mut Self>, ProblemError> {
+        let observed = observe_quadratures && !self.contract.quadratures.is_empty();
+        let reused = observed && self.observed_layout.is_some();
+        if observed && self.observed_layout.is_none() {
+            let entries = self.layout.functions.iter()
+                .filter(|((_, function), _)| matches!(function, Function::Rhs | Function::QuadratureFlux))
+                .try_fold(0usize, |n, (_, function)| n.checked_add(function.pairs.len()))
+                .ok_or_else(|| ProblemError::memory("window support extent"))?;
+            let states = self.contract.states.len().checked_add(self.contract.quadratures.len())
+                .ok_or_else(|| ProblemError::memory("window state extent"))?;
+            let allowance = native::PreparedLayout::construction_bound(states, entries)
+                // Source support vectors, their extension/reallocation overlap and
+                // all-mode headers coexist with the destination construction.
+                .and_then(|n| n.checked_add(entries.checked_mul(4 * size_of::<native::SupportEntry>())?))
+                .and_then(|n| n.checked_add(self.contract.events.len().checked_mul(size_of::<Vec<native::SupportEntry>>())?))
+                .and_then(|n| n.checked_add(256))
+                .ok_or_else(|| ProblemError::memory("window layout construction extent"))?;
+            let prepared = {
+                let view = native::Anchored::new(&mut *self, true)?;
+                view.prepare_layout(allowance)?
+            };
+            self.observed_layout = Some(prepared);
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("dynamics.window_layout_constructions", "count", 1);
+            }
+        }
+        let prepared = if observed { self.observed_layout.clone() } else { None };
+        let mut view = native::Anchored::new(self, observe_quadratures)?;
+        if let Some(prepared) = prepared {
+            view.use_prepared_layout(prepared)?;
+            if reused && let Some(context) = pse_diagnostics::observation::current() {
+                context.count("dynamics.window_layout_reuses", "count", 1);
+            }
+        }
+        Ok(view)
+    }
     #[cfg(test)]
     pub(crate) fn assert_independent_layout(&self, other: &Self) {
         assert!(Arc::ptr_eq(&self.layout, &other.layout));
@@ -1112,6 +1156,9 @@ impl Oracle for DynamicWorker {
 // An anchored window borrows its lane's mathematical/provider worker. Its native IVP
 // remains fresh, while compiled scratch and provider owners never leave that lane.
 impl Oracle for &mut DynamicWorker {
+    fn prepared_layout(&self, allowance: usize) -> Result<Arc<native::PreparedLayout>, ProblemError> {
+        (**self).prepared_layout(allowance)
+    }
     fn contract(&self) -> &native::Contract {
         (**self).contract()
     }

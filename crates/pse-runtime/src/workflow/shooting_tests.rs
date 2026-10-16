@@ -1478,6 +1478,8 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         assert_eq!(count("dynamics.workflow_worker_constructions"), Value::Count(1));
         assert_eq!(count("dynamics.window_ivp_initializations"), Value::Count(6));
         assert_eq!(count("dynamics.window_adjoint_initializations"), Value::Count(2));
+        assert_eq!(count("dynamics.window_layout_constructions"), Value::Count(1));
+        assert_eq!(count("dynamics.window_layout_reuses"), Value::Count(1));
         drop(entered);
         let mut fresh = ShootingOracle { problem, execution, point: None, worker: None };
         let tolerance = 64. * simulation.profile().rtol;

@@ -382,3 +382,68 @@ fn anchored_snapshots_retain_distinct_owners_and_refuse_missing_admission() {
     );
     assert_eq!(live.load(Ordering::Acquire), 0);
 }
+
+#[test]
+fn anchored_layout_is_source_bound_and_retains_its_allocation_without_support_replay() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[derive(Debug)]
+    struct Charge(Arc<AtomicUsize>);
+    impl Drop for Charge {
+        fn drop(&mut self) { self.0.fetch_sub(1, Ordering::AcqRel); }
+    }
+    #[derive(Debug)]
+    struct Counted {
+        inner: Tank,
+        base: Arc<PreparedLayout>,
+        queries: Arc<AtomicUsize>,
+        live: Arc<AtomicUsize>,
+    }
+    impl Oracle for Counted {
+        fn contract(&self) -> &Contract { self.inner.contract() }
+        fn prepared_layout(&self, allowance: usize) -> Result<Arc<PreparedLayout>, ProblemError> {
+            if self.base.retained_bytes() > allowance { return Err(ProblemError::memory("fixture layout allowance")); }
+            Ok(self.base.clone())
+        }
+        fn support(&self, mode: usize, function: Function) -> Vec<SupportEntry> {
+            self.queries.fetch_add(1, Ordering::AcqRel);
+            self.inner.support(mode, function)
+        }
+        fn snapshot_owner(&self, _: usize) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+            self.live.fetch_add(1, Ordering::AcqRel);
+            Ok(Arc::new(Charge(self.live.clone())))
+        }
+        fn evaluate(&mut self, mode: usize, function: Function, time: f64, state: &[f64], parameters: &[f64], derivatives: bool) -> Result<Evaluation, ProblemError> {
+            self.inner.evaluate(mode, function, time, state, parameters, derivatives)
+        }
+    }
+    let tank = Tank::new();
+    let base = Arc::new(PreparedLayout::new(tank.contract().states.len(), tank.support(0, Function::Rhs).into_iter(), 4096).unwrap());
+    let queries = Arc::new(AtomicUsize::new(0));
+    let live = Arc::new(AtomicUsize::new(0));
+    let worker = |tank| Counted { inner: tank, base: base.clone(), queries: queries.clone(), live: live.clone() };
+    let plain = Anchored::new(worker(Tank::new()), false).unwrap();
+    assert!(Arc::ptr_eq(&plain.prepared_layout(4096).unwrap(), &base));
+    assert_eq!(queries.load(Ordering::Acquire), 0);
+    let observed = Anchored::new(worker(Tank::new()), true).unwrap();
+    let prepared = observed.prepare_layout(4096).unwrap();
+    assert_eq!(queries.load(Ordering::Acquire), 2);
+    assert_eq!(live.load(Ordering::Acquire), 1);
+    let mut reused = Anchored::new(worker(Tank::new()), true).unwrap();
+    reused.use_prepared_layout(prepared.clone()).unwrap();
+    let first = reused.prepared_layout(4096).unwrap();
+    let second = reused.prepared_layout(4096).unwrap();
+    assert!(Arc::ptr_eq(&first, &second));
+    assert_eq!(first.states(), 3);
+    assert_eq!(queries.load(Ordering::Acquire), 2);
+    assert!(reused.prepared_layout(0).is_err());
+    let mut different = Tank::new();
+    different.0.identity = ContentHash::from_bytes([7; 32]);
+    assert!(Anchored::new(worker(different), true).unwrap().use_prepared_layout(prepared.clone()).is_err());
+    assert!(Anchored::new(worker(Tank::new()), false).unwrap().use_prepared_layout(prepared.clone()).is_err());
+    drop(first);
+    drop(second);
+    drop(prepared);
+    assert_eq!(live.load(Ordering::Acquire), 1);
+    drop(reused);
+    assert_eq!(live.load(Ordering::Acquire), 0);
+}

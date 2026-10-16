@@ -60,6 +60,17 @@ pub struct Anchored<O> {
     m: usize,
     /// Declared quadratures are integrated as states and observed as outputs.
     observed: bool,
+    prepared: Option<Arc<AnchoredLayout>>,
+}
+/// Source-issued immutable support for one anchored formulation. The source identity
+/// and observed-quadrature choice prevent reuse for a different compiled problem.
+/// Its allocation owner follows every borrowed native window view.
+#[derive(Debug)]
+pub struct AnchoredLayout {
+    identity: ContentHash,
+    observed: bool,
+    layout: Arc<PreparedLayout>,
+    _owner: Arc<dyn pse_math::AllocationOwner>,
 }
 impl<O: Oracle> Anchored<O> {
     /// Wrap `inner`; `observe_quadratures` integrates its quadratures as observed states,
@@ -119,7 +130,38 @@ impl<O: Oracle> Anchored<O> {
             contract,
             anchors,
             observed,
+            prepared: None,
         })
+    }
+    /// Prepare the transformed all-mode state layout once, after reserving its
+    /// source-issued construction allowance. Numeric window data does not enter it.
+    ///
+    /// # Errors
+    /// Missing allocation authority, insufficient allowance or invalid support.
+    pub fn prepare_layout(&self, allowance: usize) -> Result<Arc<AnchoredLayout>, ProblemError> {
+        let owner = self.snapshot_owner(allowance)?;
+        let layout = self.prepared_layout(allowance)?;
+        Ok(Arc::new(AnchoredLayout {
+            identity: self.contract.identity,
+            observed: self.observed,
+            layout,
+            _owner: owner,
+        }))
+    }
+    /// Bind support prepared by this exact anchored source. The native IVP is still
+    /// initialized freshly; this retains only immutable structural destinations.
+    ///
+    /// # Errors
+    /// A different source, formulation or state extent.
+    pub fn use_prepared_layout(&mut self, prepared: Arc<AnchoredLayout>) -> Result<(), ProblemError> {
+        if prepared.identity != self.contract.identity
+            || prepared.observed != self.observed
+            || prepared.layout.states() != self.contract.states.len()
+        {
+            return Err(ProblemError::Contract("anchored layout source differs".into()));
+        }
+        self.prepared = Some(prepared);
+        Ok(())
     }
     /// The differential states the anchors start, in anchor order.
     pub fn anchors(&self) -> &[usize] {
@@ -243,6 +285,34 @@ impl<O: Oracle> Anchored<O> {
     }
 }
 impl<O: Oracle> Oracle for Anchored<O> {
+    fn prepared_layout(&self, allowance: usize) -> Result<Arc<PreparedLayout>, ProblemError> {
+        if let Some(prepared) = &self.prepared {
+            if prepared.layout.retained_bytes() > allowance {
+                return Err(ProblemError::memory("anchored layout exceeds allowance"));
+            }
+            return Ok(prepared.layout.clone());
+        }
+        // Anchors add parameters, not state support. Plain windows share the
+        // original all-mode state layout without querying support again.
+        if !self.observed {
+            return self.inner.prepared_layout(allowance);
+        }
+        let mut supports = Vec::with_capacity(self.contract.events.len());
+        let mut support_bytes = supports.capacity().checked_mul(size_of::<Vec<SupportEntry>>())
+            .ok_or_else(|| ProblemError::memory("anchored support headers extent"))?;
+        for mode in 0..self.contract.events.len() {
+            let support = self.support(mode, Function::Rhs);
+            support_bytes = support_bytes.checked_add(support.capacity().checked_mul(size_of::<SupportEntry>())
+                .ok_or_else(|| ProblemError::memory("anchored source support extent"))?)
+                .ok_or_else(|| ProblemError::memory("anchored source support extent"))?;
+            if support_bytes > allowance {
+                return Err(ProblemError::memory("anchored source support exceeds allowance"));
+            }
+            supports.push(support);
+        }
+        Ok(Arc::new(PreparedLayout::new(self.contract.states.len(),
+            supports.iter().flat_map(|support| support.iter().copied()), allowance - support_bytes)?))
+    }
     fn snapshot_owner(
         &self,
         bytes: usize,

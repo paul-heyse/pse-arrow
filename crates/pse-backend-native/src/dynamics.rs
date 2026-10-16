@@ -17,7 +17,7 @@ pub use layout::PreparedLayout;
 #[cfg(feature = "idas")]
 use layout::{csc, slot};
 mod anchored;
-pub use anchored::Anchored;
+pub use anchored::{Anchored, AnchoredLayout};
 #[cfg(feature = "idas")]
 mod idas;
 #[cfg(feature = "diffsol")]
