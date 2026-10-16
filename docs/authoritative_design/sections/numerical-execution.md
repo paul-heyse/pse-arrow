@@ -1626,8 +1626,12 @@ native stack, live jobs and flights.
   accepted neutral state and its resident charges may transfer to an idle service lane;
   cancelled, fatal or uncertain requests transfer no healthy retained state. Lane retirement
   and service shutdown wait for native/thread-local destruction and owner-thread join before
-  resident/population release. Existing ephemeral job paths retain full join before finish
-  until their consumers migrate. Retained results transfer a
+  resident/population release. Independently usable local study steps/batches and common
+  modeling runs use this neutral parking path only after their original assessment;
+  request records, seeds, progress and unsupported numeric state are cleared. Failed,
+  cancelled, expired and unexecuted requests close. Continuations retain their private
+  owner until the real successor. Other ephemeral job paths retain full join before
+  finish until their consumers migrate. Retained results transfer a
   split of the job reservation to an `AllocationLease` that lives with the result; a
   product larger than the job's working allowance first grows the reservation to its
   extent, and one the pool cannot admit is refused as a pool limit.

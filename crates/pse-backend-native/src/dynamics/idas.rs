@@ -106,6 +106,7 @@ impl Context<'_> {
             parameters,
             mode,
             callback,
+            layout,
             ..
         } = self;
         let value = callback.evaluate(format_callback(f), || {
@@ -136,6 +137,13 @@ impl Context<'_> {
                 return Err(ProblemError::numerical(
                     "IDAS function value or derivative is nonfinite",
                 ));
+            }
+            if f == Function::Rhs && derivatives
+                && let Some(partials) = &e.jacobian
+                && (0..c.states.len()).any(|column| partials.col_range(column)
+                    .any(|entry| layout.get(column, partials.row_idx()[entry]).is_none()))
+            {
+                return Err(ProblemError::Contract("IDAS residual partial outside its declared support".into()));
             }
             Ok(e)
         });
@@ -1333,6 +1341,12 @@ impl<'a> Session<'a> {
         crate::observation::integer("idas.layout.nonzeros", "entries", i64::try_from(layout.nonzeros()).unwrap_or(i64::MAX));
         crate::observation::integer("idas.layout.bytes", "bytes", i64::try_from(layout.retained_bytes()).unwrap_or(i64::MAX));
         crate::observation::integer("idas.linear.workspace.bytes", "bytes", i64::try_from(layout.linear_bytes(config.linear)?).unwrap_or(i64::MAX));
+        let opaque_fill = if config.linear == IdasLinear::Klu {
+            n.checked_mul(n).and_then(|cells| cells.checked_mul(32))
+                .ok_or_else(|| ProblemError::memory("IDAS direct fill allowance extent"))?
+        } else { 0 };
+        crate::observation::integer("idas.linear.opaque_factor_allowance.bytes", "bytes", i64::try_from(opaque_fill).unwrap_or(i64::MAX));
+        crate::observation::integer("idas.linear.known_workspace_allowance.bytes", "bytes", i64::try_from(layout.linear_bytes(config.linear)? - opaque_fill).unwrap_or(i64::MAX));
         let map = config.map;
         let newton_values = vec![0.0; layout.rows.len()];
         let newton_values_b = vec![0.0; layout.rows_b.len()];
@@ -2807,6 +2821,10 @@ impl Session<'_> {
         } else {
             (n, width, self.callback.layout.rows_b.len())
         };
+        let opaque_fill = size.checked_mul(size).and_then(|cells| cells.checked_mul(32))
+            .and_then(|bytes| bytes.checked_mul(directions.len().max(1)))
+            .ok_or_else(|| ProblemError::memory("IDAS backward direct fill allowance extent"))?;
+        crate::observation::integer("idas.adjoint.opaque_factor_allowance.bytes", "bytes", i64::try_from(opaque_fill).unwrap_or(i64::MAX));
         let ids: Vec<_> = self
             .callback
             .contract
@@ -3792,6 +3810,7 @@ mod initialization_tests {
         residual_calls: usize,
         fail: bool,
         nonlinear: bool,
+        omit_support: bool,
     }
     impl IcOracle {
         fn new() -> Self {
@@ -3812,6 +3831,7 @@ mod initialization_tests {
                 residual_calls: 0,
                 fail: false,
                 nonlinear: false,
+                omit_support: false,
             }
         }
     }
@@ -3821,6 +3841,9 @@ mod initialization_tests {
         }
         fn support(&self, _: usize, function: Function) -> Vec<SupportEntry> {
             if function == Function::Rhs {
+                if self.omit_support {
+                    return [(0, 0), (1, 1)].map(|(row, col)| SupportEntry::new(OriginalRow::new(row), OriginalCol::new(col))).to_vec();
+                }
                 [(0, 0), (1, 0), (1, 1)]
                     .map(|(r, c)| SupportEntry::new(OriginalRow::new(r), OriginalCol::new(c)))
                     .to_vec()
@@ -3987,6 +4010,24 @@ mod initialization_tests {
             assert!((point.state[1] - 4.0).abs() < 1e-8);
             assert!((point.rates[0] + 2.0).abs() < 1e-8);
             assert!(report.assessment.unwrap().roles_preserved);
+        }
+    }
+    #[test]
+    fn public_ic_refuses_undeclared_partials_for_direct_and_both_krylov_methods() {
+        use pse_model::scalars::PositiveCount;
+        for linear in [IdasLinear::Klu,
+            IdasLinear::Spgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::Jacobi },
+            IdasLinear::Spfgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::Jacobi }]
+        {
+            let mut oracle = IcOracle::new();
+            oracle.omit_support = true;
+            let mut request = request();
+            request.linear = linear;
+            let error = match initialize_consistent(&mut oracle, &[], &request, execution()) {
+                Err(error) => error,
+                Ok(report) => report.error.expect("undeclared state partial must refuse before a native result"),
+            };
+            assert!(matches!(error, ProblemError::Contract(ref detail) if detail.contains("outside its declared support")), "{linear:?}: {error:?}");
         }
     }
     #[test]

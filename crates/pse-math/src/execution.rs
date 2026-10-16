@@ -2619,10 +2619,12 @@ impl TrialEvaluation {
 }
 /// Worker-local numeric frame and Symbolica scratch.
 pub struct Worker {
-    scope: Option<pse_kernels::ExecutionScope>,
-    body: CompiledBody,
+    // Private native evaluators and numeric frames must drain before the shared
+    // body/support allocation owners and execution scope are released.
     programs: EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>,
     frame: Vec<f64>,
+    body: CompiledBody,
+    scope: Option<pse_kernels::ExecutionScope>,
     prepaid_bytes: usize,
     used_bytes: usize,
 }

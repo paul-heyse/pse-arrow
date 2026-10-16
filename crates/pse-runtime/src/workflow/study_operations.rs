@@ -334,7 +334,7 @@ pub struct AdmittedHorizonValues {
 #[serde(deny_unknown_fields)]
 pub struct StudyOperation {
     /// Interpretation of this operation descriptor.
-    pub version: Version<6>,
+    pub version: Version<7>,
     /// Explicit occurrence detail retained independently of original completion.
     pub output: super::StudyOutputDemand,
     /// Exact source/context reconstruction precondition.
@@ -1367,7 +1367,7 @@ mod study_operation_unit {
         for request in requests {
             let original = operation(request);
             let value = serde_json::to_value(&original).unwrap();
-            assert_eq!(value["version"], 6);
+            assert_eq!(value["version"], 7);
             let decoded: StudyOperation = serde_json::from_value(value.clone()).unwrap();
             assert_eq!(decoded.source, original.source);
             assert_eq!(decoded.output_roles(), original.output_roles());

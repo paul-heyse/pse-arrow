@@ -137,7 +137,6 @@ def point(
 
 def request(*points: StudyPoint) -> StudyRequest:
     return StudyRequest(
-        version=6,
         output=StudyOutputDemandFull(),
         inputs=StudyInputsExplicit(value=points),
     )

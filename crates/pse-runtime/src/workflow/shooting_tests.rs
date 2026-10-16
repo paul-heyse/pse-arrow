@@ -1454,13 +1454,13 @@ async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowan
 /// adjoint upgrades agree with an independently constructed oracle at the new point.
 #[tokio::test]
 async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
-    use pse_diagnostics::observation::{ObservationHub, Value};
+    use pse_diagnostics::observation::{ObservationHub, Policy};
     for method in methods() {
         let simulation = tracking(method).await;
         let problem = Arc::new(simulation.shooting(request(&simulation, ShootingMethod::Multiple, vec![1.], true)).unwrap());
         let mut execution = Execution::new(Arc::default(), &solver().controls);
         execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
-        let hub = ObservationHub::new(Default::default());
+        let hub = ObservationHub::new(Policy { max_metrics: 256, budget_bytes: 64 << 20, ..Default::default() });
         let observed = hub.start("retained shooting lane");
         let entered = observed.context().enter();
         let mut oracle = ShootingOracle { problem: problem.clone(), execution: execution.clone(), point: None, worker: None };
@@ -1473,13 +1473,16 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         let mut jacobian = vec![0.; problem.pattern.row_idx().len()];
         oracle.jacobian(&x, &mut jacobian).unwrap();
         assert_eq!(identity, oracle.worker.as_ref().unwrap().inner.buffer_identity(0, native::dynamics::Function::Rhs));
-        let snapshot = observed.reader().snapshot(std::time::Duration::from_secs(60));
-        let count = |name| snapshot.metrics.iter().find(|metric| metric.name == name).unwrap().cumulative.clone();
-        assert_eq!(count("dynamics.workflow_worker_constructions"), Value::Count(1));
-        assert_eq!(count("dynamics.window_ivp_initializations"), Value::Count(6));
-        assert_eq!(count("dynamics.window_adjoint_initializations"), Value::Count(2));
-        assert_eq!(count("dynamics.window_layout_constructions"), Value::Count(1));
-        assert_eq!(count("dynamics.window_layout_reuses"), Value::Count(1));
+        let counts = crate::workflow::tests::observation_counts(&hub, observed.reader());
+        for (name, expected) in [
+            ("dynamics.workflow_worker_constructions", 1),
+            ("dynamics.window_ivp_initializations", 6),
+            ("dynamics.window_adjoint_initializations", 2),
+            ("dynamics.window_layout_constructions", 1),
+            ("dynamics.window_layout_reuses", 1),
+        ] {
+            assert_eq!(counts.get(name).copied().unwrap_or(0), expected, "{method:?}: {name}; {counts:?}");
+        }
         drop(entered);
         let mut fresh = ShootingOracle { problem, execution, point: None, worker: None };
         let tolerance = 64. * simulation.profile().rtol;

@@ -18,6 +18,8 @@ does not qualify the replacement deployment.
 
 ## 25. Supported scope and recorded limits
 
+> Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; Plan 41e E4 authorizes only explicit qualified scalar compiled value arithmetic; interpreted default and JIT/SIMD exclusions remain).
+
 > Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md) —
 > mixed-integer, disjunctive and globally certified classes enter the design target (Plan
 > 22 G1–G7 implemented, with G4 and G6 partial as stated below);

@@ -112,7 +112,7 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
         inputs: StudyInputs::Explicit(vec![point(case, 7, vec![], StartPolicy::Fresh)]),
     };
     let encoded = serde_json::to_value(request).unwrap();
-    assert_eq!(encoded["version"], 6);
+    assert_eq!(encoded["version"], 7);
     assert!(
         encoded["inputs"]["value"][0]["policy"]
             .get("seed_need")
@@ -120,7 +120,11 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
     );
     let decoded: StudyRequest = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
-    for version in [1, 3] {
+    let mut omitted = encoded.clone();
+    omitted["inputs"]["value"][0]["preparation"]["compiler"]["optimization"]
+        .as_object_mut().unwrap().remove("evaluator");
+    assert!(serde_json::from_value::<StudyRequest>(omitted).is_err());
+    for version in [1, 3, 6] {
         let mut historical = encoded.clone();
         historical["version"] = serde_json::json!(version);
         assert!(serde_json::from_value::<StudyRequest>(historical).is_err());
@@ -128,6 +132,27 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
     let mut bare = encoded;
     bare["inputs"]["value"][0]["overlay"] = serde_json::json!({"values":{"x":1}});
     assert!(serde_json::from_value::<StudyRequest>(bare).is_err());
+}
+
+#[test]
+fn study_variants_codec_unit_retains_explicit_preparation_and_refuses_old_version() {
+    let hash = pse_ids::ContentHash::from_bytes([4; 32]);
+    let variants = StudyVariants {
+        version: pse_model::document::Version,
+        source: OperationSource { revision: hash.into(), physical_context: hash },
+        choices: vec![],
+        selected: vec![SelectedStudyVariant {
+            ordinal: 0,
+            point: point(pse_model::generated::identities::DeclarationId::from_bytes([4;16]),
+                0, vec![], StartPolicy::Fresh),
+        }],
+    };
+    let mut wire = serde_json::to_value(&variants).unwrap();
+    assert_eq!(wire["version"], 2);
+    let decoded: StudyVariants = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(serde_json::to_value(decoded).unwrap(), wire);
+    wire["version"] = serde_json::json!(1);
+    assert!(serde_json::from_value::<StudyVariants>(wire).is_err());
 }
 
 #[test]
@@ -176,7 +201,7 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 10);
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 11);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 

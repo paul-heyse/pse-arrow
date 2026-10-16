@@ -887,6 +887,47 @@ mod native_tests {
     }
 
     #[tokio::test]
+    async fn common_modeling_runs_park_only_healthy_independent_owners() {
+        use pse_diagnostics::observation::{ObservationHub, scope};
+        for failed_first in [false, true] {
+            let runtime = runtime();
+            let (package, analysis) = package_on(&runtime,
+                "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }").await;
+            let cancel = crate::CancelSource::new();
+            let mut preparations = Vec::new();
+            for value in [if failed_first { -10. } else { 1. }, 7.] {
+                let mut case = analysis.case.clone();
+                case.values.insert("t".into(), value);
+                preparations.push(package.prepare_solve(analysis.root, analysis.instance,
+                    analysis.bindings.clone(), analysis.limits.clone(), case, analysis.order,
+                    analysis.compiler, analysis.solver.clone(), analysis.numerical.clone(), &cancel).await.unwrap());
+            }
+            let hub = ObservationHub::new(Default::default());
+            let observed = hub.start("common independent modeling runs");
+            scope(Some(observed.context()), async {
+                for (index, prepared) in preparations.into_iter().enumerate() {
+                    let result = runtime.start_modeling(vec![prepared], false, &cancel)
+                        .await.unwrap().wait().await.unwrap();
+                    let crate::workflow::RunReport::Modeling(results) = result.report().unwrap() else { panic!("modeling report") };
+                    assert_eq!(results.len(), 1);
+                    assert_eq!(results[0].accepted, !(failed_first && index == 0));
+                    if index == 1 { assert!((x(&results[0]) - 9.).abs() < 1e-8); }
+                }
+            }).await;
+            let counts = crate::workflow::tests::observation_counts(&hub, observed.reader());
+            for (name, expected) in [
+                ("native.session.constructions", if failed_first { 2 } else { 1 }),
+                ("native.session.pool_returns", if failed_first { 1 } else { 2 }),
+                ("native.session.pool_checkouts", if failed_first { 0 } else { 1 }),
+            ] {
+                assert_eq!(counts.get(name).copied().unwrap_or(0), expected,
+                    "failed_first={failed_first}: {name}");
+            }
+            runtime.native().shutdown_native_lanes().await;
+        }
+    }
+
+    #[tokio::test]
     async fn independent_completed_lane_reuses_thread_without_request_seed_or_native_history() {
         let runtime = runtime();
         let (package, analysis) = package_on(&runtime,

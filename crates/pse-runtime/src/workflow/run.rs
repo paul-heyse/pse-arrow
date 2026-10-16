@@ -24,7 +24,11 @@ use std::{collections::BTreeMap, sync::Arc};
 type FamilyWorkerEntry = Arc<dyn Fn(&std::sync::atomic::AtomicBool) + Send + Sync>;
 #[cfg(test)]
 tokio::task_local! { static FAMILY_WORKER_ENTRY: FamilyWorkerEntry; }
-#[cfg(test)]
+#[cfg(all(
+    test,
+    feature = "canonical-tests",
+    any(feature = "solver-diffsol", feature = "solver-ipopt")
+))]
 pub(in crate::workflow) async fn observed_family_worker_entry<T>(
     entry: FamilyWorkerEntry,
     work: impl Future<Output = T>,

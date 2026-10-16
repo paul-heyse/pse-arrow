@@ -25,10 +25,12 @@ pub(crate) struct Template {
     _directory: tempfile::TempDir,
 }
 pub(crate) struct Evaluator {
-    template: Arc<Template>,
     // Mutex supplies Sync for immutable program containers; evaluation obtains
     // exclusive mutable access, never a shared serialization lock across workers.
     worker: Option<Mutex<CompiledRealEvaluator>>,
+    // Rust drops fields in declaration order: unload private native scratch
+    // before the last template can remove its directory and shared ownership.
+    template: Arc<Template>,
 }
 impl Clone for Evaluator {
     fn clone(&self) -> Self {
@@ -299,7 +301,7 @@ mod tests {
     fn compile_with(evaluator: &ExpressionEvaluator<f64>, module_bytes: usize, cancelled: &Arc<AtomicBool>, compiler: &str) -> Result<Evaluator, MathError> {
         let storage = library::storage(evaluator)?;
         let export = evaluator.export_instructions();
-        super::compile_prepared_with(evaluator, &storage, &export, module_bytes, cancelled, compiler)
+        compile_prepared_with(evaluator, &storage, &export, module_bytes, cancelled, compiler)
     }
     fn compile(evaluator: &ExpressionEvaluator<f64>, module_bytes: usize, cancelled: &Arc<AtomicBool>) -> Result<Evaluator, MathError> {
         compile_with(evaluator, module_bytes, cancelled, COMPILER)
@@ -353,6 +355,17 @@ mod tests {
         let bound = export_bound(&export).unwrap();
         let source = evaluator.export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None)).unwrap();
         assert!(source.len() <= bound && source.capacity() <= 2 * bound);
+        let mut compiled = compile(&evaluator, 1 << 20, &Arc::new(AtomicBool::new(false))).unwrap();
+        compiled.instantiate().unwrap();
+        let (x, y): (f64, f64) = (1.25, 2.5);
+        let expected = [x+y, x*y, x.recip(), x.powi(3), x.powf(y), x.exp(), x.ln(),
+            x.sin(), x.cos(), x.sqrt(), x.abs(), x];
+        let mut actual = [0.; 12];
+        compiled.evaluate(&[x, y], &mut actual).unwrap();
+        for (actual, expected) in actual.into_iter().zip(expected) {
+            assert!((actual-expected).abs() <= 32. * f64::EPSILON * expected.abs().max(1.),
+                "compiled builtin {actual} differs from independent scalar {expected}");
+        }
         for value in [f64::MAX, f64::MIN, f64::MIN_POSITIVE, f64::from_bits(1), -0.] {
             assert!(format!("{value:e}").len() + 3 <= 64);
         }

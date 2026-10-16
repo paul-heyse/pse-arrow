@@ -6773,6 +6773,46 @@
       ],
       "type": "object"
     },
+    "Evaluator": {
+      "description": "Explicit evaluator implementation. Scalar C++ compilation is opt-in and only\nchanges Value arithmetic blocks; derivatives and provider calls remain interpreted.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Portable library instruction interpretation.",
+          "properties": {
+            "kind": {
+              "const": "interpreted",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Fixed conservative Linux x86-64 C++ profile. The finite allowance covers\neach module's export temporaries, named compiler outputs, loaded code,\ntemplate metadata and bounded diagnostic reader; worker numeric scratch\nremains independently charged from the exported stack.",
+          "properties": {
+            "kind": {
+              "const": "compiled_scalar",
+              "type": "string"
+            },
+            "module_bytes": {
+              "description": "Prepaid complete native preparation/module capacity for each arithmetic block.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "module_bytes"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "EventDirection": {
       "enum": [
         "either",
@@ -9443,6 +9483,9 @@
           "minimum": 0,
           "type": "integer"
         },
+        "evaluator": {
+          "$ref": "#/$defs/Evaluator"
+        },
         "horner_iterations": {
           "format": "uint",
           "minimum": 0,
@@ -9452,7 +9495,8 @@
       "required": [
         "cores",
         "horner_iterations",
-        "cpe_iterations"
+        "cpe_iterations",
+        "evaluator"
       ],
       "type": "object"
     },
@@ -11339,8 +11383,8 @@
       "description": "Explicit original-summary and occurrence-detail demand."
     },
     "version": {
-      "const": 6,
-      "default": 6,
+      "const": 7,
+      "default": 7,
       "description": "Document version.",
       "type": "integer"
     }

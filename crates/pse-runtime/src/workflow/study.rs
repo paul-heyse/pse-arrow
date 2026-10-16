@@ -2352,7 +2352,7 @@ pub struct StudyPoint {
 #[serde(deny_unknown_fields)]
 pub struct StudyRequest {
     /// Document version.
-    pub version: Version<6>,
+    pub version: Version<7>,
     /// Explicit original-summary and occurrence-detail demand.
     pub output: super::StudyOutputDemand,
     /// Explicit points or a bounded immutable lazy structural input.
@@ -2370,9 +2370,9 @@ pub struct StudyPlan {
     pub inputs: super::StudyInputs,
 }
 
-const STUDY_DEFINITION_VERSION: u32 = 10;
+const STUDY_DEFINITION_VERSION: u32 = 11;
 
-/// Version 10 of a study's definition: the store's `definition` document and the content of
+/// Version 11 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]

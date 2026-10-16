@@ -227,14 +227,15 @@ impl FitOracle {
         if same && let Some(point) = &self.point {
             demand = demand.union(point.achieved);
         }
-        // An upgrade is recomputed with checkpoints. Keep the earlier observation only
-        // for physical comparison; publish predictions and derivatives together.
+        // An upgrade recomputes the missing integration products. Completed curvature
+        // has the same immutable scientific premises at this exact point; move it into
+        // the private replacement and publish it only if the whole upgrade succeeds.
+        let mut previous_point = self.point.take().filter(|_| same);
+        let curvatures = previous_point.as_mut().and_then(|point| point.curvatures.take());
         #[cfg(feature = "solver-diffsol")]
-        let previous = self.point.take().filter(|_| same).map(|p| p.trajectories);
+        let previous = previous_point.map(|point| point.trajectories);
         #[cfg(not(feature = "solver-diffsol"))]
-        {
-            self.point = None;
-        }
+        drop(previous_point);
         let mut point = Point {
             achieved: demand,
             x: x.to_vec(),
@@ -245,7 +246,7 @@ impl FitOracle {
             blocks: Vec::new(),
             trajectories: BTreeMap::new(),
             adjoint: demand.adjoint.then(|| vec![0.; x.len()]),
-            curvatures: None,
+            curvatures,
         };
         #[cfg(all(test, feature = "solver-diffsol"))]
         for (ei, experiment) in p.experiments.iter().enumerate() {

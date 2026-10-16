@@ -1308,7 +1308,8 @@ impl Loop {
             .iter()
             .flat_map(|e| e.arrival.iter().map(|(_, _, initial)| *initial))
             .collect();
-        let plant_scope = pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), cancel.deadline());
+        let plant_scope = pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), cancel.deadline())
+            .with_admitted_threads(std::num::NonZeroUsize::new(admitted.threads).unwrap_or(std::num::NonZeroUsize::MIN));
         Self {
             plant_scope,
             applied: admitted.initial.clone(),

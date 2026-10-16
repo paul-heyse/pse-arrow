@@ -9,6 +9,27 @@ use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 pub(super) fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
+/// Count actual producers once across nested observation owners in a unit control.
+pub(crate) fn observation_counts(
+    hub: &pse_diagnostics::observation::ObservationHub,
+    root: pse_diagnostics::observation::OperationReader,
+) -> BTreeMap<String, u64> {
+    use pse_diagnostics::observation::Value;
+    let mut pending = vec![root];
+    let mut visited = std::collections::HashSet::new();
+    let mut counts = BTreeMap::new();
+    while let Some(reader) = pending.pop() {
+        let snapshot = reader.snapshot(std::time::Duration::from_secs(60));
+        if !visited.insert(snapshot.id) { continue; }
+        for metric in snapshot.metrics {
+            if let Value::Count(count) = metric.cumulative {
+                *counts.entry(metric.name).or_default() += count;
+            }
+        }
+        pending.extend(snapshot.children.iter().filter_map(|child| hub.reader(child.id)));
+    }
+    counts
+}
 /// Read the engineering allowance frozen by production admission for this target.
 /// Tests must not substitute a coordinate nominal or a private solver tolerance.
 pub(crate) fn engineering_target(

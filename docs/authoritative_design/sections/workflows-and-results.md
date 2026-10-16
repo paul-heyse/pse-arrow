@@ -172,6 +172,16 @@ by their libraries.
 | Diffsol (default) | Fixed `diag(I,0)` ODE/index-1 by BDF (default), SDIRK `tr_bdf2` or `esdirk34`, or explicit `tsit45` for mass-free ODEs only; pse-owned faer sparse LU or SuiteSparse KLU linear solvers for the implicit schemes' Newton matrices (`dynamics/linear.rs`); events on every guard sign change, resets, scheduled inputs, smooth forward sensitivities and library-owned reset sensitivities; adjoint gradients with checkpointing | `dynamics/integrator.rs`, `dynamics/integrator/adjoint.rs` |
 | IDAS residual BDF | Fixed-mass ODE/index-1 with recoverable trial failures; consistent initialization of the algebraic states and rates, or a steady start (`IDA_Y_INIT`: every rate zero, every state computed, the requested values only a guess); scheduled inputs, across which sensitivities continue; events and resets without sensitivities, each with a crossing direction (either, rising or falling); per-state sign constraints (`IDASetConstraints`); KLU, or matrix-free SPGMR or SPFGMR with an optional Jacobi preconditioner from the diagonal of the compiled Newton matrix; simultaneous or staggered sensitivity correction; adjoint gradients with checkpointing and forward-over-adjoint second-order sensitivities | `dynamics/idas.rs` |
 
+Dynamic preparation owns one immutable complete all-mode state layout, including
+mass diagonals and transpose/second-order destinations. Runtime and native admission
+consume that same layout. Known map storage follows sparse occupied capacities and
+construction overlap; selected Krylov workspace excludes absent forward KLU factors.
+Real direct factors retain finite opaque fill allowances, including backward KLU when
+the forward method is Krylov. Every supplied state partial must belong to the declared
+union before any direct or Krylov callback consumes it. Algebraic sample elimination
+retains compatible symbolic analysis at its native owner, while each changed sample
+refreshes its numerical factor and admits that live factor separately.
+
 The methods are typed profile fields: `Profile::diffsol` (`DiffsolSettings`: the scheme and
 the Newton linear solver) and `Profile::idas` (`IdasSettings`: the linear solver, the
 sensitivity corrector, the initialization and one sign per state). `Method::Auto` selects
@@ -275,6 +285,13 @@ by `shooting_matches_simultaneous_optimum` (against an analytic optimum),
 `shooting_fixture_needs_authored_controls` (runtime units) and
 `anchored_window_continues_the_horizon` (native backend units).
 
+One serial shooting lane retains its compatible mathematical/provider worker across
+endpoint construction and trial value/derivative demand. Anchored windows share the
+base layout; observed quadrature transforms are prepared lazily once at that worker.
+Rebinding current anchors, values and scope does not continue changed-IVP native
+history. Initial endpoints and ordered reductions remain causal; final original
+assessment uses its independent worker.
+
 Shooting's public `start`/`start_with_initial` enter the existing asynchronous run supervisor. The raw solve is internal. Cancellation, capacity, native destruction, completion and publication share the other run owners; optimizer facts and trajectory transport retain the composed permission. No second direct execution path remains.
 
 The integrator computes the consistent initial state from requested values and guesses;
@@ -319,6 +336,12 @@ frames value-dependent facts only when a pass consumed them). The steps are the 
 modeling steps, each with its stored seed under a durable runtime (O6), and every sample
 streams one `horizon.step` event (O5). `HorizonDecision` records how a sample's moves were
 decided (`open_loop`, `solved`, `held`, `predicted`, `fallback`).
+
+The horizon plant's compatible mathematical/provider worker is operation-local on
+that staged native thread, through one workflow-owner slot distinct from adapter
+state. Actual backend/scope changes destroy it and reconstruct deliberately. Every
+period binds the admitted thread count and current cancellation/deadline scope and
+initializes its changed IVP afresh. Worker reuse does not grant plant-history reuse.
 
 *Advanced step* (Plan 22 Y5c2). An advanced-step controller (`HorizonController.advanced`)
 binds its measured or estimated state as the parameters of a sensitivity request. After
@@ -409,6 +432,8 @@ compatibility independently of native allocation reuse. A stage, start or result
 mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
+
+> Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; scientific replay version 2 retains the required explicit evaluator selection in its constructor preparation).
 
 > Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
 
@@ -656,6 +681,8 @@ obligations does not release another owner's content or require producer payload
 
 ### 19.3 Studies and reuse
 
+> Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; Plan 41e carries explicit evaluator selection through versioned study preparation).
+
 Local studies retain actual immutable model/physical owners and one shared admitted scientific payload. Public admission and local execution require no canonical store. Recording is an explicit effect over those retained sources, yielding a portable StudyDefinition with real receipts; durable startup validates it against canonical owners. Rust `ModelingPackage::admit_study` and Python `ModelingPackage.admit_study` return `LocalStudy`; `LocalStudy.execute` and package-local study execution always use ephemeral producers, including when the package has acknowledged canonical origin. `Runtime.record_study` publishes exact retained sources, then Rust `start_recorded_study` / Python `start_study` starts the recorded descriptor; `execute_study` joins durable execution. Local handles do not serialize or contain fabricated source receipts. Recording does not repeat scientific admission or expand unselected lazy variants. Exact document bytes are retained when document ingress supports later recording; unavailable recording prerequisites refuse before effects.
 
 > Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
@@ -860,6 +887,15 @@ once at the final assessment for the response rank. *Tested* by
 `gauss_newton_hessian_matches_jtwj`, `gauss_newton_fit_admits_transient`,
 `adjoint_gradient_equals_forward_on_transient_fit` and
 `exact_transient_fit_hessian_matches_finite_difference` (runtime units).
+
+A successful exact transient residual-curvature block is retained at the existing
+exact-bit fit point under its immutable prepared scientific context. Outer solver
+weights recombine it at Hessian assembly. A compatible demand upgrade moves the
+completed block only into a successfully published replacement; changed points,
+scientific owners, failed upgrades and cancellation release incompatible products.
+Result/container extent is admitted before callbacks. Missing integration capabilities
+still replay honestly; eager checkpoints or sensitivities are not selected by default.
+Independent final original-state response/rank assessment remains fresh where required.
 
 Response derivatives at the candidate are local physical partials
 (`runtime.response_sensitivities`). A steady response needs a feasible, regular square
@@ -1112,7 +1148,7 @@ differed; it never selected an isolated Runtime or hashing implementation.
 
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
-**Implemented:** generated Rust/Python contracts expose reconstructible lazy study inputs, stable block-ID native overrides and opt-in bounded live samples. No arbitrary generator callback, wider scientific permission, new storage topology or serializable native-history checkpoint follows. Study request version 6 and definition version 10 distinguish explicit points from bounded lazy constructors. Stable BlockId keys select per-block backend/settings/control overrides; unknown keys and expanded start/branch/physics permission refuse. PreparedOperation.start_live binds its finite subscription before dispatch. Changed producers/consumers migrate together through their authoritative generators.
+**Implemented:** generated Rust/Python contracts expose reconstructible lazy study inputs, stable block-ID native overrides and opt-in bounded live samples. No arbitrary generator callback, wider scientific permission, new storage topology or serializable native-history checkpoint follows. Study request/operation version 7 and definition version 11 distinguish explicit points from bounded lazy constructors. Stable BlockId keys select per-block backend/settings/control overrides; unknown keys and expanded start/branch/physics permission refuse. PreparedOperation.start_live binds its finite subscription before dispatch. Changed producers/consumers migrate together through their authoritative generators.
 
 > Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
 
@@ -1310,6 +1346,8 @@ storage-only, metadata-lost or mismatched (`python/pse/_transfer.py`); capsule e
 does not prove the consumer registered the extension types.
 
 ### 21.5 Python contracts
+
+> Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; Plan 41e carries explicit evaluator selection through versioned study preparation).
 
 > Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment). Source intents preserve strict direct conversion, version-aware general decoding and fresh public converters. Private generated-row transport may reuse thread-owned hooks; it cannot bypass Rust admission, unknown-key/finite-number refusal or required raw/typed version checks.
 

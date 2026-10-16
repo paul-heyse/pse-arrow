@@ -62,7 +62,7 @@ pub struct SelectedStudyVariant {
 #[serde(deny_unknown_fields)]
 pub struct StudyVariants {
     /// Descriptor interpretation.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Complete admitted base source and physical identity.
     pub source: OperationSource,
     /// Independent structural dimensions, applied in declared order.

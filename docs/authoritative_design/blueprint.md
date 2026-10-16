@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 176
+revision: 177
 date: 2026-10-15
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 177 | 2026-10-15 | Proposed ADR-0191 / Plan 41e E4: explicitly selected scalar compiled arithmetic preserves no-FMA/baseline ISA, guarded meaning, cancellation and admitted executable/scratch ownership, new consumed artifact/view frames and study request/operation v7 / definition v11 and scientific replay/lazy variants v2 (§14.5/§19.2/§19.3/§21.5/§25). | Maintainer accepted bounded RC03 and authorized implementation; PSE_DESIGN_EDIT=1. Plan 41d/41e also implement sparse method-shaped dynamic admission, owner-local workflow reuse, neutral study/run parking, completed fit curvature and symbolic sample preparation (§13.6/§18.8/§19.4). Targeted acceptance is recorded at those companions; assembled qualification remains open. No global JIT/SIMD default or speedup claim. |
 | 176 | 2026-10-15 | Proposed ADR-0190 / Plan 41c C0/G0: owned local studies and explicit exact-source recording (§0.5/§19.3/§21/§21.1); existing-family response dispatch retains current certification promises; exact bounded metadata/SDK ownership and already-sealed artifact metadata grouping clarify §20/§21.1. | Maintainer accepted RC01/RC02 and authorized implementation; visible `.design-edit`; execution evidence remains Plan 41b/41c, with full-series qualification open. |
 | 175 | 2026-10-15 | Plan 41a and enabling B1–B3 (§14.3): hierarchical private cancellation, independent finite shared-producer clocks, compiler authority before active dispatch and through actual join; borrowed inference/function views and direct selected preparation preserve existing scientific meaning. | Maintainer-authorized execution; within-contract ownership/cancellation corrections and consumed preparation setting. Targeted implementation acceptance remains at Plan 41a/41b; no complete-series qualification claim. |
 | 174 | 2026-10-15 | Plan 40 accepted RC01 (§23.1): lightweight operation diagnostics before preparation, current/cumulative/recent coverage, owner-safe context publication and independent same-host checkpoint reads; optional deep capture and separate scientific permission. | Maintainer accepted RC01 on 2026-10-14 and authorized 40a/40b execution; G0 contract installation, implementation/qualification remain at Plan 40. |

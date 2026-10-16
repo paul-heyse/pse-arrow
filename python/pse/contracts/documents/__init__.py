@@ -3711,6 +3711,27 @@ class EvaluationLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
         return (type(self), (v.scalar_key(self.derivative_components), v.scalar_key(self.operations), v.scalar_key(self.provider_calls), v.scalar_key(self.scratch_bytes),))
 
 
+class EvaluatorCompiledScalar(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="compiled_scalar"):
+    """Fixed conservative Linux x86-64 C++ profile. The finite allowance covers
+    each module's export temporaries, named compiler outputs, loaded code,
+    template metadata and bounded diagnostic reader; worker numeric scratch
+    remains independently charged from the exported stack.
+    """
+
+    #: Prepaid complete native preparation/module capacity for each arithmetic block.
+    module_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.module_bytes),))
+
+
+class EvaluatorInterpreted(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="interpreted"):
+    """Portable library instruction interpretation."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
 class EvidenceRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact observed location supporting an explanatory statement."""
 
@@ -5791,10 +5812,11 @@ class Optimization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 
     cores: Annotated[int, msgspec.Meta(ge=0)]
     cpe_iterations: Annotated[int, msgspec.Meta(ge=0)]
+    evaluator: Evaluator
     horner_iterations: Annotated[int, msgspec.Meta(ge=0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.cores), v.scalar_key(self.cpe_iterations), v.scalar_key(self.horner_iterations),))
+        return (type(self), (v.scalar_key(self.cores), v.scalar_key(self.cpe_iterations), v.record_key(self.evaluator), v.scalar_key(self.horner_iterations),))
 
 
 class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8449,14 +8471,14 @@ class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 10 of a study's definition: the store's `definition` document and the content of
+    """Version 11 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 10
+    _pse_required_version: ClassVar[int] = 11
 
     #: Document version.
-    version: Literal[10] = 10
+    version: Literal[11] = 11
     #: The exact immutable canonical modeling revision.
     modeling_revision: str
     #: The source bundle of the physical package.
@@ -8565,10 +8587,10 @@ class StudyMemberDemandVariable(msgspec.Struct, frozen=True, forbid_unknown_fiel
 class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable request recorded by a study occurrence and replayed by either executor."""
 
-    _pse_required_version: ClassVar[int] = 6
+    _pse_required_version: ClassVar[int] = 7
 
     #: Interpretation of this operation descriptor.
-    version: Literal[6] = 6
+    version: Literal[7] = 7
     #: Canonical physical assignments; required for every horizon descriptor.
     admitted_horizon: AdmittedHorizonValues | None = None
     #: Existing operation-owned input document.
@@ -8654,10 +8676,10 @@ class StudyPointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Raw request admitted once into the immutable executable definition."""
 
-    _pse_required_version: ClassVar[int] = 6
+    _pse_required_version: ClassVar[int] = 7
 
     #: Document version.
-    version: Literal[6] = 6
+    version: Literal[7] = 7
     #: Explicit points or a bounded immutable lazy structural input.
     inputs: StudyInputs
     #: Explicit original-summary and occurrence-detail demand.
@@ -9251,6 +9273,8 @@ Dependency = DependencyOrdering | DependencyUsableResult
 
 DiscreteInitialization = DiscreteInitializationRefuse | DiscreteInitializationFixAtStart | DiscreteInitializationFixAt
 
+Evaluator = EvaluatorInterpreted | EvaluatorCompiledScalar
+
 FitProfileDocument = FitProfileDocumentNotRequested | FitProfileDocumentAvailable | FitProfileDocumentWithheld
 
 HistoryOwner = HistoryOwnerRun | HistoryOwnerStudy
@@ -9540,6 +9564,9 @@ __all__ = [
     "EstimatorInput",
     "EstimatorOperation",
     "EvaluationLimits",
+    "Evaluator",
+    "EvaluatorCompiledScalar",
+    "EvaluatorInterpreted",
     "EvidenceRef",
     "FeralSettings",
     "FiniteBound",

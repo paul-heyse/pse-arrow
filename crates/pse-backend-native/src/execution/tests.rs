@@ -23,7 +23,7 @@ fn unlinked_native_return_has_explicit_observation_coverage() {
     let operation = hub.start("unlinked-native");
     let _entered = operation.context().enter();
     assert!(matches!(
-        super::unlinked(Backend::Ipopt),
+        unlinked(Backend::Ipopt),
         ProblemError::Unavailable {
             backend: Backend::Ipopt,
             ..

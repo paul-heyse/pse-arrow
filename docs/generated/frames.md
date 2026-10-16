@@ -137,6 +137,7 @@ Derived in: pse-compiler.
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |
 | `CompilerModelingViewV3` | `pse.compiler.modeling-view.v3` | Mathematical view and compiler profile, with revision attribution bound separately. |
 | `CompilerModelingViewV4` | `pse.compiler.modeling-view.v4` | Complete compiler view policy, including assembly limits and class-proof work. |
+| `CompilerModelingViewV5` | `pse.compiler.modeling-view.v5` | Complete compiler view policy with explicit scalar evaluator selection. |
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingConsumerBodyV3` | `pse.modeling.consumer-body.v3` | Canonical complete identity under ADR-0150. |
@@ -204,7 +205,9 @@ Derived in: pse-backend-native.
 | `NativeBuildV1` | `pse.native.build.v1` | Every linked adapter's native build. |
 | `NativeContextSnapshotV1` | `pse.native.context-snapshot.v1` | Immutable adapter build and runtime observations consumed by contextual routing. |
 | `MathArtifactV5` | `pse.math.artifact.v5` | Selected mathematical support and evaluator policy under ADR-0152. |
+| `MathArtifactV6` | `pse.math.artifact.v6` | Explicit interpreted/compiled scalar Value execution profile. |
 | `MathDirectionalArtifactV1` | `pse.math.directional-artifact.v1` | Demanded directional evaluator with runtime seed coordinates. |
+| `MathDirectionalArtifactV2` | `pse.math.directional-artifact.v2` | Directional artifact with the explicit scalar evaluator profile. |
 | `ProducerV1` | `pse.producer.v1` | Relevant production units and consumed source/native inputs, separate from outer attestation. |
 | `CanonicalEditV1` | `pse.canonical.edit.v1` | Exact idempotent canonical mutation inputs, independently of operation ID. |
 | `CanonicalSourceObjectV1` | `pse.canonical.source-object.v1` | Registry-generated source object bytes and parser attribution before transport lowering. |

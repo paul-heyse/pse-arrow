@@ -69,8 +69,8 @@ Own fixture/worker/capture resources explicitly. Cancel/stop and join only owned
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| F0 | Principal O08 and current observation foundation; owning package hypotheses | Settle bounded fact/relationship/unit/generation meanings and selected consumer fields, including current root/managed partiality. Identify which existing counters suffice and any minimal missing producer fact. No generic accounting/proof framework. | In progress — A/B/C meanings implemented and exercised; D/E and broader scope remain |
-| F1 | F0's relevant slice and actual owning A/B/C/D/E implementation | Integrate selected producer facts and interpretation incrementally. Test actual counts, unchanged scientific requests, opt-out, overflow/loss/reset, active-root retention/partiality and managed scope where changed. Regenerate public contracts when declarations change; delete replaced duplicate counters/views. | In progress — A/B/C producers integrated and exercised; D/E and broader scope remain |
+| F0 | Principal O08 and current observation foundation; owning package hypotheses | Settle bounded fact/relationship/unit/generation meanings and selected consumer fields, including current root/managed partiality. Identify which existing counters suffice and any minimal missing producer fact. No generic accounting/proof framework. | In progress — A–E selected meanings implemented and exercised; broader/context-loss acceptance remains |
+| F1 | F0's relevant slice and actual owning A/B/C/D/E implementation | Integrate selected producer facts and interpretation incrementally. Test actual counts, unchanged scientific requests, opt-out, overflow/loss/reset, active-root retention/partiality and managed scope where changed. Regenerate public contracts when declarations change; delete replaced duplicate counters/views. | In progress — A–E selected producers integrated and exercised; broader/context-loss acceptance remains |
 | F2 | G1; A6/B5/C5/D6/E5 delivery evidence; F1 coverage; inquiry outcomes settled | Select risk-directed assembled cases and commands by S01–S10 and changed interfaces. Confirm actual consumer/deletion inventory and known exclusions; no automatic old campaign import. | Planned |
 | F3 | F2; relevant local/native/public contracts implemented | Qualify edit/re-solve, local/durable study composition, response meaning, sparse methods, fitting/window reuse and scientific failure semantics through selected complete journeys. Retain independent original assertions and report zero-baseline results. | Planned |
 | F4 | F2; B1–B3, C3/C4 and F1 implemented | Qualify interruption/shared clocks/queue/drain, genuine nonempty managed result read and publication retry/failure, active-owner live/recent navigation and actual Rust/Python/placement boundaries. Track owned cleanup separately from test-body outcomes. | Planned |
@@ -130,3 +130,26 @@ facts, separate from file payload/decode bounds and process RSS. The
 [operator guide](../dev/simulation-diagnostics.md#artifact-publication-work) explains
 these meanings. 41c owns the actual controlled protocol results. This incremental
 slice leaves the other F0/F1 contexts and F2–F7 open.
+
+
+## D/E diagnostic delivery — 2026-10-16
+
+**Implemented:** native facts distinguish complete sparse layout capacity, selected known
+workspace and genuine opaque forward/backward factor allowances. Workflow facts distinguish
+worker/layout construction or reuse from fresh changed-IVP/adjoint initialization. Fitting
+separates trial/demand upgrades, curvature integrations, complete publication and reuse.
+Sample elimination separates shared symbolic analysis from fresh numerical factors and
+multiple RHS. Existing native pool owners report actual construction, checkout and return;
+explicit scalar compilation reports successful preparation, file bytes and value calls.
+The [operator guide](../dev/simulation-diagnostics.md#native-work-and-reuse) owns field
+interpretation, units and known limits; allowances are not RSS and entry counts need not
+be successful scientific completions.
+
+**Tested/Measured — controlled work counts only:** [41d](41d-native-storage-and-workflow-worker-reuse.md#outcome--2026-10-16)
+and [41e](41e-derivative-reuse-and-evaluator-capabilities.md#outcome--2026-10-16) own the
+actual sparse-growth, factor-refresh, shooting/horizon worker, common-run owner,
+fit-curvature and compiled-consumer controls. Nested producers are counted once in unit
+controls; collection slots are explicitly bounded. No extra scientific evaluation is
+issued for observation. These incremental deliveries do not close O08, broader F0/F1
+loss/reset/opt-out/active-root/managed acceptance, F2–F5 assembled qualification, or
+F6/F7 closeout and older-plan reconciliation.

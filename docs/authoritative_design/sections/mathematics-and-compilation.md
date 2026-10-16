@@ -1051,6 +1051,8 @@ revision, and durable reuse applies only to published data
 
 ### 14.5 Admission closure and refusal
 
+> Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; maintainer-authorized Plan 41e implementation).
+
 A case is prepared only when every selected declaration is consumed, explicitly retained as
 nonexecuting data, or refused with a source identity
 ([ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)). Mathematical
@@ -1074,6 +1076,9 @@ branch derivatives are local and
 refuse unproved crossing/selection behavior. Vectorized
 evaluators must not call `optimize_stack()` after vectorization. Qualification basis:
 [§24.2](operations-and-validation.md#section-24-2).
+
+**Proposed — authorized Plan 41e E4 target:** explicit scalar compiled value arithmetic may replace a guarded provider-free arithmetic block using Symbolica 3.0.1 C++ export. Interpreted evaluation remains the default; unsupported provider regions and derivative orders retain their declared supported route. Selection participates in compilation identity. No inline assembly, fast/unsafe math, native ISA or FP contraction is inherited. The preparation owner admits source/compiler overlap and executable storage, cancels and joins its compiler child, and publishes only successful preparation; each worker owns admitted independent scratch. Existing guards, coordinate mapping, stage cancellation and finite/error checks remain. This is not JIT/SIMD admission or a changed scientific guarantee. Plan 41e owns implementation and acceptance.
+
 
 ## Retired section identities
 

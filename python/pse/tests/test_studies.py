@@ -1248,7 +1248,6 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     runtime = canonical_substrate.runtime(inspection_settings)
     package, case = _package(runtime)
     variants = StudyVariants(
-        version=1,
         source=package.operation_source,
         choices=(
             SourceChoice(
@@ -1263,7 +1262,6 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     )
     definition = package.admit_study(
         StudyRequest(
-            version=6,
             output=StudyOutputDemandFull(),
             inputs=StudyInputsLazy(value=variants),
         )

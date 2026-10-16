@@ -112,6 +112,45 @@ are separate from solver stopping controls and admission-only waiting; blueprint
 their contract. Counters establish work under the exercised demand, without implying an
 elapsed speedup or diagnosing numerical convergence.
 
+## Native work and reuse
+
+Read these facts at their producing operation, with the same interval and generation.
+They distinguish retained preparation from fresh numerical work; a reuse counter alone
+neither establishes a speedup nor qualifies the resulting simulation.
+
+| Metrics or phases | Interpretation |
+| --- | --- |
+| `idas.layout.nonzeros`, `idas.layout.bytes` | Complete all-mode state support, including required diagonals, and retained Rust layout capacity. These do not measure native factor fill. |
+| `idas.linear.workspace.bytes`, `idas.linear.known_workspace_allowance.bytes`, `idas.linear.opaque_factor_allowance.bytes` | Selected forward workspace allowance, separated into shape-derived storage and conservative opaque direct-factor fill. Forward SPGMR/SPFGMR carries no KLU fill allowance. Allowances are not measured allocation or RSS. |
+| `idas.adjoint.opaque_factor_allowance.bytes` | Backward KLU fill allowance, including the enlarged second-order problems and requested directions. A forward Krylov selection does not remove the backward KLU owner. |
+| `dynamics.workflow_worker_constructions`; `fit.experiment_worker_constructions`, `fit.experiment_worker_reuses` | Successful workflow worker construction, and fitting worker construction/reuse entries at their respective owners. A fitting construction entry can still fail. These describe mathematical/provider ownership; fewer constructions can coexist with the same number of fresh solves. |
+| `horizon.plant_worker_constructions`, `horizon.plant_worker_reuses` | Actual plant-worker acquisition on the staged owner thread, including initial evaluation and subsequent periods. Worker reuse preserves neither a prior IVP nor completion of the current period. |
+| `dynamics.window_layout_constructions`, `dynamics.window_layout_reuses` | Lazy observed-quadrature layout construction and subsequent reuse. Plain anchored windows share the base layout without this transform. |
+| `dynamics.window_ivp_initializations`, `dynamics.window_adjoint_initializations` | Window integration/adjoint requests entering initialization, including requests that later refuse or fail. Retained workers do not carry native IVP history across changed trials. Check actual `idas.forward`, `idas.forward_checkpointed` and `idas.backward` phases and their `.calls` counters for issued native work. |
+| `fit.transient_curvature_integrations`, `fit.transient_curvature_completions`, `fit.transient_curvature_reuses` | Per-experiment curvature integration requests, successful publication of a complete point product, and reuse of that completed product. Repeated exact-point Hessian assembly can reuse curvature while applying different solver weights; it does not establish retained integration/checkpoint history. |
+| `dynamics.sample_elimination.symbolic_constructions`, `dynamics.sample_elimination.symbolic_reuses`; `dynamics.sample_elimination.faer.factor` | Compatible canonical algebraic patterns reuse symbolic LU analysis. Each sample still constructs a fresh numeric factor; the factor phase's `.calls` includes failed attempts. Within that sample, multiple right-hand sides share its factor; compare `dynamics.sample_elimination.solve.calls`. An all-differential sample needs no algebraic factor. |
+| `native.session.constructions`, `native.session.pool_checkouts`, `native.session.pool_returns` | New native owner threads, actual neutral-owner checkouts and completed returns after reset. A returned owner retains only what its adapter's neutral-reset contract permits; checkout does not establish reuse of numeric state, seeds or a previous task clock. |
+
+For fitting, also compare `fit.new_trials`, `fit.derivative_upgrades` and
+`fit.trial_cache_reuses`. A same-point demand upgrade can require fresh missing products;
+an already completed curvature product is a separate fact. Failure or cancellation
+cannot publish partial curvature as a completion. Counts describe the observed demands,
+not every optimizer iteration or every scientific output.
+
+The explicit compiled scalar evaluator adds the `math.native_scalar_compilation` phase,
+`math.native_scalar_compilations`, `math.native_scalar_evaluations` and
+`math.native_scalar_executable_bytes`. Compilation counts successful loaded modules;
+evaluation counts native arithmetic calls, not independently accepted outputs. Executable
+bytes describe the generated file, not mapped-memory residency. Compare compilation work
+with actual repeated value demand rather than assuming amortization.
+
+This opt-in `compiled-evaluator` feature uses the fixed Linux x86-64 scalar C++ profile
+for Value arithmetic blocks, with independent worker scratch and owned executable lifetime.
+Derivatives and provider calls remain interpreted. It selects neither a SIMD/batched route nor a host-native CPU
+target, enables neither fast math nor FP contraction, and does not interrupt an
+individual compiled call; cancellation is checked at its surrounding boundaries. These
+producer facts do not establish all-context evaluator or assembled workflow qualification.
+
 ## Artifact publication work
 
 `artifact.metadata.attach` measures each bounded transaction attaching already sealed artifact file metadata. `canonical.artifact.metadata.groups_acknowledged` and `canonical.artifact.metadata.rows_acknowledged` count only groups and rows whose exact ordered key inventory was received and validated. File seals remain independent and differently shaped IPC data stays in separate files. A lost ACK remains unsettled and cannot authorize activation; these counters are neither a complete query count nor evidence of elapsed improvement.
