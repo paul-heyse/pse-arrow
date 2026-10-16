@@ -38,6 +38,9 @@ impl Demand {
     }
     fn responses() -> Self {
         Self {
+            // Implicit response assessment consumes F_p from the assembled constraint
+            // Jacobian as well as output responses. Request both products together.
+            jacobian: true,
             responses: true,
             ..Self::default()
         }
@@ -55,6 +58,9 @@ struct Point {
     trajectories: BTreeMap<InstanceId, Arc<native::dynamics::Report>>,
     /// The transient experiments' adjoint part of the objective gradient, once computed.
     adjoint: Option<Vec<f64>>,
+    /// Complete residual curvature only; native objective weights are applied later.
+    /// The enclosing fit job admits this storage through `FitProblem::bytes`.
+    curvatures: Option<Vec<Option<Vec<f64>>>>,
 }
 #[derive(Debug, Default)]
 pub(super) struct ExperimentProducts {
@@ -82,6 +88,8 @@ pub(super) struct FitOracle {
     point: Option<Point>,
     #[cfg(all(test, feature = "solver-diffsol"))]
     transient_passes: (usize, usize),
+    #[cfg(all(test, feature = "solver-idas"))]
+    transient_curvature_passes: usize,
 }
 struct RankDiagnostic {
     responses: pse_columnar::Leased<Mat<f64>>,
@@ -155,6 +163,8 @@ impl FitOracle {
             point: None,
             #[cfg(all(test, feature = "solver-diffsol"))]
             transient_passes: (0, 0),
+            #[cfg(all(test, feature = "solver-idas"))]
+            transient_curvature_passes: 0,
         })
     }
     fn evaluate(&mut self, x: &[f64]) -> Result<&Point, ProblemError> {
@@ -235,6 +245,7 @@ impl FitOracle {
             blocks: Vec::new(),
             trajectories: BTreeMap::new(),
             adjoint: demand.adjoint.then(|| vec![0.; x.len()]),
+            curvatures: None,
         };
         #[cfg(all(test, feature = "solver-diffsol"))]
         for (ei, experiment) in p.experiments.iter().enumerate() {
@@ -408,23 +419,41 @@ impl FitOracle {
     /// bindings, as the dense block the layout's transient Hessian sources index; absent
     /// for steady experiments and for transient ones without an included observation or
     /// a free parameter.
-    fn transient_curvatures(&mut self, x: &[f64]) -> Result<Vec<Option<Vec<f64>>>, ProblemError> {
+    fn transient_curvatures(&mut self, x: &[f64]) -> Result<(), ProblemError> {
+        self.execution.check()?;
+        let point = self.point.as_ref().ok_or_else(|| ProblemError::internal("fit curvature point"))?;
+        if point.curvatures.is_some() {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("fit.transient_curvature_reuses", "count", 1);
+            }
+            return Ok(());
+        }
+        let _phase = pse_diagnostics::observation::phase("fit.transient_curvature");
         let p = self.prepared.clone();
-        p.experiments
-            .iter()
-            .enumerate()
-            .map(|(ei, e)| {
-                let Experiment::Transient(s) = e else {
-                    return Ok(None);
-                };
-                let mapping = &p.layout.mappings[ei];
-                if mapping.free_bindings.is_empty() || mapping.observations.is_empty() {
-                    return Ok(None);
+        let mut curvatures = Vec::with_capacity(p.experiments.len());
+        for (ei, experiment) in p.experiments.iter().enumerate() {
+            let mapping = &p.layout.mappings[ei];
+            let curvature = match experiment {
+                Experiment::Transient(s)
+                    if !mapping.free_bindings.is_empty() && !mapping.observations.is_empty() =>
+                {
+                    Some(self.transient_curvature(&p, ei, s, x, &mapping.free_bindings)?)
                 }
-                self.transient_curvature(&p, ei, s, x, &mapping.free_bindings)
-                    .map(Some)
-            })
-            .collect()
+                _ => None,
+            };
+            curvatures.push(curvature);
+        }
+        self.execution.check()?;
+        if curvatures.iter().flatten().flatten().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite fit transient curvature"));
+        }
+        // A failed/cancelled experiment drops all temporary blocks. Advertise a
+        // completed product only after every required experiment has succeeded.
+        self.point.as_mut().ok_or_else(|| ProblemError::internal("fit curvature publication"))?.curvatures = Some(curvatures);
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("fit.transient_curvature_completions", "count", 1);
+        }
+        Ok(())
     }
     #[cfg(feature = "solver-idas")]
     fn transient_curvature(
@@ -435,6 +464,11 @@ impl FitOracle {
         x: &[f64],
         free: &[usize],
     ) -> Result<Vec<f64>, ProblemError> {
+        #[cfg(test)]
+        { self.transient_curvature_passes += 1; }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("fit.transient_curvature_integrations", "count", 1);
+        }
         if self.transient_workers[ei].is_none() {
             self.transient_workers[ei] = Some(s.worker(&self.execution)?);
         }
@@ -620,11 +654,9 @@ impl NlpOracle for FitOracle {
         };
         // The exact Hessian's transient curvature Σ rᵢwᵢ∇²yᵢ, by second-order adjoint
         // sensitivities of each transient experiment (ADR-0110 item 4).
-        let curvatures = if exact {
-            self.transient_curvatures(x)?
-        } else {
-            vec![None; self.prepared.experiments.len()]
-        };
+        if exact {
+            self.transient_curvatures(x)?;
+        }
         let p = &self.prepared;
         let point = self
             .point
@@ -659,7 +691,7 @@ impl NlpOracle for FitOracle {
                 // A transient experiment adds no constraint rows: its Gauss–Newton part is
                 // the Gram term alone, and the exact Hessian adds its curvature block.
                 Experiment::Transient(_) => {
-                    if let Some(curvature) = &curvatures[ei] {
+                    if exact && let Some(curvature) = point.curvatures.as_ref().and_then(|blocks| blocks[ei].as_ref()) {
                         for &(source, target) in &p.layout.mappings[ei].hessian {
                             h.add(target, objective_weight * curvature[source])?;
                         }

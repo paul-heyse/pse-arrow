@@ -1532,10 +1532,14 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
     let output_allowances = curved_output_allowances(&problem, &assessments);
     with_admitted_fit_oracle(problem.into(), move |oracle| {
         let pattern = oracle.hessian_pattern().unwrap().to_owned().unwrap();
-        for x in [[1., 2.], [1.6, 1.5]] {
+        for (point_index, x) in [[1., 2.], [1.6, 1.5]].into_iter().enumerate() {
             for sigma in [1., 0.5] {
                 let mut values = vec![0.; pattern.row_idx().len()];
                 oracle.hessian(&x, sigma, &[], &mut values).unwrap();
+                // Changing the native objective multiplier changes assembly only:
+                // the exact residual-curvature integration runs once per point.
+                assert_eq!(oracle.transient_curvature_passes, point_index + 1);
+                assert!(oracle.point.as_ref().unwrap().curvatures.is_some());
                 let h = SparseColMat::new(pattern.clone(), values).to_dense();
                 let problem = oracle.prepared.clone();
                 let analytic = curved_loss_derivatives(&problem, x, &output_allowances);
@@ -1597,6 +1601,28 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
                 }
             }
         }
+        let mut values = vec![0.; pattern.row_idx().len()];
+        // A fresh point has no completed curvature. Missing the actual native
+        // allowance makes the curvature operation fail without publishing it.
+        oracle.evaluate(&[1.2, 1.8]).unwrap();
+        assert!(oracle.point.as_ref().unwrap().curvatures.is_none());
+        let memory = oracle.execution.memory.take();
+        assert!(oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).is_err());
+        assert!(oracle.point.as_ref().unwrap().curvatures.is_none());
+        oracle.execution.memory = memory;
+        let attempted = oracle.transient_curvature_passes;
+        oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).unwrap();
+        assert_eq!(oracle.transient_curvature_passes, attempted + 1);
+        oracle.hessian(&[1.2, 1.8], 0.25, &[], &mut values).unwrap();
+        assert_eq!(oracle.transient_curvature_passes, attempted + 1);
+        // Cancellation invalidates the point before any cached scientific product
+        // can be served. The original completed block is not retained for retry.
+        oracle.execution.cancel.store(true, Ordering::Release);
+        assert!(oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).is_err());
+        assert!(oracle.point.is_none());
+        oracle.execution.cancel.store(false, Ordering::Release);
+        oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).unwrap();
+        assert_eq!(oracle.transient_curvature_passes, attempted + 2);
     })
     .await;
     #[cfg(feature = "solver-ipopt")]

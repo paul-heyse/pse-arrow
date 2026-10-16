@@ -153,6 +153,24 @@ impl PreparedExperiments {
                     .ok_or_else(|| contract("fit derivative storage"))?,
             )
             .ok_or_else(|| contract("fit storage"))?;
+        // The callback retains one completed exact residual-curvature block at
+        // the current point. Charge it to the fit job, independently of native
+        // integration/checkpoint allowances, before any callback can allocate it.
+        if profile.solver.controls.hessian == HessianMode::Exact {
+            let curvature_bytes = experiments.iter().zip(&layout.mappings).fold(
+                experiments.len().checked_mul(size_of::<Option<Vec<f64>>>()),
+                |total, (experiment, mapping)| {
+                    let cells = if matches!(experiment, Experiment::Transient(_))
+                        && !mapping.observations.is_empty()
+                    {
+                        mapping.free_bindings.len().checked_mul(mapping.free_bindings.len())?
+                    } else { 0 };
+                    total?.checked_add(cells.checked_mul(size_of::<f64>())?)
+                },
+            ).ok_or_else(|| contract("fit retained transient curvature extent"))?;
+            bytes = bytes.checked_add(curvature_bytes)
+                .ok_or_else(|| contract("fit retained transient curvature storage"))?;
+        }
         let neutral = q
             .neutral_dimensionless()
             .ok_or_else(|| contract("fitting requires the bound neutral quantity"))?;

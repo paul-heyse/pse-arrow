@@ -614,7 +614,7 @@ impl ModelingPackage {
                                     .validate(simulation.contract(), &simulation.parameters)
                                     .and_then(|_| {
                                         second
-                                            .admit_second_order(simulation.contract(), &directions)
+                                            .admit_second_order(simulation.contract(), &directions, simulation.native_layout())
                                     })
                                     .map_err(|e| WorkflowError::Math(e.into()))?;
                             }
