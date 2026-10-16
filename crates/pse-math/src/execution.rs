@@ -3687,7 +3687,7 @@ fn compile_stages(
                                 allowance.modules = allowance.modules.checked_add(module_bytes)
                                     .ok_or(MathError::Limit("compiled module storage"))?;
                                 if !allowance.native_prepaid { crate::construction::additional(module_bytes)?; }
-                                BlockEvaluator::Native(crate::native_compiled::compile(&evaluator, module_bytes, cancelled)?)
+                                BlockEvaluator::Native(crate::native_compiled::compile(&evaluator, &storage, &export, module_bytes, cancelled)?)
                             }
                             #[cfg(not(feature = "compiled-evaluator"))]
                             { let _ = module_bytes; return Err(MathError::Contract("compiled scalar evaluator requires compiled-evaluator feature".into())); }

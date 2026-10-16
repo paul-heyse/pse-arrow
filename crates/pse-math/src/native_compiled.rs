@@ -206,13 +206,17 @@ fn compiler_command(path: &str, limit: usize, directory: &std::path::Path) -> Co
 
 pub(crate) fn compile(
     evaluator: &ExpressionEvaluator<f64>,
+    storage: &library::Storage,
+    export: &ExportedInstructions<f64>,
     module_bytes: usize,
     cancelled: &Arc<AtomicBool>,
 ) -> Result<Evaluator, MathError> {
-    compile_with(evaluator, module_bytes, cancelled, COMPILER)
+    compile_prepared_with(evaluator, storage, export, module_bytes, cancelled, COMPILER)
 }
-fn compile_with(
+fn compile_prepared_with(
     evaluator: &ExpressionEvaluator<f64>,
+    storage: &library::Storage,
+    export: &ExportedInstructions<f64>,
     module_bytes: usize,
     cancelled: &Arc<AtomicBool>,
     compiler_path: &str,
@@ -222,10 +226,12 @@ fn compile_with(
     }
     if cancelled.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
     let _phase = pse_diagnostics::observation::phase("math.native_scalar_compilation");
-    let storage = library::storage(evaluator)?;
+    // The caller borrows its already source-admitted instruction inspection,
+    // also used for scratch/reset eligibility. No native-module inspection clone
+    // precedes the module's own preflight or duplicates that source population.
     let scratch = storage.numeric_entries.checked_mul(size_of::<f64>())
         .ok_or(MathError::Limit("compiled template scratch"))?;
-    let source_bound = export_bound(&evaluator.export_instructions())?;
+    let source_bound = export_bound(export)?;
     // export.rs builds argument String vectors, joined expressions and formatted
     // assignments while the growing result String remains live. Eight complete
     // source populations cover these capacities/temporaries for the admitted
@@ -287,6 +293,17 @@ mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
     use symbolica::{atom::{Atom, AtomCore}, parse};
+
+    // Fixture construction/inspection belongs to the already constructed test
+    // evaluator, matching the source-owned inspection in compile_stages.
+    fn compile_with(evaluator: &ExpressionEvaluator<f64>, module_bytes: usize, cancelled: &Arc<AtomicBool>, compiler: &str) -> Result<Evaluator, MathError> {
+        let storage = library::storage(evaluator)?;
+        let export = evaluator.export_instructions();
+        super::compile_prepared_with(evaluator, &storage, &export, module_bytes, cancelled, compiler)
+    }
+    fn compile(evaluator: &ExpressionEvaluator<f64>, module_bytes: usize, cancelled: &Arc<AtomicBool>) -> Result<Evaluator, MathError> {
+        compile_with(evaluator, module_bytes, cancelled, COMPILER)
+    }
 
     fn arithmetic() -> ExpressionEvaluator<f64> {
         crate::initialize().unwrap();
