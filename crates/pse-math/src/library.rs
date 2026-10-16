@@ -134,6 +134,36 @@ pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
         environment: crate::linked_environment()?,
     })
 }
+/// Explicit evaluator implementation. Scalar C++ compilation is opt-in and only
+/// changes Value arithmetic blocks; derivatives and provider calls remain interpreted.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Evaluator {
+    /// Portable library instruction interpretation.
+    #[default]
+    Interpreted,
+    /// Fixed conservative Linux x86-64 C++ profile. The finite allowance covers
+    /// each generated module's source, executable and template metadata; worker
+    /// numeric scratch remains independently charged from the exported stack.
+    CompiledScalar {
+        /// Prepaid source/executable/metadata capacity for each arithmetic block.
+        module_bytes: usize,
+    },
+}
+impl Evaluator {
+    /// Stable compilation choices, included in artifact identities. This is a
+    /// supported profile identity, not environment/provenance attestation.
+    pub fn identity(self) -> &'static str {
+        match self {
+            Self::Interpreted => "interpreted-f64-v1",
+            Self::CompiledScalar { .. } => "symbolica-3.0.1-cpp-scalar-value-v1;g++;/usr/bin/g++;O2;c++17;noasm;no-fast-math;no-unsafe-math;fp-contract-off;x86-64-generic",
+        }
+    }
+    /// Per-module physical capacity carried by the compilation owner.
+    pub fn module_bytes(self) -> usize {
+        match self { Self::Interpreted => 0, Self::CompiledScalar { module_bytes } => module_bytes }
+    }
+}
 /// Explicit optimizer controls; no target-dependent or unbounded defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Optimization {
@@ -143,6 +173,8 @@ pub struct Optimization {
     pub horner_iterations: usize,
     /// Common-pair elimination rounds.
     pub cpe_iterations: usize,
+    /// Explicit implementation for scalar Value arithmetic blocks.
+    pub evaluator: Evaluator,
 }
 impl Default for Optimization {
     fn default() -> Self {
@@ -150,6 +182,7 @@ impl Default for Optimization {
             cores: 1,
             horner_iterations: 10,
             cpe_iterations: 1,
+            evaluator: Evaluator::Interpreted,
         }
     }
 }

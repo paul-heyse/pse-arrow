@@ -26,6 +26,8 @@ pub mod index;
 pub mod initialization;
 pub mod jets;
 pub mod library;
+#[cfg(feature = "compiled-evaluator")]
+mod native_compiled;
 pub mod normalization;
 pub mod numerics;
 pub mod presolve;

@@ -339,7 +339,10 @@ impl ScalarCache {
         if cancelled.load(std::sync::atomic::Ordering::Acquire) {
             return Err(MathError::Cancelled);
         }
-        let key = (expressions.to_vec(), parameters.to_vec(), options);
+        // Scalar optimization does not consume the later execution selector.
+        // Share exact scalar preparation across interpreted/native Value routes.
+        let scalar_options = Optimization { evaluator: Evaluator::Interpreted, ..options };
+        let key = (expressions.to_vec(), parameters.to_vec(), scalar_options);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_cache_lookups", "count", 1);
         }

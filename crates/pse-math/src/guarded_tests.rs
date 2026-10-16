@@ -321,6 +321,7 @@ fn high_precision_real_values_survive_optimizer_and_jet_profiles() {
             cores: symbolica::license::LicenseManager::max_threads(2),
             horner_iterations: 0,
             cpe_iterations: 0,
+            evaluator: library::Evaluator::Interpreted,
         },
     ] {
         let expression = (&x + Atom::num(1)).log();

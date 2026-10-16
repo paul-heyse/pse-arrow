@@ -216,7 +216,7 @@ impl PreparedModeling {
         profile: Profile,
         context: &ContentHash,
     ) -> pse_ids::roles::PreparedViewHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingViewV4);
+        let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingViewV5);
         h.hash(&structure.key())
             .hash(context)
             .u64(order as u64)
@@ -243,6 +243,7 @@ impl PreparedModeling {
                 }
             }
         }
+        h.str(profile.optimization.evaluator.identity()).u64(profile.optimization.evaluator.module_bytes() as u64);
         for x in [
             profile.class_proof_work,
             profile.assembly.contributions,

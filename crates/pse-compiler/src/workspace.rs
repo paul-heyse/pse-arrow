@@ -449,7 +449,7 @@ impl ArtifactRequest {
     /// limits remain independent; opaque control/provider bodies return None.
     pub fn construction_allocation_bound(&self) -> std::result::Result<Option<usize>, MathError> {
         self.support
-            .compilation_allocation_bound(self.evaluation, self.demand.directional)?
+            .compilation_allocation_bound(self.evaluation, self.demand.directional, self.optimization)?
             .map(|body| {
                 body.checked_add(self.descriptor_bytes())
                     .ok_or(MathError::Limit("artifact construction extent"))
@@ -475,9 +475,10 @@ fn artifact_requests(
     environment: &ContentHash,
 ) -> Arc<Vec<ArtifactRequest>> {
     Arc::new(p.demands().iter().enumerate().map(|(index, d)|{
-        let mut h=FramedHasher::new(if d.directional { pse_ids::Frame::MathDirectionalArtifactV1 } else { pse_ids::Frame::MathArtifactV5 });
+        let mut h=FramedHasher::new(if d.directional { pse_ids::Frame::MathDirectionalArtifactV2 } else { pse_ids::Frame::MathArtifactV6 });
         h.hash(&d.body).hash(environment)
-            .str("pse-math-evaluator-abi-v4;demanded-support;interpreted-f64;numerica-jets;real-algebra;no-jit;no-simd")
+            .str("pse-math-evaluator-abi-v5;demanded-support;numerica-jets;real-algebra;explicit-value-evaluator;no-simd")
+            .str(profile.optimization.evaluator.identity()).u64(profile.optimization.evaluator.module_bytes() as u64)
             .u64(d.order as u64).u64(d.outputs.len() as u64);
         for &x in &d.outputs{h.u64(x as u64);}h.u64(d.coordinates.len() as u64);for &x in &d.coordinates{h.u64(x as u64);}
         if d.directional { h.str("directional-first;one-taylor-axis;runtime-formal-seeds-v1"); }
@@ -1719,6 +1720,17 @@ mod directional_identity_tests {
         };
         let environment = ContentHash::from_bytes([19; 32]);
         let normal = artifact_requests(&plan, profile, &environment);
+        let native_profile = Profile {
+            optimization: Optimization {
+                evaluator: pse_math::library::Evaluator::CompiledScalar { module_bytes: 1 << 20 },
+                ..profile.optimization
+            },
+            ..profile
+        };
+        let native = artifact_requests(&plan, native_profile, &environment);
+        assert_ne!(normal[0].key(), native[0].key(), "execution selectors must not reuse interpreted artifacts");
+        assert_eq!(normal[0].scalar_key(), native[0].scalar_key(), "execution selection does not alter exact scalar optimization");
+        assert!(native[0].construction_allocation_bound().unwrap().unwrap() > normal[0].construction_allocation_bound().unwrap().unwrap());
         let directional = plan.with_directional_actions(&cancel).unwrap();
         let requests = artifact_requests(&directional, profile, &environment);
         assert_eq!(normal.as_slice(), &requests[..normal.len()]);

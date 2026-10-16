@@ -94,6 +94,7 @@ struct OptimizationWire {
     cores: usize,
     horner_iterations: usize,
     cpe_iterations: usize,
+    evaluator: pse_math::library::Evaluator,
 }
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(remote = "pse_math::jets::EvaluationLimits", deny_unknown_fields)]
@@ -1304,6 +1305,7 @@ mod study_operation_unit {
                     cores: 2,
                     horner_iterations: 31,
                     cpe_iterations: 9,
+                    evaluator: pse_math::library::Evaluator::Interpreted,
                 },
                 evaluation: pse_math::jets::EvaluationLimits {
                     derivative_components: 7,

@@ -15,7 +15,12 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+compiled-evaluator = ["symbolica/native_code_generation", "dep:tempfile", "dep:rustix"]
+
 [dependencies]
+tempfile = { workspace = true, optional = true }
+rustix = { workspace = true, optional = true }
 rayon.workspace = true
 rustc-hash.workspace = true
 schemars.workspace = true

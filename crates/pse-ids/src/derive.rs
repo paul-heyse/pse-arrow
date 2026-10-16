@@ -315,6 +315,8 @@ frames! {
         CompilerModelingViewV3 => "pse.compiler.modeling-view.v3",
         /// Complete compiler view policy, including assembly limits and class-proof work.
         CompilerModelingViewV4 => "pse.compiler.modeling-view.v4",
+        /// Complete compiler view policy with explicit scalar evaluator selection.
+        CompilerModelingViewV5 => "pse.compiler.modeling-view.v5",
         /// The parametric projection of a prepared modeling view over requested parameters.
         CompilerModelingParametricV1 => "pse.compiler.modeling-parametric.v1",
         /// A grouped consumer body, its expressions and validity ranges in canonical spelling
@@ -439,8 +441,12 @@ frames! {
         NativeContextSnapshotV1 => "pse.native.context-snapshot.v1",
         /// Selected mathematical support and evaluator policy under ADR-0152.
         MathArtifactV5 => "pse.math.artifact.v5",
+        /// Explicit interpreted/compiled scalar Value execution profile.
+        MathArtifactV6 => "pse.math.artifact.v6",
         /// Demanded directional evaluator with runtime seed coordinates.
         MathDirectionalArtifactV1 => "pse.math.directional-artifact.v1",
+        /// Directional artifact with the explicit scalar evaluator profile.
+        MathDirectionalArtifactV2 => "pse.math.directional-artifact.v2",
         /// Relevant production units and consumed source/native inputs, separate from outer attestation.
         ProducerV1 => "pse.producer.v1",
         /// Exact idempotent canonical mutation inputs, independently of operation ID.

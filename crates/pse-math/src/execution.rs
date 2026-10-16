@@ -501,8 +501,15 @@ impl PreparedSupport {
         &self,
         limits: EvaluationLimits,
         directional: bool,
+        options: Optimization,
     ) -> Result<Option<usize>, MathError> {
-        self.selected_compilation_allocation_bound(limits, self.order(), directional)
+        let bound = self.selected_compilation_allocation_bound(limits, self.order(), directional)?;
+        bound.map(|bytes| {
+            self.body().stages.iter().filter(|stage| matches!(stage, Stage::Block { .. })).count()
+                .checked_mul(if directional { 0 } else { options.evaluator.module_bytes() })
+                .and_then(|modules| bytes.checked_add(modules))
+                .ok_or(MathError::Limit("compiled module construction storage"))
+        }).transpose()
     }
     fn selected_compilation_allocation_bound(
         &self,
@@ -2020,6 +2027,7 @@ impl PreparedBody {
         let mut used = 0usize;
         let mut retained_numeric = 0usize;
         let mut retained_instructions = 0usize;
+        let mut retained_modules = 0usize;
         let mut order_worker_bytes = EnumMap::<DerivativeOrder, usize>::default();
         let mut remaining_operations = limits.operations;
         let mut remaining_providers = limits.provider_calls;
@@ -2070,6 +2078,8 @@ impl PreparedBody {
                 providers: remaining_providers,
                 entries: frame,
                 instructions: 0,
+                modules: 0,
+                native_prepaid: self.is_flat_arithmetic(),
                 local_order: if local_branches {
                     requested
                 } else {
@@ -2089,6 +2099,8 @@ impl PreparedBody {
                 &mut allowance,
                 &mut scalars,
             )?;
+            retained_modules = retained_modules.checked_add(allowance.modules)
+                .ok_or(MathError::Limit("compiled module storage"))?;
             remaining_operations = allowance.operations;
             remaining_providers = allowance.providers;
             retained_numeric = retained_numeric
@@ -2206,6 +2218,7 @@ impl PreparedBody {
                     )
                 })
                 .and_then(|n| n.checked_add(retained_instructions))
+                .and_then(|n| n.checked_add(retained_modules))
                 .and_then(|n| n.checked_add(descriptor_bytes))
                 .and_then(|n| n.checked_add(evidence_bytes))
                 .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
@@ -2226,6 +2239,58 @@ impl PreparedBody {
         }
         Ok(compiled)
     }
+}
+
+#[derive(Clone)]
+#[allow(clippy::large_enum_variant, reason = "Keep the existing interpreter inline rather than allocating every block")]
+enum BlockEvaluator {
+    Interpreted(ExpressionEvaluator<f64>),
+    #[cfg(feature = "compiled-evaluator")]
+    Native(crate::native_compiled::Evaluator),
+}
+impl BlockEvaluator {
+    fn instantiate(&mut self) -> Result<(), MathError> {
+        match self {
+            Self::Interpreted(_) => Ok(()),
+            #[cfg(feature = "compiled-evaluator")]
+            Self::Native(evaluator) => evaluator.instantiate(),
+        }
+    }
+    fn evaluate(&mut self, arguments: &[f64], values: &mut [f64]) -> Result<(), String> {
+        match self {
+            Self::Interpreted(evaluator) => evaluator.try_evaluate(arguments, values).map_err(|e| e.to_string()),
+            #[cfg(feature = "compiled-evaluator")]
+            Self::Native(evaluator) => evaluator.evaluate(arguments, values),
+        }
+    }
+    fn reset(self) -> Result<Self, MathError> {
+        match self {
+            Self::Interpreted(evaluator) => {
+                let first = evaluator.get_input_len();
+                let end = first.checked_add(evaluator.get_constants().len())
+                    .ok_or(MathError::Limit("evaluator reset constants"))?;
+                let index = std::cell::Cell::new(0usize);
+                Ok(Self::Interpreted(evaluator.map_coeff(&|value| {
+                    let slot = index.get();
+                    index.set(slot + 1);
+                    if (first..end).contains(&slot) { *value } else { f64::NAN }
+                })))
+            }
+            #[cfg(feature = "compiled-evaluator")]
+            Self::Native(mut evaluator) => { evaluator.reset(); Ok(Self::Native(evaluator)) }
+        }
+    }
+}
+fn instantiate_stages(stages: &mut [CompiledStage]) -> Result<(), MathError> {
+    for stage in stages {
+        match stage {
+            CompiledStage::Block { evaluator, .. } => evaluator.instantiate()?,
+            CompiledStage::Applicability { stages, .. } | CompiledStage::Domain { stages, .. } => instantiate_stages(stages)?,
+            CompiledStage::Branch { then, otherwise, .. } => { instantiate_stages(then)?; instantiate_stages(otherwise)?; }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -2254,7 +2319,7 @@ enum CompiledStage {
         lineage: Arc<pse_model::diagnostic::ValidityLineage>,
     },
     Block {
-        evaluator: ExpressionEvaluator<f64>,
+        evaluator: BlockEvaluator,
         resettable: bool,
         components: Vec<usize>,
         inputs: Vec<usize>,
@@ -2859,7 +2924,9 @@ impl Worker {
                 context.count("math.evaluator_template_instantiations", "count", 1);
                 context.phase("math.evaluator_template_instantiation")
             });
-            self.programs[order] = Some(template.clone());
+            let mut stages = template.clone();
+            instantiate_stages(&mut stages)?;
+            self.programs[order] = Some(stages);
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count(
                     "math.evaluator_template_instantiations_completed",
@@ -2868,6 +2935,7 @@ impl Worker {
                 );
             }
         }
+        if let Some(stages) = &mut self.programs[order] { instantiate_stages(stages)?; }
         self.used_bytes = used;
         self.check_scope()
     }
@@ -2897,20 +2965,7 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                             "unsupported evaluator scratch reset".into(),
                         ));
                     }
-                    let first = evaluator.get_input_len();
-                    let end = first
-                        .checked_add(evaluator.get_constants().len())
-                        .ok_or(MathError::Limit("evaluator reset constants"))?;
-                    let index = std::cell::Cell::new(0usize);
-                    let evaluator = evaluator.map_coeff(&|value| {
-                        let slot = index.get();
-                        index.set(slot + 1);
-                        if (first..end).contains(&slot) {
-                            *value
-                        } else {
-                            f64::NAN
-                        }
-                    });
+                    let evaluator = evaluator.reset()?;
                     arguments.fill(f64::NAN);
                     values.fill(f64::NAN);
                     CompiledStage::Block {
@@ -3394,6 +3449,11 @@ struct BuildAllowance {
     entries: usize,
     /// Instruction storage retained by the template and copied by each attempt worker.
     instructions: usize,
+    /// Shared native code/template allowance, never copied into worker charges.
+    modules: usize,
+    /// Flat arithmetic modules were included by the selected-source preflight.
+    /// Opaque control/provider construction consumes the installed owner's prepaid capacity.
+    native_prepaid: bool,
 }
 fn provider_request_order(
     order: DerivativeOrder,
@@ -3615,6 +3675,25 @@ fn compile_stages(
                     && !export.instructions.iter().any(|instruction| {
                         matches!(instruction, symbolica::evaluate::Instruction::Fun(..))
                     });
+                let evaluator = if layout.order == DerivativeOrder::Value {
+                    match options.evaluator {
+                        library::Evaluator::Interpreted => BlockEvaluator::Interpreted(evaluator),
+                        library::Evaluator::CompiledScalar { module_bytes } => {
+                            #[cfg(feature = "compiled-evaluator")]
+                            {
+                                if module_bytes == 0 { return Err(MathError::Limit("zero compiled module allowance")); }
+                                allowance.modules = allowance.modules.checked_add(module_bytes)
+                                    .ok_or(MathError::Limit("compiled module storage"))?;
+                                if !allowance.native_prepaid { crate::construction::additional(module_bytes)?; }
+                                BlockEvaluator::Native(crate::native_compiled::compile(&evaluator, module_bytes, cancelled)?)
+                            }
+                            #[cfg(not(feature = "compiled-evaluator"))]
+                            { let _ = module_bytes; return Err(MathError::Contract("compiled scalar evaluator requires compiled-evaluator feature".into())); }
+                        }
+                    }
+                } else {
+                    BlockEvaluator::Interpreted(evaluator)
+                };
                 CompiledStage::Block {
                     evaluator,
                     resettable,
@@ -3917,7 +3996,7 @@ fn evaluate_stages(
                     }
                 }
                 evaluator
-                    .try_evaluate(arguments, values)
+                    .evaluate(arguments, values)
                     .map_err(|e| MathError::Evaluation {
                         source_id: *source,
                         order: layout.order,
@@ -5487,7 +5566,7 @@ mod compact_tests {
                         .unwrap()
                         .iter()
                         .filter_map(|stage| match stage {
-                            CompiledStage::Block { evaluator, .. } => {
+                            CompiledStage::Block { evaluator: BlockEvaluator::Interpreted(evaluator), .. } => {
                                 Some(operation_count(evaluator.count_operations()))
                             }
                             _ => None,
@@ -5771,7 +5850,7 @@ mod compact_tests {
             provider_calls: 1_000_000,
         };
         let demand = support
-            .compilation_allocation_bound(limits, false)
+            .compilation_allocation_bound(limits, false, Optimization::default())
             .unwrap()
             .unwrap();
         assert!(demand < 1 << 20);
@@ -5822,15 +5901,15 @@ mod compact_tests {
         let first = value.upgrade(DerivativeOrder::First, &cancel).unwrap();
         let second = first.upgrade(DerivativeOrder::Second, &cancel).unwrap();
         let value_bound = value
-            .compilation_allocation_bound(limits, false)
+            .compilation_allocation_bound(limits, false, Optimization::default())
             .unwrap()
             .unwrap();
         let first_bound = first
-            .compilation_allocation_bound(limits, false)
+            .compilation_allocation_bound(limits, false, Optimization::default())
             .unwrap()
             .unwrap();
         let second_bound = second
-            .compilation_allocation_bound(limits, false)
+            .compilation_allocation_bound(limits, false, Optimization::default())
             .unwrap()
             .unwrap();
         assert!(value_bound < first_bound);
@@ -5911,15 +5990,15 @@ mod compact_tests {
             .unwrap();
         let second = first.upgrade(DerivativeOrder::Second, &cancel).unwrap();
         let first_bound = first
-            .compilation_allocation_bound(limits, false)
+            .compilation_allocation_bound(limits, false, Optimization::default())
             .unwrap()
             .unwrap();
         let second_bound = second
-            .compilation_allocation_bound(limits, false)
+            .compilation_allocation_bound(limits, false, Optimization::default())
             .unwrap()
             .unwrap();
         let directional_bound = first
-            .compilation_allocation_bound(limits, true)
+            .compilation_allocation_bound(limits, true, Optimization::default())
             .unwrap()
             .unwrap();
         assert!(directional_bound < first_bound);
@@ -5939,7 +6018,7 @@ mod compact_tests {
             .unwrap();
         assert_eq!(
             reordered
-                .compilation_allocation_bound(limits, false)
+                .compilation_allocation_bound(limits, false, Optimization::default())
                 .unwrap(),
             Some(second_bound)
         );
@@ -5995,7 +6074,7 @@ mod compact_tests {
             assert!((actual - expected).abs() < 1e-12);
         }
         assert!(matches!(
-            second.compilation_allocation_bound(limits, true),
+            second.compilation_allocation_bound(limits, true, Optimization::default()),
             Err(MathError::Contract(_))
         ));
     }
@@ -6673,6 +6752,81 @@ mod compact_tests {
                 .hessians,
             [18.]
         );
+    }
+
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn native_scalar_production_blocks_preserve_coordinates_fp_and_worker_ownership() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let y = library::formal(1).unwrap();
+        let z = library::formal(2).unwrap();
+        let body = PreparedBody::new(3, 5, vec![3, 4], vec![Stage::Block {
+            expressions: vec![&x * &y + &z, x.pow(2) + &y * Atom::num(10) + &z],
+            outputs: vec![3, 4], source: SemanticId::NIL,
+        }], DerivativeOrder::First).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let options = Optimization { evaluator: library::Evaluator::CompiledScalar { module_bytes: 1 << 20 }, ..Default::default() };
+        let limits = EvaluationLimits::default();
+        let support = body.prepare_support(&[0, 1], &[2, 0], DerivativeOrder::First, &cancel).unwrap();
+        let bound = support.compilation_allocation_bound(limits, false, options).unwrap().unwrap();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("native scalar production consumer");
+        let context = operation.context();
+        let _entered = context.enter();
+        let scalars = support.prepare_scalars(Optimization::default(), limits, &cancel).unwrap();
+        let program = support.compile_reusing(options, limits, &cancel, &scalars).unwrap();
+        assert_eq!(program.scalar_builds, 0, "native execution must reuse exact scalar preparation");
+        assert!(program.retained_bytes() + program.worker_bytes() <= bound);
+        assert!(matches!(&program.programs[DerivativeOrder::Value].as_ref().unwrap()[0], CompiledStage::Block { evaluator: BlockEvaluator::Native(_), .. }));
+        assert!(matches!(&program.programs[DerivativeOrder::First].as_ref().unwrap()[0], CompiledStage::Block { evaluator: BlockEvaluator::Interpreted(_), .. }));
+        let reference = support.compile_reusing(Optimization::default(), limits, &cancel, &scalars).unwrap();
+        let mut expected = reference.worker();
+        let mut first = program.worker();
+        let mut second = program.worker();
+        let witness = [1. + 2f64.powi(-27), 1. - 2f64.powi(-27), -1.];
+        for input in [[2., 3., 5.], witness, [4., 2., 1.], [2., 3., 5.]] {
+            let actual = eval(&mut first, &input, DerivativeOrder::Value).unwrap();
+            let original = eval(&mut expected, &input, DerivativeOrder::Value).unwrap();
+            assert_eq!(actual, original);
+        }
+        assert_eq!(eval(&mut first, &witness, DerivativeOrder::Value).unwrap().values[0].to_bits(), 0f64.to_bits());
+        assert_ne!(witness[0].mul_add(witness[1], witness[2]).to_bits(), 0f64.to_bits());
+        assert_eq!(eval(&mut second, &[4., 2., 1.], DerivativeOrder::Value).unwrap().values, [9., 37.]);
+        assert_eq!(eval(&mut first, &[2., 3., 5.], DerivativeOrder::First).unwrap(), eval(&mut expected, &[2., 3., 5.], DerivativeOrder::First).unwrap());
+        // Both live worker and a late worker retain the executable after the
+        // original immutable artifact and another worker have been released.
+        let mut late = second.clone();
+        drop(first);
+        drop(program);
+        assert_eq!(eval(&mut late, &[2., 3., 5.], DerivativeOrder::Value).unwrap().values, [11., 39.]);
+        assert_eq!(eval(&mut second, &[4., 2., 1.], DerivativeOrder::Value).unwrap().values, [9., 37.]);
+        let snapshot = context.reader().snapshot(std::time::Duration::from_secs(60));
+        let count = |name: &str| snapshot.metrics.iter().find(|metric| metric.name == name).map(|metric| metric.cumulative.clone());
+        assert_eq!(count("math.native_scalar_compilations"), Some(Value::Count(1)));
+        assert_eq!(count("math.native_scalar_evaluations"), Some(Value::Count(8)));
+    }
+
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn native_scalar_production_guards_and_nonfinite_results_keep_typed_errors() {
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let body = PreparedBody::new(1, 2, vec![1], vec![
+            Stage::Require { argument: 0, condition: Condition::Positive, order: DerivativeOrder::Value, source: SemanticId::NIL, lineage: None },
+            Stage::Block { expressions: vec![x.log()], outputs: vec![1], source: SemanticId::NIL },
+        ], DerivativeOrder::Value).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let program = body.compile(&[0], &[0], DerivativeOrder::Value,
+            Optimization { evaluator: library::Evaluator::CompiledScalar { module_bytes: 1 << 20 }, ..Default::default() },
+            EvaluationLimits::default(), &cancel).unwrap();
+        let mut worker = program.worker();
+        assert_eq!(eval(&mut worker, &[1.], DerivativeOrder::Value).unwrap().values, [0.]);
+        assert!(matches!(eval(&mut worker, &[-1.], DerivativeOrder::Value), Err(MathError::Domain { .. })));
+        assert!(eval(&mut worker, &[f64::INFINITY], DerivativeOrder::Value).is_err());
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(worker.evaluate(&[1.], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel), Err(MathError::Cancelled)));
     }
 
     #[test]
