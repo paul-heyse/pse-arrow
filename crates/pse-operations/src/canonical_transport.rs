@@ -49,6 +49,18 @@ pub(crate) async fn response_ownership_scope<F: Future>(
     RESPONSE_OWNER.scope(owner, future).await
 }
 
+/// Cleanup may belong to a charged read or a pure source selection. Reuse the
+/// existing actual response-owner scope only when a continuing allocation exists.
+pub(crate) async fn optional_response_ownership_scope<F: Future>(
+    owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    future: F,
+) -> F::Output {
+    match owner {
+        Some(owner) => response_ownership_scope(owner, metadata_scope(super::MetadataResponse::Header, future)).await,
+        None => future.await,
+    }
+}
+
 /// Every nested metadata RPC observes the endpoint's finite response layout,
 /// including source/protection reads reached by a selection operation.
 pub(crate) async fn metadata_scope<F: Future>(

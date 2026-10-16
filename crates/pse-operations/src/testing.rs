@@ -3,6 +3,12 @@
 
 //! Isolated canonical databases on the explicitly selected supervised server.
 
+/// Join already registered result-read cleanup without closing the fixture or
+/// treating a facade drop as native/SDK drain. Future independent reads remain valid.
+pub async fn drain_result_releases(store: &crate::canonical::CanonicalStore) -> Result<(), crate::canonical::CanonicalError> {
+    store.result_read_drain.drain().await
+}
+
 /// Shared by all managed store borrowers, including queued result-read releases.
 pub(crate) struct FixtureLifetime {
     store: crate::canonical::CanonicalStore,

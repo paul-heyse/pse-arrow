@@ -70,6 +70,7 @@ impl ResultSnapshot {
         if read_owner.size() < read.retained_bytes()? {
             return Err(contract("snapshot read metadata is not prepaid"));
         }
+        read.retain_metadata_owner(read_owner.clone())?;
         let owner = MemoryConsumer::new("canonical:result-snapshot-inventory")
             .register(&runtime.shared.pool());
         owner

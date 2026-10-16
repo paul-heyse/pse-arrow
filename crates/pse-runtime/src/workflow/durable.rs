@@ -187,6 +187,7 @@ impl Operations {
                     .await?,
                 );
                 let read_owner = Arc::new(retain_metadata(&self.pool, response, read.retained_bytes()?)?);
+                read.retain_metadata_owner(read_owner.clone())?;
                 let completion = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone())),
                     self.decode_completion(CompletionSelection::Full(&read)),
@@ -257,10 +258,12 @@ impl Operations {
                 let response =
                     pooled_response_owner(&self.pool, "canonical:completion-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
                 let read = pse_operations::canonical::response_ownership_scope(
-                    response,
+                    response.clone(),
                     self.store.read_completion(run, attempt),
                 )
                 .await?;
+                let read_owner = Arc::new(retain_metadata(&self.pool, response, read.retained_bytes()?)?);
+                read.retain_metadata_owner(read_owner)?;
                 self.decode_completion(CompletionSelection::Slim(&read))
                     .await
             })
@@ -3015,11 +3018,13 @@ impl Operations {
         let response = pooled_response_owner(&self.pool, "canonical:seed-selection-response", pse_operations::canonical::MetadataResponse::Selection)?;
         let read = Arc::new(
             pse_operations::canonical::response_ownership_scope(
-                response,
+                response.clone(),
                 self.store.read_results(&row.run, &row.attempt),
             )
             .await?,
         );
+        let read_owner = Arc::new(retain_metadata(&self.pool, response, read.retained_bytes()?)?);
+        read.retain_metadata_owner(read_owner)?;
         if read.attempt().seed_manifest.as_deref() != Some(read.manifest().key.as_str())
             || row.attempt_generation != read.attempt().generation
             || row.run_sequence != read.run().sequence

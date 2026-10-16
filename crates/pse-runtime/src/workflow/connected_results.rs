@@ -1090,6 +1090,7 @@ mod canonical_connected_results_server_unit {
         drop(snapshot);
         assert!(pool.reserved() > baseline, "independent snapshot keeps its metadata/footer owners");
         drop(alias);
+        pse_operations::testing::drain_result_releases(&store).await.unwrap();
         assert_eq!(pool.reserved(), baseline, "last retained read releases exact resident storage");
         let pressure = MemoryConsumer::new("test:required-result-pressure").register(&pool);
         let remaining = (256 << 20) - pool.reserved();
@@ -1102,6 +1103,7 @@ mod canonical_connected_results_server_unit {
         cancel.cancel();
         assert!(cancelled.next_batch().await.is_err());
         drop(cancelled);
+        pse_operations::testing::drain_result_releases(&store).await.unwrap();
         assert_eq!(pool.reserved(), baseline);
         drop(first_compiler);
         drop(second_compiler);
@@ -1260,6 +1262,7 @@ mod canonical_connected_results_server_unit {
             "an independent snapshot alias retains its one metadata owner"
         );
         drop(snapshot);
+        pse_operations::testing::drain_result_releases(&store).await.unwrap();
         assert_eq!(pool.reserved(), before_selection);
         assert!(
             runtime
@@ -1493,6 +1496,7 @@ mod canonical_connected_results_server_unit {
         assert_eq!(values.value(2), 273.15);
         assert!(pool.reserved() > baseline);
         drop(escaped);
+        pse_operations::testing::drain_result_releases(&store).await.unwrap();
         assert_eq!(pool.reserved(), baseline);
     }
     #[tokio::test]

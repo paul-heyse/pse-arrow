@@ -85,19 +85,31 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
             activity: std::sync::Mutex::new(Some(activity)),
             executor: Some(tokio::runtime::Handle::current()),
             released: AtomicBool::new(false),
+            metadata_owner: std::sync::OnceLock::new(),
         }),
     };
+    use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 * 1024));
+    let allocation = MemoryConsumer::new("test:queued-protection-metadata").register(&pool);
+    allocation.try_grow(64 * 1024).unwrap();
+    let allocation: Arc<dyn std::fmt::Debug + Send + Sync> = Arc::new(allocation);
+    selection.retain_metadata_owner(allocation.clone()).unwrap();
+    selection.retain_metadata_owner(allocation.clone()).unwrap();
+    assert!(selection.retain_metadata_owner(Arc::new(())).is_err());
+    drop(allocation);
     store.close();
     drop(selection);
     // Drop removes the reader count synchronously while the original release is
     // blocked at the actual ProblemTurns admission queue. Its activity remains.
     assert_eq!(store.result_read_drain.live(), 0);
+    assert_eq!(pool.reserved(), 64 * 1024, "queued cleanup retains actual metadata after the facade drops");
     assert!(matches!(
         store.disconnect().await,
         Err(CanonicalError::ConnectionBusy { .. })
     ));
     drop(held);
     store.result_read_drain.drain().await.unwrap();
+    assert_eq!(pool.reserved(), 0, "actual tracked cleanup and SDK drain release metadata");
     assert_eq!(
         received.recv().await.unwrap(),
         crate::canonical::RELEASE_PROTECTION
@@ -125,10 +137,15 @@ async fn failed_release_retains_exact_authority_until_explicit_original_grant_re
         request: vec![].into(),
         interpretation: "test".into(),
     };
+    use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 * 1024));
+    let allocation = MemoryConsumer::new("test:failed-protection-metadata").register(&pool);
+    allocation.try_grow(64 * 1024).unwrap();
     store
         .result_read_drain
-        .release_protection(issuing, revision, "original-grant".into())
+        .release_protection(issuing, revision, "original-grant".into(), Some(Arc::new(allocation)))
         .complete(Err(CanonicalError::Timeout));
+    assert_eq!(pool.reserved(), 64 * 1024, "failure recovery owns original metadata");
     store.close();
     assert_eq!(store.result_read_drain.live(), 0);
     assert!(matches!(
@@ -140,6 +157,7 @@ async fn failed_release_retains_exact_authority_until_explicit_original_grant_re
         Err(CanonicalError::ConnectionBusy { .. })
     ));
     store.recover_protection_releases().await.unwrap();
+    assert_eq!(pool.reserved(), 0, "acknowledged original cleanup releases its actual allocation");
     assert_eq!(
         received.recv().await.unwrap(),
         crate::canonical::RELEASE_PROTECTION
@@ -174,6 +192,7 @@ async fn acknowledged_protection_alias_is_idle_and_does_not_hold_physical_admiss
             activity: std::sync::Mutex::new(Some(store.admit_activity().unwrap())),
             executor: Some(tokio::runtime::Handle::current()),
             released: AtomicBool::new(false),
+            metadata_owner: std::sync::OnceLock::new(),
         }),
     };
     let alias = selection.clone();

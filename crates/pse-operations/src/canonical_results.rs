@@ -45,6 +45,7 @@ struct FailedProtection {
     error: Arc<CanonicalError>,
     retry: tokio::sync::Mutex<()>,
     done: std::sync::atomic::AtomicBool,
+    _metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
 }
 impl ResultReadDrain {
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -69,6 +70,7 @@ impl ResultReadDrain {
             drain: self.clone(),
             completed: false,
             recovery: None,
+            metadata_owner: None,
             _token: token,
         }
     }
@@ -77,9 +79,11 @@ impl ResultReadDrain {
         store: CanonicalStore,
         revision: crate::canonical::Revision,
         key: String,
+        metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
     ) -> ResultReleaseTask {
         let mut release = self.release();
         release.recovery = Some((store, revision, key));
+        release.metadata_owner = metadata_owner;
         release
     }
     pub(crate) async fn recover(self: &Arc<Self>) -> Result<(), CanonicalError> {
@@ -95,10 +99,8 @@ impl ResultReadDrain {
                 if entry.done.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
                 }
-                entry
-                    .store
-                    .release_protection(&entry.revision, &entry.key)
-                    .await?;
+                crate::canonical::transport::optional_response_ownership_scope(entry._metadata_owner.clone(),
+                    entry.store.release_protection(&entry.revision, &entry.key)).await?;
                 entry.done.store(true, std::sync::atomic::Ordering::Release);
                 drain
                     .failed_protections
@@ -176,6 +178,7 @@ pub(crate) struct ResultReleaseTask {
     drain: Arc<ResultReadDrain>,
     completed: bool,
     recovery: Option<(CanonicalStore, crate::canonical::Revision, String)>,
+    metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
     _token: tokio_util::task::task_tracker::TaskTrackerToken,
 }
 impl ResultReleaseTask {
@@ -192,6 +195,7 @@ impl ResultReleaseTask {
                     error: Arc::new(error),
                     retry: tokio::sync::Mutex::new(()),
                     done: std::sync::atomic::AtomicBool::new(false),
+                    _metadata_owner: self.metadata_owner.take(),
                 }));
         } else {
             self.drain.failure(error);
@@ -227,12 +231,25 @@ struct ReadOwner {
 /// This owner carries neither a manifest inventory nor eligible seed discovery.
 #[derive(Clone, Debug)]
 pub struct CompletionRead {
-    owner: Arc<ReadOwner>,
     run: Run,
     attempt: Attempt,
     chunks: Option<pse_model::generated::runtime::canonical_result_sets::Row>,
+    owner: Arc<ReadOwner>,
 }
 impl CompletionRead {
+    /// Actual completion selection storage, without a manifest inventory.
+    pub fn retained_bytes(&self) -> Result<usize, CanonicalError> {
+        use pse_model::HeapUsage;
+        [size_of::<Self>(), self.run.heap_bytes(), self.attempt.heap_bytes(),
+            self.chunks.as_ref().map_or(0, HeapUsage::heap_bytes), size_of::<ReadOwner>(), 2 * size_of::<usize>(),
+            self.owner.store.handle_heap_bytes().ok_or(CanonicalError::PayloadLimit)?,
+            self.owner.selection.retained_bytes().ok_or(CanonicalError::PayloadLimit)?]
+            .into_iter().try_fold(0usize, usize::checked_add).ok_or(CanonicalError::PayloadLimit)
+    }
+    /// Carry this selection's actual metadata through its protected cleanup.
+    pub fn retain_metadata_owner(&self, owner: Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<(), CanonicalError> {
+        self.owner.selection.retain_metadata_owner(owner)
+    }
     /// Exact admitted terminal receipt containing the completion header.
     pub fn attempt(&self) -> &Attempt {
         &self.attempt
@@ -250,13 +267,18 @@ impl CompletionRead {
 /// another run's values. Clone retains the same protected read owner.
 #[derive(Clone, Debug)]
 pub struct ResultRead {
-    owner: Arc<ReadOwner>,
     run: Run,
     attempt: Attempt,
     manifest: Manifest,
     sets: Vec<ResultSetDescriptor>,
+    owner: Arc<ReadOwner>,
 }
 impl ResultRead {
+    /// Retain allocation through file borrowers, tracked release and uncertain
+    /// cleanup recovery, independently of the last public reader facade.
+    pub fn retain_metadata_owner(&self, owner: Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<(), CanonicalError> {
+        self.owner.selection.retain_metadata_owner(owner)
+    }
     /// Owned selection metadata, including actual collection and string
     /// capacities. Shared physical clients remain with their deployment owner.
     /// This does not change clone authority or grant new read permission.
