@@ -4,17 +4,6 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan 41: Simulation pipeline efficiency and effectiveness](41-simulation-pipeline-efficiency-and-effectiveness.md)
-is the standalone target for the 2026-10-15 pipeline review's F01–F14 and O01–O08.
-Its [rule decisions](41-simulation-pipeline-efficiency-and-effectiveness.md#rule-decisions)
-and [checkpoint](41-simulation-pipeline-efficiency-and-effectiveness.md#current-checkpoint)
-own adoption and the next route. Companions 41a–41f develop preparation, cancellation/admission,
-study/result boundaries, native worker/storage reuse, derivative/evaluator capabilities and
-causal diagnostics/qualification. The [combined Outcome](41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
-links package delivery and assembled evidence; the coordinator's checkpoint owns remaining
-scope-end checks and documentation closure. This series does not supersede existing plans;
-reconciliation follows its execution.
-
 [Plan 40: Simulation performance diagnostics](40-simulation-performance-diagnostics.md)
 owns the adopted diagnostics review's F01–F06 and operator-accepted RC01. Its companions
 [40a](40a-operation-context-and-live-history.md),
@@ -122,6 +111,15 @@ execution follows only the explicitly recorded scope of active plans from 28 onw
 Plan 32 owns workspace content lifecycle work; Plan 28 retains its own scope.
 
 ## Latest completed plan
+
+[Plan 41: Simulation pipeline efficiency and effectiveness](41-simulation-pipeline-efficiency-and-effectiveness.md)
+records all fourteen resolved findings, eight settled opportunity routes, accepted RC01–RC04
+implementation boundaries and selected S01–S10 assembled acceptance. Its
+[Outcome](41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
+owns initial failures, repaired evidence, full continuing Clippy, scope-end checks and exclusions.
+Enduring contracts live in the architecture and diagnostics guide. Completed companions,
+resolved review and inquiries retire to Git history; the highest-numbered coordinator remains.
+Older Plan39/40/28 campaigns keep their independent scope. ADR-0190/0191 remain proposed.
 
 [Plan 37: SurrealDB lifecycle and integration target](37-surrealdb-lifecycle-and-integration.md)
 records all seven resolved findings, nine confirmed rule decisions, settled capability outcomes

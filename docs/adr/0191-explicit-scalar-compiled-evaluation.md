@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-04, AP-07, DP-09, PS-06]
 blueprint: [§14.5, §19.2, §19.3, §21.5, §25]
-review: docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md#rc03
+review: git:d3cfcbcec1742c124688ca69d18d7251e802984e:docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md#rc03
 evidence: Tested
 supersedes: []
 superseded-by: null
@@ -55,7 +55,7 @@ A narrow library-owned physical route removes interpreter work where requested. 
 
 ## More information
 
-[Plan 41e](../plans/41e-derivative-reuse-and-evaluator-capabilities.md) owns implementation, investigation decisions and acceptance. Plan 41f owns assembled qualification. Environment/provenance proof and statistical timing campaigns are excluded.
+[Plan 41e](https://github.com/paul-heyse/pse-arrow/blob/d3cfcbcec1742c124688ca69d18d7251e802984e/docs/plans/41e-derivative-reuse-and-evaluator-capabilities.md) owns implementation, investigation decisions and acceptance. Plan 41f owns assembled qualification. Environment/provenance proof and statistical timing campaigns are excluded.
 
 ## Status history
 

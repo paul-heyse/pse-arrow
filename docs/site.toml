@@ -12,7 +12,6 @@ current_work = [
   "plans/32-workspace-content-lifecycle.md",
   "plans/39*.md",
   "plans/40*.md",
-  "plans/41*.md",
 ]
 assets = [
   "capability-maps/evidence/identity-vectors-adr0050.json",

@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-04, AP-07, DP-09, PS-10]
 blueprint: [§0.5, §19.3, §21, §21.1]
-review: docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md#f09
+review: git:d3cfcbcec1742c124688ca69d18d7251e802984e:docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md#f09
 evidence: Tested
 supersedes: []
 superseded-by: null
@@ -55,7 +55,7 @@ Scientific admission and local tests lose unnecessary storage coupling. Consumer
 
 ## More information
 
-[Plan 41c](../plans/41c-studies-response-artifacts-and-result-resources.md) owns delivery and verification. [Plan 41](../plans/41-simulation-pipeline-efficiency-and-effectiveness.md#rule-decisions) owns RC01/RC02 disposition. The existing review supplies design evidence; proposed ADR status remains unchanged pending the decision-PR route.
+[Plan 41c](https://github.com/paul-heyse/pse-arrow/blob/d3cfcbcec1742c124688ca69d18d7251e802984e/docs/plans/41c-studies-response-artifacts-and-result-resources.md) owns delivery and verification. [Plan 41](../plans/41-simulation-pipeline-efficiency-and-effectiveness.md#rule-decisions) owns RC01/RC02 disposition. The existing review supplies design evidence; proposed ADR status remains unchanged pending the decision-PR route.
 
 ## Status history
 
