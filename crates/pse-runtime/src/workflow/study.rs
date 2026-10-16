@@ -245,7 +245,7 @@ pub(in crate::workflow) async fn rebind_prediction_source(
     }))
 }
 
-fn creation_checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
+pub(super) fn creation_checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
     cancel
         .token()
         .checkpoint()
@@ -2462,7 +2462,7 @@ struct StudyScience<'a> {
 }
 impl StudyScience<'_> {
     /// Validate supported producer and consumer roles for every immutable descriptor.
-    pub fn validate_roles(&self) -> Result<(), WorkflowError> {
+    fn validate_roles(&self) -> Result<(), WorkflowError> {
         if let Some(lazy) = &self.variants {
             if !self.points.is_empty() {
                 return Err(contract("study input forms are exclusive"));
@@ -2494,7 +2494,7 @@ impl StudyScience<'_> {
         Ok(())
     }
     /// Mechanically derive immutable scientific policies without constructing lazy variants.
-    pub fn graph(&self) -> OccurrenceGraph {
+    fn graph(&self) -> OccurrenceGraph {
         if let Some(lazy) = &self.variants {
             return lazy.variants.graph();
         }
@@ -2519,22 +2519,27 @@ impl super::ModelingPackage {
     ) -> Result<LocalStudy, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
+        // Local admission owns execution placement as well as scientific inputs.
+        // Family preparations embed this Runtime, so projecting only at dispatch
+        // would still let simulations/fitting/horizons create durable attempts.
+        let mut package = self.clone();
+        package.runtime = package.runtime.clone().with_durability(super::DurabilitySelection::Ephemeral)?;
         let science = match inputs {
-            super::StudyInputs::Explicit(points) => self.admit_study_points(points, output, cancel).await?,
+            super::StudyInputs::Explicit(points) => package.admit_study_points(points, output, cancel).await?,
             super::StudyInputs::Lazy(variants) => {
                 creation_checkpoint(cancel)?;
-                output.validate(&self.runtime)?;
-                variants.check_parent(self)?;
+                output.validate(&package.runtime)?;
+                variants.check_parent(&package)?;
                 let mut retained = variants.clone();
-                retained.retain_parent(self.source_attribution());
+                retained.retain_parent(package.source_attribution());
                 AdmittedStudy {
-                    modeling_revision: self.source_attribution().into(),
+                    modeling_revision: package.source_attribution().into(),
                     points: vec![],
                     variants: Some(super::LazyStudyDefinition { variants: retained, output: output.clone() }),
                 }
             }
         };
-        Ok(LocalStudy { package: self.clone(), science })
+        Ok(LocalStudy { package, science })
         }).await
     }
     pub(in crate::workflow) async fn admit_one_study_point(

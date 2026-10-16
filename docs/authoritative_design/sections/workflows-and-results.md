@@ -640,8 +640,13 @@ root/input admission protects every selected primary and physical source and ver
 artifact-read grants before atomically attaching the analysis's independent obligations.
 Header/node/edge readers use native graph relations and ordered pages of at most 64 rows. Current methods are
 `original-incidence-execution-reachability:v1` and
-`result-sensitivity-provenance-reachability:v1`, bounded to 4,096 nodes, 8,192 edges and
-64 selected roots. Result analysis refuses an evidence relation above 4,096 rows instead
+`result-sensitivity-provenance-reachability:v2`, bounded to 4,096 nodes, 8,192 edges and
+64 selected roots. Result sensitivity analysis classifies recorded modeling steps by their
+request identity and route intent, then checks actual scalar validity. Simulation trajectories
+retain recorded sample/time/unit/event/endpoint evidence without granting scalar KKT or
+stronger derivative certification. Missing or conflicting family evidence withholds the
+affected derivative edge; independently retained artifact coordinates preserve its provenance.
+Produced-evidence edges share one artifact-block/output locator; quantitative and withheld response edges retain exact row/field locators. This avoids duplicating block provenance for every sample while preserving the full response inventory. Result analysis refuses an evidence relation above 4,096 rows instead
 of accepting its prefix. These are bounded methods, not a general graph scaling claim.
 Explicit analysis retirement removes its graph, lineage, inputs and all temporary lifecycle
 state after immutable creation authority is fenced and bounded cleanup completes
@@ -651,7 +656,7 @@ obligations does not release another owner's content or require producer payload
 
 ### 19.3 Studies and reuse
 
-Local studies retain actual immutable model/physical owners and one shared admitted scientific payload. Public admission and local execution require no canonical store. Recording is an explicit effect over those retained sources, yielding a portable StudyDefinition with real receipts; durable startup validates it against canonical owners. Local handles do not serialize or contain fabricated source receipts. Recording does not repeat scientific admission or expand unselected lazy variants. Exact document bytes are retained when document ingress supports later recording; unavailable recording prerequisites refuse before effects.
+Local studies retain actual immutable model/physical owners and one shared admitted scientific payload. Public admission and local execution require no canonical store. Recording is an explicit effect over those retained sources, yielding a portable StudyDefinition with real receipts; durable startup validates it against canonical owners. Rust `ModelingPackage::admit_study` and Python `ModelingPackage.admit_study` return `LocalStudy`; `LocalStudy.execute` and package-local study execution always use ephemeral producers, including when the package has acknowledged canonical origin. `Runtime.record_study` publishes exact retained sources, then Rust `start_recorded_study` / Python `start_study` starts the recorded descriptor; `execute_study` joins durable execution. Local handles do not serialize or contain fabricated source receipts. Recording does not repeat scientific admission or expand unselected lazy variants. Exact document bytes are retained when document ingress supports later recording; unavailable recording prerequisites refuse before effects.
 
 > Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
 
@@ -758,9 +763,12 @@ original scope; the owning [Plan 25f](https://github.com/paul-heyse/pse-arrow/bl
 records replacement-control evidence and [25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md)
 owns assembled qualification.
 
-**Durable adapter.** `Runtime::start_study(physical_sources, request)` admits a raw request;
-`start_defined_study(physical_sources, definition)` consumes the immutable definition and
-verifies its exact stored source bundles. The canonical study owns ordered occurrences,
+**Durable adapter.** `Runtime::record_study(&LocalStudy, cancel)` explicitly publishes exact
+retained inputs and returns a portable `StudyDefinition`. `start_recorded_study(definition,
+cancel)` consumes that recorded definition and verifies its exact stored source bundles;
+`execute_study(&definition, maximum_points, cancel)` joins the existing durable observer.
+`Runtime::start_study(StudyPlan, cancel)` is the authored-ingress durable convenience over
+the same admission and recording owners. The canonical study owns ordered occurrences,
 point state/version and fenced attempt history. `StudyHandle` exposes status, cancellation
 and exact results; `work_once` selects a bounded native frontier, and `work(maximum_actions)`
 limits worker actions. The authored `PointPolicy.attempt_limit` owns retry permission;
@@ -1289,7 +1297,7 @@ Scientific and metadata tables cross as one-consumption `TableStream` objects ex
 `__arrow_c_stream__`, never as parallel row objects or materialized on both sides. The capsule
 protocol, not `pyarrow`, is the contract
 ([ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md)). Result readers hold their exact
-strong snapshot ticket for future chunks. Dispatched metadata and file-open responses retain
+strong snapshot ticket for future chunks. Metadata allowances follow finite header, selection, page and output-page layouts, enforced before SDK owned-value decoding; they are separate from file payload and Arrow decode grants. Validated metadata transfers only when its response owner is unique; live SDK suffixes retain the full original grant. Snapshot aliases share inventory and read charges. Protected cleanup retains its metadata and a separately bounded release-response allowance through acknowledgment, socket drain or explicit recovery. Dispatched metadata and file-open responses retain
 that original ticket and their own prepaid decode allowance through native transport drain,
 even after cancellation discards the caller. Source/creation selections retain their separate
 finite-clock rules. Fully decoded copied arrays retain accounted allocation owners after reader

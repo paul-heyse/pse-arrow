@@ -3,7 +3,9 @@
 //! Scientific closure admission and independent, bounded retained content.
 
 use super::{Runtime, WorkflowError, contract};
-use pse_columnar::{CancellationToken, MemoryConsumer};
+use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
+use pse_model::HeapUsage;
+use std::sync::Arc;
 use pse_operations::canonical::MetadataResponse;
 use pse_operations::canonical_artifacts::{Artifact, ArtifactLocator};
 use pse_relations::columnar::RelationRow;
@@ -113,7 +115,16 @@ pub(super) fn response_artifact_kind<'a>(
 #[derive(Clone, Debug)]
 pub struct ScientificArtifact {
     runtime: Runtime,
-    header: Artifact,
+    header: Arc<Artifact>,
+    _metadata_owner: Arc<MemoryReservation>,
+}
+fn retained_artifact_header(runtime: &Runtime, header: &Artifact) -> Result<Arc<MemoryReservation>, WorkflowError> {
+    let bytes = size_of::<Artifact>().checked_add(header.heap_bytes())
+        .and_then(|bytes| bytes.checked_add(2 * size_of::<usize>()))
+        .ok_or_else(|| contract("artifact retained header extent"))?;
+    let owner = MemoryConsumer::new("canonical:artifact-retained-header").register(&runtime.shared.pool());
+    owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+    Ok(Arc::new(owner))
 }
 impl ScientificArtifact {
     /// Immutable creation/provenance and original settlement intent.
@@ -154,7 +165,7 @@ impl ScientificArtifact {
         ordinal: u64,
         cancel: CancellationToken,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let owner = std::sync::Arc::new(MemoryConsumer::new("canonical:scientific-artifact-read")
+        let owner = Arc::new(MemoryConsumer::new("canonical:scientific-artifact-read")
             .register(&self.runtime.shared.pool()));
         owner
             .try_grow(4 * super::result_files::MAX_FILE_BYTES)
@@ -169,8 +180,12 @@ impl ScientificArtifact {
                 .read_artifact(&self.header.key),
         )
         .await?;
+        let read_owner = Arc::new(super::connected_results::retain_protected_metadata(
+            &self.runtime.shared.pool(), response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner),
+        )?);
+        read.retain_metadata_owner(read_owner.clone())?;
         let response = super::connected_results::response_owner(&self.runtime, "canonical:artifact-block-response", MetadataResponse::Header)?;
-        let block = pse_operations::canonical::response_ownership_scope(std::sync::Arc::new((response, owner.clone())), read.block(ordinal)).await?;
+        let block = pse_operations::canonical::response_ownership_scope(Arc::new((response, owner.clone(), read_owner)), read.block(ordinal)).await?;
         let spec = self
             .runtime
             .registry()
@@ -355,13 +370,19 @@ impl Runtime {
         owner_kind: &str,
         owner: &str,
     ) -> Result<ScientificArtifact, WorkflowError> {
-        let header = self
-            .operations()?
-            .promote_seed(solution, owner_kind, owner)
-            .await?;
+        let response = super::connected_results::response_owner(self, "canonical:seed-artifact-promotion", MetadataResponse::Header)?;
+        let header = pse_operations::canonical::response_ownership_scope(
+            response.clone(), self.operations()?.promote_seed(solution, owner_kind, owner),
+        ).await?;
+        let metadata_owner = match retained_artifact_header(self, &header) {
+            Ok(owner) => owner,
+            Err(source) => return Err(WorkflowError::ArtifactTransferUnsettled {
+                analysis: None, artifact: Box::new(header), owner_kind: owner_kind.into(), owner: owner.into(),
+                read: None, source: Box::new(source),
+            }),
+        };
         Ok(ScientificArtifact {
-            runtime: self.clone(),
-            header,
+            runtime: self.clone(), header: Arc::new(header), _metadata_owner: metadata_owner,
         })
     }
     /// Reopen an independent artifact without consulting producer result availability.
@@ -376,7 +397,7 @@ impl Runtime {
                     self,
                     "canonical:scientific-artifact-header-response", MetadataResponse::Header)?;
                 let header = pse_operations::canonical::response_ownership_scope(
-                    response,
+                    response.clone(),
                     self.canonical_store()?.artifact(key),
                 )
                 .await?;
@@ -391,9 +412,9 @@ impl Runtime {
                 {
                     return Err(contract("artifact kind has no scientific IPC reader"));
                 }
+                let metadata_owner = retained_artifact_header(self, &header)?;
                 Ok(ScientificArtifact {
-                    runtime: self.clone(),
-                    header,
+                    runtime: self.clone(), header: Arc::new(header), _metadata_owner: metadata_owner,
                 })
             })
             .await
@@ -415,10 +436,11 @@ impl Runtime {
             let memory=MemoryConsumer::new("canonical:scientific-artifact-promotion").register(&self.shared.pool());
             memory.try_grow(128*1024*1024).map_err(pse_engine::EngineError::from)?;
             let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-selection-response", MetadataResponse::Selection)?;
-            let input=std::sync::Arc::new(pse_operations::canonical::response_ownership_scope(
+            let input=Arc::new(pse_operations::canonical::response_ownership_scope(
                 response.clone(),self.canonical_store()?.read_results(run,attempt),
             ).await?);
-            let input_owner = std::sync::Arc::new(super::connected_results::retain_metadata(&self.shared.pool(), response, input.retained_bytes()?)?);
+            let input_owner = Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(), response, input.retained_bytes()?, |owner| input.retain_metadata_owner(owner))?);
+            input.retain_metadata_owner(input_owner.clone())?;
             let mut names=vec!["runtime.scientific_contexts","runtime.candidate_assessments","runtime.run_lineage","runtime.resolved_numerics","runtime.modeling_checks","runtime.modeling_reports","runtime.modeling_findings"];
             match kind {
                 ScientificArtifactKind::FinalState=>names.extend(["runtime.trajectory_endpoints","runtime.computation_runs","runtime.solve_variables","runtime.solve_runs"]),
@@ -427,7 +449,7 @@ impl Runtime {
             }
             let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-sources-response", MetadataResponse::Selection)?;
             let sources=pse_operations::canonical::response_ownership_scope(
-                std::sync::Arc::new((input.clone(),input_owner.clone(),response)),self.canonical_store()?.analysis_run_sources(run),
+                Arc::new((input.clone(),input_owner.clone(),response)),self.canonical_store()?.analysis_run_sources(run),
             ).await?;
             let revision=sources.iter().find(|source|source.key==input.run().revision).ok_or_else(||contract("artifact primary source unavailable"))?;
             let members=MemoryConsumer::new("canonical:scientific-artifact-member-files").register(&self.shared.pool());
@@ -491,7 +513,7 @@ impl Runtime {
             let bytes=copied.iter().map(|(_,payload,_,_)|payload.len() as u64).sum();
             let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-header-response", MetadataResponse::Header)?;
             let mut header=pse_operations::canonical::response_ownership_scope(
-                std::sync::Arc::new((input.clone(),input_owner.clone(),response)),
+                Arc::new((input.clone(),input_owner.clone(),response)),
                 self.canonical_store()?.new_artifact(revision,kind.name(),provenance,copied.len() as u64,bytes),
             ).await?;
             let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))| {
@@ -499,14 +521,17 @@ impl Runtime {
                 Ok::<_,WorkflowError>(pse_operations::canonical_artifacts::artifact_block(&header.key,ordinal as u64,name,payload,&digest,rows).native_file(&spec.id.to_string())?)
             }).collect::<Result<Vec<_>,_>>()?;
             pse_operations::canonical_artifacts::seal_artifact_request(&mut header,&sources,std::slice::from_ref(input.as_ref()),&blocks,owner_kind,owner);
+            // Prepay the continuing header before publication can acknowledge
+            // an independent durable owner; handle clones share this allocation.
+            let metadata_owner = retained_artifact_header(self, &header)?;
             let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-publication-response", MetadataResponse::Selection)?;
             pse_operations::canonical::response_ownership_scope(
                 // The SDK owns metadata and the original read follower only;
                 // copied member buffers retain their separate local grant.
-                std::sync::Arc::new((input.clone(),input_owner.clone(),response)),
+                Arc::new((input.clone(),input_owner.clone(),response)),
                 self.canonical_store()?.persist_artifact(&header,&sources,std::slice::from_ref(input.as_ref()),&blocks,owner_kind,owner),
             ).await?;
-            Ok(ScientificArtifact {runtime:self.clone(),header})
+            Ok(ScientificArtifact {runtime:self.clone(),header:Arc::new(header),_metadata_owner:metadata_owner})
         }).await
     }
 }

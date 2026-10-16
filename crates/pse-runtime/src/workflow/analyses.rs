@@ -683,7 +683,8 @@ impl Runtime {
         let input = Arc::new(pse_operations::canonical::response_ownership_scope(
             response.clone(), self.canonical_store()?.read_results(run, attempt),
         ).await?);
-        let input_owner = Arc::new(super::connected_results::retain_metadata(&self.shared.pool(), response, input.retained_bytes()?)?);
+        let input_owner = Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(), response, input.retained_bytes()?, |owner| input.retain_metadata_owner(owner))?);
+        input.retain_metadata_owner(input_owner.clone())?;
         let response=super::connected_results::response_owner(self,"canonical:result-analysis-sources-response", MetadataResponse::Selection)?;
         let sources = pse_operations::canonical::response_ownership_scope(
             Arc::new((input.clone(),input_owner.clone(),response)),self.canonical_store()?.analysis_run_sources(run),
@@ -739,7 +740,11 @@ impl Runtime {
         };
         let transfer_error=|source:WorkflowError,analysis:Option<String>,read:Option<String>|WorkflowError::ArtifactTransferUnsettled {analysis,artifact:Box::new(artifact.header().clone()),owner_kind:"audit".into(),owner:staging_owner.clone(),read,source:Box::new(source)};
         let response=super::connected_results::response_owner(self,"canonical:analysis-artifact-selection-response", MetadataResponse::Selection).map_err(|source|transfer_error(source,None,None))?;
-        let artifact_read=pse_operations::canonical::response_ownership_scope(response,self.canonical_store()?.read_artifact(&artifact.header().key)).await.map_err(|source|transfer_error(source.into(),None,None))?;
+        let artifact_read=pse_operations::canonical::response_ownership_scope(response.clone(),self.canonical_store()?.read_artifact(&artifact.header().key)).await.map_err(|source|transfer_error(source.into(),None,None))?;
+        let read_owner = Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(), response,
+            artifact_read.retained_bytes().map_err(|source| transfer_error(source.into(), None, Some(artifact_read.read_key().to_owned())))?, |owner| artifact_read.retain_metadata_owner(owner))
+            .map_err(|source| transfer_error(source, None, Some(artifact_read.read_key().to_owned())))?);
+        artifact_read.retain_metadata_owner(read_owner.clone()).map_err(|source| transfer_error(source.into(), None, Some(artifact_read.read_key().to_owned())))?;
         let read_key=artifact_read.read_key().to_owned();
         let graph_result:Result<AnalysisHandle,WorkflowError>=async {
         let mut evidence = ResponseEvidence::default();
@@ -747,7 +752,7 @@ impl Runtime {
             let response=super::connected_results::response_owner(self,"canonical:analysis-artifact-response", MetadataResponse::Header)?;
             let payload = Arc::new(MemoryConsumer::new("canonical:analysis-artifact-payload").register(&self.shared.pool()));
             payload.try_grow(4 * super::result_files::MAX_FILE_BYTES).map_err(pse_engine::EngineError::from)?;
-            let block=pse_operations::canonical::response_ownership_scope(Arc::new((response, payload)),artifact_read.block(ordinal)).await?;
+            let block=pse_operations::canonical::response_ownership_scope(Arc::new((response, payload, read_owner.clone())),artifact_read.block(ordinal)).await?;
             let relation_name=block.relation.as_str();
             let spec=self.registry().relation(relation_name).ok_or_else(||contract("analysis copied relation unavailable"))?;
             let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;

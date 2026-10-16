@@ -3,7 +3,7 @@
 //! Exact admitted canonical progress history, read one immutable payload at a time.
 use super::{ProgressCoverage, ProgressEventDocument, Runtime, WorkflowError};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
-use pse_operations::canonical_results::ResultRead;
+use pse_operations::{canonical::MetadataResponse, canonical_results::ResultRead};
 use std::sync::Arc;
 
 const READ_BYTES: usize = 16 * 1024 * 1024;
@@ -14,6 +14,7 @@ const READ_BYTES: usize = 16 * 1024 * 1024;
 pub struct ProgressStream {
     runtime: Runtime,
     read: Option<Arc<ResultRead>>,
+    read_owner: Option<Arc<MemoryReservation>>,
     run: String,
     attempt: String,
     coverage: ProgressCoverage,
@@ -38,6 +39,7 @@ impl Runtime {
                 let response = super::connected_results::response_owner(
                     self,
                     "canonical:progress-selection-response",
+                    MetadataResponse::Selection,
                 )?;
                 let read = Arc::new(
                     pse_operations::canonical::response_ownership_scope(
@@ -46,6 +48,13 @@ impl Runtime {
                     )
                     .await?,
                 );
+                let read_owner = Arc::new(super::connected_results::retain_protected_metadata(
+                    &self.shared.pool(), response, read.retained_bytes()?, |owner| read.retain_metadata_owner(owner),
+                )?);
+                read.retain_metadata_owner(read_owner.clone())?;
+                let response = super::connected_results::response_owner(
+                    self, "canonical:progress-coverage-response", MetadataResponse::Header,
+                )?;
                 let operations = super::Operations::from_store(
                     self.canonical_store()?.clone(),
                     "progress-reader",
@@ -53,7 +62,7 @@ impl Runtime {
                     self.shared.pool(),
                 );
                 let coverage = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), response)),
+                    Arc::new((read.clone(), read_owner.clone(), response)),
                     operations.progress_coverage(&read),
                 )
                 .await?;
@@ -63,6 +72,7 @@ impl Runtime {
                 Ok(ProgressStream {
                     runtime: self.clone(),
                     read: Some(read),
+                    read_owner: Some(read_owner),
                     run: run.into(),
                     attempt: attempt.into(),
                     coverage,
@@ -94,6 +104,7 @@ impl ProgressStream {
     pub fn close(&mut self) {
         self.cancel.cancel();
         self.read = None;
+        self.read_owner = None;
         self.owner = None;
     }
     /// One recorded event batch; failures are surfaced and close unread work.
@@ -107,6 +118,7 @@ impl ProgressStream {
         }
         if self.ordinal == self.batches {
             self.read = None;
+        self.read_owner = None;
             self.owner = None;
             return Ok(None);
         }
@@ -144,8 +156,10 @@ impl ProgressStream {
         let response = super::connected_results::response_owner(
             &self.runtime,
             "canonical:progress-file-response",
+            MetadataResponse::Page,
         )?;
-        let response = Arc::new((read.clone(), response));
+        let read_owner = self.read_owner.as_ref().ok_or_else(|| super::contract("progress metadata owner closed"))?;
+        let response = Arc::new((read.clone(), read_owner.clone(), response, owner.clone()));
         let descriptors = pse_operations::canonical::response_ownership_scope(
             response.clone(),
             self.runtime

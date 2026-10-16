@@ -34,7 +34,7 @@ fn point(operation: OperationRequest) -> StudyPoint {
 async fn plant() -> (ModelingPackage, DeclarationId) {
     plant_on(super::super::tests::runtime()).await
 }
-async fn plant_on(runtime: super::super::Runtime) -> (ModelingPackage, DeclarationId) {
+async fn plant_on(runtime: Runtime) -> (ModelingPackage, DeclarationId) {
     let text = "package p {
       def Root {
         domain t:Time from 0{s} to 1{s};

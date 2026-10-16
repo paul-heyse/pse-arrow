@@ -112,6 +112,10 @@ are separate from solver stopping controls and admission-only waiting; blueprint
 their contract. Counters establish work under the exercised demand, without implying an
 elapsed speedup or diagnosing numerical convergence.
 
+## Artifact publication work
+
+`artifact.metadata.attach` measures each bounded transaction attaching already sealed artifact file metadata. `canonical.artifact.metadata.groups_acknowledged` and `canonical.artifact.metadata.rows_acknowledged` count only groups and rows whose exact ordered key inventory was received and validated. File seals remain independent and differently shaped IPC data stays in separate files. A lost ACK remains unsettled and cannot authorize activation; these counters are neither a complete query count nor evidence of elapsed improvement.
+
 ## Typed inspection and reader ownership
 
 For the eleven selected Plan39 simulation cases, the existing collector offers

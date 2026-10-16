@@ -1272,7 +1272,7 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
 def test_local_study_runs_without_store_and_retains_source_after_package_release(
     inspection_settings: pse.EngineSettings,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
     package, case = _package(runtime)
     assert package.canonical_revision is None
     settings = pse.SolveSettings(

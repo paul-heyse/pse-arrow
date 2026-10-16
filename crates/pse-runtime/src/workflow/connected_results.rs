@@ -758,6 +758,9 @@ impl Runtime {
         cancel: CancellationToken,
         extent: Arc<MemoryReservation>,
     ) -> Result<CanonicalResultReader, WorkflowError> {
+        let read_owner = Arc::new(retain_protected_metadata(&self.shared.pool(), extent,
+            read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
+        read.retain_metadata_owner(read_owner.clone())?;
         if start > end {
             return Err(contract("result row range is reversed"));
         }
@@ -778,12 +781,9 @@ impl Runtime {
         // The schema is borrowed from the registry's charged immutable arena.
         // The snapshot owns the shared ResultRead allocation. This reader only
         // owns its additional set key; Arc aliases do not charge read metadata twice.
-        let retained = set.capacity().checked_add(read.retained_bytes()?)
-            .ok_or_else(|| contract("selection retained extent"))?;
-        let retained = retain_protected_metadata(&self.shared.pool(), extent, retained,
-            |owner| read.retain_metadata_owner(owner))?;
-        let selection_owner = retained.split(set.capacity());
-        let read_owner = Arc::new(retained);
+        let selection_owner = MemoryConsumer::new("canonical:result-selection-key")
+            .register(&self.shared.pool());
+        selection_owner.try_grow(set.capacity()).map_err(pse_engine::EngineError::from)?;
         let read = Arc::new(read);
         let snapshot = super::ResultSnapshot::capture(
             self,

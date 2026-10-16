@@ -3191,6 +3191,9 @@ impl Operations {
                     self.store.read_artifact(artifact),
                 )
                 .await?;
+                let read_owner = Arc::new(retain_protected_metadata(&self.pool, response,
+                    read.retained_bytes()?, |owner| read.retain_metadata_owner(owner))?);
+                read.retain_metadata_owner(read_owner.clone())?;
                 if read.header().kind != "seed" || read.header().block_count != 1 {
                     return Err(contract("artifact is not a seed capsule"));
                 }
@@ -3200,8 +3203,10 @@ impl Operations {
                 file_owner
                     .try_grow(4 * super::result_files::MAX_FILE_BYTES)
                     .map_err(pse_engine::EngineError::from)?;
+                let response = pooled_response_owner(&self.pool, "canonical:seed-artifact-block-response",
+                    pse_operations::canonical::MetadataResponse::Header)?;
                 let block = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((response, file_owner)),
+                    Arc::new((read_owner, file_owner, response)),
                     read.block(0),
                 )
                 .await?;

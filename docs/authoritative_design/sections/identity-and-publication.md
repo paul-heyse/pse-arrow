@@ -655,7 +655,7 @@ Persisted graph analyses retain their existing occurrence owner and reference ty
 artifact block/row/field evidence; producer IPC strings alone cannot grant active access.
 
 A sealed creation intent preserves original source authority, nonce, finite expiry and
-exact request. Staging maintains original producer protection; short atomic activation
+exact request. Each file is sealed independently with its own codec/schema identity. Already sealed artifact metadata attaches in groups of at most 64 rows and the existing index/message envelope; acknowledgments must contain the exact ordered original keys. Unknown/lost acknowledgment leaves staging unsettled and cannot authorize activation or a renewed replay. Only short metadata transactions are grouped; no transaction spans scientific execution. Staging maintains original producer protection; short atomic activation
 registers retirement/source authority and installs verified content, independent roots and
 initial obligations. Existing source-retention creation floors settle delayed creators at
 final collection. Study, explicit-user/project, analysis, protected-read and audit obligations

@@ -5,7 +5,7 @@
 
 use crate::{
     canonical::{
-        CanonicalError, CanonicalStore, ProtectedSelection, Revision, bounded_query,
+        CanonicalError, CanonicalStore, MetadataResponse, ProtectedSelection, Revision, bounded_query,
         protected_query,
     },
     canonical_codec as codec,
@@ -56,6 +56,7 @@ impl ArtifactBlock {
     /// Bind a Runtime-validated standalone native IPC file to its exact schema.
     /// Capsules retain their original JSON/opaque encoding instead.
     pub fn native_file(mut self, schema: &str) -> Result<Self, CanonicalError> {
+        crate::canonical_files::validate_codec_schema(crate::canonical_files::ARROW_IPC_FILE, schema)?;
         if schema.is_empty()
             || !self.payload.starts_with(b"ARROW1")
             || !self.payload.ends_with(b"ARROW1")
@@ -265,6 +266,19 @@ impl ArtifactRead {
     pub(crate) fn protected_selection(&self) -> &ProtectedSelection {
         &self.selection
     }
+    /// Retained metadata extent shared by all consumers of this acquisition.
+    pub fn retained_bytes(&self) -> Result<usize, CanonicalError> {
+        use pse_model::HeapUsage;
+        [size_of::<Self>(), self.header.heap_bytes(),
+            self.selection.retained_bytes().ok_or(CanonicalError::PayloadLimit)?,
+            self.store.handle_heap_bytes().ok_or(CanonicalError::PayloadLimit)?]
+            .into_iter().try_fold(0usize, usize::checked_add)
+            .ok_or(CanonicalError::PayloadLimit)
+    }
+    /// Keep the continuing allocation through protected release and SDK drain.
+    pub fn retain_metadata_owner(&self, owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>) -> Result<(), CanonicalError> {
+        self.selection.retain_metadata_owner(owner)
+    }
     /// Original protected acquisition identity for explicit uncertainty attribution.
     pub fn read_key(&self) -> &str {
         self.selection.key()
@@ -286,7 +300,7 @@ impl ArtifactRead {
         activity.scope(async {
             let (row,descriptor)=crate::canonical::response_ownership_scope(std::sync::Arc::new(self.clone()),async {
             let value=codec::encode_uint(ordinal)?;
-            let mut response=protected_query("canonical_artifacts::read",||Ok(self.store.db.query("BEGIN; RETURN fn::pse_artifact_v1::read($pse_rpc_expires_at,$key,$protection,$ordinal); COMMIT;")
+            let mut response=protected_query("canonical_artifacts::read",||Ok(self.store.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::read($pse_rpc_expires_at,$key,$protection,$ordinal); COMMIT;")
                 .bind(("key",self.header.key.clone())).bind(("protection",self.selection.key().to_owned())).bind(("ordinal",value.clone())))).await?;
             let row=wire::decode_canonical_artifact_blocks(object(&mut response)?)?;
             if row.artifact!=self.header.key || row.ordinal!=ordinal || row.payload_bytes>wire::RESULT_BLOCK_BYTES as u64 { return Err(invalid("artifact block coordinate differs")); }
@@ -316,7 +330,7 @@ impl CanonicalStore {
         activity.scope(async {
             self.ensure_writes()?;
             if study.is_empty() || study.len()>4096 { return Err(CanonicalError::PayloadLimit); }
-            let mut response=protected_query("canonical_artifacts::abandon_study_inputs",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::abandon_study_inputs($pse_rpc_expires_at,$study); COMMIT;").bind(("study",study.to_owned())))).await?;
+            let mut response=protected_query("canonical_artifacts::abandon_study_inputs",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::abandon_study_inputs($pse_rpc_expires_at,$study); COMMIT;").bind(("study",study.to_owned())))).await?;
             let index=response.num_statements().saturating_sub(2);
             response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)
         }).await
@@ -333,7 +347,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
             if kind.is_empty() || kind.len()>128 || provenance.len()>128*1024 || block_count==0 { return Err(CanonicalError::PayloadLimit); }
-            let mut response=bounded_query(self.db.query("LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'artifact source authority unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
+            let mut response=bounded_query(self.db.metadata_query(MetadataResponse::Header,"LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'artifact source authority unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
             let index=response.num_statements().saturating_sub(1);
             let mut row=response.take::<Option<Object>>(index)?.ok_or(CanonicalError::IncompleteResponse)?;
             let primary_authority=codec::decode_string(codec::required(&mut row,"authority")?)?;
@@ -355,7 +369,7 @@ impl CanonicalStore {
         }
         let _phase = pse_diagnostics::observation::phase("artifact.metadata.attach");
         let mut response = protected_query("canonical_artifacts::append_many", || Ok(
-            self.db.query("BEGIN; RETURN fn::pse_artifact_v1::append_many($pse_rpc_expires_at,$key,$blocks); COMMIT;")
+            self.db.metadata_query(MetadataResponse::Page,"BEGIN; RETURN fn::pse_artifact_v1::append_many($pse_rpc_expires_at,$key,$blocks); COMMIT;")
                 .bind(("key", key.to_owned())).bind(("blocks", rows.to_vec()))
         )).await?;
         #[cfg(all(test, feature = "canonical-tests"))]
@@ -363,7 +377,7 @@ impl CanonicalStore {
             return Err(CanonicalError::IncompleteResponse);
         }
         let index = response.num_statements().saturating_sub(2);
-        let keys = response.take::<Option<Vec<String>>>(index)?.ok_or(CanonicalError::IncompleteResponse)?;
+        let keys = response.take::<Vec<String>>(index)?;
         validate_artifact_ack(rows, &keys)?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("canonical.artifact.metadata.groups_acknowledged", "groups", 1);
@@ -407,7 +421,7 @@ impl CanonicalStore {
                     let mut row=Object::new(); row.insert("key",hash.finish_hash().to_hex()); row.insert("artifact",header.key.clone()); row.insert("run",input.run().key.clone()); row.insert("attempt",input.attempt().key.clone()); row.insert("manifest",input.manifest().key.clone()); row.insert("protection",input.protected_selection().key().to_owned()); selected.push(row);
                 }
                 let row=wire::encode_canonical_artifacts(header)?;
-                protected_query("canonical_artifacts::begin",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,$inputs); COMMIT;").bind(("row",row.clone())).bind(("sources",roots.clone())).bind(("inputs",selected.clone())))).await?;
+                protected_query("canonical_artifacts::begin",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,$inputs); COMMIT;").bind(("row",row.clone())).bind(("sources",roots.clone())).bind(("inputs",selected.clone())))).await?;
                 let mut metadata = Vec::new();
                 for block in blocks {
                     let intent=self.reserve_artifact_file(&header.key,&format!("artifact-file:{}",block.key),&header.creation_request_digest).await?;
@@ -429,7 +443,7 @@ impl CanonicalStore {
                 }
                 if !metadata.is_empty() { self.append_artifact_metadata(&header.key, &metadata).await?; }
                 let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&header.key,owner_kind,owner))?;
-                let mut response=protected_query("canonical_artifacts::activate",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::activate($pse_rpc_expires_at,$key,$obligation); COMMIT;").bind(("key",header.key.clone())).bind(("obligation",obligation.clone())))).await?;
+                let mut response=protected_query("canonical_artifacts::activate",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::activate($pse_rpc_expires_at,$key,$obligation); COMMIT;").bind(("key",header.key.clone())).bind(("obligation",obligation.clone())))).await?;
                 Ok(wire::decode_canonical_artifacts(object(&mut response)?)?)
             }.await;
             result.map_err(|source|CanonicalError::ArtifactUnsettled { intent:Box::new(header.clone()),source:Box::new(source) })
@@ -439,23 +453,23 @@ impl CanonicalStore {
     pub async fn artifact(&self, key: &str) -> Result<Artifact, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
-            let mut response=protected_query("canonical_artifacts::artifact",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::available($pse_rpc_expires_at,$key); COMMIT;").bind(("key",key.to_owned())))).await?;
+            let mut response=protected_query("canonical_artifacts::artifact",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::available($pse_rpc_expires_at,$key); COMMIT;").bind(("key",key.to_owned())))).await?;
             Ok(wire::decode_canonical_artifacts(object(&mut response)?)?)
         }).await
     }
     /// Acquire under independent artifact authority; producer payload is never consulted.
     pub async fn read_artifact(&self, key: &str) -> Result<ArtifactRead, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
+        crate::canonical::transport::metadata_scope(MetadataResponse::Selection, activity.scope(async {
             let header=self.artifact(key).await?;
             let revision=self.revision(&header.revision).await?.ok_or_else(||invalid("artifact source absent"))?;
             let selection=self.protect(revision,crate::canonical::REQUEST_TIMEOUT).await?;
-            let mut response=protected_query("canonical_artifacts::acquire",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection); COMMIT;").bind(("key",key.to_owned())).bind(("protection",selection.key().to_owned())))).await?;
+            let mut response=protected_query("canonical_artifacts::acquire",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection); COMMIT;").bind(("key",key.to_owned())).bind(("protection",selection.key().to_owned())))).await?;
             let actual=wire::decode_canonical_artifacts(object(&mut response)?)?;
             if actual!=header { return Err(invalid("artifact changed during acquisition")); }
             self.admit_manifest_ticket("artifact",key,None,selection.key()).await?;
             Ok(ArtifactRead { store:self.clone(),header,selection })
-        }).await
+        })).await
     }
     /// Attach a named independent obligation to an active occurrence.
     pub async fn retain_artifact(
@@ -468,7 +482,7 @@ impl CanonicalStore {
         activity.scope(async {
             self.ensure_writes()?;
             let row=wire::encode_canonical_artifact_obligations(&artifact_obligation(key,owner_kind,owner))?;
-            protected_query("canonical_artifacts::retain",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::attach($pse_rpc_expires_at,$key,$obligation,true); COMMIT;").bind(("key",key.to_owned())).bind(("obligation",row.clone())))).await?; Ok(())
+            protected_query("canonical_artifacts::retain",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::attach($pse_rpc_expires_at,$key,$obligation,true); COMMIT;").bind(("key",key.to_owned())).bind(("obligation",row.clone())))).await?; Ok(())
         }).await
     }
     /// Release exactly one owner, preserving all independent owners and read grants.
@@ -482,7 +496,7 @@ impl CanonicalStore {
         activity.scope(async {
             self.ensure_writes()?;
             let row=wire::encode_canonical_artifact_obligations(&artifact_obligation(key,owner_kind,owner))?;
-            protected_query("canonical_artifacts::release",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::release($pse_rpc_expires_at,$obligation); COMMIT;").bind(("obligation",row.clone())))).await?; Ok(())
+            protected_query("canonical_artifacts::release",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::release($pse_rpc_expires_at,$obligation); COMMIT;").bind(("obligation",row.clone())))).await?; Ok(())
         }).await
     }
     /// Release only the named owner after proving the unchanged original intent.
@@ -497,7 +511,7 @@ impl CanonicalStore {
             self.ensure_writes()?;
             let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&intent.key,owner_kind,owner))?;
             let intent=wire::encode_canonical_artifacts(intent)?;
-            protected_query("canonical_artifacts::release_intent",||Ok(self.db.query("BEGIN; fn::pse_artifact_v1::original($pse_rpc_expires_at,$intent); RETURN fn::pse_artifact_v1::release($pse_rpc_expires_at,$obligation); COMMIT;").bind(("intent",intent.clone())).bind(("obligation",obligation.clone())))).await?;
+            protected_query("canonical_artifacts::release_intent",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; fn::pse_artifact_v1::original($pse_rpc_expires_at,$intent); RETURN fn::pse_artifact_v1::release($pse_rpc_expires_at,$obligation); COMMIT;").bind(("intent",intent.clone())).bind(("obligation",obligation.clone())))).await?;
             Ok(())
         }).await
     }
@@ -507,7 +521,7 @@ impl CanonicalStore {
         activity.scope(async {
             self.ensure_writes()?;
             let row=wire::encode_canonical_artifacts(intent)?;
-            let mut response=protected_query("canonical_artifacts::collect",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::collect($pse_rpc_expires_at,$intent); COMMIT;").bind(("intent",row.clone())))).await?;
+            let mut response=protected_query("canonical_artifacts::collect",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::collect($pse_rpc_expires_at,$intent); COMMIT;").bind(("intent",row.clone())))).await?;
             Ok(codec::decode_boolean(codec::required(&mut object(&mut response)?,"complete")?)?)
         }).await
     }

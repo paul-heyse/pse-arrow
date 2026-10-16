@@ -1473,9 +1473,10 @@ impl NativeRuntime {
     /// Publish retained local inputs through this runtime's configured recording sink.
     fn record_study(&self, py: Python<'_>, local: &NativeLocalStudy) -> PyResult<Vec<u8>> {
         let cancel = CancelSource::new();
+        let operation_stop = cancel.clone();
         let inner = blocking(py, &self.owner,
-            self.recording_operation(&cancel, |recording| async {
-                recording.record_study(&local.inner, &cancel).await
+            self.recording_operation(&cancel, |recording| async move {
+                recording.record_study(&local.inner, &operation_stop).await
             }), || cancel.cancel())?;
         documents::encode(py, &inner)
     }
@@ -1485,9 +1486,10 @@ impl NativeRuntime {
         let definition = documents::study_definition(py, definition, self.owner.shared.budget().math.workspace_bytes)?;
         let native::StudyRunControls { maximum_points } = documents::controls(py, "study", controls, self.owner.shared.budget().math.workspace_bytes)?;
         let cancel = CancelSource::new();
+        let operation_stop = cancel.clone();
         let inner = blocking(py, &self.owner,
-            self.recording_operation(&cancel, |recording| async {
-                recording.execute_study(&definition, maximum_points, &cancel).await
+            self.recording_operation(&cancel, |recording| async move {
+                recording.execute_study(&definition, maximum_points, &operation_stop).await
             }), || cancel.cancel())?;
         Ok(NativeStudyReport { inner: Arc::new(inner), owner: self.owner.clone() })
     }
@@ -1495,9 +1497,10 @@ impl NativeRuntime {
     fn start_study(&self, py: Python<'_>, definition: &[u8]) -> PyResult<NativeStudyHandle> {
         let definition = documents::study_definition(py, definition, self.owner.shared.budget().math.workspace_bytes)?;
         let cancel = CancelSource::new();
+        let operation_stop = cancel.clone();
         let inner = blocking(py, &self.owner,
-            self.recording_operation(&cancel, |recording| async {
-                recording.start_recorded_study(definition, &cancel).await
+            self.recording_operation(&cancel, |recording| async move {
+                recording.start_recorded_study(definition, &operation_stop).await
             }), || cancel.cancel())?;
         Ok(NativeStudyHandle { inner, owner: self.owner.clone() })
     }
