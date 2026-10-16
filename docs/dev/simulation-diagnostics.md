@@ -21,6 +21,12 @@ recent counter/duration aggregates, point history, relationships, source referen
 independent coverage. Inspecting before a RunHandle exists uses the same hub. It does not
 ask the preparation owner to do work.
 
+Active owners take priority over completed history. A relationship always names its
+exact operation: if its parent has been evicted, the parent is absent rather than
+replaced by another root. Retained readers can still inspect their copied operation.
+Read generation/reset and detail-loss fields before interpreting a recent delta;
+metric publication alone does not imply a complete event history.
+
 Each process publishes one atomic JSON checkpoint under `PSE_DIAGNOSTICS_DIR`, or
 `$XDG_STATE_HOME/pse/diagnostics`, or `$HOME/.local/state/pse/diagnostics`. The process locator
 contains its instance identity rather than PID alone. Checkpoint version **2** adds the actual
@@ -41,6 +47,14 @@ Read phases first to locate observed activity, then its metrics and related prod
 supervisor's join wait overlaps native execution. Shared-flight waiters link to one producer;
 their waiting intervals are not additional construction or exclusive CPU time. A stale
 checkpoint or opaque native interval alone does not establish a hang.
+
+A durable-study wait is associated with the primary admitted for that dispatch.
+If it drains or is known to have changed and no terminal inventory exists, execution
+returns `StudyExecutionUnavailable` with the study identity. Inspect the retained
+incomplete records and use explicit recovery; this is not a scientific terminal.
+Unknown/transient owner observations continue waiting. An owner mismatch is not
+proof of drain and does not release any resource. Normal cancellation still waits
+for actual issued work and durable terminal inventory.
 
 Context producers keep their own meanings. Continuation exposes attempted displacement,
 rejection/subdivision and committed predecessor; fitting experiments have separate child

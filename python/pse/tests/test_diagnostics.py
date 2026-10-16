@@ -140,7 +140,8 @@ def diagnostic_scientific_probe(
         result = handle.wait()
         summary = result.attempt_summary
         step = summary.steps[0]
-        assert step.work is not None and step.work.evaluations is not None
+        assert step.work is not None
+        assert step.work.evaluations is not None
         assert step.work.evaluations > 0
         assert step.native_observations is not None
         counters = step.native_observations.counters
@@ -150,7 +151,11 @@ def diagnostic_scientific_probe(
         observations = runtime.observations()
         page = observations.list(limit=32)
         before: list[
-            tuple[pse.OperationObservations, tuple[MetricSnapshot, ...], ClosedDuration | None]
+            tuple[
+                pse.OperationObservations,
+                tuple[MetricSnapshot, ...],
+                ClosedDuration | None,
+            ]
         ] = []
         for operation in page.operations:
             reader = observations.reader(operation.id)
@@ -178,16 +183,22 @@ def diagnostic_scientific_probe(
                 assert not snapshot.coverage.available
                 assert not snapshot.metrics
         return (
-            result.usable, values[0], step.work, counters,
-            page.coverage.enabled, page.coverage.available, len(page.operations),
+            result.usable,
+            values[0],
+            step.work,
+            counters,
+            page.coverage.enabled,
+            page.coverage.available,
+            len(page.operations),
         )
     finally:
         runtime.close()
 
 
 @pytest.mark.unit
-def test_diagnostics_environment_opt_out_preserves_actual_native_work_in_fresh_processes(
-    inspection_settings: pse.EngineSettings, tmp_path: Path,
+def test_diagnostics_opt_out_preserves_native_work_in_fresh_processes(
+    inspection_settings: pse.EngineSettings,
+    tmp_path: Path,
 ) -> None:
     program = """
 import sys
@@ -208,18 +219,41 @@ print(codec.encode_json(diagnostic_scientific_probe(settings)).decode())
     for mode in ("on", "off"):
         spill = tmp_path / f"{mode}-spill"
         spill.mkdir()
-        environment = dict(os.environ, PSE_DIAGNOSTICS=mode, PSE_DIAGNOSTICS_DIR=str(tmp_path / mode))
-        process = subprocess.run(
-            [sys.executable, "-c", program, str(inspection_settings.memory_limit_bytes), str(spill)],
-            env=environment, capture_output=True, text=True, check=True, timeout=120,
+        environment = dict(
+            os.environ, PSE_DIAGNOSTICS=mode, PSE_DIAGNOSTICS_DIR=str(tmp_path / mode)
         )
-        probes.append(codec.decode_json(process.stdout, tuple[bool, float, WorkObservation, NativeCountersKinsol, bool, bool, int]))
+        process = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                program,
+                str(inspection_settings.memory_limit_bytes),
+                str(spill),
+            ],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=120,
+        )
+        probes.append(
+            codec.decode_json(
+                process.stdout,
+                tuple[
+                    bool, float, WorkObservation, NativeCountersKinsol, bool, bool, int
+                ],
+            )
+        )
     enabled, disabled = probes
-    assert enabled[:4] == disabled[:4], "observation opt-out cannot add scientific requests or change the root"
+    assert enabled[:4] == disabled[:4], (
+        "observation opt-out cannot add scientific requests or change the root"
+    )
     assert enabled[0]
     assert enabled[4:6] == (True, True)
     assert enabled[6] > 0
-    assert disabled[4:] == (False, False, 0), "disabled observations are absent, not zero scientific work"
+    assert disabled[4:] == (False, False, 0), (
+        "disabled observations are absent, not zero scientific work"
+    )
 
 
 @pytest.mark.unit
@@ -238,25 +272,56 @@ def test_nonempty_native_checkpoint_related_python_and_cli_reads_are_passive(
         reader = handle.observations()
         assert reader is not None
         original = reader.snapshot()
-        assert original.children, "actual native dispatch must publish its related owner"
-        request = InspectionRequest(version=1, operation=reader.id, window=ClosedDuration(secs=60, nanos=0), include_related=True, related_limit=32)
+        assert original.children, (
+            "actual native dispatch must publish its related owner"
+        )
+        request = InspectionRequest(
+            version=1,
+            operation=reader.id,
+            window=ClosedDuration(secs=60, nanos=0),
+            include_related=True,
+            related_limit=32,
+        )
         deadline = time.monotonic() + 5
         while True:
             try:
-                document = diagnostics.inspect_checkpoint(observations.checkpoint, request)
-                if document.operation is not None and document.related and document.operation.outcome == original.outcome:
+                document = diagnostics.inspect_checkpoint(
+                    observations.checkpoint, request
+                )
+                if (
+                    document.operation is not None
+                    and document.related
+                    and document.operation.outcome == original.outcome
+                ):
                     break
             except pse.InspectionError:
                 pass
-            assert time.monotonic() < deadline, "publisher must expose nonempty actual related work"
+            assert time.monotonic() < deadline, (
+                "publisher must expose nonempty actual related work"
+            )
             time.sleep(0.02)
         expected_related = {child.id for child in original.children}
         assert {child.id for child in document.related} == expected_related
         assert document.operation is not None
         assert document.operation.metrics
-        retained = {operation.id: operation.metrics for operation in (document.operation, *document.related)}
+        retained = {
+            operation.id: operation.metrics
+            for operation in (document.operation, *document.related)
+        }
         for _ in range(8):
-            assert diagnostics.main(["inspect", str(observations.checkpoint), diagnostics.operation_text(reader.id), "--json", "--related-limit", "32"]) == 0
+            assert (
+                diagnostics.main(
+                    [
+                        "inspect",
+                        str(observations.checkpoint),
+                        diagnostics.operation_text(reader.id),
+                        "--json",
+                        "--related-limit",
+                        "32",
+                    ]
+                )
+                == 0
+            )
             copied = codec.decode_json(capsys.readouterr().out, InspectionDocument)
             assert copied.operation is not None
             assert copied.operation.id == reader.id
@@ -270,9 +335,18 @@ def test_nonempty_native_checkpoint_related_python_and_cli_reads_are_passive(
         # unrelated process files in the shared publisher directory.
         checkpoint_copy = tmp_path / observations.checkpoint.name
         checkpoint_copy.write_bytes(observations.checkpoint.read_bytes())
-        assert diagnostics.main(["list", "--directory", str(tmp_path), "--json", "--limit", "32"]) == 0
+        assert (
+            diagnostics.main(
+                ["list", "--directory", str(tmp_path), "--json", "--limit", "32"]
+            )
+            == 0
+        )
         discovered = codec.decode_json(capsys.readouterr().out, DiagnosticProcessPage)
-        selected = next(process for process in discovered.processes if process.checkpoint == str(checkpoint_copy))
+        selected = next(
+            process
+            for process in discovered.processes
+            if process.checkpoint == str(checkpoint_copy)
+        )
         assert any(operation.id == reader.id for operation in selected.operations)
     finally:
         runtime.close()

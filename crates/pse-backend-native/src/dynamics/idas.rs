@@ -138,12 +138,18 @@ impl Context<'_> {
                     "IDAS function value or derivative is nonfinite",
                 ));
             }
-            if f == Function::Rhs && derivatives
+            if f == Function::Rhs
+                && derivatives
                 && let Some(partials) = &e.jacobian
-                && (0..c.states.len()).any(|column| partials.col_range(column)
-                    .any(|entry| layout.get(column, partials.row_idx()[entry]).is_none()))
+                && (0..c.states.len()).any(|column| {
+                    partials
+                        .col_range(column)
+                        .any(|entry| layout.get(column, partials.row_idx()[entry]).is_none())
+                })
             {
-                return Err(ProblemError::Contract("IDAS residual partial outside its declared support".into()));
+                return Err(ProblemError::Contract(
+                    "IDAS residual partial outside its declared support".into(),
+                ));
             }
             Ok(e)
         });
@@ -561,12 +567,7 @@ unsafe extern "C" fn jacobian(
                 c.newton_values[target] += cj;
             }
         }
-        if !scatter_partials(
-            j.as_ref().as_ref(),
-            &c.layout,
-            None,
-            &mut c.newton_values,
-        ) {
+        if !scatter_partials(j.as_ref().as_ref(), &c.layout, None, &mut c.newton_values) {
             c.callback.terminal = Some((
                 crate::solve::Termination::Evaluation,
                 "IDAS residual partial outside its declared support".into(),
@@ -909,7 +910,14 @@ unsafe extern "C" fn jacobian_b(
         }
         // SAFETY: IDAS passes the KLU matrix `create_backward` made with `n` columns and
         // room for `c.layout.rows_b.len()` nonzeros; `values` has one entry per pattern row.
-        unsafe { publish(matrix, &c.layout.columns_b, &c.layout.rows_b, &c.newton_values_b) };
+        unsafe {
+            publish(
+                matrix,
+                &c.layout.columns_b,
+                &c.layout.rows_b,
+                &c.newton_values_b,
+            )
+        };
         0
     }));
     finish_callback(c, result)
@@ -1328,25 +1336,54 @@ impl<'a> Session<'a> {
         let n = c.states.len();
         execution.check()?;
         let allowance = execution.memory.unwrap_or(usize::MAX);
-        let layout = match config.layout { Some(layout) => layout, None => oracle.prepared_layout(allowance)? };
+        let layout = match config.layout {
+            Some(layout) => layout,
+            None => oracle.prepared_layout(allowance)?,
+        };
         if layout.states() != n {
             return Err(ProblemError::internal("IDAS prepared layout state extent"));
         }
-        let bytes = layout.scatter_bytes(DynamicDemand::Base)?
+        let bytes = layout
+            .scatter_bytes(DynamicDemand::Base)?
             .checked_add(layout.linear_bytes(config.linear)?)
             .ok_or_else(|| ProblemError::memory("IDAS selected workspace extent"))?;
         if bytes > allowance {
-            return Err(ProblemError::memory("IDAS selected workspace exceeds foreign allowance"));
+            return Err(ProblemError::memory(
+                "IDAS selected workspace exceeds foreign allowance",
+            ));
         }
-        crate::observation::integer("idas.layout.nonzeros", "entries", i64::try_from(layout.nonzeros()).unwrap_or(i64::MAX));
-        crate::observation::integer("idas.layout.bytes", "bytes", i64::try_from(layout.retained_bytes()).unwrap_or(i64::MAX));
-        crate::observation::integer("idas.linear.workspace.bytes", "bytes", i64::try_from(layout.linear_bytes(config.linear)?).unwrap_or(i64::MAX));
+        crate::observation::integer(
+            "idas.layout.nonzeros",
+            "entries",
+            i64::try_from(layout.nonzeros()).unwrap_or(i64::MAX),
+        );
+        crate::observation::integer(
+            "idas.layout.bytes",
+            "bytes",
+            i64::try_from(layout.retained_bytes()).unwrap_or(i64::MAX),
+        );
+        crate::observation::integer(
+            "idas.linear.workspace.bytes",
+            "bytes",
+            i64::try_from(layout.linear_bytes(config.linear)?).unwrap_or(i64::MAX),
+        );
         let opaque_fill = if config.linear == IdasLinear::Klu {
-            n.checked_mul(n).and_then(|cells| cells.checked_mul(32))
+            n.checked_mul(n)
+                .and_then(|cells| cells.checked_mul(32))
                 .ok_or_else(|| ProblemError::memory("IDAS direct fill allowance extent"))?
-        } else { 0 };
-        crate::observation::integer("idas.linear.opaque_factor_allowance.bytes", "bytes", i64::try_from(opaque_fill).unwrap_or(i64::MAX));
-        crate::observation::integer("idas.linear.known_workspace_allowance.bytes", "bytes", i64::try_from(layout.linear_bytes(config.linear)? - opaque_fill).unwrap_or(i64::MAX));
+        } else {
+            0
+        };
+        crate::observation::integer(
+            "idas.linear.opaque_factor_allowance.bytes",
+            "bytes",
+            i64::try_from(opaque_fill).unwrap_or(i64::MAX),
+        );
+        crate::observation::integer(
+            "idas.linear.known_workspace_allowance.bytes",
+            "bytes",
+            i64::try_from(layout.linear_bytes(config.linear)? - opaque_fill).unwrap_or(i64::MAX),
+        );
         let map = config.map;
         let newton_values = vec![0.0; layout.rows.len()];
         let newton_values_b = vec![0.0; layout.rows_b.len()];
@@ -1574,7 +1611,11 @@ impl<'a> Session<'a> {
         let mut rates = Vec::new();
         if !directions.is_empty() {
             if let Some(allowance) = self.callback.callback.execution.memory
-                && self.callback.layout.scatter_bytes(DynamicDemand::ExactHessian)?.gt(&allowance)
+                && self
+                    .callback
+                    .layout
+                    .scatter_bytes(DynamicDemand::ExactHessian)?
+                    .gt(&allowance)
             {
                 return Err(ProblemError::memory(
                     "IDAS second-order scatter exceeds foreign allowance",
@@ -1583,7 +1624,10 @@ impl<'a> Session<'a> {
             // The transposed pattern of `∂f/∂yᵀ` on both diagonal blocks of the 2n Newton
             // matrix and on the coupling block `∂(∇²(λᵀf)·d)_x/∂λ` below them: column j of
             // the coupling holds `(∇²f_j·d)_x`, nonzero only where f_j depends on the state.
-            let (columns, rows) = (&self.callback.layout.columns_b, &self.callback.layout.rows_b);
+            let (columns, rows) = (
+                &self.callback.layout.columns_b,
+                &self.callback.layout.rows_b,
+            );
             let mut pairs = Vec::with_capacity(3 * rows.len());
             for (column, row) in [(0, 0), (0, n), (n, n)] {
                 for col in 0..n {
@@ -1621,7 +1665,8 @@ impl<'a> Session<'a> {
             };
             c.partial_slots_bs = (0..n)
                 .flat_map(|col| {
-                    (c.layout.columns[col] as usize..c.layout.columns[col + 1] as usize).map(move |k| (col, k))
+                    (c.layout.columns[col] as usize..c.layout.columns[col + 1] as usize)
+                        .map(move |k| (col, k))
                 })
                 .map(|(col, k)| {
                     let row = c.layout.rows[k] as usize;
@@ -2821,10 +2866,16 @@ impl Session<'_> {
         } else {
             (n, width, self.callback.layout.rows_b.len())
         };
-        let opaque_fill = size.checked_mul(size).and_then(|cells| cells.checked_mul(32))
+        let opaque_fill = size
+            .checked_mul(size)
+            .and_then(|cells| cells.checked_mul(32))
             .and_then(|bytes| bytes.checked_mul(directions.len().max(1)))
             .ok_or_else(|| ProblemError::memory("IDAS backward direct fill allowance extent"))?;
-        crate::observation::integer("idas.adjoint.opaque_factor_allowance.bytes", "bytes", i64::try_from(opaque_fill).unwrap_or(i64::MAX));
+        crate::observation::integer(
+            "idas.adjoint.opaque_factor_allowance.bytes",
+            "bytes",
+            i64::try_from(opaque_fill).unwrap_or(i64::MAX),
+        );
         let ids: Vec<_> = self
             .callback
             .contract
@@ -3314,7 +3365,8 @@ pub(super) fn initialize_consistent(
         contract("consistent initialization requires a finite foreign memory allowance")
     })?;
     let layout = oracle.prepared_layout(allowance)?;
-    let bytes = layout.scatter_bytes(DynamicDemand::Base)?
+    let bytes = layout
+        .scatter_bytes(DynamicDemand::Base)?
         .checked_add(layout.linear_bytes(request.linear)?)
         .ok_or_else(|| ProblemError::memory("consistent initialization workspace extent"))?;
     if bytes > allowance {
@@ -3539,12 +3591,24 @@ pub(super) fn gradient(
     progress: Arc<Progress>,
     admission: (Arc<PreparedLayout>, usize),
 ) -> Result<Gradient, ProblemError> {
-    backward_route(oracle, p, integration, &[], cotangent, cancel, progress, admission)
+    backward_route(
+        oracle,
+        p,
+        integration,
+        &[],
+        cotangent,
+        cancel,
+        progress,
+        admission,
+    )
 }
 /// The gradient and the Hessian over `directions` of the cotangent's functional, by
 /// forward-over-adjoint second-order sensitivities (ADR-0110 item 4). The caller admitted
 /// the second-order route and charged its estimate.
-#[allow(clippy::too_many_arguments, reason = "numerical inputs, cancellation and admitted native layout have distinct owners")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "numerical inputs, cancellation and admitted native layout have distinct owners"
+)]
 pub(super) fn hessian(
     oracle: &mut dyn Oracle,
     p: &Profile,
@@ -3568,7 +3632,10 @@ pub(super) fn hessian(
 }
 /// One forward pass with checkpoints, the cotangent of its samples, and the backward pass
 /// of the first-order route or, with `directions`, the second-order route.
-#[allow(clippy::too_many_arguments, reason = "numerical inputs, cancellation and admitted native layout have distinct owners")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "numerical inputs, cancellation and admitted native layout have distinct owners"
+)]
 fn backward_route(
     oracle: &mut dyn Oracle,
     p: &Profile,
@@ -3692,7 +3759,14 @@ fn attempt<T>(
         Err(error) => return (failure(r, error), None, 0),
     };
     r.requested_initial = initial.values;
-    let mut s = match Session::new(oracle, integration, p, directions, admission.map(|(layout, _)| layout), execution.clone()) {
+    let mut s = match Session::new(
+        oracle,
+        integration,
+        p,
+        directions,
+        admission.map(|(layout, _)| layout),
+        execution.clone(),
+    ) {
         Ok(session) => session,
         Err(error) => return (failure(r, error), None, 0),
     };
@@ -3764,11 +3838,20 @@ mod initialization_tests {
             ],
         )
         .unwrap();
-        let slots = PreparedLayout::new(3, pattern.iter().map(|&(col, row)|
-            SupportEntry::new(OriginalRow::new(row), OriginalCol::new(col))), usize::MAX).unwrap();
+        let slots = PreparedLayout::new(
+            3,
+            pattern
+                .iter()
+                .map(|&(col, row)| SupportEntry::new(OriginalRow::new(row), OriginalCol::new(col))),
+            usize::MAX,
+        )
+        .unwrap();
         let occupied = slots.retained_bytes();
         assert!(slots.scatter_bytes(DynamicDemand::Base).unwrap() >= occupied);
-        assert!(slots.scatter_bytes(DynamicDemand::ExactHessian).unwrap() > slots.scatter_bytes(DynamicDemand::Base).unwrap());
+        assert!(
+            slots.scatter_bytes(DynamicDemand::ExactHessian).unwrap()
+                > slots.scatter_bytes(DynamicDemand::Base).unwrap()
+        );
         let mut forward = vec![0.; rows.len()];
         let mut backward = vec![0.; rows_b.len()];
         assert!(scatter_partials(
@@ -3842,7 +3925,11 @@ mod initialization_tests {
         fn support(&self, _: usize, function: Function) -> Vec<SupportEntry> {
             if function == Function::Rhs {
                 if self.omit_support {
-                    return [(0, 0), (1, 1)].map(|(row, col)| SupportEntry::new(OriginalRow::new(row), OriginalCol::new(col))).to_vec();
+                    return [(0, 0), (1, 1)]
+                        .map(|(row, col)| {
+                            SupportEntry::new(OriginalRow::new(row), OriginalCol::new(col))
+                        })
+                        .to_vec();
                 }
                 [(0, 0), (1, 0), (1, 1)]
                     .map(|(r, c)| SupportEntry::new(OriginalRow::new(r), OriginalCol::new(c)))
@@ -3989,14 +4076,23 @@ mod initialization_tests {
     #[test]
     fn public_ic_admits_selected_klu_and_krylov_workspaces_before_callbacks() {
         use pse_model::scalars::PositiveCount;
-        for linear in [IdasLinear::Klu,
-            IdasLinear::Spgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::Jacobi },
-            IdasLinear::Spfgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::Jacobi }] {
+        for linear in [
+            IdasLinear::Klu,
+            IdasLinear::Spgmr {
+                dimension: PositiveCount::try_new(4).unwrap(),
+                preconditioner: Preconditioner::Jacobi,
+            },
+            IdasLinear::Spfgmr {
+                dimension: PositiveCount::try_new(4).unwrap(),
+                preconditioner: Preconditioner::Jacobi,
+            },
+        ] {
             let mut request = request();
             request.linear = linear;
             let mut oracle = IcOracle::new();
             let layout = oracle.prepared_layout(1 << 20).unwrap();
-            let bytes = layout.scatter_bytes(DynamicDemand::Base).unwrap() + layout.linear_bytes(linear).unwrap();
+            let bytes = layout.scatter_bytes(DynamicDemand::Base).unwrap()
+                + layout.linear_bytes(linear).unwrap();
             let mut refused = execution();
             refused.memory = Some(bytes - 1);
             assert!(initialize_consistent(&mut oracle, &[], &request, refused).is_err());
@@ -4004,7 +4100,11 @@ mod initialization_tests {
             let mut admitted = execution();
             admitted.memory = Some(bytes);
             let report = initialize_consistent(&mut oracle, &[], &request, admitted).unwrap();
-            assert_eq!(report.termination.name, "IDA_SUCCESS", "{linear:?}: {:?}", report.error);
+            assert_eq!(
+                report.termination.name, "IDA_SUCCESS",
+                "{linear:?}: {:?}",
+                report.error
+            );
             let point = report.candidate.unwrap();
             assert_eq!(point.state[0], 2.0);
             assert!((point.state[1] - 4.0).abs() < 1e-8);
@@ -4015,19 +4115,31 @@ mod initialization_tests {
     #[test]
     fn public_ic_refuses_undeclared_partials_for_direct_and_both_krylov_methods() {
         use pse_model::scalars::PositiveCount;
-        for linear in [IdasLinear::Klu,
-            IdasLinear::Spgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::Jacobi },
-            IdasLinear::Spfgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::Jacobi }]
-        {
+        for linear in [
+            IdasLinear::Klu,
+            IdasLinear::Spgmr {
+                dimension: PositiveCount::try_new(4).unwrap(),
+                preconditioner: Preconditioner::Jacobi,
+            },
+            IdasLinear::Spfgmr {
+                dimension: PositiveCount::try_new(4).unwrap(),
+                preconditioner: Preconditioner::Jacobi,
+            },
+        ] {
             let mut oracle = IcOracle::new();
             oracle.omit_support = true;
             let mut request = request();
             request.linear = linear;
             let error = match initialize_consistent(&mut oracle, &[], &request, execution()) {
                 Err(error) => error,
-                Ok(report) => report.error.expect("undeclared state partial must refuse before a native result"),
+                Ok(report) => report
+                    .error
+                    .expect("undeclared state partial must refuse before a native result"),
             };
-            assert!(matches!(error, ProblemError::Contract(ref detail) if detail.contains("outside its declared support")), "{linear:?}: {error:?}");
+            assert!(
+                matches!(error, ProblemError::Contract(ref detail) if detail.contains("outside its declared support")),
+                "{linear:?}: {error:?}"
+            );
         }
     }
     #[test]

@@ -687,7 +687,11 @@ mod tests {
                 .iter()
                 .any(|operation| operation.id == active.context().id())
         );
-        let retained_root = image.operations.iter().find(|operation| operation.id == root.context().id()).unwrap();
+        let retained_root = image
+            .operations
+            .iter()
+            .find(|operation| operation.id == root.context().id())
+            .unwrap();
         assert!(retained_root.outcome.is_none());
         assert_eq!(retained_root.children.len(), 1);
         assert_eq!(retained_root.children[0].id, active.context().id());

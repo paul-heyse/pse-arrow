@@ -49,7 +49,10 @@ def preparation_policy(class_proof_work: int) -> documents.PreparationSettings:
                 worker_bytes=1 << 30,
             ),
             optimization=documents.Optimization(
-                cores=1, horner_iterations=2, cpe_iterations=1
+                cores=1,
+                horner_iterations=2,
+                cpe_iterations=1,
+                evaluator=documents.EvaluatorInterpreted(),
             ),
             evaluation=documents.EvaluationLimits(
                 derivative_components=4096,

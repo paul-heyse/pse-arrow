@@ -461,13 +461,19 @@ pub(crate) enum OriginalConclusion {
     Satisfied,
     /// An auxiliary result has not yet undergone original correction and assessment.
     AwaitingCorrection,
-    Refused { cause: Arc<ProblemError> },
-    Unavailable { cause: Arc<ProblemError> },
+    Refused {
+        cause: Arc<ProblemError>,
+    },
+    Unavailable {
+        cause: Arc<ProblemError>,
+    },
 }
 impl OriginalConclusion {
     /// Preserve actual producer failures without inventing a refusal for pending correction.
     pub(crate) fn auxiliary(cause: Option<Arc<ProblemError>>) -> Self {
-        cause.map_or(Self::AwaitingCorrection, |cause| Self::Unavailable { cause })
+        cause.map_or(Self::AwaitingCorrection, |cause| Self::Unavailable {
+            cause,
+        })
     }
     pub(crate) fn cause(&self) -> Option<Arc<ProblemError>> {
         match self {

@@ -938,7 +938,9 @@ impl Retained {
         if self.workflow.is_none() {
             self.workflow = Some(Box::new(build()?));
         }
-        let owner = self.workflow.as_mut()
+        let owner = self
+            .workflow
+            .as_mut()
             .and_then(|owner| owner.downcast_mut::<T>())
             .ok_or_else(|| ProblemError::Contract("native workflow owner type differs".into()))?;
         Ok((owner, reused))

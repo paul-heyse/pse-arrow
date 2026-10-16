@@ -1261,15 +1261,14 @@ name = "execution-packets"
 heading = "Execution packets"
 headers = [
   "Packet",
-  "Prerequisite",
-  "Delivered boundary and verification",
+  "Delivered behavior",
   "State",
 ]
 kind = "packet"
 id_column = 0
 id_pattern = '^(B[0-9]+)\b'
 status_profile = "packet"
-status_column = 3
+status_column = 2
 
 [[scope_tables]]
 path = "docs/plans/39c-operational-composition-and-retained-evidence.md"

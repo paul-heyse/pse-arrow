@@ -20,13 +20,20 @@ pub(crate) fn observation_counts(
     let mut counts = BTreeMap::new();
     while let Some(reader) = pending.pop() {
         let snapshot = reader.snapshot(std::time::Duration::from_secs(60));
-        if !visited.insert(snapshot.id) { continue; }
+        if !visited.insert(snapshot.id) {
+            continue;
+        }
         for metric in snapshot.metrics {
             if let Value::Count(count) = metric.cumulative {
                 *counts.entry(metric.name).or_default() += count;
             }
         }
-        pending.extend(snapshot.children.iter().filter_map(|child| hub.reader(child.id)));
+        pending.extend(
+            snapshot
+                .children
+                .iter()
+                .filter_map(|child| hub.reader(child.id)),
+        );
     }
     counts
 }

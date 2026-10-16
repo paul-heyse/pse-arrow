@@ -53,8 +53,8 @@ No automatic rule change is assigned to indexed access, overlays, selected prepa
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| G0 | Concrete operator decisions in the rule table | Record decisions/date/routes; install required accepted amendments before their dependent production changes. Keep conditional inquiries under current rules until their actual adoption decision. Preserve immutable ADRs; ordinary refactors/dependency changes receive no invented ADR. | In progress — RC01/RC02 installed through ADR-0190/revision 176; RC03 explicit scalar selection through proposed ADR-0191/revision 177; RC04 inquiry selects no policy change |
-| G1 | Companion delivery and investigation outcomes | Reconcile combined API/lifetime/invalidation/resource contracts, actual consumers and deletion scope. Settle every bounded inquiry or obtain an explicit scope change; expose remaining required failures before F2 selects assembled acceptance. This is integration readiness, not another status ledger. | In progress — A/B/C implementation and independent readback; A–E selected delivery and targeted acceptance available; shared D/E generation/documentation handoff underway |
+| G0 | Concrete operator decisions in the rule table | Record decisions/date/routes; install required accepted amendments before their dependent production changes. Keep conditional inquiries under current rules until their actual adoption decision. Preserve immutable ADRs; ordinary refactors/dependency changes receive no invented ADR. | Completed — accepted RC01–RC04 target routes installed; ADR-0190/0191 remain proposed under the decision-PR rule |
+| G1 | Companion delivery and investigation outcomes | Reconcile combined API/lifetime/invalidation/resource contracts, actual consumers and deletion scope. Settle every bounded inquiry or obtain an explicit scope change; expose remaining required failures before F2 selects assembled acceptance. This is integration readiness, not another status ledger. | Completed — current generated/native Python and reference TOML consumers migrated; all investigation choices and source/lifetime contracts handed to assembled acceptance |
 
 ## Finding dispositions
 
@@ -88,7 +88,7 @@ F2–F5 supply assembled evidence where packages interact. Scheduled does not me
 | O05 affine route/native study lifetime | 41d D3 | **Tested adoption:** actual healthy independent study/common-run consumers use existing neutral owner pool. Retain existing affine routing with bounded source/control rationale. [41d Outcome](41d-native-storage-and-workflow-worker-reuse.md#outcome--2026-10-16). |
 | O06 presolve provenance/primal-only | 41d D4 / RC04 | **Interface-checked supported no-adoption:** pinned fork lacks full tightening-reaction provenance and no distinct demanded primal-only contract is selected. Retain restrictions/prechecks. [D4 decision](41d-native-storage-and-workflow-worker-reuse.md#investigation-decisions--2026-10-15). |
 | O07 idle-retention pressure | 41b B4 after 41c C3 | **Tested supported no-adoption:** original 256 MiB pool and two 64 MiB compiler leases passed the real 65-block read; no new idle eviction is justified. [41b Outcome](41b-cancellation-shared-work-and-admission.md#remaining-scope-outcome--2026-10-15) owns evidence and revisit limits. |
-| O08 causal observations | 41f F0/F1 | Select bounded work/ownership observations needed for these decisions and acceptance; integrate actual producer facts incrementally with consumer interpretation and loss/reset scope. |
+| O08 causal observations | 41f F0/F1 | **Tested adoption:** selected producer work counts and copied Rust/Python/CLI views, active-root partiality, reset/loss and fresh-process opt-out; actual managed interruption/read/cleanup controls passed. No extra scientific evaluations or universal attribution guarantee. 41f owns assembled evidence. |
 
 An inquiry finishes with evidence, a decision, its rationale and the resulting implementation or explicit no-adoption boundary. A proposal to investigate again is not completion. A required finding remains open if its corrective contract is still unmet. New unsupported scientific guarantees require an explicit operator decision rather than a quiet scope reduction.
 
@@ -128,9 +128,21 @@ After functional scope and selected decisions are complete, 41f selects assemble
 
 ## Current checkpoint
 
-The authorized A0–A6, B0–B5 and C0–C5 deliveries are implemented and have passed targeted controls. [41a's Outcome](41a-source-specialization-and-selected-preparation.md#outcome--2026-10-15), [41b's remaining-scope Outcome](41b-cancellation-shared-work-and-admission.md#remaining-scope-outcome--2026-10-15) and [41c's Outcome](41c-studies-response-artifacts-and-result-resources.md#outcome--2026-10-15) own their evidence and limits. C5 public Python and actual managed Rust/Python controls passed after correcting stack-sensitive recorded-study/worker phase composition. F01–F11 are resolved at their stated correction obligations; full-series acceptance remains open. O07 selected supported no-adoption of new eviction after actual corrected reads passed with the original pool and compiler leases. O02 adopts bounded sealed-file metadata grouping with exact ACK inventory.
+All A–E delivery and bounded investigation choices are complete. G0/G1 and F0–F4
+have their selected acceptance: current generated/native Python contracts, the original
+sparse and reuse controls, assembled S01–S10 ordinary journeys, real managed continuation/
+cancellation, a 65-block read with two compiler leases during occupied three-point native
+work, primary death preserving incomplete science, and public Python result reopening.
+Initial failures were corrected at their actual consumer/oracle boundaries; prior evidence
+keeps its original scope. Owned workers/stores stopped through their registered routes.
 
-RC01/RC02 are accepted, and ADR-0190/blueprint revision 176 preceded C1. RC03/RC04 bounded routes are accepted. Proposed ADR-0191 and blueprint revision 177 precede explicit scalar compiled adoption; D4 selects current reaction restrictions/prechecks without a new primal-only output contract. Enduring preparation/lifetime and study/result contracts live at blueprint §14.3/§19–§21; A/B/C-specific F0/F1 diagnostics are integrated, with broader F0/F1 and F2–F7 open. The earlier native selection exposed two derivative/staged-assessment failures recorded at 41c; E0 corrects the steady implicit-response demand gap, while the older staged original-correction capability-refusal issue remains for assembled selection; no whole-product or full-series pass is claimed. D/E selected production corrections and inquiry outcomes are implemented; [41d](41d-native-storage-and-workflow-worker-reuse.md#outcome--2026-10-16) and [41e](41e-derivative-reuse-and-evaluator-capabilities.md#outcome--2026-10-16) own targeted evidence and current closeout. F12–F14 are resolved at their correction obligations. The final five codec controls and regeneration after replay/variant v2 are blocked by the full filesystem; earlier numerical, reuse, layout and evaluator controls passed. Shared Python/documentation handoff remains underway; full-series qualification remains at 41f. Isolated contributions are integrated and their worktrees removed; the owned services/workers stopped and their enclosing route completed successfully. Existing older plans and review observations retain their owners; their reconciliation follows the full series.
+F5 is in progress. `just hygiene` completed its full continuing selection and exposed six
+failing leaves. Python lint/types, spelling and proposed-ADR metadata are repaired and
+pass their affected reruns; generated equivalence and Rust docs passed. Full continuing
+workspace Clippy, including all features, is being repaired against zero diagnostics.
+F6/F7 enduring transfer, final Outcomes, older-plan reconciliation and eligible retirement
+follow the remaining scope-end checks. ADR-0190/0191 remain proposed. No whole-product,
+old Plan39/40 campaign, elapsed-speedup or environment/provenance proof claim is made.
 
 ## Authoring verification
 

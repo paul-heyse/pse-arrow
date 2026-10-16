@@ -29,6 +29,7 @@ diagnostics = "diagnostics/idaes-2.13.json"
 class_proof_work = 100000000
 
 [settings.preparation.compiler.optimization]
+evaluator = { kind = "interpreted" }
 # Independent fixtures share the sixteen runtime CPU permits; each optimizer uses one.
 cores = 1
 horner_iterations = 10

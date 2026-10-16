@@ -65,6 +65,7 @@ def measure(output: Path, selected: str) -> None:
         BindingTargetPath,
         CaseOperation,
         EvaluationLimits,
+        EvaluatorInterpreted,
         Limits,
         OperationRequestDeclaredCase,
         Optimization,
@@ -139,7 +140,10 @@ def measure(output: Path, selected: str) -> None:
                     worker_bytes=2 << 30,
                 ),
                 optimization=Optimization(
-                    cores=1, horner_iterations=10, cpe_iterations=10
+                    cores=1,
+                    horner_iterations=10,
+                    cpe_iterations=10,
+                    evaluator=EvaluatorInterpreted(),
                 ),
                 evaluation=EvaluationLimits(
                     derivative_components=1_000_000,

@@ -1830,7 +1830,9 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "ensure_execution_placement"),
             patch.object(server, "primary_observation", return_value=observation),
             patch.object(server, "primary_ready", return_value=True),
-            patch.object(server, "primary_dispatch_owner", return_value={"controlled": "owner"}),
+            patch.object(
+                server, "primary_dispatch_owner", return_value={"controlled": "owner"}
+            ),
             patch.object(
                 server,
                 "service_readiness",
@@ -2088,7 +2090,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server._STARTUP, "deadline", deadline, create=True),  # noqa: SLF001 -- exercise the original inherited admission clock
             patch.object(server, "ensure_execution_placement"),
-            patch.object(server, "primary_dispatch_owner", return_value={"controlled": "owner"}),
+            patch.object(
+                server, "primary_dispatch_owner", return_value={"controlled": "owner"}
+            ),
             patch.object(server, "primary_observation", return_value=inactive),
             patch.object(
                 server, "primary_ready", side_effect=[False, True]
@@ -2620,7 +2624,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         }
         with (
             patch.object(server, "ensure_execution_placement"),
-            patch.object(server, "primary_dispatch_owner", return_value={"controlled": "owner"}),
+            patch.object(
+                server, "primary_dispatch_owner", return_value={"controlled": "owner"}
+            ),
             patch.object(server, "primary_observation", return_value=inactive),
             patch.object(
                 server, "primary_ready", side_effect=[False, True]

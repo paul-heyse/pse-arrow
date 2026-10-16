@@ -25,7 +25,9 @@ async fn scripted_observation(
             std::time::Duration::from_millis(100),
             || {
                 reads += 1;
-                ready(Ok(inventory.pop_front().expect("unexpected inventory read")))
+                ready(Ok(inventory
+                    .pop_front()
+                    .expect("unexpected inventory read")))
             },
             || {
                 cancellations += 1;
@@ -33,7 +35,18 @@ async fn scripted_observation(
             },
             || {
                 observations += 1;
-                ready(drain.pop_front().expect("unexpected receiver observation"))
+                ready(
+                    drain
+                        .pop_front()
+                        .expect("unexpected receiver observation")
+                        .map(|drained| {
+                            if drained {
+                                super::super::worker::PrimaryObservation::Drained
+                            } else {
+                                super::super::worker::PrimaryObservation::Live
+                            }
+                        }),
+                )
             },
         ),
     )
@@ -55,8 +68,12 @@ async fn durable_observer_terminal_inventory_wins_before_receiver_observation() 
 async fn durable_observer_finalization_racing_drain_keeps_original_inventory() {
     let cancel = crate::CancelSource::new();
     let (result, reads, cancellations, observations) = scripted_observation(
-        pse_operations::mint_id(), &cancel, vec![None, Some(7)], vec![Ok(true)],
-    ).await;
+        pse_operations::mint_id(),
+        &cancel,
+        vec![None, Some(7)],
+        vec![Ok(true)],
+    )
+    .await;
     assert_eq!(result.unwrap(), 7);
     assert_eq!((reads, cancellations, observations), (2, 0, 1));
 }
@@ -68,7 +85,9 @@ async fn durable_observer_cancelled_dead_primary_returns_recoverable_identity() 
     cancel.cancel();
     let (result, reads, cancellations, observations) =
         scripted_observation(study, &cancel, vec![None, None], vec![Ok(true)]).await;
-    assert!(matches!(result, Err(WorkflowError::StudyExecutionUnavailable { study: actual }) if actual == study));
+    assert!(
+        matches!(result, Err(WorkflowError::StudyExecutionUnavailable { study: actual }) if actual == study)
+    );
     assert_eq!((reads, cancellations, observations), (2, 1, 1));
 }
 
@@ -78,8 +97,29 @@ async fn durable_observer_dead_primary_needs_no_caller_cancellation() {
     let cancel = crate::CancelSource::new();
     let (result, reads, cancellations, observations) =
         scripted_observation(study, &cancel, vec![None, None], vec![Ok(true)]).await;
-    assert!(matches!(result, Err(WorkflowError::StudyExecutionUnavailable { study: actual }) if actual == study));
+    assert!(
+        matches!(result, Err(WorkflowError::StudyExecutionUnavailable { study: actual }) if actual == study)
+    );
     assert_eq!((reads, cancellations, observations), (2, 0, 1));
+}
+
+#[tokio::test]
+async fn durable_observer_changed_owner_is_unavailable_without_claiming_drain() {
+    let study = pse_operations::mint_id();
+    let cancel = crate::CancelSource::new();
+    let result = wait_study_inventory(
+        study,
+        &cancel,
+        std::time::Duration::from_millis(100),
+        || ready(Ok(None::<usize>)),
+        || ready(Ok(())),
+        || ready(Ok(super::super::worker::PrimaryObservation::OwnerChanged)),
+    )
+    .await;
+    assert!(
+        matches!(result, Err(WorkflowError::StudyExecutionUnavailable { study: actual }) if actual == study)
+    );
+    assert!(!result.unwrap_err().to_string().contains("drained"));
 }
 
 #[tokio::test]
@@ -87,9 +127,12 @@ async fn durable_observer_live_cancellation_records_once_and_joins_inventory() {
     let cancel = crate::CancelSource::new();
     cancel.cancel();
     let (result, reads, cancellations, observations) = scripted_observation(
-        pse_operations::mint_id(), &cancel,
-        vec![None, None, Some(7)], vec![Ok(false), Ok(false)],
-    ).await;
+        pse_operations::mint_id(),
+        &cancel,
+        vec![None, None, Some(7)],
+        vec![Ok(false), Ok(false)],
+    )
+    .await;
     assert_eq!(result.unwrap(), 7);
     assert_eq!((reads, cancellations, observations), (3, 1, 2));
 }
@@ -99,10 +142,15 @@ async fn durable_observer_unknown_observation_does_not_authorize_unfinished_exit
     let cancel = crate::CancelSource::new();
     cancel.cancel();
     let (result, reads, cancellations, observations) = scripted_observation(
-        pse_operations::mint_id(), &cancel,
+        pse_operations::mint_id(),
+        &cancel,
         vec![None, None, Some(7)],
-        vec![Err(super::super::contract("receiver observation unavailable")), Ok(false)],
-    ).await;
+        vec![
+            Err(super::super::contract("receiver observation unavailable")),
+            Ok(false),
+        ],
+    )
+    .await;
     assert_eq!(result.unwrap(), 7);
     assert_eq!((reads, cancellations, observations), (3, 1, 2));
 }

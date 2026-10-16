@@ -3146,9 +3146,13 @@ fn selected_plugin_statistics(instance: &Instance, metrics: &mut BTreeMap<String
     // SAFETY: finds borrow plugin pointers from this instance. Null explicitly
     // means absent; each getter below only reads the nonnull plugin's own fields.
     let presol = unsafe { ffi::SCIPfindPresol(s, c"dualinfer".as_ptr()) };
+    // SAFETY: the live owning instance lends this named plugin pointer; null means absent.
     let prop = unsafe { ffi::SCIPfindProp(s, c"pseudoobj".as_ptr()) };
+    // SAFETY: the live owning instance lends this named plugin pointer; null means absent.
     let sepa = unsafe { ffi::SCIPfindSepa(s, c"gomory".as_ptr()) };
+    // SAFETY: the live owning instance lends this named plugin pointer; null means absent.
     let conshdlr = unsafe { ffi::SCIPfindConshdlr(s, c"nonlinear".as_ptr()) };
+    // SAFETY: the live owning instance lends this named plugin pointer; null means absent.
     let nlpi = unsafe { ffi::SCIPfindNlpi(s, c"ipopt".as_ptr()) };
     for (prefix, present) in [
         ("scip.plugin.presolve.dualinfer", !presol.is_null()),
@@ -3167,13 +3171,11 @@ fn selected_plugin_statistics(instance: &Instance, metrics: &mut BTreeMap<String
     }
     if !presol.is_null() {
         // SAFETY: nonnull stored plugin, owner and eligible stage established above.
-        let (calls, fixed, bounds) = unsafe {
-            (
-                ffi::SCIPpresolGetNCalls(presol),
-                ffi::SCIPpresolGetNFixedVars(presol),
-                ffi::SCIPpresolGetNChgBds(presol),
-            )
-        };
+        let calls = unsafe { ffi::SCIPpresolGetNCalls(presol) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let fixed = unsafe { ffi::SCIPpresolGetNFixedVars(presol) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let bounds = unsafe { ffi::SCIPpresolGetNChgBds(presol) };
         for (name, value) in [
             ("calls", calls),
             ("fixed_variables", fixed),
@@ -3187,13 +3189,11 @@ fn selected_plugin_statistics(instance: &Instance, metrics: &mut BTreeMap<String
     }
     if !prop.is_null() {
         // SAFETY: same owner-side stored-field reads.
-        let (calls, reductions, cutoffs) = unsafe {
-            (
-                ffi::SCIPpropGetNCalls(prop),
-                ffi::SCIPpropGetNDomredsFound(prop),
-                ffi::SCIPpropGetNCutoffs(prop),
-            )
-        };
+        let calls = unsafe { ffi::SCIPpropGetNCalls(prop) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let reductions = unsafe { ffi::SCIPpropGetNDomredsFound(prop) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let cutoffs = unsafe { ffi::SCIPpropGetNCutoffs(prop) };
         for (name, value) in [
             ("calls", calls),
             ("domain_reductions", reductions),
@@ -3207,13 +3207,11 @@ fn selected_plugin_statistics(instance: &Instance, metrics: &mut BTreeMap<String
     }
     if !sepa.is_null() {
         // SAFETY: same owner-side stored-field reads.
-        let (calls, found, applied) = unsafe {
-            (
-                ffi::SCIPsepaGetNCalls(sepa),
-                ffi::SCIPsepaGetNCutsFound(sepa),
-                ffi::SCIPsepaGetNCutsApplied(sepa),
-            )
-        };
+        let calls = unsafe { ffi::SCIPsepaGetNCalls(sepa) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let found = unsafe { ffi::SCIPsepaGetNCutsFound(sepa) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let applied = unsafe { ffi::SCIPsepaGetNCutsApplied(sepa) };
         for (name, value) in [
             ("calls", calls),
             ("cuts_found", found),
@@ -3228,14 +3226,13 @@ fn selected_plugin_statistics(instance: &Instance, metrics: &mut BTreeMap<String
     if !conshdlr.is_null() {
         // SAFETY: same owner-side stored-field reads; these distinguish nonlinear
         // constraint work from solves performed by the selected Ipopt NLPI.
-        let (presolve, propagation, separation, enforcement) = unsafe {
-            (
-                ffi::SCIPconshdlrGetNPresolCalls(conshdlr),
-                ffi::SCIPconshdlrGetNPropCalls(conshdlr),
-                ffi::SCIPconshdlrGetNSepaCalls(conshdlr),
-                ffi::SCIPconshdlrGetNEnfoLPCalls(conshdlr),
-            )
-        };
+        let presolve = unsafe { ffi::SCIPconshdlrGetNPresolCalls(conshdlr) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let propagation = unsafe { ffi::SCIPconshdlrGetNPropCalls(conshdlr) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let separation = unsafe { ffi::SCIPconshdlrGetNSepaCalls(conshdlr) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let enforcement = unsafe { ffi::SCIPconshdlrGetNEnfoLPCalls(conshdlr) };
         metrics.insert(
             "scip.plugin.constraint.nonlinear.presolve_calls".into(),
             Metric::Integer(i64::from(presolve)),
@@ -3253,14 +3250,13 @@ fn selected_plugin_statistics(instance: &Instance, metrics: &mut BTreeMap<String
     }
     if !nlpi.is_null() {
         // SAFETY: direct stored NLPI summaries after all owner work returned.
-        let (problems, solves, iterations, seconds) = unsafe {
-            (
-                ffi::SCIPnlpiGetNProblems(nlpi),
-                ffi::SCIPnlpiGetNSolves(nlpi),
-                ffi::SCIPnlpiGetNIterations(nlpi),
-                ffi::SCIPnlpiGetSolveTime(nlpi),
-            )
-        };
+        let problems = unsafe { ffi::SCIPnlpiGetNProblems(nlpi) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let solves = unsafe { ffi::SCIPnlpiGetNSolves(nlpi) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let iterations = unsafe { ffi::SCIPnlpiGetNIterations(nlpi) };
+        // SAFETY: the same nonnull plugin belongs to the current eligible owner.
+        let seconds = unsafe { ffi::SCIPnlpiGetSolveTime(nlpi) };
         metrics.insert(
             "scip.plugin.nlpi.ipopt.problems_created".into(),
             Metric::Integer(i64::from(problems)),

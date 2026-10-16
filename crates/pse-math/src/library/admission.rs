@@ -341,7 +341,10 @@ impl ScalarCache {
         }
         // Scalar optimization does not consume the later execution selector.
         // Share exact scalar preparation across interpreted/native Value routes.
-        let scalar_options = Optimization { evaluator: Evaluator::Interpreted, ..options };
+        let scalar_options = Optimization {
+            evaluator: Evaluator::Interpreted,
+            ..options
+        };
         let key = (expressions.to_vec(), parameters.to_vec(), scalar_options);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_cache_lookups", "count", 1);

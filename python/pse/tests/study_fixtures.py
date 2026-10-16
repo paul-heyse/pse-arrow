@@ -104,6 +104,7 @@ def point(
                             "cores": 1,
                             "horner_iterations": 2,
                             "cpe_iterations": 1,
+                            "evaluator": {"kind": "interpreted"},
                         },
                         "evaluation": {
                             "derivative_components": 4096,

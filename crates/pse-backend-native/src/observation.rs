@@ -16,7 +16,7 @@ pub(crate) fn report(report: &crate::solve::SolveReport) {
         context.integer(
             &format!("{name}.status"),
             "native_status",
-            i64::from(report.termination.code),
+            report.termination.code,
         );
         context.text(&format!("{name}.termination"), &report.termination.name);
     }

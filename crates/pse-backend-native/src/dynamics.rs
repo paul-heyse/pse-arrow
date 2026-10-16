@@ -600,11 +600,19 @@ pub fn gradient_observed(
     let progress = Arc::new(crate::solve::Progress::new(256));
     match profile.resolved_method()? {
         #[cfg(feature = "diffsol")]
-        Method::Diffsol => {
-            integrator::gradient(oracle, profile, parameters, cotangent, cancel, progress, layout)
-        }
+        Method::Diffsol => integrator::gradient(
+            oracle, profile, parameters, cotangent, cancel, progress, layout,
+        ),
         #[cfg(feature = "idas")]
-        Method::Idas => idas::gradient(oracle, profile, parameters, cotangent, cancel, progress, (layout, memory)),
+        Method::Idas => idas::gradient(
+            oracle,
+            profile,
+            parameters,
+            cotangent,
+            cancel,
+            progress,
+            (layout, memory),
+        ),
         _ => Err(ProblemError::unsupported(
             "requested dynamic backend is not linked",
         )),
@@ -676,7 +684,14 @@ pub fn hessian_observed(
     }
     let progress = Arc::new(crate::solve::Progress::new(256));
     idas::hessian(
-        oracle, profile, parameters, directions, cotangent, cancel, progress, (layout, memory),
+        oracle,
+        profile,
+        parameters,
+        directions,
+        cotangent,
+        cancel,
+        progress,
+        (layout, memory),
     )
     .map(|mut g| {
         g.reserved_bytes = reserved;
@@ -689,13 +704,20 @@ pub fn hessian_observed(
 /// of the input nonzeros; this is not an RSS observation.
 fn sample_elimination_bytes(c: &Contract, layout: &PreparedLayout) -> Option<usize> {
     let algebraic = c.differential.iter().filter(|d| !**d).count();
-    if algebraic == 0 { return Some(0); }
+    if algebraic == 0 {
+        return Some(0);
+    }
     let entries = layout.nonzeros();
-    let sparse = entries.checked_mul(size_of::<faer::sparse::Triplet<usize, usize, f64>>())?
+    let sparse = entries
+        .checked_mul(size_of::<faer::sparse::Triplet<usize, usize, f64>>())?
         .checked_add(c.states.len().checked_mul(size_of::<Option<usize>>())?)?
         .checked_add(algebraic.checked_mul(size_of::<usize>())?)?
         .checked_add(entries.checked_mul(size_of::<f64>() + 2 * size_of::<usize>())?)?
-        .checked_add(algebraic.checked_add(1)?.checked_mul(2 * size_of::<usize>())?)?;
+        .checked_add(
+            algebraic
+                .checked_add(1)?
+                .checked_mul(2 * size_of::<usize>())?,
+        )?;
     PreparedLayout::direct_bytes(algebraic, entries)?.checked_add(sparse)
 }
 
@@ -784,14 +806,18 @@ pub(crate) struct SampleEliminationPreparation {
 #[cfg(any(feature = "diffsol", feature = "idas"))]
 impl SampleEliminationPreparation {
     fn with_layout(layout: Arc<PreparedLayout>) -> Self {
-        Self { layout: Some(layout), ..Self::default() }
+        Self {
+            layout: Some(layout),
+            ..Self::default()
+        }
     }
     fn symbolic(
         &mut self,
         matrix: faer::sparse::SparseColMatRef<'_, usize, f64>,
     ) -> Result<faer::sparse::linalg::solvers::SymbolicLu<usize>, ProblemError> {
         let pattern = matrix.symbolic();
-        if self.columns == pattern.col_ptr() && self.rows == pattern.row_idx()
+        if self.columns == pattern.col_ptr()
+            && self.rows == pattern.row_idx()
             && let Some(symbolic) = &self.symbolic
         {
             crate::observation::count("dynamics.sample_elimination.symbolic_reuses", 1);
@@ -802,9 +828,13 @@ impl SampleEliminationPreparation {
         self.symbolic = None;
         self.columns = Vec::new();
         self.rows = Vec::new();
-        let symbolic = crate::observation::scoped("dynamics.sample_elimination.faer.symbolic", || {
-            faer::sparse::linalg::solvers::SymbolicLu::try_new(pattern)
-        }).map_err(|error| ProblemError::numerical(format!("adjoint jump constraint LU: {error:?}")))?;
+        let symbolic =
+            crate::observation::scoped("dynamics.sample_elimination.faer.symbolic", || {
+                faer::sparse::linalg::solvers::SymbolicLu::try_new(pattern)
+            })
+            .map_err(|error| {
+                ProblemError::numerical(format!("adjoint jump constraint LU: {error:?}"))
+            })?;
         let mut columns = Vec::with_capacity(pattern.col_ptr().len());
         columns.extend_from_slice(pattern.col_ptr());
         let mut rows = Vec::with_capacity(pattern.row_idx().len());
@@ -813,7 +843,9 @@ impl SampleEliminationPreparation {
         self.rows = rows;
         self.symbolic = Some(symbolic.clone());
         #[cfg(test)]
-        { self.constructions += 1; }
+        {
+            self.constructions += 1;
+        }
         crate::observation::count("dynamics.sample_elimination.symbolic_constructions", 1);
         Ok(symbolic)
     }
@@ -826,7 +858,12 @@ impl<'a> SampleElimination<'a> {
         rhs: Option<faer::sparse::SparseColMatRef<'a, usize, f64>>,
         width: usize,
     ) -> Result<Self, ProblemError> {
-        Self::prepared(differential, rhs, width, &mut SampleEliminationPreparation::default())
+        Self::prepared(
+            differential,
+            rhs,
+            width,
+            &mut SampleEliminationPreparation::default(),
+        )
     }
     pub(crate) fn prepared(
         differential: &[bool],
@@ -861,8 +898,14 @@ impl<'a> SampleElimination<'a> {
             for column in &algebraic {
                 for k in f.col_range(*column) {
                     if let (Some(i), Some(j)) = (slot[f.row_idx()[k]], slot[*column]) {
-                        if preparation.layout.as_ref().is_some_and(|layout| layout.get(*column, f.row_idx()[k]).is_none()) {
-                            return Err(ProblemError::Contract("adjoint algebraic partial outside declared support".into()));
+                        if preparation
+                            .layout
+                            .as_ref()
+                            .is_some_and(|layout| layout.get(*column, f.row_idx()[k]).is_none())
+                        {
+                            return Err(ProblemError::Contract(
+                                "adjoint algebraic partial outside declared support".into(),
+                            ));
                         }
                         triplets.push(faer::sparse::Triplet::new(j, i, f.val()[k]));
                     }
@@ -1722,8 +1765,12 @@ impl Profile {
         layout: &PreparedLayout,
         demand: DynamicDemand,
     ) -> Result<usize, ProblemError> {
-        if self.method == Method::Diffsol { return Ok(0); }
-        layout.scatter_bytes(demand)?.checked_add(layout.linear_bytes(self.idas.linear)?)
+        if self.method == Method::Diffsol {
+            return Ok(0);
+        }
+        layout
+            .scatter_bytes(demand)?
+            .checked_add(layout.linear_bytes(self.idas.linear)?)
             .ok_or_else(|| ProblemError::memory("IDAS prepared workspace extent"))
     }
     /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
@@ -1732,7 +1779,11 @@ impl Profile {
     /// method state bounded by a BDF difference table (the largest), each IDAS checkpoint
     /// its history array, and the replay holds `steps_between_checkpoints` Hermite points
     /// per segment (two interpolants on Diffsol). Accounting, not an RSS claim.
-    pub fn checkpoint_bytes(&self, c: &Contract, layout: &PreparedLayout) -> Result<usize, ProblemError> {
+    pub fn checkpoint_bytes(
+        &self,
+        c: &Contract,
+        layout: &PreparedLayout,
+    ) -> Result<usize, ProblemError> {
         let n = c.states.len();
         let steps = self.adjoint.steps_between_checkpoints.into_inner();
         let segments = self.segments();
@@ -1759,8 +1810,12 @@ impl Profile {
         bytes
             .checked_add(self.native_scatter_bytes(layout, DynamicDemand::Base)?)
             .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
-            .and_then(|bytes| if self.method == Method::Diffsol { Some(bytes) } else {
-                bytes.checked_add(PreparedLayout::direct_bytes(n, layout.nonzeros())?)
+            .and_then(|bytes| {
+                if self.method == Method::Diffsol {
+                    Some(bytes)
+                } else {
+                    bytes.checked_add(PreparedLayout::direct_bytes(n, layout.nonzeros())?)
+                }
             })
             .ok_or_else(|| ProblemError::memory("adjoint scatter extent overflow"))
     }
@@ -1780,7 +1835,11 @@ impl Profile {
         self.validate_second_order(c, directions)?;
         self.second_order_bytes(c, directions, layout)
     }
-    fn validate_second_order(&self, c: &Contract, directions: &[usize]) -> Result<(), ProblemError> {
+    fn validate_second_order(
+        &self,
+        c: &Contract,
+        directions: &[usize],
+    ) -> Result<(), ProblemError> {
         if self.sensitivity != DynamicSensitivity::Adjoint {
             return Err(contract(
                 "an exact transient Hessian needs the adjoint sensitivity profile",
@@ -1841,7 +1900,12 @@ impl Profile {
         }
         Ok(())
     }
-    fn second_order_bytes(&self, c: &Contract, directions: &[usize], layout: &PreparedLayout) -> Result<usize, ProblemError> {
+    fn second_order_bytes(
+        &self,
+        c: &Contract,
+        directions: &[usize],
+        layout: &PreparedLayout,
+    ) -> Result<usize, ProblemError> {
         let n = c.states.len();
         let width = self.integration_width(c.parameters.len());
         let steps = self.adjoint.steps_between_checkpoints.into_inner();
@@ -1874,7 +1938,15 @@ impl Profile {
         bytes
             .checked_add(self.native_scatter_bytes(layout, DynamicDemand::ExactHessian)?)
             .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
-            .and_then(|bytes| bytes.checked_add(PreparedLayout::direct_bytes(n.checked_mul(2)?, layout.nonzeros().checked_mul(3)?)?.checked_mul(directions.len())?))
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    PreparedLayout::direct_bytes(
+                        n.checked_mul(2)?,
+                        layout.nonzeros().checked_mul(3)?,
+                    )?
+                    .checked_mul(directions.len())?,
+                )
+            })
             .ok_or_else(|| ProblemError::memory("second-order scatter extent overflow"))
     }
     fn method_refusals(&self, c: &Contract) -> Vec<ProblemError> {
@@ -2219,21 +2291,37 @@ pub trait Oracle: std::fmt::Debug {
     /// oracle implementations and bounds support overlap before layout allocation.
     fn prepared_layout(&self, allowance: usize) -> Result<Arc<PreparedLayout>, ProblemError> {
         let modes = self.contract().events.len();
-        let mut support_bytes = modes.checked_mul(size_of::<Vec<SupportEntry>>())
+        let mut support_bytes = modes
+            .checked_mul(size_of::<Vec<SupportEntry>>())
             .ok_or_else(|| ProblemError::memory("IDAS support headers extent"))?;
-        if support_bytes > allowance { return Err(ProblemError::memory("IDAS support headers exceed allowance")); }
+        if support_bytes > allowance {
+            return Err(ProblemError::memory(
+                "IDAS support headers exceed allowance",
+            ));
+        }
         let mut supports = Vec::with_capacity(modes);
         for mode in 0..self.contract().events.len() {
             let support = self.support(mode, Function::Rhs);
-            support_bytes = support_bytes.checked_add(support.capacity().checked_mul(size_of::<SupportEntry>())
-                .ok_or_else(|| ProblemError::memory("IDAS support source extent"))?)
+            support_bytes = support_bytes
+                .checked_add(
+                    support
+                        .capacity()
+                        .checked_mul(size_of::<SupportEntry>())
+                        .ok_or_else(|| ProblemError::memory("IDAS support source extent"))?,
+                )
                 .ok_or_else(|| ProblemError::memory("IDAS support source extent"))?;
-            if support_bytes > allowance { return Err(ProblemError::memory("IDAS source support exceeds allowance")); }
+            if support_bytes > allowance {
+                return Err(ProblemError::memory(
+                    "IDAS source support exceeds allowance",
+                ));
+            }
             supports.push(support);
         }
-        Ok(Arc::new(PreparedLayout::new(self.contract().states.len(),
+        Ok(Arc::new(PreparedLayout::new(
+            self.contract().states.len(),
             supports.iter().flat_map(|support| support.iter().copied()),
-            allowance - support_bytes)?))
+            allowance - support_bytes,
+        )?))
     }
     /// Reserve an independently retained owned derivative snapshot before its
     /// allocation. Adapters forward this to the actual allocation owner.
@@ -2940,23 +3028,38 @@ mod sample_elimination_tests {
     fn sample_elimination_reuses_only_symbolic_pattern_across_changed_samples() {
         let mut preparation = SampleEliminationPreparation::default();
         let f = matrix(2.);
-        let mut first = SampleElimination::prepared(&[true, false], Some(f.as_ref()), 3, &mut preparation).unwrap();
+        let mut first =
+            SampleElimination::prepared(&[true, false], Some(f.as_ref()), 3, &mut preparation)
+                .unwrap();
         assert_eq!(first.solve(vec![7., 4., 11.]).unwrap().parameters, vec![1.]);
         drop(first);
         let changed = matrix(4.);
-        let mut next = SampleElimination::prepared(&[true, false], Some(changed.as_ref()), 3, &mut preparation).unwrap();
+        let mut next = SampleElimination::prepared(
+            &[true, false],
+            Some(changed.as_ref()),
+            3,
+            &mut preparation,
+        )
+        .unwrap();
         assert_eq!(next.solve(vec![7., 4., 11.]).unwrap().parameters, vec![6.]);
         assert_eq!(preparation.constructions, 1);
         assert_eq!(next.factorizations, 1);
         drop(next);
         let zero = matrix(0.);
-        if let Ok(mut singular) = SampleElimination::prepared(&[true, false], Some(zero.as_ref()), 3, &mut preparation) {
+        if let Ok(mut singular) =
+            SampleElimination::prepared(&[true, false], Some(zero.as_ref()), 3, &mut preparation)
+        {
             assert!(singular.solve(vec![7., 4., 11.]).is_err());
         }
         assert_eq!(preparation.constructions, 1);
         let f = matrix(2.);
-        let mut recovered = SampleElimination::prepared(&[true, false], Some(f.as_ref()), 3, &mut preparation).unwrap();
-        assert_eq!(recovered.solve(vec![7., 4., 11.]).unwrap().parameters, vec![1.]);
+        let mut recovered =
+            SampleElimination::prepared(&[true, false], Some(f.as_ref()), 3, &mut preparation)
+                .unwrap();
+        assert_eq!(
+            recovered.solve(vec![7., 4., 11.]).unwrap().parameters,
+            vec![1.]
+        );
         assert_eq!(preparation.constructions, 1);
     }
     #[test]
@@ -2965,16 +3068,42 @@ mod sample_elimination_tests {
         let mut preparation = SampleEliminationPreparation::with_layout(layout);
         let f = matrix(2.);
         SampleElimination::prepared(&[true, false], Some(f.as_ref()), 3, &mut preparation).unwrap();
-        let diagonal = faer::sparse::SparseColMat::try_new_from_triplets(2, 2, &[
-            faer::sparse::Triplet::new(0, 0, 2.), faer::sparse::Triplet::new(1, 1, 3.)
-        ]).unwrap();
-        let mut next = SampleElimination::prepared(&[false, false], Some(diagonal.as_ref()), 2, &mut preparation).unwrap();
+        let diagonal = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(0, 0, 2.),
+                faer::sparse::Triplet::new(1, 1, 3.),
+            ],
+        )
+        .unwrap();
+        let mut next = SampleElimination::prepared(
+            &[false, false],
+            Some(diagonal.as_ref()),
+            2,
+            &mut preparation,
+        )
+        .unwrap();
         assert_eq!(next.solve(vec![2., 3.]).unwrap().state, vec![0., 0.]);
         assert_eq!(preparation.constructions, 2);
-        let unknown = faer::sparse::SparseColMat::try_new_from_triplets(2, 2, &[
-            faer::sparse::Triplet::new(0, 0, 2.), faer::sparse::Triplet::new(1, 1, 3.),
-            faer::sparse::Triplet::new(1, 0, 1.)
-        ]).unwrap();
-        assert!(matches!(SampleElimination::prepared(&[false, false], Some(unknown.as_ref()), 2, &mut preparation), Err(ProblemError::Contract(_))));
+        let unknown = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(0, 0, 2.),
+                faer::sparse::Triplet::new(1, 1, 3.),
+                faer::sparse::Triplet::new(1, 0, 1.),
+            ],
+        )
+        .unwrap();
+        assert!(matches!(
+            SampleElimination::prepared(
+                &[false, false],
+                Some(unknown.as_ref()),
+                2,
+                &mut preparation
+            ),
+            Err(ProblemError::Contract(_))
+        ));
     }
 }

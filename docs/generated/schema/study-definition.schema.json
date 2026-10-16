@@ -11385,8 +11385,8 @@
           "description": "Complete admitted base source and physical identity."
         },
         "version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "description": "Descriptor interpretation.",
           "type": "integer"
         }

@@ -1125,7 +1125,7 @@ fn call(
     if wrt.is_empty() && (*function_result).quantity_scheme().is_none() {
         return Ok((*function_result).clone());
     }
-    let mut result = scheme(&(*function_result), at)?;
+    let mut result = scheme(&function_result, at)?;
     for path in wrt {
         let first = path
             .segments

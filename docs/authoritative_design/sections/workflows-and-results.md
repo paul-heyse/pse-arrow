@@ -811,6 +811,17 @@ including observations after partial failure or cancellation. Cancellation preve
 native dispatch and fences successful finalization while completed work remains inspectable.
 Operational completion does not grant scientific permission.
 
+The durable observer retains the exact primary owner admitted for its dispatch. If that
+owner drains or is known to have changed before a terminal inventory is available, it
+rereads the inventory and returns `StudyExecutionUnavailable` with the study identity.
+Incomplete records remain inspectable and require explicit recovery; the observer does
+not invent a failed/cancelled scientific terminal, renew the original caller clock or
+restart execution. A transient/unknown observation continues waiting conservatively.
+An owner mismatch ends this wait but is not evidence that the old owner drained and
+never authorizes resource release. Healthy cancellation still joins the actual terminal
+inventory and issued SDK/native suffix. Refusing a bounded supervisor response stops
+and reaps its issued control child before returning.
+
 Source-backed durable packages retain exact authored documents; an in-memory package without
 that closure cannot be submitted for durable reconstruction. Source versions are checked
 before current nested decoding. Unsupported historical readmission refuses explicitly;

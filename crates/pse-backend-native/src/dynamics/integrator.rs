@@ -1326,6 +1326,10 @@ struct SegmentContext<'a> {
     observation: &'a mut crate::solve::NativeStepObservation,
     generation: u64,
 }
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the concrete scheme supplies its owner-side statistics getter alongside independently owned solver, profile, report, output and step state"
+)]
 fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     shared: &Rc<Shared<'o>>,
     s: &mut S,

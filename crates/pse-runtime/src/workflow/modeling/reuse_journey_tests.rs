@@ -270,6 +270,16 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         body(&value.model.model, e).math()
     ));
     assert_eq!(residuals(&edited, &value).await, (0., 0.)); // 2-2, independently specified.
+    let resolved = edited
+        .solve_case(
+            value.clone(),
+            crate::workflow::tests::compiler_profile(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    assert!(resolved.accepted);
+    assert!((resolved.values.scalars[&row(&value.model.model, "x")] - 2.).abs() < 1e-8);
 
     let quantity = edited
         .quantities
@@ -361,6 +371,33 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
     let fresh = fresh.unwrap();
     let (fresh_point, _, _) = point(&fresh, root, &empty, "fresh-oracle").await;
     assert_eq!(residuals(&fresh, &fresh_point).await, (2., 0.));
+    for (package, prepared) in [(&structural, &changed), (&fresh, &fresh_point)] {
+        let result = package
+            .solve_case(
+                prepared.clone(),
+                crate::workflow::tests::compiler_profile(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert!(result.accepted);
+        let x = result.values.scalars[&row(&prepared.model.model, "x")];
+        let budget = crate::workflow::tests::engineering_target(
+            prepared.solve.numerics(),
+            pse_model::generated::enums::NumericalTarget::Row,
+            row(&prepared.model.model, "e"),
+        )
+        .budget;
+        // Independent original mathematics at the frozen requested row accuracy.
+        // The authored unbounded square equation admits both signs; no private
+        // solver tolerance or unrequested root-sheet selection is invented here.
+        assert!(
+            (x * x - 2.).abs() <= budget,
+            "original equation: {x}, budget {budget}"
+        );
+        assert!((x.abs() - 2_f64.sqrt()).abs() <= budget / 2_f64.sqrt());
+        assert!((result.values.scalars[&row(&prepared.model.model, "y")] - 7.).abs() < 1e-8);
+    }
     assert_eq!(
         body(&changed.model.model, e).semantic_identity(),
         body(&fresh_point.model.model, e).semantic_identity()

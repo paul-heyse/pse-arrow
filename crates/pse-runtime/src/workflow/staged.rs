@@ -636,7 +636,13 @@ impl Staged {
                 }
             })
             .collect::<Vec<_>>();
-        if !results.is_empty() && results.iter().all(|result| result.as_ref().is_ok_and(|result| result.completion.decision.permits_use())) {
+        if !results.is_empty()
+            && results.iter().all(|result| {
+                result
+                    .as_ref()
+                    .is_ok_and(|result| result.completion.decision.permits_use())
+            })
+        {
             self.independent = independent;
         }
         for result in &results {
@@ -665,15 +671,28 @@ impl Staged {
     /// End a completed independent request through the existing neutral reset.
     /// Original assessment must permit use; cancelled, failed, unexecuted or
     /// expired work closes instead. Clear request records before parking.
-    pub(in crate::workflow) async fn finish_independent(self, cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
-        let Self { runtime, session, records, independent, progress } = self;
-        let healthy = records.last().is_some_and(|record| record.decision.permits_use())
+    pub(in crate::workflow) async fn finish_independent(
+        self,
+        cancel: &crate::CancelSource,
+    ) -> Result<(), WorkflowError> {
+        let Self {
+            runtime,
+            session,
+            records,
+            independent,
+            progress,
+        } = self;
+        let healthy = records
+            .last()
+            .is_some_and(|record| record.decision.permits_use())
             && !cancel.token().is_cancelled();
         drop(records);
         drop(progress);
         drop(runtime);
         if let Some((affinity, original_scope)) = independent.filter(|_| healthy) {
-            session.park_independent(affinity, original_scope, cancel).await?;
+            session
+                .park_independent(affinity, original_scope, cancel)
+                .await?;
         } else {
             session.close().await;
         }
@@ -898,30 +917,67 @@ mod native_tests {
             for value in [if failed_first { -10. } else { 1. }, 7.] {
                 let mut case = analysis.case.clone();
                 case.values.insert("t".into(), value);
-                preparations.push(package.prepare_solve(analysis.root, analysis.instance,
-                    analysis.bindings.clone(), analysis.limits.clone(), case, analysis.order,
-                    analysis.compiler, analysis.solver.clone(), analysis.numerical.clone(), &cancel).await.unwrap());
+                preparations.push(
+                    package
+                        .prepare_solve(
+                            analysis.root,
+                            analysis.instance,
+                            analysis.bindings.clone(),
+                            analysis.limits.clone(),
+                            case,
+                            analysis.order,
+                            analysis.compiler,
+                            analysis.solver.clone(),
+                            analysis.numerical.clone(),
+                            &cancel,
+                        )
+                        .await
+                        .unwrap(),
+                );
             }
             let hub = ObservationHub::new(Default::default());
             let observed = hub.start("common independent modeling runs");
             scope(Some(observed.context()), async {
                 for (index, prepared) in preparations.into_iter().enumerate() {
-                    let result = runtime.start_modeling(vec![prepared], false, &cancel)
-                        .await.unwrap().wait().await.unwrap();
-                    let crate::workflow::RunReport::Modeling(results) = result.report().unwrap() else { panic!("modeling report") };
+                    let result = runtime
+                        .start_modeling(vec![prepared], false, &cancel)
+                        .await
+                        .unwrap()
+                        .wait()
+                        .await
+                        .unwrap();
+                    let crate::workflow::RunReport::Modeling(results) = result.report().unwrap()
+                    else {
+                        panic!("modeling report")
+                    };
                     assert_eq!(results.len(), 1);
                     assert_eq!(results[0].accepted, !(failed_first && index == 0));
-                    if index == 1 { assert!((x(&results[0]) - 9.).abs() < 1e-8); }
+                    if index == 1 {
+                        assert!((x(&results[0]) - 9.).abs() < 1e-8);
+                    }
                 }
-            }).await;
+            })
+            .await;
             let counts = crate::workflow::tests::observation_counts(&hub, observed.reader());
             for (name, expected) in [
-                ("native.session.constructions", if failed_first { 2 } else { 1 }),
-                ("native.session.pool_returns", if failed_first { 1 } else { 2 }),
-                ("native.session.pool_checkouts", if failed_first { 0 } else { 1 }),
+                (
+                    "native.session.constructions",
+                    if failed_first { 2 } else { 1 },
+                ),
+                (
+                    "native.session.pool_returns",
+                    if failed_first { 1 } else { 2 },
+                ),
+                (
+                    "native.session.pool_checkouts",
+                    if failed_first { 0 } else { 1 },
+                ),
             ] {
-                assert_eq!(counts.get(name).copied().unwrap_or(0), expected,
-                    "failed_first={failed_first}: {name}");
+                assert_eq!(
+                    counts.get(name).copied().unwrap_or(0),
+                    expected,
+                    "failed_first={failed_first}: {name}"
+                );
             }
             runtime.native().shutdown_native_lanes().await;
         }
@@ -934,9 +990,26 @@ mod native_tests {
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }").await;
         let cancel = crate::CancelSource::new();
         let mut staged = Staged::open(&runtime, None).unwrap();
-        let first_thread = staged.session.run(1, None, &cancel, |_, _, _| Ok(std::thread::current().id())).await.unwrap();
-        let result = staged.step(&package, &analysis, None, &Overlay::default(), Start::Specification,
-            Obligations::Final, None, pse_diagnostics::DiagnosticStage::StudyPolicy, &cancel).await.result.unwrap();
+        let first_thread = staged
+            .session
+            .run(1, None, &cancel, |_, _, _| Ok(std::thread::current().id()))
+            .await
+            .unwrap();
+        let result = staged
+            .step(
+                &package,
+                &analysis,
+                None,
+                &Overlay::default(),
+                Start::Specification,
+                Obligations::Final,
+                None,
+                pse_diagnostics::DiagnosticStage::StudyPolicy,
+                &cancel,
+            )
+            .await
+            .result
+            .unwrap();
         assert!(result.accepted, "{:?}", result.completion);
         assert_eq!(staged.records.len(), 1);
         let parameter = symbol(&result, "t");
@@ -944,15 +1017,49 @@ mod native_tests {
         let mut next = Staged::open(&runtime, None).unwrap();
         assert!(next.records.is_empty());
         assert!(next.predecessor().is_none());
-        let (thread, neutral, no_advance) = next.session.run(1, None, &cancel,
-            |retained, _, _| Ok((std::thread::current().id(), retained.is_empty(), retained.advance().is_none()))).await.unwrap();
-        assert_eq!(thread, first_thread, "the completed independent request parks its real native owner");
-        assert!(neutral && no_advance, "KINSOL has no accepted neutral numeric-state contract");
-        let changed = Overlay { parameters: BTreeMap::from([(parameter, 7.)]), ..Default::default() };
-        let changed = next.step(&package, &analysis, None, &changed, Start::Specification,
-            Obligations::Final, None, pse_diagnostics::DiagnosticStage::StudyPolicy, &cancel).await.result.unwrap();
+        let (thread, neutral, no_advance) = next
+            .session
+            .run(1, None, &cancel, |retained, _, _| {
+                Ok((
+                    std::thread::current().id(),
+                    retained.is_empty(),
+                    retained.advance().is_none(),
+                ))
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            thread, first_thread,
+            "the completed independent request parks its real native owner"
+        );
+        assert!(
+            neutral && no_advance,
+            "KINSOL has no accepted neutral numeric-state contract"
+        );
+        let changed = Overlay {
+            parameters: BTreeMap::from([(parameter, 7.)]),
+            ..Default::default()
+        };
+        let changed = next
+            .step(
+                &package,
+                &analysis,
+                None,
+                &changed,
+                Start::Specification,
+                Obligations::Final,
+                None,
+                pse_diagnostics::DiagnosticStage::StudyPolicy,
+                &cancel,
+            )
+            .await
+            .result
+            .unwrap();
         assert!(changed.accepted);
-        assert!((x(&changed) - 9.).abs() < 1e-8, "changed values start independently");
+        assert!(
+            (x(&changed) - 9.).abs() < 1e-8,
+            "changed values start independently"
+        );
         next.close().await;
         runtime.native().shutdown_native_lanes().await;
     }
@@ -965,20 +1072,64 @@ mod native_tests {
                 "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }").await;
             let cancel = crate::CancelSource::new();
             let mut staged = Staged::open(&runtime, None).unwrap();
-            let first_thread = staged.session.run(1, None, &cancel, |_, _, _| Ok(std::thread::current().id())).await.unwrap();
-            let result = staged.step(&package, &analysis, None, &Overlay::default(), Start::Specification,
-                Obligations::Final, None, pse_diagnostics::DiagnosticStage::StudyPolicy, &cancel).await.result.unwrap();
+            let first_thread = staged
+                .session
+                .run(1, None, &cancel, |_, _, _| Ok(std::thread::current().id()))
+                .await
+                .unwrap();
+            let result = staged
+                .step(
+                    &package,
+                    &analysis,
+                    None,
+                    &Overlay::default(),
+                    Start::Specification,
+                    Obligations::Final,
+                    None,
+                    pse_diagnostics::DiagnosticStage::StudyPolicy,
+                    &cancel,
+                )
+                .await
+                .result
+                .unwrap();
             assert!(result.accepted);
-            if cancel_on_finish { cancel.cancel(); } else {
-                let overlay = Overlay { parameters: BTreeMap::from([(symbol(&result, "t"), -10.)]), ..Default::default() };
-                let refused = staged.step(&package, &analysis, None, &overlay, Start::Specification,
-                    Obligations::Final, None, pse_diagnostics::DiagnosticStage::StudyPolicy, &cancel).await.result.unwrap();
+            if cancel_on_finish {
+                cancel.cancel();
+            } else {
+                let overlay = Overlay {
+                    parameters: BTreeMap::from([(symbol(&result, "t"), -10.)]),
+                    ..Default::default()
+                };
+                let refused = staged
+                    .step(
+                        &package,
+                        &analysis,
+                        None,
+                        &overlay,
+                        Start::Specification,
+                        Obligations::Final,
+                        None,
+                        pse_diagnostics::DiagnosticStage::StudyPolicy,
+                        &cancel,
+                    )
+                    .await
+                    .result
+                    .unwrap();
                 assert!(!refused.accepted);
             }
             staged.finish_independent(&cancel).await.unwrap();
             let next = Staged::open(&runtime, None).unwrap();
-            let thread = next.session.run(1, None, &crate::CancelSource::new(), |_, _, _| Ok(std::thread::current().id())).await.unwrap();
-            assert_ne!(thread, first_thread, "failed/cancelled requests destroy their owner");
+            let thread = next
+                .session
+                .run(1, None, &crate::CancelSource::new(), |_, _, _| {
+                    Ok(std::thread::current().id())
+                })
+                .await
+                .unwrap();
+            assert_ne!(
+                thread, first_thread,
+                "failed/cancelled requests destroy their owner"
+            );
             next.close().await;
             runtime.native().shutdown_native_lanes().await;
         }

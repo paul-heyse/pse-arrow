@@ -136,7 +136,18 @@ pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
 }
 /// Explicit evaluator implementation. Scalar C++ compilation is opt-in and only
 /// changes Value arithmetic blocks; derivatives and provider calls remain interpreted.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Evaluator {
     /// Portable library instruction interpretation.
@@ -157,12 +168,17 @@ impl Evaluator {
     pub fn identity(self) -> &'static str {
         match self {
             Self::Interpreted => "interpreted-f64-v1",
-            Self::CompiledScalar { .. } => "symbolica-3.0.1-cpp-scalar-value-v2;g++;/usr/bin/g++;O2;c++17;pipe;two-phase;page-4096;noasm;no-fast-math;no-unsafe-math;fp-contract-off;x86-64-generic",
+            Self::CompiledScalar { .. } => {
+                "symbolica-3.0.1-cpp-scalar-value-v2;g++;/usr/bin/g++;O2;c++17;pipe;two-phase;page-4096;noasm;no-fast-math;no-unsafe-math;fp-contract-off;x86-64-generic"
+            }
         }
     }
     /// Per-module physical capacity carried by the compilation owner.
     pub fn module_bytes(self) -> usize {
-        match self { Self::Interpreted => 0, Self::CompiledScalar { module_bytes } => module_bytes }
+        match self {
+            Self::Interpreted => 0,
+            Self::CompiledScalar { module_bytes } => module_bytes,
+        }
     }
 }
 /// Explicit optimizer controls; no target-dependent or unbounded defaults.

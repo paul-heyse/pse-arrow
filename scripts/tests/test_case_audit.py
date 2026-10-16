@@ -155,19 +155,20 @@ class AuditTests(unittest.TestCase):
                     operations=[SimpleNamespace(id="operation", outcome=None)],
                     partial=False,
                 )
-                observer.diagnostics = SimpleNamespace(
+                diagnostics = SimpleNamespace(
                     list_processes=Mock(
                         return_value=SimpleNamespace(processes=[process], next=None)
                     ),
                     inspect_checkpoint=Mock(return_value="document"),
                     InspectionError=RuntimeError,
                 )
-                observer.inspect_managed()
+                with patch.object(observer, "diagnostics", diagnostics, create=True):
+                    observer.inspect_managed()
                 self.assertEqual(
                     observer.managed_checkpoint, checkpoint if matches else None
                 )
                 self.assertEqual(
-                    observer.diagnostics.inspect_checkpoint.call_count, int(matches)
+                    diagnostics.inspect_checkpoint.call_count, int(matches)
                 )
                 self.assertEqual(observer.failures, [])
 

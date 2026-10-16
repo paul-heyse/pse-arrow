@@ -703,7 +703,7 @@ impl NativeModelingPackage {
     }
     /// Admit local scientific intent without publication prerequisites.
     fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<NativeLocalStudy> {
-        let request = documents::decode_versioned::<native::StudyRequest, 6>(
+        let request = documents::decode_versioned::<native::StudyRequest, 7>(
             py,
             "operation",
             request,

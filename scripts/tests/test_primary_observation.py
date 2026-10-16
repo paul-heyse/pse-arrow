@@ -34,7 +34,10 @@ class PrimaryObservationTests(unittest.TestCase):
         }
 
     def observation(
-        self, *, populated: bool = False, inode: int = 41,
+        self,
+        *,
+        populated: bool = False,
+        inode: int = 41,
         manager: dict[str, str] | None = None,
     ) -> dict[str, object]:
         with (
@@ -42,7 +45,11 @@ class PrimaryObservationTests(unittest.TestCase):
             patch.object(server, "config_for", return_value={"database": "case"}),
             patch.object(host_admission, "group_identity", return_value=inode),
             patch.object(native_operation, "populated", return_value=populated),
-            patch.object(native_operation, "unit_observation", return_value=manager or self.observed),
+            patch.object(
+                native_operation,
+                "unit_observation",
+                return_value=manager or self.observed,
+            ),
         ):
             return server.observe_primary(self.state, "case", self.owner)
 
@@ -55,7 +62,9 @@ class PrimaryObservationTests(unittest.TestCase):
     def test_owned_descendants_and_active_unit_do_not_establish_drain(self) -> None:
         self.assertEqual(self.observation(populated=True)["phase"], "populated")
         self.assertEqual(
-            self.observation(manager={**self.observed, "ActiveState": "active"})["phase"],
+            self.observation(manager={**self.observed, "ActiveState": "active"})[
+                "phase"
+            ],
             "active",
         )
 
@@ -64,21 +73,32 @@ class PrimaryObservationTests(unittest.TestCase):
         self.assertEqual(result["phase"], "mismatch")
 
     def test_manager_failure_cannot_authorize_release(self) -> None:
-        with patch.object(native_operation, "unit_observation", side_effect=ValueError("unavailable")):
-            with (
-                patch.object(server, "receiver_context", return_value=self.state),
-                patch.object(server, "config_for", return_value={"database": "case"}),
-                patch.object(host_admission, "group_identity", return_value=41),
-                patch.object(native_operation, "populated", return_value=False),
-            ):
-                self.assertEqual(server.observe_primary(self.state, "case", self.owner)["phase"], "unavailable")
+        with (
+            patch.object(
+                native_operation,
+                "unit_observation",
+                side_effect=ValueError("unavailable"),
+            ),
+            patch.object(server, "receiver_context", return_value=self.state),
+            patch.object(server, "config_for", return_value={"database": "case"}),
+            patch.object(host_admission, "group_identity", return_value=41),
+            patch.object(native_operation, "populated", return_value=False),
+        ):
+            self.assertEqual(
+                server.observe_primary(self.state, "case", self.owner)["phase"],
+                "unavailable",
+            )
 
     def test_replacement_group_does_not_become_the_original_owner(self) -> None:
         # The kernel identity ended. A new populated group at that path is a
         # distinct receiver, and must not keep the old dispatch joined forever.
-        self.assertEqual(self.observation(populated=True, inode=42)["phase"], "complete")
+        self.assertEqual(
+            self.observation(populated=True, inode=42)["phase"], "complete"
+        )
 
-    def test_other_database_and_missing_invocation_refuse_before_observation(self) -> None:
+    def test_other_database_and_missing_invocation_refuse_before_observation(
+        self,
+    ) -> None:
         with (
             patch.object(server, "receiver_context", return_value=self.state),
             patch.object(server, "config_for", return_value={"database": "case"}),
@@ -98,7 +118,9 @@ class PrimaryObservationTests(unittest.TestCase):
             patch.object(host_admission, "group_identity", return_value=41),
             patch.object(server, "primary_ready", return_value=True),
         ):
-            self.assertEqual(server.primary_dispatch_owner(self.state, {}, "case", None), self.owner)
+            self.assertEqual(
+                server.primary_dispatch_owner(self.state, {}, "case", None), self.owner
+            )
 
     def test_dispatch_owner_rejects_invocation_or_inode_change(self) -> None:
         observed = {**self.observed, "ActiveState": "active"}
@@ -108,7 +130,11 @@ class PrimaryObservationTests(unittest.TestCase):
         ):
             with (
                 self.subTest(replacement=replacement, inodes=inodes),
-                patch.object(native_operation, "unit_observation", side_effect=[observed, replacement]),
+                patch.object(
+                    native_operation,
+                    "unit_observation",
+                    side_effect=[observed, replacement],
+                ),
                 patch.object(host_admission, "group_identity", side_effect=inodes),
                 patch.object(server, "primary_ready", return_value=True),
                 self.assertRaises(server.SupervisorError),

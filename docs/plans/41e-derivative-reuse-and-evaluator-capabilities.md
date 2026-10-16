@@ -142,8 +142,8 @@ and cannot reinterpret lane padding as a scientific input or result.
 | E1 — completed residual-curvature reuse | E0 point/product contract; current fitting exact mode | Retain successful compatible transient curvature at the existing Point owner and recombine native weights later. Migrate every exact Hessian path, retain failure/point eviction and independent final assessment, and remove unconditional recomputation plus obsolete repeat-work fixtures. Same-x changed native weights reuse; changed scientific context invalidates; failed upgrades cannot poison or advertise a complete product. | Completed |
 | E2 — same-point integration frontier investigation/adoption | E0 actual demand/owner premises; 41d D2 only for adopted window-worker-dependent retention; 41d D1 when adopted IDAS history consumes revised layout accounting | Compare demand replay, eager requested sensitivities and retained eligible checkpoints against actual callback sequences, integrations/replay and combined retained state. Select an enforceable method/capability policy, implement adopted retention and migrate real fit/shooting consumers, or retain demand replay with bounded reasons. Qualify missing directions, changed IVPs, rejected/failed trials, affinity and cleanup; no zero-replay promise. | Completed |
 | E3 — selected derivative actions investigation/adoption | E0 actual consumer demand; existing provider/IFT and sparse-factor contracts | Identify a real selected-action expansion gap and settle its supplier-to-consumer contract. Implement justified action composition with actual consumers and delete replaced full expansion there, or retain full evaluation for unsupported consumers with explicit evidence. Check independent perturbations, higher-order conventions, guards, dimensions and provider refusals. New kernel/provider contracts follow the required decision route first. | Completed |
-| E4 — compiled/batched evaluator qualification/adoption | Exact installed library/source and feature inquiry; coordinator RC03 decision before changed capability; 41f F0 diagnostic vocabulary for qualification observations | Qualify semantic/FP/ISA/provider/cancellation and allocation/lane/tail contracts, compilation work and repeated evaluation fit. Adopt only a concrete supported route and migrate its consumers; otherwise record refusal/limitations and retain interpreted evaluation. No global feature/default change is inferred. Reconcile any exact dependency move through normal pinned-dependency rules. | In progress — scalar controls passed; remaining direct wire-version consumers migrating |
-| E5 — derivative/evaluator migration and targeted closure | E1 complete; E2–E4 decisions and adopted implementation/migrations complete | Confirm every scoped Hessian/action/evaluator consumer uses its selected target and replaced code/tests/fixtures are deleted. Reconcile finding/investigation obligations at Plan 41 and hand package results, capability limits and final journeys to 41f. No investigation is silently left as optional unfinished completion scope. | In progress — targeted acceptance complete; shared generation/documentation handoff underway |
+| E4 — compiled/batched evaluator qualification/adoption | Exact installed library/source and feature inquiry; coordinator RC03 decision before changed capability; 41f F0 diagnostic vocabulary for qualification observations | Qualify semantic/FP/ISA/provider/cancellation and allocation/lane/tail contracts, compilation work and repeated evaluation fit. Adopt only a concrete supported route and migrate its consumers; otherwise record refusal/limitations and retain interpreted evaluation. No global feature/default change is inferred. Reconcile any exact dependency move through normal pinned-dependency rules. | Completed |
+| E5 — derivative/evaluator migration and targeted closure | E1 complete; E2–E4 decisions and adopted implementation/migrations complete | Confirm every scoped Hessian/action/evaluator consumer uses its selected target and replaced code/tests/fixtures are deleted. Reconcile finding/investigation obligations at Plan 41 and hand package results, capability limits and final journeys to 41f. No investigation is silently left as optional unfinished completion scope. | Completed — current generated/native Python and reference TOML consumers migrated; all investigation choices and source/lifetime contracts handed to assembled acceptance |
 
 E1 can close F14 without E2–E4. E2/E3 can inspect source independently; implementation
 dependencies arise only from the capability adopted. 41a's selected preparation can
@@ -364,3 +364,46 @@ active build/evidence. No cache, database, evidence or unrelated allocation was 
 E4/E5 and D6 remain in progress for that final handoff; full 41f qualification remains
 separately scoped. Once space is available, finish the five codec controls, regenerate,
 record current generated/Python boundaries, run turn-end, and close these packet owners.
+
+
+### Resumed shared handoff — 2026-10-16
+
+Disk capacity is restored. Full zero-argument regeneration has published all five target
+groups, including replay/variant v2 in schemas and generated Python contracts. The five
+interrupted codec/export controls now pass at their targeted scope; the earlier ENOSPC
+interruption above remains historical evidence. The linked correctness extension and
+public Python consumers are the next shared handoff. Explicit Python fixture compiler
+settings now include the interpreted evaluator, and public typed roundtrips cover both
+selected evaluator profiles. D6/E4/E5 remain in progress until that public handoff;
+assembled S01–S10 acceptance and scope-end checks remain with 41f.
+
+## Shared handoff outcome — 2026-10-16
+
+**Implemented:** all selected D/E consumers and direct wire versions are migrated.
+Zero-argument `just codegen` regenerated scientific replay/lazy variants and their
+embedded study contracts. The native Python local-study entry point now admits
+StudyRequest v7, matching the authoritative declaration; no omission-default or
+historical compatibility path was retained. D6/E4/E5 are complete at their package
+obligations; assembled S01–S10 acceptance and scope-end checks belong to 41f.
+
+**Tested — zero-failure baseline:** the linked correctness extension built with
+`just py-sync-native-correctness`; actual compiled API stub validation passed.
+The focused runtime selection exercised the five interrupted codec/export controls,
+pending-original correction and durable observer/control-response behavior. Of 23
+selected tests, 21 passed initially; the two affected controls passed after a detail-loss
+fixture correction and use of the configured 16 MiB libtest stack. The native Python
+selection passed 16/19 initially; the three local-study controls passed after the
+remaining v6 admission check migrated to v7. Current evaluator selectors roundtrip
+in both explicit forms. Exact commands, composed coverage and exclusions are retained
+in the coordinator/41f closeout rather than summed as disjoint tests.
+
+**Mistakes corrected:** regeneration had missed directly embedded replay/variant
+versions and the separate native Python request-header check. Public consumer tests
+exposed the latter; both now consume the current required version. A detail-loss
+test now emits actual bounded detail instead of assuming metric publication drops it.
+
+**Deliberate deviations:** settled serial-window, demand-replay, owner-local symbolic
+factor and optional scalar Value choices remain. Interpreter evaluation is the default;
+providers and derivatives keep their declared interpreted support. No checkpoint
+frontier, new affine backend, primal-only presolve, statistical timing or environment/
+provenance proof campaign was added. Full-product qualification is not claimed.

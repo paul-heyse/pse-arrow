@@ -658,6 +658,11 @@ unresolved evidence. Original physical/backward-error acceptance remains authori
 a requested forward/root/jet bound has its own consumer contract. Selected-root proof,
 numerical products and connected-sheet transport have separate validity and lifetime keys.
 Auxiliary success never bypasses frozen original assessment.
+An auxiliary candidate awaiting that correction has no original-space conclusion.
+It remains unavailable for result permission and may continue only through declared
+recovery within the original clock/budget. Absence of a correction is not fabricated
+`Unsupported` capability evidence. Actual capability/contract/resource/cancellation
+causes retain their terminal vetoes; completing the original assessment remains required.
 
 Consumed selected-root accuracy uses a separate fixed-parameter enclosure beneath the
 retained uniform selection chart. Point refinement never replaces the chart's parameter

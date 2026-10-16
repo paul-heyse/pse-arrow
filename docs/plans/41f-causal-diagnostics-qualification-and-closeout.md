@@ -69,12 +69,12 @@ Own fixture/worker/capture resources explicitly. Cancel/stop and join only owned
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| F0 | Principal O08 and current observation foundation; owning package hypotheses | Settle bounded fact/relationship/unit/generation meanings and selected consumer fields, including current root/managed partiality. Identify which existing counters suffice and any minimal missing producer fact. No generic accounting/proof framework. | In progress — A–E selected meanings implemented and exercised; broader/context-loss acceptance remains |
-| F1 | F0's relevant slice and actual owning A/B/C/D/E implementation | Integrate selected producer facts and interpretation incrementally. Test actual counts, unchanged scientific requests, opt-out, overflow/loss/reset, active-root retention/partiality and managed scope where changed. Regenerate public contracts when declarations change; delete replaced duplicate counters/views. | In progress — A–E selected producers integrated and exercised; broader/context-loss acceptance remains |
-| F2 | G1; A6/B5/C5/D6/E5 delivery evidence; F1 coverage; inquiry outcomes settled | Select risk-directed assembled cases and commands by S01–S10 and changed interfaces. Confirm actual consumer/deletion inventory and known exclusions; no automatic old campaign import. | Planned |
-| F3 | F2; relevant local/native/public contracts implemented | Qualify edit/re-solve, local/durable study composition, response meaning, sparse methods, fitting/window reuse and scientific failure semantics through selected complete journeys. Retain independent original assertions and report zero-baseline results. | Planned |
-| F4 | F2; B1–B3, C3/C4 and F1 implemented | Qualify interruption/shared clocks/queue/drain, genuine nonempty managed result read and publication retry/failure, active-owner live/recent navigation and actual Rust/Python/placement boundaries. Track owned cleanup separately from test-body outcomes. | Planned |
-| F5 | Functional acceptance and selected optional adoption complete; scoped failures repaired | Reuse F3/F4 assembled evidence and complete only remaining selected integration/component/native/Python coverage, then `just hygiene` and manual governance/docs/native/powerset checks under the repository policy. Fix scoped failures and rerun affected commands; do not introduce quality baselines, duplicate campaigns or repeat product checks after documentation-only edits. | Planned |
+| F0 | Principal O08 and current observation foundation; owning package hypotheses | Settle bounded fact/relationship/unit/generation meanings and selected consumer fields, including current root/managed partiality. Identify which existing counters suffice and any minimal missing producer fact. No generic accounting/proof framework. | Completed — selected ordinary/public/managed numerical, work, interruption, loss/reset/opt-out and owned cleanup controls passed after the recorded repairs |
+| F1 | F0's relevant slice and actual owning A/B/C/D/E implementation | Integrate selected producer facts and interpretation incrementally. Test actual counts, unchanged scientific requests, opt-out, overflow/loss/reset, active-root retention/partiality and managed scope where changed. Regenerate public contracts when declarations change; delete replaced duplicate counters/views. | Completed — selected ordinary/public/managed numerical, work, interruption, loss/reset/opt-out and owned cleanup controls passed after the recorded repairs |
+| F2 | G1; A6/B5/C5/D6/E5 delivery evidence; F1 coverage; inquiry outcomes settled | Select risk-directed assembled cases and commands by S01–S10 and changed interfaces. Confirm actual consumer/deletion inventory and known exclusions; no automatic old campaign import. | Completed — S01–S10 risk-directed selection below; prior evidence retains its original scope |
+| F3 | F2; relevant local/native/public contracts implemented | Qualify edit/re-solve, local/durable study composition, response meaning, sparse methods, fitting/window reuse and scientific failure semantics through selected complete journeys. Retain independent original assertions and report zero-baseline results. | Completed — selected ordinary/public/managed numerical, work, interruption, loss/reset/opt-out and owned cleanup controls passed after the recorded repairs |
+| F4 | F2; B1–B3, C3/C4 and F1 implemented | Qualify interruption/shared clocks/queue/drain, genuine nonempty managed result read and publication retry/failure, active-owner live/recent navigation and actual Rust/Python/placement boundaries. Track owned cleanup separately from test-body outcomes. | Completed — selected ordinary/public/managed numerical, work, interruption, loss/reset/opt-out and owned cleanup controls passed after the recorded repairs |
+| F5 | Functional acceptance and selected optional adoption complete; scoped failures repaired | Reuse F3/F4 assembled evidence and complete only remaining selected integration/component/native/Python coverage, then `just hygiene` and manual governance/docs/native/powerset checks under the repository policy. Fix scoped failures and rerun affected commands; do not introduce quality baselines, duplicate campaigns or repeat product checks after documentation-only edits. | In progress — functional acceptance complete; scope-end hygiene and manual checks |
 | F6 | F3–F5 evidence and all required target choices settled | Reconcile the coordinator's F/O dispositions and rule implementation, transfer enduring contracts/guides through proper architecture/ADR routes, and write Outcomes with actual evidence, mistakes corrected and deliberate deviations. No unexamined scientific gates become passed. | Planned |
 | F7 | New scope fully implemented and F6 transfer complete | Reconcile relevant existing plan/status documents only now, without claiming their unrelated campaigns passed. Repair ownership/dependencies/inbound links and apply eligible review/plan retirement preflight under ADR-0096; preserve highest-numbered/consumed records and concurrent work. | Planned |
 
@@ -153,3 +153,32 @@ controls; collection slots are explicitly bounded. No extra scientific evaluatio
 issued for observation. These incremental deliveries do not close O08, broader F0/F1
 loss/reset/opt-out/active-root/managed acceptance, F2–F5 assembled qualification, or
 F6/F7 closeout and older-plan reconciliation.
+
+
+## Assembled selection — 2026-10-16
+
+F2 selects current generated contracts and the actual native/Python consumers below.
+Prior D/E numerical controls retain their original scope; this selection composes the
+changed owners rather than replaying every old campaign. The public handoff exposed
+one remaining version-6 native admission consumer; it migrates to the current version-7
+request before dependent local-study acceptance.
+
+| Scenarios | Selected distinguishing journey |
+| --- | --- |
+| S01/S10 | Retained/fresh value and structural edit followed by actual roots; compiler namespace, visibility and physical-admission controls. |
+| S02/S09 | Unequal waiter clocks, producer expiry/drain, queued-parent cancellation, original initialization/recycle/branch outcomes. |
+| S03 | Rust local and durable-origin solve/simulation/fit/horizon; Python explicit and lazy no-store execution, current evaluator selector and genuine recorded repeated occurrences. |
+| S04 | Original 256 MiB reader with two actual compiler leases and 65 nonempty blocks; exact metadata ACK/retry controls; the same read while a real three-point managed solve is occupied. |
+| S05 | Root/optimal/transient response validity, withheld/partial/event and owned evidence; original implicit steady response. |
+| S06 | Complete sparse layout and selected KLU/SPGMR/SPFGMR consistent initialization; original-role, support/refusal and native-counter controls. |
+| S07/S08 | Exact fit curvature and original analytic responses, same-point demand changes, fresh changed-IVP shooting, six-period horizon, healthy versus failed independent owner parking; selected scalar evaluator controls. |
+| S02/S04/S10 | Actual managed continuation and cancellation, exact primary death returning operational unavailability with incomplete durable science; Python repeated occurrence/result reopen. |
+| O08 / all contexts | Active-root eviction/partiality, reset/loss, public copied observations and CLI reads, fresh-process opt-out versus actual native work. |
+
+Primary death and known owner replacement may end the observer's wait, but never
+prove scientific completion or authorize resource release. Transient observation errors
+continue conservatively. A rejected control response explicitly stops and reaps its
+issued child. The selected live/read controls use existing diagnostics; no profiler is
+needed to restate work already distinguished by direct counters. The selection excludes
+statistical timing, the old cold 32-block/1,000-point campaign, environment/provenance
+proof, new solver classes and unselected checkpoint/window-wave/JIT/SIMD mechanisms.

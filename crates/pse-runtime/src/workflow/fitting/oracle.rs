@@ -231,7 +231,9 @@ impl FitOracle {
         // has the same immutable scientific premises at this exact point; move it into
         // the private replacement and publish it only if the whole upgrade succeeds.
         let mut previous_point = self.point.take().filter(|_| same);
-        let curvatures = previous_point.as_mut().and_then(|point| point.curvatures.take());
+        let curvatures = previous_point
+            .as_mut()
+            .and_then(|point| point.curvatures.take());
         #[cfg(feature = "solver-diffsol")]
         let previous = previous_point.map(|point| point.trajectories);
         #[cfg(not(feature = "solver-diffsol"))]
@@ -422,7 +424,10 @@ impl FitOracle {
     /// a free parameter.
     fn transient_curvatures(&mut self, x: &[f64]) -> Result<(), ProblemError> {
         self.execution.check()?;
-        let point = self.point.as_ref().ok_or_else(|| ProblemError::internal("fit curvature point"))?;
+        let point = self
+            .point
+            .as_ref()
+            .ok_or_else(|| ProblemError::internal("fit curvature point"))?;
         if point.curvatures.is_some() {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("fit.transient_curvature_reuses", "count", 1);
@@ -445,12 +450,20 @@ impl FitOracle {
             curvatures.push(curvature);
         }
         self.execution.check()?;
-        if curvatures.iter().flatten().flatten().any(|v| !v.is_finite()) {
+        if curvatures
+            .iter()
+            .flatten()
+            .flatten()
+            .any(|v| !v.is_finite())
+        {
             return Err(ProblemError::numerical("nonfinite fit transient curvature"));
         }
         // A failed/cancelled experiment drops all temporary blocks. Advertise a
         // completed product only after every required experiment has succeeded.
-        self.point.as_mut().ok_or_else(|| ProblemError::internal("fit curvature publication"))?.curvatures = Some(curvatures);
+        self.point
+            .as_mut()
+            .ok_or_else(|| ProblemError::internal("fit curvature publication"))?
+            .curvatures = Some(curvatures);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("fit.transient_curvature_completions", "count", 1);
         }
@@ -466,7 +479,9 @@ impl FitOracle {
         free: &[usize],
     ) -> Result<Vec<f64>, ProblemError> {
         #[cfg(test)]
-        { self.transient_curvature_passes += 1; }
+        {
+            self.transient_curvature_passes += 1;
+        }
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("fit.transient_curvature_integrations", "count", 1);
         }
@@ -692,7 +707,12 @@ impl NlpOracle for FitOracle {
                 // A transient experiment adds no constraint rows: its Gauss–Newton part is
                 // the Gram term alone, and the exact Hessian adds its curvature block.
                 Experiment::Transient(_) => {
-                    if exact && let Some(curvature) = point.curvatures.as_ref().and_then(|blocks| blocks[ei].as_ref()) {
+                    if exact
+                        && let Some(curvature) = point
+                            .curvatures
+                            .as_ref()
+                            .and_then(|blocks| blocks[ei].as_ref())
+                    {
                         for &(source, target) in &p.layout.mappings[ei].hessian {
                             h.add(target, objective_weight * curvature[source])?;
                         }

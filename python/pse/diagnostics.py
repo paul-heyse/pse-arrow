@@ -8,13 +8,12 @@ connecting to scientific storage. Rust owns explanations and capture interpretat
 
 from __future__ import annotations
 
+# ruff: noqa: T201 -- the CLI renders requested diagnostic documents and errors.
 import argparse
 import math
 import sys
-from collections.abc import Sequence
 from pathlib import Path
-from types import TracebackType
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import attrs
 
@@ -44,6 +43,10 @@ from pse.contracts.documents import (
     OperationSnapshot,
 )
 from pse.contracts.enums import CaptureKind, CaptureStatus
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from types import TracebackType
 
 
 @attrs.frozen
@@ -114,6 +117,7 @@ class CaptureSession:
         return self._handle.stop()
 
     def __enter__(self) -> Self:
+        """Retain this explicitly owned capture until context exit."""
         return self
 
     def __exit__(
@@ -122,6 +126,7 @@ class CaptureSession:
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
+        """Stop and join this capture when its context exits."""
         self.stop()
 
 
@@ -161,23 +166,24 @@ def capture(request: CaptureRequest) -> CaptureSession:
 def _seconds(value: str) -> float:
     parsed = float(value)
     if not math.isfinite(parsed) or parsed < 0:
-        raise argparse.ArgumentTypeError("seconds must be finite and nonnegative")
+        message = "seconds must be finite and nonnegative"
+        raise argparse.ArgumentTypeError(message)
     return parsed
 
 
 def _bounded_count(value: str) -> int:
     parsed = int(value)
     if not 1 <= parsed <= 32:
-        raise argparse.ArgumentTypeError("count must be between 1 and 32")
+        message = "count must be between 1 and 32"
+        raise argparse.ArgumentTypeError(message)
     return parsed
 
 
 def _positive(value: str) -> int:
     parsed = int(value)
     if not 1 <= parsed <= (1 << 63) - 1:
-        raise argparse.ArgumentTypeError(
-            "allowance must be a positive signed 64-bit integer"
-        )
+        message = "allowance must be a positive signed 64-bit integer"
+        raise argparse.ArgumentTypeError(message)
     return parsed
 
 
@@ -193,17 +199,23 @@ def _render_inspection(document: InspectionDocument) -> None:
     if operation is not None:
         print(f"  kind={operation.kind} outcome={operation.outcome}")
         print(
-            f"  read_at={operation.read_at!r} observed_at={operation.observed_at!r} stale_after={operation.stale_after!r}"
+            f"  read_at={operation.read_at!r} "
+            f"observed_at={operation.observed_at!r} "
+            f"stale_after={operation.stale_after!r}"
         )
         print(
-            f"  requested_interval={operation.requested_interval!r} actual_interval={operation.interval_start!r}..{operation.interval_end!r} interval_partial={operation.interval_partial}"
+            f"  requested_interval={operation.requested_interval!r} "
+            f"actual_interval={operation.interval_start!r}..{operation.interval_end!r} "
+            f"interval_partial={operation.interval_partial}"
         )
         print(
-            f"  coverage={operation.coverage!r} detail_partial={operation.detail_partial}"
+            f"  coverage={operation.coverage!r} "
+            f"detail_partial={operation.detail_partial}"
         )
         for phase in operation.phases:
             print(
-                f"  phase token={phase.token} kind={phase.kind} started_at={phase.started_at!r}"
+                f"  phase token={phase.token} kind={phase.kind} "
+                f"started_at={phase.started_at!r}"
             )
     print(f"transport {codec.encode_json(document.transport).decode()}")
     for statement in document.statements:
@@ -215,21 +227,30 @@ def _render_inspection(document: InspectionDocument) -> None:
     if operation is not None:
         for metric in operation.metrics:
             print(
-                f"metric {metric.name} unit={metric.unit} observed_at={metric.observed_at!r}"
+                f"metric {metric.name} unit={metric.unit} "
+                f"observed_at={metric.observed_at!r}"
             )
             print(
-                f"  latest={codec.encode_json(metric.latest).decode()} cumulative={codec.encode_json(metric.cumulative).decode()} recent={codec.encode_json(metric.recent).decode()}"
+                f"  latest={codec.encode_json(metric.latest).decode()} "
+                f"cumulative={codec.encode_json(metric.cumulative).decode()} "
+                f"recent={codec.encode_json(metric.recent).decode()}"
             )
             print(
-                f"  generation={metric.generation} resets={metric.resets} cumulative_partial={metric.cumulative_partial} recent_partial={metric.recent_partial} history_partial={metric.history_partial} history_dropped={metric.history_dropped}"
+                f"  generation={metric.generation} resets={metric.resets} "
+                f"cumulative_partial={metric.cumulative_partial} "
+                f"recent_partial={metric.recent_partial} "
+                f"history_partial={metric.history_partial} "
+                f"history_dropped={metric.history_dropped}"
             )
     for related in document.related:
         print(
-            f"related {operation_text(related.id)} kind={related.kind} outcome={related.outcome}"
+            f"related {operation_text(related.id)} kind={related.kind} "
+            f"outcome={related.outcome}"
         )
         for phase in related.phases:
             print(
-                f"  phase token={phase.token} kind={phase.kind} started_at={phase.started_at!r}"
+                f"  phase token={phase.token} kind={phase.kind} "
+                f"started_at={phase.started_at!r}"
             )
     print(f"omitted {document.omitted}")
 
@@ -279,7 +300,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                         print(f"  unavailable {process.failure}")
                     for operation in process.operations:
                         print(
-                            f"  {operation_text(operation.id)} {operation.kind} outcome={operation.outcome}"
+                            f"  {operation_text(operation.id)} {operation.kind} "
+                            f"outcome={operation.outcome}"
                         )
                 if page.next is not None:
                     print(f"next {page.next}")
@@ -319,10 +341,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         with capture(request) as session:
             result = session.wait()
         print(codec.encode_json(result).decode())
-        return 1 if result.status == CaptureStatus.FAILED else 0
     except (InspectionError, OSError, ValueError, OverflowError) as error:
         print(f"diagnostics unavailable: {error}", file=sys.stderr)
         return 1
+    else:
+        return 1 if result.status == CaptureStatus.FAILED else 0
 
 
 if __name__ == "__main__":

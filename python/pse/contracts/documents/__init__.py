@@ -6891,10 +6891,10 @@ class ReplayDecisions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Complete export of available scientific premises. Compiled products/factories remain in-process capabilities."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Explicit current document version.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Exact required binary build.
     build: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
     #: Original portable case constructors, retaining all supplied structural and numerical inputs.
@@ -8736,10 +8736,10 @@ class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 class StudyVariants(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable finite structural alternatives, without Cartesian materialization."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Descriptor interpretation.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Independent structural dimensions, applied in declared order.
     choices: tuple[SourceChoice, ...]
     #: Explicit selected ordinals in original visible occurrence order.

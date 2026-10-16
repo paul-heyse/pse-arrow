@@ -122,7 +122,7 @@ facilities are useful only when they honor that actual workflow policy.
 | D3 — affine routing and study lifetime inquiry/adoption | Current class proof, original assessment and retained-adapter contracts; 41c C1 local admission only for public local-study acceptance | Trace one actual sweep/study owner into existing native reset/update/refactor paths. Compare direct affine-root routing with current KINSOL using independently specified bounded/scaled/singular cases and actual construction/factor/callback work. Adopt a useful compatible route and migrate its real consumers, or retain the existing route with a bounded technical rationale. Any new backend/kernel contract follows the decision route first. | Completed |
 | D4 — reaction provenance or primal-only investigation/adoption | Current exact POUNCE fork and original reaction contract; coordinator RC04 decision before changed-policy implementation | Establish whether original tightening reactions can be recovered through library-owned provenance, or define a concrete demanded primal-only contract. Test original feasibility and positive/negative dual-availability controls. Implement and migrate only an accepted, qualified route; otherwise retain restrictions/prechecks and record the limiting evidence. Do not enable general passes by option changes alone. | Completed |
 | D5 — independent window-wave investigation/adoption | D2 retained owner/reset delivery; finite combined native admission; 41f F0 diagnostic vocabulary | Compare serial retained windows with finite admitted waves for one trial. Establish dependency, affinity, combined live state, cancellation/join and ordered reduction. Adopt and qualify an eligible wave or explicitly select serial execution with reasons. No independent trial parallelism or hard timing threshold is required. | Completed |
-| D6 — numerical migration and targeted closure | D1/D2 delivery; D3–D5 decisions and every adopted consumer migration complete | Confirm all actual native-storage/window consumers migrated and replaced mechanisms/fixtures deleted. Reconcile source findings at Plan 41; hand targeted results and remaining assembled journeys to 41f. No package completion is inferred from a declaration or agreeing an interface. | In progress — targeted acceptance complete; shared generation/documentation handoff underway |
+| D6 — numerical migration and targeted closure | D1/D2 delivery; D3–D5 decisions and every adopted consumer migration complete | Confirm all actual native-storage/window consumers migrated and replaced mechanisms/fixtures deleted. Reconcile source findings at Plan 41; hand targeted results and remaining assembled journeys to 41f. No package completion is inferred from a declaration or agreeing an interface. | Completed |
 
 The D numbers are stable references, not a total ordering: D3 and D4 can investigate
 independently of D1/D2, and D5 is never a prerequisite for closing worker reconstruction.
@@ -304,3 +304,34 @@ implementation. No new pool, second solver pipeline, portable checkpoint or hidd
 continuation was introduced. D6's final regeneration/documentation handoff remains in
 progress until the shared D/E closeout below is settled. Full scientific/local/durable/
 managed/Python assembly, diagnostic loss/reset acceptance and hygiene remain at 41f.
+
+## Shared handoff outcome — 2026-10-16
+
+**Implemented:** all selected D/E consumers and direct wire versions are migrated.
+Zero-argument `just codegen` regenerated scientific replay/lazy variants and their
+embedded study contracts. The native Python local-study entry point now admits
+StudyRequest v7, matching the authoritative declaration; no omission-default or
+historical compatibility path was retained. D6/E4/E5 are complete at their package
+obligations; assembled S01–S10 acceptance and scope-end checks belong to 41f.
+
+**Tested — zero-failure baseline:** the linked correctness extension built with
+`just py-sync-native-correctness`; actual compiled API stub validation passed.
+The focused runtime selection exercised the five interrupted codec/export controls,
+pending-original correction and durable observer/control-response behavior. Of 23
+selected tests, 21 passed initially; the two affected controls passed after a detail-loss
+fixture correction and use of the configured 16 MiB libtest stack. The native Python
+selection passed 16/19 initially; the three local-study controls passed after the
+remaining v6 admission check migrated to v7. Current evaluator selectors roundtrip
+in both explicit forms. Exact commands, composed coverage and exclusions are retained
+in the coordinator/41f closeout rather than summed as disjoint tests.
+
+**Mistakes corrected:** regeneration had missed directly embedded replay/variant
+versions and the separate native Python request-header check. Public consumer tests
+exposed the latter; both now consume the current required version. A detail-loss
+test now emits actual bounded detail instead of assuming metric publication drops it.
+
+**Deliberate deviations:** settled serial-window, demand-replay, owner-local symbolic
+factor and optional scalar Value choices remain. Interpreter evaluation is the default;
+providers and derivatives keep their declared interpreted support. No checkpoint
+frontier, new affine backend, primal-only presolve, statistical timing or environment/
+provenance proof campaign was added. Full-product qualification is not claimed.

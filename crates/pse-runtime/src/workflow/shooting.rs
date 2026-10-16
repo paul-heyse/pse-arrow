@@ -1065,8 +1065,9 @@ fn same_execution(a: &Execution, b: &Execution) -> bool {
         && Arc::ptr_eq(&a.abandonment, &b.abandonment)
         && match (&a.enclosing_scope, &b.enclosing_scope) {
             (None, None) => true,
-            (Some(a), Some(b)) => a.deadline() == b.deadline()
-                && Arc::ptr_eq(a.cancellation(), b.cancellation()),
+            (Some(a), Some(b)) => {
+                a.deadline() == b.deadline() && Arc::ptr_eq(a.cancellation(), b.cancellation())
+            }
             _ => false,
         }
 }
@@ -1153,8 +1154,11 @@ impl ShootingOracle {
         };
         let integration = p.integration(x);
         self.prepare_worker()?;
-        let worker = &mut self.worker.as_mut()
-            .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?.inner;
+        let worker = &mut self
+            .worker
+            .as_mut()
+            .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?
+            .inner;
         let reports = p
             .windows
             .iter()
@@ -1332,8 +1336,11 @@ impl ShootingOracle {
         if !p.integral.is_empty() && !x.is_empty() {
             let integration = p.integration(x);
             self.prepare_worker()?;
-            let worker = &mut self.worker.as_mut()
-                .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?.inner;
+            let worker = &mut self
+                .worker
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?
+                .inner;
             let m = p.experiment.program.contract.outputs.len();
             let nq = p.experiment.program.contract.quadratures.len();
             for (k, window) in p.windows.iter().enumerate() {

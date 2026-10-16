@@ -8,7 +8,9 @@ level: decision
 principles: [AP-04, AP-07, DP-09, PS-06]
 blueprint: [§14.5, §19.2, §19.3, §21.5, §25]
 review: docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md#rc03
-evidence: Interface-checked
+evidence: Tested
+supersedes: []
+superseded-by: null
 revisit: A requested provider, derivative order, cancellation boundary or target cannot preserve the selected scalar contract.
 verification: Plan 41e E4 scalar compiled versus interpreted and independent arithmetic/domain controls, no-FMA witness, compiler cancellation and owner/scratch teardown.
 ---
@@ -45,7 +47,7 @@ Qualification compares actual production consumers with independent arithmetic, 
 
 ### Confirmation
 
-Interface-checked against installed Symbolica 3.0.1. A standalone exact-release probe passed scalar multi-output, domain/nonfinite, no-FMA and shared executable/private scratch controls. It does not qualify the product; integrated implementation and targeted acceptance remain in Plan 41e E4.
+Tested on Linux on 2026-10-16 through the eight native_scalar production controls, compiler directional identity control, current generated request/replay/variant codecs and public Python admission. Installed Symbolica 3.0.1 supplies the selected export/loading route. Plan 41 owns the bounded outcomes and assembled acceptance limits. Only explicitly selected scalar Value arithmetic is adopted; no global evaluator default, SIMD/JIT, provider/derivative compilation or timing speedup is established. Proposed status is unchanged pending the decision-PR route.
 
 ## Pros and cons
 

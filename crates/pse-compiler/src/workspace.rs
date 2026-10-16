@@ -449,7 +449,11 @@ impl ArtifactRequest {
     /// limits remain independent; opaque control/provider bodies return None.
     pub fn construction_allocation_bound(&self) -> std::result::Result<Option<usize>, MathError> {
         self.support
-            .compilation_allocation_bound(self.evaluation, self.demand.directional, self.optimization)?
+            .compilation_allocation_bound(
+                self.evaluation,
+                self.demand.directional,
+                self.optimization,
+            )?
             .map(|body| {
                 body.checked_add(self.descriptor_bytes())
                     .ok_or(MathError::Limit("artifact construction extent"))
@@ -1722,15 +1726,28 @@ mod directional_identity_tests {
         let normal = artifact_requests(&plan, profile, &environment);
         let native_profile = Profile {
             optimization: Optimization {
-                evaluator: pse_math::library::Evaluator::CompiledScalar { module_bytes: 1 << 20 },
+                evaluator: pse_math::library::Evaluator::CompiledScalar {
+                    module_bytes: 1 << 20,
+                },
                 ..profile.optimization
             },
             ..profile
         };
         let native = artifact_requests(&plan, native_profile, &environment);
-        assert_ne!(normal[0].key(), native[0].key(), "execution selectors must not reuse interpreted artifacts");
-        assert_eq!(normal[0].scalar_key(), native[0].scalar_key(), "execution selection does not alter exact scalar optimization");
-        assert!(native[0].construction_allocation_bound().unwrap().unwrap() > normal[0].construction_allocation_bound().unwrap().unwrap());
+        assert_ne!(
+            normal[0].key(),
+            native[0].key(),
+            "execution selectors must not reuse interpreted artifacts"
+        );
+        assert_eq!(
+            normal[0].scalar_key(),
+            native[0].scalar_key(),
+            "execution selection does not alter exact scalar optimization"
+        );
+        assert!(
+            native[0].construction_allocation_bound().unwrap().unwrap()
+                > normal[0].construction_allocation_bound().unwrap().unwrap()
+        );
         let directional = plan.with_directional_actions(&cancel).unwrap();
         let requests = artifact_requests(&directional, profile, &environment);
         assert_eq!(normal.as_slice(), &requests[..normal.len()]);

@@ -536,7 +536,9 @@ fn pending_original_correction_requires_declared_continuation_and_keeps_actual_v
     assessed.original = OriginalConclusion::auxiliary(Some(cause.clone()));
     assert!(Arc::ptr_eq(&assessed.original.cause().unwrap(), &cause));
     assert_eq!(transition(&mechanism, &assessed), Transition::Stop);
-    let cause = Arc::new(ProblemError::numerical("actual failed auxiliary trajectory"));
+    let cause = Arc::new(ProblemError::numerical(
+        "actual failed auxiliary trajectory",
+    ));
     assessed.original = OriginalConclusion::auxiliary(Some(cause.clone()));
     assessed.observation = Observation::NumericalFailure;
     assert!(Arc::ptr_eq(&assessed.original.cause().unwrap(), &cause));
@@ -950,17 +952,28 @@ async fn indivisible_assessment_cannot_authorize_a_result_after_the_original_dea
             &enclosing,
             facts,
             |index, _| {
-                assert_eq!(index, 0, "expired auxiliary work cannot dispatch correction");
+                assert_eq!(
+                    index, 0,
+                    "expired auxiliary work cannot dispatch correction"
+                );
                 Ok(Attempt {
                     evidence: Vec::new(),
                     value: index,
-                    observation: if auxiliary { Observation::Auxiliary } else { Observation::Converged },
+                    observation: if auxiliary {
+                        Observation::Auxiliary
+                    } else {
+                        Observation::Converged
+                    },
                     work: charge(index),
                 })
             },
             |_, o| {
                 std::thread::sleep(std::time::Duration::from_millis(110));
-                if auxiliary { auxiliary_assessment(o) } else { assessment(true, false, o) }
+                if auxiliary {
+                    auxiliary_assessment(o)
+                } else {
+                    assessment(true, false, o)
+                }
             },
         );
         assert!(result.assessment.is_none());
@@ -1022,10 +1035,15 @@ async fn preparation_first_uses_entry_then_auxiliary_correction_requires_declare
     );
     assert_eq!(result.work.attempts, 2);
     assert_eq!(result.work.evaluations, Some(6));
-    let auxiliary = result.events.iter()
+    let auxiliary = result
+        .events
+        .iter()
         .find(|event| event.observation == Some(Observation::Auxiliary))
         .unwrap();
-    assert!(matches!(auxiliary.original, Some(OriginalConclusion::AwaitingCorrection)));
+    assert!(matches!(
+        auxiliary.original,
+        Some(OriginalConclusion::AwaitingCorrection)
+    ));
     assert_eq!(auxiliary.permission, Some(CandidateUse::SeedOnly));
     assert_eq!(auxiliary.transition, Some(Transition::Continue));
     assert!(auxiliary.cause.is_none());

@@ -71,6 +71,13 @@ execution. Library code does not install a global subscriber. A reader retains c
 observations rather than scientific cancellation leases or native resources. Closing a
 reader does not stop execution; native ownership ends only after actual drain/join.
 
+Bounded history favors active owners over completed history. Relationships keep exact
+operation identities: an evicted parent is absent/partial, never rebound to another
+root. Retained readers may still inspect their copied operation. Producer generations,
+resets, saturation and dropped detail survive serialization and recent interpretation;
+missing history does not supply a counter delta. Opt-out at process initialization
+removes collection without changing requested scientific/native work.
+
 Independent same-host readers consume bounded atomically published process checkpoints,
 separate from scientific request/result IPC and closed-result admission. A checkpoint's
 publication time is not the freshness of its native facts. Cross-process composition is not

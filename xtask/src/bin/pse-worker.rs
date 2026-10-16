@@ -879,7 +879,7 @@ mod qualification {
             let request: Request =
                 serde_json::from_slice(&bounded_json(&directory.join("request.json"))?)
                     .map_err(|error| error.to_string())?;
-            if request.entries != 16
+            if !(1..=profile.case_lanes).contains(&request.entries)
                 || request.nonce.len() != 32
                 || !request.nonce.bytes().all(|byte| byte.is_ascii_hexdigit())
                 || request.canonical_database

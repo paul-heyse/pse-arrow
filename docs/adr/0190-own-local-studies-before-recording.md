@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-07, DP-09, PS-10]
 blueprint: [§0.5, §19.3, §21, §21.1]
 review: docs/design_review/reviews/design_review_simulation-pipeline-efficiency-and-effectiveness_2026-10-15.md#f09
-evidence: Tested — Plan 41c targeted native local/recording controls and public Python no-store/lazy/recorded-source controls, 2026-10-15; combined qualification remains with Plan 41f
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A new portable scientific input form cannot retain exact admitted source identity through explicit recording.

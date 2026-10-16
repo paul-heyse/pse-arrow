@@ -22,13 +22,21 @@ use std::{
 
 /// Cancellation is recorded once; healthy workers retain the joined-result contract.
 /// Receiver drain ends observation without inventing terminal scientific outcomes.
-async fn wait_study_inventory<T, Inventory, InventoryFuture, Cancel, CancelFuture, Observe, ObserveFuture>(
+async fn wait_study_inventory<
+    T,
+    Inventory,
+    InventoryFuture,
+    Cancel,
+    CancelFuture,
+    Observe,
+    ObserveFuture,
+>(
     study: pse_model::generated::identities::StudyId,
     cancel: &crate::CancelSource,
     observation_interval: std::time::Duration,
     mut inventory: Inventory,
     mut record_cancel: Cancel,
-    mut receiver_drained: Observe,
+    mut observe_receiver: Observe,
 ) -> Result<T, WorkflowError>
 where
     Inventory: FnMut() -> InventoryFuture,
@@ -36,7 +44,7 @@ where
     Cancel: FnMut() -> CancelFuture,
     CancelFuture: Future<Output = Result<(), WorkflowError>>,
     Observe: FnMut() -> ObserveFuture,
-    ObserveFuture: Future<Output = Result<bool, WorkflowError>>,
+    ObserveFuture: Future<Output = Result<super::worker::PrimaryObservation, WorkflowError>>,
 {
     let mut cancellation_recorded = false;
     let mut next_observation = tokio::time::Instant::now();
@@ -49,9 +57,14 @@ where
             return Ok(inventory);
         }
         if tokio::time::Instant::now() >= next_observation {
-            if receiver_drained().await.unwrap_or(false) {
+            if matches!(
+                observe_receiver().await,
+                Ok(super::worker::PrimaryObservation::Drained
+                    | super::worker::PrimaryObservation::OwnerChanged)
+            ) {
                 // Finalization can commit between the first header read and physical
-                // drain. Prefer its actual inventory over an operational failure.
+                // drain/owner change. Prefer actual inventory over operational failure.
+                // An owner change does not establish drain or release any resource.
                 if let Some(inventory) = inventory().await? {
                     return Ok(inventory);
                 }
@@ -263,7 +276,7 @@ impl ModelingPackage {
             self.runtime.operations()?.policy().heartbeat,
             || handle.terminal_inventory(),
             || async { handle.cancel().await.map(|_| ()) },
-            || primary.drained(),
+            || primary.observe(),
         )
         .await?;
         let status = inventory.status;
@@ -1053,7 +1066,9 @@ async fn execute_lane_inner(
                 });
             }
             return LaneCompletion::Executed {
-                lanes: Vec::new(), points, staged: Some(staged),
+                lanes: Vec::new(),
+                points,
+                staged: Some(staged),
             };
         }
         Err(error) => {

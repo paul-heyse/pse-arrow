@@ -213,8 +213,10 @@ pub use source_settlement::{SourceAcknowledgement, SourceSettlement};
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkflowError {
-    /// The admitted primary drained before durable finalization; records remain recoverable.
-    #[error("study {study} execution is unavailable: its managed primary drained before finalization; durable records require explicit recovery")]
+    /// The admitted primary drained or changed before finalization; records remain recoverable.
+    #[error(
+        "study {study} execution is unavailable: its admitted managed primary cannot finish this dispatch; durable records require explicit recovery"
+    )]
     StudyExecutionUnavailable {
         /// Exact durable study whose unfinished records remain authoritative.
         study: StudyId,

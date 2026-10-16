@@ -355,7 +355,11 @@ fn adjoint_equals_forward_and_differences(method: Method) {
             assert!(g.checkpoints >= held, "{case}: {}", g.checkpoints);
             assert_eq!(
                 g.reserved_bytes,
-                p.checkpoint_bytes(&Reactor::new(dae).c, &Reactor::new(dae).prepared_layout(usize::MAX).unwrap()).unwrap()
+                p.checkpoint_bytes(
+                    &Reactor::new(dae).c,
+                    &Reactor::new(dae).prepared_layout(usize::MAX).unwrap()
+                )
+                .unwrap()
             );
             // Forward sensitivities of the same samples.
             p.sensitivity = DynamicSensitivity::Forward;
@@ -625,10 +629,23 @@ fn checkpoints_bounded(method: Method) {
     // The estimate grows with the checkpoints allowed and is charged before native work:
     // an allowance one byte short evaluates nothing.
     p.adjoint = AdjointSettings::default();
-    let bytes = p.checkpoint_bytes(&contract, &Reactor::new(dae).prepared_layout(usize::MAX).unwrap()).unwrap();
+    let bytes = p
+        .checkpoint_bytes(
+            &contract,
+            &Reactor::new(dae).prepared_layout(usize::MAX).unwrap(),
+        )
+        .unwrap();
     let mut fewer = p.clone();
     fewer.adjoint.max_checkpoints = PositiveCount::try_new(2 * segments).unwrap();
-    assert!(fewer.checkpoint_bytes(&contract, &Reactor::new(dae).prepared_layout(usize::MAX).unwrap()).unwrap() < bytes);
+    assert!(
+        fewer
+            .checkpoint_bytes(
+                &contract,
+                &Reactor::new(dae).prepared_layout(usize::MAX).unwrap()
+            )
+            .unwrap()
+            < bytes
+    );
     let mut oracle = Reactor::new(dae);
     let refused = gradient(
         &mut oracle,
@@ -932,8 +949,19 @@ fn second_order_route_limits_are_typed_refusals() {
         true,
         "needs the adjoint sensitivity profile",
     );
-    let bytes = idas.admit_second_order(&oracle.c, &[0, 1], &oracle.prepared_layout(usize::MAX).unwrap()).unwrap();
-    assert!(bytes > idas.checkpoint_bytes(&oracle.c, &oracle.prepared_layout(usize::MAX).unwrap()).unwrap());
+    let bytes = idas
+        .admit_second_order(
+            &oracle.c,
+            &[0, 1],
+            &oracle.prepared_layout(usize::MAX).unwrap(),
+        )
+        .unwrap();
+    assert!(
+        bytes
+            > idas
+                .checkpoint_bytes(&oracle.c, &oracle.prepared_layout(usize::MAX).unwrap())
+                .unwrap()
+    );
     let refused = run(&mut oracle, &idas, &[0, 1], bytes - 1).unwrap_err();
     assert!(
         matches!(

@@ -482,13 +482,23 @@ impl DynamicLayout {
         }
         let native = Arc::new(native::PreparedLayout::new(
             coordinates.state.len(),
-            functions.iter().filter(|((_, function), _)| *function == Function::Rhs)
+            functions
+                .iter()
+                .filter(|((_, function), _)| *function == Function::Rhs)
                 .flat_map(|(_, layout)| layout.pairs.iter().copied()),
-            max_cells.checked_mul(64).ok_or_else(|| ProblemError::memory("dynamic native layout allowance extent"))?,
+            max_cells
+                .checked_mul(64)
+                .ok_or_else(|| ProblemError::memory("dynamic native layout allowance extent"))?,
         )?);
-        Ok(Self { chain, functions, native })
+        Ok(Self {
+            chain,
+            functions,
+            native,
+        })
     }
-    pub(crate) fn native(&self) -> &Arc<native::PreparedLayout> { &self.native }
+    pub(crate) fn native(&self) -> &Arc<native::PreparedLayout> {
+        &self.native
+    }
     pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + self.native.retained_bytes()
@@ -757,15 +767,29 @@ impl DynamicWorker {
     /// views forward the base Arc; the observed quadrature transform is prepared
     /// only on first actual adjoint demand and remains owned by this lane.
     #[cfg(feature = "solver-diffsol")]
-    pub(crate) fn window(&mut self, observe_quadratures: bool) -> Result<native::Anchored<&mut Self>, ProblemError> {
+    pub(crate) fn window(
+        &mut self,
+        observe_quadratures: bool,
+    ) -> Result<native::Anchored<&mut Self>, ProblemError> {
         let observed = observe_quadratures && !self.contract.quadratures.is_empty();
         let reused = observed && self.observed_layout.is_some();
         if observed && self.observed_layout.is_none() {
-            let entries = self.layout.functions.iter()
-                .filter(|((_, function), _)| matches!(function, Function::Rhs | Function::QuadratureFlux))
-                .try_fold(0usize, |n, (_, function)| n.checked_add(function.pairs.len()))
+            let entries = self
+                .layout
+                .functions
+                .iter()
+                .filter(|((_, function), _)| {
+                    matches!(function, Function::Rhs | Function::QuadratureFlux)
+                })
+                .try_fold(0usize, |n, (_, function)| {
+                    n.checked_add(function.pairs.len())
+                })
                 .ok_or_else(|| ProblemError::memory("window support extent"))?;
-            let states = self.contract.states.len().checked_add(self.contract.quadratures.len())
+            let states = self
+                .contract
+                .states
+                .len()
+                .checked_add(self.contract.quadratures.len())
                 .ok_or_else(|| ProblemError::memory("window state extent"))?;
             let allowance = native::PreparedLayout::construction_bound(states, entries)
                 // Source support vectors, their extension/reallocation overlap and
@@ -783,7 +807,11 @@ impl DynamicWorker {
                 context.count("dynamics.window_layout_constructions", "count", 1);
             }
         }
-        let prepared = if observed { self.observed_layout.clone() } else { None };
+        let prepared = if observed {
+            self.observed_layout.clone()
+        } else {
+            None
+        };
         let mut view = native::Anchored::new(self, observe_quadratures)?;
         if let Some(prepared) = prepared {
             view.use_prepared_layout(prepared)?;
@@ -921,9 +949,14 @@ impl Oracle for DynamicWorker {
     fn contract(&self) -> &native::Contract {
         &self.contract
     }
-    fn prepared_layout(&self, allowance: usize) -> Result<Arc<native::PreparedLayout>, ProblemError> {
+    fn prepared_layout(
+        &self,
+        allowance: usize,
+    ) -> Result<Arc<native::PreparedLayout>, ProblemError> {
         if self.layout.native.retained_bytes() > allowance {
-            return Err(ProblemError::memory("dynamic native layout exceeds allowance"));
+            return Err(ProblemError::memory(
+                "dynamic native layout exceeds allowance",
+            ));
         }
         Ok(self.layout.native.clone())
     }
@@ -1156,7 +1189,10 @@ impl Oracle for DynamicWorker {
 // An anchored window borrows its lane's mathematical/provider worker. Its native IVP
 // remains fresh, while compiled scratch and provider owners never leave that lane.
 impl Oracle for &mut DynamicWorker {
-    fn prepared_layout(&self, allowance: usize) -> Result<Arc<native::PreparedLayout>, ProblemError> {
+    fn prepared_layout(
+        &self,
+        allowance: usize,
+    ) -> Result<Arc<native::PreparedLayout>, ProblemError> {
         (**self).prepared_layout(allowance)
     }
     fn contract(&self) -> &native::Contract {
@@ -1165,7 +1201,10 @@ impl Oracle for &mut DynamicWorker {
     fn support(&self, mode: usize, function: Function) -> Vec<native::SupportEntry> {
         (**self).support(mode, function)
     }
-    fn snapshot_owner(&self, bytes: usize) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+    fn snapshot_owner(
+        &self,
+        bytes: usize,
+    ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
         (**self).snapshot_owner(bytes)
     }
     fn evaluate(

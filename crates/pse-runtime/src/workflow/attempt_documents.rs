@@ -643,7 +643,7 @@ mod tests {
             decision: None,
             observation: Some(Observation::Auxiliary),
             transition: Some(Transition::Continue),
-            permission: Some(pse_model::generated::enums::CandidateUse::SeedOnly),
+            permission: Some(CandidateUse::SeedOnly),
             work: None,
             cause: None,
         };

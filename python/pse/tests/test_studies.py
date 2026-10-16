@@ -18,6 +18,8 @@ from pse import codec
 from pse.contracts.documents import (
     BoundaryDiagnostic,
     ControllerOperation,
+    EvaluatorCompiledScalar,
+    EvaluatorInterpreted,
     ObservationContracts,
     SelectedStudyVariant,
     SourceChoice,
@@ -55,6 +57,7 @@ from pse.tests.managed_study_fixture import (
 )
 from pse.tests.study_fixtures import assignment, physical_ids, point
 from pse.tests.study_fixtures import request as study_request
+from pse.tests.test_native_workflow import declaration
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -80,6 +83,30 @@ def test_campaign_constructs_current_explicit_study_input_variant() -> None:
     assert isinstance(request.inputs, StudyInputsExplicit)
     assert request.inputs.value == ()
     assert isinstance(request.output, StudyOutputDemandFull)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("compiled", [False, True])
+def test_current_study_request_roundtrip_preserves_explicit_evaluator(
+    compiled: bool,
+) -> None:
+    selected = point(declaration(101), pse.SolveSettings(), 0)
+    optimization = selected.preparation.compiler.optimization
+    assert optimization is not None
+    evaluator = (
+        EvaluatorCompiledScalar(module_bytes=64 << 20)
+        if compiled
+        else EvaluatorInterpreted()
+    )
+    optimization = msgspec.structs.replace(optimization, evaluator=evaluator)
+    compiler = msgspec.structs.replace(
+        selected.preparation.compiler, optimization=optimization
+    )
+    preparation = msgspec.structs.replace(selected.preparation, compiler=compiler)
+    selected = msgspec.structs.replace(selected, preparation=preparation)
+    request = study_request(selected)
+    assert request.version == 7
+    assert codec.decode_json(codec.encode_json(request), StudyRequest) == request
 
 
 def _assert_scalar_root(table: pa.Table, expected: float) -> None:
@@ -1284,6 +1311,47 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
         == recorded.modeling_revision
     )
     assert retained.choices[0].alternatives[0].parent == local_parent
+
+
+@pytest.mark.component
+def test_local_lazy_study_executes_selected_occurrence_without_store(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    package, case = _package(runtime)
+    settings = pse.SolveSettings(
+        backend=NativeBackend.IPOPT,
+        intent=NativeSolveIntent.ROOT,
+        presolve=PresolvePolicyKind.OFF,
+    )
+    variants = StudyVariants(
+        source=package.operation_source,
+        choices=(
+            SourceChoice(
+                alternatives=(
+                    SourceDelta(parent=package.revision_id),
+                    SourceDelta(parent=package.revision_id, removals=("0" * 32,)),
+                )
+            ),
+        ),
+        selected=(SelectedStudyVariant(ordinal=0, point=point(case, settings, 19)),),
+    )
+    assert variants.version == 2
+    local = package.admit_study(
+        StudyRequest(
+            output=StudyOutputDemandFull(), inputs=StudyInputsLazy(value=variants)
+        )
+    )
+    assert local.points == ()
+    del package
+    report = local.execute()
+    del local
+    assert report.count == 1
+    assert report.outcome(0).key == 19
+    assert report.outcome(0).scientific.usable
+    result = report.result(0)
+    assert isinstance(result, pse.RunResult)
+    _assert_scalar_root(pa.table(result.table("runtime.solve_variables")), 2.0)
 
 
 @pytest.mark.component

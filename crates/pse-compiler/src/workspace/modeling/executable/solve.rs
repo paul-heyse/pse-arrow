@@ -243,7 +243,8 @@ impl PreparedModeling {
                 }
             }
         }
-        h.str(profile.optimization.evaluator.identity()).u64(profile.optimization.evaluator.module_bytes() as u64);
+        h.str(profile.optimization.evaluator.identity())
+            .u64(profile.optimization.evaluator.module_bytes() as u64);
         for x in [
             profile.class_proof_work,
             profile.assembly.contributions,

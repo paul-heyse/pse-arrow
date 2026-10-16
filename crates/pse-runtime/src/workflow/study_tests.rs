@@ -122,7 +122,9 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
     let mut omitted = encoded.clone();
     omitted["inputs"]["value"][0]["preparation"]["compiler"]["optimization"]
-        .as_object_mut().unwrap().remove("evaluator");
+        .as_object_mut()
+        .unwrap()
+        .remove("evaluator");
     assert!(serde_json::from_value::<StudyRequest>(omitted).is_err());
     for version in [1, 3, 6] {
         let mut historical = encoded.clone();
@@ -139,12 +141,19 @@ fn study_variants_codec_unit_retains_explicit_preparation_and_refuses_old_versio
     let hash = pse_ids::ContentHash::from_bytes([4; 32]);
     let variants = StudyVariants {
         version: pse_model::document::Version,
-        source: OperationSource { revision: hash.into(), physical_context: hash },
+        source: OperationSource {
+            revision: hash.into(),
+            physical_context: hash,
+        },
         choices: vec![],
         selected: vec![SelectedStudyVariant {
             ordinal: 0,
-            point: point(pse_model::generated::identities::DeclarationId::from_bytes([4;16]),
-                0, vec![], StartPolicy::Fresh),
+            point: point(
+                pse_model::generated::identities::DeclarationId::from_bytes([4; 16]),
+                0,
+                vec![],
+                StartPolicy::Fresh,
+            ),
         }],
     };
     let mut wire = serde_json::to_value(&variants).unwrap();
@@ -2729,6 +2738,7 @@ struct ManagedStudyFixture {
     controls_resource: String,
     nonce: String,
     worker_pid: u32,
+    primary_owner: serde_json::Value,
     finished: bool,
     drain_deadline: std::sync::Mutex<Option<std::time::Instant>>,
 }
@@ -2759,10 +2769,13 @@ fn managed_read_json(path: &std::path::Path) -> serde_json::Value {
 #[cfg(feature = "canonical-tests")]
 impl ManagedStudyFixture {
     async fn start(hold_entries: bool) -> Self {
+        Self::start_on(hold_entries, tests::durable_runtime(), 16).await
+    }
+
+    async fn start_on(hold_entries: bool, runtime: Runtime, entries: usize) -> Self {
         use std::os::unix::fs::DirBuilderExt;
         // This is the observer's separately placed pool. The managed primary retains
         // the exact 128 GiB/16 CPU/32 population profile recorded in the state.
-        let runtime = tests::durable_runtime();
         let store = runtime.canonical_store().unwrap();
         let context = managed_read_json(
             &store
@@ -2806,7 +2819,7 @@ impl ManagedStudyFixture {
         managed_private_json(
             &directory.join("request.json"),
             &serde_json::json!({
-                "nonce": nonce, "canonical_database": store.database(), "entries": 16, "entry_timeout_ms": 90_000,
+                "nonce": nonce, "canonical_database": store.database(), "entries": entries, "entry_timeout_ms": 90_000,
             }),
         );
         let mut fixture = Self {
@@ -2820,6 +2833,7 @@ impl ManagedStudyFixture {
             controls_resource,
             nonce,
             worker_pid: 0,
+            primary_owner: serde_json::Value::Null,
             finished: false,
             drain_deadline: std::sync::Mutex::new(None),
         };
@@ -2853,6 +2867,7 @@ impl ManagedStudyFixture {
         );
         let ready: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(ready["ready"], true);
+        fixture.primary_owner = ready["primary_owner"].clone();
         assert_eq!(
             ready["canonical_database"],
             fixture.runtime.canonical_store().unwrap().database()
@@ -3004,6 +3019,342 @@ impl ManagedStudyFixture {
         assert!(!self.directory.join("failure.json").exists());
         self.finished = true;
     }
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[allow(
+    unsafe_code,
+    reason = "finite transport-only rows assert Partial; separate managed roots retain independent original numerical assertions"
+)]
+#[tokio::test]
+async fn managed_primary_multipage_read_overlaps_compiler_leases_and_original_science() {
+    use datafusion::arrow::array::{Array, Float64Array};
+    use pse_columnar::{CancellationToken, MemoryConsumer};
+    use pse_compiler::workspace::{CompilerContext, WorkspaceLimits};
+    use pse_operations::canonical_execution::{RunRequest, TerminalClass};
+    use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+
+    let local = tests::runtime_on(
+        256 << 20,
+        crate::math::MathPolicy {
+            workspace_bytes: 64 << 20,
+            worker_bytes: 64 << 20,
+            artifact_bytes: 16 << 20,
+            foreign_bytes: 8 << 20,
+            inner_session_bytes: 0,
+            ..Default::default()
+        },
+    );
+    let fixture =
+        ManagedStudyFixture::start_on(true, durable_tests::durable_runtime_on(local), 3).await;
+    let runtime = &fixture.runtime;
+    let store = runtime.canonical_store().unwrap();
+    let pool = runtime.shared.pool();
+    let key = format!("multipage-managed-{}", fixture.nonce);
+    let revision = store.edit(&key, None, "transport-only", &[]).await.unwrap();
+    store
+        .begin_run(&RunRequest {
+            key: key.clone(),
+            revision,
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        })
+        .await
+        .unwrap();
+    let fence = store
+        .claim_run(&key, "claim", "transport-only", Duration::from_secs(60))
+        .await
+        .unwrap();
+    let run_id = pse_operations::mint_id();
+    let mut batches = Vec::new();
+    for step in 0..65 {
+        let mut builder = solve_metrics::Builder::with_registry(
+            runtime.registry(),
+            1,
+            &runtime.validation_context(),
+        )
+        .unwrap();
+        builder
+            .push(solve_metrics::Row {
+                run_id,
+                step,
+                namespace: "transport-only".into(),
+                name: "temperature".into(),
+                kind: NativeMetricKind::Real,
+                real: Some(273.15 + step as f64),
+                integer: None,
+                boolean: None,
+                text: None,
+                unavailable: None,
+            })
+            .unwrap();
+        batches.push(builder.finish().unwrap());
+    }
+    result_projection::store_result_table(
+        store,
+        &fence,
+        solve_metrics::RELATION_ID,
+        ResultCursor::from_retained(
+            batches[0].batch().schema(),
+            solve_metrics::RELATION_ID,
+            &batches,
+        )
+        .unwrap(),
+        &pool,
+        &durable::PublicationAcks::new(&pool),
+    )
+    .await
+    .unwrap();
+    drop(batches);
+    let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
+    let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+    // SAFETY: these observations establish transport availability only.
+    unsafe {
+        store.seal_attempt(
+            &manifest,
+            "seal",
+            TerminalClass::Partial,
+            &[1],
+            pse_operations::canonical_execution::SeedEligibility::Unavailable,
+        )
+    }
+    .await
+    .unwrap();
+    let (_, local) = parallel_study_definition(runtime, 3, None).await;
+    let cancel = crate::CancelSource::new();
+    let definition = runtime.record_study(&local, &cancel).await.unwrap();
+    drop(local);
+    let science = runtime.execute_study(&definition, 3, &cancel);
+    let serving = async {
+        let held = fixture.observation(|value| value["active"] == 3).await;
+        assert_eq!(held["entries"].as_array().unwrap().len(), 3);
+        let physical = tests::physical();
+        let workspace = || {
+            runtime
+                .native()
+                .workspace(
+                    CompilerContext {
+                        quantities: physical.quantities.clone(),
+                        preconditions: physical.preconditions.clone(),
+                        providers: Default::default(),
+                    },
+                    WorkspaceLimits::default(),
+                )
+                .unwrap()
+        };
+        let before = pool.reserved();
+        let first = workspace();
+        let second = workspace();
+        assert_eq!(pool.reserved() - before, 128 << 20);
+        let baseline = pool.reserved();
+        let settle_read = || async {
+            // The issued release retains this read's metadata grant through its
+            // SDK suffix. Other live study readers are intentionally not drained.
+            tokio::time::timeout(Duration::from_secs(10), async {
+                while pool.reserved() != baseline {
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+            })
+            .await
+            .expect("owned result-read suffix must release its grant");
+        };
+        let stop = CancellationToken::new();
+        let mut reader = runtime
+            .results(
+                fence.run(),
+                fence.attempt(),
+                "runtime.solve_metrics",
+                0,
+                65,
+                stop.clone(),
+            )
+            .await
+            .unwrap();
+        let snapshot = reader.snapshot();
+        assert_eq!(snapshot.blocks().len(), 65);
+        let alias = snapshot.clone();
+        let mut rows = 0;
+        while let Some(batch) = reader.next_batch().await.unwrap() {
+            let values = batch
+                .column_by_name("real")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            assert_eq!(batch.num_rows(), 1);
+            assert_eq!(values.value(0), 273.15 + rows as f64);
+            rows += 1;
+        }
+        assert_eq!(rows, 65);
+        drop(reader);
+        drop(snapshot);
+        assert!(pool.reserved() > baseline);
+        drop(alias);
+        settle_read().await;
+        assert_eq!(pool.reserved(), baseline);
+        let pressure = MemoryConsumer::new("test:managed-result-pressure").register(&pool);
+        let remaining = (256 << 20) - pool.reserved();
+        let pressure_bytes = remaining
+            .checked_sub(pse_operations::canonical::MetadataResponse::Selection.allocation_bytes())
+            .expect(
+                "original observer pool must fit a complete selection with both compiler leases",
+            )
+            + 1;
+        pressure.try_grow(pressure_bytes).unwrap();
+        assert!(
+            runtime
+                .results(
+                    fence.run(),
+                    fence.attempt(),
+                    "runtime.solve_metrics",
+                    0,
+                    65,
+                    CancellationToken::new()
+                )
+                .await
+                .is_err()
+        );
+        drop(pressure);
+        let mut reader = runtime
+            .results(
+                fence.run(),
+                fence.attempt(),
+                "runtime.solve_metrics",
+                0,
+                65,
+                stop.clone(),
+            )
+            .await
+            .unwrap();
+        stop.cancel();
+        assert!(reader.next_batch().await.is_err());
+        drop(reader);
+        settle_read().await;
+        assert_eq!(pool.reserved(), baseline);
+        drop(first);
+        drop(second);
+        assert_eq!(pool.reserved(), before);
+        fixture.signal("release.json");
+    };
+    let (report, ()) = fixture
+        .dispatch(&cancel, async { tokio::join!(science, serving) })
+        .await;
+    let report = report.unwrap();
+    assert_eq!(report.outcomes.len(), 3);
+    assert!(
+        report
+            .outcomes
+            .iter()
+            .all(|outcome| outcome.scientific.usable)
+    );
+    assert_eq!(report.results.len(), 3);
+    assert_eq!(
+        report
+            .results
+            .iter()
+            .map(|result| result.as_ref().unwrap().stored_keys().unwrap())
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        3,
+        "each managed occurrence retains its own exact result identity"
+    );
+    for result in &report.results {
+        let (run, attempt) = result.as_ref().unwrap().stored_keys().unwrap();
+        let reopened = runtime
+            .operations()
+            .unwrap()
+            .record(run, attempt)
+            .await
+            .unwrap();
+        assert_eq!(reopened.solutions.len(), 1);
+        let mut variables = runtime
+            .results(
+                run,
+                attempt,
+                "runtime.solve_variables",
+                0,
+                u64::MAX,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let mut original_checked = false;
+        while let Some(batch) = variables.next_batch().await.unwrap() {
+            let view = pse_relations::generated::runtime::solve_variables::View::try_from_batch_with_registry(runtime.registry(), &batch, &runtime.validation_context()).unwrap();
+            for row in view.rows().unwrap() {
+                if row.parameter {
+                    continue;
+                }
+                if let Some(value) = row.value {
+                    let allowance = row.tolerance.unwrap();
+                    assert!(value.is_finite() && allowance.is_finite() && allowance > 0.0);
+                    assert!((value - 2.0).abs() <= allowance);
+                    assert!((value * value - 4.0).abs() <= allowance * (4.0 + allowance));
+                    original_checked = true;
+                }
+            }
+        }
+        assert!(original_checked, "actual managed original root retained");
+    }
+    drop(report);
+    fixture.finish().await;
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn managed_primary_death_returns_incomplete_study_without_fabricated_terminal() {
+    let mut fixture = ManagedStudyFixture::start_on(true, tests::durable_runtime(), 1).await;
+    let runtime = &fixture.runtime;
+    let (_, local) = parallel_study_definition(runtime, 1, None).await;
+    let cancel = crate::CancelSource::new();
+    let definition = runtime.record_study(&local, &cancel).await.unwrap();
+    let science = runtime.execute_study(&definition, 1, &cancel);
+    let death = async {
+        fixture.observation(|value| value["active"] == 1).await;
+        let unit = fixture.primary_owner["scope"]["unit"].as_str().unwrap();
+        let observed = tokio::process::Command::new("systemctl")
+            .args(["--user", "show", "--property=InvocationID", "--value", unit])
+            .output()
+            .await
+            .unwrap();
+        assert!(observed.status.success());
+        assert_eq!(
+            std::str::from_utf8(&observed.stdout).unwrap().trim(),
+            fixture.primary_owner["scope"]["invocation"]
+                .as_str()
+                .unwrap()
+        );
+        // This fixture owns the isolated database's exact primary invocation.
+        // Deliberate death leaves durable work incomplete rather than inventing an ACK.
+        assert!(
+            tokio::process::Command::new("systemctl")
+                .args([
+                    "--user",
+                    "kill",
+                    "--kill-whom=all",
+                    "--signal=SIGKILL",
+                    unit
+                ])
+                .status()
+                .await
+                .unwrap()
+                .success()
+        );
+    };
+    let (result, ()) = tokio::time::timeout(Duration::from_secs(45), async {
+        tokio::join!(science, death)
+    })
+    .await
+    .unwrap();
+    let study = match result {
+        Err(WorkflowError::StudyExecutionUnavailable { study }) => study,
+        result => panic!("dead primary must preserve an incomplete study identity: {result:?}"),
+    };
+    assert!(runtime.study(study).result().await.unwrap().is_none());
+    assert!(!std::path::Path::new(&format!("/proc/{}", fixture.worker_pid)).exists());
+    fixture.finished = true;
 }
 #[cfg(feature = "canonical-tests")]
 impl Drop for ManagedStudyFixture {

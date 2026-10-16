@@ -103,12 +103,22 @@ pub(in crate::dynamics) fn gradient(
     let mut report = Report::new(profile, SampleRetention::Full);
     let mut outcome = Outcome::default();
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
-        DiffsolLinear::FaerLu => {
-            schemes::<linear::FaerLu>(&shared, profile, &mut report, cotangent, &mut outcome, layout)
-        }
-        DiffsolLinear::Klu => {
-            schemes::<linear::Klu>(&shared, profile, &mut report, cotangent, &mut outcome, layout)
-        }
+        DiffsolLinear::FaerLu => schemes::<linear::FaerLu>(
+            &shared,
+            profile,
+            &mut report,
+            cotangent,
+            &mut outcome,
+            layout,
+        ),
+        DiffsolLinear::Klu => schemes::<linear::Klu>(
+            &shared,
+            profile,
+            &mut report,
+            cotangent,
+            &mut outcome,
+            layout,
+        ),
     }));
     shared.contain(result, &mut report);
     if report.termination != Termination::Completed {

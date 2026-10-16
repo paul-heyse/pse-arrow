@@ -757,7 +757,9 @@ impl ModelingSimulation {
         &self.contract
     }
     /// Complete all-mode state support shared by native admission and execution.
-    pub fn native_layout(&self) -> &native::PreparedLayout { self.layout.native() }
+    pub fn native_layout(&self) -> &native::PreparedLayout {
+        self.layout.native()
+    }
     /// The integration parameter values: the contract's unscheduled parameters in
     /// declared order, then every interval of every scheduled input
     /// ([`native::Profile::parameters_at`] gives the contract values at a time).

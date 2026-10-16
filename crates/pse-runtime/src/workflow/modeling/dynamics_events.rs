@@ -279,10 +279,23 @@ impl ModelingPackage {
                     cancel,
                 )
                 .await?;
-            replaced_layout_bytes = replaced_layout_bytes.checked_add(next.layout.retained_bytes())
+            replaced_layout_bytes = replaced_layout_bytes
+                .checked_add(next.layout.retained_bytes())
                 .and_then(|bytes| bytes.checked_add(next.layout.worker_bytes()))
-                .and_then(|bytes| bytes.checked_add(next.profile.native_scatter_bytes(next.layout.native(), native::DynamicDemand::Base).ok()?))
-                .and_then(|bytes| bytes.checked_sub(if next.profile.method == native::Method::Diffsol { 0 } else { next.layout.native().retained_bytes() }))
+                .and_then(|bytes| {
+                    bytes.checked_add(
+                        next.profile
+                            .native_scatter_bytes(next.layout.native(), native::DynamicDemand::Base)
+                            .ok()?,
+                    )
+                })
+                .and_then(|bytes| {
+                    bytes.checked_sub(if next.profile.method == native::Method::Diffsol {
+                        0
+                    } else {
+                        next.layout.native().retained_bytes()
+                    })
+                })
                 .ok_or_else(|| contract("dynamic mode prepared layout storage extent"))?;
             if modes.len() > 1 {
                 replaced_allowance_bytes = replaced_allowance_bytes
@@ -441,11 +454,28 @@ impl ModelingPackage {
         );
         // Replace per-mode preparation/native charges with the one complete
         // all-mode layout. The old layout stays live while construction finishes.
-        let layout_bytes = layout.retained_bytes().checked_add(layout.worker_bytes())
-            .and_then(|bytes| bytes.checked_add(result.profile.native_scatter_bytes(layout.native(), native::DynamicDemand::Base).ok()?))
-            .and_then(|bytes| bytes.checked_sub(if result.profile.method == native::Method::Diffsol { 0 } else { layout.native().retained_bytes() }))
+        let layout_bytes = layout
+            .retained_bytes()
+            .checked_add(layout.worker_bytes())
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    result
+                        .profile
+                        .native_scatter_bytes(layout.native(), native::DynamicDemand::Base)
+                        .ok()?,
+                )
+            })
+            .and_then(|bytes| {
+                bytes.checked_sub(if result.profile.method == native::Method::Diffsol {
+                    0
+                } else {
+                    layout.native().retained_bytes()
+                })
+            })
             .ok_or_else(|| contract("composed dynamic native layout storage extent"))?;
-        result.bytes = result.bytes.checked_sub(replaced_layout_bytes)
+        result.bytes = result
+            .bytes
+            .checked_sub(replaced_layout_bytes)
             .and_then(|bytes| bytes.checked_add(layout_bytes))
             .ok_or_else(|| contract("composed dynamic native storage extent"))?;
         result.layout = layout;

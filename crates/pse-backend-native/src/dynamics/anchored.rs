@@ -153,12 +153,17 @@ impl<O: Oracle> Anchored<O> {
     ///
     /// # Errors
     /// A different source, formulation or state extent.
-    pub fn use_prepared_layout(&mut self, prepared: Arc<AnchoredLayout>) -> Result<(), ProblemError> {
+    pub fn use_prepared_layout(
+        &mut self,
+        prepared: Arc<AnchoredLayout>,
+    ) -> Result<(), ProblemError> {
         if prepared.identity != self.contract.identity
             || prepared.observed != self.observed
             || prepared.layout.states() != self.contract.states.len()
         {
-            return Err(ProblemError::Contract("anchored layout source differs".into()));
+            return Err(ProblemError::Contract(
+                "anchored layout source differs".into(),
+            ));
         }
         self.prepared = Some(prepared);
         Ok(())
@@ -298,20 +303,32 @@ impl<O: Oracle> Oracle for Anchored<O> {
             return self.inner.prepared_layout(allowance);
         }
         let mut supports = Vec::with_capacity(self.contract.events.len());
-        let mut support_bytes = supports.capacity().checked_mul(size_of::<Vec<SupportEntry>>())
+        let mut support_bytes = supports
+            .capacity()
+            .checked_mul(size_of::<Vec<SupportEntry>>())
             .ok_or_else(|| ProblemError::memory("anchored support headers extent"))?;
         for mode in 0..self.contract.events.len() {
             let support = self.support(mode, Function::Rhs);
-            support_bytes = support_bytes.checked_add(support.capacity().checked_mul(size_of::<SupportEntry>())
-                .ok_or_else(|| ProblemError::memory("anchored source support extent"))?)
+            support_bytes = support_bytes
+                .checked_add(
+                    support
+                        .capacity()
+                        .checked_mul(size_of::<SupportEntry>())
+                        .ok_or_else(|| ProblemError::memory("anchored source support extent"))?,
+                )
                 .ok_or_else(|| ProblemError::memory("anchored source support extent"))?;
             if support_bytes > allowance {
-                return Err(ProblemError::memory("anchored source support exceeds allowance"));
+                return Err(ProblemError::memory(
+                    "anchored source support exceeds allowance",
+                ));
             }
             supports.push(support);
         }
-        Ok(Arc::new(PreparedLayout::new(self.contract.states.len(),
-            supports.iter().flat_map(|support| support.iter().copied()), allowance - support_bytes)?))
+        Ok(Arc::new(PreparedLayout::new(
+            self.contract.states.len(),
+            supports.iter().flat_map(|support| support.iter().copied()),
+            allowance - support_bytes,
+        )?))
     }
     fn snapshot_owner(
         &self,

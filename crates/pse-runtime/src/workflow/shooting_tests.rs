@@ -1457,22 +1457,60 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
     use pse_diagnostics::observation::{ObservationHub, Policy};
     for method in methods() {
         let simulation = tracking(method).await;
-        let problem = Arc::new(simulation.shooting(request(&simulation, ShootingMethod::Multiple, vec![1.], true)).unwrap());
+        let problem = Arc::new(
+            simulation
+                .shooting(request(
+                    &simulation,
+                    ShootingMethod::Multiple,
+                    vec![1.],
+                    true,
+                ))
+                .unwrap(),
+        );
         let mut execution = Execution::new(Arc::default(), &solver().controls);
-        execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
-        let hub = ObservationHub::new(Policy { max_metrics: 256, budget_bytes: 64 << 20, ..Default::default() });
+        execution.memory = Some(
+            problem
+                .runtime
+                .shared
+                .budget()
+                .math
+                .foreign_allowance(&solver().controls),
+        );
+        let hub = ObservationHub::new(Policy {
+            max_metrics: 256,
+            budget_bytes: 64 << 20,
+            ..Default::default()
+        });
         let observed = hub.start("retained shooting lane");
         let entered = observed.context().enter();
-        let mut oracle = ShootingOracle { problem: problem.clone(), execution: execution.clone(), point: None, worker: None };
+        let mut oracle = ShootingOracle {
+            problem: problem.clone(),
+            execution: execution.clone(),
+            point: None,
+            worker: None,
+        };
         oracle.objective(&[0.4, 1.2, 0.3]).unwrap();
-        let identity = oracle.worker.as_ref().unwrap().inner.buffer_identity(0, native::dynamics::Function::Rhs);
+        let identity = oracle
+            .worker
+            .as_ref()
+            .unwrap()
+            .inner
+            .buffer_identity(0, native::dynamics::Function::Rhs);
         let x = [0.6, 1.1, 0.4];
         let value = oracle.objective(&x).unwrap();
         let mut gradient = vec![0.; x.len()];
         oracle.gradient(&x, &mut gradient).unwrap();
         let mut jacobian = vec![0.; problem.pattern.row_idx().len()];
         oracle.jacobian(&x, &mut jacobian).unwrap();
-        assert_eq!(identity, oracle.worker.as_ref().unwrap().inner.buffer_identity(0, native::dynamics::Function::Rhs));
+        assert_eq!(
+            identity,
+            oracle
+                .worker
+                .as_ref()
+                .unwrap()
+                .inner
+                .buffer_identity(0, native::dynamics::Function::Rhs)
+        );
         let counts = crate::workflow::tests::observation_counts(&hub, observed.reader());
         for (name, expected) in [
             ("dynamics.workflow_worker_constructions", 1),
@@ -1481,20 +1519,42 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
             ("dynamics.window_layout_constructions", 1),
             ("dynamics.window_layout_reuses", 1),
         ] {
-            assert_eq!(counts.get(name).copied().unwrap_or(0), expected, "{method:?}: {name}; {counts:?}");
+            assert_eq!(
+                counts.get(name).copied().unwrap_or(0),
+                expected,
+                "{method:?}: {name}; {counts:?}"
+            );
         }
         drop(entered);
-        let mut fresh = ShootingOracle { problem, execution, point: None, worker: None };
+        let mut fresh = ShootingOracle {
+            problem,
+            execution,
+            point: None,
+            worker: None,
+        };
         let tolerance = 64. * simulation.profile().rtol;
         assert!((fresh.objective(&x).unwrap() - value).abs() <= tolerance * value.abs().max(1.));
         let mut fresh_gradient = vec![0.; x.len()];
         fresh.gradient(&x, &mut fresh_gradient).unwrap();
         let mut fresh_jacobian = vec![0.; jacobian.len()];
         fresh.jacobian(&x, &mut fresh_jacobian).unwrap();
-        for (a, b) in gradient.iter().chain(&jacobian).zip(fresh_gradient.iter().chain(&fresh_jacobian)) {
-            assert!((a-b).abs() <= tolerance * b.abs().max(1.), "{method:?}: {a} vs {b}");
+        for (a, b) in gradient
+            .iter()
+            .chain(&jacobian)
+            .zip(fresh_gradient.iter().chain(&fresh_jacobian))
+        {
+            assert!(
+                (a - b).abs() <= tolerance * b.abs().max(1.),
+                "{method:?}: {a} vs {b}"
+            );
         }
-        oracle.execution.cancel.store(true, std::sync::atomic::Ordering::Release);
-        assert!(matches!(oracle.gradient(&x, &mut gradient), Err(ProblemError::Cancelled)));
+        oracle
+            .execution
+            .cancel
+            .store(true, std::sync::atomic::Ordering::Release);
+        assert!(matches!(
+            oracle.gradient(&x, &mut gradient),
+            Err(ProblemError::Cancelled)
+        ));
     }
 }

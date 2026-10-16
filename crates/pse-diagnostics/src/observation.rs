@@ -951,7 +951,7 @@ impl State {
             let metric = &self.metrics[index];
             if metric.history.len() < BUCKETS && metric.history.len() == metric.history.capacity() {
                 let capacity = metric.history.capacity();
-                let next = capacity.saturating_mul(2).max(4).min(BUCKETS);
+                let next = capacity.saturating_mul(2).clamp(4, BUCKETS);
                 if self.reserve(policy.history_capacity_bytes(next - capacity)) {
                     self.metrics[index].history.reserve_exact(next - capacity);
                 } else {
@@ -1595,10 +1595,10 @@ impl OperationGuard {
 }
 impl Drop for OperationGuard {
     fn drop(&mut self) {
-        if let Some(node) = &self.context.node {
-            if node.terminal.load(Ordering::Acquire) == 0 {
-                node.finish(Outcome::Interrupted);
-            }
+        if let Some(node) = &self.context.node
+            && node.terminal.load(Ordering::Acquire) == 0
+        {
+            node.finish(Outcome::Interrupted);
         }
     }
 }
@@ -2237,7 +2237,9 @@ mod tests {
         });
         let root = hub.start("study.root");
         let root_reader = root.reader();
-        let child = root.context().child("study.active.lane", Relationship::Nested);
+        let child = root
+            .context()
+            .child("study.active.lane", Relationship::Nested);
         child.context().count("actual.requests", "calls", 3);
         for _ in 0..20 {
             hub.start("completed.history").finish(Outcome::Completed);
@@ -2258,7 +2260,10 @@ mod tests {
         assert_eq!(retained.children[0].id, child.context().id());
         let active = hub.reader(child.context().id()).unwrap().snapshot(WINDOW);
         assert!(active.outcome.is_none());
-        assert_eq!(metric(&active, "actual.requests").cumulative, Value::Count(3));
+        assert_eq!(
+            metric(&active, "actual.requests").cumulative,
+            Value::Count(3)
+        );
     }
     #[test]
     fn producer_contention_is_loss_not_wait_and_terminal_survives() {
@@ -2339,11 +2344,7 @@ mod tests {
     #[test]
     fn async_context_is_scoped_to_each_poll_and_absence_clears_ambient_state() {
         use std::future::Future;
-        use std::task::{Context, Poll, Wake, Waker};
-        struct Noop;
-        impl Wake for Noop {
-            fn wake(self: Arc<Self>) {}
-        }
+        use std::task::{Context, Poll, Waker};
         struct Probe {
             expected: Option<OperationId>,
             polls: usize,
@@ -2377,8 +2378,7 @@ mod tests {
                 polls: 0,
             }))
         };
-        let waker = Waker::from(Arc::new(Noop));
-        let mut cx = Context::from_waker(&waker);
+        let mut cx = Context::from_waker(Waker::noop());
         assert!(first_future.as_mut().poll(&mut cx).is_pending());
         assert!(current().is_none());
         assert!(second_future.as_mut().poll(&mut cx).is_pending());

@@ -484,8 +484,14 @@ impl Plant {
         }
         parameters
     }
-    fn execution(&self, scope: pse_kernels::ExecutionScope) -> Result<native::solve::Execution, ProblemError> {
-        let controls = native::solve::Controls { time_limit: self.time_limit, ..Default::default() };
+    fn execution(
+        &self,
+        scope: pse_kernels::ExecutionScope,
+    ) -> Result<native::solve::Execution, ProblemError> {
+        let controls = native::solve::Controls {
+            time_limit: self.time_limit,
+            ..Default::default()
+        };
         native::solve::Execution::within(scope.cancellation().clone(), &controls, scope)
     }
     /// The consistently initialized start at `t₀` under `applied`: the simulation's initial
@@ -1308,8 +1314,12 @@ impl Loop {
             .iter()
             .flat_map(|e| e.arrival.iter().map(|(_, _, initial)| *initial))
             .collect();
-        let plant_scope = pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), cancel.deadline())
-            .with_admitted_threads(std::num::NonZeroUsize::new(admitted.threads).unwrap_or(std::num::NonZeroUsize::MIN));
+        let plant_scope =
+            pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), cancel.deadline())
+                .with_admitted_threads(
+                    std::num::NonZeroUsize::new(admitted.threads)
+                        .unwrap_or(std::num::NonZeroUsize::MIN),
+                );
         Self {
             plant_scope,
             applied: admitted.initial.clone(),
@@ -1470,7 +1480,9 @@ impl Loop {
             let applied = self.applied.clone();
             let anchors = self.anchors.clone();
             let end = self
-                .plant(move |plant, worker, execution| plant.period(worker, k, &applied, &anchors, execution))
+                .plant(move |plant, worker, execution| {
+                    plant.period(worker, k, &applied, &anchors, execution)
+                })
                 .await?;
             if matches!(
                 self.admitted.output,
@@ -1561,25 +1573,47 @@ impl Loop {
     /// Plant work on the session thread beside the solves' retained native state.
     async fn plant<T: Send + 'static>(
         &self,
-        work: impl FnOnce(&Plant, &mut crate::workflow::dynamics::DynamicWorker, &native::solve::Execution) -> Result<T, ProblemError> + Send + 'static,
+        work: impl FnOnce(
+            &Plant,
+            &mut crate::workflow::dynamics::DynamicWorker,
+            &native::solve::Execution,
+        ) -> Result<T, ProblemError>
+        + Send
+        + 'static,
     ) -> Result<T, WorkflowError> {
         let _phase = pse_diagnostics::observation::phase("horizon.plant");
         let plant = self.admitted.plant.clone();
         let scope = self.plant_scope.clone();
         Ok(self
             .staged
-            .native_in_task(self.admitted.threads, scope.clone(), &self.cancel, move |retained, _, _| {
-                let execution = plant.execution(scope.clone())?;
-                let (owner, reused) = retained.workflow_owner(|| {
-                    let charge = plant.experiment.snapshots.reserve(plant.worker_bytes)?;
-                    let inner = plant.experiment.worker_scoped(scope)?;
-                    Ok(PlantWorker { inner, _charge: charge })
-                })?;
-                if let Some(context) = pse_diagnostics::observation::current() {
-                    context.count(if reused { "horizon.plant_worker_reuses" } else { "horizon.plant_worker_constructions" }, "count", 1);
-                }
-                work(&plant, &mut owner.inner, &execution).map_err(MathRuntimeError::from)
-            })
+            .native_in_task(
+                self.admitted.threads,
+                scope.clone(),
+                &self.cancel,
+                move |retained, _, _| {
+                    let execution = plant.execution(scope.clone())?;
+                    let (owner, reused) = retained.workflow_owner(|| {
+                        let charge = plant.experiment.snapshots.reserve(plant.worker_bytes)?;
+                        let inner = plant.experiment.worker_scoped(scope)?;
+                        Ok(PlantWorker {
+                            inner,
+                            _charge: charge,
+                        })
+                    })?;
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count(
+                            if reused {
+                                "horizon.plant_worker_reuses"
+                            } else {
+                                "horizon.plant_worker_constructions"
+                            },
+                            "count",
+                            1,
+                        );
+                    }
+                    work(&plant, &mut owner.inner, &execution).map_err(MathRuntimeError::from)
+                },
+            )
             .await?)
     }
     /// One step of `role`: its overlay of `values` over its specification. Only

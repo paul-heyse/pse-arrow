@@ -95,7 +95,7 @@ mod tests {
         ] {
             let relation = registry.relation(&format!("runtime.{name}")).unwrap();
             assert!(
-                relation.columns.len() + 1 <= 32,
+                relation.columns.len() < 32,
                 "{name}: fields plus native id must fit metadata preflight"
             );
         }

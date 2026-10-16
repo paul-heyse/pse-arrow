@@ -179,16 +179,26 @@ async fn receiver_response(
         .stderr
         .take()
         .ok_or_else(|| contract("managed primary error pipe absent"))?;
-    tokio::try_join!(
-        async {
-            child
-                .wait()
-                .await
-                .map_err(|error| contract(format!("managed primary control: {error}")))
+    let output = async { tokio::try_join!(receiver_output(stdout), receiver_output(stderr)) };
+    tokio::pin!(output);
+    tokio::select! {
+        output = &mut output => match output {
+            Ok((stdout, stderr)) => {
+                let status = child.wait().await.map_err(|error| contract(format!("managed primary control: {error}")))?;
+                Ok((status, stdout, stderr))
+            }
+            Err(error) => {
+                // Bounded-output refusal still joins the actual control process.
+                child.kill().await.map_err(|cause| contract(format!("managed primary control drain: {cause}")))?;
+                Err(error)
+            }
         },
-        receiver_output(stdout),
-        receiver_output(stderr),
-    )
+        status = child.wait() => {
+            let status = status.map_err(|error| contract(format!("managed primary control: {error}")))?;
+            let (stdout, stderr) = output.await?;
+            Ok((status, stdout, stderr))
+        },
+    }
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -207,13 +217,19 @@ struct PrimaryOwner {
 }
 
 /// One startup-admitted receiver lifetime; a replacement cannot become this owner.
+pub(super) enum PrimaryObservation {
+    Live,
+    Drained,
+    OwnerChanged,
+}
+
 pub(super) struct ManagedPrimary {
     selected: super::NativeExecutionSelection,
     owner: PrimaryOwner,
 }
 impl ManagedPrimary {
-    /// Only the supervisor's exact native drain observation permits unfinished exit.
-    pub(super) async fn drained(&self) -> Result<bool, WorkflowError> {
+    /// Observe the selected lifetime without granting resource-release authority.
+    pub(super) async fn observe(&self) -> Result<PrimaryObservation, WorkflowError> {
         // The startup-selected immutable supervisor observes the original lifetime,
         // even if the next native selection changes. No worker bytes are reopened.
         let (receiver, _) = self.selected.managed_primary()?;
@@ -230,7 +246,7 @@ impl ManagedPrimary {
         let (status, stdout, _) = receiver_response(command).await?;
         // A failed/unknown observation grants no release authority.
         if !status.success() {
-            return Ok(false);
+            return Ok(PrimaryObservation::Live);
         }
         #[derive(serde::Deserialize)]
         struct Observation {
@@ -248,7 +264,11 @@ impl ManagedPrimary {
         {
             return Err(contract("managed primary observation identity differs"));
         }
-        Ok(observed.phase == "complete")
+        Ok(match observed.phase.as_str() {
+            "complete" => PrimaryObservation::Drained,
+            "mismatch" => PrimaryObservation::OwnerChanged,
+            _ => PrimaryObservation::Live,
+        })
     }
 }
 #[cfg(test)]
@@ -268,6 +288,30 @@ mod receiver_tests {
     async fn primary_response_retains_exact_bounded_readiness_bytes() {
         let bytes = b"{\"ready\":true}";
         assert_eq!(receiver_output(bytes.as_slice()).await.unwrap(), bytes);
+    }
+    #[tokio::test]
+    async fn primary_response_output_refusal_reaps_its_actual_control() {
+        let directory = tempfile::tempdir().unwrap();
+        let pid = directory.path().join("pid");
+        let mut command = tokio::process::Command::new("/bin/sh");
+        command
+            .arg("-c")
+            .arg("echo $$ > \"$1\"; while :; do printf '0123456789abcdef'; done")
+            .arg("control")
+            .arg(&pid);
+        let result = tokio::time::timeout(Duration::from_secs(5), receiver_response(command))
+            .await
+            .unwrap();
+        assert!(result.is_err());
+        let pid: u32 = std::fs::read_to_string(pid)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        assert!(
+            !std::path::Path::new(&format!("/proc/{pid}")).exists(),
+            "refused control was reaped before returning"
+        );
     }
 }
 // Existing service loop, isolated from canonical discovery for focused
