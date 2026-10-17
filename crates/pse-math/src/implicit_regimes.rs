@@ -1694,6 +1694,7 @@ impl RegimeSelection {
         {
             remaining = remaining.min(deadline.saturating_duration_since(Instant::now()));
         }
+        let proof_control = self.execution_control()?.clone();
         let request = super::SelectionProofRequest {
             selection: self.id,
             alternatives: &alternatives,
@@ -1702,7 +1703,7 @@ impl RegimeSelection {
             candidate: &selected.values,
             order: DerivativeOrder::First,
             time_limit: remaining,
-            cancel,
+            cancel: &proof_control,
         };
         super::observation::request(&request);
         let evidence = observed_proof!("implicit.proof.enclose_action", {
@@ -1805,6 +1806,7 @@ impl RegimeSelection {
                 })
             })
             .collect::<Result<Vec<_>, MathError>>()?;
+        let proof_control = self.execution_control()?.clone();
         let request = super::SelectionProofRequest {
             selection: self.id,
             alternatives: &alternatives,
@@ -1813,7 +1815,7 @@ impl RegimeSelection {
             candidate: &selected.selected.values,
             order: DerivativeOrder::First,
             time_limit: deadline.saturating_duration_since(Instant::now()),
-            cancel,
+            cancel: &proof_control,
         };
         super::observation::request(&request);
         chart.validate(&request, verifier.identity())?;
@@ -1916,6 +1918,7 @@ impl RegimeSelection {
                 })
             })
             .collect::<Result<Vec<_>, MathError>>()?;
+        let proof_control = self.execution_control()?.clone();
         let request = super::SelectionProofRequest {
             selection: self.id,
             alternatives: &alternatives,
@@ -1924,7 +1927,7 @@ impl RegimeSelection {
             candidate: &selected.selected.values,
             order: DerivativeOrder::First,
             time_limit: deadline.saturating_duration_since(Instant::now()),
-            cancel,
+            cancel: &proof_control,
         };
         super::observation::request(&request);
         chart.validate(&request, verifier.identity())?;
@@ -1983,6 +1986,7 @@ impl RegimeSelection {
                 })
             })
             .collect::<Result<Vec<_>, MathError>>()?;
+        let proof_control = self.execution_control()?.clone();
         let request = super::SelectionProofRequest {
             selection: self.id,
             alternatives: &alternatives,
@@ -1991,7 +1995,7 @@ impl RegimeSelection {
             candidate: &selected.selected.values,
             order: DerivativeOrder::First,
             time_limit: deadline.saturating_duration_since(Instant::now()),
-            cancel,
+            cancel: &proof_control,
         };
         super::observation::request(&request);
         chart.validate(&request, verifier.identity())?;
@@ -2088,6 +2092,7 @@ impl RegimeSelection {
         let verifier = self.verifier.as_ref().ok_or_else(|| {
             MathError::Contract("numerical refinement requires original verifier".into())
         })?;
+        let proof_control = self.execution_control()?.clone();
         let request = super::SelectionProofRequest {
             selection: self.id,
             alternatives: &alternatives,
@@ -2096,7 +2101,7 @@ impl RegimeSelection {
             candidate: &previous.values,
             order: DerivativeOrder::First,
             time_limit: deadline.saturating_duration_since(Instant::now()),
-            cancel,
+            cancel: &proof_control,
         };
         super::observation::request(&request);
         chart.validate(&request, verifier.identity())?;
@@ -2495,6 +2500,7 @@ impl RegimeSelection {
                         .map(|i| i.lower + (i.upper - i.lower) * 0.5)
                         .collect()
                 });
+            let proof_control = self.execution_control()?.clone();
             let request = super::SelectionProofRequest {
                 selection: self.id,
                 alternatives: &alternatives,
@@ -2503,7 +2509,7 @@ impl RegimeSelection {
                 candidate: &candidate,
                 order: order.max(DerivativeOrder::First),
                 time_limit: deadline.saturating_duration_since(Instant::now()),
-                cancel,
+                cancel: &proof_control,
             };
             super::observation::request(&request);
             self.verifier
@@ -2635,6 +2641,7 @@ impl RegimeSelection {
                 })
             })
             .collect::<Result<Vec<_>, MathError>>()?;
+        let proof_control = self.execution_control()?.clone();
         let request = super::SelectionProofRequest {
             selection: self.id,
             alternatives: &alternatives,
@@ -2643,7 +2650,7 @@ impl RegimeSelection {
             candidate: &point,
             order: order.max(DerivativeOrder::First),
             time_limit: deadline.saturating_duration_since(Instant::now()),
-            cancel,
+            cancel: &proof_control,
         };
         super::observation::request(&request);
         let mut fresh_chart = None;
@@ -2824,6 +2831,7 @@ impl RegimeSelection {
                                 })
                             })
                             .collect::<Result<Vec<_>, MathError>>()?;
+                        let proof_control = self.execution_control()?.clone();
                         let connection = super::SelectionProofRequest {
                             selection: self.id,
                             alternatives: &alternatives,
@@ -2832,7 +2840,7 @@ impl RegimeSelection {
                             candidate: &candidate,
                             order: order.max(DerivativeOrder::First),
                             time_limit: deadline.saturating_duration_since(Instant::now()),
-                            cancel,
+                            cancel: &proof_control,
                         };
                         super::observation::request(&connection);
                         connected = observed_proof!("implicit.proof.connect", {
@@ -2856,6 +2864,7 @@ impl RegimeSelection {
                             })
                         })
                         .collect::<Result<Vec<_>, MathError>>()?;
+                    let proof_control = self.execution_control()?.clone();
                     let endpoint = super::SelectionProofRequest {
                         selection: self.id,
                         alternatives: &alternatives,
@@ -2864,7 +2873,7 @@ impl RegimeSelection {
                         candidate: &point,
                         order: order.max(DerivativeOrder::First),
                         time_limit: deadline.saturating_duration_since(Instant::now()),
-                        cancel,
+                        cancel: &proof_control,
                     };
                     super::observation::request(&endpoint);
                     let chain = super::ChartChainRequest {

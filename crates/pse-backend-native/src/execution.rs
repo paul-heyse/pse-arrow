@@ -164,6 +164,86 @@ pub fn scheduler_waiting() -> bool {
     }
 }
 
+/// One registered native-exclusion wait. Registration always precedes inspection;
+/// an unpark token also covers notification between the predicate and parking.
+#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc"))]
+pub(crate) struct NativeWait {
+    _release: pse_diagnostics::WakeWatch,
+    _stop: pse_diagnostics::CancellationWatch,
+    _abandonment: Option<pse_diagnostics::WakeWatch>,
+}
+#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc"))]
+impl NativeWait {
+    pub(crate) fn new(
+        released: &pse_diagnostics::WakeSignal,
+        control: &pse_diagnostics::Cancellation,
+        execution: Option<&Execution>,
+    ) -> Self {
+        struct WakeThread(std::thread::Thread);
+        impl std::task::Wake for WakeThread {
+            fn wake(self: std::sync::Arc<Self>) { self.0.unpark(); }
+            fn wake_by_ref(self: &std::sync::Arc<Self>) { self.0.unpark(); }
+        }
+        let wake = std::task::Waker::from(std::sync::Arc::new(WakeThread(std::thread::current())));
+        Self {
+            _release: released.watch(&wake),
+            _stop: control.watch(&wake),
+            _abandonment: execution.map(|execution| execution.abandonment.watch(&wake)),
+        }
+    }
+    pub(crate) fn wait(self, deadline: Option<std::time::Instant>) {
+        match deadline {
+            Some(deadline) => std::thread::park_timeout(deadline.saturating_duration_since(std::time::Instant::now())),
+            None => std::thread::park(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod native_wait_tests {
+    use super::*;
+    use std::{sync::{Arc, mpsc}, time::{Duration, Instant}};
+
+    #[test]
+    fn native_wait_release_and_stop_before_park_are_not_lost() {
+        for kind in 0..3 {
+            let changed = Arc::new(pse_diagnostics::WakeSignal::new());
+            let control = pse_diagnostics::Cancellation::default();
+            let execution = Execution::new(control.clone(), &Controls::default());
+            let abandoned = execution.abandonment.clone();
+            let signal = changed.clone();
+            let (registered, ready) = mpsc::channel();
+            let (park, continue_) = mpsc::channel();
+            let (finished, done) = mpsc::channel();
+            let worker = std::thread::spawn(move || {
+                let wait = NativeWait::new(&signal, execution.cancellation_control(), Some(&execution));
+                registered.send(()).unwrap();
+                continue_.recv().unwrap();
+                wait.wait(Some(Instant::now() + Duration::from_secs(2)));
+                finished.send(()).unwrap();
+            });
+            ready.recv_timeout(Duration::from_secs(2)).unwrap();
+            match kind {
+                0 => changed.notify(),
+                1 => control.cancel(),
+                _ => { abandoned.abandon(pse_model::generated::enums::NumericalAttemptObservation::Stalled).unwrap(); },
+            }
+            park.send(()).unwrap();
+            done.recv_timeout(Duration::from_secs(1)).unwrap();
+            worker.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn native_wait_uses_original_deadline_without_setting_stop() {
+        let control = pse_diagnostics::Cancellation::default();
+        let changed = pse_diagnostics::WakeSignal::new();
+        let deadline = Instant::now();
+        NativeWait::new(&changed, &control, None).wait(Some(deadline));
+        assert!(!control.is_cancelled());
+    }
+}
+
 mod context;
 pub use context::{BuildObservation, Snapshot};
 

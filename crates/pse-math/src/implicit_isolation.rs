@@ -6,7 +6,7 @@ use crate::{MathError, factorable::RootIsolationProgram};
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::DerivativeOrder;
 use std::{
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
     time::Duration,
 };
 
@@ -64,7 +64,7 @@ pub struct SelectionProofRequest<'a> {
     /// Remaining allowance of the same outer attempt.
     pub time_limit: Duration,
     /// Same outer cancellation owner.
-    pub cancel: &'a Arc<AtomicBool>,
+    pub cancel: &'a pse_diagnostics::Cancellation,
 }
 
 /// Exact source and physical domain covered by a selection certificate.

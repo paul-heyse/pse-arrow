@@ -293,6 +293,7 @@ fn concurrent_gate_saturation_releases_tentative_gate_before_capacity_wait() {
         Ok(1)
     );
     drop(holder);
+    CONCURRENT_CHANGED.notify();
     let deadline = Instant::now() + Duration::from_secs(2);
     while attempts.load(Ordering::Acquire) == 0 {
         assert!(Instant::now() < deadline);
@@ -344,6 +345,7 @@ fn concurrent_gate_cancel_preserves_parent_charge_and_never_claims_compute() {
     assert_eq!(available.load(Ordering::Acquire), 1);
     assert_eq!(attempts.load(Ordering::Acquire), 0);
     drop(holder);
+    CONCURRENT_CHANGED.notify();
 }
 
 #[derive(Debug, Default)]

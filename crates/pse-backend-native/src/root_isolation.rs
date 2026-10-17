@@ -43,6 +43,17 @@ const MAX_IDENTITY_BITS: u64 = MAX_EDGES as u64;
 // IBEX 2.9.1 has process-global random/contractor state. All calls through this adapter
 // share this lock; it owns no retained session or cached evidence.
 static IBEX: Mutex<()> = Mutex::new(());
+static IBEX_CHANGED: pse_diagnostics::WakeSignal = pse_diagnostics::WakeSignal::new();
+struct LibraryGuard<'a>(Option<std::sync::MutexGuard<'a, ()>>);
+impl Drop for LibraryGuard<'_> {
+    fn drop(&mut self) {
+        self.0.take();
+        IBEX_CHANGED.notify();
+    }
+}
+fn proof_deadline(started: Instant, allowance: Duration) -> Result<Instant, MathError> {
+    started.checked_add(allowance).ok_or_else(|| MathError::Contract("proof deadline extent".into()))
+}
 
 /// Shared request-local exclusion admission. A supplied original Execution is the
 /// control for an installed quiescent compute owner. Legacy requests borrow an exact
@@ -51,9 +62,10 @@ fn acquire_library<'a>(
     lock: &'a Mutex<()>,
     mut checkpoint: impl FnMut() -> Result<bool, MathError>,
     execution: Option<&crate::solve::Execution>,
-    cancel: &Arc<AtomicBool>,
-) -> Result<Option<std::sync::MutexGuard<'a, ()>>, MathError> {
-    let inherited = crate::execution::current_execution(cancel);
+    cancel: &pse_diagnostics::Cancellation,
+    deadline: Option<Instant>,
+) -> Result<Option<LibraryGuard<'a>>, MathError> {
+    let inherited = crate::execution::current_execution(&cancel.flag());
     let execution = execution.or(inherited.as_ref());
     fn compute_error(error: crate::ProblemError) -> MathError {
         match error {
@@ -64,12 +76,20 @@ fn acquire_library<'a>(
             },
         }
     }
+    let deadline = if let Some(execution) = execution {
+        let original = execution.scope().map_err(compute_error)?.deadline();
+        match (deadline, original) {
+            (Some(local), Some(original)) => Some(local.min(original)),
+            (local, original) => local.or(original),
+        }
+    } else { deadline };
     if execution.is_some() {
         crate::execution::pause_compute();
     }
     let mut resumed = execution.is_none();
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         loop {
+            let waiting = crate::execution::NativeWait::new(&IBEX_CHANGED, cancel, execution);
             if !checkpoint()? {
                 return Ok(None);
             }
@@ -83,19 +103,22 @@ fn acquire_library<'a>(
                             Ok(crate::execution::ComputeAvailability::Acquired) => resumed = true,
                             Ok(crate::execution::ComputeAvailability::Unavailable) => {
                                 drop(guard);
-                                std::thread::sleep(Duration::from_millis(1));
+                                IBEX_CHANGED.notify();
+                                crate::execution::resume_compute(execution).map_err(compute_error)?;
+                                crate::execution::pause_compute();
                                 continue;
                             }
                             Err(error) => {
                                 drop(guard);
+                                IBEX_CHANGED.notify();
                                 return Err(compute_error(error));
                             }
                         }
                     }
-                    return Ok(Some(guard));
+                    return Ok(Some(LibraryGuard(Some(guard))));
                 }
                 Err(TryLockError::Poisoned(_)) => return Ok(None),
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
+                Err(TryLockError::WouldBlock) => waiting.wait(deadline),
             }
         }
     }));
@@ -1113,7 +1136,7 @@ impl Ibex {
         program: &PointArithmeticProgram,
         point: &[f64],
         time_limit: Duration,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
         max_workspace_bytes: usize,
     ) -> Result<PointArithmeticEvidence, MathError> {
         self.point_arithmetic_core(
@@ -1297,7 +1320,7 @@ impl Ibex {
                     order,
                 },
                 remaining,
-                &execution.cancel,
+                execution.cancellation_control(),
                 max_workspace_bytes,
                 Some(execution),
             )
@@ -1326,7 +1349,7 @@ impl Ibex {
         &self,
         request: ArithmeticRequest<'_>,
         time_limit: Duration,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
         max_workspace_bytes: usize,
         execution: Option<&crate::solve::Execution>,
     ) -> Result<PointArithmeticEvidence, MathError> {
@@ -1376,6 +1399,7 @@ impl Ibex {
             },
             execution,
             cancel,
+            Some(proof_deadline(started, time_limit)?),
         )? {
             Some(guard) => guard,
             None if cancel.load(Ordering::Acquire) => {
@@ -1641,7 +1665,7 @@ impl SelectionVerifier for Ibex {
             Ok(transport) => transport,
             Err(reason) => return Ok(SelectionEvidence::Incomplete(reason)),
         };
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
             Some(guard) => guard,
             None => {
                 return Ok(SelectionEvidence::Incomplete(
@@ -1782,7 +1806,7 @@ impl SelectionVerifier for Ibex {
         {
             return Ok(false);
         }
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
             Some(guard) => guard,
             None => return Ok(false),
         };
@@ -1931,6 +1955,7 @@ impl SelectionVerifier for Ibex {
             || Ok(!request.cancel.load(Ordering::Acquire) && started.elapsed() < request.time_limit),
             None,
             request.cancel,
+            Some(proof_deadline(started, request.time_limit)?),
         )? {
             Some(guard) => guard,
             None if request.cancel.load(Ordering::Acquire) => {
@@ -2114,7 +2139,7 @@ impl SelectionVerifier for Ibex {
         let uu = chart.uniqueness.iter().map(|i| i.upper).collect::<Vec<_>>();
         let mut action_lower = vec![0.0; el.len()];
         let mut action_upper = vec![0.0; el.len()];
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
             Some(guard) => guard,
             None => {
                 return Ok(RootActionEvidence::Incomplete {
@@ -2292,7 +2317,7 @@ impl SelectionVerifier for Ibex {
         let mut point_upper = vec![0.0; el.len()];
         let mut action_lower = vec![0.0; el.len()];
         let mut action_upper = vec![0.0; el.len()];
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
             Some(guard) => guard,
             None => {
                 return Ok(RootNeighborhoodEvidence::Incomplete {
@@ -2475,7 +2500,7 @@ impl SelectionVerifier for Ibex {
         let (next_pl, next_pu) = intervals(&chain.next.parameters);
         let (next_el, next_eu) = intervals(&chain.next.existence);
         let (next_ul, next_uu) = intervals(&chain.next.uniqueness);
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
             Some(guard) => guard,
             None => {
                 return Ok(ChartChainEvidence::Incomplete(
@@ -2680,7 +2705,7 @@ impl SelectionVerifier for Ibex {
                     .collect::<Vec<_>>(),
             ));
         }
-        let _library = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+        let _library = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
             Some(guard) => guard,
             None => {
                 return Ok(SelectionEvidence::Incomplete(
@@ -2891,7 +2916,7 @@ mod tests {
                 }),
                 || {
                     // The legacy math-facing request borrows the exact original control.
-                    let guard = acquire_library(&worker_lock, || Ok(true), None, &execution.cancel)
+                    let guard = acquire_library(&worker_lock, || Ok(true), None, execution.cancellation_control(), None)
                         .unwrap()
                         .unwrap();
                     assert_eq!(worker_available.load(Ordering::Acquire), 0);
@@ -2905,6 +2930,7 @@ mod tests {
             Ok(1)
         );
         drop(holder);
+        IBEX_CHANGED.notify();
         // This independent active team keeps its compute charge; the quiescent waiter
         // must not hold IBEX while waiting for that charge to become available.
         let active_team = crate::solve::Execution::new(
@@ -2917,7 +2943,8 @@ mod tests {
             &lock,
             || Ok(start.elapsed() < Duration::from_secs(1)),
             None,
-            &active_team.cancel,
+            active_team.cancellation_control(),
+            None,
         )
         .unwrap()
         .unwrap();
@@ -2984,7 +3011,7 @@ mod tests {
             }),
             || {
                 assert!(
-                    acquire_library(&poisoned, || Ok(true), Some(&execution), &execution.cancel)
+                    acquire_library(&poisoned, || Ok(true), Some(&execution), execution.cancellation_control(), None)
                         .unwrap()
                         .is_none()
                 );
@@ -2996,7 +3023,8 @@ mod tests {
                             &clean,
                             || panic!("checkpoint unwind control"),
                             Some(&execution),
-                            &execution.cancel,
+                            execution.cancellation_control(),
+                            None,
                         );
                     }))
                     .is_err()
@@ -3032,7 +3060,7 @@ mod tests {
                         execution.cancellation_control().cancel();
                     }
                     let result =
-                        acquire_library(&lock, || Ok(true), Some(&execution), &execution.cancel);
+                        acquire_library(&lock, || Ok(true), Some(&execution), execution.cancellation_control(), None);
                     assert!(result.is_err());
                     drop(result);
                     drop(held);
@@ -3085,7 +3113,7 @@ mod tests {
                 program,
                 &[x],
                 Duration::from_secs(10),
-                &Arc::new(AtomicBool::new(false)),
+                &pse_diagnostics::Cancellation::default(),
                 bytes,
             )
             .unwrap()
@@ -3458,7 +3486,7 @@ mod tests {
             vec![Node::Var(0), Node::Const(Constant::Float(0.0))],
             vec![0],
         );
-        let cancelled = Arc::new(AtomicBool::new(true));
+        let mut cancelled = pse_diagnostics::Cancellation::new(true);
         assert_eq!(
             Ibex::default()
                 .enclose_point_arithmetic(
@@ -3473,7 +3501,7 @@ mod tests {
                 work: PointArithmeticWork::default()
             }
         );
-        cancelled.store(false, Ordering::Release);
+        cancelled = pse_diagnostics::Cancellation::default();
         for (duration, bytes) in [(Duration::ZERO, usize::MAX), (Duration::from_secs(10), 0)] {
             assert_eq!(
                 Ibex::default()
@@ -3496,7 +3524,7 @@ mod tests {
         let bytes = Ibex::default()
             .point_arithmetic_workspace_bytes(&program)
             .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let worker_cancel = cancel.clone();
         let (started_tx, started_rx) = std::sync::mpsc::channel();
         let (result_tx, result_rx) = std::sync::mpsc::channel();
@@ -3513,7 +3541,7 @@ mod tests {
         });
         started_rx.recv().unwrap();
         std::thread::sleep(Duration::from_millis(20));
-        cancel.store(true, Ordering::Release);
+        cancel.cancel();
         let result = result_rx.recv_timeout(Duration::from_secs(1));
         drop(held);
         worker.join().unwrap();
@@ -3954,7 +3982,7 @@ mod tests {
             &residual,
             &eligibility,
             &criterion,
-            &Arc::new(AtomicBool::new(false)),
+            &pse_diagnostics::Cancellation::default(),
             10_000,
         )
         .unwrap()
@@ -4245,7 +4273,7 @@ mod tests {
             let call = count.fetch_add(1, Ordering::AcqRel) + 1;
             // Preparation, first encoding, then stop during second admission.
             if call == 3 {
-                cancel.store(true, Ordering::Release);
+                cancel.cancel();
             }
             Ok(Arc::new(()))
         });
@@ -4254,7 +4282,7 @@ mod tests {
             Ok(Err(SelectionProofRefusal::Resource))
         ));
         assert_eq!(calls.load(Ordering::Acquire), 0);
-        fixture.cancel.store(true, Ordering::Release);
+        fixture.cancel.cancel();
         assert!(matches!(
             verifier.certify_bounded(&request, 2),
             Err(MathError::Cancelled)
@@ -4331,7 +4359,7 @@ mod tests {
     struct Fixture {
         program: Arc<RootIsolationProgram>,
         unknowns: Vec<Unknown>,
-        cancel: Arc<AtomicBool>,
+        cancel: pse_diagnostics::Cancellation,
     }
     impl Fixture {
         fn new(program: RootIsolationProgram, bounds: &[(f64, f64)]) -> Self {
@@ -4346,7 +4374,7 @@ mod tests {
                         upper,
                     })
                     .collect(),
-                cancel: Arc::new(AtomicBool::new(false)),
+                cancel: pse_diagnostics::Cancellation::default(),
             }
         }
         fn alternative(&self, ordinal: usize) -> SelectionAlternative<'_> {
@@ -4642,7 +4670,7 @@ mod tests {
                 .refine_point(&request, &chart, &[1.0], &[f64::NAN], 2)
                 .is_err()
         );
-        fixture.cancel.store(true, Ordering::Release);
+        fixture.cancel.cancel();
         assert_eq!(
             Ibex::default()
                 .refine_point(&request, &chart, &[1.0], &[1.0], 2)
@@ -4875,7 +4903,7 @@ mod tests {
             &residual,
             &eligibility,
             &criterion,
-            &Arc::new(AtomicBool::new(false)),
+            &pse_diagnostics::Cancellation::default(),
             10_000,
         )
         .unwrap()
@@ -5109,7 +5137,7 @@ mod tests {
             &residual,
             &eligibility,
             &criterion,
-            &Arc::new(AtomicBool::new(false)),
+            &pse_diagnostics::Cancellation::default(),
             10_000,
         )
         .unwrap()
@@ -5206,7 +5234,7 @@ mod tests {
             Ibex::default().connect_chain(&chain).unwrap(),
             ChartChainEvidence::Incomplete(SelectionProofRefusal::Resource)
         );
-        fixture.cancel.store(true, Ordering::Release);
+        fixture.cancel.cancel();
         assert!(matches!(
             Ibex::default().connect_chain(&chain),
             Err(MathError::Cancelled)
@@ -5302,7 +5330,7 @@ mod tests {
             &residual,
             &eligibility,
             &criterion,
-            &Arc::new(AtomicBool::new(false)),
+            &pse_diagnostics::Cancellation::default(),
             10_000,
         )
         .unwrap()
@@ -5610,7 +5638,7 @@ mod tests {
             &residual,
             &eligibility,
             &criterion,
-            &Arc::new(AtomicBool::new(false)),
+            &pse_diagnostics::Cancellation::default(),
             10_000,
         )
         .unwrap()

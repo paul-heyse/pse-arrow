@@ -50,15 +50,18 @@ use std::{
 // SCIP 10.0.2 TPI=tny owns one process-static thread pool. Independent serial
 // instances need no gate; concurrent owners retain it until SCIPfree joins TPI.
 static CONCURRENT: Mutex<()> = Mutex::new(());
+static CONCURRENT_CHANGED: pse_diagnostics::WakeSignal = pse_diagnostics::WakeSignal::new();
 static CONCURRENT_FAILED: AtomicBool = AtomicBool::new(false);
 thread_local! { static CONCURRENT_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
 struct ConcurrentAdmission<'a> {
-    _gate: MutexGuard<'a, ()>,
+    _gate: Option<MutexGuard<'a, ()>>,
     failed: &'a AtomicBool,
 }
 impl Drop for ConcurrentAdmission<'_> {
     fn drop(&mut self) {
         CONCURRENT_ACTIVE.set(false);
+        self._gate.take();
+        CONCURRENT_CHANGED.notify();
     }
 }
 impl<'a> ConcurrentAdmission<'a> {
@@ -76,6 +79,7 @@ impl<'a> ConcurrentAdmission<'a> {
         }
         crate::execution::pause_compute();
         loop {
+            let waiting = crate::execution::NativeWait::new(&CONCURRENT_CHANGED, execution.cancellation_control(), Some(execution));
             execution.check()?;
             check_concurrent_health(failed)?;
             match lock.try_lock() {
@@ -85,13 +89,22 @@ impl<'a> ConcurrentAdmission<'a> {
                         Ok(crate::execution::ComputeAvailability::Acquired) => {
                             CONCURRENT_ACTIVE.set(true);
                             return Ok(Self {
-                                _gate: gate,
+                                _gate: Some(gate),
                                 failed,
                             });
                         }
-                        Ok(crate::execution::ComputeAvailability::Unavailable) => drop(gate),
+                        Ok(crate::execution::ComputeAvailability::Unavailable) => {
+                            drop(gate);
+                            CONCURRENT_CHANGED.notify();
+                            // Existing compute admission owns its notifications. Do not
+                            // hold the native gate while waiting for that capacity.
+                            crate::execution::resume_compute(execution)?;
+                            crate::execution::pause_compute();
+                            continue;
+                        },
                         Err(error) => {
                             drop(gate);
+                            CONCURRENT_CHANGED.notify();
                             return Err(error);
                         }
                     }
@@ -103,7 +116,7 @@ impl<'a> ConcurrentAdmission<'a> {
                 }
                 Err(TryLockError::WouldBlock) => {}
             }
-            std::thread::sleep(Duration::from_millis(1));
+            waiting.wait(execution.scope()?.deadline());
         }
     }
 }
@@ -1080,6 +1093,9 @@ impl Instance {
         // remain resident uncertainty. A double native failure also retains compute.
         let compute = if let Some(owner) = &self._concurrent {
             owner.failed.store(true, Ordering::Release);
+            // Quarantine retains the exclusion forever, but waiters must wake
+            // and refuse rather than wait for a release that will never occur.
+            CONCURRENT_CHANGED.notify();
             self.concurrent_may_be_active
                 .then(crate::execution::take_compute_for_quarantine)
                 .flatten()

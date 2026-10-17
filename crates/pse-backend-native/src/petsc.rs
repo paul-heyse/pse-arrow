@@ -18,7 +18,7 @@ use std::{
     ffi::{CStr, c_void},
     panic::{AssertUnwindSafe, catch_unwind},
     ptr,
-    sync::{Condvar, Mutex, MutexGuard, TryLockError},
+    sync::{Mutex, MutexGuard, TryLockError},
     time::Duration,
 };
 mod blocks;
@@ -63,14 +63,8 @@ enum Phase {
     Failed,
 }
 static PROCESS: Mutex<Phase> = Mutex::new(Phase::Fresh);
-static CHANGE: Mutex<()> = Mutex::new(());
-static RELEASED: Condvar = Condvar::new();
-fn notify_release() {
-    let _changed = CHANGE
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    RELEASED.notify_all();
-}
+static RELEASED: pse_diagnostics::WakeSignal = pse_diagnostics::WakeSignal::new();
+fn notify_release() { RELEASED.notify(); }
 thread_local! { static ACTIVE: Cell<bool> = const { Cell::new(false) }; }
 struct Admission {
     phase: Option<MutexGuard<'static, Phase>>,
@@ -85,22 +79,27 @@ impl Admission {
         }
         crate::execution::pause_compute();
         let phase = loop {
+            let waiting = crate::execution::NativeWait::new(&RELEASED, execution.cancellation_control(), Some(execution));
             execution.check()?;
-            let changed = CHANGE
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
             match PROCESS.try_lock() {
                 Ok(guard) => {
-                    drop(changed);
-                    break guard;
+                    match crate::execution::try_resume_compute(execution) {
+                        Ok(crate::execution::ComputeAvailability::Acquired) => break guard,
+                        Ok(crate::execution::ComputeAvailability::Unavailable) => {
+                            drop(guard);
+                            notify_release();
+                            crate::execution::resume_compute(execution)?;
+                            crate::execution::pause_compute();
+                            continue;
+                        }
+                        Err(error) => {
+                            drop(guard);
+                            notify_release();
+                            return Err(error);
+                        }
+                    }
                 }
-                Err(TryLockError::WouldBlock) => {
-                    drop(
-                        RELEASED
-                            .wait_timeout(changed, Duration::from_millis(10))
-                            .unwrap_or_else(std::sync::PoisonError::into_inner),
-                    );
-                }
+                Err(TryLockError::WouldBlock) => waiting.wait(execution.scope()?.deadline()),
                 Err(TryLockError::Poisoned(_)) => {
                     return Err(ProblemError::internal("PETSc process owner poisoned"));
                 }
@@ -110,7 +109,6 @@ impl Admission {
             phase: Some(phase),
             failed: Cell::new(false),
         };
-        crate::execution::resume_compute(execution)?;
         let mut owner = owner;
         let phase = owner
             .phase
@@ -1604,7 +1602,7 @@ mod tests {
             !worker.is_finished(),
             "other-thread admission remains queued while the owner is busy"
         );
-        cancel.store(true, Ordering::Relaxed);
+        cancel.cancel();
         assert!(matches!(
             worker.join().unwrap(),
             Err(ProblemError::Cancelled)
