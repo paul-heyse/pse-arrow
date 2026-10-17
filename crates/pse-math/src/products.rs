@@ -860,15 +860,13 @@ mod tests {
             let mut first = compiled.worker();
             let weights = [2., 3.];
             let direction = [5., 7.];
-            let binding = match kind {
-                ProductKind::WeightedHessian => {
-                    ProductValues::WeightedHessian { weights: &weights }
-                }
-                ProductKind::WeightedHessianAction => ProductValues::WeightedHessianAction {
+            let binding = if kind == ProductKind::WeightedHessian {
+                ProductValues::WeightedHessian { weights: &weights }
+            } else {
+                ProductValues::WeightedHessianAction {
                     weights: &weights,
                     direction: &direction,
-                },
-                _ => unreachable!(),
+                }
             };
             let expected = if kind == ProductKind::WeightedHessian {
                 vec![12., 3., 4.]
@@ -893,15 +891,15 @@ mod tests {
             drop(compiled);
             let changed_weights = [-1., 0.5];
             let changed_direction = [7., 5.];
-            let changed = match kind {
-                ProductKind::WeightedHessian => ProductValues::WeightedHessian {
+            let changed = if kind == ProductKind::WeightedHessian {
+                ProductValues::WeightedHessian {
                     weights: &changed_weights,
-                },
-                ProductKind::WeightedHessianAction => ProductValues::WeightedHessianAction {
+                }
+            } else {
+                ProductValues::WeightedHessianAction {
                     weights: &changed_weights,
                     direction: &changed_direction,
-                },
-                _ => unreachable!(),
+                }
             };
             independent
                 .evaluate_product_into(
