@@ -2329,11 +2329,19 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
         ..EvaluationLimits::default()
     };
     assert!(matches!(
-        support.compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None)),
+        support.compile(
+            Optimization::default(),
+            limits,
+            &pse_kernels::ExecutionScope::new(control.clone(), None)
+        ),
         Err(MathError::Limit("derivative components"))
     ));
     let action = support
-        .compile_directional(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
+        .compile_directional(
+            Optimization::default(),
+            limits,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
+        )
         .unwrap();
     assert!(action.is_directional());
     assert_eq!(action.coordinates(), (0..n).collect::<Vec<_>>());
@@ -2438,7 +2446,11 @@ fn demanded_directional_provider_composition_keeps_original_guard_and_first_part
         ..EvaluationLimits::default()
     };
     let mut worker = support
-        .compile_directional(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
+        .compile_directional(
+            Optimization::default(),
+            limits,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
+        )
         .unwrap()
         .worker();
     let mut providers = BTreeMap::from([(spec.key(), provider)]);

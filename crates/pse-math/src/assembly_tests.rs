@@ -2005,7 +2005,11 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
         };
         let action = Arc::new(
             Arc::new(requested)
-                .compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
+                .compile(
+                    Optimization::default(),
+                    limits,
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
+                )
                 .unwrap(),
         );
         let mut actual = action.worker(BTreeMap::new(), control.clone());
@@ -4703,11 +4707,31 @@ fn prepared_callback_addresses_preserve_reordered_outputs_duplicates_aliases_and
         let (original, values) = fixture(alias, false);
         let mut bindings = original.structure().instances().to_vec();
         bindings[0].contributions = vec![
-            Contribution { output: 1, target: Target::Row(id(11)), scale: -2.0 },
-            Contribution { output: 1, target: Target::PRIMARY, scale: 3.0 },
-            Contribution { output: 0, target: Target::Row(id(10)), scale: 4.0 },
-            Contribution { output: 0, target: Target::PRIMARY, scale: -0.5 },
-            Contribution { output: 1, target: Target::Row(id(10)), scale: 1.0 },
+            Contribution {
+                output: 1,
+                target: Target::Row(id(11)),
+                scale: -2.0,
+            },
+            Contribution {
+                output: 1,
+                target: Target::PRIMARY,
+                scale: 3.0,
+            },
+            Contribution {
+                output: 0,
+                target: Target::Row(id(10)),
+                scale: 4.0,
+            },
+            Contribution {
+                output: 0,
+                target: Target::PRIMARY,
+                scale: -0.5,
+            },
+            Contribution {
+                output: 1,
+                target: Target::Row(id(10)),
+                scale: 1.0,
+            },
         ];
         let structure = CaseStructure::new(
             original.structure().variables().to_vec(),
@@ -4716,28 +4740,77 @@ fn prepared_callback_addresses_preserve_reordered_outputs_duplicates_aliases_and
             original.structure().rows().to_vec(),
             original.structure().objective().cloned(),
             CaseLimits::default(),
-        ).unwrap();
+        )
+        .unwrap();
         let control = pse_diagnostics::Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(control.clone(), None);
         // A Value plan upgraded to First must retain all prepared coordinate addresses.
         let value = CasePlan::prepare(
-            Arc::new(structure), original.bodies().clone(),
-            &standard_registry().unwrap(), DerivativeOrder::Value,
-            AssemblyLimits::default(), scope.cancellation(),
-        ).unwrap();
-        let plan = Arc::new(value.prepare_order(DerivativeOrder::First, scope.cancellation()).unwrap());
-        let assembly = Arc::new(plan.compile(
-            Optimization::default(), EvaluationLimits::default(), &scope,
-        ).unwrap());
+            Arc::new(structure),
+            original.bodies().clone(),
+            &standard_registry().unwrap(),
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            scope.cancellation(),
+        )
+        .unwrap();
+        let plan = Arc::new(
+            value
+                .prepare_order(DerivativeOrder::First, scope.cancellation())
+                .unwrap(),
+        );
+        let assembly = Arc::new(
+            plan.compile(Optimization::default(), EvaluationLimits::default(), &scope)
+                .unwrap(),
+        );
         let local = &assembly.instances[0];
-        assert_eq!(local.objective_terms.iter().map(|term| term.result_row).collect::<Vec<_>>(), [1, 0]);
-        assert_eq!(local.constraint_terms.iter().map(|term| (term.result_row, term.destination)).collect::<Vec<_>>(), [(1, 1), (0, 0), (1, 0)]);
+        assert_eq!(
+            local
+                .objective_terms
+                .iter()
+                .map(|term| term.result_row)
+                .collect::<Vec<_>>(),
+            [1, 0]
+        );
+        assert_eq!(
+            local
+                .constraint_terms
+                .iter()
+                .map(|term| (term.result_row, term.destination))
+                .collect::<Vec<_>>(),
+            [(1, 1), (0, 0), (1, 0)]
+        );
         let mut worker = assembly.worker(BTreeMap::new(), control);
-        assert_eq!(worker.objective(&values).unwrap(), if alias { 10.0 } else { 12.0 });
-        assert_eq!(worker.gradient(&values).unwrap(), if alias { vec![4.0, 0.0] } else { vec![1.5, 2.0] });
-        assert_eq!(worker.constraints(&values).unwrap(), if alias { vec![20.0, -8.0] } else { vec![29.0, -10.0] });
+        assert_eq!(
+            worker.objective(&values).unwrap(),
+            if alias { 10.0 } else { 12.0 }
+        );
+        assert_eq!(
+            worker.gradient(&values).unwrap(),
+            if alias {
+                vec![4.0, 0.0]
+            } else {
+                vec![1.5, 2.0]
+            }
+        );
+        assert_eq!(
+            worker.constraints(&values).unwrap(),
+            if alias {
+                vec![20.0, -8.0]
+            } else {
+                vec![29.0, -10.0]
+            }
+        );
         let sources = worker.constraint_sources().unwrap();
-        assert_eq!(sources.iter().map(|source| (source.instance, source.output, source.value)).collect::<Vec<_>>(),
-            vec![(id(9), 0, if alias { 4.0 } else { 6.0 }), (id(9), 1, if alias { 4.0 } else { 5.0 })]);
+        assert_eq!(
+            sources
+                .iter()
+                .map(|source| (source.instance, source.output, source.value))
+                .collect::<Vec<_>>(),
+            vec![
+                (id(9), 0, if alias { 4.0 } else { 6.0 }),
+                (id(9), 1, if alias { 4.0 } else { 5.0 })
+            ]
+        );
     }
 }

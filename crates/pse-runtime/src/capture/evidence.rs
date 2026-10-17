@@ -371,7 +371,10 @@ pub fn capture_arrow(
     let raw = json(document)?;
     let operation = document.operation.map(|operation| operation.to_string());
     let launch = document.launch_process.as_ref().map(json).transpose()?;
-    let subject = operation.as_deref().or(launch.as_deref()).ok_or_else(|| invalid("capture subject absent"))?;
+    let subject = operation
+        .as_deref()
+        .or(launch.as_deref())
+        .ok_or_else(|| invalid("capture subject absent"))?;
     let kind = json(&document.kind)?;
     let status = json(&document.status)?;
     publish(

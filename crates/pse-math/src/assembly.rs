@@ -846,11 +846,14 @@ impl CasePlan {
                 let result_row = groups[demand]
                     .as_ref()
                     .and_then(|group| group.outputs.binary_search(&contribution.output).ok())
-                    .ok_or_else(|| MathError::Contract("missing prepared contribution output".into()))?;
+                    .ok_or_else(|| {
+                        MathError::Contract("missing prepared contribution output".into())
+                    })?;
                 match contribution.target {
                     Target::PRIMARY => objective_terms.push(OutputTerm {
                         result_row,
-                        first_offset: result_row.checked_mul(coordinates.len())
+                        first_offset: result_row
+                            .checked_mul(coordinates.len())
                             .ok_or(MathError::Limit("objective derivative address"))?,
                         scale: contribution.scale,
                     }),
@@ -863,11 +866,15 @@ impl CasePlan {
                 }
             }
             let gradient_coordinates = if !objective_terms.is_empty() {
-                coordinates.iter().enumerate().map(|(offset, formal)| GradientCoordinate {
-                    offset,
-                    destination: local_columns[offset].get(),
-                    scale: binding.slots[formal.get()].scale(),
-                }).collect()
+                coordinates
+                    .iter()
+                    .enumerate()
+                    .map(|(offset, formal)| GradientCoordinate {
+                        offset,
+                        destination: local_columns[offset].get(),
+                        scale: binding.slots[formal.get()].scale(),
+                    })
+                    .collect()
             } else {
                 Vec::new()
             };
@@ -1401,10 +1408,13 @@ impl CasePlan {
             dimensions = add(dimensions, n)?;
             copies = add(copies, mul(n, size_of::<Slot>() + size_of::<GlobalCol>())?)?;
             copies = add(copies, mul(n, 2 * size_of::<GradientCoordinate>())?)?;
-            copies = add(copies, mul(
-                add(binding.contributions.len(), 8)?,
-                2 * (size_of::<OutputTerm>() + size_of::<ConstraintTerm>()),
-            )?)?;
+            copies = add(
+                copies,
+                mul(
+                    add(binding.contributions.len(), 8)?,
+                    2 * (size_of::<OutputTerm>() + size_of::<ConstraintTerm>()),
+                )?,
+            )?;
             for group in instance.groups.values().flatten() {
                 dimensions = add(dimensions, group.outputs.len())?;
             }
@@ -3161,7 +3171,9 @@ impl CaseWorker {
                     .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?
                     .result;
                 for coordinate in &instance.gradient_coordinates {
-                    let addend = sign * term.scale * coordinate.scale
+                    let addend = sign
+                        * term.scale
+                        * coordinate.scale
                         * result.jacobian[term.first_offset + coordinate.offset];
                     self.gradient_values[coordinate.destination] += addend;
                 }

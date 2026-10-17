@@ -941,14 +941,26 @@ def test_launch_capture_cli_retains_command_and_returns_scientific_exit(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A sampler failure cannot hide or replace a nonzero scientific outcome."""
-    assert diagnostics.main(
-        [
-            "capture-launch", "--output", str(tmp_path / "capture"),
-            "--duration", "0.05", "--startup-timeout", "1", "--",
-            "/bin/sh", "-c", "printf finished > \"$1\"; exit 7", "science",
-            str(tmp_path / "science-finished"),
-        ]
-    ) == 7
+    assert (
+        diagnostics.main(
+            [
+                "capture-launch",
+                "--output",
+                str(tmp_path / "capture"),
+                "--duration",
+                "0.05",
+                "--startup-timeout",
+                "1",
+                "--",
+                "/bin/sh",
+                "-c",
+                'printf finished > "$1"; exit 7',
+                "science",
+                str(tmp_path / "science-finished"),
+            ]
+        )
+        == 7
+    )
     assert (tmp_path / "science-finished").read_text() == "finished"
     document = codec.decode_json(capsys.readouterr().out, CaptureDocument)
     assert document.operation is None
@@ -956,14 +968,23 @@ def test_launch_capture_cli_retains_command_and_returns_scientific_exit(
 
 
 @pytest.mark.unit
-def test_launch_capture_public_literal_arguments_and_working_directory(tmp_path: Path) -> None:
+def test_launch_capture_public_literal_arguments_and_working_directory(
+    tmp_path: Path,
+) -> None:
     from pse.contracts.documents import LaunchCaptureRequest
 
     command, session = diagnostics.launch_capture(
         LaunchCaptureRequest(
             version=1,
-            argv=["/bin/sh", "-c", "printf '%s' \"$1\" > literal", "science", "$(touch WRONG); a b"],
-            cwd=str(tmp_path), output=str(tmp_path / "capture"),
+            argv=[
+                "/bin/sh",
+                "-c",
+                "printf '%s' \"$1\" > literal",
+                "science",
+                "$(touch WRONG); a b",
+            ],
+            cwd=str(tmp_path),
+            output=str(tmp_path / "capture"),
             duration=ClosedDuration(secs=0, nanos=50_000_000),
             startup_timeout=ClosedDuration(secs=1, nanos=0),
             budget=CaptureBudget(memory_bytes=4 << 20, output_bytes=1 << 20),

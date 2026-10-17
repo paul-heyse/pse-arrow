@@ -226,17 +226,28 @@ fn start_sampler(
             "CPU process exited or its PID was reused before attachment".into(),
         ));
     }
-    start_sampler_for(request.output.as_path(), image.locator.pid, image.locator.start_ticks, allowance, files, state, None, "perf")
+    start_sampler_for(
+        request.output.as_path(),
+        image.locator.pid,
+        image.locator.start_ticks,
+        allowance,
+        files,
+        state,
+        None,
+        "perf",
+    )
 }
 fn start_sampler_for(
-    output_path: &Path, pid: u32, ticks: Option<u64>, allowance: u64,
-    files: &mut OwnedFiles, state: &Shared, control: Option<(&Path, &Path)>, sampler_program: &str,
+    output_path: &Path,
+    pid: u32,
+    ticks: Option<u64>,
+    allowance: u64,
+    files: &mut OwnedFiles,
+    state: &Shared,
+    control: Option<(&Path, &Path)>,
+    sampler_program: &str,
 ) -> Result<Sampler, CaptureError> {
-    let label = format!(
-        "{}-{:016x}",
-        pid,
-        ticks.unwrap_or(0)
-    );
+    let label = format!("{}-{:016x}", pid, ticks.unwrap_or(0));
     let raw = output_path.join(format!("{label}.perf.data"));
     let log = output_path.join(format!("{label}.perf.log"));
     // Two independently hard-limited files fit this sampler's reservation.
@@ -280,7 +291,9 @@ fn start_sampler_for(
             .stderr(OpenOptions::new().append(true).open(&log)?);
         command = controlled;
     }
-    let tool = Tool { child: command.spawn()? };
+    let tool = Tool {
+        child: command.spawn()?,
+    };
     Ok(Sampler {
         tool,
         raw,
@@ -585,7 +598,11 @@ pub(super) fn run(
     document(state).observed_duration = started.elapsed();
     finalize(&mut samplers, state, &mut files)
 }
-fn finalize(samplers: &mut [Sampler], state: &Shared, files: &mut OwnedFiles) -> Result<(), CaptureError> {
+fn finalize(
+    samplers: &mut [Sampler],
+    state: &Shared,
+    files: &mut OwnedFiles,
+) -> Result<(), CaptureError> {
     for sampler in samplers.iter_mut() {
         if sampler.finished.is_none() {
             let (status, owner_sigint_sent) = sampler.tool.interrupt_and_join()?;
@@ -662,53 +679,93 @@ fn finalize(samplers: &mut [Sampler], state: &Shared, files: &mut OwnedFiles) ->
 /// Link only actual published operations from the exact launched process. Discovery itself
 /// neither creates an observation owner nor makes process samples operation-exclusive.
 pub(super) fn discover_launch(
-    directory: &Path, locator: &crate::observation::ProcessLocator,
-    checkpoint: &mut Option<PathBuf>, cursor: &mut Option<String>, state: &Shared,
+    directory: &Path,
+    locator: &crate::observation::ProcessLocator,
+    checkpoint: &mut Option<PathBuf>,
+    cursor: &mut Option<String>,
+    state: &Shared,
 ) {
     let same_process = |candidate: &crate::observation::ProcessLocator| {
-        candidate.pid == locator.pid && locator.start_ticks.is_some()
+        candidate.pid == locator.pid
+            && locator.start_ticks.is_some()
             && candidate.start_ticks == locator.start_ticks
     };
     if checkpoint.is_none() {
-        match crate::inspection::list_processes(directory, crate::inspection::DiagnosticListRequest {
-            after: cursor.clone(), limit: 16,
-        }) {
+        match crate::inspection::list_processes(
+            directory,
+            crate::inspection::DiagnosticListRequest {
+                after: cursor.clone(),
+                limit: 16,
+            },
+        ) {
             Ok(page) => {
                 *cursor = page.next;
-                *checkpoint = page.processes.into_iter().find(|process| {
-                    process.locator.as_ref().is_some_and(same_process)
-                }).map(|process| process.checkpoint);
+                *checkpoint = page
+                    .processes
+                    .into_iter()
+                    .find(|process| process.locator.as_ref().is_some_and(same_process))
+                    .map(|process| process.checkpoint);
             }
-            Err(error) => { failure(state, error); return; }
+            Err(error) => {
+                failure(state, error);
+                return;
+            }
         }
     }
-    let Some(path) = checkpoint else { return; };
+    let Some(path) = checkpoint else {
+        return;
+    };
     let image = match read_checkpoint(path) {
         Ok(image) if same_process(&image.locator) => image,
-        Ok(_) => { failure(state, "launch checkpoint no longer matches owned process/start identity"); return; }
-        Err(error) => { failure(state, error); return; }
+        Ok(_) => {
+            failure(
+                state,
+                "launch checkpoint no longer matches owned process/start identity",
+            );
+            return;
+        }
+        Err(error) => {
+            failure(state, error);
+            return;
+        }
     };
     let mut selected = Vec::new();
     let mut omitted = 0_u64;
     for operation in &image.operations {
-        for id in std::iter::once(operation.id).chain(operation.children.iter().map(|child| child.id)) {
+        for id in
+            std::iter::once(operation.id).chain(operation.children.iter().map(|child| child.id))
+        {
             if !selected.contains(&id) {
-                if selected.len() < 512 { selected.push(id); }
-                else { omitted = omitted.saturating_add(1); }
+                if selected.len() < 512 {
+                    selected.push(id);
+                } else {
+                    omitted = omitted.saturating_add(1);
+                }
             }
         }
     }
     let mut entry = target(&image, &selected);
-    entry.concurrent_operations = image.operations.iter().filter(|operation| operation.finished_at.is_none()).count() > 1;
+    entry.concurrent_operations = image
+        .operations
+        .iter()
+        .filter(|operation| operation.finished_at.is_none())
+        .count()
+        > 1;
     let mut state = document(state);
     state.loss.refused_items = state.loss.refused_items.saturating_add(omitted);
     state.loss.source_partial |= omitted > 0 || source_partial(&image, &selected);
     state.loss.unknown_clock |= image.clock.is_none();
-    if let Some(target) = state.targets.first_mut() { *target = entry; }
+    if let Some(target) = state.targets.first_mut() {
+        *target = entry;
+    }
     for operation in selected {
         if !state.related_operations.contains(&operation) {
-            if state.related_operations.len() < 512 { state.related_operations.push(operation); }
-            else { state.loss.refused_items = state.loss.refused_items.saturating_add(1); state.loss.source_partial = true; }
+            if state.related_operations.len() < 512 {
+                state.related_operations.push(operation);
+            } else {
+                state.loss.refused_items = state.loss.refused_items.saturating_add(1);
+                state.loss.source_partial = true;
+            }
         }
     }
 }
@@ -717,7 +774,9 @@ pub(super) fn discover_launch(
 struct ControlPaths([PathBuf; 2]);
 impl Drop for ControlPaths {
     fn drop(&mut self) {
-        for path in &self.0 { let _ = std::fs::remove_file(path); }
+        for path in &self.0 {
+            let _ = std::fs::remove_file(path);
+        }
     }
 }
 
@@ -725,7 +784,8 @@ impl Drop for ControlPaths {
 pub(super) fn run_launched(
     request: &super::launch::LaunchCaptureRequest,
     locator: &crate::observation::ProcessLocator,
-    stop: &AtomicBool, state: &Shared,
+    stop: &AtomicBool,
+    state: &Shared,
     ready: &std::sync::mpsc::SyncSender<Result<(), String>>,
 ) -> Result<(), CaptureError> {
     run_launched_program(request, locator, stop, state, ready, "perf")
@@ -733,7 +793,8 @@ pub(super) fn run_launched(
 pub(super) fn run_launched_program(
     request: &super::launch::LaunchCaptureRequest,
     locator: &crate::observation::ProcessLocator,
-    stop: &AtomicBool, state: &Shared,
+    stop: &AtomicBool,
+    state: &Shared,
     ready: &std::sync::mpsc::SyncSender<Result<(), String>>,
     sampler_program: &str,
 ) -> Result<(), CaptureError> {
@@ -742,16 +803,34 @@ pub(super) fn run_launched_program(
     let ack_path = request.output.join("perf-ack.fifo");
     let _control_paths = ControlPaths([control_path.clone(), ack_path.clone()]);
     for path in [&control_path, &ack_path] {
-        rustix::fs::mkfifoat(rustix::fs::CWD, path, rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR).map_err(std::io::Error::from)?;
+        rustix::fs::mkfifoat(
+            rustix::fs::CWD,
+            path,
+            rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+        )
+        .map_err(std::io::Error::from)?;
     }
-    let open = |path: &Path| OpenOptions::new().read(true).write(true)
-        .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32).open(path);
+    let open = |path: &Path| {
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32)
+            .open(path)
+    };
     let mut control = open(&control_path)?;
     let mut ack = open(&ack_path)?;
     let mut files = OwnedFiles::new(request.budget.output_bytes);
     let allowance = request.budget.output_bytes / 4 * 3;
-    let mut sampler = start_sampler_for(&request.output, locator.pid, locator.start_ticks,
-        allowance, &mut files, state, Some((&control_path, &ack_path)), sampler_program)?;
+    let mut sampler = start_sampler_for(
+        &request.output,
+        locator.pid,
+        locator.start_ticks,
+        allowance,
+        &mut files,
+        state,
+        Some((&control_path, &ack_path)),
+        sampler_program,
+    )?;
     let result = (|| {
         control.write_all(b"enable\n")?;
         let started = Instant::now();
@@ -759,24 +838,42 @@ pub(super) fn run_launched_program(
         loop {
             let mut bytes = [0_u8; 4];
             match ack.read(&mut bytes) {
-                Ok(0) => {},
+                Ok(0) => {}
                 Ok(n) => response.extend_from_slice(&bytes[..n]),
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {},
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
                 Err(error) => return Err(error.into()),
             }
-            if response == b"ack\n" { break; }
+            if response == b"ack\n" {
+                break;
+            }
             if !b"ack\n".starts_with(&response) {
-                return Err(CaptureError::Invalid("invalid perf enable acknowledgement".into()));
+                return Err(CaptureError::Invalid(
+                    "invalid perf enable acknowledgement".into(),
+                ));
             }
             if sampler.tool.poll()?.is_some() {
-                return Err(CaptureError::Invalid(format!("perf exited before enable acknowledgement: {}", log_prefix(&sampler.log))));
+                return Err(CaptureError::Invalid(format!(
+                    "perf exited before enable acknowledgement: {}",
+                    log_prefix(&sampler.log)
+                )));
             }
             if started.elapsed() >= request.startup_timeout {
-                return Err(CaptureError::Invalid("perf startup acknowledgement timed out".into()));
+                return Err(CaptureError::Invalid(
+                    "perf startup acknowledgement timed out".into(),
+                ));
             }
-            let remaining = request.startup_timeout.saturating_sub(started.elapsed()).min(Duration::from_millis(50));
-            let timeout = rustix::event::Timespec { tv_sec: remaining.as_secs() as i64, tv_nsec: remaining.subsec_nanos() as i64 };
-            let mut descriptors = [rustix::event::PollFd::new(&ack, rustix::event::PollFlags::IN)];
+            let remaining = request
+                .startup_timeout
+                .saturating_sub(started.elapsed())
+                .min(Duration::from_millis(50));
+            let timeout = rustix::event::Timespec {
+                tv_sec: remaining.as_secs() as i64,
+                tv_nsec: remaining.subsec_nanos() as i64,
+            };
+            let mut descriptors = [rustix::event::PollFd::new(
+                &ack,
+                rustix::event::PollFlags::IN,
+            )];
             rustix::event::poll(&mut descriptors, Some(&timeout)).map_err(std::io::Error::from)?;
         }
         document(state).loss.sampling_loss_unknown = true;
@@ -801,13 +898,19 @@ pub(super) fn run_launched_program(
                 document(state).loss.output_exhausted = true;
                 break;
             }
-            if sampler.finished.is_some() || stop.load(Ordering::Acquire) || started.elapsed() >= request.duration { break; }
+            if sampler.finished.is_some()
+                || stop.load(Ordering::Acquire)
+                || started.elapsed() >= request.duration
+            {
+                break;
+            }
             std::thread::sleep(Duration::from_millis(50));
         }
         Ok(())
     })();
     // Closing/removing the control endpoints affects only perf, never the gated command.
-    drop(control); drop(ack);
+    drop(control);
+    drop(ack);
     // Capture-owned FIFO nodes are removed by ControlPaths on every return path.
     if let Err(error) = result {
         let message = error.to_string();

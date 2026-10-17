@@ -22,29 +22,27 @@ from pse import codec
 from pse._build import (
     InspectionError,
     _diagnostic_capture,
-    _diagnostic_launch_capture,
     _diagnostic_capture_arrow,
     _diagnostic_detail_arrow,
     _diagnostic_detail_records,
     _diagnostic_inspect,
     _diagnostic_inspect_image,
+    _diagnostic_launch_capture,
     _diagnostic_list,
     _diagnostic_operation_id,
     _diagnostic_operation_text,
     _diagnostic_read_checkpoint,
     _diagnostic_read_detail,
     _NativeCaptureSession,
-    _NativeLaunchedCommand,
     _NativeDetailSession,
     _NativeDiagnostics,
+    _NativeLaunchedCommand,
     _NativeOperationObservations,
 )
 from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
-    LaunchCaptureRequest,
-    ProcessLocator,
     CheckpointIdentity,
     ClosedDuration,
     DetailDocument,
@@ -54,11 +52,13 @@ from pse.contracts.documents import (
     DiagnosticProcessPage,
     InspectionDocument,
     InspectionRequest,
+    LaunchCaptureRequest,
     NumericalHistoryPolicy,
     OperationId,
     OperationPage,
     OperationSnapshot,
     ProcessCheckpoint,
+    ProcessLocator,
 )
 from pse.contracts.enums import CaptureKind, CaptureStatus
 
@@ -188,14 +188,18 @@ class LaunchedCommand:
         return self
 
     def __exit__(
-        self, exc_type: type[BaseException] | None, exc: BaseException | None,
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
         """Drain the command when its owner context ends."""
         self.close()
 
 
-def launch_capture(request: LaunchCaptureRequest) -> tuple[LaunchedCommand, CaptureSession]:
+def launch_capture(
+    request: LaunchCaptureRequest,
+) -> tuple[LaunchedCommand, CaptureSession]:
     """Enable sampling before exec; sampler failure still releases the command.
 
     The command owner must be retained independently. Capture duration, stop,
@@ -473,7 +477,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     capturing.add_argument("--memory-bytes", type=_positive, default=16 << 20)
     capturing.add_argument("--output-bytes", type=_positive, default=256 << 20)
     capturing.add_argument("--json", action="store_true")
-    launching = commands.add_parser("capture-launch", help="sample an owned command before exec")
+    launching = commands.add_parser(
+        "capture-launch", help="sample an owned command before exec"
+    )
     launching.add_argument("--output", type=Path, required=True)
     launching.add_argument("--cwd", type=Path)
     launching.add_argument("--duration", type=_seconds, default=10.0)
@@ -526,10 +532,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             if not command_argv:
                 parser.error("capture-launch requires -- executable [arguments]")
             request = LaunchCaptureRequest(
-                version=1, argv=command_argv,
-                cwd=None if args.cwd is None else str(args.cwd), output=str(args.output),
-                duration=_duration(args.duration), startup_timeout=_duration(args.startup_timeout),
-                budget=CaptureBudget(memory_bytes=args.memory_bytes, output_bytes=args.output_bytes),
+                version=1,
+                argv=command_argv,
+                cwd=None if args.cwd is None else str(args.cwd),
+                output=str(args.output),
+                duration=_duration(args.duration),
+                startup_timeout=_duration(args.startup_timeout),
+                budget=CaptureBudget(
+                    memory_bytes=args.memory_bytes, output_bytes=args.output_bytes
+                ),
             )
             command, session = launch_capture(request)
             try:
@@ -545,7 +556,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             finally:
                 command.close()
             print(codec.encode_json(result).decode())
-            return status if status else (1 if result.status == CaptureStatus.FAILED else 0)
+            return status or (1 if result.status == CaptureStatus.FAILED else 0)
         selected = operation_id(args.operation)
         if args.command == "inspect":
             document = inspect_checkpoint(

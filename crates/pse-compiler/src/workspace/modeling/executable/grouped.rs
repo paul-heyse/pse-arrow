@@ -1365,8 +1365,12 @@ mod dependency_tests {
             "actual checked-member bindings consume the existing binding extent allowance"
         );
         let assembly = Arc::new(
-            plan.compile(Default::default(), Default::default(), &pse_kernels::ExecutionScope::new(cancellation.clone(), None))
-                .unwrap(),
+            plan.compile(
+                Default::default(),
+                Default::default(),
+                &pse_kernels::ExecutionScope::new(cancellation.clone(), None),
+            )
+            .unwrap(),
         );
         let mut worker = assembly.worker(BTreeMap::new(), cancellation);
         let mut values = CaseValues {

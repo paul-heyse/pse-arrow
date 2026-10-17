@@ -982,8 +982,12 @@ fn kernel_conservation_assembles_local_derivatives() {
         )
         .unwrap();
     let assembly = Arc::new(
-        plan.compile(Default::default(), Default::default(), &pse_kernels::ExecutionScope::new(flag.clone(), None))
-            .unwrap(),
+        plan.compile(
+            Default::default(),
+            Default::default(),
+            &pse_kernels::ExecutionScope::new(flag.clone(), None),
+        )
+        .unwrap(),
     );
     let mut worker = assembly.worker(BTreeMap::new(), flag);
     let values = CaseValues {
@@ -3151,7 +3155,11 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
         .unwrap();
     let assembly = baseline
         .plan
-        .compile(profile.optimization, profile.evaluation, &pse_kernels::ExecutionScope::new(cancel.clone(), None))
+        .compile(
+            profile.optimization,
+            profile.evaluation,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+        )
         .unwrap();
     let bytes = assembly.numeric_worker_bytes();
     assert!(bytes > 1);
@@ -3176,7 +3184,11 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
     );
     let exact_assembly = directional
         .plan
-        .compile(exact.optimization, exact.evaluation, &pse_kernels::ExecutionScope::new(cancel.clone(), None))
+        .compile(
+            exact.optimization,
+            exact.evaluation,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+        )
         .unwrap();
     assert_eq!(exact_assembly.numeric_worker_bytes(), bytes);
     let rebound = directional.rebind(&values, &cancel).unwrap();
@@ -3418,8 +3430,11 @@ fn fixture(
     cancel: &Cancellation,
 ) -> Result<Fixture> {
     let plan = admitted.plan(&registry, order, AssemblyLimits::default(), cancel)?;
-    let assembly =
-        Arc::new(plan.compile(Optimization::default(), EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))?);
+    let assembly = Arc::new(plan.compile(
+        Optimization::default(),
+        EvaluationLimits::default(),
+        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+    )?);
     Ok(Fixture {
         admitted: admitted.clone(),
         assembly,
@@ -6591,8 +6606,12 @@ fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control
             )
             .unwrap();
         let assembly = Arc::new(
-            plan.compile(Default::default(), Default::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))
-                .unwrap(),
+            plan.compile(
+                Default::default(),
+                Default::default(),
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
+            .unwrap(),
         );
         let mut worker = assembly.worker(BTreeMap::new(), cancel);
         let values = CaseValues {

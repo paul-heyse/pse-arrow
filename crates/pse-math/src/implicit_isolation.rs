@@ -5,10 +5,7 @@
 use crate::{MathError, factorable::RootIsolationProgram};
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::DerivativeOrder;
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 /// A finite closed interval in original coordinates.
 #[derive(Clone, Copy, Debug, PartialEq)]

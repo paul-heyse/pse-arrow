@@ -1713,9 +1713,13 @@ pub(crate) struct NativeRunResult {
 impl NativeRunResult {
     #[pyo3(signature=(step=None))]
     fn diagnostic_origin(
-        &self, py: Python<'_>, step: Option<usize>,
+        &self,
+        py: Python<'_>,
+        step: Option<usize>,
     ) -> PyResult<documents::DocumentValue<native::DiagnosticOrigin>> {
-        self.inner.diagnostic_origin(step).map(documents::DocumentValue)
+        self.inner
+            .diagnostic_origin(step)
+            .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
     }
     fn replay(&self) -> NativeScientificReplay {

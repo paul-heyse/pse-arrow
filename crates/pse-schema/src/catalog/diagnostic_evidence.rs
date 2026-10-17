@@ -81,6 +81,15 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "Immutable optional capture link and its original typed document. Capture failure, output prefixes, loss, symbols and process/thread scope remain independent from scientific result permission.",
         ),
     ] {
-        relation_version(b, N::Runtime, name, if name == "diagnostic_captures" { 2 } else { 1 }, S::Derived, &[key], columns, doc);
+        relation_version(
+            b,
+            N::Runtime,
+            name,
+            if name == "diagnostic_captures" { 2 } else { 1 },
+            S::Derived,
+            &[key],
+            columns,
+            doc,
+        );
     }
 }

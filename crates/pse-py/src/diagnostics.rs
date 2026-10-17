@@ -464,7 +464,6 @@ pub(crate) fn diagnostic_capture(
     })
 }
 
-
 /// The independently owned launched command. No capture session retains this object.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 pub(crate) struct NativeLaunchedCommand {
@@ -472,12 +471,17 @@ pub(crate) struct NativeLaunchedCommand {
 }
 impl NativeLaunchedCommand {
     fn command(&self) -> std::sync::MutexGuard<'_, capture::LaunchedCommand> {
-        self.command.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.command
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 impl Drop for NativeLaunchedCommand {
     fn drop(&mut self) {
-        let command = self.command.get_mut().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let command = self
+            .command
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let _ = Python::try_attach(|py| py.detach(|| command.close()));
         // The Rust owner also drains during interpreter shutdown if attachment is unavailable.
     }
@@ -489,13 +493,17 @@ impl NativeLaunchedCommand {
         DocumentValue(self.command().locator().clone())
     }
     fn try_wait(&self, py: Python<'_>) -> PyResult<Option<i32>> {
-        py.detach(|| self.command().try_wait()).map_err(|error| errors::diagnostic(py, &error))
+        py.detach(|| self.command().try_wait())
+            .map_err(|error| errors::diagnostic(py, &error))
     }
     fn wait(&self, py: Python<'_>) -> PyResult<i32> {
         loop {
-            let result = py.detach(|| self.command().wait_ready(Duration::from_millis(20)))
+            let result = py
+                .detach(|| self.command().wait_ready(Duration::from_millis(20)))
                 .map_err(|error| errors::diagnostic(py, &error))?;
-            if let Some(status) = result { return Ok(status); }
+            if let Some(status) = result {
+                return Ok(status);
+            }
             // An explicit Python interrupt cancels the command owner, never via capture stop.
             if let Err(signal) = py.check_signals() {
                 let _ = py.detach(|| self.command().cancel());
@@ -504,18 +512,31 @@ impl NativeLaunchedCommand {
         }
     }
     fn cancel(&self, py: Python<'_>) -> PyResult<i32> {
-        py.detach(|| self.command().cancel()).map_err(|error| errors::diagnostic(py, &error))
+        py.detach(|| self.command().cancel())
+            .map_err(|error| errors::diagnostic(py, &error))
     }
-    fn close(&self, py: Python<'_>) -> PyResult<i32> { self.cancel(py) }
+    fn close(&self, py: Python<'_>) -> PyResult<i32> {
+        self.cancel(py)
+    }
 }
 #[pyfunction]
 pub(crate) fn diagnostic_launch_capture(
-    py: Python<'_>, request: DocumentInput<capture::LaunchCaptureRequest>,
+    py: Python<'_>,
+    request: DocumentInput<capture::LaunchCaptureRequest>,
 ) -> PyResult<(NativeLaunchedCommand, NativeCaptureSession)> {
-    let (command, session) = py.detach(|| capture::launch_capture(request.0))
+    let (command, session) = py
+        .detach(|| capture::launch_capture(request.0))
         .map_err(|error| errors::diagnostic(py, &error))?;
-    Ok((NativeLaunchedCommand { command: Mutex::new(command) },
-        NativeCaptureSession { state: Mutex::new(CaptureState {
-            session: Some(session), completed: None, worker_failed: false,
-        }) }))
+    Ok((
+        NativeLaunchedCommand {
+            command: Mutex::new(command),
+        },
+        NativeCaptureSession {
+            state: Mutex::new(CaptureState {
+                session: Some(session),
+                completed: None,
+                worker_failed: false,
+            }),
+        },
+    ))
 }

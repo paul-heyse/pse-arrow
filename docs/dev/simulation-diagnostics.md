@@ -370,6 +370,26 @@ navigation. It omits retained point/counter arrays from the human view; `--json`
 encoding. Its thin recipe uses the existing checkout/native environment and light workload
 admission, without rebuilding an extension or opening a database.
 
+## Explicit numerical diagnostic operations
+
+Dense `diagnose`, native `diagnose_linear`/`diagnose_jacobian` and finite `diagnose_samples` share
+one caller clock across declaration, preparation, shared-product waiting, numerical admission,
+analysis and initial response export. Python starts it before preparation using the unchanged
+`SolveSettings.controls.time_limit`; sample controls can narrow that same allowance. Rust callers
+create a `workflow::DiagnosticOperation` before preparation and pass its driver to preparation and
+the operation to analysis. Reusing the operation across samples does not renew its deadline.
+Leaving a shared preparation wait does not cancel another caller's producer. Owned numerical work
+is cancelled and joined on expiry; opaque library calls may return later, but cannot publish a late
+successful result. Term-combination analysis has the same scoped cancellation and admission.
+
+Each endpoint accepts an optional typed `origin`, normally `result.diagnostic_origin(step=...)`.
+This copies the original run, durable attempt, native attempt, diagnostic operation and retained
+failure without reevaluation. Whole-run lookup includes authored refusals; a selected accepted step
+does not inherit a later step's failure. Diagnostic results and generated Arrow exports retain that
+context (`origin_json` in version 2 relations). A standalone diagnostic keeps `origin=None`.
+Origin links, raw native products and partial trajectories do not grant scientific permission;
+joined availability follows each product's governing original completion.
+
 ## Explicit bounded capture
 
 Inspection never starts capture implicitly. `pse_runtime::capture::start_capture(request)`
@@ -427,7 +447,7 @@ artifact; file length alone does not establish a complete packet stream.
 `Cpu` uses explicitly attached userspace `perf` sampling with DWARF call chains, then bounded
 `perf script --no-inline` frame decoding and Samply save-only import. The bounded frame-name
 check omits inline expansion; the raw recording remains available for deeper analysis.
-CPU capture requires the selected operation to be active in its published checkpoint.
+Checkpoint-attached CPU capture requires the selected operation to be active in its published checkpoint.
 For a completed root with continuing work, select its active related operation; use `Timeline`
 to read retained history. Sampling cannot recover CPU work that has already finished.
 It does not launch a UI/server or
@@ -443,13 +463,31 @@ file creation or profile conversion as useful-frame evidence. Missing tools, per
 unwinding, symbols or target identity surface as independent capture failures/partiality.
 Kernel sampling loss remains unknown unless quantified by the adapter.
 
+For short commands, `pse.diagnostics.launch_capture(LaunchCaptureRequest(...))` returns
+separate `LaunchedCommand` and `CaptureSession` owners. Perf starts disabled and must acknowledge
+enablement before a fresh exec gate releases the scientific executable, so imports and model
+preparation can be sampled. Arguments are a literal argv vector; `cwd` is explicit. If profiler
+startup fails or exceeds `startup_timeout`, the command still starts and the capture reports its
+independent failure. Stopping or dropping the capture never stops the command. Explicit command
+`cancel()`/`close()` and command-owner drop stop its owned process group; `wait()` drains and reaps it.
+
+```bash
+just diagnostics capture-launch --output /tmp/pse-launch-new --duration 10 -- .venv/bin/python run_case.py
+```
+
+The CLI preserves the command exit/signal outcome; a capture failure makes an otherwise successful
+command return failure. A launched `CaptureDocument` version 2 initially has `operation=None` and
+an exact `launch_process`. Bounded discovery can add actual published `related_operations`, clock
+and thread facts later; it cannot invent operation-exclusive CPU or preceding history. The derived
+capture view uses a nonnullable process/operation `subject` and nullable operation/launch columns.
+
 `CaptureDocument` keeps requested versus observed duration, targets and clock uncertainty,
 output prefixes, symbol evidence, open intervals, losses and errors separate from scientific
 outcomes. Output exhaustion, refused events, source loss and unknown clocks remain visible.
 Neither a completed capture nor a readable file establishes numerical correctness or a root
 cause. Tokio Console, allocation/native-heap and off-CPU/wait integrations are not supported
 by this capture surface; their suggested next observations remain optional and unavailable,
-not zero work. Current acceptance and remaining qualification belong to Plan 40c/40e.
+not zero work. Current selected acceptance belongs to the Plan 43 Outcomes.
 
 
 ## Coherent source records and selected detail

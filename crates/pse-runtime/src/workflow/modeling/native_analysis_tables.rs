@@ -57,10 +57,15 @@ impl ModelingLinearDiagnostics {
                 endpoint(i)?;
             }
         }
-        let origin_json = self.origin.as_ref().map(serde_json::to_string).transpose().map_err(|e| contract(e.to_string()))?;
+        let origin_json = self
+            .origin
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|e| contract(e.to_string()))?;
         let table = one(&self.runtime, self._owner.size(), || {
             RuntimeModelingLinearDiagnosticsRow {
-            origin_json,
+                origin_json,
                 run_id: self.run_id,
                 source_identity: self.source_identity,
                 numerical_identity: self.numerical_identity,
@@ -254,7 +259,12 @@ impl ModelingJacobianOptimization {
     /// Export scaled-matrix certificates alongside the physical point and original native stops.
     pub fn into_export(self) -> Result<ModelingNativeAnalysis, WorkflowError> {
         use jacobian::*;
-        let origin_json = self.origin.as_ref().map(serde_json::to_string).transpose().map_err(|e| contract(e.to_string()))?;
+        let origin_json = self
+            .origin
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|e| contract(e.to_string()))?;
         let table = one(&self.runtime, self._owner.size(), || {
             RuntimeModelingJacobianOptimizationRow{
             origin_json,

@@ -6,9 +6,7 @@ use std::{
     io::Read,
     os::unix::process::CommandExt,
     process::{Child, Command, ExitStatus, Stdio},
-    sync::{
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
     time::Instant,
 };
 use symbolica::{
@@ -179,21 +177,31 @@ impl CompilerChild {
         loop {
             // The leader remains unreaped, reserving the group identity while
             // every actual member is discovered, signalled and awaited by pidfd.
-            if let Err(error) = rustix::process::kill_process_group(self.group, rustix::process::Signal::KILL)
+            if let Err(error) =
+                rustix::process::kill_process_group(self.group, rustix::process::Signal::KILL)
                 && error != rustix::io::Errno::SRCH
-            { retain_unknown_drain(error); }
+            {
+                retain_unknown_drain(error);
+            }
             let members = match group_members(self.group.as_raw_pid()) {
                 Ok(members) => members,
                 Err(error) => retain_unknown_drain(error),
             };
-            if members.is_empty() { break; }
-            for member in &members {
-                if let Err(error) = rustix::process::pidfd_send_signal(member, rustix::process::Signal::KILL)
-                    && error != rustix::io::Errno::SRCH
-                { retain_unknown_drain(error); }
+            if members.is_empty() {
+                break;
             }
             for member in &members {
-                if let Err(error) = wait_exit(member, None) { retain_unknown_drain(error); }
+                if let Err(error) =
+                    rustix::process::pidfd_send_signal(member, rustix::process::Signal::KILL)
+                    && error != rustix::io::Errno::SRCH
+                {
+                    retain_unknown_drain(error);
+                }
+            }
+            for member in &members {
+                if let Err(error) = wait_exit(member, None) {
+                    retain_unknown_drain(error);
+                }
             }
             // A member may have forked before its kill. Re-inventory after all
             // known exits; a child/leader exit is never whole-group drain.
@@ -208,7 +216,9 @@ impl CompilerChild {
 }
 impl Drop for CompilerChild {
     fn drop(&mut self) {
-        if !self.joined { let _ = self.drain(); }
+        if !self.joined {
+            let _ = self.drain();
+        }
     }
 }
 /// No safe readiness source exists after an unproved inventory/drain fault.
@@ -220,30 +230,50 @@ fn retain_unknown_drain(error: impl std::fmt::Display) -> ! {
         context.text("math.native_compiler_drain_fault", &error.to_string());
         context.text("math.native_compiler_state", "blocked-unproved-drain");
     }
-    loop { std::thread::park(); }
+    loop {
+        std::thread::park();
+    }
 }
 fn proc_identity(stat: &str) -> std::io::Result<(bool, i32, u64)> {
-    let fields = stat.rsplit_once(") ")
+    let fields = stat
+        .rsplit_once(") ")
         .map(|(_, tail)| tail.split_whitespace().collect::<Vec<_>>())
         .ok_or_else(|| std::io::Error::other("malformed compiler group stat"))?;
-    let group = fields.get(2).and_then(|value| value.parse().ok())
+    let group = fields
+        .get(2)
+        .and_then(|value| value.parse().ok())
         .ok_or_else(|| std::io::Error::other("missing compiler group identity"))?;
-    let start = fields.get(19).and_then(|value| value.parse().ok())
+    let start = fields
+        .get(19)
+        .and_then(|value| value.parse().ok())
         .ok_or_else(|| std::io::Error::other("missing compiler member start identity"))?;
-    Ok((!matches!(fields.first().copied(), Some("Z" | "X")), group, start))
+    Ok((
+        !matches!(fields.first().copied(), Some("Z" | "X")),
+        group,
+        start,
+    ))
 }
 fn group_members(group: i32) -> std::io::Result<Vec<std::os::fd::OwnedFd>> {
     let mut members = Vec::new();
     for entry in std::fs::read_dir("/proc")? {
         let entry = entry?;
-        let Some(pid) = entry.file_name().to_str().and_then(|name| name.parse::<i32>().ok()).and_then(rustix::process::Pid::from_raw) else { continue; };
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|name| name.parse::<i32>().ok())
+            .and_then(rustix::process::Pid::from_raw)
+        else {
+            continue;
+        };
         let stat_path = entry.path().join("stat");
         let before = match std::fs::read_to_string(&stat_path) {
             Ok(stat) => proc_identity(&stat)?,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => return Err(error),
         };
-        if !before.0 || before.1 != group { continue; }
+        if !before.0 || before.1 != group {
+            continue;
+        }
         let fd = match rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()) {
             Ok(fd) => fd,
             Err(rustix::io::Errno::SRCH) => continue,
@@ -256,38 +286,69 @@ fn group_members(group: i32) -> std::io::Result<Vec<std::os::fd::OwnedFd>> {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => return Err(error),
         };
-        if after.0 && after.1 == group && after.2 == before.2 { members.push(fd); }
+        if after.0 && after.1 == group && after.2 == before.2 {
+            members.push(fd);
+        }
     }
     Ok(members)
 }
-fn wait_exit(fd: &std::os::fd::OwnedFd, scope: Option<&pse_kernels::ExecutionScope>) -> Result<(), MathError> {
-    use rustix::{event::{EventfdFlags, PollFd, PollFlags, Timespec}, io::Errno};
+fn wait_exit(
+    fd: &std::os::fd::OwnedFd,
+    scope: Option<&pse_kernels::ExecutionScope>,
+) -> Result<(), MathError> {
+    use rustix::{
+        event::{EventfdFlags, PollFd, PollFlags, Timespec},
+        io::Errno,
+    };
     struct Signal(std::os::fd::OwnedFd);
     impl std::task::Wake for Signal {
-        fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
         fn wake_by_ref(self: &Arc<Self>) {
             while let Err(Errno::INTR) = rustix::io::write(&self.0, &1_u64.to_ne_bytes()) {}
         }
     }
-    let signal = scope.map(|_| rustix::event::eventfd(0, EventfdFlags::CLOEXEC | EventfdFlags::NONBLOCK)
-        .map(|fd| Arc::new(Signal(fd))).map_err(|error| MathError::Library(error.to_string()))).transpose()?;
-    let _watch = scope.zip(signal.as_ref()).map(|(scope, signal)| scope.cancellation_control().watch(&std::task::Waker::from(signal.clone())));
+    let signal = scope
+        .map(|_| {
+            rustix::event::eventfd(0, EventfdFlags::CLOEXEC | EventfdFlags::NONBLOCK)
+                .map(|fd| Arc::new(Signal(fd)))
+                .map_err(|error| MathError::Library(error.to_string()))
+        })
+        .transpose()?;
+    let _watch = scope.zip(signal.as_ref()).map(|(scope, signal)| {
+        scope
+            .cancellation_control()
+            .watch(&std::task::Waker::from(signal.clone()))
+    });
     loop {
-        if let Some(scope) = scope { scope.check().map_err(crate::error::scope_error)?; }
-        let timeout = scope.and_then(pse_kernels::ExecutionScope::deadline)
+        if let Some(scope) = scope {
+            scope.check().map_err(crate::error::scope_error)?;
+        }
+        let timeout = scope
+            .and_then(pse_kernels::ExecutionScope::deadline)
             .map(|deadline| Timespec::try_from(deadline.saturating_duration_since(Instant::now())))
-            .transpose().map_err(|error| MathError::Library(error.to_string()))?;
+            .transpose()
+            .map_err(|error| MathError::Library(error.to_string()))?;
         let mut descriptors = vec![PollFd::new(fd, PollFlags::IN)];
-        if let Some(signal) = &signal { descriptors.push(PollFd::new(&signal.0, PollFlags::IN)); }
+        if let Some(signal) = &signal {
+            descriptors.push(PollFd::new(&signal.0, PollFlags::IN));
+        }
         match rustix::event::poll(&mut descriptors, timeout.as_ref()) {
             Err(Errno::INTR) => continue,
             Err(error) => return Err(MathError::Library(error.to_string())),
             Ok(_) => {}
         }
-        if let Some(scope) = scope { scope.check().map_err(crate::error::scope_error)?; }
+        if let Some(scope) = scope {
+            scope.check().map_err(crate::error::scope_error)?;
+        }
         let ready = descriptors[0].revents();
-        if ready.contains(PollFlags::NVAL) { return Err(MathError::Library("compiler pidfd invalid".into())); }
-        if ready.intersects(PollFlags::IN | PollFlags::HUP | PollFlags::ERR) { return Ok(()); }
+        if ready.contains(PollFlags::NVAL) {
+            return Err(MathError::Library("compiler pidfd invalid".into()));
+        }
+        if ready.intersects(PollFlags::IN | PollFlags::HUP | PollFlags::ERR) {
+            return Ok(());
+        }
     }
 }
 fn wait(compiler: &CompilerChild, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
@@ -296,11 +357,17 @@ fn wait(compiler: &CompilerChild, scope: &pse_kernels::ExecutionScope) -> Result
     wait_exit(&fd, Some(scope))?;
     // Observe without reaping. The leader continues to anchor the owned PGID
     // until drain has independently checked every descendant.
-    rustix::process::waitid(rustix::process::WaitId::Pid(compiler.group), rustix::process::WaitIdOptions::EXITED | rustix::process::WaitIdOptions::NOWAIT)
-        .map_err(|error| MathError::Library(error.to_string()))?;
+    rustix::process::waitid(
+        rustix::process::WaitId::Pid(compiler.group),
+        rustix::process::WaitIdOptions::EXITED | rustix::process::WaitIdOptions::NOWAIT,
+    )
+    .map_err(|error| MathError::Library(error.to_string()))?;
     scope.check().map_err(crate::error::scope_error)
 }
-fn run_compiler(mut command: Command, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
+fn run_compiler(
+    mut command: Command,
+    scope: &pse_kernels::ExecutionScope,
+) -> Result<(), MathError> {
     scope.check().map_err(crate::error::scope_error)?;
     command
         .stdin(Stdio::null())
@@ -379,14 +446,7 @@ pub(crate) fn compile(
     module_bytes: usize,
     scope: &pse_kernels::ExecutionScope,
 ) -> Result<Evaluator, MathError> {
-    compile_prepared_with(
-        evaluator,
-        storage,
-        export,
-        module_bytes,
-        scope,
-        COMPILER,
-    )
+    compile_prepared_with(evaluator, storage, export, module_bytes, scope, COMPILER)
 }
 fn compile_prepared_with(
     evaluator: &ExpressionEvaluator<f64>,
@@ -524,14 +584,7 @@ mod tests {
     ) -> Result<Evaluator, MathError> {
         let storage = library::storage(evaluator)?;
         let export = evaluator.export_instructions();
-        compile_prepared_with(
-            evaluator,
-            &storage,
-            &export,
-            module_bytes,
-            scope,
-            compiler,
-        )
+        compile_prepared_with(evaluator, &storage, &export, module_bytes, scope, compiler)
     }
     fn compile(
         evaluator: &ExpressionEvaluator<f64>,
@@ -559,16 +612,29 @@ mod tests {
         let evaluator = arithmetic();
         let cancelled = pse_diagnostics::Cancellation::default();
         assert!(matches!(
-            compile_with(&evaluator, 1 << 20, &pse_kernels::ExecutionScope::new(cancelled.clone(), None), "/bin/false"),
+            compile_with(
+                &evaluator,
+                1 << 20,
+                &pse_kernels::ExecutionScope::new(cancelled.clone(), None),
+                "/bin/false"
+            ),
             Err(MathError::Library(_))
         ));
         assert!(matches!(
-            compile(&evaluator, 1, &pse_kernels::ExecutionScope::new(cancelled.clone(), None)),
+            compile(
+                &evaluator,
+                1,
+                &pse_kernels::ExecutionScope::new(cancelled.clone(), None)
+            ),
             Err(MathError::Limit(_))
         ));
         cancelled.cancel();
         assert!(matches!(
-            compile(&evaluator, 1 << 20, &pse_kernels::ExecutionScope::new(cancelled.clone(), None)),
+            compile(
+                &evaluator,
+                1 << 20,
+                &pse_kernels::ExecutionScope::new(cancelled.clone(), None)
+            ),
             Err(MathError::Cancelled)
         ));
     }
@@ -579,13 +645,23 @@ mod tests {
         let marker = fixture.path().join("child");
         let quoted = marker.to_string_lossy().replace('\'', "'\"'\"'");
         let mut command = Command::new("/bin/sh");
-        command.arg("-c").arg(format!("sleep 60 &\nprintf '%s\\n' \"$!\" > '{quoted}'\nwait\n"));
+        command.arg("-c").arg(format!(
+            "sleep 60 &\nprintf '%s\\n' \"$!\" > '{quoted}'\nwait\n"
+        ));
         let control = pse_diagnostics::Cancellation::default();
-        let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(Instant::now() + Duration::from_secs(1)));
+        let scope = pse_kernels::ExecutionScope::new(
+            control.clone(),
+            Some(Instant::now() + Duration::from_secs(1)),
+        );
         let result = run_compiler(command, &scope);
-        assert!(matches!(result, Err(MathError::Scope(pse_kernels::ProviderError::Deadline))));
+        assert!(matches!(
+            result,
+            Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
+        ));
         assert!(!control.is_cancelled());
-        if let Ok(child) = std::fs::read_to_string(marker) { assert_stopped_at_return(child.trim()); }
+        if let Ok(child) = std::fs::read_to_string(marker) {
+            assert_stopped_at_return(child.trim());
+        }
     }
 
     #[test]
@@ -598,7 +674,10 @@ mod tests {
             command.arg("-c").arg(format!(
                 "sleep 60 &\nprintf '%s\\n' \"$!\" > '{quoted}'\nexit {exit}\n"
             ));
-            let result = run_compiler(command, &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+            let result = run_compiler(
+                command,
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            );
             assert_eq!(result.is_ok(), exit == 0);
             let child = std::fs::read_to_string(marker).unwrap();
             assert_stopped_at_return(child.trim());
@@ -636,7 +715,12 @@ mod tests {
             .export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None))
             .unwrap();
         assert!(source.len() <= bound && source.capacity() <= 2 * bound);
-        let mut compiled = compile(&evaluator, 1 << 20, &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+        let mut compiled = compile(
+            &evaluator,
+            1 << 20,
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+        )
+        .unwrap();
         compiled.instantiate().unwrap();
         let (x, y): (f64, f64) = (1.25, 2.5);
         let expected = [

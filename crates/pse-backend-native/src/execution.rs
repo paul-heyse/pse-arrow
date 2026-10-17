@@ -181,8 +181,12 @@ impl NativeWait {
     ) -> Self {
         struct WakeThread(std::thread::Thread);
         impl std::task::Wake for WakeThread {
-            fn wake(self: Arc<Self>) { self.0.unpark(); }
-            fn wake_by_ref(self: &Arc<Self>) { self.0.unpark(); }
+            fn wake(self: Arc<Self>) {
+                self.0.unpark();
+            }
+            fn wake_by_ref(self: &Arc<Self>) {
+                self.0.unpark();
+            }
         }
         let wake = std::task::Waker::from(Arc::new(WakeThread(std::thread::current())));
         Self {
@@ -193,7 +197,9 @@ impl NativeWait {
     }
     pub(crate) fn wait(self, deadline: Option<std::time::Instant>) {
         match deadline {
-            Some(deadline) => std::thread::park_timeout(deadline.saturating_duration_since(std::time::Instant::now())),
+            Some(deadline) => std::thread::park_timeout(
+                deadline.saturating_duration_since(std::time::Instant::now()),
+            ),
             None => std::thread::park(),
         }
     }
@@ -202,7 +208,10 @@ impl NativeWait {
 #[cfg(test)]
 mod native_wait_tests {
     use super::*;
-    use std::{sync::{Arc, mpsc}, time::{Duration, Instant}};
+    use std::{
+        sync::{Arc, mpsc},
+        time::{Duration, Instant},
+    };
 
     #[test]
     fn native_wait_release_and_stop_before_park_are_not_lost() {
@@ -216,7 +225,8 @@ mod native_wait_tests {
             let (park, continue_) = mpsc::channel();
             let (finished, done) = mpsc::channel();
             let worker = std::thread::spawn(move || {
-                let wait = NativeWait::new(&signal, execution.cancellation_control(), Some(&execution));
+                let wait =
+                    NativeWait::new(&signal, execution.cancellation_control(), Some(&execution));
                 registered.send(()).unwrap();
                 continue_.recv().unwrap();
                 wait.wait(Some(Instant::now() + Duration::from_secs(2)));
@@ -226,7 +236,11 @@ mod native_wait_tests {
             match kind {
                 0 => changed.notify(),
                 1 => control.cancel(),
-                _ => { abandoned.abandon(pse_model::generated::enums::NumericalAttemptObservation::Stalled).unwrap(); },
+                _ => {
+                    abandoned
+                        .abandon(pse_model::generated::enums::NumericalAttemptObservation::Stalled)
+                        .unwrap();
+                }
             }
             park.send(()).unwrap();
             done.recv_timeout(Duration::from_secs(1)).unwrap();

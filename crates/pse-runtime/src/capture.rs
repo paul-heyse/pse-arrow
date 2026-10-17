@@ -343,7 +343,7 @@ pub fn start_capture(request: CaptureRequest) -> Result<CaptureSession, CaptureE
         version: Version,
         kind: request.kind,
         operation: Some(request.operation),
-            related_operations: vec![request.operation],
+        related_operations: vec![request.operation],
         launch_process: None,
         status: CaptureStatus::Running,
         requested_duration: request.duration,

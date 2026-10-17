@@ -481,7 +481,11 @@ pub(crate) fn test_residual_bodies(
         .unwrap();
     let unknown = Arc::new(
         support
-            .compile(Default::default(), Default::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))
+            .compile(
+                Default::default(),
+                Default::default(),
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
             .unwrap(),
     );
     pse_math::implicit::ResidualBodies { unknown, parameter }

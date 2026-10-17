@@ -451,23 +451,50 @@ impl RunResult {
     }
 
     /// Link a follow-up diagnostic to retained original facts without granting result permission.
-    pub fn diagnostic_origin(&self, step: Option<usize>) -> Result<super::DiagnosticOrigin, WorkflowError> {
+    pub fn diagnostic_origin(
+        &self,
+        step: Option<usize>,
+    ) -> Result<super::DiagnosticOrigin, WorkflowError> {
         let modeling = step.and_then(|step| self.modeling_result(step));
         if let Some(step) = step {
-            let count = match &self.request { RunRequest::Modeling(request) => request.len(), _ => 0 };
-            if step >= count { return Err(super::contract("diagnostic origin step outside original request")); }
+            let count = match &self.request {
+                RunRequest::Modeling(request) => request.len(),
+                _ => 0,
+            };
+            if step >= count {
+                return Err(contract("diagnostic origin step outside original request"));
+            }
         }
         let failure = match step {
-            Some(step) => modeling.and_then(super::ModelingResult::diagnostic)
-                .or_else(|| self.modeling_error(step).map(WorkflowError::boundary_diagnostic)),
-            None => self.report.as_ref().err().map(|error| error.boundary_diagnostic()),
+            Some(step) => modeling
+                .and_then(super::ModelingResult::diagnostic)
+                .or_else(|| {
+                    self.modeling_error(step)
+                        .map(WorkflowError::boundary_diagnostic)
+                }),
+            None => self
+                .report
+                .as_ref()
+                .err()
+                .map(|error| error.boundary_diagnostic())
+                .or_else(|| {
+                    (!self.usable())
+                        .then(|| self.completion.as_ref().ok()?.diagnostics.first().cloned())
+                        .flatten()
+                }),
         };
         Ok(super::DiagnosticOrigin {
             run_id: self.run_id,
-            attempt_id: match &self.durability { RunDurability::Ephemeral => None, RunDurability::Durable(record) => Some(record.attempt_id) },
+            attempt_id: match &self.durability {
+                RunDurability::Ephemeral => None,
+                RunDurability::Durable(record) => Some(record.attempt_id),
+            },
             step,
             native_attempt: modeling.map(|result| result.original_attempt),
-            operation: self.invocation.as_ref().and_then(|recorder| recorder.operation()),
+            operation: self
+                .invocation
+                .as_ref()
+                .and_then(|recorder| recorder.operation()),
             failure,
         })
     }
@@ -602,11 +629,12 @@ impl RunResult {
                 let result = self.modeling_result(step);
                 // Each original completion governs its own scientific products. A
                 // later refused/failed sequence member cannot erase accepted work.
-                let original_permission = result.is_some_and(|result| result.completion.permits_use());
+                let original_permission =
+                    result.is_some_and(|result| result.completion.permits_use());
                 let native = result.and_then(|result| match &result.outcome {
-                        crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
-                        _ => None,
-                    });
+                    crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
+                    _ => None,
+                });
                 let wanted = request.profile.sensitivity.as_ref();
                 let evidence = native.and_then(|report| report.evidence.sensitivity.as_ref());
                 let root = native.and_then(|report| report.evidence.root_response.as_ref());
@@ -1929,9 +1957,15 @@ mod modeling_failure_tests {
         let earlier_origin = result.diagnostic_origin(Some(0)).unwrap();
         assert_eq!(earlier_origin.run_id, result.run_id);
         assert_eq!(earlier_origin.native_attempt, Some(0));
-        assert!(earlier_origin.failure.is_none(), "later failure must not be attributed to an accepted earlier step");
+        assert!(
+            earlier_origin.failure.is_none(),
+            "later failure must not be attributed to an accepted earlier step"
+        );
         assert!(result.diagnostic_origin(Some(1)).unwrap().failure.is_some());
-        assert!(result.diagnostic_origin(Some(2)).unwrap().failure.is_none(), "unattempted step has no originating failure");
+        assert!(
+            result.diagnostic_origin(Some(2)).unwrap().failure.is_none(),
+            "unattempted step has no originating failure"
+        );
         assert!(result.diagnostic_origin(Some(3)).is_err());
         let trace = result.modeling_error(1).unwrap().strategy_trace().unwrap();
         assert!(!trace.events.is_empty());
@@ -2060,9 +2094,9 @@ mod cancellation_tests {
 #[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
 mod scientific_product_tests {
     use super::*;
+    use crate::invocation::ProductAvailability;
     use crate::workflow::modeling::sensitivity_tests as fixture;
     use pse_backend_native::solve::{Backend, SolverSelection};
-    use crate::invocation::ProductAvailability;
 
     #[tokio::test]
     async fn joined_scientific_products_use_each_original_completion_and_keep_native_evidence() {
@@ -2089,9 +2123,18 @@ mod scientific_product_tests {
         analysis.case.values.insert("a".into(), 1.0);
         analysis.solver.sensitivity = None;
         let not_requested = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-        let result = package.runtime.start_modeling(vec![good, refused, not_requested], false, &cancel)
-            .await.unwrap().wait().await.unwrap();
-        assert!(!result.usable(), "a later original refusal governs the joined result");
+        let result = package
+            .runtime
+            .start_modeling(vec![good, refused, not_requested], false, &cancel)
+            .await
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        assert!(
+            !result.usable(),
+            "a later original refusal governs the joined result"
+        );
         let accepted = result.modeling_result(0).unwrap();
         let refused = result.modeling_result(1).unwrap();
         assert!(accepted.completion.permits_use());
@@ -2101,32 +2144,53 @@ mod scientific_product_tests {
         assert_eq!(accepted_origin.run_id, result.run_id);
         assert_eq!(accepted_origin.native_attempt, Some(0));
         assert!(accepted_origin.failure.is_none());
-        assert!(refused.validation_error.is_none(), "an authored refusal is distinct from evaluator failure");
+        assert!(
+            refused.validation_error.is_none(),
+            "an authored refusal is distinct from evaluator failure"
+        );
+        assert!(result.diagnostic_origin(None).unwrap().failure.is_some());
         let refused_origin = result.diagnostic_origin(Some(1)).unwrap();
         assert_eq!(refused_origin.run_id, result.run_id);
         assert_eq!(refused_origin.native_attempt, Some(1));
-        assert!(refused_origin.failure.is_some(), "retain the authoritative authored refusal diagnostic");
+        assert!(
+            refused_origin.failure.is_some(),
+            "retain the authoritative authored refusal diagnostic"
+        );
         assert!(result.diagnostic_origin(Some(3)).is_err());
         for step in [accepted, refused] {
             let crate::math::solves::Outcome::Native(native) = &step.outcome else {
                 panic!("the control must exercise actual native scientific products");
             };
             let sensitivity = native.evidence.sensitivity.as_ref().unwrap();
-            assert!(sensitivity.sensitivities.is_ok(), "raw native derivatives remain diagnostic evidence");
+            assert!(
+                sensitivity.sensitivities.is_ok(),
+                "raw native derivatives remain diagnostic evidence"
+            );
             assert!(sensitivity.reduced_hessian.as_ref().unwrap().is_ok());
         }
         assert!(result.modeling_result(2).is_none());
         let evidence = result.invocation_evidence().unwrap();
-        for (step, expected) in [(0, ProductAvailability::Available),
-            (1, ProductAvailability::Unavailable), (2, ProductAvailability::NotRequested)] {
+        for (step, expected) in [
+            (0, ProductAvailability::Available),
+            (1, ProductAvailability::Unavailable),
+            (2, ProductAvailability::NotRequested),
+        ] {
             for role in ["parametric_sensitivity", "reduced_hessian"] {
-                let product = evidence.products.iter()
-                    .find(|product| product.step == Some(step) && product.role == role).unwrap();
+                let product = evidence
+                    .products
+                    .iter()
+                    .find(|product| product.step == Some(step) && product.role == role)
+                    .unwrap();
                 assert_eq!(product.availability, expected, "step {step}: {role}");
             }
         }
         // Joined original-result availability remains distinct from accepted step products.
-        assert!(evidence.products.iter().any(|product| product.role == "original_scientific_result"
-            && product.availability == ProductAvailability::Unavailable));
+        assert!(
+            evidence
+                .products
+                .iter()
+                .any(|product| product.role == "original_scientific_result"
+                    && product.availability == ProductAvailability::Unavailable)
+        );
     }
 }

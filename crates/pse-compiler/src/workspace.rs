@@ -453,7 +453,10 @@ impl ArtifactRequest {
             .transpose()
     }
     /// Construct native programs only at the runtime effect boundary.
-    pub fn build(&self, scope: &pse_kernels::ExecutionScope) -> std::result::Result<CompiledBody, MathError> {
+    pub fn build(
+        &self,
+        scope: &pse_kernels::ExecutionScope,
+    ) -> std::result::Result<CompiledBody, MathError> {
         let _span = tracing::info_span!("pse.case.program_optimization").entered();
         let compiled = self.support.compile_product(
             self.demand.product,
@@ -1754,7 +1757,12 @@ mod directional_identity_tests {
         assert_ne!(requests[normal.len()].key(), normal[0].key());
         let programs = requests
             .iter()
-            .map(|r| Arc::new(r.build(&pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap()))
+            .map(|r| {
+                Arc::new(
+                    r.build(&pse_kernels::ExecutionScope::new(cancel.clone(), None))
+                        .unwrap(),
+                )
+            })
             .collect();
         let assembly = Arc::new(Arc::new(directional).assemble(programs).unwrap());
         let inputs = CaseValues {

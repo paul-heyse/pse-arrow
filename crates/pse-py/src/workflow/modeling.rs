@@ -395,8 +395,12 @@ impl NativeModelingPackage {
         let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "diagnostic time limit must be finite and positive"))?;
         let cancel = CancelSource::new();
-        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit.min(duration), origin.map(|value| value.0))
-            .map_err(|error| errors::diagnostic(py, &error))?;
+        let operation = native::DiagnosticOperation::new(
+            &cancel,
+            settings.controls.time_limit.min(duration),
+            origin.map(|value| value.0),
+        )
+        .map_err(|error| errors::diagnostic(py, &error))?;
         let samples = samples
             .into_iter()
             .map(|(name, values)| {
@@ -413,9 +417,8 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             async {
-                let execution = operation.within(self
-                    .inner
-                    .declared_execution(
+                let execution = operation
+                    .within(self.inner.declared_execution(
                         root,
                         Default::default(),
                         settings.clone(),
@@ -424,9 +427,11 @@ impl NativeModelingPackage {
                         operation.driver(),
                     ))
                     .await?;
-                let prepared = operation.within(self
-                    .inner
-                    .prepare_declared_diagnostics(&execution, operation.driver()))
+                let prepared = operation
+                    .within(
+                        self.inner
+                            .prepare_declared_diagnostics(&execution, operation.driver()),
+                    )
                     .await?;
                 let samples = samples
                     .into_iter()
@@ -556,15 +561,18 @@ impl NativeModelingPackage {
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
-        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit, origin.map(|value| value.0))
-            .map_err(|error| errors::diagnostic(py, &error))?;
+        let operation = native::DiagnosticOperation::new(
+            &cancel,
+            settings.controls.time_limit,
+            origin.map(|value| value.0),
+        )
+        .map_err(|error| errors::diagnostic(py, &error))?;
         let inner = blocking(
             py,
             &self.owner,
             async {
-                let execution = operation.within(self
-                    .inner
-                    .declared_execution(
+                let execution = operation
+                    .within(self.inner.declared_execution(
                         root,
                         Default::default(),
                         settings.clone(),
@@ -573,9 +581,11 @@ impl NativeModelingPackage {
                         operation.driver(),
                     ))
                     .await?;
-                let prepared = operation.within(self
-                    .inner
-                    .prepare_declared_diagnostics(&execution, operation.driver()))
+                let prepared = operation
+                    .within(
+                        self.inner
+                            .prepare_declared_diagnostics(&execution, operation.driver()),
+                    )
                     .await?;
                 let values = prepared.model.values.clone();
                 self.inner
@@ -619,15 +629,18 @@ impl NativeModelingPackage {
         {
             let root = declaration(py, case_id)?;
             let cancel = CancelSource::new();
-        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit, origin.map(|value| value.0))
+            let operation = native::DiagnosticOperation::new(
+                &cancel,
+                settings.controls.time_limit,
+                origin.map(|value| value.0),
+            )
             .map_err(|error| errors::diagnostic(py, &error))?;
             let inner = blocking(
                 py,
                 &self.owner,
                 async {
-                    let execution = operation.within(self
-                        .inner
-                        .declared_execution(
+                    let execution = operation
+                        .within(self.inner.declared_execution(
                             root,
                             Default::default(),
                             settings.clone(),
@@ -636,9 +649,11 @@ impl NativeModelingPackage {
                             operation.driver(),
                         ))
                         .await?;
-                    let prepared = operation.within(self
-                        .inner
-                        .prepare_declared_diagnostics(&execution, operation.driver()))
+                    let prepared = operation
+                        .within(
+                            self.inner
+                                .prepare_declared_diagnostics(&execution, operation.driver()),
+                        )
                         .await?;
                     let plan = &prepared.model.case.compiled().plan;
                     let rows = plan
@@ -649,7 +664,8 @@ impl NativeModelingPackage {
                         .collect::<Vec<_>>();
                     let maximum_entries = controls.maximum_entries;
                     let request = controls.request(plan.columns(), &rows)?;
-                    self.inner
+                    let exported = self
+                        .inner
                         .diagnose_linear(
                             prepared,
                             request,
@@ -658,7 +674,9 @@ impl NativeModelingPackage {
                             &operation,
                         )
                         .await?
-                        .into_export()
+                        .into_export()?;
+                    operation.check()?;
+                    Ok(exported)
                 },
                 || operation.cancel(),
             )?;
@@ -692,15 +710,18 @@ impl NativeModelingPackage {
         {
             let root = declaration(py, case_id)?;
             let cancel = CancelSource::new();
-        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit, origin.map(|value| value.0))
+            let operation = native::DiagnosticOperation::new(
+                &cancel,
+                settings.controls.time_limit,
+                origin.map(|value| value.0),
+            )
             .map_err(|error| errors::diagnostic(py, &error))?;
             let inner = blocking(
                 py,
                 &self.owner,
                 async {
-                    let execution = operation.within(self
-                        .inner
-                        .declared_execution(
+                    let execution = operation
+                        .within(self.inner.declared_execution(
                             root,
                             Default::default(),
                             settings.clone(),
@@ -709,12 +730,15 @@ impl NativeModelingPackage {
                             operation.driver(),
                         ))
                         .await?;
-                    let prepared = operation.within(self
-                        .inner
-                        .prepare_declared_diagnostics(&execution, operation.driver()))
+                    let prepared = operation
+                        .within(
+                            self.inner
+                                .prepare_declared_diagnostics(&execution, operation.driver()),
+                        )
                         .await?;
                     let values = prepared.model.values.clone();
-                    self.inner
+                    let exported = self
+                        .inner
                         .diagnose_jacobian_optimization(
                             prepared,
                             values,
@@ -723,7 +747,9 @@ impl NativeModelingPackage {
                             &operation,
                         )
                         .await?
-                        .into_export()
+                        .into_export()?;
+                    operation.check()?;
+                    Ok(exported)
                 },
                 || operation.cancel(),
             )?;

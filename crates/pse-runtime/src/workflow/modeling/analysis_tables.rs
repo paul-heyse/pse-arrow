@@ -529,7 +529,12 @@ impl ModelingDiagnostics {
                 });
             columns
                 .push(RuntimeModelingDiagnosticsRow {
-                    origin_json: self.origin.as_ref().map(serde_json::to_string).transpose().map_err(|e| contract(e.to_string()))?,
+                    origin_json: self
+                        .origin
+                        .as_ref()
+                        .map(serde_json::to_string)
+                        .transpose()
+                        .map_err(|e| contract(e.to_string()))?,
                     run_id: self.run_id,
                     source_identity: self.source_identity,
                     numerical_identity: self.numerical_identity,
@@ -699,7 +704,12 @@ impl ModelingDiagnosticSamples {
     /// The modeling diagnostic samples row as a checked `modeling_diagnostic_samples` relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_diagnostic_samples::*;
-        let origin_json = self.origin.as_ref().map(serde_json::to_string).transpose().map_err(|e| contract(e.to_string()))?;
+        let origin_json = self
+            .origin
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|e| contract(e.to_string()))?;
         one(&self.runtime, self._owner.size(), || {
             RuntimeModelingDiagnosticSamplesRow {
                 origin_json,

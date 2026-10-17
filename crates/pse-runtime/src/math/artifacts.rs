@@ -189,7 +189,10 @@ impl MathService {
                     let (program, lease) = service
                         .job_retained_construction(cores, construction, cancel, None, move |flag| {
                             let program = request
-                                .build_reusing(&pse_kernels::ExecutionScope::new(flag, None), &scalars)
+                                .build_reusing(
+                                    &pse_kernels::ExecutionScope::new(flag, None),
+                                    &scalars,
+                                )
                                 .map_err(MathRuntimeError::Math)?;
                             let known = program.retained_bytes();
                             if known > known_limit {

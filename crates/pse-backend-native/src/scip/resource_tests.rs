@@ -561,15 +561,21 @@ fn concurrent_gate_failed_teardown_wakes_waiters_while_gate_remains_retained() {
     let worker_failed = failed.clone();
     let worker_available = available.clone();
     let worker = std::thread::spawn(move || {
-        compute_scoped(Box::new(Compute {
-            available: worker_available,
-            attempts: Arc::new(AtomicUsize::new(0)),
-            paused: Some(paused),
-            held: true,
-        }), || {
-            let result = ConcurrentAdmission::acquire(&worker_lock, &worker_failed, &execution());
-            finished.send(matches!(result, Err(ProblemError::Internal(_)))).unwrap();
-        });
+        compute_scoped(
+            Box::new(Compute {
+                available: worker_available,
+                attempts: Arc::new(AtomicUsize::new(0)),
+                paused: Some(paused),
+                held: true,
+            }),
+            || {
+                let result =
+                    ConcurrentAdmission::acquire(&worker_lock, &worker_failed, &execution());
+                finished
+                    .send(matches!(result, Err(ProblemError::Internal(_))))
+                    .unwrap();
+            },
+        );
     });
     pause.recv_timeout(Duration::from_secs(2)).unwrap();
     failed.store(true, Ordering::Release);

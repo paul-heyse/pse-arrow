@@ -851,7 +851,12 @@ mod tests {
             ProductKind::WeightedHessianAction,
         ] {
             let compiled = support
-                .compile_product(kind, options, EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))
+                .compile_product(
+                    kind,
+                    options,
+                    EvaluationLimits::default(),
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                )
                 .unwrap();
             let census = compiled
                 .census()

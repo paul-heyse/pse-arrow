@@ -52,7 +52,9 @@ impl Drop for LibraryGuard<'_> {
     }
 }
 fn proof_deadline(started: Instant, allowance: Duration) -> Result<Instant, MathError> {
-    started.checked_add(allowance).ok_or_else(|| MathError::Contract("proof deadline extent".into()))
+    started
+        .checked_add(allowance)
+        .ok_or_else(|| MathError::Contract("proof deadline extent".into()))
 }
 
 /// Shared request-local exclusion admission. A supplied original Execution is the
@@ -82,7 +84,9 @@ fn acquire_library<'a>(
             (Some(local), Some(original)) => Some(local.min(original)),
             (local, original) => local.or(original),
         }
-    } else { deadline };
+    } else {
+        deadline
+    };
     if execution.is_some() {
         crate::execution::pause_compute();
     }
@@ -104,7 +108,8 @@ fn acquire_library<'a>(
                             Ok(crate::execution::ComputeAvailability::Unavailable) => {
                                 drop(guard);
                                 IBEX_CHANGED.notify();
-                                crate::execution::resume_compute(execution).map_err(compute_error)?;
+                                crate::execution::resume_compute(execution)
+                                    .map_err(compute_error)?;
                                 crate::execution::pause_compute();
                                 continue;
                             }
@@ -1665,7 +1670,13 @@ impl SelectionVerifier for Ibex {
             Ok(transport) => transport,
             Err(reason) => return Ok(SelectionEvidence::Incomplete(reason)),
         };
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
+        let library_guard = match acquire_library(
+            &IBEX,
+            checkpoint,
+            None,
+            request.cancel,
+            Some(proof_deadline(started, request.time_limit)?),
+        )? {
             Some(guard) => guard,
             None => {
                 return Ok(SelectionEvidence::Incomplete(
@@ -1806,7 +1817,13 @@ impl SelectionVerifier for Ibex {
         {
             return Ok(false);
         }
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
+        let library_guard = match acquire_library(
+            &IBEX,
+            checkpoint,
+            None,
+            request.cancel,
+            Some(proof_deadline(started, request.time_limit)?),
+        )? {
             Some(guard) => guard,
             None => return Ok(false),
         };
@@ -2139,7 +2156,13 @@ impl SelectionVerifier for Ibex {
         let uu = chart.uniqueness.iter().map(|i| i.upper).collect::<Vec<_>>();
         let mut action_lower = vec![0.0; el.len()];
         let mut action_upper = vec![0.0; el.len()];
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
+        let library_guard = match acquire_library(
+            &IBEX,
+            checkpoint,
+            None,
+            request.cancel,
+            Some(proof_deadline(started, request.time_limit)?),
+        )? {
             Some(guard) => guard,
             None => {
                 return Ok(RootActionEvidence::Incomplete {
@@ -2317,7 +2340,13 @@ impl SelectionVerifier for Ibex {
         let mut point_upper = vec![0.0; el.len()];
         let mut action_lower = vec![0.0; el.len()];
         let mut action_upper = vec![0.0; el.len()];
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
+        let library_guard = match acquire_library(
+            &IBEX,
+            checkpoint,
+            None,
+            request.cancel,
+            Some(proof_deadline(started, request.time_limit)?),
+        )? {
             Some(guard) => guard,
             None => {
                 return Ok(RootNeighborhoodEvidence::Incomplete {
@@ -2500,7 +2529,13 @@ impl SelectionVerifier for Ibex {
         let (next_pl, next_pu) = intervals(&chain.next.parameters);
         let (next_el, next_eu) = intervals(&chain.next.existence);
         let (next_ul, next_uu) = intervals(&chain.next.uniqueness);
-        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
+        let library_guard = match acquire_library(
+            &IBEX,
+            checkpoint,
+            None,
+            request.cancel,
+            Some(proof_deadline(started, request.time_limit)?),
+        )? {
             Some(guard) => guard,
             None => {
                 return Ok(ChartChainEvidence::Incomplete(
@@ -2705,7 +2740,13 @@ impl SelectionVerifier for Ibex {
                     .collect::<Vec<_>>(),
             ));
         }
-        let _library = match acquire_library(&IBEX, checkpoint, None, request.cancel, Some(proof_deadline(started, request.time_limit)?))? {
+        let _library = match acquire_library(
+            &IBEX,
+            checkpoint,
+            None,
+            request.cancel,
+            Some(proof_deadline(started, request.time_limit)?),
+        )? {
             Some(guard) => guard,
             None => {
                 return Ok(SelectionEvidence::Incomplete(
@@ -2916,9 +2957,15 @@ mod tests {
                 }),
                 || {
                     // The legacy math-facing request borrows the exact original control.
-                    let guard = acquire_library(&worker_lock, || Ok(true), None, execution.cancellation_control(), None)
-                        .unwrap()
-                        .unwrap();
+                    let guard = acquire_library(
+                        &worker_lock,
+                        || Ok(true),
+                        None,
+                        execution.cancellation_control(),
+                        None,
+                    )
+                    .unwrap()
+                    .unwrap();
                     assert_eq!(worker_available.load(Ordering::Acquire), 0);
                     drop(guard);
                 },
@@ -3011,9 +3058,15 @@ mod tests {
             }),
             || {
                 assert!(
-                    acquire_library(&poisoned, || Ok(true), Some(&execution), execution.cancellation_control(), None)
-                        .unwrap()
-                        .is_none()
+                    acquire_library(
+                        &poisoned,
+                        || Ok(true),
+                        Some(&execution),
+                        execution.cancellation_control(),
+                        None
+                    )
+                    .unwrap()
+                    .is_none()
                 );
                 assert_eq!(available.load(Ordering::Acquire), 0);
                 let clean = Mutex::new(());
@@ -3059,8 +3112,13 @@ mod tests {
                     if mode == 1 {
                         execution.cancellation_control().cancel();
                     }
-                    let result =
-                        acquire_library(&lock, || Ok(true), Some(&execution), execution.cancellation_control(), None);
+                    let result = acquire_library(
+                        &lock,
+                        || Ok(true),
+                        Some(&execution),
+                        execution.cancellation_control(),
+                        None,
+                    );
                     assert!(result.is_err());
                     drop(result);
                     drop(held);

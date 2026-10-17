@@ -1164,7 +1164,11 @@ impl ShootingOracle {
         };
         let integration = p.integration(x);
         self.prepare_worker()?;
-        let purpose = if same { self.derivative_purpose() } else { self.purpose };
+        let purpose = if same {
+            self.derivative_purpose()
+        } else {
+            self.purpose
+        };
         let worker = &mut self
             .worker
             .as_mut()

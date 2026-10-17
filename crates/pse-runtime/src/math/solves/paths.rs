@@ -561,7 +561,7 @@ impl PreparedPath {
                 .scope
                 .remaining(self.request.corrector.controls.time_limit)
                 .map_err(ProblemError::Provider)?,
-            cancel: self.scope.cancellation(),
+            cancel: self.scope.cancellation_control(),
         };
         selection
             .previous
@@ -794,7 +794,7 @@ impl PathCompletion {
             time_limit: scope
                 .remaining(execution.time_limit)
                 .map_err(ProblemError::Provider)?,
-            cancel: scope.cancellation(),
+            cancel: scope.cancellation_control(),
         };
         endpoint
             .chart
@@ -1518,7 +1518,7 @@ impl PathSelection {
             time_limit: scope
                 .remaining(execution.time_limit)
                 .map_err(ProblemError::Provider)?,
-            cancel: scope.cancellation(),
+            cancel: scope.cancellation_control(),
         };
         let next_chart = match self.verifier.certify(&request)? {
             SelectionEvidence::Unique(chart) => chart,
@@ -2527,7 +2527,7 @@ pub(crate) fn run_path(
                 time_limit: scope
                     .remaining(execution.time_limit)
                     .map_err(ProblemError::Provider)?,
-                cancel: scope.cancellation(),
+                cancel: scope.cancellation_control(),
             };
             {
                 let _phase = pse_diagnostics::observation::phase("path.chart_validation");
@@ -3170,7 +3170,7 @@ impl MathService {
             let proof=self.job_retained_scoped(1,bytes,control.clone(),scope.deadline(),move |_| {
                 proof_scope.check().map_err(ProblemError::Provider)?;
                 let alternatives=[SelectionAlternative {id:alternative.id,program:&alternative.program,residual_identity:alternative.residual_identity,unknowns:&alternative.unknowns}];let parameters=[parameter_value];
-                let request=SelectionProofRequest {selection,alternatives:&alternatives,winner:0,parameters:&parameters,candidate:&start.point,order:DerivativeOrder::First,time_limit:proof_scope.remaining(allowance).map_err(ProblemError::Provider)?,cancel:proof_scope.cancellation()};
+                let request=SelectionProofRequest {selection,alternatives:&alternatives,winner:0,parameters:&parameters,candidate:&start.point,order:DerivativeOrder::First,time_limit:proof_scope.remaining(allowance).map_err(ProblemError::Provider)?,cancel:proof_scope.cancellation_control()};
                 let previous=match proof_verifier.certify(&request)? {SelectionEvidence::Unique(chart)=>chart,evidence=>return Err(ProblemError::Unsupported(format!("actual compiled path endpoint chart: {evidence:?}")).into())};
                 previous.validate(&request,proof_verifier.identity())?;proof_scope.check().map_err(ProblemError::Provider)?;
                 Ok((SelectionData {source,parameter,coordinates,verifier:proof_verifier,previous,alternatives:vec![alternative],winner:0,coverage:ChartChainCoverage::RootSheet,_owner:Some(projection_owner)},chart_bytes))

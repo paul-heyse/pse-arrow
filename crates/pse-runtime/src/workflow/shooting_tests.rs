@@ -702,9 +702,15 @@ async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease(
     let result = solve(problem, None).await;
     let report = report_of(&result);
     assert!(!report.completion.permits_use());
-    assert!(result.invocation_evidence().unwrap().products.iter().any(|product|
-        product.role == "shooting_trajectory"
-            && product.availability == crate::invocation::ProductAvailability::Unavailable));
+    assert!(
+        result
+            .invocation_evidence()
+            .unwrap()
+            .products
+            .iter()
+            .any(|product| product.role == "shooting_trajectory"
+                && product.availability == crate::invocation::ProductAvailability::Unavailable)
+    );
     // Availability refuses scientific use without removing the retained raw trajectory.
     let native = report.trajectory.as_ref().unwrap();
     let owner = result._owner.as_ref().unwrap();
@@ -759,9 +765,15 @@ async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease(
     let successful_report = report_of(&successful);
     assert!(successful.usable(), "{:?}", successful.assessments());
     assert!(successful_report.completion.permits_use());
-    assert!(successful.invocation_evidence().unwrap().products.iter().any(|product|
-        product.role == "shooting_trajectory"
-            && product.availability == crate::invocation::ProductAvailability::Available));
+    assert!(
+        successful
+            .invocation_evidence()
+            .unwrap()
+            .products
+            .iter()
+            .any(|product| product.role == "shooting_trajectory"
+                && product.availability == crate::invocation::ProductAvailability::Available)
+    );
     let successful_native = successful_report.trajectory.as_ref().unwrap();
     assert!(successful_native.samples.len() >= 3);
     assert_shooting_sample_projection(
@@ -1485,11 +1497,16 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
     #[derive(Debug, Default)]
     struct Integrations(std::sync::Mutex<Vec<CoherentRecord>>);
     impl RecordTap for Integrations {
-        fn selected(&self, family: &str) -> bool { family == "workflow.integration.v1" }
+        fn selected(&self, family: &str) -> bool {
+            family == "workflow.integration.v1"
+        }
         fn observe(&self, record: &CoherentRecord) {
             if self.selected(&record.family) {
                 let mut records = self.0.lock().unwrap();
-                assert!(records.len() < 64, "finite integration fixture collector exhausted");
+                assert!(
+                    records.len() < 64,
+                    "finite integration fixture collector exhausted"
+                );
                 records.push(record.clone());
             }
         }
@@ -1523,7 +1540,10 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         });
         let observed = hub.start("retained shooting lane");
         let integrations = Arc::new(Integrations::default());
-        let entered = observed.context().with_record_tap(integrations.clone()).enter();
+        let entered = observed
+            .context()
+            .with_record_tap(integrations.clone())
+            .enter();
         let mut oracle = ShootingOracle {
             observation: pse_diagnostics::observation::current().map(|context| {
                 context.producer(
@@ -1552,22 +1572,37 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         let gradient_before = gradient.clone();
         oracle.gradient(&x, &mut gradient).unwrap();
         assert_eq!(gradient, gradient_before);
-        assert_eq!(integrations.0.lock().unwrap().len(), completed_before,
-            "repeated same-point gradient must not integrate for diagnostics");
+        assert_eq!(
+            integrations.0.lock().unwrap().len(),
+            completed_before,
+            "repeated same-point gradient must not integrate for diagnostics"
+        );
         let records = integrations.0.lock().unwrap();
-        let adjoints = records.iter().filter(|record| record.phase == "completed"
-            && record.values.iter().any(|field| field.name == "adjoint" && field.value == Value::Boolean(true)))
+        let adjoints = records
+            .iter()
+            .filter(|record| {
+                record.phase == "completed"
+                    && record
+                        .values
+                        .iter()
+                        .any(|field| field.name == "adjoint" && field.value == Value::Boolean(true))
+            })
             .collect::<Vec<_>>();
         assert_eq!(adjoints.len(), 2, "one actual adjoint per window");
         for record in adjoints {
-            assert!(record.values.iter().any(|field| field.name == "purpose"
-                && field.value == Value::Text("derivative_upgrade".into())), "{record:?}");
+            assert!(
+                record.values.iter().any(|field| field.name == "purpose"
+                    && field.value == Value::Text("derivative_upgrade".into())),
+                "{record:?}"
+            );
         }
         drop(records);
         // Explicit assessment/response purposes survive the same-point upgrade mapping.
-        for purpose in [crate::invocation::IntegrationPurpose::OriginalAssessment,
+        for purpose in [
+            crate::invocation::IntegrationPurpose::OriginalAssessment,
             crate::invocation::IntegrationPurpose::Identifiability,
-            crate::invocation::IntegrationPurpose::Curvature] {
+            crate::invocation::IntegrationPurpose::Curvature,
+        ] {
             oracle.purpose = purpose;
             assert_eq!(oracle.derivative_purpose().as_str(), purpose.as_str());
         }

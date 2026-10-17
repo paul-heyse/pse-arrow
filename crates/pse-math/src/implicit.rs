@@ -631,7 +631,11 @@ impl Problem {
         observed_ift!("implicit.factor.solve", cancel, {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("implicit.factor.backsolves", "calls", 1);
-                context.count("implicit.factor.right_hand_sides", "columns", rhs.ncols() as u64);
+                context.count(
+                    "implicit.factor.right_hand_sides",
+                    "columns",
+                    rhs.ncols() as u64,
+                );
             }
             LuRef::new_unchecked(&self.symbolic, &factor.numeric).solve_in_place_with_conj(
                 Conj::No,
@@ -704,7 +708,8 @@ impl Problem {
                     .collect();
                 Ok(SparseColMat::new(self.pattern.clone(), values))
             })?;
-            let mut factor = self.factorize_matrix(&matrix, "implicit Jacobian is singular", cancel)?;
+            let mut factor =
+                self.factorize_matrix(&matrix, "implicit Jacobian is singular", cancel)?;
             let (mut first, original) = observed_ift!("implicit.derivatives.first_rhs", cancel, {
                 let first = Mat::from_fn(n, p, |i, j| -jet.jacobian[i * width + n + j]);
                 let original = first.clone();
@@ -712,8 +717,14 @@ impl Problem {
             })?;
             self.solve_factor(&mut factor, first.as_mut(), cancel)?;
             observed_ift!("implicit.derivatives.verification", cancel, {
-                check_solve(&jet.jacobian, width, &first, &original,
-                    options.derivative_tolerance, self.id)
+                check_solve(
+                    &jet.jacobian,
+                    width,
+                    &first,
+                    &original,
+                    options.derivative_tolerance,
+                    self.id,
+                )
             })?;
             output.jacobian = observed_ift!("implicit.derivatives.expansion", cancel, {
                 Ok((0..n)
@@ -724,39 +735,46 @@ impl Problem {
             if order == DerivativeOrder::First {
                 return Ok(output);
             }
-            let (pairs, mut second, original) = observed_ift!("implicit.derivatives.second_rhs", cancel, {
-                let pairs = (0..p)
-                    .flat_map(|a| (a..p).map(move |b| (a, b)))
-                    .collect::<Vec<_>>();
-                let tangent = |coordinate: usize, input: usize| {
-                    if coordinate < n {
-                        first[(coordinate, input)]
-                    } else {
-                        f64::from(coordinate == n + input)
-                    }
-                };
-                // This child measures the support contraction inside RHS construction;
-                // retain the library's single initialization pass over the RHS matrix.
-                let second = observed_ift!("implicit.derivatives.contraction", cancel, {
-                    Ok(Mat::from_fn(n, pairs.len(), |i, j| {
-                        let (a, b) = pairs[j];
-                        let mut value = 0.0;
-                        for (k, l, partial) in jet.second_entries(i) {
-                            value -= partial * tangent(k, a) * tangent(l, b);
-                            if k != l {
-                                value -= partial * tangent(l, a) * tangent(k, b);
-                            }
+            let (pairs, mut second, original) =
+                observed_ift!("implicit.derivatives.second_rhs", cancel, {
+                    let pairs = (0..p)
+                        .flat_map(|a| (a..p).map(move |b| (a, b)))
+                        .collect::<Vec<_>>();
+                    let tangent = |coordinate: usize, input: usize| {
+                        if coordinate < n {
+                            first[(coordinate, input)]
+                        } else {
+                            f64::from(coordinate == n + input)
                         }
-                        value
-                    }))
+                    };
+                    // This child measures the support contraction inside RHS construction;
+                    // retain the library's single initialization pass over the RHS matrix.
+                    let second = observed_ift!("implicit.derivatives.contraction", cancel, {
+                        Ok(Mat::from_fn(n, pairs.len(), |i, j| {
+                            let (a, b) = pairs[j];
+                            let mut value = 0.0;
+                            for (k, l, partial) in jet.second_entries(i) {
+                                value -= partial * tangent(k, a) * tangent(l, b);
+                                if k != l {
+                                    value -= partial * tangent(l, a) * tangent(k, b);
+                                }
+                            }
+                            value
+                        }))
+                    })?;
+                    let original = second.clone();
+                    Ok((pairs, second, original))
                 })?;
-                let original = second.clone();
-                Ok((pairs, second, original))
-            })?;
             self.solve_factor(&mut factor, second.as_mut(), cancel)?;
             observed_ift!("implicit.derivatives.verification", cancel, {
-                check_solve(&jet.jacobian, width, &second, &original,
-                    options.derivative_tolerance, self.id)
+                check_solve(
+                    &jet.jacobian,
+                    width,
+                    &second,
+                    &original,
+                    options.derivative_tolerance,
+                    self.id,
+                )
             })?;
             output.hessians = observed_ift!("implicit.derivatives.expansion", cancel, {
                 let mut hessians = vec![0.0; n * p * p];
@@ -1719,22 +1737,50 @@ mod tests {
                 .derivatives(&[3.], &[15.], order, &options, &cancel)
                 .unwrap();
             let snapshot = operation.reader().snapshot(Duration::from_secs(60));
-            let count = |name: &str| snapshot.metrics.iter()
-                .find(|metric| metric.name == name)
-                .map(|metric| metric.cumulative.clone());
+            let count = |name: &str| {
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .map(|metric| metric.cumulative.clone())
+            };
             use pse_diagnostics::observation::Value;
             for stage in ["jet", "extraction", "first_rhs"] {
-                assert_eq!(count(&format!("implicit.derivatives.{stage}.calls")), Some(Value::Count(1)));
-                assert_eq!(count(&format!("implicit.derivatives.{stage}.completed")), Some(Value::Count(1)));
+                assert_eq!(
+                    count(&format!("implicit.derivatives.{stage}.calls")),
+                    Some(Value::Count(1))
+                );
+                assert_eq!(
+                    count(&format!("implicit.derivatives.{stage}.completed")),
+                    Some(Value::Count(1))
+                );
             }
-            assert_eq!(count("implicit.factor.numeric.completed"), Some(Value::Count(1)));
-            let solves = if order == DerivativeOrder::Second { 2 } else { 1 };
-            assert_eq!(count("implicit.factor.solve.completed"), Some(Value::Count(solves)));
-            assert_eq!(count("implicit.derivatives.verification.completed"), Some(Value::Count(solves)));
-            assert_eq!(count("implicit.derivatives.expansion.completed"), Some(Value::Count(solves)));
+            assert_eq!(
+                count("implicit.factor.numeric.completed"),
+                Some(Value::Count(1))
+            );
+            let solves = if order == DerivativeOrder::Second {
+                2
+            } else {
+                1
+            };
+            assert_eq!(
+                count("implicit.factor.solve.completed"),
+                Some(Value::Count(solves))
+            );
+            assert_eq!(
+                count("implicit.derivatives.verification.completed"),
+                Some(Value::Count(solves))
+            );
+            assert_eq!(
+                count("implicit.derivatives.expansion.completed"),
+                Some(Value::Count(solves))
+            );
             for stage in ["second_rhs", "contraction"] {
-                assert_eq!(count(&format!("implicit.derivatives.{stage}.completed")),
-                    (order == DerivativeOrder::Second).then_some(Value::Count(1)));
+                assert_eq!(
+                    count(&format!("implicit.derivatives.{stage}.completed")),
+                    (order == DerivativeOrder::Second).then_some(Value::Count(1))
+                );
             }
             assert_eq!(actual.values, [15.]);
             assert!((actual.jacobian[0] - 8.).abs() < 1e-12);
@@ -2346,13 +2392,27 @@ mod tests {
         }
         assert_eq!(calls.load(Ordering::Relaxed), 1);
         let snapshot = operation.reader().snapshot(Duration::from_secs(60));
-        let count = |name: &str| snapshot.metrics.iter().find(|metric| metric.name == name)
-            .map(|metric| metric.cumulative.clone());
+        let count = |name: &str| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .map(|metric| metric.cumulative.clone())
+        };
         use pse_diagnostics::observation::Value;
-        assert_eq!(count("implicit.derivatives.jet.completed"), Some(Value::Count(2)));
-        assert_eq!(count("implicit.derivatives.contraction.completed"), Some(Value::Count(1)));
+        assert_eq!(
+            count("implicit.derivatives.jet.completed"),
+            Some(Value::Count(2))
+        );
+        assert_eq!(
+            count("implicit.derivatives.contraction.completed"),
+            Some(Value::Count(1))
+        );
         assert_eq!(count("implicit.product.full_reuse"), Some(Value::Count(1)));
-        assert_eq!(count("implicit.product.order_projection"), Some(Value::Count(1)));
+        assert_eq!(
+            count("implicit.product.order_projection"),
+            Some(Value::Count(1))
+        );
         provider
             .evaluate(
                 &[2.1],
@@ -2502,13 +2562,28 @@ mod tests {
             let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
             let operation = hub.start("implicit.ift.singular_stage");
             let _entered = operation.context().enter();
-            assert!(problem.derivatives(&[0.0], &[0.0], DerivativeOrder::Second, &options, &cancel).is_err());
+            assert!(
+                problem
+                    .derivatives(&[0.0], &[0.0], DerivativeOrder::Second, &options, &cancel)
+                    .is_err()
+            );
             let snapshot = operation.reader().snapshot(Duration::from_secs(60));
-            let count = |name: &str| snapshot.metrics.iter().find(|metric| metric.name == name)
-                .map(|metric| metric.cumulative.clone());
+            let count = |name: &str| {
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .map(|metric| metric.cumulative.clone())
+            };
             use pse_diagnostics::observation::Value;
-            assert_eq!(count("implicit.derivatives.extraction.completed"), Some(Value::Count(1)));
-            assert_eq!(count("implicit.factor.numeric.failures"), Some(Value::Count(1)));
+            assert_eq!(
+                count("implicit.derivatives.extraction.completed"),
+                Some(Value::Count(1))
+            );
+            assert_eq!(
+                count("implicit.factor.numeric.failures"),
+                Some(Value::Count(1))
+            );
             assert_eq!(count("implicit.factor.numeric.completed"), None);
             assert_eq!(count("implicit.factor.solve.calls"), None);
             assert_eq!(count("implicit.derivatives.expansion.calls"), None);
@@ -2539,15 +2614,33 @@ mod tests {
             let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
             let operation = hub.start("implicit.ift.cancelled_stage");
             let _entered = operation.context().enter();
-            assert!(matches!(problem.derivatives_at_verified_point(
-                &[4.0], &[2.0], DerivativeOrder::Second, &options, &cancel,
-            ), Err(MathError::Cancelled)));
+            assert!(matches!(
+                problem.derivatives_at_verified_point(
+                    &[4.0],
+                    &[2.0],
+                    DerivativeOrder::Second,
+                    &options,
+                    &cancel,
+                ),
+                Err(MathError::Cancelled)
+            ));
             let snapshot = operation.reader().snapshot(Duration::from_secs(60));
-            let count = |name: &str| snapshot.metrics.iter().find(|metric| metric.name == name)
-                .map(|metric| metric.cumulative.clone());
+            let count = |name: &str| {
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .map(|metric| metric.cumulative.clone())
+            };
             use pse_diagnostics::observation::Value;
-            assert_eq!(count("implicit.derivatives.jet.calls"), Some(Value::Count(1)));
-            assert_eq!(count("implicit.derivatives.jet.failures"), Some(Value::Count(1)));
+            assert_eq!(
+                count("implicit.derivatives.jet.calls"),
+                Some(Value::Count(1))
+            );
+            assert_eq!(
+                count("implicit.derivatives.jet.failures"),
+                Some(Value::Count(1))
+            );
             assert_eq!(count("implicit.derivatives.jet.completed"), None);
             assert_eq!(count("implicit.derivatives.extraction.calls"), None);
             assert_eq!(count("implicit.factor.solve.calls"), None);

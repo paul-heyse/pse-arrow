@@ -82,7 +82,11 @@ impl<'a> ConcurrentAdmission<'a> {
         }
         crate::execution::pause_compute();
         loop {
-            let waiting = crate::execution::NativeWait::new(&CONCURRENT_CHANGED, execution.cancellation_control(), Some(execution));
+            let waiting = crate::execution::NativeWait::new(
+                &CONCURRENT_CHANGED,
+                execution.cancellation_control(),
+                Some(execution),
+            );
             execution.check()?;
             check_concurrent_health(failed)?;
             match lock.try_lock() {
@@ -104,7 +108,7 @@ impl<'a> ConcurrentAdmission<'a> {
                             crate::execution::resume_compute(execution)?;
                             crate::execution::pause_compute();
                             continue;
-                        },
+                        }
                         Err(error) => {
                             drop(gate);
                             CONCURRENT_CHANGED.notify();

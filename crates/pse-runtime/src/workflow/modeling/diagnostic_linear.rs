@@ -99,6 +99,7 @@ impl ModelingPackage {
         let allowance = extent
             .checked_mul(512)
             .and_then(|n| n.checked_add(controls.report_allowance().ok()?))
+            .and_then(|n| n.checked_add(operation.retained_bytes()))
             .ok_or_else(|| contract("linear diagnostic storage extent"))?;
         let owner = service.reserve("modeling:linear-diagnostics", allowance)?;
         let retained = owner.clone();
@@ -217,7 +218,12 @@ mod tests {
                     },
                     Controls::default(),
                     1000,
-                    &cancel,
+                    &crate::workflow::DiagnosticOperation::new(
+                        &cancel,
+                        std::time::Duration::from_secs(60),
+                        None,
+                    )
+                    .unwrap(),
                 )
                 .await;
             if linear {

@@ -13,6 +13,8 @@ use crate::{
     solve::*,
 };
 use pse_petsc_sys as ffi;
+#[cfg(test)]
+use std::time::Duration;
 use std::{
     cell::Cell,
     ffi::{CStr, c_void},
@@ -20,8 +22,6 @@ use std::{
     ptr,
     sync::{Mutex, MutexGuard, TryLockError},
 };
-#[cfg(test)]
-use std::time::Duration;
 mod blocks;
 mod derived;
 #[cfg(test)]
@@ -65,7 +65,9 @@ enum Phase {
 }
 static PROCESS: Mutex<Phase> = Mutex::new(Phase::Fresh);
 static RELEASED: pse_diagnostics::WakeSignal = pse_diagnostics::WakeSignal::new();
-fn notify_release() { RELEASED.notify(); }
+fn notify_release() {
+    RELEASED.notify();
+}
 thread_local! { static ACTIVE: Cell<bool> = const { Cell::new(false) }; }
 struct Admission {
     phase: Option<MutexGuard<'static, Phase>>,
@@ -80,26 +82,28 @@ impl Admission {
         }
         crate::execution::pause_compute();
         let phase = loop {
-            let waiting = crate::execution::NativeWait::new(&RELEASED, execution.cancellation_control(), Some(execution));
+            let waiting = crate::execution::NativeWait::new(
+                &RELEASED,
+                execution.cancellation_control(),
+                Some(execution),
+            );
             execution.check()?;
             match PROCESS.try_lock() {
-                Ok(guard) => {
-                    match crate::execution::try_resume_compute(execution) {
-                        Ok(crate::execution::ComputeAvailability::Acquired) => break guard,
-                        Ok(crate::execution::ComputeAvailability::Unavailable) => {
-                            drop(guard);
-                            notify_release();
-                            crate::execution::resume_compute(execution)?;
-                            crate::execution::pause_compute();
-                            continue;
-                        }
-                        Err(error) => {
-                            drop(guard);
-                            notify_release();
-                            return Err(error);
-                        }
+                Ok(guard) => match crate::execution::try_resume_compute(execution) {
+                    Ok(crate::execution::ComputeAvailability::Acquired) => break guard,
+                    Ok(crate::execution::ComputeAvailability::Unavailable) => {
+                        drop(guard);
+                        notify_release();
+                        crate::execution::resume_compute(execution)?;
+                        crate::execution::pause_compute();
+                        continue;
                     }
-                }
+                    Err(error) => {
+                        drop(guard);
+                        notify_release();
+                        return Err(error);
+                    }
+                },
                 Err(TryLockError::WouldBlock) => waiting.wait(execution.scope()?.deadline()),
                 Err(TryLockError::Poisoned(_)) => {
                     return Err(ProblemError::internal("PETSc process owner poisoned"));
@@ -193,28 +197,30 @@ pub fn shutdown() -> Result<(), ProblemError> {
             return Err(ProblemError::internal("PETSc process owner poisoned"));
         }
     };
-    let result = (|| { match *phase {
-        Phase::Ready => {
-            *phase = Phase::Failed;
-            // SAFETY: admission owns the same mutex through all object destruction.
-            {
-                check(
-                    // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
-                    unsafe { ffi::pse_petsc_finalize() },
-                    "process finalization",
-                )?;
+    let result = (|| {
+        match *phase {
+            Phase::Ready => {
+                *phase = Phase::Failed;
+                // SAFETY: admission owns the same mutex through all object destruction.
+                {
+                    check(
+                        // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
+                        unsafe { ffi::pse_petsc_finalize() },
+                        "process finalization",
+                    )?;
+                }
+                *phase = Phase::Shutdown;
+                Ok(())
             }
-            *phase = Phase::Shutdown;
-            Ok(())
+            Phase::Fresh | Phase::Shutdown => {
+                *phase = Phase::Shutdown;
+                Ok(())
+            }
+            Phase::Failed => Err(ProblemError::Unsupported(
+                "failed PETSc process owner cannot finalize safely".into(),
+            )),
         }
-        Phase::Fresh | Phase::Shutdown => {
-            *phase = Phase::Shutdown;
-            Ok(())
-        }
-        Phase::Failed => Err(ProblemError::Unsupported(
-            "failed PETSc process owner cannot finalize safely".into(),
-        )),
-    } })();
+    })();
     drop(phase);
     notify_release();
     result

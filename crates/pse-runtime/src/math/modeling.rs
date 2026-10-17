@@ -512,9 +512,13 @@ impl MathService {
         self: &Arc<Self>,
         terms: BTreeMap<SemanticId, Vec<f64>>,
         policy: pse_math::diagnostics::TermPolicy,
-        driver: &crate::CancelSource,
+        task: &crate::workflow::DiagnosticOperation,
     ) -> Result<ModelingTermEvidence, MathRuntimeError> {
-        let control = Cancellation::default();
+        if task.driver().token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        task.scope().check().map_err(pse_backend_native::ProblemError::Provider)?;
+        let control = task.scope().cancellation_control().clone();
         // Charge construction, simultaneous earlier reports and the transported input.
         // Summing per-row peaks is conservative: actual findings share one work allowance.
         let bytes = terms.values().try_fold(0usize, |bytes, values| {
@@ -534,44 +538,50 @@ impl MathService {
                 "term diagnostic construction extent",
             ));
         }
-        let operation = self.job_retained(1, bytes, control.clone(), move |flag| {
-            let count = terms.len();
-            let mut remaining = policy.combinations;
-            let mut findings = policy.findings;
-            let mut results = BTreeMap::new();
-            for (id, values) in terms {
-                if remaining == 0 || findings == 0 {
-                    break;
+        let operation = self.job_retained_scoped(
+            1,
+            bytes,
+            control.clone(),
+            task.scope().deadline(),
+            move |flag| {
+                let count = terms.len();
+                let mut remaining = policy.combinations;
+                let mut findings = policy.findings;
+                let mut results = BTreeMap::new();
+                for (id, values) in terms {
+                    if remaining == 0 || findings == 0 {
+                        break;
+                    }
+                    let p = pse_math::diagnostics::TermPolicy {
+                        combinations: remaining,
+                        findings,
+                        ..policy
+                    };
+                    let report = pse_math::diagnostics::analyze_terms(&values, p, &flag)?;
+                    remaining = remaining.saturating_sub(report.examined);
+                    findings = findings.saturating_sub(report.cancellations.len());
+                    results.insert(id, report);
                 }
-                let p = pse_math::diagnostics::TermPolicy {
-                    combinations: remaining,
-                    findings,
-                    ..policy
-                };
-                let report = pse_math::diagnostics::analyze_terms(&values, p, &flag)?;
-                remaining = remaining.saturating_sub(report.examined);
-                findings = findings.saturating_sub(report.cancellations.len());
-                results.insert(id, report);
-            }
-            let retained = results
-                .values()
-                .try_fold(0usize, |n, r| {
-                    n.checked_add(
-                        r.cancellations
-                            .iter()
-                            .map(|v| v.capacity() * size_of::<usize>())
-                            .sum::<usize>()
-                            + r.cancellations.capacity() * size_of::<Vec<usize>>()
-                            + r.mismatched.capacity() * size_of::<usize>()
-                            + 256,
-                    )
-                })
-                .ok_or(MathRuntimeError::Limit("term diagnostic output extent"))?;
-            let unattempted = count - results.len();
-            Ok(((results, unattempted), retained))
-        });
+                let retained = results
+                    .values()
+                    .try_fold(0usize, |n, r| {
+                        n.checked_add(
+                            r.cancellations
+                                .iter()
+                                .map(|v| v.capacity() * size_of::<usize>())
+                                .sum::<usize>()
+                                + r.cancellations.capacity() * size_of::<Vec<usize>>()
+                                + r.mismatched.capacity() * size_of::<usize>()
+                                + 256,
+                        )
+                    })
+                    .ok_or(MathRuntimeError::Limit("term diagnostic output extent"))?;
+                let unattempted = count - results.len();
+                Ok(((results, unattempted), retained))
+            },
+        );
         tokio::pin!(operation);
-        let ((results, unattempted), owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let ((results, unattempted), owner) = tokio::select! {result=&mut operation=>result?,()=task.driver().cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         Ok(ModelingTermEvidence {
             results,
             unattempted,

@@ -43,8 +43,8 @@ from pse.contracts.documents import (
     Conclusion,
     ConformanceControls,
     DeclarationInventory,
-    DiagnosticSamplesControls,
     DiagnosticOrigin,
+    DiagnosticSamplesControls,
     FitPreparationDocument,
     FlowSelectionDocument,
     InitializationOverrides,
@@ -801,7 +801,10 @@ class ModelingPackage:
         """Inspect the declared candidate without requesting a native solve."""
         return ModelingDiagnostics(
             self._handle.diagnose(
-                case_id.to_hex(), codec.encode_json(settings), diagnostics, origin=origin
+                case_id.to_hex(),
+                codec.encode_json(settings),
+                diagnostics,
+                origin=origin,
             )
         )
 

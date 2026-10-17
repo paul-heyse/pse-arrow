@@ -66,7 +66,12 @@ fn typed_sqrt_weighted_products(options: Optimization) {
         ),
     ] {
         let compiled = support
-            .compile_product(kind, options, EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))
+            .compile_product(
+                kind,
+                options,
+                EvaluationLimits::default(),
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
             .unwrap();
         assert_eq!(compiled.product_len(), 1);
         assert!(compiled.census().any(|entry| entry.direct_weighted));

@@ -741,22 +741,38 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     report = package.diagnose(
         declaration(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
     )
-    assert report.origin is None, "standalone diagnostics cannot invent an originating run"
+    assert report.origin is None, (
+        "standalone diagnostics cannot invent an originating run"
+    )
     original_failure = documents.BoundaryDiagnostic(
-        class_=NativeBoundaryClass.NUMERICAL, code=DiagnosticCode.NATIVE_NUMERICAL,
-        rule=DiagnosticRule.NATIVE_NUMERICAL, stage=DiagnosticStage.NATIVE,
-        sources=(identity(245).to_hex(),), observations={},
+        class_=NativeBoundaryClass.NUMERICAL,
+        code=DiagnosticCode.NATIVE_NUMERICAL,
+        rule=DiagnosticRule.NATIVE_NUMERICAL,
+        stage=DiagnosticStage.NATIVE,
+        sources=(identity(245).to_hex(),),
+        observations={},
     )
     origin = documents.DiagnosticOrigin(
-        run_id=identity(240).to_hex(), attempt_id=None, step=1,
-        native_attempt=None, operation=None, failure=original_failure,
+        run_id=identity(240).to_hex(),
+        attempt_id=None,
+        step=1,
+        native_attempt=None,
+        operation=None,
+        failure=original_failure,
     )
-    assert codec.decode_json(codec.encode_json(origin), documents.DiagnosticOrigin) == origin
+    assert (
+        codec.decode_json(codec.encode_json(origin), documents.DiagnosticOrigin)
+        == origin
+    )
     missing = package.diagnose(
-        declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings,
+        declaration(229),
+        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
+        settings,
         origin=origin,
     )
-    assert missing.origin == origin, "incomplete analysis preserves supplied original context"
+    assert missing.origin == origin, (
+        "incomplete analysis preserves supplied original context"
+    )
     assert missing.statistics()["missing_values"] == 2
     assert not missing.complete
     assert pa.table(missing.table()).to_pylist()[0]["point"] == []
@@ -1039,8 +1055,12 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
         backend=NativeBackend.HIGHS, controls=pse.SolveControls(time_limit=30)
     )
     origin = documents.DiagnosticOrigin(
-        run_id=identity(240).to_hex(), attempt_id=None, step=2,
-        native_attempt=None, operation=None, failure=None,
+        run_id=identity(240).to_hex(),
+        attempt_id=None,
+        step=2,
+        native_attempt=None,
+        operation=None,
+        failure=None,
     )
     bad = package.diagnose_linear(
         cases["bad"],

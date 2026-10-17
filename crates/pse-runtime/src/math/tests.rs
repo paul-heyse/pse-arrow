@@ -478,11 +478,33 @@ async fn term_diagnostics_admit_small_demand_under_generous_worker_capacity() {
         findings: 100_000,
     };
     let report = s
-        .modeling_term_diagnostics(terms, policy, &crate::CancelSource::new())
+        .modeling_term_diagnostics(
+            terms.clone(),
+            policy,
+            &crate::workflow::DiagnosticOperation::new(
+                &crate::CancelSource::new(),
+                Duration::from_secs(10),
+                None,
+            )
+            .unwrap(),
+        )
         .await
         .unwrap();
     assert!(s.pool.reserved() < 1 << 20);
     drop(report);
+    assert_eq!(s.pool.reserved(), 0);
+    let expired = crate::workflow::DiagnosticOperation::new(
+        &crate::CancelSource::new(),
+        Duration::from_nanos(1),
+        None,
+    )
+    .unwrap();
+    tokio::time::sleep(Duration::from_millis(1)).await;
+    assert!(
+        s.modeling_term_diagnostics(terms, policy, &expired)
+            .await
+            .is_err()
+    );
     assert_eq!(s.pool.reserved(), 0);
 }
 

@@ -1004,7 +1004,7 @@ impl ModelingPackage {
         let scaled_columns = column_scales.clone();
         let retained = report._owner.clone();
         let sampled = service
-            .with_owned_worker(assembly, providers.clone(), operation.driver(), Some((operation.scope().clone(), operation.scope().cancellation_control().clone())), move |worker| {
+            .with_owned_worker(assembly, providers.clone(), operation.driver(), Some((operation.scope().clone(), operation.scope().cancellation_control().clone())), move |mut worker| {
                 let rows = crate::workflow::dynamics::analysis("diagnostic.original_rows", || worker.constraints(&candidate).map(<[f64]>::to_vec))?;
                 let flag = worker.cancellation().clone();
                 let jacobian = crate::workflow::dynamics::analysis("diagnostic.original_jacobian", || worker.jacobian(&candidate))?;
@@ -1264,7 +1264,7 @@ impl ModelingPackage {
                     })
                     .collect::<BTreeMap<_, Vec<_>>>();
                 let evidence = service
-                    .modeling_term_diagnostics(magnitudes.clone(), policy.terms, operation.driver())
+                    .modeling_term_diagnostics(magnitudes.clone(), policy.terms, operation)
                     .await?;
                 if evidence.unattempted > 0 {
                     report.complete = false;
@@ -1398,15 +1398,66 @@ mod tests {
         );
         assert!(prepared.model.case.compiled().coefficients.is_none());
         let values = prepared.model.values.clone();
-        let policy = serde_json::from_str(include_str!(
+        let policy: ModelingDiagnosticPolicy = serde_json::from_str(include_str!(
             "../../../../../packages/reference/diagnostics/idaes-2.13.json"
         ))
         .unwrap();
+        let origin = crate::workflow::DiagnosticOrigin {
+            run_id: pse_operations::mint_id(),
+            attempt_id: None,
+            step: Some(0),
+            native_attempt: Some(0),
+            operation: None,
+            failure: Some(BoundaryDiagnostic::new(
+                BoundaryClass::InvalidModel,
+                pse_diagnostics::DiagnosticStage::ModelingDiagnostics,
+                [],
+                pse_diagnostics::DiagnosticRule::CandidateEvaluationFailed,
+            )),
+        };
+        let operation = crate::workflow::DiagnosticOperation::new(
+            &cancel,
+            std::time::Duration::from_secs(60),
+            Some(origin.clone()),
+        )
+        .unwrap();
         let report = package
-            .diagnose_case(prepared, values, policy, analysis.compiler, &cancel)
+            .diagnose_case(
+                prepared.clone(),
+                values.clone(),
+                policy.clone(),
+                analysis.compiler,
+                &operation,
+            )
             .await
             .unwrap();
         assert!(report.complete, "{:?}", report.findings);
+        assert_eq!(report.origin.as_ref().unwrap().run_id, origin.run_id);
+        let table = report.table("modeling_diagnostics").unwrap();
+        let raw = table
+            .batch()
+            .column_by_name("origin_json")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<arrow_array::StringArray>()
+            .unwrap()
+            .value(0);
+        let readback: crate::workflow::DiagnosticOrigin = serde_json::from_str(raw).unwrap();
+        assert_eq!(readback.run_id, origin.run_id);
+        assert_eq!(readback.failure.unwrap().rule, origin.failure.unwrap().rule);
+        let expired = crate::workflow::DiagnosticOperation::new(
+            &cancel,
+            std::time::Duration::from_nanos(1),
+            None,
+        )
+        .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        assert!(
+            package
+                .diagnose_case(prepared, values, policy, analysis.compiler, &expired)
+                .await
+                .is_err()
+        );
         assert_eq!(report.statistics["free_variables"], 1);
         assert_eq!(report.statistics["equalities"], 0);
         assert_eq!(report.statistics["inequalities"], 3);
@@ -1465,7 +1516,12 @@ mod tests {
                 prepared.model.values.clone(),
                 policy.clone(),
                 analysis.compiler,
-                &cancel,
+                &crate::workflow::DiagnosticOperation::new(
+                    &cancel,
+                    std::time::Duration::from_secs(60),
+                    None,
+                )
+                .unwrap(),
             )
             .await
             .unwrap();
@@ -1496,7 +1552,12 @@ mod tests {
                 prepared.model.values.clone(),
                 policy,
                 analysis.compiler,
-                &cancel,
+                &crate::workflow::DiagnosticOperation::new(
+                    &cancel,
+                    std::time::Duration::from_secs(60),
+                    None,
+                )
+                .unwrap(),
             )
             .await
             .unwrap();
@@ -1774,7 +1835,12 @@ mod tests {
                 values.clone(),
                 p.clone(),
                 compiler,
-                &cancel,
+                &crate::workflow::DiagnosticOperation::new(
+                    &cancel,
+                    std::time::Duration::from_secs(60),
+                    None,
+                )
+                .unwrap(),
             )
             .await
             .unwrap();
@@ -1812,8 +1878,12 @@ mod tests {
                 p.clone(),
                 compiler,
                 3,
-                std::time::Duration::from_secs(10),
-                &cancel,
+                &crate::workflow::DiagnosticOperation::new(
+                    &cancel,
+                    std::time::Duration::from_secs(60),
+                    None,
+                )
+                .unwrap(),
             )
             .await
             .unwrap();
@@ -1829,8 +1899,12 @@ mod tests {
                 p.clone(),
                 compiler,
                 1,
-                std::time::Duration::from_secs(10),
-                &cancel,
+                &crate::workflow::DiagnosticOperation::new(
+                    &cancel,
+                    std::time::Duration::from_secs(60),
+                    None,
+                )
+                .unwrap(),
             )
             .await
             .unwrap();
@@ -1845,8 +1919,12 @@ mod tests {
                 p.clone(),
                 compiler,
                 3,
-                std::time::Duration::from_secs(10),
-                &stopped,
+                &crate::workflow::DiagnosticOperation::new(
+                    &stopped,
+                    std::time::Duration::from_secs(60),
+                    None,
+                )
+                .unwrap(),
             )
             .await
             .unwrap();
@@ -1900,7 +1978,18 @@ mod tests {
             assert_eq!(prepared.providers.len(), 1);
             let values = prepared.model.values.clone();
             let report = nested
-                .diagnose_case(prepared, values, p, compiler, &cancel)
+                .diagnose_case(
+                    prepared,
+                    values,
+                    p,
+                    compiler,
+                    &crate::workflow::DiagnosticOperation::new(
+                        &cancel,
+                        std::time::Duration::from_secs(60),
+                        None,
+                    )
+                    .unwrap(),
+                )
                 .await
                 .unwrap();
             assert!(report.complete, "{:?}", report.findings);
@@ -1937,7 +2026,12 @@ mod tests {
                         maximum_nodes: None,
                     },
                     pse_backend_native::solve::Controls::default(),
-                    &cancel,
+                    &crate::workflow::DiagnosticOperation::new(
+                        &cancel,
+                        std::time::Duration::from_secs(60),
+                        None,
+                    )
+                    .unwrap(),
                 )
                 .await
                 .unwrap();
@@ -2018,6 +2112,7 @@ impl ModelingPackage {
                     .checked_mul(policy.maximum_attempts)
                     .and_then(|n| n.checked_add(policy.maximum_entries.checked_mul(128)?))
                     .and_then(|n| n.checked_add(values.scalars.len().checked_mul(128)?))
+                    .and_then(|n| n.checked_add(operation.retained_bytes()))
                     .ok_or_else(|| contract("native diagnostic extent"))?;
                 let service = self.runtime.shared.math();
                 let owner = service.reserve("modeling:native-diagnostics", allowance)?;

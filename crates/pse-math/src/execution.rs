@@ -830,9 +830,23 @@ impl PreparedSupport {
                     Stage::Branch {
                         then, otherwise, ..
                     } => {
-                        collect(then, parameters, symbols, options, limits, execution_scope, cache)?;
                         collect(
-                            otherwise, parameters, symbols, options, limits, execution_scope, cache,
+                            then,
+                            parameters,
+                            symbols,
+                            options,
+                            limits,
+                            execution_scope,
+                            cache,
+                        )?;
+                        collect(
+                            otherwise,
+                            parameters,
+                            symbols,
+                            options,
+                            limits,
+                            execution_scope,
+                            cache,
                         )?;
                     }
                     Stage::Provider { .. } | Stage::Require { .. } => {}
@@ -6172,11 +6186,28 @@ mod compact_tests {
     fn selected_compilation_keeps_original_deadline_distinct_from_cancellation() {
         let control = pse_diagnostics::Cancellation::default();
         let body = analytic_body(4096);
-        let support = body.prepare_support(&[0], &[Y, X], DerivativeOrder::First, &control).unwrap();
-        let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(std::time::Instant::now()));
-        assert!(matches!(support.prepare_scalars(Optimization::default(), EvaluationLimits::default(), &scope), Err(MathError::Scope(pse_kernels::ProviderError::Deadline))));
-        assert!(matches!(support.compile(Optimization::default(), EvaluationLimits::default(), &scope), Err(MathError::Scope(pse_kernels::ProviderError::Deadline))));
-        assert!(matches!(support.compile_product(ProductKind::SelectedPartials, Optimization::default(), EvaluationLimits::default(), &scope), Err(MathError::Scope(pse_kernels::ProviderError::Deadline))));
+        let support = body
+            .prepare_support(&[0], &[Y, X], DerivativeOrder::First, &control)
+            .unwrap();
+        let scope =
+            pse_kernels::ExecutionScope::new(control.clone(), Some(std::time::Instant::now()));
+        assert!(matches!(
+            support.prepare_scalars(Optimization::default(), EvaluationLimits::default(), &scope),
+            Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
+        ));
+        assert!(matches!(
+            support.compile(Optimization::default(), EvaluationLimits::default(), &scope),
+            Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
+        ));
+        assert!(matches!(
+            support.compile_product(
+                ProductKind::SelectedPartials,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &scope
+            ),
+            Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
+        ));
         assert!(!control.is_cancelled());
     }
 
@@ -6318,7 +6349,11 @@ mod compact_tests {
                 )
                 .unwrap();
             let original = support
-                .compile(Optimization::default(), EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(fresh.clone(), None))
+                .compile(
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &pse_kernels::ExecutionScope::new(fresh.clone(), None),
+                )
                 .unwrap();
             assert_eq!(retained.scalar_builds, 0);
             assert_eq!(
@@ -6641,7 +6676,11 @@ mod compact_tests {
             .unwrap();
         assert!(demand < 1 << 20);
         let program = support
-            .compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
+            .compile(
+                Optimization::default(),
+                limits,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            )
             .unwrap();
         assert!(program.retained_bytes() + program.worker_bytes() < demand);
         let mut worker = program.worker();
@@ -6720,7 +6759,11 @@ mod compact_tests {
             .unwrap();
         assert!(second.retained_bytes() < upgrade_bound);
         let program = second
-            .compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
+            .compile(
+                Optimization::default(),
+                limits,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            )
             .unwrap();
         assert_eq!(program.input_formals().len(), 129);
         assert_eq!(program.coordinates(), &[0]);
@@ -6839,10 +6882,18 @@ mod compact_tests {
             Some(second_bound)
         );
         let program = second
-            .compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
+            .compile(
+                Optimization::default(),
+                limits,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            )
             .unwrap();
         let direction = first
-            .compile_directional(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
+            .compile_directional(
+                Optimization::default(),
+                limits,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            )
             .unwrap();
         assert!(program.retained_bytes() + program.worker_bytes() < second_bound);
         assert!(direction.retained_bytes() + direction.worker_bytes() < directional_bound);
@@ -7827,10 +7878,19 @@ mod compact_tests {
         let context = operation.context();
         let _entered = context.enter();
         let scalars = support
-            .prepare_scalars(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
+            .prepare_scalars(
+                Optimization::default(),
+                limits,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            )
             .unwrap();
         let program = support
-            .compile_reusing(options, limits, &pse_kernels::ExecutionScope::new(control.clone(), None), &scalars)
+            .compile_reusing(
+                options,
+                limits,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &scalars,
+            )
             .unwrap();
         assert_eq!(
             program.scalar_builds, 0,
@@ -7852,7 +7912,12 @@ mod compact_tests {
             }
         ));
         let reference = support
-            .compile_reusing(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None), &scalars)
+            .compile_reusing(
+                Optimization::default(),
+                limits,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &scalars,
+            )
             .unwrap();
         let mut expected = reference.worker();
         let mut first = program.worker();

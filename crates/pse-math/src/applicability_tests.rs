@@ -12,10 +12,7 @@ use pse_model::{
     applicability::*,
     generated::enums::{ModelingPermissionTarget as Target, ModelingValidityLayer as Layer},
 };
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 use symbolica::atom::Atom;
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
