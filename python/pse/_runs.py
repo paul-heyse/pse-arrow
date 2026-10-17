@@ -332,7 +332,7 @@ class RunResult:
     _handle: _NativeRunResult
 
     def diagnostic_origin(self, step: int | None = None) -> DiagnosticOrigin:
-        """Retain the originating invocation/failure for explicit follow-up diagnostics."""
+        """Retain original invocation and failure context for follow-up diagnostics."""
         return self._handle.diagnostic_origin(step)
 
     def replay(self) -> "ScientificReplay":

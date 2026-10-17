@@ -8,6 +8,7 @@ use pse_model::generated::identities::RunId;
 /// An independent diagnostic attempt; a relaxed candidate is never a model result.
 #[derive(Debug)]
 pub struct ModelingLinearDiagnostics {
+    /// Retained original invocation or failure, independent of scientific permission.
     pub origin: Option<super::super::super::DiagnosticOrigin>,
     /// Identity of this diagnostic run.
     pub run_id: RunId,

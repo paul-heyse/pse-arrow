@@ -2874,24 +2874,28 @@ class CaptureBudget(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 class CaptureDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Typed capture answer; it contains no scientific results or result permissions."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Standalone answer encoding version.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Bounded independent diagnostic failures; none changes a target outcome.
     errors: tuple[str, ...]
     #: Explicitly selected mechanism.
     kind: enums.CaptureKind
+    #: Exact launched command process; absent for checkpoint-based attachment.
+    launch_process: ProcessLocator | None = None
     #: Explicit bounded-loss and unavailable-clock facts.
     loss: CaptureLoss
     #: Actual elapsed collection interval from exporter start (no retrospective CPU samples).
     observed_duration: ClosedDuration
     #: Intervals actually begun without an observed actual end, including interrupted ones.
     open_intervals: Annotated[int, msgspec.Meta(ge=0)]
-    #: Selected root diagnostic operation.
-    operation: OperationId
+    #: Selected root diagnostic operation, absent for a process launch without one.
+    operation: OperationId | None = None
     #: Retained raw and projected files, including readable prefix boundaries.
     outputs: tuple[CaptureOutput, ...]
+    #: Actual published operation relationships; an empty list means not observed.
+    related_operations: tuple[OperationId, ...]
     #: Requested attachment duration.
     requested_duration: ClosedDuration
     #: Exporter lifecycle only.
@@ -2902,7 +2906,7 @@ class CaptureDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     targets: tuple[CaptureTarget, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.errors), v.scalar_key(self.kind), v.record_key(self.loss), v.record_key(self.observed_duration), v.scalar_key(self.open_intervals), v.record_key(self.operation), v.sequence_key(v.record_key)(self.outputs), v.record_key(self.requested_duration), v.scalar_key(self.status), v.record_key(self.symbols), v.sequence_key(v.record_key)(self.targets),))
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.errors), v.scalar_key(self.kind), v.optional_key(v.record_key)(self.launch_process), v.record_key(self.loss), v.record_key(self.observed_duration), v.scalar_key(self.open_intervals), v.optional_key(v.record_key)(self.operation), v.sequence_key(v.record_key)(self.outputs), v.sequence_key(v.record_key)(self.related_operations), v.record_key(self.requested_duration), v.scalar_key(self.status), v.record_key(self.symbols), v.sequence_key(v.record_key)(self.targets),))
 
 
 class CaptureLoss(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3733,6 +3737,26 @@ class DiagnosticNoteDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.message), v.optional_key(v.record_key)(self.span),))
+
+
+class DiagnosticOrigin(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Optional link to retained original evidence; never authority to use a scientific result."""
+
+    #: Original durable attempt, absent for ephemeral execution.
+    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Retained original failure or scientific refusal; never reevaluated.
+    failure: BoundaryDiagnostic | None = None
+    #: Original zero-based native attempt ordinal.
+    native_attempt: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original published diagnostic operation, when observation was enabled.
+    operation: OperationId | None = None
+    #: Original retained run identity.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Original requested step, when one is selected.
+    step: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.native_attempt), v.optional_key(v.record_key)(self.operation), v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.step),))
 
 
 class DiagnosticProcessPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5266,6 +5290,30 @@ class KnowledgeControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
+
+
+class LaunchCaptureRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Structured launch request. A new command is independently owned from its CPU capture."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Request encoding version.
+    version: Literal[1] = 1
+    #: Executable and arguments passed directly, never interpolated as shell source.
+    argv: tuple[str, ...]
+    #: Existing finite capture/output allowances; never limits scientific execution.
+    budget: CaptureBudget = msgspec.field(default_factory=lambda: msgspec.convert({"memory_bytes": 16777216, "output_bytes": 268435456}, type=CaptureBudget))
+    #: Optional command working directory. It does not change the capture output location.
+    cwd: str | None = None
+    #: Finite sampling interval after acknowledged activation, at most one hour.
+    duration: ClosedDuration = msgspec.field(default_factory=lambda: msgspec.convert({"nanos": 0, "secs": 10}, type=ClosedDuration))
+    #: Fresh directory exclusively owned by the optional capture.
+    output: str
+    #: Finite allowance for establishing acknowledged sampling, at most one minute.
+    startup_timeout: ClosedDuration = msgspec.field(default_factory=lambda: msgspec.convert({"nanos": 0, "secs": 10}, type=ClosedDuration))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.argv), v.record_key(self.budget), v.optional_key(v.scalar_key)(self.cwd), v.record_key(self.duration), v.scalar_key(self.output), v.record_key(self.startup_timeout),))
 
 
 class LazyStudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -10616,6 +10664,7 @@ __all__ = [
     "DiagnosticContextDocument",
     "DiagnosticListRequest",
     "DiagnosticNoteDocument",
+    "DiagnosticOrigin",
     "DiagnosticProcessPage",
     "DiagnosticProcessSummary",
     "DiagnosticSamplesControls",
@@ -10728,6 +10777,7 @@ __all__ = [
     "KinsolSettings",
     "KktTolerances",
     "KnowledgeControls",
+    "LaunchCaptureRequest",
     "LazyStudyDefinition",
     "Limits",
     "LinearDiagnosticControls",

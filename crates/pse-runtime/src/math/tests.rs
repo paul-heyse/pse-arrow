@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use datafusion::execution::memory_pool::FairSpillPool;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{sync::atomic::{AtomicBool, Ordering}, time::Duration};
 pub(super) fn service() -> Arc<MathService> {
     service_and_cache().0
 }
@@ -500,11 +500,12 @@ async fn term_diagnostics_admit_small_demand_under_generous_worker_capacity() {
     )
     .unwrap();
     tokio::time::sleep(Duration::from_millis(1)).await;
-    assert!(
-        s.modeling_term_diagnostics(terms, policy, &expired)
-            .await
-            .is_err()
-    );
+    assert!(matches!(
+        s.modeling_term_diagnostics(terms, policy, &expired).await,
+        Err(MathRuntimeError::Solve(pse_backend_native::ProblemError::Provider(
+            pse_kernels::ProviderError::Deadline
+        )))
+    ));
     assert_eq!(s.pool.reserved(), 0);
 }
 

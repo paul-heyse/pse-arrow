@@ -6891,7 +6891,7 @@
       "type": "object"
     },
     "Evaluator": {
-      "description": "Explicit evaluator implementation. Scalar C++ compilation is opt-in and only\nchanges Value arithmetic blocks; derivatives and provider calls remain interpreted.",
+      "description": "Explicit evaluator implementation. Scalar C++ compilation is opt-in for eligible\ndemanded arithmetic products; provider calls and ordered guards remain host-owned.",
       "oneOf": [
         {
           "additionalProperties": false,

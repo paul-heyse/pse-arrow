@@ -173,7 +173,7 @@
 | `runtime.canonical_version_receipts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_version_receipts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_versions` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_versions" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.computation_runs` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."computation_runs" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
-| `runtime.diagnostic_captures` | `unique:pk` | `SELECT s."operation" FROM "runtime"."diagnostic_captures" s GROUP BY s."operation" HAVING COUNT(*) > 1` |
+| `runtime.diagnostic_captures` | `unique:pk` | `SELECT s."subject" FROM "runtime"."diagnostic_captures" s GROUP BY s."subject" HAVING COUNT(*) > 1` |
 | `runtime.diagnostic_evidence_fields` | `unique:pk` | `SELECT s."operation", s."producer", s."generation", s."event_sequence", s."field_ordinal" FROM "runtime"."diagnostic_evidence_fields" s GROUP BY s."operation", s."producer", s."generation", s."event_sequence", s."field_ordinal" HAVING COUNT(*) > 1` |
 | `runtime.diagnostic_invocations` | `unique:pk` | `SELECT s."run" FROM "runtime"."diagnostic_invocations" s GROUP BY s."run" HAVING COUNT(*) > 1` |
 | `runtime.diagnostics_findings` | `unique:pk` | `SELECT s."finding_id" FROM "runtime"."diagnostics_findings" s GROUP BY s."finding_id" HAVING COUNT(*) > 1` |

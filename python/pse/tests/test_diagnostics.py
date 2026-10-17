@@ -31,6 +31,7 @@ from pse.contracts.documents import (
     InspectionRequest,
     InvocationComparisonDocument,
     InvocationEvidenceDocument,
+    LaunchCaptureRequest,
     MetricSnapshot,
     NativeCountersKinsol,
     ProcessCheckpoint,
@@ -779,6 +780,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
                 codec.decode_json(
                     invocation_view.column("document_json")[0].as_py(),
                     InvocationEvidenceDocument,
+    LaunchCaptureRequest,
                 )
                 == invocation
             )
@@ -908,11 +910,9 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
 @pytest.mark.unit
 def test_launch_capture_public_command_survives_sampler_stop(tmp_path: Path) -> None:
     """Actual public owners remain independent even when perf is unavailable."""
-    from pse.contracts.documents import LaunchCaptureRequest
-
     request = LaunchCaptureRequest(
         version=1,
-        argv=["/bin/sh", "-c", "sleep 60 & wait"],
+        argv=("/bin/sh", "-c", "sleep 60 & wait"),
         cwd=None,
         output=str(tmp_path / "capture"),
         duration=ClosedDuration(secs=1, nanos=0),
@@ -971,18 +971,17 @@ def test_launch_capture_cli_retains_command_and_returns_scientific_exit(
 def test_launch_capture_public_literal_arguments_and_working_directory(
     tmp_path: Path,
 ) -> None:
-    from pse.contracts.documents import LaunchCaptureRequest
 
     command, session = diagnostics.launch_capture(
         LaunchCaptureRequest(
             version=1,
-            argv=[
+            argv=(
                 "/bin/sh",
                 "-c",
                 "printf '%s' \"$1\" > literal",
                 "science",
                 "$(touch WRONG); a b",
-            ],
+            ),
             cwd=str(tmp_path),
             output=str(tmp_path / "capture"),
             duration=ClosedDuration(secs=0, nanos=50_000_000),

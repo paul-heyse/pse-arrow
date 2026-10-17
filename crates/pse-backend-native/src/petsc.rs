@@ -1127,7 +1127,7 @@ mod tests {
         drop(held);
         notify_release();
     }
-    use std::sync::{atomic::Ordering, mpsc};
+    use std::sync::mpsc;
     #[derive(Debug)]
     struct LogOracle {
         inner: crate::solver_tests::Polynomial,

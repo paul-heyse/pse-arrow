@@ -304,6 +304,17 @@
       "$ref": "#/$defs/CaptureKind",
       "description": "Explicitly selected mechanism."
     },
+    "launch_process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProcessLocator"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Exact launched command process; absent for checkpoint-based attachment."
+    },
     "loss": {
       "$ref": "#/$defs/CaptureLoss",
       "description": "Explicit bounded-loss and unavailable-clock facts."
@@ -319,13 +330,27 @@
       "type": "integer"
     },
     "operation": {
-      "$ref": "#/$defs/OperationId",
-      "description": "Selected root diagnostic operation."
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OperationId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Selected root diagnostic operation, absent for a process launch without one."
     },
     "outputs": {
       "description": "Retained raw and projected files, including readable prefix boundaries.",
       "items": {
         "$ref": "#/$defs/CaptureOutput"
+      },
+      "type": "array"
+    },
+    "related_operations": {
+      "description": "Actual published operation relationships; an empty list means not observed.",
+      "items": {
+        "$ref": "#/$defs/OperationId"
       },
       "type": "array"
     },
@@ -349,8 +374,8 @@
       "type": "array"
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Standalone answer encoding version.",
       "type": "integer"
     }
@@ -358,7 +383,7 @@
   "required": [
     "version",
     "kind",
-    "operation",
+    "related_operations",
     "status",
     "requested_duration",
     "observed_duration",

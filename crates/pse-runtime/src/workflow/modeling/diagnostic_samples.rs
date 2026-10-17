@@ -10,6 +10,7 @@ pub use pse_model::generated::enums::ModelingDiagnosticSampleStop as DiagnosticS
 /// Named sample evidence. Every result uses the same original model and numerical profile.
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnosticSamples {
+    /// Retained original invocation or failure, independent of scientific permission.
     pub origin: Option<super::super::super::DiagnosticOrigin>,
     /// Run identity of the sample campaign.
     pub run_id: RunId,

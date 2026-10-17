@@ -772,7 +772,7 @@ mod pressure_tests {
         let (preparation, _, _) = tests::component_fixture(service);
         let program = preparation.compiled().artifacts[0]
             .build(&pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
+                Cancellation::default(),
                 None,
             ))
             .unwrap();

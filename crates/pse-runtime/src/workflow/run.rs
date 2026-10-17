@@ -2093,7 +2093,6 @@ mod cancellation_tests {
 
 #[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
 mod scientific_product_tests {
-    use super::*;
     use crate::invocation::ProductAvailability;
     use crate::workflow::modeling::sensitivity_tests as fixture;
     use pse_backend_native::solve::{Backend, SolverSelection};

@@ -533,7 +533,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 parser.error("capture-launch requires -- executable [arguments]")
             request = LaunchCaptureRequest(
                 version=1,
-                argv=command_argv,
+                argv=tuple(command_argv),
                 cwd=None if args.cwd is None else str(args.cwd),
                 output=str(args.output),
                 duration=_duration(args.duration),

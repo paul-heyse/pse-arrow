@@ -1189,11 +1189,13 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 Immutable optional capture link and its original typed document. Capture failure, output prefixes, loss, symbols and process/thread scope remain independent from scientific result permission.
 
-Version: 1. Snapshot class: `derived`. Primary key: `operation`.
+Version: 2. Snapshot class: `derived`. Primary key: `subject`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `operation` | `Utf8` | false | `key` | — | — |
+| `subject` | `Utf8` | false | `key` | — | — |
+| `operation` | `Utf8` | true | `payload` | — | — |
+| `launch_process_json` | `Utf8` | true | `payload` | — | — |
 | `capture_kind` | `Utf8` | false | `payload` | — | — |
 | `status` | `Utf8` | false | `payload` | — | — |
 | `document_json` | `Utf8` | false | `payload` | — | — |
@@ -1551,11 +1553,12 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, fixture_id, sample_
 
 Named bounded diagnostic samples link to individually owned reports. Evaluation or binding failures retain their sample identity and classification; unattempted samples are not failed attempts.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
+| `origin_json` | `Utf8` | true | `payload` | — | — |
 | `unattempted` | `Int64` | false | `payload` | — | — |
 | `stop` | `enum:ModelingDiagnosticSampleStop` | false | `payload` | — | — |
 | `outcomes` | `List` | false | `payload` | — | — |
@@ -1570,11 +1573,12 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 
 Numerical diagnostics at an explicit physical point. Matrix vectors name semantic rows and variables, including rectangular null modes. Completeness concerns the requested bounded analyses, not structural rank or feasibility.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
+| `origin_json` | `Utf8` | true | `payload` | — | — |
 | `source_identity` | `content_hash` | false | `payload` | — | — |
 | `numerical_identity` | `content_hash` | false | `payload` | — | — |
 | `profile` | `Utf8` | false | `payload` | — | — |
@@ -1876,11 +1880,12 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 Bounded LP conditioning and minimum-support MILP evidence about the scaled Jacobian at the recorded physical point. Weights refer to rows scaled by their recorded nominals; columns are scaled by variable nominals. Numerical irreducibility at tolerance does not certify nonlinear infeasibility or symbolic rank. Attempts are ordered by source-row pivot, LP then MILP.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
+| `origin_json` | `Utf8` | true | `payload` | — | — |
 | `source_identity` | `content_hash` | false | `payload` | — | — |
 | `numerical_identity` | `content_hash` | false | `payload` | — | — |
 | `point` | `List` | false | `payload` | — | — |
@@ -2002,11 +2007,12 @@ Version: 1. Snapshot class: `derived`. Primary key: `source_revision, name`.
 
 Independent native affine-model diagnostics in physical source coordinates. IIS for a discrete model concerns its continuous relaxation. A feasibility-relaxation candidate is separate from the original attempt. Basis endpoints identify original variables or row slacks; negative native sentinels remain explicit. Infinite ranging endpoints are meaningful.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
+| `origin_json` | `Utf8` | true | `payload` | — | — |
 | `source_identity` | `content_hash` | false | `payload` | — | — |
 | `numerical_identity` | `content_hash` | false | `payload` | — | — |
 | `rows` | `List` | false | `payload` | — | — |

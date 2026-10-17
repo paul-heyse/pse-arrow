@@ -1198,13 +1198,15 @@ class RuntimeComputationRunsRow:
 class RuntimeDiagnosticCapturesRow:
     """Declared relation row or nested value."""
 
-    operation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    subject: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    operation: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    launch_process_json: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     capture_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     status: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     document_json: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.operation), v.scalar_key(self.capture_kind), v.scalar_key(self.status), v.scalar_key(self.document_json),))
+        return (type(self), (v.scalar_key(self.subject), v.optional_key(v.scalar_key)(self.operation), v.optional_key(v.scalar_key)(self.launch_process_json), v.scalar_key(self.capture_kind), v.scalar_key(self.status), v.scalar_key(self.document_json),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1617,12 +1619,13 @@ class RuntimeModelingDiagnosticSamplesRow:
     """Declared relation row or nested value."""
 
     run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    origin_json: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     unattempted: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     stop: e.ModelingDiagnosticSampleStop = attrs.field(validator=attrs.validators.instance_of(e.ModelingDiagnosticSampleStop))
     outcomes: b.tuple[RuntimeModelingDiagnosticSamplesFieldOutcomesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticSamplesFieldOutcomesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.unattempted), v.scalar_key(self.stop), v.sequence_key(v.record_key)(self.outcomes),))
+        return (type(self), (v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.origin_json), v.scalar_key(self.unattempted), v.scalar_key(self.stop), v.sequence_key(v.record_key)(self.outcomes),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1776,6 +1779,7 @@ class RuntimeModelingDiagnosticsRow:
     """Declared relation row or nested value."""
 
     run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    origin_json: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     source_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     numerical_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     profile: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
@@ -1789,7 +1793,7 @@ class RuntimeModelingDiagnosticsRow:
     matrix: RuntimeModelingDiagnosticsFieldMatrix | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrix)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.scalar_key(self.profile), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.point), v.sequence_key(v.scalar_key)(self.rows), v.sequence_key(v.scalar_key)(self.columns), v.sequence_key(v.record_key)(self.row_nominals), v.sequence_key(v.record_key)(self.variable_nominals), v.sequence_key(v.record_key)(self.statistics), v.optional_key(v.record_key)(self.matrix),))
+        return (type(self), (v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.origin_json), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.scalar_key(self.profile), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.point), v.sequence_key(v.scalar_key)(self.rows), v.sequence_key(v.scalar_key)(self.columns), v.sequence_key(v.record_key)(self.row_nominals), v.sequence_key(v.record_key)(self.variable_nominals), v.sequence_key(v.record_key)(self.statistics), v.optional_key(v.record_key)(self.matrix),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2309,6 +2313,7 @@ class RuntimeModelingJacobianOptimizationRow:
     """Declared relation row or nested value."""
 
     run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    origin_json: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     source_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     numerical_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     point: b.tuple[RuntimeModelingJacobianOptimizationFieldPointItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingJacobianOptimizationFieldPointItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -2324,7 +2329,7 @@ class RuntimeModelingJacobianOptimizationRow:
     unavailable: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.sequence_key(v.record_key)(self.point), v.sequence_key(v.record_key)(self.row_nominals), v.sequence_key(v.record_key)(self.variable_nominals), v.scalar_key(self.tolerance), v.scalar_key(self.rank_relative), v.scalar_key(self.multiplier_bound), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.conditioning), v.sequence_key(v.record_key)(self.degenerate), v.sequence_key(v.record_key)(self.attempts), v.sequence_key(v.scalar_key)(self.unavailable),))
+        return (type(self), (v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.origin_json), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.sequence_key(v.record_key)(self.point), v.sequence_key(v.record_key)(self.row_nominals), v.sequence_key(v.record_key)(self.variable_nominals), v.scalar_key(self.tolerance), v.scalar_key(self.rank_relative), v.scalar_key(self.multiplier_bound), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.conditioning), v.sequence_key(v.record_key)(self.degenerate), v.sequence_key(v.record_key)(self.attempts), v.sequence_key(v.scalar_key)(self.unavailable),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2579,6 +2584,7 @@ class RuntimeModelingLinearDiagnosticsRow:
     """Declared relation row or nested value."""
 
     run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    origin_json: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     source_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     numerical_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     rows: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -2592,7 +2598,7 @@ class RuntimeModelingLinearDiagnosticsRow:
     unavailable: b.tuple[RuntimeModelingLinearDiagnosticsFieldUnavailableItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingLinearDiagnosticsFieldUnavailableItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.sequence_key(v.scalar_key)(self.rows), v.sequence_key(v.scalar_key)(self.columns), v.record_key(self.attempt), v.optional_key(v.sequence_key(v.record_key))(self.primal_ray), v.optional_key(v.sequence_key(v.record_key))(self.dual_ray), v.optional_key(v.record_key)(self.iis), v.sequence_key(v.record_key)(self.ranging), v.optional_key(v.record_key)(self.relaxation), v.sequence_key(v.record_key)(self.unavailable),))
+        return (type(self), (v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.origin_json), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.sequence_key(v.scalar_key)(self.rows), v.sequence_key(v.scalar_key)(self.columns), v.record_key(self.attempt), v.optional_key(v.sequence_key(v.record_key))(self.primal_ray), v.optional_key(v.sequence_key(v.record_key))(self.dual_ray), v.optional_key(v.record_key)(self.iis), v.sequence_key(v.record_key)(self.ranging), v.optional_key(v.record_key)(self.relaxation), v.sequence_key(v.record_key)(self.unavailable),))
 
 
 @attrs.frozen(kw_only=True)

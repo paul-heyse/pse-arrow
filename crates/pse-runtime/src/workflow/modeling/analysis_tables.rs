@@ -88,6 +88,7 @@ fn real_evidence(
 /// Owned generated analysis table and the native attempts it describes.
 #[derive(Debug)]
 pub struct ModelingNativeAnalysis {
+    /// Retained original invocation or failure, independent of scientific permission.
     pub origin: Option<super::super::DiagnosticOrigin>,
     /// Generated relation name identifies the analysis and its evidence scope.
     pub relation: &'static str,

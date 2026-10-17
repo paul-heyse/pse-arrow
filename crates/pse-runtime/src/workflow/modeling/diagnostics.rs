@@ -111,6 +111,7 @@ pub struct ModelingDiagnosticPolicy {
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnostics {
     /// Retained original invocation, when this is follow-up analysis.
+    /// Retained original invocation or failure, independent of scientific permission.
     pub origin: Option<super::super::DiagnosticOrigin>,
     pub(super) encodings: Arc<crate::workflow::result_export::EncodingState>,
     /// Identity of this diagnostic run.
@@ -1433,13 +1434,13 @@ mod tests {
             .unwrap();
         assert!(report.complete, "{:?}", report.findings);
         assert_eq!(report.origin.as_ref().unwrap().run_id, origin.run_id);
-        let table = report.table("modeling_diagnostics").unwrap();
+        let table = report.table("runtime.modeling_diagnostics").unwrap();
         let raw = table
             .batch()
             .column_by_name("origin_json")
             .unwrap()
             .as_any()
-            .downcast_ref::<arrow_array::StringArray>()
+            .downcast_ref::<datafusion::arrow::array::StringArray>()
             .unwrap()
             .value(0);
         let readback: crate::workflow::DiagnosticOrigin = serde_json::from_str(raw).unwrap();
@@ -2049,6 +2050,7 @@ mod tests {
 #[cfg(feature = "solver-highs")]
 #[derive(Debug)]
 pub struct ModelingJacobianOptimization {
+    /// Retained original invocation or failure, independent of scientific permission.
     pub origin: Option<super::super::DiagnosticOrigin>,
     /// Identity of this analysis run.
     pub run_id: RunId,
