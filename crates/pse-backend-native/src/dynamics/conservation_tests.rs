@@ -146,7 +146,7 @@ fn policy(method: Method) -> Profile {
     }
 }
 fn execute(oracle: &mut Conserved, p: &Profile, parameters: &[f64]) -> Report {
-    integrate(oracle, p, parameters, Arc::default()).unwrap()
+    integrate(oracle, p, parameters, Cancellation::default()).unwrap()
 }
 fn closes(report: &Report) {
     assert!(!report.conservation.is_empty());

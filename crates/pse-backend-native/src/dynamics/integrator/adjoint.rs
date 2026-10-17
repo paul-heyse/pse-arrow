@@ -378,6 +378,7 @@ impl<'o> Passes<'_, 'o> {
                 .filter(|i| {
                     let t = r.samples[*i].time;
                     t >= start && (t < stop || (last && t <= stop))
+                        && weights[*i * shared.contract.outputs.len()..(*i + 1) * shared.contract.outputs.len()].iter().any(|w| *w != 0.)
                 })
                 .peekable();
             // Forward recording and checkpoint replay consume different work.

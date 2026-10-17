@@ -1919,9 +1919,8 @@ impl<'a> Session<'a> {
             crate::observation::count("idas.forward_sensitivity.reinitialize", 1);
             // The carried sensitivities and their rates (the rates are only guesses
             // for `IDACalcIC`).
-            let mut time = t;
             native!(
-                ffi::IDAGetSens(self.mem, &raw mut time, self.sens.as_mut_ptr()),
+                ffi::IDAGetSensDky(self.mem, t, 0, self.sens.as_mut_ptr()),
                 "segment sensitivities",
             )?;
             native!(
@@ -1930,9 +1929,8 @@ impl<'a> Session<'a> {
             )?;
         }
         if !self.quad.is_null() {
-            let mut time = t;
             native!(
-                ffi::IDAGetQuad(self.mem, &raw mut time, self.quad),
+                ffi::IDAGetQuadDky(self.mem, t, 0, self.quad),
                 "segment quadrature",
             )?;
             // SAFETY: the session's quadrature vector holds one value per total.
@@ -1991,10 +1989,9 @@ impl<'a> Session<'a> {
         let mut state_sensitivities = Vec::new();
         let mut output_sensitivities = Vec::new();
         if self.forward {
-            let mut time = t;
             if stepped {
                 native!(
-                    ffi::IDAGetSens(self.mem, &raw mut time, self.sens.as_mut_ptr()),
+                    ffi::IDAGetSensDky(self.mem, t, 0, self.sens.as_mut_ptr()),
                     "sensitivity output",
                 )?;
             }
@@ -2048,10 +2045,9 @@ impl<'a> Session<'a> {
         let integrals = if self.quad.is_null() {
             vec![]
         } else {
-            let mut time = t;
             if stepped {
                 native!(
-                    ffi::IDAGetQuad(self.mem, &raw mut time, self.quad),
+                    ffi::IDAGetQuadDky(self.mem, t, 0, self.quad),
                     "quadrature output",
                 )?;
             }
@@ -2315,6 +2311,9 @@ impl<'a> Session<'a> {
                 *last = self.statistics(flag, p, (flag >= 0).then_some(time));
             }
             if flag == ffi::IDA_TOO_MUCH_WORK {
+                // This native return exposes its last accepted physical state,
+                // separately from the retained requested-sample prefix.
+                r.completed_time = time;
                 r.termination = Termination::StepLimit;
                 return Ok((None, steps));
             }
@@ -2622,7 +2621,10 @@ impl Session<'_> {
             while remaining_samples > 0 && r.samples[remaining_samples - 1].time >= start.time {
                 remaining_samples -= 1;
             }
-            let mut observed = (remaining_samples..end).rev().peekable();
+            let outputs = self.callback.contract.outputs.len();
+            let mut observed = (remaining_samples..end).rev()
+                .filter(|i| weights[*i * outputs..(*i + 1) * outputs].iter().any(|w| *w != 0.))
+                .peekable();
             if end > remaining_samples && r.samples[end - 1].time > stop {
                 return Err(ProblemError::internal("adjoint sample outside its segment"));
             }
@@ -2634,7 +2636,7 @@ impl Session<'_> {
                 self.jump(r, i, weights, &mut states, &mut sums)?;
             }
             // The forward pass ended at the segment's stop.
-            let forward = self.forward_at_stop()?;
+            let forward = self.forward_at_stop(stop)?;
             self.restart_backward(stop, start.time, (&states, &sums), &forward, p)?;
             let mut first = None;
             for i in observed {
@@ -2759,12 +2761,11 @@ impl Session<'_> {
         Ok(())
     }
     /// The forward state, rates and state sensitivities where the forward pass stopped.
-    fn forward_at_stop(&mut self) -> Result<Forward, ProblemError> {
+    fn forward_at_stop(&mut self, time: f64) -> Result<Forward, ProblemError> {
         let n = self.callback.contract.states.len();
         let sensitivities = if self.adjoint.as_ref().is_some_and(Backward::second_order) {
-            let mut time = 0.0;
             native!(
-                ffi::IDAGetSens(self.mem, &raw mut time, self.sens.as_mut_ptr()),
+                ffi::IDAGetSensDky(self.mem, time, 0, self.sens.as_mut_ptr()),
                 "adjoint forward sensitivities",
             )?;
             // SAFETY: each sensitivity vector of the session holds the `n` states.

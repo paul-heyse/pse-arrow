@@ -72,7 +72,7 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
             )
             .unwrap();
         assert_eq!(selected.resolved_method().unwrap(), Method::Idas);
-        let r = integrate(&mut oracle, &p, &[2.0, 3.0], Arc::default()).unwrap();
+        let r = integrate(&mut oracle, &p, &[2.0, 3.0], Cancellation::default()).unwrap();
         assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
         assert_eq!(oracle.rejected, 1);
         assert_eq!(r.samples.len(), p.samples.len());
@@ -135,7 +135,7 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
             &mut Toy::new(dae, false),
             &diffsol,
             &[2.0, 3.0],
-            Arc::default(),
+            Cancellation::default(),
         )
         .unwrap();
         assert_eq!(reference.termination, Termination::Completed);
@@ -162,7 +162,7 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
         }],
         ..Default::default()
     };
-    let r = integrate(&mut oracle, &p, &[1.0, 2.0], Arc::default()).unwrap();
+    let r = integrate(&mut oracle, &p, &[1.0, 2.0], Cancellation::default()).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     for s in &r.samples {
         assert!((s.state[0] - 1.0 - s.integrals[0]).abs() < 1e-6, "{s:?}");
@@ -186,7 +186,7 @@ fn directed(dae: bool, direction: EventDirection, terminal: bool) -> ResetToy {
 fn idas_events_without_sensitivities() {
     let root = 2f64.ln() / 2.0;
     let go =
-        |oracle: &mut ResetToy, p: &Profile| integrate(oracle, p, &[2.0], Arc::default()).unwrap();
+        |oracle: &mut ResetToy, p: &Profile| integrate(oracle, p, &[2.0], Cancellation::default()).unwrap();
     for dae in [false, true] {
         let mut p = profile(dae);
         p.method = Method::Idas;
@@ -258,12 +258,12 @@ fn idas_events_without_sensitivities() {
         out_atol: vec![1e-10],
         ..Default::default()
     };
-    let r = integrate(&mut event, &p, &[1.0], Arc::default()).unwrap();
+    let r = integrate(&mut event, &p, &[1.0], Cancellation::default()).unwrap();
     assert_eq!(r.termination, Termination::Failed);
     assert!(r.error.unwrap().to_string().contains("transfer"));
     let impulse = (-0.25f64).exp();
     event.c.balances[0].transfers.insert(id(5));
-    let r = integrate(&mut event, &p, &[1.0], Arc::default()).unwrap();
+    let r = integrate(&mut event, &p, &[1.0], Cancellation::default()).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     for s in &r.samples {
         let jump = if s.time >= 0.25 { impulse } else { 0.0 };
@@ -278,7 +278,7 @@ fn idas_events_without_sensitivities() {
         parameter: 0,
         times: vec![0.5],
     }];
-    let r = integrate(&mut event, &p, &[1.0, 1.0], Arc::default()).unwrap();
+    let r = integrate(&mut event, &p, &[1.0, 1.0], Cancellation::default()).unwrap();
     assert_eq!(r.termination, Termination::EventLimit);
 }
 /// ADR-0110 item 1: events with sensitivities stay on Diffsol; IDAS refuses them with a
@@ -426,7 +426,7 @@ fn idas_constraints_keep_positivity() {
         initial_step: 1e-4,
         ..Default::default()
     };
-    let free = integrate(&mut decay, &p, &[], Arc::default()).unwrap();
+    let free = integrate(&mut decay, &p, &[], Cancellation::default()).unwrap();
     assert_eq!(free.termination, Termination::Completed, "{:?}", free.error);
     let dips = free
         .samples
@@ -434,7 +434,7 @@ fn idas_constraints_keep_positivity() {
         .map(|s| s.state[0])
         .fold(f64::INFINITY, f64::min);
     decay.c.signs = vec![StateSign::NonNegative];
-    let kept = integrate(&mut decay, &p, &[], Arc::default()).unwrap();
+    let kept = integrate(&mut decay, &p, &[], Cancellation::default()).unwrap();
     assert_eq!(kept.termination, Termination::Completed, "{:?}", kept.error);
     let lowest = kept
         .samples
@@ -620,10 +620,10 @@ fn idas_sensitivity_sparse_products() {
     let parameters = [0.4, 0.3, 1.5];
     let mut idas = p.clone();
     idas.method = Method::Idas;
-    let a = integrate(&mut Chain::new(n), &idas, &parameters, Arc::default()).unwrap();
+    let a = integrate(&mut Chain::new(n), &idas, &parameters, Cancellation::default()).unwrap();
     let mut diffsol = p.clone();
     diffsol.method = Method::Diffsol;
-    let b = integrate(&mut Chain::new(n), &diffsol, &parameters, Arc::default()).unwrap();
+    let b = integrate(&mut Chain::new(n), &diffsol, &parameters, Cancellation::default()).unwrap();
     assert_eq!(a.termination, Termination::Completed, "{:?}", a.error);
     assert_eq!(b.termination, Termination::Completed, "{:?}", b.error);
     for (x, y) in a.samples.iter().zip(&b.samples) {
@@ -653,7 +653,7 @@ fn idas_sensitivity_sparse_products() {
     outside.outside = true;
     let mut direct = idas.clone();
     direct.sensitivity = DynamicSensitivity::None;
-    let r = integrate(&mut outside, &direct, &parameters, Arc::default()).unwrap();
+    let r = integrate(&mut outside, &direct, &parameters, Cancellation::default()).unwrap();
     assert_eq!(r.termination, Termination::Failed);
     assert!(
         format!("{:?}", r.error).contains("outside its declared support"),
@@ -771,7 +771,7 @@ fn idas_steady_start_computes_states() {
         &mut Forced(Toy::new(true, false)),
         &p,
         &[2.0],
-        Arc::default(),
+        Cancellation::default(),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);

@@ -128,6 +128,16 @@ impl Oracle for Toy {
             jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
         })
     }
+    fn weighted_hessian(&mut self, _: usize, function: Function, _: f64, _: &[f64], _: &[f64], weights: &[f64])
+        -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
+        let width = self.c.states.len() + self.c.parameters.len();
+        let terms = if matches!(function, Function::Rhs | Function::QuadratureFlux) {
+            vec![faer::sparse::Triplet::new(width - 1, 0, -weights[0])]
+        } else { vec![] };
+        faer::sparse::SparseColMat::try_new_from_triplets(width, width, &terms)
+            .map_err(|error| ProblemError::internal(format!("analytic toy curvature: {error:?}")))
+    }
+
 }
 fn profile(dae: bool) -> Profile {
     Profile {
@@ -1344,7 +1354,9 @@ fn accepted_step_allowance_is_cumulative_across_physical_segments() {
 fn supported_idas_correctors_and_linear_routes_preserve_the_requested_response() {
     for dae in [false, true] {
         for corrector in [SensitivityCorrector::Simultaneous, SensitivityCorrector::Staggered] {
-            for linear in [IdasLinear::Klu, IdasLinear::Spgmr, IdasLinear::Spfgmr] {
+            for linear in [IdasLinear::Klu,
+                IdasLinear::Spgmr { dimension: PositiveCount::try_new(8).unwrap(), preconditioner: crate::solve::Preconditioner::None },
+                IdasLinear::Spfgmr { dimension: PositiveCount::try_new(8).unwrap(), preconditioner: crate::solve::Preconditioner::Jacobi }] {
                 let mut p = profile(dae);
                 p.method = Method::Idas;
                 p.sensitivity = DynamicSensitivity::Forward;
@@ -1365,4 +1377,34 @@ fn supported_idas_correctors_and_linear_routes_preserve_the_requested_response()
             }
         }
     }
+}
+
+#[cfg(feature = "idas")]
+#[test]
+fn checkpointed_dense_output_uses_returned_time_for_sensitivities_and_quadratures() {
+    let mut oracle = Toy::new(false, false);
+    oracle.c.derivatives = pse_kernels::DerivativeOrder::Second;
+    oracle.c.quadratures = vec![id(9)];
+    let mut p = profile(false);
+    p.method = Method::Idas;
+    p.sensitivity = DynamicSensitivity::Adjoint;
+    p.samples = std::iter::once(0.).chain(std::iter::once(0.001))
+        .chain((1..=200).map(|i| i as f64 / 200.)).collect();
+    p.out_rtol = Some(1e-8);
+    p.out_atol = vec![1e-10];
+    let result = hessian(&mut oracle, &p, &[2.], &[0], &mut |report: &Report| {
+        let mut weights = vec![0.; report.samples.len()];
+        *weights.last_mut().unwrap() = 1.;
+        Ok(weights)
+    }, Cancellation::default(), 256 << 20).unwrap();
+    assert_eq!(result.report.termination, Termination::Completed, "{:?}", result.report.error);
+    for sample in &result.report.samples {
+        let decay = (-2. * sample.time).exp();
+        assert!((sample.state[0] - 2. * decay).abs() < 1e-6);
+        assert!((sample.state_sensitivities[0] - (1. - 2. * sample.time) * decay).abs() < 1e-5);
+        assert!((sample.output_sensitivities[0] - ((1. - 2. * sample.time) * decay + 1.)).abs() < 1e-5);
+        assert!((sample.integrals[0] - (2. * decay - 2.)).abs() < 1e-6);
+    }
+    assert!((result.gradient.as_ref().unwrap()[0] - (1. - (-2f64).exp())).abs() < 1e-5);
+    assert!(result.hessian.as_ref().unwrap()[(0, 0)].abs() < 1e-5);
 }

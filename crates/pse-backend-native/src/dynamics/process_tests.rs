@@ -134,7 +134,7 @@ fn vessel_profile(dae: bool) -> Profile {
     }
 }
 fn drain(dae: bool, p: &Profile) -> Report {
-    let r = integrate(&mut Vessel::new(dae), p, &[0.5], Arc::default()).unwrap();
+    let r = integrate(&mut Vessel::new(dae), p, &[0.5], Cancellation::default()).unwrap();
     assert_eq!(
         r.termination,
         Termination::Completed,
@@ -213,7 +213,7 @@ fn tsit45_refuses_mass_matrix() {
         panic!("tsit45 admitted a mass matrix");
     };
     assert!(reason.contains("mass-free"), "{reason}");
-    assert!(integrate(&mut Vessel::new(true), &p, &[0.5], Arc::default()).is_err());
+    assert!(integrate(&mut Vessel::new(true), &p, &[0.5], Cancellation::default()).is_err());
     // The mass-free ODE is admitted; an explicit scheme has no Newton linear solver.
     let mut p = vessel_profile(false);
     p.diffsol.method = DiffsolMethod::Tsit45;
@@ -331,7 +331,7 @@ fn diffsol_singular_factorization_is_typed_numerical() {
             }),
             ..Default::default()
         };
-        let r = integrate(&mut Degenerate::new(), &p, &[], Arc::default()).unwrap();
+        let r = integrate(&mut Degenerate::new(), &p, &[], Cancellation::default()).unwrap();
         assert_eq!(
             r.termination,
             Termination::Failed,
@@ -559,7 +559,7 @@ fn idas_pid_piecewise_inputs_match_petsc_example() {
         )
         .unwrap();
     assert_eq!(selected.resolved_method().unwrap(), Method::Idas);
-    let r = integrate(&mut Tank::new(), &p, &values, Arc::default()).unwrap();
+    let r = integrate(&mut Tank::new(), &p, &values, Cancellation::default()).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     assert_eq!(r.samples.len(), 25);
     let at = |t: usize| &r.samples[t].outputs;
