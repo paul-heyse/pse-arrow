@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! One selected PETSc handler, independent from all pre-existing handlers.
 use super::*;
-use pse_diagnostics::observation::{Producer, ProducerRole};
+use pse_diagnostics::observation::{ObservationContext, Producer, ProducerRole};
 const FAMILY: &str = "petsc_event.v1";
 const EVENTS: [&CStr; 13] = [
     c"SNESSolve", c"SNESFunctionEval", c"SNESJacobianEval", c"KSPSolve",
@@ -13,31 +13,49 @@ const EVENTS: [&CStr; 13] = [
 /// No native reference escapes; checkpoints run only on that same owning thread.
 pub(super) struct Log {
     raw: ffi::Handle,
-    producer: Producer,
+    producers: [Producer; 13],
+    context: ObservationContext,
+    ordinal: Cell<Option<u64>>,
     execution: Execution,
 }
 impl Log {
     pub(super) fn selected(execution: &Execution) -> Option<Self> {
-        let producer = pse_diagnostics::observation::current()?.producer(ProducerRole::NativeFactor, "petsc.events");
-        if !producer.detail_selected(FAMILY) { return None; }
+        let context = pse_diagnostics::observation::current()?;
+        // Check the explicit selection before any producer/channel allocation.
+        let selected = context.record_tap().is_some_and(|tap| {
+            catch_unwind(AssertUnwindSafe(|| tap.selected(FAMILY))).unwrap_or(false)
+        });
+        if !selected { return None; }
         let mut raw = ptr::null_mut();
         // SAFETY: caller retains process serialization and initialized PETSc.
         let code = unsafe { ffi::pse_petsc_log_create(&raw) };
         if code != 0 || raw.is_null() {
-            producer.context().unavailable("petsc.logging", "selected handler unavailable or registration refused");
+            context.record_source_unavailable(FAMILY);
+            context.unavailable("petsc.logging", "selected handler unavailable or registration refused");
             return None;
         }
-        Some(Self { raw, producer, execution: execution.clone() })
+        let producers = std::array::from_fn(|index| context.producer(
+            ProducerRole::NativeFactor, &format!("petsc.events.{}", EVENTS[index].to_string_lossy())));
+        Some(Self { raw, producers, context, ordinal: Cell::new(Some(1)), execution: execution.clone() })
     }
     pub(super) fn checkpoint(&self, phase: &str, owner_returned: bool) {
-        if !self.producer.detail_selected(FAMILY) { return; }
-        if catch_unwind(AssertUnwindSafe(|| self.sample(phase, owner_returned))).is_err() {
-            let _ = catch_unwind(AssertUnwindSafe(|| self.producer.context().unavailable(
-                "petsc.logging", "selected event projection failed")));
+        if !self.producers[0].detail_selected(FAMILY) { return; }
+        let ordinal = self.ordinal.get();
+        self.ordinal.set(ordinal.and_then(|value| value.checked_add(1)));
+        if catch_unwind(AssertUnwindSafe(|| self.sample(phase, owner_returned, ordinal))).is_err() {
+            let _ = catch_unwind(AssertUnwindSafe(|| {
+                self.context.record_source_unavailable(FAMILY);
+                self.context.unavailable(
+                "petsc.logging", "selected event projection failed");
+            }));
         }
     }
-    fn sample(&self, phase: &str, owner_returned: bool) {
-        for event in EVENTS {
+    fn sample(&self, phase: &str, owner_returned: bool, ordinal: Option<u64>) {
+        for (event, producer) in EVENTS.into_iter().zip(&self.producers) {
+            if !producer.enabled() {
+                self.context.record_source_unavailable(FAMILY);
+                continue;
+            }
             let mut info = ffi::EventPerf::default();
             // SAFETY: independent live handler on its serialized native owner;
             // getter copies scalars and never invokes numerical work.
@@ -56,6 +74,8 @@ impl Log {
                 phase: phase.into(), elapsed: self.execution.started.elapsed(), incumbent: None,
                 values: std::collections::BTreeMap::from([
                     ("backend".into(), Metric::Text("petsc".into())),
+                    ("checkpoint_ordinal".into(), ordinal.and_then(|value| i64::try_from(value).ok())
+                        .map_or(Metric::Unavailable(UnavailableReason::Unknown), Metric::Integer)),
                     ("native_event".into(), Metric::Text(event.to_string_lossy().into_owned())),
                     ("scope".into(), Metric::Text("selected_handler_current_stage".into())),
                     ("count_semantics".into(), Metric::Text("outermost_native_event_entries".into())),
@@ -70,7 +90,7 @@ impl Log {
                     ("completed_seconds".into(), real(info.completed_seconds)),
                     ("completed_flops".into(), real(info.completed_flops)),
                 ]),
-            }, &self.producer);
+            }, producer);
         }
     }
 }
@@ -80,7 +100,7 @@ impl Drop for Log {
         // PETSc admission. Stop/destroy touches only this handler, never a global toggle.
         let code = unsafe { ffi::pse_petsc_log_destroy(&mut self.raw) };
         if code != 0 {
-            let _ = catch_unwind(AssertUnwindSafe(|| self.producer.context().unavailable(
+            let _ = catch_unwind(AssertUnwindSafe(|| self.context.unavailable(
                 "petsc.logging.cleanup", "selected handler stop/destroy failed")));
         }
     }

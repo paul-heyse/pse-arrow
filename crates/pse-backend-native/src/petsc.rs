@@ -1403,13 +1403,13 @@ mod tests {
                 if record.family == "petsc_event.v1" { self.0.lock().unwrap().push(record.clone()); }
             }
         }
-        let hub = ObservationHub::new(Policy::default());
+        let hub = ObservationHub::new(Policy { record_capacity: 0, ..Policy::default() });
         let operation = hub.start("selected-petsc-events");
         let tap = std::sync::Arc::new(Tap::default());
         let context = operation.context().with_record_tap(tap.clone());
         let _entered = context.enter();
         let mut oracle = LogOracle::new();
-        let report = run(&mut oracle, 1., &Controls::default(), None).unwrap();
+        let report = run(&mut oracle, 1., &Controls { history: 0, ..Controls::default() }, None).unwrap();
         assert_eq!(report.termination.category, Termination::Success);
         assert!(report.quality.as_ref().unwrap().feasible());
         let records = tap.0.lock().unwrap();
@@ -1421,6 +1421,13 @@ mod tests {
         assert_eq!(field(terminal, "native_event_depth"), Value::Integer(0));
         assert_eq!(field(terminal, "entered_calls"), Value::Integer(1));
         assert_eq!(field(terminal, "source_available"), Value::Boolean(true));
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        let channels: Vec<_> = snapshot.producers.iter().filter(|producer|
+            producer.descriptor.name.starts_with("petsc.events.")).collect();
+        assert_eq!(channels.len(), 13, "prepared event populations have distinct current records");
+        for channel in channels {
+            assert_eq!(channel.current.as_ref().unwrap().family, "petsc_event.v1");
+        }
     }
     #[test]
     fn trust_owner_preserves_domain_phase_causes_limits_and_terminal_lifetime() {
