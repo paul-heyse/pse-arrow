@@ -364,6 +364,7 @@ impl<'o> Passes<'_, 'o> {
         let mut backward_budget = StepBudget::new(p.max_steps);
         let mut carried: Option<Vec<f64>> = None;
         let mut total = vec![0.0; shared.width()];
+        shared.check();
         let zero_cotangent = weights.iter().all(|weight| *weight == 0.);
         for (k, (checkpointing, mut solver, seed)) in stored.into_iter().enumerate().rev().filter(|_| !zero_cotangent) {
             shared.check();

@@ -2591,6 +2591,7 @@ impl Session<'_> {
         r: &Report,
         weights: &[f64],
     ) -> Result<(Vec<f64>, Option<SecondOrder>), ProblemError> {
+        self.callback.callback.execution.check()?;
         self.replay_steps = Some(StepBudget::new(p.max_steps));
         if weights.iter().all(|weight| *weight == 0.) {
             crate::observation::boolean("idas.adjoint.zero_cotangent", true);
