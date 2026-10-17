@@ -122,6 +122,28 @@ pub(crate) struct Recorder {
     _reservation: pse_diagnostics::observation::OwnerReservation,
 }
 tokio::task_local! { static CURRENT: (Option<Arc<Recorder>>, Option<pse_diagnostics::observation::RecordAvailability>); }
+type ContextValue = (Option<Arc<Recorder>>, Option<pse_diagnostics::observation::RecordAvailability>);
+thread_local! { static SYNCHRONOUS: std::cell::RefCell<Option<ContextValue>> = const { std::cell::RefCell::new(None) }; }
+/// Explicitly transferred copied diagnostic context; never native/result ownership.
+#[derive(Clone)]
+pub(crate) struct TransferredContext(ContextValue);
+pub(crate) struct EnteredContext(Option<ContextValue>, std::marker::PhantomData<std::rc::Rc<()>>);
+impl TransferredContext {
+    pub(crate) fn capture() -> Self {
+        Self(CURRENT.try_with(Clone::clone).unwrap_or_else(|_| SYNCHRONOUS.with(|scope| scope.borrow().clone()).unwrap_or((None, Some(pse_diagnostics::observation::RecordAvailability::Unavailable)))))
+    }
+    pub(crate) fn enter(&self) -> EnteredContext {
+        EnteredContext(SYNCHRONOUS.with(|scope| scope.replace(Some(self.0.clone()))), std::marker::PhantomData)
+    }
+}
+impl Drop for EnteredContext {
+    fn drop(&mut self) { SYNCHRONOUS.with(|scope| { scope.replace(self.0.take()); }); }
+}
+/// Capture at future construction, before the caller dispatches an independent task.
+pub(crate) fn inherit<T>(work: impl Future<Output = T>) -> impl Future<Output = T> {
+    let context = TransferredContext::capture();
+    async move { CURRENT.scope(context.0, work).await }
+}
 impl Recorder {
     pub(crate) fn new() -> Option<Arc<Self>> {
         let context = pse_diagnostics::observation::current()?;
@@ -187,12 +209,10 @@ impl Recorder {
     }
 }
 pub(crate) fn current() -> Option<Arc<Recorder>> {
-    CURRENT.try_with(|scope| scope.0.clone()).ok().flatten()
+    CURRENT.try_with(|scope| scope.0.clone()).unwrap_or_else(|_| SYNCHRONOUS.with(|scope| scope.borrow().as_ref().and_then(|scope| scope.0.clone())))
 }
 pub(crate) fn current_unavailability() -> Option<pse_diagnostics::observation::RecordAvailability> {
-    CURRENT.try_with(|scope| scope.1).unwrap_or(Some(
-        pse_diagnostics::observation::RecordAvailability::Unavailable,
-    ))
+    CURRENT.try_with(|scope| scope.1).unwrap_or_else(|_| SYNCHRONOUS.with(|scope| scope.borrow().as_ref().map_or(Some(pse_diagnostics::observation::RecordAvailability::Unavailable), |scope| scope.1)))
 }
 pub(crate) async fn scope<T>(work: impl Future<Output = T>) -> T {
     let recorder = Recorder::new();
@@ -344,6 +364,32 @@ mod tests {
                 .windows(2)
                 .all(|pair| pair[0].sequence < pair[1].sequence)
         );
+    }
+    #[tokio::test]
+    async fn invocation_transfers_exact_recorder_to_native_thread_and_clears_it() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("invocation.transfer");
+        let context = operation.context();
+        let _entered = context.enter();
+        scope(async {
+            let recorder = current().unwrap();
+            let transferred = TransferredContext::capture();
+            let expected = recorder.clone();
+            std::thread::spawn(move || {
+                assert!(current().is_none());
+                {
+                    let _scope = transferred.enter();
+                    assert!(Arc::ptr_eq(&current().unwrap(), &expected));
+                    stage("original.qualification").finish(InvocationOutcome::Completed);
+                }
+                assert!(current().is_none());
+            }).join().unwrap();
+            let (_, _, intervals, omitted, _) = recorder.projection();
+            assert_eq!(omitted, 0);
+            assert_eq!(intervals.len(), 1);
+            assert_eq!(intervals[0].stage, "original.qualification");
+            assert!(intervals[0].ended_seconds.is_some());
+        }).await;
     }
     #[tokio::test]
     async fn invocation_stage_capacity_and_unfinished_intervals_are_explicit() {
