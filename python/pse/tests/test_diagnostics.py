@@ -287,7 +287,7 @@ def test_nonempty_native_checkpoint_related_python_and_cli_reads_are_passive(
             "actual native dispatch must publish its related owner"
         )
         request = InspectionRequest(
-            version=1,
+            version=2,
             operation=reader.id,
             window=ClosedDuration(secs=60, nanos=0),
             include_related=True,
@@ -530,7 +530,7 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
     runtime, observations, reader = observed_runtime(inspection_settings)
     try:
         request = InspectionRequest(
-            version=1,
+            version=2,
             operation=reader.id,
             window=ClosedDuration(secs=60, nanos=0),
             include_related=True,

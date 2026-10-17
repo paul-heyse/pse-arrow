@@ -30,7 +30,7 @@ fn default_limit() -> usize {
 #[serde(deny_unknown_fields)]
 pub struct InspectionRequest {
     /// Standalone diagnostic request encoding.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Exact operation selected by its diagnostic process instance and sequence.
     pub operation: OperationId,
     /// Requested recent interval, clamped to observed operation lifetime.
@@ -43,6 +43,9 @@ pub struct InspectionRequest {
     /// Maximum directly related snapshots; effective ceiling is 32.
     #[serde(default = "default_limit")]
     pub related_limit: usize,
+    /// Explicit selected analytical thresholds; absent means only common factual interpretations.
+    #[serde(default)]
+    pub numerical_history_policy: Option<pse_diagnostics::inspection::NumericalHistoryPolicy>,
 }
 impl InspectionRequest {
     /// Ordinary recent request with direct related navigation and no expensive capture.
@@ -53,6 +56,7 @@ impl InspectionRequest {
             window: default_window(),
             include_related: true,
             related_limit: 16,
+            numerical_history_policy: None,
         }
     }
 }
@@ -78,7 +82,7 @@ pub struct InspectionTransport {
 #[serde(deny_unknown_fields)]
 pub struct InspectionDocument {
     /// Standalone diagnostic response encoding with explicit producer/record references.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// Original bounded read request.
     pub request: InspectionRequest,
     /// Exact selected operation, absent when unavailable/evicted rather than invented complete.
@@ -424,6 +428,9 @@ fn document(
         let mut common = pse_diagnostics::inspection::explain(snapshot);
         // Context explanations precede generic point listings so bounds cannot hide meaning.
         statements.extend(context_explanations(snapshot));
+        if let Some(policy) = &request.numerical_history_policy {
+            statements.extend(pse_diagnostics::inspection::explain_numerical_history(snapshot, policy));
+        }
         statements.append(&mut common);
         for duration in snapshot
             .metrics

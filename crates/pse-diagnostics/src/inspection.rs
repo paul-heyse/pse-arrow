@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Pure interpretations of already-published observations; no science or I/O.
 pub use crate::{NextObservation, StatementKind};
+mod performance;
+pub use performance::{NumericalHistoryPolicy, explain_numerical_history};
 
 use crate::observation::{MetricSnapshot, OperationId, OperationSnapshot, Value};
 use serde::{Deserialize, Serialize};
