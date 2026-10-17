@@ -457,8 +457,11 @@ impl RunResult {
             let count = match &self.request { RunRequest::Modeling(request) => request.len(), _ => 0 };
             if step >= count { return Err(super::contract("diagnostic origin step outside original request")); }
         }
-        let failure = modeling.and_then(|result| result.validation_error.clone())
-            .or_else(|| self.report.as_ref().err().map(|error| error.boundary_diagnostic()));
+        let failure = match step {
+            Some(step) => modeling.and_then(super::ModelingResult::diagnostic)
+                .or_else(|| self.modeling_error(step).map(WorkflowError::boundary_diagnostic)),
+            None => self.report.as_ref().err().map(|error| error.boundary_diagnostic()),
+        };
         Ok(super::DiagnosticOrigin {
             run_id: self.run_id,
             attempt_id: match &self.durability { RunDurability::Ephemeral => None, RunDurability::Durable(record) => Some(record.attempt_id) },
@@ -1923,6 +1926,13 @@ mod modeling_failure_tests {
         );
         assert!(!result.usable());
         assert!(result.modeling_result(0).unwrap().accepted);
+        let earlier_origin = result.diagnostic_origin(Some(0)).unwrap();
+        assert_eq!(earlier_origin.run_id, result.run_id);
+        assert_eq!(earlier_origin.native_attempt, Some(0));
+        assert!(earlier_origin.failure.is_none(), "later failure must not be attributed to an accepted earlier step");
+        assert!(result.diagnostic_origin(Some(1)).unwrap().failure.is_some());
+        assert!(result.diagnostic_origin(Some(2)).unwrap().failure.is_none(), "unattempted step has no originating failure");
+        assert!(result.diagnostic_origin(Some(3)).is_err());
         let trace = result.modeling_error(1).unwrap().strategy_trace().unwrap();
         assert!(!trace.events.is_empty());
         let tables = result.tables().unwrap();
@@ -2087,6 +2097,16 @@ mod scientific_product_tests {
         assert!(accepted.completion.permits_use());
         assert!(!refused.completion.permits_use());
         assert!(refused.checks.iter().any(|check| !check.satisfied));
+        let accepted_origin = result.diagnostic_origin(Some(0)).unwrap();
+        assert_eq!(accepted_origin.run_id, result.run_id);
+        assert_eq!(accepted_origin.native_attempt, Some(0));
+        assert!(accepted_origin.failure.is_none());
+        assert!(refused.validation_error.is_none(), "an authored refusal is distinct from evaluator failure");
+        let refused_origin = result.diagnostic_origin(Some(1)).unwrap();
+        assert_eq!(refused_origin.run_id, result.run_id);
+        assert_eq!(refused_origin.native_attempt, Some(1));
+        assert!(refused_origin.failure.is_some(), "retain the authoritative authored refusal diagnostic");
+        assert!(result.diagnostic_origin(Some(3)).is_err());
         for step in [accepted, refused] {
             let crate::math::solves::Outcome::Native(native) = &step.outcome else {
                 panic!("the control must exercise actual native scientific products");
