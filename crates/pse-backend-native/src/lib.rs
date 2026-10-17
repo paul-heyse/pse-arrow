@@ -98,7 +98,7 @@ fn sundials_version() -> String {
     }
 }
 #[cfg(test)]
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::Arc;
 
 /// Native status that ended a library operation, retaining its identity.
 #[derive(Clone, Debug, PartialEq, Eq)]

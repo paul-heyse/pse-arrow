@@ -21,7 +21,6 @@ use pse_math::{
     binding::ObjectiveSense, convexity::QuadraticEvidence, normalization::Normalization,
 };
 use pse_model::generated::enums::ModelingVariableDomain;
-use std::sync::{Arc, atomic::AtomicBool};
 
 pub(crate) fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])

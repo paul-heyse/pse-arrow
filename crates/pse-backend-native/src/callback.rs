@@ -1465,7 +1465,7 @@ mod tests {
         );
         let mut report = report(&execution);
         execution.enclosing_scope = Some(pse_kernels::ExecutionScope::new(
-            execution.cancel.clone(),
+            execution.cancellation.clone(),
             Some(std::time::Instant::now()),
         ));
         let mut state = CallbackState::new(execution);

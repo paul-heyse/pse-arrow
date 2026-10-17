@@ -77,14 +77,14 @@ fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
                 &registry,
                 DerivativeOrder::Second,
                 AssemblyLimits::default(),
-                &pse_diagnostics::Cancellation::default(),
+                &pse_diagnostics::Cancellation::default().flag(),
             )
             .unwrap(),
         )
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_diagnostics::Cancellation::default(),
+            &pse_diagnostics::Cancellation::default().flag(),
         )
         .unwrap(),
     );
@@ -138,7 +138,7 @@ fn integrality_is_explicit_and_continuous_oracles_reject_it() {
     let (a, v) = fixture(ModelingVariableDomain::Integer);
     // Include the bounded construction of the original coefficient-class proof.
     let c = a
-        .coefficients(&v, 1024, &pse_diagnostics::Cancellation::default())
+        .coefficients(&v, 1024, &pse_diagnostics::Cancellation::default().flag())
         .unwrap();
     let p = CoefficientProblem::from_plan(&a, c).unwrap();
     assert_eq!(p.domains, vec![ModelingVariableDomain::Integer]);

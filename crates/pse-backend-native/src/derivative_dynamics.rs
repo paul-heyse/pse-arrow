@@ -207,7 +207,7 @@ impl NlpOracle for DynamicFunction {
 mod tests {
     use super::*;
     use pse_ids::{ContentHash, SemanticId};
-    use std::sync::{Arc, atomic::AtomicBool};
+    use std::sync::Arc;
     #[derive(Debug)]
     struct Polynomial {
         contract: dynamics::Contract,
@@ -312,7 +312,7 @@ mod tests {
                 maximum_cells: 100,
             },
             Execution::new(
-                Arc::new(AtomicBool::new(false)),
+                pse_diagnostics::Cancellation::default(),
                 &crate::solve::Controls::default(),
             ),
         )
@@ -364,7 +364,7 @@ mod tests {
                     maximum_cells: 100,
                 },
                 Execution::new(
-                    Arc::new(AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::default(),
                     &crate::solve::Controls::default(),
                 ),
             )
@@ -411,7 +411,7 @@ mod tests {
                 maximum_cells: 100,
             },
             Execution::new(
-                Arc::new(AtomicBool::new(false)),
+                pse_diagnostics::Cancellation::default(),
                 &crate::solve::Controls::default(),
             ),
         );

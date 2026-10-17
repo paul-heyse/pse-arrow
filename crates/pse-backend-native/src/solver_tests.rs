@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use solve::*;
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::atomic::AtomicBool;
 pub(crate) fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }

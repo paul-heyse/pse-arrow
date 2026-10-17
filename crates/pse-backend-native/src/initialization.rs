@@ -377,7 +377,6 @@ mod tests {
         },
     };
     use std::{
-        sync::atomic::{AtomicBool, Ordering},
         time::{Duration, Instant},
     };
     fn hash(n: u8) -> ContentHash {

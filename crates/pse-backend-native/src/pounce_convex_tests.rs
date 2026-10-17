@@ -12,7 +12,6 @@ use crate::{
 };
 use faer::sparse::{SparseColMat, Triplet};
 use pse_math::{binding::ObjectiveSense, normalization::Normalization};
-use std::sync::{Arc, atomic::AtomicBool};
 
 /// min x² + xy + y² − 3x − 4y + 4 over x + y ≤ `rhs`, x ≥ 0.2 and x, y in [0, 5]. The
 /// unconstrained minimizer (2/3, 5/3) violates the first row for `rhs` < 7/3, so the row

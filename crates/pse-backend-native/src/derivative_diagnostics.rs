@@ -444,7 +444,7 @@ mod tests {
                 Normalization::identity(1, 1),
                 policy,
                 Execution::new(
-                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(flag)),
+                    pse_diagnostics::Cancellation::new(flag),
                     &Default::default(),
                 ),
             )
