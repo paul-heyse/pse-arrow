@@ -772,8 +772,10 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     supplied_report = supplied.result(0)
     assert supplied_report is not None
     assert supplied_report.complete
-    assert supplied_report.origin == origin
-    assert supplied_report.origin.failure == original_failure
+    supplied_origin = supplied_report.origin
+    assert supplied_origin == origin
+    assert supplied_origin is not None
+    assert supplied_origin.failure == original_failure
     exported_origin = pa.table(supplied_report.table()).to_pylist()[0]["origin_json"]
     assert codec.decode_json(exported_origin, documents.DiagnosticOrigin) == origin
     sample_origin = pa.table(supplied.table()).to_pylist()[0]["origin_json"]
