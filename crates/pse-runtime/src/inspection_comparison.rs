@@ -140,8 +140,16 @@ impl Builder {
         self.document.partial|=omitted>0;
     }
 }
-fn outcome(value:InvocationOutcome)->Value {text(match value {InvocationOutcome::Completed=>"completed",InvocationOutcome::Failed=>"failed",InvocationOutcome::Cancelled=>"cancelled"})}
-fn availability(value:ProductAvailability)->Value {text(match value {ProductAvailability::Available=>"available",ProductAvailability::Unavailable=>"unavailable",ProductAvailability::NotRequested=>"not_requested"})}
+// Only the small source-owned enums below enter this helper. Their serde declaration,
+// rather than another spelling table, owns their exported names.
+fn enum_text(value:impl Serialize)->Value {
+    match serde_json::to_value(value) {
+        Ok(serde_json::Value::String(value))=>text(&value),
+        _=>Value::Unavailable("source enum spelling unavailable".into()),
+    }
+}
+fn outcome(value:InvocationOutcome)->Value {enum_text(value)}
+fn availability(value:ProductAvailability)->Value {enum_text(value)}
 fn source_partial(doc:&InvocationEvidenceDocument)->bool {
     doc.omitted_intervals>0 || doc.omitted_product_steps>0 || doc.attempts.omitted_steps>0 || doc.attempts.omitted_native_attempts>0
 }
@@ -181,9 +189,9 @@ fn explain(builder:&mut Builder,doc:&InvocationEvidenceDocument) {
             [("views",preparation.views),("observations",preparation.observations),("rebuilt",preparation.rebuilt),("shared",preparation.shared)].into_iter()
                 .map(|(name,value)|counted(doc,format!("/preparations/{name}"),Value::Count(value as u64),false)).collect(),vec![]);
     }
-    if doc.timing_unavailable.is_some() {
+    if let Some(unavailable)=doc.timing_unavailable {
         builder.add(StatementKind::Limitation,"invocation.timing_unavailable","Performing clocks were not established. Missing intervals/endpoints are unavailable, not zero elapsed work.",
-            vec![inv(doc,"/timing_unavailable",Value::Unavailable("performing clock collection unavailable".into()))],vec![NextObservation::TimelineCapture]);
+            vec![inv(doc,"/timing_unavailable",enum_text(unavailable))],vec![NextObservation::TimelineCapture]);
     }
     if source_partial(doc) {
         builder.add(StatementKind::Limitation,"invocation.coverage_partial","The retained document omits intervals, product steps or attempts. Prefixes do not establish complete history, total retries or continuous convergence.",vec![
