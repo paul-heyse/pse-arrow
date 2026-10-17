@@ -1210,7 +1210,8 @@ impl ShootingOracle {
             .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?
             .inner;
         let forward_quadratures = forward && p.forward_quadratures();
-        let products: Vec<(native::dynamics::Report, Option<Vec<f64>>)> = p
+        let mut integral_gradient = forward_quadratures.then(|| vec![0.; n]);
+        let reports = p
             .windows
             .iter()
             .enumerate()
@@ -1265,33 +1266,33 @@ impl ShootingOracle {
                         &self.execution, sensitivity).map(|report| (report, None))
                 };
                 observation.finish(result.is_ok());
-                result
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let (reports, quadrature_products): (Vec<_>, Vec<_>) = products.into_iter().unzip();
-        let integral_gradient = if forward_quadratures {
-            let mut gradient = vec![0.; n];
-            for (k, product) in quadrature_products.into_iter().enumerate() {
-                let product = product.ok_or_else(|| ProblemError::internal("missing forward integral derivatives"))?;
-                let axes = &reports[k].forward_axes;
-                let expected = p.experiment.program.contract.quadratures.len().checked_mul(axes.len())
-                    .ok_or_else(|| ProblemError::internal("forward integral product extent"))?;
-                if product.len() != expected { return Err(ProblemError::internal("forward integral product extent")); }
-                for (q, weight) in &p.integral {
-                    for (local, axis) in axes.iter().enumerate() {
-                        let column = p.windows[k].columns.get(*axis).ok_or_else(|| ProblemError::internal("forward integral physical axis"))?;
-                        if let Some(variable) = p.variable(k, column) {
-                            gradient[variable] += weight * product[q * axes.len() + local];
+                let (report, product): (native::dynamics::Report, Option<Vec<f64>>) = result?;
+                if let Some(gradient) = &mut integral_gradient {
+                    let product = product.ok_or_else(|| ProblemError::internal("missing forward integral derivatives"))?;
+                    let axes = &report.forward_axes;
+                    let expected = p.experiment.program.contract.quadratures.len().checked_mul(axes.len())
+                        .ok_or_else(|| ProblemError::internal("forward integral product extent"))?;
+                    if product.len() != expected { return Err(ProblemError::internal("forward integral product extent")); }
+                    for (q, weight) in &p.integral {
+                        for (local, axis) in axes.iter().enumerate() {
+                            let column = window.columns.get(*axis).ok_or_else(|| ProblemError::internal("forward integral physical axis"))?;
+                            if let Some(variable) = p.variable(k, column) {
+                                gradient[variable] += weight * product[q * axes.len() + local];
+                            }
                         }
                     }
+                    // Endpoint derivative storage belongs to this window only. Reduce
+                    // and release it before the next window's native workspace exists.
                 }
-            }
+                Ok(report)
+            })
+            .collect::<Result<Vec<_>, ProblemError>>()?;
+        if let Some(gradient) = &integral_gradient {
             if gradient.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite integral gradient")); }
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("shooting.forward_quadrature_products", "count", p.windows.len() as u64);
             }
-            Some(gradient)
-        } else { None };
+        }
         if forward {
             for (window, report) in p.windows.iter().zip(&reports) {
                 if window.profile.forward_axes.as_ref() != Some(&report.forward_axes) {
