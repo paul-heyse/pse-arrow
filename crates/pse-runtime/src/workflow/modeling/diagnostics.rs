@@ -1431,6 +1431,8 @@ mod tests {
             std::time::Duration::from_secs(10), &cancel).await.unwrap();
         assert_eq!(source_map.document.source_identity, prepared.model.case.compiled().plan.structure().key());
         assert_eq!(source_map.document.numerical_identity, prepared.numerics.key);
+        assert_eq!(source_map.document.row_nominals.iter().map(|(row, _)| *row).collect::<Vec<_>>(), source_map.document.rows);
+        assert_eq!(source_map.document.variable_nominals.iter().map(|(column, _)| *column).collect::<Vec<_>>(), source_map.document.columns);
         assert!(!source_map.document.templates.is_empty());
         assert!(!source_map.document.instances.is_empty());
         assert!(source_map.document.fields.iter().all(|field| field.document == Some(SemanticId::from_bytes([83; 16]))));

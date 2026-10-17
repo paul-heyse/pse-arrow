@@ -110,6 +110,9 @@ pub struct ModelingSourceMapDocument {
     pub rows: Vec<SemanticId>,
     pub columns: Vec<SemanticId>,
     pub fixed_inputs: Vec<SemanticId>,
+    /// Frozen physical scales of the selected original rows and coordinates.
+    pub row_nominals: Vec<(SemanticId, f64)>,
+    pub variable_nominals: Vec<(SemanticId, f64)>,
     /// Objective signs in original objective order; never a native stationarity norm.
     pub objective_signs: Vec<f64>,
     pub fields: Vec<SourceFieldDocument>,
@@ -233,10 +236,15 @@ impl Runtime {
                 instances[demand.instance].demands.push(SourceDemandDocument { demand: demand.demand,
                     template: demand.template, outputs: demand.outputs.to_vec(), coordinates: demand.coordinates.to_vec() });
             }
+            let row_ids = assembly.structure().rows().iter().map(|row| row.id).collect::<Vec<_>>();
+            let normalization = pse_math::normalization::Normalization::from_policy(
+                &prepared.numerics, assembly.columns(), &row_ids).map_err(crate::math::MathRuntimeError::from)?;
             let document = ModelingSourceMapDocument {
                 version: Default::default(), source_identity: assembly.structure().key(), numerical_identity: prepared.numerics.key,
                 scope: SourceMapScope::StaticEligibleAlternatives,
-                rows: assembly.structure().rows().iter().map(|row| row.id).collect(), columns: assembly.columns().to_vec(),
+                row_nominals: row_ids.iter().copied().zip(normalization.rows.iter().copied()).collect(),
+                variable_nominals: assembly.columns().iter().copied().zip(normalization.variables.iter().copied()).collect(),
+                rows: row_ids, columns: assembly.columns().to_vec(),
                 fixed_inputs: assembly.input_ids().to_vec(), objective_signs: assembly.structure().objectives().iter().map(|objective| objective.sense.sign()).collect(),
                 fields: fields.iter().map(|(declaration, role, position, span)| {
                     let document = (span.document_id != SemanticId::NIL).then_some(span.document_id);
