@@ -10,7 +10,7 @@ pub(super) fn observe<T, E: miette::Diagnostic>(
     completed: &'static str,
     operation: impl FnOnce() -> Result<T, E>,
 ) -> Result<T, E> {
-    let context = pse_diagnostics::observation::current();
+    let context = pse_diagnostics::observation::current().filter(|context| context.is_active());
     let _phase = context.as_ref().map(|context| context.phase(phase));
     let started = context.as_ref().map(|_| std::time::Instant::now());
     if let Some(context) = &context {
@@ -33,6 +33,32 @@ pub(super) fn observe<T, E: miette::Diagnostic>(
         }
     }
     result
+}
+
+/// Coarse IFT stages share the already-selected observation owner and callback flag.
+/// Cancellation is checked around opaque library work; no unperformed stage completes.
+pub(super) fn stage<T>(
+    phase: &'static str,
+    calls: &'static str,
+    elapsed: &'static str,
+    failures: &'static str,
+    completed: &'static str,
+    cancel: &std::sync::atomic::AtomicBool,
+    operation: impl FnOnce() -> Result<T, crate::MathError>,
+) -> Result<T, crate::MathError> {
+    observe(phase, calls, elapsed, failures, completed, || {
+        let check = || {
+            if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                Err(crate::MathError::Cancelled)
+            } else {
+                Ok(())
+            }
+        };
+        check()?;
+        let value = operation()?;
+        check()?;
+        Ok(value)
+    })
 }
 
 pub(super) trait ProofStatus {

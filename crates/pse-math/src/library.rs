@@ -134,8 +134,8 @@ pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
         environment: crate::linked_environment()?,
     })
 }
-/// Explicit evaluator implementation. Scalar C++ compilation is opt-in and only
-/// changes Value arithmetic blocks; derivatives and provider calls remain interpreted.
+/// Explicit evaluator implementation. Scalar C++ compilation is opt-in for eligible
+/// demanded arithmetic products; provider calls and ordered guards remain host-owned.
 #[derive(
     Clone,
     Copy,

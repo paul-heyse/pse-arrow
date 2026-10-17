@@ -97,6 +97,28 @@ struct Instance {
     groups: EnumMap<EvaluationDemand, Option<Group>>,
     coordinates: Vec<Slot>,
     columns: Vec<GlobalCol>,
+    objective_terms: Vec<OutputTerm>,
+    constraint_terms: Vec<ConstraintTerm>,
+    gradient_coordinates: Vec<GradientCoordinate>,
+}
+/// Immutable output/derivative addresses in original contribution order.
+#[derive(Clone, Debug)]
+struct OutputTerm {
+    result_row: usize,
+    first_offset: usize,
+    scale: f64,
+}
+#[derive(Clone, Debug)]
+struct ConstraintTerm {
+    result_row: usize,
+    destination: usize,
+    scale: f64,
+}
+#[derive(Clone, Debug)]
+struct GradientCoordinate {
+    offset: usize,
+    destination: usize,
+    scale: f64,
 }
 #[derive(Clone, Debug)]
 struct Term {
@@ -346,7 +368,10 @@ impl CasePlan {
                 .instances
                 .iter()
                 .map(|i| {
-                    i.coordinates.capacity() * size_of::<Slot>()
+                    i.objective_terms.capacity() * size_of::<OutputTerm>()
+                        + i.constraint_terms.capacity() * size_of::<ConstraintTerm>()
+                        + i.gradient_coordinates.capacity() * size_of::<GradientCoordinate>()
+                        + i.coordinates.capacity() * size_of::<Slot>()
                         + i.columns.capacity() * size_of::<GlobalCol>()
                         + i.groups
                             .values()
@@ -810,10 +835,49 @@ impl CasePlan {
                 };
                 *group = Some(Group { outputs, request });
             }
+            let mut objective_terms = Vec::new();
+            let mut constraint_terms = Vec::new();
+            for contribution in &binding.contributions {
+                let demand = match contribution.target {
+                    Target::PRIMARY => EvaluationDemand::Objective,
+                    Target::Row(_) => EvaluationDemand::Constraints,
+                    _ => continue,
+                };
+                let result_row = groups[demand]
+                    .as_ref()
+                    .and_then(|group| group.outputs.binary_search(&contribution.output).ok())
+                    .ok_or_else(|| MathError::Contract("missing prepared contribution output".into()))?;
+                match contribution.target {
+                    Target::PRIMARY => objective_terms.push(OutputTerm {
+                        result_row,
+                        first_offset: result_row.checked_mul(coordinates.len())
+                            .ok_or(MathError::Limit("objective derivative address"))?,
+                        scale: contribution.scale,
+                    }),
+                    Target::Row(row) => constraint_terms.push(ConstraintTerm {
+                        result_row,
+                        destination: rows[&row].get(),
+                        scale: contribution.scale,
+                    }),
+                    _ => {}
+                }
+            }
+            let gradient_coordinates = if !objective_terms.is_empty() {
+                coordinates.iter().enumerate().map(|(offset, formal)| GradientCoordinate {
+                    offset,
+                    destination: local_columns[offset].get(),
+                    scale: binding.slots[formal.get()].scale(),
+                }).collect()
+            } else {
+                Vec::new()
+            };
             instances.push(Instance {
                 groups,
                 coordinates,
                 columns: local_columns,
+                objective_terms,
+                constraint_terms,
+                gradient_coordinates,
             });
         }
         let patterns = case_patterns(
@@ -1336,6 +1400,11 @@ impl CasePlan {
             let n = instance.coordinates.len();
             dimensions = add(dimensions, n)?;
             copies = add(copies, mul(n, size_of::<Slot>() + size_of::<GlobalCol>())?)?;
+            copies = add(copies, mul(n, 2 * size_of::<GradientCoordinate>())?)?;
+            copies = add(copies, mul(
+                add(binding.contributions.len(), 8)?,
+                2 * (size_of::<OutputTerm>() + size_of::<ConstraintTerm>()),
+            )?)?;
             for group in instance.groups.values().flatten() {
                 dimensions = add(dimensions, group.outputs.len())?;
             }
@@ -1909,7 +1978,7 @@ impl CasePlan {
         self: &Arc<Self>,
         optimization: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<CaseAssembly, MathError> {
         let programs = self
             .supports
@@ -1917,7 +1986,7 @@ impl CasePlan {
             .zip(self.requests.iter())
             .map(|(support, request)| {
                 support
-                    .compile_product(request.product, optimization, limits, cancel)
+                    .compile_product(request.product, optimization, limits, scope)
                     .map(Arc::new)
             })
             .collect::<Result<_, _>>()?;
@@ -2977,24 +3046,16 @@ impl CaseWorker {
         self.scope.check().map_err(crate::error::scope_error)?;
         Ok(())
     }
-    fn result(
+    fn evaluated_result(
         &self,
         instance: usize,
-        output: usize,
         demand: EvaluationDemand,
-    ) -> Result<(&TrialEvaluation, usize), MathError> {
-        let group = self.assembly.instances[instance].groups[demand]
+    ) -> Result<&TrialEvaluation, MathError> {
+        self.groups[instance][demand]
             .as_ref()
-            .ok_or_else(|| MathError::Contract("missing compiled demand".into()))?;
-        let row = group
-            .outputs
-            .binary_search(&output)
-            .map_err(|_| MathError::Contract("missing demand output".into()))?;
-        let result = self.groups[instance][demand]
-            .as_ref()
-            .filter(|g| g.cache.is_some())
-            .ok_or_else(|| MathError::Contract("unevaluated demand".into()))?;
-        Ok((&result.result, row))
+            .filter(|group| group.cache.is_some())
+            .map(|group| &group.result)
+            .ok_or_else(|| MathError::Contract("unevaluated demand".into()))
     }
     /// Read evidence from the exact last demanded programs; this never evaluates an
     /// inactive branch or an unrelated output just to create observations.
@@ -3029,12 +3090,10 @@ impl CaseWorker {
             DerivativeOrder::Value,
         )?;
         let mut value = 0.0;
-        for (i, b) in self.assembly.structure.instances().iter().enumerate() {
-            for c in &b.contributions {
-                if c.target == Target::PRIMARY {
-                    let (v, r) = self.result(i, c.output, EvaluationDemand::Objective)?;
-                    value += c.scale * v.values[r];
-                }
+        for (i, instance) in self.assembly.instances.iter().enumerate() {
+            for term in &instance.objective_terms {
+                let result = self.evaluated_result(i, EvaluationDemand::Objective)?;
+                value += term.scale * result.values[term.result_row];
             }
         }
         finite(value * self.objective_sign())
@@ -3056,13 +3115,11 @@ impl CaseWorker {
             DerivativeOrder::Value,
         )?;
         self.constraint_values.fill(0.0);
-        for (i, b) in self.assembly.structure.instances().iter().enumerate() {
-            for c in &b.contributions {
-                if let Target::Row(id) = c.target {
-                    let (v, r) = self.result(i, c.output, EvaluationDemand::Constraints)?;
-                    let addend = c.scale * v.values[r];
-                    self.constraint_values[self.assembly.rows[&id].get()] += addend;
-                }
+        for (i, instance) in self.assembly.instances.iter().enumerate() {
+            for term in &instance.constraint_terms {
+                let result = self.evaluated_result(i, EvaluationDemand::Constraints)?;
+                let addend = term.scale * result.values[term.result_row];
+                self.constraint_values[term.destination] += addend;
             }
         }
         for &value in &self.constraint_values {
@@ -3073,20 +3130,16 @@ impl CaseWorker {
     /// Retain independently visible source terms from the most recent constraint evaluation.
     pub fn constraint_sources(&self) -> Result<Vec<OutputValue>, MathError> {
         let mut out = Vec::new();
-        for (i, b) in self.assembly.structure.instances().iter().enumerate() {
-            let outputs: BTreeSet<_> = b
-                .contributions
-                .iter()
-                .filter(|c| matches!(c.target, Target::Row(_)))
-                .map(|c| c.output)
-                .collect();
-            for output in outputs {
-                let (evaluation, row) = self.result(i, output, EvaluationDemand::Constraints)?;
-                out.push(OutputValue {
-                    instance: b.instance,
-                    output,
-                    value: finite(evaluation.values[row])?,
-                });
+        for (i, binding) in self.assembly.structure.instances().iter().enumerate() {
+            if let Some(group) = &self.assembly.instances[i].groups[EvaluationDemand::Constraints] {
+                let evaluation = self.evaluated_result(i, EvaluationDemand::Constraints)?;
+                for (row, &output) in group.outputs.iter().enumerate() {
+                    out.push(OutputValue {
+                        instance: binding.instance,
+                        output,
+                        value: finite(evaluation.values[row])?,
+                    });
+                }
             }
         }
         Ok(out)
@@ -3099,31 +3152,18 @@ impl CaseWorker {
             DerivativeOrder::First,
         )?;
         self.gradient_values.fill(0.0);
-        for (i, b) in self.assembly.structure.instances().iter().enumerate() {
-            let local = &self.assembly.instances[i];
-            for c in &b.contributions {
-                if c.target == Target::PRIMARY {
-                    let r = local.groups[EvaluationDemand::Objective]
-                        .as_ref()
-                        .and_then(|group| group.outputs.binary_search(&c.output).ok())
-                        .ok_or_else(|| MathError::Contract("missing objective output".into()))?;
-                    let v = &self.groups[i][EvaluationDemand::Objective]
-                        .as_ref()
-                        .filter(|group| group.cache.is_some())
-                        .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?
-                        .result;
-                    let sign = self
-                        .assembly
-                        .structure
-                        .objective()
-                        .map_or(1.0, |o| o.sense.sign());
-                    for (k, &formal) in local.coordinates.iter().enumerate() {
-                        let addend = sign
-                            * c.scale
-                            * b.slots[formal.get()].scale()
-                            * v.jacobian[r * local.coordinates.len() + k];
-                        self.gradient_values[local.columns[k].get()] += addend;
-                    }
+        let sign = self.objective_sign();
+        for (i, instance) in self.assembly.instances.iter().enumerate() {
+            for term in &instance.objective_terms {
+                let result = &self.groups[i][EvaluationDemand::Objective]
+                    .as_ref()
+                    .filter(|group| group.cache.is_some())
+                    .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?
+                    .result;
+                for coordinate in &instance.gradient_coordinates {
+                    let addend = sign * term.scale * coordinate.scale
+                        * result.jacobian[term.first_offset + coordinate.offset];
+                    self.gradient_values[coordinate.destination] += addend;
                 }
             }
         }
