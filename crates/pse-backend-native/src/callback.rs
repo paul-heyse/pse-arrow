@@ -269,6 +269,9 @@ pub struct CallbackState {
     pub iteration_crossings: usize,
 }
 impl CallbackState {
+    pub(crate) fn progress_producer(&self) -> Option<&pse_diagnostics::observation::Producer> {
+        self.observation_producer.as_ref()
+    }
     pub(crate) fn observation_scope(&self) -> Option<pse_diagnostics::observation::EnterGuard> {
         self.observation_producer
             .as_ref()
