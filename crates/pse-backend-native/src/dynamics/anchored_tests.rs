@@ -508,9 +508,10 @@ fn anchored_actions_match_exact_partials_without_materializing_wrapper_matrices(
                 .unwrap();
             let matrix = reference.jacobian.unwrap();
             let mut expected = vec![0.; matrix.nrows()];
-            for col in 0..matrix.ncols() {
+            assert_eq!(direction.len(), matrix.ncols());
+            for (col, &seed) in direction.iter().enumerate() {
                 for entry in matrix.col_range(col) {
-                    expected[matrix.row_idx()[entry]] += matrix.val()[entry] * direction[col];
+                    expected[matrix.row_idx()[entry]] += matrix.val()[entry] * seed;
                 }
             }
             let mut actual = vec![f64::NAN; expected.len()];

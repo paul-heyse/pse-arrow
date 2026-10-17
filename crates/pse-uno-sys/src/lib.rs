@@ -352,10 +352,10 @@ mod tests {
                 return EVAL_TERMINAL;
             }
         }
-        // SAFETY: bridge provides one readable/writable scalar for this configured model.
-        unsafe {
-            *out = (*x - 1.).powi(2);
-        }
+        // SAFETY: this scalar model's bridge supplies a readable point for the callback.
+        let value = unsafe { *x };
+        // SAFETY: the bridge supplies one writable output; the point borrow has ended.
+        unsafe { *out = (value - 1.).powi(2) };
         EVAL_OK
     }
     unsafe extern "C" fn gate_poll(data: *mut c_void) -> i32 {
@@ -488,7 +488,8 @@ mod tests {
             }
             assert_eq!(owner.join().unwrap(), OK);
         }
-        // A late safe notification never borrows a destroyed native handle.
+        // SAFETY: the noexcept bridge synchronizes its process-lifetime gate
+        // and takes no native handle or fixture pointer, including after joins.
         unsafe { pse_uno_notify_waiters() };
     }
     #[test]

@@ -697,8 +697,9 @@ mod tests {
                 assert_eq!(out, 3. * x * x);
                 #[cfg(feature = "ipopt")]
                 for multiplier in [0., 4., -1.] {
-                    // SAFETY: exact scalar point, multiplier and output extents.
                     assert_eq!(
+                        // SAFETY: the active owned slot and exact scalar point,
+                        // multiplier and exclusive output remain live for this call.
                         unsafe { hessian(1, 1, 1, &x, 3., &multiplier, &mut out, data) },
                         0
                     );
