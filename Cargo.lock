@@ -3011,7 +3011,7 @@ dependencies = [
 [[package]]
 name = "feral"
 version = "0.18.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "feral-amd",
  "feral-amf",
@@ -5748,7 +5748,7 @@ dependencies = [
 [[package]]
 name = "pounce-algorithm"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "anstream 0.6.21",
  "anstyle",
@@ -5770,7 +5770,7 @@ dependencies = [
 [[package]]
 name = "pounce-common"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "anstyle",
  "anstyle-query",
@@ -5780,7 +5780,7 @@ dependencies = [
 [[package]]
 name = "pounce-convex"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "feral",
  "pounce-common",
@@ -5796,7 +5796,7 @@ dependencies = [
 [[package]]
 name = "pounce-feral"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "feral",
  "pounce-common",
@@ -5807,7 +5807,7 @@ dependencies = [
 [[package]]
 name = "pounce-l1penalty"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-common",
  "pounce-nlp",
@@ -5816,7 +5816,7 @@ dependencies = [
 [[package]]
 name = "pounce-linalg"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-common",
 ]
@@ -5824,7 +5824,7 @@ dependencies = [
 [[package]]
 name = "pounce-linsol"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-common",
  "pounce-linalg",
@@ -5834,7 +5834,7 @@ dependencies = [
 [[package]]
 name = "pounce-nlp"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-common",
  "pounce-linalg",
@@ -5844,7 +5844,7 @@ dependencies = [
 [[package]]
 name = "pounce-observability"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "anstyle",
  "anstyle-query",
@@ -5858,7 +5858,7 @@ dependencies = [
 [[package]]
 name = "pounce-presolve"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-common",
  "pounce-nlp",
@@ -5868,7 +5868,7 @@ dependencies = [
 [[package]]
 name = "pounce-qp"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-common",
  "pounce-linalg",
@@ -5878,7 +5878,7 @@ dependencies = [
 [[package]]
 name = "pounce-restoration"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-algorithm",
  "pounce-common",
@@ -5891,7 +5891,7 @@ dependencies = [
 [[package]]
 name = "pounce-rs"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-algorithm",
  "pounce-common",
@@ -5909,7 +5909,7 @@ dependencies = [
 [[package]]
 name = "pounce-sens-core"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "pounce-common",
  "pounce-linalg",
@@ -5918,7 +5918,7 @@ dependencies = [
 [[package]]
 name = "pounce-solve-report"
 version = "0.12.0"
-source = "git+https://github.com/paul-heyse/pounce?rev=3998a6c75d9c49f7ee1eb422dcfe35ff32239a25#3998a6c75d9c49f7ee1eb422dcfe35ff32239a25"
+source = "git+https://github.com/paul-heyse/pounce?rev=cfa07f0d4089bbab756def9df25dbca740547f03#cfa07f0d4089bbab756def9df25dbca740547f03"
 dependencies = [
  "anstream 0.6.21",
  "anstyle",
