@@ -28,7 +28,7 @@ impl Log {
         if !selected { return None; }
         let mut raw = ptr::null_mut();
         // SAFETY: caller retains process serialization and initialized PETSc.
-        let code = unsafe { ffi::pse_petsc_log_create(&raw) };
+        let code = unsafe { ffi::pse_petsc_log_create(&mut raw) };
         if code != 0 || raw.is_null() {
             context.record_source_unavailable(FAMILY);
             context.unavailable("petsc.logging", "selected handler unavailable or registration refused");

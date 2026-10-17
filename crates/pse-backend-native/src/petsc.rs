@@ -845,7 +845,7 @@ pub fn solve(
     // Declared after admission: all early returns drop the selected handler before
     // process serialization is released. No events are active at registration.
     let logging = logging::Log::selected(&execution);
-    context.logging = logging.as_ref().map_or(ptr::null(), std::ptr::from_ref);
+    context.logging = logging.as_ref().map_or(ptr::null(), ptr::from_ref);
     let code = {
         if logging.is_none() {
             crate::observation::unavailable("petsc.logging", "not selected or handler unavailable; zeroed counters are uncollected");

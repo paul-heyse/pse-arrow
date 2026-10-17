@@ -780,7 +780,7 @@ pub fn solve_flow(
         )?;
     }
     let logging = logging::Log::selected(&execution);
-    context.logging = logging.as_ref().map_or(ptr::null(), std::ptr::from_ref);
+    context.logging = logging.as_ref().map_or(ptr::null(), ptr::from_ref);
     let code = {
         // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
         crate::observation::scoped("petsc.ts.solve", || unsafe {

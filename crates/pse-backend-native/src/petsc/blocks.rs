@@ -907,7 +907,7 @@ pub fn solve_blocks(
         }
     }
     let logging = logging::Log::selected(&execution);
-    shared.logging = logging.as_ref().map_or(ptr::null(), std::ptr::from_ref);
+    shared.logging = logging.as_ref().map_or(ptr::null(), ptr::from_ref);
     let code = {
         // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
         unsafe { ffi::pse_petsc_snes_solve(snes, x) }

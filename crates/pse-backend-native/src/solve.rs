@@ -2838,13 +2838,13 @@ mod numerical_tests {
     #[test]
     fn attempt_abandonment_wakes_registered_waiters_once() {
         use pse_model::generated::enums::NumericalAttemptObservation as O;
-        struct Wake(std::sync::atomic::AtomicBool);
+        struct Wake(AtomicBool);
         impl std::task::Wake for Wake {
             fn wake(self: Arc<Self>) { self.0.store(true, Ordering::Release); }
             fn wake_by_ref(self: &Arc<Self>) { self.0.store(true, Ordering::Release); }
         }
         let source = AttemptAbandonment::default();
-        let wake = Arc::new(Wake(std::sync::atomic::AtomicBool::new(false)));
+        let wake = Arc::new(Wake(AtomicBool::new(false)));
         let waker = std::task::Waker::from(wake.clone());
         let watch = source.watch(&waker);
         let future = source.notified();
