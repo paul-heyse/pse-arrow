@@ -70,6 +70,7 @@ impl Work {
 }
 #[derive(Default)]
 pub(super) struct Observations {
+    invocations: Vec<Value>,
     results: u64,
     strategies: u64,
     charged_operations: u64,
@@ -90,6 +91,13 @@ pub(super) struct Observations {
     preparations: BTreeMap<&'static str, u64>,
 }
 impl Observations {
+    pub(super) fn invocation(&mut self, result: &pse_runtime::workflow::RunResult) {
+        self.invocations.push(serde_json::to_value(result.invocation_evidence().unwrap()).unwrap());
+    }
+    pub(super) fn counted_preparations(&mut self, counts: pse_runtime::math::PreparationCounts) {
+        self.preparations(Default::default(), counts);
+    }
+
     pub(super) fn modeling(
         &mut self,
         result: &ModelingResult,
@@ -192,6 +200,7 @@ impl Observations {
         result: &pse_runtime::workflow::RunResult,
         service: &pse_runtime::math::MathService,
     ) {
+        self.invocation(result);
         match result.report().unwrap() {
             pse_runtime::workflow::RunReport::Modeling(reports) => {
                 for (step, report) in reports.iter().enumerate() {
@@ -275,6 +284,7 @@ impl Observations {
     }
     pub(super) fn json(&self) -> Value {
         json!({
+            "workflow_invocations":self.invocations,
             "modeling_results":self.results,"observed_strategies":self.strategies,
             "strategy_ledger":{"scope":"actual terminal generated strategy rows; each charging owner counted once per original result, including failed operations","charging_owners":self.charged_operations,"work":self.ledger.json()},
             "persisted_native_metrics":{"scope":"reopened point metrics only; native Evidence work and reuse flag are not persisted here and remain unobserved; do not add to returned report counts","points":self.persisted_points,"native_work":null,"reused_native_state":null,"kinsol_setup_refreshes":self.persisted_refreshes.json(),"kinsol_initial_setup_reused":self.persisted_initial_reused.json()},
@@ -282,8 +292,28 @@ impl Observations {
             "returned_native_reports":{"scope":"inclusive work of returned native reports only; excludes earlier reports visible only in the strategy; do not add to strategy totals","reports":self.native_reports,"work":self.native.json(),"reused_native_state_reports":self.reused_native_reports,"kinsol_setup_refreshes":self.kinsol_refreshes.json(),"kinsol_initial_setup_reused":self.kinsol_initial_reused.json(),"setup_scope":"actual KINSOL setup metrics; refreshes are not factorization counts"},
             "effective_profiles":{"scope":"identities/backend from actual Started strategy rows","observed":self.profiles.values().collect::<Vec<_>>(),"unknown_observations":self.unknown_profiles},
             "path_probe_breakdown":{"scope":"inclusive successful localized probe observations already included in strategy work; do not add to ledger totals; failed or unexported probe breakdowns are unavailable","probes":self.path_probes,"counts":self.path_work},
-            "preparations":{"scope":"actual MathService counter deltas per measured operation","counts":self.preparations},
-            "aggregation":"totals span collected result observations: main and extended aggregate benchmark invocations including warmup, while each K4 record contains one iteration; null total means no observations or at least one unknown; known subtotals do not qualify unknown work; reporting is included in result observation time"
+            "preparations":{"scope":"actual operation-local task scope; uninstrumented legacy subsection deltas are explicitly scoped by their record","counts":self.preparations},
+            "aggregation":"totals span only this record collected result observations; null total means no observations or at least one unknown; known subtotals do not qualify unknown work; scientific attempt evidence overlaps native summaries"
         })
     }
+}
+
+/// One artifact record per executed harness invocation, including warmups.
+pub(super) struct InvocationRecords {
+    writer: std::io::BufWriter<std::fs::File>,
+    sequence: u64,
+}
+impl InvocationRecords {
+    pub(super) fn new(output: &std::path::Path, name: &str) -> Self {
+        Self { writer: std::io::BufWriter::new(std::fs::File::create(output.join(format!("{name}-observations.jsonl"))).unwrap()), sequence: 0 }
+    }
+    pub(super) fn push(&mut self, mut record: Value) {
+        use std::io::Write;
+        record["invocation_sequence"] = self.sequence.into();
+        record["criterion_membership"] = json!({"status":"unavailable","reason":"Criterion closure invocation does not identify warmup versus measured sample membership"});
+        serde_json::to_writer(&mut self.writer, &record).unwrap();
+        self.writer.write_all(b"\n").unwrap();
+        self.sequence = self.sequence.checked_add(1).unwrap();
+    }
+    pub(super) fn flush(&mut self) { use std::io::Write; self.writer.flush().unwrap(); }
 }

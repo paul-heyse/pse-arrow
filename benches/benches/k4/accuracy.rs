@@ -64,16 +64,20 @@ pub(super) fn measure(
                     bindings: Default::default(), limits: Default::default(), case: Default::default(),
                     order: DerivativeOrder::First, compiler: compiler(), solver,
                     numerical: NumericalInputs::default() };
-                let before = owner.runtime.math().preparations();
                 owner.runtime.reset_observation_peak();
                 phases.reset();
                 let begin = Instant::now();
                 let cancel = CancelSource::new();
-                let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-                let result = prepared.start().unwrap().wait().await.unwrap();
+                let ((prepared, result), preparation_counts) = pse_runtime::invocation::counted(async {
+                    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+                    let result = prepared.start().unwrap().wait().await.unwrap();
+                    (prepared, result)
+                }).await;
                 let elapsed = begin.elapsed();
                 let RunReport::Modeling(reports) = result.report().unwrap() else { panic!("wrong accuracy report"); };
                 let mut numerical = observations::Observations::default();
+                numerical.invocation(&result);
+                numerical.counted_preparations(preparation_counts);
                 for (step, report) in reports.iter().enumerate() { numerical.modeling(report, step, owner.runtime.math()); }
                 let report = reports.last().unwrap();
                 let coordinate = report.prepared.model.case.compiled().plan.columns()[0];
@@ -103,7 +107,7 @@ pub(super) fn measure(
                     "value":value, "independent_root":2.0, "observed_root_difference":(value-2.0).abs(),
                     "goals":goals, "assessments":result.assessments(),
                     "numerical_observations":observed,
-                    "preparations":support::counts(before,owner.runtime.math().preparations()),
+                    "preparations":preparation_counts,
                     "compiler_phases":phases.report(1), "compiler_constructions":phases.constructions(),
                     "pool_peak_bytes":owner.runtime.observation_peak_bytes(),
                     "process_peak_rss_bytes":owner.runtime.report().unwrap().process_peak_rss_bytes,
@@ -121,6 +125,9 @@ pub(super) fn measure(
                     maxima.entry(field).and_modify(|held| *held = (*held).max(value)).or_insert(value);
                 }
             }
+            let mut record = record;
+            record["invocation_sequence"] = observations.into();
+            record["criterion_membership"] = json!({"status":"unavailable","reason":"Criterion callback does not expose measured-sample membership"});
             serde_json::to_writer(&mut records, &record).unwrap();
             records.write_all(b"\n").unwrap();
             observations = observations.checked_add(1).unwrap();

@@ -183,6 +183,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
     drop(execution_stage);
     let _assessment = audit::stage("original_scientific_assessment");
     assert!(result.usable(), "{:?}", result.assessments());
+    observations.invocation(&result);
     let RunReport::Shooting(report) = result.report().unwrap() else {
         panic!("shooting report expected")
     };

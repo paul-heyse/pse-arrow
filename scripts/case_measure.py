@@ -297,6 +297,43 @@ def samples(path: Path) -> dict:
     }
 
 
+def invocation_population(directory: Path, memory: dict) -> dict:
+    """Read actual invocation artifacts without assigning Criterion sample membership."""
+    filename = memory.get("observations_file")
+    if filename is not None:
+        if not isinstance(filename, str):
+            raise ValueError("invocation observations_file must be a relative path")
+        path = (directory / filename).resolve()
+        if not path.is_relative_to(directory.resolve()):
+            raise ValueError("invocation observations_file escapes its case directory")
+        with path.open() as source:
+            records = [json.loads(line) for line in source if line.strip()]
+        location = filename
+    elif "records" in memory:
+        records = memory["records"]
+        location = "memory.json:records"
+    else:
+        return {"status": "unavailable", "reason": "case supplied no per-invocation artifact"}
+    if not isinstance(records, list) or not all(isinstance(record, dict) for record in records):
+        raise ValueError("invocation artifact must contain object records")
+    expected = memory.get("iterations")
+    if expected is not None and (
+        isinstance(expected, bool) or not isinstance(expected, int) or expected != len(records)
+    ):
+        raise ValueError("invocation record count does not match actual executed iterations")
+    return {
+        "status": "available",
+        "source": location,
+        "record_count": len(records),
+        "population": "all executed harness invocations, including warmups when executed",
+        "criterion_membership": {
+            "status": "unavailable",
+            "reason": "Criterion raw CSV supplies measured sample statistics, not invocation identities",
+        },
+        "join": "none; read this artifact separately from Criterion statistics",
+    }
+
+
 def measurement_environment() -> dict[str, str]:
     """Record execution controls without opening or authenticating producer receipts."""
     return {key: os.environ[key] for key in ENVIRONMENT_CONTROLS if key in os.environ}
@@ -769,12 +806,13 @@ def main() -> int:
         cases.append(
             {
                 **memory,
-                **sample_summary,
+                "criterion_statistics": sample_summary,
+                "invocation_observations": invocation_population(directory, memory),
                 "artifacts": files,
             }
         )
     report = {
-        "schema": "process-cost-v4",
+        "schema": "process-cost-v5",
         "measured": True,
         "profile": profile,
         "functional": functional,

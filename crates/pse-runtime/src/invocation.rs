@@ -75,6 +75,8 @@ pub struct InvocationEvidenceDocument {
     pub operation: Option<OperationId>,
     /// Actual workflow family.
     pub family: String,
+    /// Performing clock boundary; no inferred preparation or native start is included.
+    pub clock_scope: String,
     /// Exact canonical locators when registration/publication acknowledged them.
     pub canonical_run: Option<String>,
     /// Exact canonical native attempt locator.
@@ -140,6 +142,10 @@ pub(crate) async fn scope<T>(work: impl Future<Output = T>) -> T {
 pub async fn counted<T>(work: impl Future<Output = T>) -> (T, PreparationCounts) {
     crate::math::counted(work).await
 }
+/// Count a synchronous operation, including its explicitly polled async preparation.
+pub fn counted_sync<T>(work: impl FnOnce() -> T) -> (T, PreparationCounts) {
+    crate::math::counted_sync(work)
+}
 /// Boundary interval guard. An unfinished guard reports no completion endpoint.
 pub(crate) struct Stage {
     recorder: Option<Arc<Recorder>>,
@@ -203,4 +209,68 @@ mod tests {
             assert!(intervals.iter().all(|v| v.ended_seconds.is_none() && v.outcome.is_none()));
         }).await;
     }
+}
+
+/// The workflow reason for an actual integration, independently of its derivative product.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrationPurpose {
+    /// A new optimizer or requested primal point.
+    #[default]
+    PrimalTrial,
+    /// Missing products at the same exact point.
+    DerivativeUpgrade,
+    /// Fresh governing original-model assessment.
+    OriginalAssessment,
+    /// Rank/response qualification after the native solve.
+    Identifiability,
+    /// Residual curvature needed by an actual Hessian request.
+    Curvature,
+}
+impl IntegrationPurpose {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self { Self::PrimalTrial => "primal_trial", Self::DerivativeUpgrade => "derivative_upgrade",
+            Self::OriginalAssessment => "original_assessment", Self::Identifiability => "identifiability", Self::Curvature => "curvature" }
+    }
+}
+/// Bounded records from an actual performing owner. It creates no numerical demand.
+pub(crate) struct IntegrationObservation {
+    producer: Option<pse_diagnostics::observation::Producer>,
+    fields: Vec<pse_diagnostics::observation::RecordField>,
+    finished: bool,
+}
+impl IntegrationObservation {
+    pub(crate) fn begin(
+        producer: Option<pse_diagnostics::observation::Producer>,
+        purpose: IntegrationPurpose,
+        forward: bool,
+        adjoint: bool,
+        curvature: bool,
+        member: u64,
+    ) -> Self {
+        use pse_diagnostics::observation::{RecordField, Value};
+        let fields = vec![
+            RecordField { name: "purpose".into(), unit: "workflow reason".into(), value: Value::Text(purpose.as_str().into()), availability: None },
+            RecordField { name: "member".into(), unit: "experiment or window index".into(), value: Value::Count(member), availability: None },
+            RecordField { name: "forward_response".into(), unit: "requested product".into(), value: Value::Boolean(forward), availability: None },
+            RecordField { name: "adjoint".into(), unit: "requested product".into(), value: Value::Boolean(adjoint), availability: None },
+            RecordField { name: "curvature".into(), unit: "requested product".into(), value: Value::Boolean(curvature), availability: None },
+        ];
+        let mut observation = Self { producer, fields, finished: false };
+        observation.publish("started");
+        observation
+    }
+    fn publish(&mut self, phase: &'static str) {
+        if let Some(producer) = &self.producer {
+            let record = producer.record("workflow.integration.v1", phase, None, None, self.fields.clone());
+            producer.publish(&record);
+        }
+    }
+    pub(crate) fn finish(mut self, completed: bool) {
+        self.publish(if completed { "completed" } else { "failed" });
+        self.finished = true;
+    }
+}
+impl Drop for IntegrationObservation {
+    fn drop(&mut self) { if !self.finished { self.publish("interrupted"); } }
 }

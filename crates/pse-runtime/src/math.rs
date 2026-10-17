@@ -472,6 +472,14 @@ pub(crate) async fn counted<T>(work: impl Future<Output = T>) -> (T, Preparation
     let output = SCOPES.scope(scopes, work).await;
     (output, counters.snapshot())
 }
+/// Synchronous operation scope, including futures polled by a caller-owned runtime.
+pub(crate) fn counted_sync<T>(work: impl FnOnce() -> T) -> (T, PreparationCounts) {
+    let counters = Arc::new(Preparations::default());
+    let mut scopes = SCOPES.try_with(Clone::clone).unwrap_or_default();
+    scopes.push(Arc::clone(&counters));
+    let output = SCOPES.sync_scope(scopes, work);
+    (output, counters.snapshot())
+}
 /// Snapshot the innermost operation-local preparation scope, never global service deltas.
 pub(crate) fn current_preparations() -> Option<PreparationCounts> {
     SCOPES.try_with(|scopes| scopes.last().map(|scope| scope.snapshot())).ok().flatten()

@@ -489,7 +489,7 @@ pub(super) fn measure(
     let mut retained = 0;
     let mut after_teardown = 0;
     let mut iterations = 0;
-    let mut observations = observations::Observations::default();
+    let mut records = observations::InvocationRecords::new(output, name);
     compiler_phases.reset();
     let mut group = c.benchmark_group("process");
     group
@@ -499,18 +499,26 @@ pub(super) fn measure(
         .measurement_time(Duration::from_secs(1));
     group.bench_function(name, |b| {
         b.iter(|| {
+            let invocation_begin = Instant::now();
+            let mut observations = observations::Observations::default();
+            compiler_phases.reset();
             let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(1).unwrap()).unwrap();
-            let before = owner.runtime.math().preparations();
-            audit::with_owner_sync(&owner, &executor, || {
+            let executed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| audit::with_owner_sync(&owner, &executor, || {
                 let _stage = audit::stage("extended_execution_and_assessment");
-                executor.block_on(audit::scope(run(
+                let (_, counts) = executor.block_on(pse_runtime::invocation::counted(audit::scope(run(
                     &owner,
                     operation,
                     size,
                     &mut observations,
-                )));
-            });
-            observations.preparations(before, owner.runtime.math().preparations());
+                ))));
+                observations.counted_preparations(counts);
+            })));
+            if let Err(panic) = executed {
+                records.push(json!({"seconds":invocation_begin.elapsed().as_secs_f64(),"outcome":"panicked_incomplete",
+                    "numerical_observations":observations.json(),"compiler_phases":compiler_phases.report(1)}));
+                records.flush();
+                std::panic::resume_unwind(panic);
+            }
             peak = peak.max(owner.runtime.observation_peak_bytes());
             rss = rss.max(
                 owner
@@ -538,16 +546,22 @@ pub(super) fn measure(
                     "one-shot shooting escaped runtime teardown"
                 );
             }
+            records.push(json!({"seconds":invocation_begin.elapsed().as_secs_f64(),"numerical_observations":observations.json(),
+                "compiler_phases":compiler_phases.report(1),"compiler_constructions":compiler_phases.constructions(),
+                "start_role":"NoPriorStart","after_runtime_teardown_bytes":pool.reserved(),
+                "clock_scope":"whole executed closure; task-local preparations cover source/preparation/execution and assessment"}));
             iterations += 1;
         })
     });
     group.finish();
+    records.flush();
     std::fs::write(output.join(format!("{name}-memory.json")),serde_json::to_vec_pretty(&json!({
         "id":name,"iterations":iterations,"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,
         "retained_runtime_bytes":retained,"after_case_teardown_bytes":after_teardown,
         "after_retained_runtime_teardown_bytes":null,"workload":spec,
-        "numerical_observations":observations.json(),
-        "threads":1,"native_threads":1,"compiler_phases":compiler_phases.report(iterations),
+        "observations_file":format!("{name}-observations.jsonl"),
+        "observation_population":"all executed closures including warmup; Criterion statistics separate; membership unavailable",
+        "threads":1,"native_threads":1,
         "effective_process_parallelism":std::thread::available_parallelism().unwrap().get(),
         "scope":"fresh runtime per iteration; public source/preparation/execution/analytic validation and teardown; value sweep retains one compiler for 1000 revisions; dynamic rebind retains initial preparation",
         "timed_scope":if operation == "shooting" { "fresh runtime, original source/physical admission, IDAS simulation preparation, single-shooting preparation, one native solve, original scientific/transport assessment, fixture and runtime teardown" } else { "complete extended public operation and teardown" },

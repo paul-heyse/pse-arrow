@@ -319,16 +319,14 @@ fn process(c: &mut Criterion) {
         });
         Some((owner, retained.0, retained.1, retained.2, retained.3))
     };
-    let mut phases = BTreeMap::new();
     compiler_phases.reset();
-    let mut native_seconds = BTreeMap::new();
     let mut variables = BTreeSet::new();
     let mut peak = 0;
     let mut rss = 0;
     let mut retained_bytes = 0;
     let mut after_teardown_bytes = 0;
     let mut iterations = 0_u64;
-    let mut observations = observations::Observations::default();
+    let mut records = observations::InvocationRecords::new(&output, id);
     let mut group = c.benchmark_group("process");
     group
         .sample_size(10)
@@ -337,6 +335,12 @@ fn process(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(1));
     group.bench_function(id, |b| {
         b.iter(|| {
+            let invocation_begin = Instant::now();
+            let mut observations = observations::Observations::default();
+            let mut phases = BTreeMap::new();
+            let mut native_seconds = BTreeMap::<String, f64>::new();
+            compiler_phases.reset();
+            let executed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pse_runtime::invocation::counted_sync(|| {
             let _entered = executor.enter();
             let begin = Instant::now();
             let local = if retained.is_none() {
@@ -350,7 +354,6 @@ fn process(c: &mut Criterion) {
             };
             let teardown_begin = audit::with_owner_sync(owner, &executor, || {
                 let _iteration_stage = audit::stage("case_execution");
-                let preparations_before = owner.runtime.math().preparations();
                 owner.runtime.reset_observation_peak();
                 mark(&mut phases, "runtime_admission", begin);
                 let begin = Instant::now();
@@ -471,6 +474,7 @@ fn process(c: &mut Criterion) {
                         .block_on(audit::scope(audit::wait_ref(&handle)))
                         .unwrap();
                     mark(&mut phases, "cancellation_to_join", stop);
+                    observations.invocation(&result);
                     observe_joined_cancellation(&result, &mut observations, owner.runtime.math());
                     drop(result);
                 } else {
@@ -485,9 +489,7 @@ fn process(c: &mut Criterion) {
                     let RunReport::Modeling(reports) = result.report().unwrap() else {
                         panic!("wrong report")
                     };
-                    for (step, report) in reports.iter().enumerate() {
-                        observations.modeling(report, step, owner.runtime.math());
-                    }
+                    observations.run(&result, owner.runtime.math());
                     if let pse_runtime::math::solves::Outcome::Native(report) = &report.outcome {
                         for (name, value) in &report.metrics {
                             if (name.ends_with(".seconds") || name.starts_with("timing."))
@@ -537,7 +539,6 @@ fn process(c: &mut Criterion) {
                     drop(result);
                 }
                 let teardown_begin = Instant::now();
-                observations.preparations(preparations_before, owner.runtime.math().preparations());
                 drop(handle);
                 drop(prepared);
                 drop(package);
@@ -565,6 +566,16 @@ fn process(c: &mut Criterion) {
             drop(local);
             after_teardown_bytes = after_teardown_bytes.max(pool.reserved());
             mark(&mut phases, "case_teardown", begin);
+            })));
+            let preparation_counts = match &executed { Ok((_, counts)) => Some(*counts), Err(_) => None };
+            if let Some(counts) = preparation_counts { observations.counted_preparations(counts); }
+            records.push(serde_json::json!({"seconds":invocation_begin.elapsed().as_secs_f64(),
+                "phase_seconds":phases,"native_seconds":native_seconds,"compiler_phases":compiler_phases.report(1),
+                "compiler_constructions":compiler_phases.constructions(),"numerical_observations":observations.json(),
+                "preparations":preparation_counts,"start_role":reuse,
+                "outcome":if executed.is_ok() { "completed" } else { "panicked_incomplete" },
+                "clock_scope":"whole executed harness closure including setup, scientific execution, requested access and teardown; phase intervals inclusive"}));
+            if let Err(panic) = executed { records.flush(); std::panic::resume_unwind(panic); }
             iterations += 1;
         })
     });
@@ -586,21 +597,15 @@ fn process(c: &mut Criterion) {
     }
     drop(executor);
     let final_retained_runtime_bytes = retained_pool.map(|pool| pool.reserved());
-    for value in phases.values_mut() {
-        *value /= iterations as f64;
-    }
-    for value in native_seconds.values_mut() {
-        *value /= iterations as f64;
-    }
+    records.flush();
     std::fs::write(output.join(format!("{id}-memory.json")),serde_json::to_vec_pretty(&serde_json::json!({
         "id":id,"iterations":iterations,"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,
         "retained_runtime_bytes":retained_bytes,"after_case_teardown_bytes":after_teardown_bytes,
         "after_retained_runtime_teardown_bytes":final_retained_runtime_bytes,
         "effective_process_parallelism":std::thread::available_parallelism().unwrap().get(),
         "workload":spec,"variables_observed":variables,"threads":threads,"native_threads":1,
-        "phase_seconds":phases,"native_seconds":native_seconds,
-        "compiler_phases":compiler_phases.report(iterations),
-        "numerical_observations":observations.json(),
+        "observations_file":format!("{id}-observations.jsonl"),
+        "observation_population":"one JSONL record per executed closure, including warmup; Criterion measured samples separate; membership unavailable",
         "phase_scope":"inclusive synchronous compiler spans; cache hits do not execute spans; absent phases performed no work",
         "unavailable_submetrics":["JIT is not enabled", "native conversion and property-state construction are included in preparation/native execution, without separate clocks"],
         "scope":"case source admission, preparation/rebuild, joined native execution, validation/results, connected result reopening and teardown; application compilation excluded",

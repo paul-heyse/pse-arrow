@@ -57,6 +57,7 @@ pub(super) fn measure(
     let revision = package.canonical_revision().unwrap().clone();
     owner.runtime.reset_observation_peak();
     phases.reset();
+    let mut records = observations::InvocationRecords::new(output, name);
     let mut iterations = 0_u64;
     let mut group = c.benchmark_group("process");
     group
@@ -72,7 +73,9 @@ pub(super) fn measure(
                 let copied = authored.clone();
                 let rows = parse(&copied);
                 let edited = executor.block_on(package.with_declarations(rows)).unwrap();
-                elapsed += started.elapsed();
+                let seconds = started.elapsed();
+                elapsed += seconds;
+                records.push(json!({"seconds":seconds.as_secs_f64(),"kind":"unchanged_source_admission","canonical_revision":edited.canonical_revision(),"clock_scope":"authored copy, parse and canonical edit; no scientific solve requested"}));
                 assert_eq!(copied, authored);
                 assert_eq!(edited.canonical_revision(), Some(&revision));
                 let actual = executor.block_on(edited.declarations()).unwrap();
@@ -90,6 +93,7 @@ pub(super) fn measure(
         })
     });
     group.finish();
+    records.flush();
     let pool = owner.runtime.pool();
     let peak = owner.runtime.observation_peak_bytes();
     let rss = owner.runtime.report().unwrap().process_peak_rss_bytes;
@@ -100,6 +104,7 @@ pub(super) fn measure(
     drop(owner);
     assert_eq!(pool.reserved(), 0);
     let summary = json!({"id":name,"workload":spec,"iterations":iterations,
+        "observations_file":format!("{name}-observations.jsonl"),
         "threads":threads,"native_threads":1,"variables_observed":[blocks],
         "authored_bytes":authored.len(),"declarations":original.len(),
         "pool_peak_bytes":peak,"process_peak_rss_bytes":rss,"retained_runtime_bytes":retained,

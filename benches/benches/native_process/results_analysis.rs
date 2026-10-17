@@ -617,6 +617,7 @@ async fn prepare(
         modeling_checks::Row::rows(&result.table("runtime.modeling_checks").unwrap()).unwrap();
     assert_eq!(retained_checks, report.checks());
     let mut numerical = observations::Observations::default();
+    numerical.invocation(&result);
     numerical.trajectory(report.report());
     let run = result.canonical_run_key().unwrap().to_owned();
     let attempt = result.canonical_attempt_key().unwrap().to_owned();

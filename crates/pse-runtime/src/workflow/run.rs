@@ -213,6 +213,7 @@ pub enum RunRequest {
 pub struct RunResult {
     /// Supervisor-owned joined evidence clock; absent when constructed outside a supervised invocation.
     pub(super) invocation: Option<Arc<crate::invocation::Recorder>>,
+    pub(super) invocation_cancelled: bool,
     pub(super) modeling_continue_independent: bool,
     pub(super) attempt_summary: std::sync::OnceLock<Arc<super::AttemptSummary>>,
     pub(super) modeling_origin: usize,
@@ -262,6 +263,7 @@ impl RunResult {
             super::result_export::ProjectionOwner::new(&runtime, result_validation.clone());
         Self {
             invocation: crate::invocation::current(),
+            invocation_cancelled: false,
             modeling_continue_independent: false,
             attempt_summary: Default::default(),
             result_validation,
@@ -358,6 +360,7 @@ impl RunResult {
         let _phase = pse_diagnostics::observation::phase("run.completion.and.publication");
         if let Some(recorder) = &self.invocation { recorder.terminal(); }
         let mut result = self.completed();
+        result.invocation_cancelled = cancelled;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.boolean("run.cancel_requested", cancelled);
             context.boolean("run.execution_failed", result.report.is_err());
@@ -407,13 +410,26 @@ impl RunResult {
         let family = match self.request { RunRequest::Horizon(_) => "horizon", RunRequest::Modeling(_) => "modeling",
             RunRequest::Simulation(_) => "simulation", RunRequest::Fit(_) => "fit",
             #[cfg(feature = "solver-diffsol")] RunRequest::Shooting { .. } => "shooting" };
+        let mut products = vec![InvocationProduct { role: "original_scientific_result".into(), availability: if self.usable() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }];
+        if let RunRequest::Fit(prepared) = &self.request {
+            let report = match &self.report { Ok(RunReport::Fit(report)) => Some(report.as_ref()), _ => None };
+            let availability = |requested: bool, available: bool| if !requested { ProductAvailability::NotRequested } else if available { ProductAvailability::Available } else { ProductAvailability::Unavailable };
+            products.push(InvocationProduct { role: "response_jacobian".into(), availability: availability(true, report.is_some_and(|r| r.responses.is_some())) });
+            products.push(InvocationProduct { role: "identifiability".into(), availability: availability(true, report.is_some_and(|r| r.rank.is_some())) });
+            let covariance = report.and_then(|r| r.covariance.as_ref());
+            products.push(InvocationProduct { role: "parameter_covariance".into(), availability: availability(covariance.is_some() || prepared.problem.declaration.parameters.iter().any(|p| !p.fixed), covariance.is_some_and(|r| r.values.is_ok())) });
+            let uncertainty = prepared.problem.profile.uncertainty.as_ref();
+            products.push(InvocationProduct { role: "wald_intervals".into(), availability: availability(uncertainty.is_some(), report.and_then(|r| r.wald.as_ref()).is_some_and(Result::is_ok)) });
+            products.push(InvocationProduct { role: "profile_intervals".into(), availability: availability(uncertainty.is_some_and(|u| u.profile.is_some()), report.and_then(|r| r.profiles.as_ref()).is_some_and(Result::is_ok)) });
+        }
         let attempt_id = match &self.durability { RunDurability::Ephemeral => None,
             RunDurability::Durable(record) => Some(record.attempt_id) };
         Ok(InvocationEvidenceDocument { version: 1, run_id: self.run_id, attempt_id, operation, family: family.into(),
+            clock_scope: "wall seconds from first supervisor poll; pre-dispatch preparation and earlier native execution excluded".into(),
             canonical_run: self.canonical_run_key().map(str::to_owned), canonical_attempt: self.canonical_attempt_key().map(str::to_owned),
-            outcome: if self.report.is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
+            outcome: if self.invocation_cancelled { InvocationOutcome::Cancelled } else if self.report.is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
             endpoints, intervals, omitted_intervals, preparations,
-            products: vec![InvocationProduct { role: "original_scientific_result".into(), availability: if self.usable() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }],
+            products,
             attempts: self.attempt_summary()?, })
     }
     /// Full typed reports and backend-specific metrics; errors preserve their original causes.
@@ -755,6 +771,7 @@ impl super::ModelingSimulation {
                                 && let Some(subscriber) = &subscriber {
                                     super::live_simulation::deliver(subscriber, super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)), &cancel, deadline).await;
                                 }
+                        let join = crate::invocation::stage("native_join_and_workflow_postsolve");
                         let finished = handle.finish();
                         tokio::pin!(finished);
                         let mut joined = None;
@@ -803,6 +820,7 @@ impl super::ModelingSimulation {
                                 .map_err(Arc::new),
                             Err(error) => Err(Arc::new(WorkflowError::Math(error))),
                         };
+                        join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
                         let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
                         let result = RunResult::joined(run_id, runtime, request, None, report)
                             .finished(durable, cancelled)
@@ -1011,10 +1029,12 @@ impl super::ShootingProblem {
                             sender.send_replace(Some(Arc::new(refused)));
                             return;
                         }
+                        let join = crate::invocation::stage("native_join_and_workflow_postsolve");
                         let (report, owner) = match handle.finish().await {
                             Ok((report, owner)) => (Ok(report), Some(owner)),
                             Err(error) => (Err(Arc::new(WorkflowError::Math(error))), None),
                         };
+                        join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
                         let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
                         let result = RunResult::joined(run_id, runtime, request, owner, report)
                             .finished(durable, cancelled)
@@ -1239,10 +1259,12 @@ impl super::PreparedFit {
                             sender.send_replace(Some(Arc::new(refused)));
                             return;
                         }
+                        let join = crate::invocation::stage("native_join_and_workflow_postsolve");
                         let (report, owner) = match handle.finish().await {
                             Ok((r, o)) => (Ok(r), Some(o)),
                             Err(e) => (Err(Arc::new(WorkflowError::Math(e))), None),
                         };
+                        join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
                         let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
                         let result = RunResult::joined(run_id, runtime, request, owner, report)
                             .finished(durable, cancelled)
@@ -1507,6 +1529,7 @@ impl Runtime {
                     return;
                 }
             };
+            let sequence = crate::invocation::stage("staged_modeling_execution_and_original_assessment");
             let mut results = Vec::new();
             let mut failure = None;
             for (attempt, step) in steps.iter().enumerate() {
@@ -1561,6 +1584,7 @@ impl Runtime {
                 ),
                 (None, None) => (Ok(RunReport::Modeling(results)), None),
             };
+            sequence.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
             let cancelled = cancel.token().is_cancelled();
             let mut result = RunResult::joined(run_id, runtime, request, None, report);
             result.modeling_continue_independent = continue_independent;
