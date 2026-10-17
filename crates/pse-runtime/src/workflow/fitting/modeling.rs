@@ -536,6 +536,12 @@ impl ModelingPackage {
                         } else {
                             DerivativeOrder::First
                         };
+                        let free_inputs = local.iter()
+                            .filter(|(parameter, _)| parameter_columns[**parameter].is_some())
+                            .map(|(_, id)| *id)
+                            .collect::<BTreeSet<_>>();
+                        let forward_parameters = (integration.sensitivity == native::dynamics::DynamicSensitivity::Forward)
+                            .then_some(&free_inputs);
                         // The experiment's authored case declares its modes and events.
                         let simulation = self
                             .prepare_simulation_with_controls(
@@ -548,16 +554,11 @@ impl ModelingPackage {
                                 integration,
                                 transient_order,
                                 &if hessian == HessianMode::Exact {
-                                    local
-                                        .iter()
-                                        .filter(|(parameter, _)| {
-                                            parameter_columns[**parameter].is_some()
-                                        })
-                                        .map(|(_, id)| *id)
-                                        .collect()
+                                    free_inputs.clone()
                                 } else {
                                     BTreeSet::new()
                                 },
+                                forward_parameters,
                                 &provisional_quadratures,
                                 None,
                                 cancel,
@@ -604,6 +605,7 @@ impl ModelingPackage {
                         if hessian == HessianMode::Exact {
                             let mut second = simulation.profile().clone();
                             second.sensitivity = native::dynamics::DynamicSensitivity::Adjoint;
+                            second.forward_axes = None;
                             let directions = bindings
                                 .iter()
                                 .filter(|b| parameter_columns[b.parameter].is_some())

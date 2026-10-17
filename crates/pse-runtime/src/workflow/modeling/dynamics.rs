@@ -1646,6 +1646,7 @@ impl ModelingPackage {
                     profile,
                     DerivativeOrder::First,
                     &BTreeSet::new(),
+                    None,
                     &provisional_quadratures,
                     Some(execution.prepared_model(self)?),
                     cancel,
@@ -1672,6 +1673,7 @@ impl ModelingPackage {
         mode: usize,
         mode_names: &[String],
         exact_parameters: &BTreeSet<SemanticId>,
+        forward_parameters: Option<&BTreeSet<SemanticId>>,
         provisional_quadratures: &BTreeSet<SemanticId>,
         snapshot: &pse_backend_native::execution::Snapshot,
         cancel: &crate::CancelSource,
@@ -2394,6 +2396,18 @@ impl ModelingPackage {
                 .collect::<Vec<_>>(),
         );
         let first = profile.columns_at(parameters.len(), profile.start);
+        if let Some(selected) = forward_parameters {
+            if profile.sensitivity != native::DynamicSensitivity::Forward
+                || selected.iter().any(|id| !parameters.contains(id))
+            {
+                return Err(contract("selected forward inputs require admitted physical parameters"));
+            }
+            // Resolve consumed semantic inputs only after the complete scheduled value
+            // layout exists, before routing, native/result admission and identity.
+            profile.forward_axes = Some(parameters.iter().enumerate()
+                .filter_map(|(parameter, id)| selected.contains(id).then_some(first[parameter]))
+                .collect());
+        }
         for (input, authored) in &authored {
             parameter_values
                 .get_mut(first[input.parameter]..first[input.parameter] + authored.len())
@@ -2486,6 +2500,7 @@ impl ModelingPackage {
         let mut consumer = profile.clone();
         if demand == native::DynamicDemand::ExactHessian {
             consumer.sensitivity = native::DynamicSensitivity::Adjoint;
+            consumer.forward_axes = None;
         }
         profile.method = consumer
             .resolve_for_retained(
@@ -5347,6 +5362,16 @@ mod tests {
             scheduled, compiler, Some(selected_profile), Limits::default(), &cancel,
         ).await.unwrap();
         assert_ne!(selected.identity(), sensitive.identity());
+        let constructor = selected.original_inputs.as_ref().unwrap().document(0);
+        assert!(constructor.profile.forward_axes.is_none());
+        assert!(matches!(
+            &constructor.forward_selection,
+            Some(crate::workflow::replay::ReplayForwardSelection::PhysicalAxes(axes)) if axes == &[1],
+        ));
+        let reconstructed = constructor.reconstruct(&package, &cancel).await.unwrap();
+        assert_eq!(reconstructed.profile.forward_axes, Some(vec![1]));
+        assert_eq!(reconstructed.parameters, selected.parameters);
+        assert_eq!(reconstructed.identity(), selected.identity());
         let selected_result = selected.run(&cancel).await.unwrap();
         assert!(selected_result.accepted(), "{:?}", selected_result.diagnostic());
         let selected_response = response_sensitivities::Row::rows(

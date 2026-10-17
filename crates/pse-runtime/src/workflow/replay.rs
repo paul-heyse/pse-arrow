@@ -2564,6 +2564,7 @@ mod tests {
                 &Default::default(),
                 pse_kernels::DerivativeOrder::First,
                 exact,
+                None,
                 quadratures,
             )
         };
@@ -2646,8 +2647,12 @@ impl OriginalSimulationInputs {
         profile: &super::SimulationProfile,
         order: pse_kernels::DerivativeOrder,
         exact_parameters: &BTreeSet<SemanticId>,
+        forward_parameters: Option<&BTreeSet<SemanticId>>,
         provisional_quadratures: &BTreeSet<SemanticId>,
     ) -> Result<Arc<Self>, WorkflowError> {
+        if forward_parameters.is_some() && profile.forward_axes.is_some() {
+            return Err(contract("dynamic constructor has competing forward selections"));
+        }
         let bytes = size_of::<Self>()
             .saturating_add(1024)
             .saturating_add(crate::math::modeling::bindings_bytes(bindings))
@@ -2664,12 +2669,24 @@ impl OriginalSimulationInputs {
             )
             .saturating_add(
                 (exact_parameters.len() + provisional_quadratures.len()).saturating_mul(128),
+            )
+            .saturating_add(
+                forward_parameters.map_or(0, |parameters| parameters.len().saturating_mul(128)),
+            )
+            .saturating_add(
+                profile.forward_axes.as_ref().map_or(0, |axes| axes.len().saturating_mul(size_of::<usize>())),
             );
         let owner = package
             .runtime
             .shared
             .math()
             .reserve("replay:original-simulation-constructor", bytes)?;
+        let mut original = profile.clone();
+        let forward_selection = if let Some(parameters) = forward_parameters {
+            Some(ReplayForwardSelection::SemanticParameters(parameters.clone()))
+        } else {
+            original.forward_axes.take().map(ReplayForwardSelection::PhysicalAxes)
+        };
         Ok(Arc::new(Self {
             document: ReplaySimulationConstructor {
                 source: 0,
@@ -2678,20 +2695,31 @@ impl OriginalSimulationInputs {
                 bindings: bindings.clone(),
                 preparation: super::PreparationSettings { compiler, limits },
                 case: ReplayCaseInputs::new(case),
-                profile: profile.clone(),
+                profile: original,
                 order: derivative_order(order),
                 exact_parameters: exact_parameters.clone(),
+                forward_selection,
                 provisional_quadratures: provisional_quadratures.clone(),
             },
             _owner: owner,
         }))
     }
-    fn document(&self, source: usize) -> ReplaySimulationConstructor {
+    pub(in crate::workflow) fn document(&self, source: usize) -> ReplaySimulationConstructor {
         ReplaySimulationConstructor {
             source,
             ..self.document.clone()
         }
     }
+}
+/// Replay retains the original internal request without teaching Profile's public
+/// serialization a general selection API. Exactly one coordinate form is authoritative.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(tag = "kind", content = "coordinates", rename_all = "snake_case")]
+pub enum ReplayForwardSelection {
+    /// Consumer inputs resolved to their start-interval axes during preparation.
+    SemanticParameters(BTreeSet<SemanticId>),
+    /// An already selected physical integration request, including scheduled intervals.
+    PhysicalAxes(Vec<usize>),
 }
 /// Portable original integrated constructor; all methods still enter the existing supervisor.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
@@ -2717,6 +2745,8 @@ pub struct ReplaySimulationConstructor {
     pub order: u8,
     /// Explicit exact derivative parameter demand.
     pub exact_parameters: BTreeSet<SemanticId>,
+    /// Original internal forward selection, absent for ordinary full Forward.
+    pub forward_selection: Option<ReplayForwardSelection>,
     /// Explicit provisional quadrature demands.
     pub provisional_quadratures: BTreeSet<SemanticId>,
 }
@@ -2733,6 +2763,18 @@ impl ReplaySimulationConstructor {
             2 => pse_kernels::DerivativeOrder::Second,
             _ => return Err(contract("replay dynamic derivative order invalid")),
         };
+        if self.profile.forward_axes.is_some() && self.forward_selection.is_some() {
+            return Err(contract("replay dynamic constructor has competing forward selections"));
+        }
+        let mut profile = self.profile.clone();
+        let forward_parameters = match &self.forward_selection {
+            Some(ReplayForwardSelection::SemanticParameters(parameters)) => Some(parameters),
+            Some(ReplayForwardSelection::PhysicalAxes(axes)) => {
+                profile.forward_axes = Some(axes.clone());
+                None
+            }
+            None => None,
+        };
         package
             .prepare_simulation_with_controls(
                 self.root,
@@ -2741,9 +2783,10 @@ impl ReplaySimulationConstructor {
                 self.preparation.limits,
                 self.case.restore(),
                 self.preparation.compiler,
-                self.profile.clone(),
+                profile,
                 order,
                 &self.exact_parameters,
+                forward_parameters,
                 &self.provisional_quadratures,
                 None,
                 cancel,
