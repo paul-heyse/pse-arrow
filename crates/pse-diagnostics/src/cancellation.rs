@@ -20,6 +20,15 @@ struct State {
 #[derive(Clone, Debug, Default)]
 pub struct Cancellation(Arc<State>);
 
+impl std::ops::Deref for Cancellation {
+    type Target = Arc<AtomicBool>;
+    /// Borrow the same read flag for existing synchronous scientific contracts.
+    /// Requests must use `cancel`, which also wakes blocked owners.
+    fn deref(&self) -> &Self::Target {
+        &self.0.flag
+    }
+}
+
 impl Cancellation {
     /// Construct a direct execution with an explicit initial stop state.
     pub fn new(cancelled: bool) -> Self {
@@ -90,6 +99,28 @@ pub struct CancellationWatch {
     _listener: Option<EventListener>,
 }
 
+/// One-shot release/change notifications; the performing owner retains its predicate.
+/// Register before checking that predicate and rearm after each observed wake.
+#[derive(Debug, Default)]
+pub struct WakeSignal(Event);
+impl WakeSignal {
+    /// A process-owned signal can be static without another worker or runtime.
+    pub const fn new() -> Self { Self(Event::new()) }
+    /// Signal a change after publishing it at its actual owner.
+    pub fn notify(&self) { self.0.notify(usize::MAX); }
+    /// Register a signal-only waker before inspecting the actual owner predicate.
+    pub fn watch(&self, waker: &Waker) -> WakeWatch {
+        let mut listener = self.0.listen();
+        if Pin::new(&mut listener).poll(&mut Context::from_waker(waker)).is_ready() {
+            waker.wake_by_ref();
+            WakeWatch { _listener: None }
+        } else { WakeWatch { _listener: Some(listener) } }
+    }
+}
+/// One waiting interval, with no capacity, execution or cleanup authority.
+#[derive(Debug)]
+pub struct WakeWatch { _listener: Option<EventListener> }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,5 +167,18 @@ mod tests {
         });
         assert!(stop.wait_until(Some(Instant::now() + Duration::from_secs(5))));
         worker.join().unwrap();
+    }
+    #[test]
+    fn owner_signal_registers_before_predicate_and_rearms_after_notification() {
+        let signal = WakeSignal::new();
+        let count = Arc::new(Count::default());
+        let waker = Waker::from(count.clone());
+        let watch = signal.watch(&waker);
+        signal.notify();
+        assert_eq!(count.0.load(Ordering::Acquire), 1);
+        drop(watch);
+        let _rearmed = signal.watch(&waker);
+        signal.notify();
+        assert_eq!(count.0.load(Ordering::Acquire), 2);
     }
 }
