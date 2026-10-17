@@ -1079,5 +1079,18 @@ fn zero_functional_preserves_forward_coverage_without_a_reverse_trajectory() {
         if method == Method::Diffsol {
             assert_eq!(statistics["backward_accepted_steps"], 0);
         } else { assert!(statistics["backward"].as_array().unwrap().is_empty()); }
+        // The first component remains zero, but a second terminal component
+        // requires its actual reverse product. Inspect the complete cotangent.
+        let mixed = gradient(&mut Reactor::new(false), &p, &parameters,
+            &mut |report: &Report| {
+                let mut weights = vec![0.; report.samples.len() * 2];
+                *weights.last_mut().unwrap() = 1.;
+                Ok(weights)
+            }, Cancellation::default(), 256 << 20).unwrap();
+        assert_eq!(mixed.report.termination, Termination::Completed, "{:?}", mixed.report.error);
+        assert!(mixed.gradient.as_ref().unwrap().iter().any(|value| value.abs() > 1e-4));
+        let work = mixed.report.statistics.iter().find_map(|v| v.get("adjoint")).unwrap();
+        if method == Method::Diffsol { assert!(work["backward_accepted_steps"].as_u64().unwrap() > 0); }
+        else { assert!(work["backward"].as_array().unwrap().iter().any(|direction| direction["steps"].as_u64().unwrap() > 0)); }
     }
 }
