@@ -36,13 +36,14 @@ fn cancellation_watch(execution: &Execution) -> pse_diagnostics::CancellationWat
     let wake = std::task::Waker::from(std::sync::Arc::new(ReleasedWake));
     execution.cancellation_control().watch(&wake)
 }
-fn wait(changed: std::sync::MutexGuard<'_, ()>, execution: &Execution) {
-    if let Some(deadline) = execution.scope().ok().and_then(|scope| scope.deadline()) {
+fn wait(changed: std::sync::MutexGuard<'_, ()>, execution: &Execution) -> Result<(), ProblemError> {
+    if let Some(deadline) = execution.scope()?.deadline() {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         drop(RELEASED.wait_timeout(changed, remaining).unwrap_or_else(std::sync::PoisonError::into_inner));
     } else {
         drop(RELEASED.wait(changed).unwrap_or_else(std::sync::PoisonError::into_inner));
     }
+    Ok(())
 }
 fn notify() {
     let _changed = CHANGE
@@ -114,7 +115,7 @@ pub(crate) fn read(execution: &Execution) -> Result<RwLockReadGuard<'static, ()>
             ACTIVE.with(|active| active.set(true));
             return Ok(gate);
         }
-        wait(changed, execution);
+        wait(changed, execution)?;
     }
 }
 /// Called after the read owner's last native model is destroyed. Another live owner
@@ -180,7 +181,7 @@ pub(crate) fn exclusive(execution: &Execution) -> Result<Exclusive, ProblemError
             let owner = Exclusive { gate: Some(gate) };
             return Ok(owner);
         }
-        wait(changed, execution);
+        wait(changed, execution)?;
     }
 }
 
