@@ -2592,7 +2592,7 @@ mod tests {
     #[test]
     fn conditional_failure_preserves_shared_terminal_causes_and_actual_native_status() {
         let controls = Controls::default();
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &controls);
+        let execution = Execution::new(Cancellation::default(), &controls);
         let contract = native::OracleContract {
             identity: pse_ids::ContentHash::from_bytes([71; 32]),
             variables: vec![native::Variable {
@@ -2816,7 +2816,7 @@ mod tests {
         let expired = session
             .sequence(
                 pse_kernels::ExecutionScope::new(
-                    pse_diagnostics::Cancellation::default(),
+                    Cancellation::default(),
                     Some(std::time::Instant::now() + std::time::Duration::from_millis(20)),
                 ),
                 Controls::default(),
@@ -2852,7 +2852,7 @@ mod tests {
         let bound = session
             .sequence(
                 pse_kernels::ExecutionScope::new(
-                    pse_diagnostics::Cancellation::default(),
+                    Cancellation::default(),
                     Some(std::time::Instant::now() + std::time::Duration::from_secs(10)),
                 ),
                 Controls::default(),
@@ -3221,7 +3221,7 @@ mod tests {
             assert!(refreshed.original.satisfied());
             assert_eq!(refreshed.work[0].observed.evaluations, Some(1));
             assert!(refreshed.product.observed.as_ref().unwrap().0.feasible());
-            let wrong_owner = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), run.scope.deadline());
+            let wrong_owner = pse_kernels::ExecutionScope::new(Cancellation::new(false), run.scope.deadline());
             let refused = assessor.assess(&super::super::solves::Outcome::Native(report.clone()),
                 Some(&wrong_owner), &budget);
             assert!(matches!(refused.original, OriginalConclusion::Unavailable { .. }));
@@ -3394,7 +3394,7 @@ mod tests {
             Backend::Kinsol,
             &contract,
             kinsol::termination(0),
-            &Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default()),
+            &Execution::new(Cancellation::new(false), &Controls::default()),
         );
         r.quality = Some(native::quality::Quality::new(vec![], vec![], vec![]).unwrap());
         r.candidate = Some(Candidate {

@@ -60,7 +60,7 @@ async fn original(text: &str) -> (crate::workflow::Runtime, PreparedSolve) {
 }
 fn scope() -> ExecutionScope {
     ExecutionScope::new(
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
         Some(Instant::now() + Duration::from_secs(30)),
     )
 }
@@ -281,7 +281,7 @@ async fn actual_compiled_guard_inventory_and_deadline_are_mandatory() {
             .await
             .is_err()
     );
-    let cancel = pse_diagnostics::Cancellation::default();
+    let cancel = Cancellation::default();
     let expired = ExecutionScope::new(cancel.clone(), Some(Instant::now()));
     assert!(
         service

@@ -731,7 +731,7 @@ mod refinement_tests {
         for (id, value) in case.prepared.compiled().plan.columns().iter().zip(point) {
             values.scalars.insert(*id, *value);
         }
-        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), None);
         let budget = WorkerBudget::new(64 << 20);
         let execution = Execution::within(
             scope.cancellation_control().clone(),
@@ -894,7 +894,7 @@ mod refinement_tests {
             .await
             .unwrap();
         let scope = pse_kernels::ExecutionScope::new(
-            pse_diagnostics::Cancellation::default(),
+            Cancellation::default(),
             Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
         );
         let admission = TaskAdmission::new(

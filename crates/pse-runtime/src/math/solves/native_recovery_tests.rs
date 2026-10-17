@@ -55,7 +55,7 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
         .with_primal_start(ids.into_iter().zip(source).collect())
         .unwrap();
     let scope = pse_kernels::ExecutionScope::new(
-        pse_diagnostics::Cancellation::default(),
+        Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(20)),
     );
     let mut limits = original.numerical_strategy().limits;

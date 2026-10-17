@@ -8,12 +8,12 @@ fn private_native_frames_refuse_oversize_and_keep_original_stop() {
     writer
         .write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes())
         .unwrap();
-    let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+    let scope = ExecutionScope::new(Cancellation::default(), None);
     assert!(matches!(
         receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope),
         Err(MathRuntimeError::Solve(_))
     ));
-    let cancel = pse_diagnostics::Cancellation::new(true);
+    let cancel = Cancellation::new(true);
     let scope = ExecutionScope::new(cancel, None);
     assert!(receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope).is_err());
 }
@@ -244,7 +244,7 @@ fn private_native_fake_process() {
         std::process::exit(17);
     }
     let mut channel = UnixStream::from(io::stdin().as_fd().try_clone_to_owned().unwrap());
-    let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+    let scope = ExecutionScope::new(Cancellation::default(), None);
     let attempt =
         SemanticId::parse_hex(&std::env::var("PSE_PRIVATE_NATIVE_TEST_ATTEMPT").unwrap()).unwrap();
     let parent_record = std::fs::read_to_string("/proc/self/status").unwrap();

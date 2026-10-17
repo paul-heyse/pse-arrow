@@ -64,7 +64,7 @@ async fn modeling_original(
 }
 fn scope() -> ExecutionScope {
     ExecutionScope::new(
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
         Some(Instant::now() + Duration::from_secs(30)),
     )
 }
@@ -279,7 +279,7 @@ async fn connected_incomplete_and_nonfinite_seeds_are_refused_before_native_work
                 .is_err()
         );
     }
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let expired = ExecutionScope::new(flag.clone(), Some(Instant::now()));
     assert!(
         service

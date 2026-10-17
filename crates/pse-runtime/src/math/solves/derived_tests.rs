@@ -120,7 +120,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
         iterations: 100,
         time_limit: Duration::from_secs(10),
     };
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + Duration::from_secs(60)));
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
     let make_factory = |tight| {
@@ -171,14 +171,17 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
         inner.unknowns
     );
     assert_eq!(numerical.spec.inputs.len(), 1);
-    assert_eq!(numerical.body.coordinates(), [0, 1, 2]);
-    assert_eq!(numerical.body.prepared_support().outputs(), [0, 1]);
-    assert_eq!(numerical.body.compiled_order(), DerivativeOrder::First);
+    assert_eq!(numerical.bodies.parameter.coordinates(), [0, 1, 2]);
+    assert_eq!(numerical.bodies.parameter.prepared_support().outputs(), [0, 1]);
+    assert_eq!(numerical.bodies.parameter.compiled_order(), DerivativeOrder::First);
+    assert_eq!(numerical.bodies.unknown.coordinates(), [0, 1]);
+    assert_eq!(numerical.bodies.unknown.prepared_support().outputs(), [0, 1]);
+    assert_eq!(numerical.bodies.unknown.compiled_order(), DerivativeOrder::First);
     assert_eq!(numerical.spec, reference.spec);
     assert_ne!(numerical.configuration_key(), reference.configuration_key());
 
     let spec = factory.spec.clone();
-    let structural = numerical.body.incidence(&flag).unwrap();
+    let structural = numerical.bodies.parameter.incidence(&flag).unwrap();
     let incidence = structural
         .outputs()
         .iter()
@@ -520,7 +523,7 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
     )
     .await;
     let service = runtime.native();
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -529,7 +532,7 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
     profile.controls.time_limit = std::time::Duration::from_secs(10);
     let scoped_original = original.clone().within_task(scope.clone()).unwrap();
     let wrong_scope = ExecutionScope::new(
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
         scope.deadline(),
     );
     assert!(matches!(
@@ -637,7 +640,7 @@ async fn actual_shifted_frozen_mass_retains_offset_and_submission_scope() {
     )
     .await;
     let service = runtime.native();
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -687,7 +690,7 @@ async fn actual_shifted_frozen_mass_retains_offset_and_submission_scope() {
     assert_eq!(prepared.physical.constraints()[0].upper, 0.0);
     assert_eq!(budget.used(), 0);
     let expired = ExecutionScope::new(
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
         Some(Instant::now()),
     );
     assert!(
@@ -727,7 +730,7 @@ async fn least_deviation_preserves_original_rows_metric_roles_and_actual_derivat
         held: vec![],
         metric_source: pse_ids::ContentHash::from_bytes([9; 32]),
     };
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -864,7 +867,7 @@ async fn least_deviation_exact_second_and_named_held_roles_use_actual_source() {
     };
     let id = source.prepared.prepared.plan.columns()[0];
     let scope = ExecutionScope::new(
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
     );
     let mut profile = original.profile.clone();
@@ -992,7 +995,7 @@ async fn expired_optional_derived_preparation_refuses_before_dispatch_and_origin
     .await;
     let service = runtime.native();
     let enclosing = ExecutionScope::new(
-        pse_diagnostics::Cancellation::default(),
+        Cancellation::default(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
     );
     let mut profile = original.profile.clone();
@@ -1104,7 +1107,7 @@ async fn actual_derived_callback_local_expiry_continues_with_charged_work_but_ot
     .await;
     let service = runtime.native();
     let enclosing = ExecutionScope::new(
-        pse_diagnostics::Cancellation::default(),
+        Cancellation::default(),
         Some(Instant::now() + std::time::Duration::from_secs(4)),
     );
     let mut profile = original.profile.clone();
@@ -1326,7 +1329,7 @@ async fn derived_expiry_marker_preserves_actual_native_report_work_and_foreign_f
     .await;
     let service = runtime.native();
     let enclosing = ExecutionScope::new(
-        pse_diagnostics::Cancellation::default(),
+        Cancellation::default(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
     );
     let mut profile = original.profile.clone();
@@ -1533,7 +1536,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
     assert_eq!(output.scale, 1.0);
     let residual = plan.bodies().get(&binding.body).unwrap();
     assert_eq!(residual.input_count(), 2);
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + Duration::from_secs(30)));
     let support = residual
         .prepare_support(&[output.output], &[0, 1], DerivativeOrder::First, &flag)
@@ -1656,7 +1659,21 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 )
                 .unwrap(),
                 spec,
-                body,
+                bodies: pse_math::implicit::ResidualBodies {
+                    unknown: Arc::new(
+                        residual
+                            .compile(
+                                &[output.output],
+                                &[0],
+                                DerivativeOrder::First,
+                                Optimization::default(),
+                                pse_math::jets::EvaluationLimits::default(),
+                                &flag,
+                            )
+                            .unwrap(),
+                    ),
+                    parameter: body,
+                },
                 unknowns: unknowns.clone(),
                 rows: vec![row],
                 configuration: Configuration::Fixed(
@@ -2349,7 +2366,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         .port
         .clone();
     let unit = registry.unit(port.unit).unwrap();
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -2447,7 +2464,15 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
                 )
                 .unwrap(),
                 spec,
-                body: compile(&residual, &[0]),
+                bodies: {
+                    // No external parameters: Newton and IFT share this exact
+                    // one-coordinate preparation without a broader derivative demand.
+                    let body = compile(&residual, &[0]);
+                    pse_math::implicit::ResidualBodies {
+                        unknown: body.clone(),
+                        parameter: body,
+                    }
+                },
                 unknowns: unknowns.clone(),
                 rows: vec![row],
                 configuration: Configuration::Fixed(
@@ -2676,7 +2701,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         let receipt = report.certified_reconstruction.as_ref().unwrap();
         let mut values = prepared.source.values.clone();
         values.scalars.extend(report.coordinates.iter().copied());
-        let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let scope = ExecutionScope::new(Cancellation::default(), None);
         let goals = prepared
             .original
             .coordinate_accuracy(service, &result.outcome, &values, &scope, &budget)
@@ -2850,7 +2875,7 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
     let prepared = package.prepare_declared(&declared, &cancel).await.unwrap();
     let service = runtime.native();
     let scope = ExecutionScope::new(
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
         Some(Instant::now() + prepared.solve.controls().time_limit),
     );
     let blocks = service
@@ -2910,7 +2935,7 @@ async fn repeated_completed_blocks_fit_short_pool_and_extracted_components_hold_
         DerivativeOrder::First, fixture::profile()).await;
     let pool = runtime.shared.pool();
     let service = runtime.native();
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(120)),
@@ -2981,7 +3006,7 @@ async fn repeated_completed_blocks_fit_short_pool_and_extracted_components_hold_
 async fn completed_blocks_refuse_excess_capacity_and_keep_unknown_extensions_bounded() {
     let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(0); eq first:x==1; eq second:y==x+1; } }").await;
     let service = runtime.native();
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -3047,7 +3072,7 @@ async fn failed_blocks_release_construction_allowance_and_preserve_original_caus
     let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(0); eq first:x==1; eq second:y==log(x-2); } }").await;
     let service = runtime.native();
     let pool = runtime.shared.pool();
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -3107,7 +3132,7 @@ async fn failed_blocks_release_construction_allowance_and_preserve_original_caus
 async fn automatic_blocks_execute_complete_nonport_coupled_original_and_keep_actual_components() {
     let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; var z:Scalar; annotation start x(0); annotation start y(0); annotation start z(0); eq first:x==1; eq second:y==x+1; eq third:z==2*y; } }").await;
     let service = runtime.native();
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     assert_eq!(original.automatic_block_count(&flag).unwrap(), 3);
     let offers = original.automatic_operations(None, &flag).unwrap();
     assert!(
@@ -3305,7 +3330,7 @@ async fn block_iteration_gate_uses_contextual_override_route_and_keeps_supported
 
     let text = "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(1); annotation start y(2); eq first:x*x==2; eq second:y==x+1; } }";
     let (runtime, original) = original_order(text, DerivativeOrder::Second).await;
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let Representation::Algebraic(source) = &original.representation else {
         panic!("authored block source required");
     };
@@ -3470,7 +3495,7 @@ async fn actual_zero_row_feasibility_retains_objective_and_objective_free_origin
         )
         .await;
         let service = runtime.native();
-        let flag = pse_diagnostics::Cancellation::default();
+        let flag = Cancellation::default();
         let scope = ExecutionScope::new(
             flag.clone(),
             Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -3616,7 +3641,7 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
             upper: 2.,
         },
     ];
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -3747,7 +3772,20 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
                     derivatives: DerivativeOrder::First,
                     smoothness: DerivativeOrder::First,
                 },
-                body: compiled,
+                bodies: pse_math::implicit::ResidualBodies {
+                    unknown: Arc::new(
+                        body.compile(
+                            &[0],
+                            &[0],
+                            DerivativeOrder::First,
+                            pse_math::library::Optimization::default(),
+                            pse_math::jets::EvaluationLimits::default(),
+                            &flag,
+                        )
+                        .unwrap(),
+                    ),
+                    parameter: compiled,
+                },
                 unknowns: unknowns.clone(),
                 rows: vec![row],
                 configuration: Configuration::Fixed(
@@ -3981,7 +4019,7 @@ async fn automatic_authored_supplier_actions_match_complete_original_equations()
     };
     assert_eq!(suppliers.len(), 2);
     assert_eq!(retained.len(), 1);
-    let flag = pse_diagnostics::Cancellation::default();
+    let flag = Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -4128,7 +4166,7 @@ async fn native_component_records_survive_success_and_failed_block_before_report
     ] {
         let (runtime, original) = original(text).await;
         let service = runtime.native();
-        let flag = pse_diagnostics::Cancellation::default();
+        let flag = Cancellation::default();
         let scope = ExecutionScope::new(
             flag.clone(),
             Some(Instant::now() + std::time::Duration::from_secs(30)),
