@@ -425,7 +425,13 @@ impl MathService {
             let ((inner, solver, verifier, accelerators, provider_demands, requests), _request_owner) = self
                 .job_retained_construction(1, demand, control.clone(), driver.deadline(), move |flag| {
                     let mut requests = Vec::with_capacity(inner.len());
-                    let mut bytes = 0usize;
+                    // Both the pending requests and the subsequently bound program
+                    // vector coexist across artifact waits under this same lease.
+                    let mut bytes = size_of::<Vec<(Vec<pse_compiler::workspace::ImplicitProgramRequest>, pse_compiler::workspace::ImplicitPrograms)>>()
+                        .checked_add(size_of::<Vec<pse_compiler::workspace::ImplicitPrograms>>())
+                        .and_then(|bytes| bytes.checked_add(requests.capacity().checked_mul(size_of::<(Vec<pse_compiler::workspace::ImplicitProgramRequest>, pse_compiler::workspace::ImplicitPrograms)>())?))
+                        .and_then(|bytes| bytes.checked_add(inner.len().checked_mul(size_of::<pse_compiler::workspace::ImplicitPrograms>())?))
+                        .ok_or(MathRuntimeError::Limit("inner request container extent"))?;
                     for item in &inner {
                         let source = item.admitted.descriptor.spec().key();
                         let requested = provider_demands.get(&source).copied().unwrap_or(pse_kernels::DerivativeOrder::Value);
@@ -434,7 +440,10 @@ impl MathService {
                             requested, &flag, profile.evaluation)?;
                         for request in &selected.0 { bytes = bytes.checked_add(request.retained_bytes())
                             .ok_or(MathRuntimeError::Limit("inner request extent"))?; }
-                        bytes = bytes.checked_add(selected.1.descriptor_bytes())
+                        let spare = selected.0.capacity().saturating_sub(selected.0.len())
+                            .checked_mul(size_of::<pse_compiler::workspace::ImplicitProgramRequest>())
+                            .ok_or(MathRuntimeError::Limit("inner request spare extent"))?;
+                        bytes = bytes.checked_add(selected.1.descriptor_bytes()).and_then(|bytes| bytes.checked_add(spare))
                             .ok_or(MathRuntimeError::Limit("inner request solver extent"))?;
                         requests.push(selected);
                     }
