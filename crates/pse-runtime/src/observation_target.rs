@@ -22,11 +22,14 @@ pub struct ProcessLocator {
 }
 impl ProcessLocator {
     pub(crate) fn current() -> Self {
-        let pid = std::process::id();
+        Self::for_pid(std::process::id())
+    }
+    /// Observe a caller-owned process without fabricating a diagnostic operation.
+    pub(crate) fn for_pid(pid: u32) -> Self {
         Self {
             pid,
             start_ticks: process_start_ticks(pid),
-            executable: std::env::current_exe().ok(),
+            executable: std::fs::read_link(format!("/proc/{pid}/exe")).ok(),
         }
     }
     /// Observe whether the recorded process still has this actual start identity.

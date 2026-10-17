@@ -22,6 +22,7 @@ from pse import codec
 from pse._build import (
     InspectionError,
     _diagnostic_capture,
+    _diagnostic_launch_capture,
     _diagnostic_capture_arrow,
     _diagnostic_detail_arrow,
     _diagnostic_detail_records,
@@ -33,6 +34,7 @@ from pse._build import (
     _diagnostic_read_checkpoint,
     _diagnostic_read_detail,
     _NativeCaptureSession,
+    _NativeLaunchedCommand,
     _NativeDetailSession,
     _NativeDiagnostics,
     _NativeOperationObservations,
@@ -41,6 +43,8 @@ from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
+    LaunchCaptureRequest,
+    ProcessLocator,
     CheckpointIdentity,
     ClosedDuration,
     DetailDocument,
@@ -146,6 +150,59 @@ class CaptureSession:
     ) -> None:
         """Stop and join this capture when its context exits."""
         self.stop()
+
+
+@attrs.frozen
+class LaunchedCommand:
+    """Own the launched command independently of its optional CPU sampler.
+
+    Dropping or closing this owner cancels/reaps the command. Retain it while
+    science should continue; a CaptureSession never retains this ownership.
+    """
+
+    _handle: _NativeLaunchedCommand
+
+    @property
+    def locator(self) -> ProcessLocator:
+        """Exact process/start identity captured before scientific exec."""
+        return self._handle.locator
+
+    def try_wait(self) -> int | None:
+        """Return the exit status when ready; otherwise leave execution running."""
+        return self._handle.try_wait()
+
+    def wait(self) -> int:
+        """Wait/reap the command; Python interrupts explicitly cancel this owner."""
+        return self._handle.wait()
+
+    def cancel(self) -> int:
+        """Cancel and drain only this owned command/process group."""
+        return self._handle.cancel()
+
+    def close(self) -> int:
+        """Release command ownership, cancelling and reaping if still active."""
+        return self._handle.close()
+
+    def __enter__(self) -> Self:
+        """Retain independent command ownership until context exit."""
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Drain the command when its owner context ends."""
+        self.close()
+
+
+def launch_capture(request: LaunchCaptureRequest) -> tuple[LaunchedCommand, CaptureSession]:
+    """Enable sampling before exec; sampler failure still releases the command.
+
+    The command owner must be retained independently. Capture duration, stop,
+    drop and failures never cancel scientific execution.
+    """
+    command, session = _diagnostic_launch_capture(request)
+    return LaunchedCommand(command), CaptureSession(session)
 
 
 @attrs.frozen
@@ -416,6 +473,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     capturing.add_argument("--memory-bytes", type=_positive, default=16 << 20)
     capturing.add_argument("--output-bytes", type=_positive, default=256 << 20)
     capturing.add_argument("--json", action="store_true")
+    launching = commands.add_parser("capture-launch", help="sample an owned command before exec")
+    launching.add_argument("--output", type=Path, required=True)
+    launching.add_argument("--cwd", type=Path)
+    launching.add_argument("--duration", type=_seconds, default=10.0)
+    launching.add_argument("--startup-timeout", type=_seconds, default=10.0)
+    launching.add_argument("--memory-bytes", type=_positive, default=16 << 20)
+    launching.add_argument("--output-bytes", type=_positive, default=256 << 20)
+    launching.add_argument("--json", action="store_true")
+    launching.add_argument("argv", nargs=argparse.REMAINDER)
     detail = commands.add_parser(
         "read-detail", help="read selected source coverage and original records"
     )
@@ -455,6 +521,29 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if page.next is not None:
                     print(f"next {page.next}")
             return 0
+        if args.command == "capture-launch":
+            command_argv = args.argv[1:] if args.argv[:1] == ["--"] else args.argv
+            if not command_argv:
+                parser.error("capture-launch requires -- executable [arguments]")
+            request = LaunchCaptureRequest(
+                version=1, argv=command_argv,
+                cwd=None if args.cwd is None else str(args.cwd), output=str(args.output),
+                duration=_duration(args.duration), startup_timeout=_duration(args.startup_timeout),
+                budget=CaptureBudget(memory_bytes=args.memory_bytes, output_bytes=args.output_bytes),
+            )
+            command, session = launch_capture(request)
+            try:
+                # Retain the command even if capture finishes early or never starts.
+                status = command.wait()
+                result = session.stop()
+            except BaseException:
+                command.cancel()
+                session.stop()
+                raise
+            finally:
+                command.close()
+            print(codec.encode_json(result).decode())
+            return status if status else (1 if result.status == CaptureStatus.FAILED else 0)
         selected = operation_id(args.operation)
         if args.command == "inspect":
             document = inspect_checkpoint(

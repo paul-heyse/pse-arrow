@@ -226,13 +226,19 @@ fn start_sampler(
             "CPU process exited or its PID was reused before attachment".into(),
         ));
     }
+    start_sampler_for(request.output.as_path(), image.locator.pid, image.locator.start_ticks, allowance, files, state, None)
+}
+fn start_sampler_for(
+    output_path: &Path, pid: u32, ticks: Option<u64>, allowance: u64,
+    files: &mut OwnedFiles, state: &Shared, control: Option<(&Path, &Path)>,
+) -> Result<Sampler, CaptureError> {
     let label = format!(
         "{}-{:016x}",
-        image.locator.pid,
-        image.locator.start_ticks.unwrap_or(0)
+        pid,
+        ticks.unwrap_or(0)
     );
-    let raw = request.output.join(format!("{label}.perf.data"));
-    let log = request.output.join(format!("{label}.perf.log"));
+    let raw = output_path.join(format!("{label}.perf.data"));
+    let log = output_path.join(format!("{label}.perf.log"));
     // Two independently hard-limited files fit this sampler's reservation.
     let file_limit = allowance / 2;
     files.reserve_pair(&raw, &log, file_limit)?;
@@ -259,12 +265,22 @@ fn start_sampler(
         ])
         .arg(format!("{file_limit}B"))
         .arg("-p")
-        .arg(image.locator.pid.to_string())
+        .arg(pid.to_string())
         .arg("-o")
         .arg(&raw);
-    let tool = Tool {
-        child: command.spawn()?,
-    };
+    if let Some((control, ack)) = control {
+        let arguments: Vec<_> = command.get_args().map(std::ffi::OsStr::to_owned).collect();
+        let program = command.get_program().to_owned();
+        // Open the control descriptors only in a freshly executed shell. Parent descriptors
+        // remain CLOEXEC; there is no pre_exec callback in a multithreaded Python process.
+        let mut controlled = Command::new("/bin/sh");
+        controlled.args(["-c", "exec 3<> \"$1\"; exec 4<> \"$2\"; shift 2; exec \"$@\" --delay=-1 --control fd:3,4", "pse-perf-control"])
+            .arg(control).arg(ack).arg(program).args(arguments)
+            .stdin(Stdio::null()).stdout(Stdio::null())
+            .stderr(OpenOptions::new().append(true).open(&log)?);
+        command = controlled;
+    }
+    let tool = Tool { child: command.spawn()? };
     Ok(Sampler {
         tool,
         raw,
@@ -566,7 +582,10 @@ pub(super) fn run(
         std::thread::sleep(Duration::from_millis(50));
     }
     document(state).observed_duration = started.elapsed();
-    for sampler in &mut samplers {
+    finalize(&mut samplers, state, &mut files)
+}
+fn finalize(samplers: &mut [Sampler], state: &Shared, files: &mut OwnedFiles) -> Result<(), CaptureError> {
+    for sampler in samplers.iter_mut() {
         if sampler.finished.is_none() {
             let (status, owner_sigint_sent) = sampler.tool.interrupt_and_join()?;
             sampler.finished = Some(status);
@@ -591,7 +610,7 @@ pub(super) fn run(
         files.seal(&sampler.log);
     }
     let finalizing = Instant::now();
-    for sampler in &samplers {
+    for sampler in samplers.iter() {
         let success = sampler
             .finished
             .is_some_and(|status| expected_finish(status, sampler.owner_sigint_sent));
@@ -610,7 +629,7 @@ pub(super) fn run(
                 failure(state, "capture finalization interval exhausted");
                 break;
             }
-            match symbols(&sampler.raw, state, remaining, &mut files) {
+            match symbols(&sampler.raw, state, remaining, files) {
                 Ok(Decode::Checked) => {
                     output(state, &sampler.raw, CaptureOutputKind::PerfData, true)
                 }
@@ -622,7 +641,7 @@ pub(super) fn run(
                 failure(state, "capture finalization interval exhausted");
                 break;
             }
-            if let Err(error) = convert(sampler, state, remaining, &mut files) {
+            if let Err(error) = convert(sampler, state, remaining, files) {
                 failure(state, error);
             }
         }
@@ -637,4 +656,84 @@ pub(super) fn run(
         state.status = CaptureStatus::Partial;
     }
     Ok(())
+}
+
+/// Start disabled, acknowledge actual sampling activation, then allow caller-owned exec.
+pub(super) fn run_launched(
+    request: &super::launch::LaunchCaptureRequest,
+    locator: &crate::observation::ProcessLocator,
+    stop: &AtomicBool, state: &Shared,
+    ready: &std::sync::mpsc::SyncSender<Result<(), String>>,
+) -> Result<(), CaptureError> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let control_path = request.output.join("perf-control.fifo");
+    let ack_path = request.output.join("perf-ack.fifo");
+    for path in [&control_path, &ack_path] {
+        rustix::fs::mkfifoat(rustix::fs::CWD, path, rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR).map_err(std::io::Error::from)?;
+    }
+    let open = |path: &Path| OpenOptions::new().read(true).write(true)
+        .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32).open(path);
+    let mut control = open(&control_path)?;
+    let mut ack = open(&ack_path)?;
+    let mut files = OwnedFiles::new(request.budget.output_bytes);
+    let allowance = request.budget.output_bytes / 4 * 3;
+    let mut sampler = start_sampler_for(&request.output, locator.pid, locator.start_ticks,
+        allowance, &mut files, state, Some((&control_path, &ack_path)))?;
+    let result = (|| {
+        control.write_all(b"enable\n")?;
+        let started = Instant::now();
+        let mut response = Vec::with_capacity(4);
+        loop {
+            let mut bytes = [0_u8; 4];
+            match ack.read(&mut bytes) {
+                Ok(0) => {},
+                Ok(n) => response.extend_from_slice(&bytes[..n]),
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {},
+                Err(error) => return Err(error.into()),
+            }
+            if response == b"ack\n" { break; }
+            if !b"ack\n".starts_with(&response) {
+                return Err(CaptureError::Invalid("invalid perf enable acknowledgement".into()));
+            }
+            if sampler.tool.poll()?.is_some() {
+                return Err(CaptureError::Invalid(format!("perf exited before enable acknowledgement: {}", log_prefix(&sampler.log))));
+            }
+            if started.elapsed() >= request.startup_timeout {
+                return Err(CaptureError::Invalid("perf startup acknowledgement timed out".into()));
+            }
+            let remaining = request.startup_timeout.saturating_sub(started.elapsed()).min(Duration::from_millis(50));
+            let timeout = rustix::event::Timespec { tv_sec: remaining.as_secs() as i64, tv_nsec: remaining.subsec_nanos() as i64 };
+            let mut descriptors = [rustix::event::PollFd::new(&ack, rustix::event::PollFlags::IN)];
+            rustix::event::poll(&mut descriptors, Some(&timeout)).map_err(std::io::Error::from)?;
+        }
+        document(state).loss.sampling_loss_unknown = true;
+        document(state).loss.sampling_inherited_tasks = true;
+        // The receiver alone owns the command gate. Sending carries no cancellation lease.
+        let _ = ready.send(Ok(()));
+        let started = Instant::now();
+        loop {
+            sampler.finished = sampler.tool.poll()?;
+            output(state, &sampler.raw, CaptureOutputKind::PerfData, false);
+            output(state, &sampler.log, CaptureOutputKind::ToolLog, true);
+            document(state).observed_duration = started.elapsed();
+            if files.bytes() >= request.budget.output_bytes {
+                document(state).loss.output_exhausted = true;
+                break;
+            }
+            if sampler.finished.is_some() || stop.load(Ordering::Acquire) || started.elapsed() >= request.duration { break; }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        Ok(())
+    })();
+    // Closing/removing the control endpoints affects only perf, never the gated command.
+    drop(control); drop(ack);
+    let _ = std::fs::remove_file(control_path);
+    let _ = std::fs::remove_file(ack_path);
+    if let Err(error) = result {
+        let message = error.to_string();
+        failure(state, error);
+        document(state).status = CaptureStatus::Failed;
+        let _ = ready.send(Err(message));
+    }
+    finalize(std::slice::from_mut(&mut sampler), state, &mut files)
 }
