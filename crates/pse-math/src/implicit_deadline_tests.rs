@@ -104,7 +104,7 @@ fn factory(delay: Duration) -> (Factory, Arc<AtomicUsize>, Arc<Mutex<Vec<Duratio
             derivatives: DerivativeOrder::Value,
             smoothness: DerivativeOrder::Value,
         },
-        body,
+        bodies:residual_bodies_for_test(body),
         unknowns: bounds.clone(),
         rows: vec![pse_ids::named_id(id, "row")],
         configuration: Configuration::Fixed(

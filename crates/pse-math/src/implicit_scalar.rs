@@ -102,7 +102,7 @@ impl InnerWorker for BracketedRoot {
             cancel,
             |point| {
                 let evaluation =
-                    problem.evaluate(parameters, &[point], DerivativeOrder::Value, cancel)?;
+                    problem.evaluate_unknown(parameters, &[point], DerivativeOrder::Value, cancel)?;
                 evaluation
                     .values
                     .first()

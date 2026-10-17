@@ -83,8 +83,8 @@ impl InnerWorker for Affine {
         }
         let started = std::time::Instant::now();
         let n = self.unknowns;
-        let width = n + self.inputs;
-        let jet = problem.evaluate(parameters, &options.start, DerivativeOrder::First, cancel)?;
+        let width = n;
+        let jet = problem.evaluate_unknown(parameters, &options.start, DerivativeOrder::First, cancel)?;
         if jet.values.len() != n || jet.jacobian.len() != n * width {
             return Err(MathError::Contract("affine residual jet extent".into()));
         }
@@ -196,7 +196,7 @@ mod tests {
                     pse_ids::named_id(id, "second"),
                 ],
                 1,
-                compiled,
+            residual_bodies_for_test(compiled),
                 100,
             )
             .unwrap(),
@@ -307,7 +307,7 @@ mod tests {
                 }],
                 vec![pse_ids::named_id(id, "row")],
                 1,
-                compiled,
+            residual_bodies_for_test(compiled),
                 100,
             )
             .unwrap(),

@@ -354,7 +354,7 @@ mod tests {
                 }],
                 vec![SemanticId::NIL],
                 1,
-                Arc::new(compiled),
+            residual_bodies_for_test(Arc::new(compiled)),
                 1024,
             )
             .unwrap(),

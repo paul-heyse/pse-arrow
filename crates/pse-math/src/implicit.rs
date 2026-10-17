@@ -110,6 +110,33 @@ pub struct Options {
     /// Dimensionless derivative linear-system backward-error tolerance.
     pub derivative_tolerance: f64,
 }
+/// Distinct requested derivative programs over one original residual definition.
+#[derive(Clone,Debug)]
+pub struct ResidualBodies {
+    /// Unknown-only native/Newton product; parameters remain ordinary value inputs.
+    pub unknown:Arc<CompiledBody>,
+    /// Parameter and unknown partials required by implicit-function differentiation.
+    pub parameter:Arc<CompiledBody>,
+}
+impl ResidualBodies {
+    fn check(&self,unknowns:usize,inputs:usize) -> Result<(),MathError> {
+        let a=self.unknown.prepared_support();
+        let b=self.parameter.prepared_support();
+        let axes=if self.unknown.compiled_order()>=DerivativeOrder::First {
+            (0..unknowns).collect::<Vec<_>>()
+        } else {Vec::new()};
+        if !a.same_source(b) || a.outputs()!=b.outputs()
+            || self.unknown.product_kind()!=crate::guarded::ProductKind::SelectedPartials
+            || self.parameter.product_kind()!=crate::guarded::ProductKind::SelectedPartials
+            || self.unknown.compiled_order()>DerivativeOrder::First
+            || self.unknown.coordinates()!=axes
+            || self.unknown.input_formals().iter().any(|formal|!self.parameter.input_formals().contains(formal))
+            || self.parameter.input_formals().iter().any(|formal|*formal>=unknowns.saturating_add(inputs))
+        { return Err(MathError::Contract("implicit residual programs have different source/output/input premises".into())); }
+        Ok(())
+    }
+}
+
 /// A library body with unknown coordinates first and independent inputs last.
 #[derive(Debug)]
 pub struct Problem {
@@ -128,11 +155,22 @@ pub struct Problem {
     /// Resolved derivative facts shared with provider and native contracts.
     pub requirements: pse_kernels::DerivativeRequirements,
     residual_offsets: Vec<f64>,
-    worker: Mutex<Worker>,
+    worker: Mutex<ResidualWorker>,
+    unknown_worker:Mutex<ResidualWorker>,
     providers: Mutex<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>>,
     pattern: SymbolicSparseColMat<usize>,
     symbolic: SymbolicLu<usize>,
     factor: Mutex<FactorWorkspace>,
+}
+#[derive(Debug)]
+struct ResidualWorker {
+    worker:Worker,
+    inputs:Vec<f64>,
+}
+impl ResidualWorker {
+    fn new(body:&CompiledBody) -> Self {
+        Self { worker:body.worker(), inputs:vec![f64::NAN;body.input_formals().len()] }
+    }
 }
 struct FactorWorkspace {
     numeric: NumericLu<usize, f64>,
@@ -182,7 +220,7 @@ impl Problem {
         unknowns: Vec<Unknown>,
         rows: Vec<SemanticId>,
         inputs: usize,
-        body: Arc<CompiledBody>,
+        bodies: ResidualBodies,
         max_entries: usize,
     ) -> Result<Self, MathError> {
         Self::new_with_parallelism(
@@ -191,7 +229,7 @@ impl Problem {
             unknowns,
             rows,
             inputs,
-            body,
+            bodies,
             max_entries,
             Par::Seq,
         )
@@ -208,11 +246,13 @@ impl Problem {
         unknowns: Vec<Unknown>,
         rows: Vec<SemanticId>,
         inputs: usize,
-        body: Arc<CompiledBody>,
+        bodies: ResidualBodies,
         max_entries: usize,
         parallel: Par,
     ) -> Result<Self, MathError> {
         let n = unknowns.len();
+        bodies.check(n,inputs)?;
+        let body=&bodies.parameter;
         let extent = n
             .checked_add(inputs)
             .and_then(|width| match body.compiled_order() {
@@ -316,7 +356,8 @@ impl Problem {
             )
             .map_err(|e| MathError::Contract(e.to_string()))?,
             residual_offsets,
-            worker: Mutex::new(body.worker()),
+            worker: Mutex::new(ResidualWorker::new(body)),
+            unknown_worker:Mutex::new(ResidualWorker::new(&bodies.unknown)),
             providers: Mutex::new(BTreeMap::new()),
             pattern,
             symbolic,
@@ -369,12 +410,23 @@ impl Problem {
     }
     /// Interval guards are checked before library evaluation, without clipping a trial.
     pub fn evaluate(
-        &self,
+        &self,parameters:&[f64],unknowns:&[f64],order:DerivativeOrder,cancel:&Arc<AtomicBool>,
+    ) -> Result<Evaluation,MathError> {
+        self.evaluate_trial_with(&self.worker,parameters,unknowns,order,cancel).map(crate::execution::TrialEvaluation::into_evaluation)
+    }
+    /// Native residual/unknown Jacobian product. Parameter derivative axes are never executed.
+    pub fn evaluate_unknown(
+        &self,parameters:&[f64],unknowns:&[f64],order:DerivativeOrder,cancel:&Arc<AtomicBool>,
+    ) -> Result<Evaluation,MathError> {
+        self.evaluate_trial_with(&self.unknown_worker,parameters,unknowns,order,cancel).map(crate::execution::TrialEvaluation::into_evaluation)
+    }
+    fn evaluate_trial_with(
+        &self, residual_worker:&Mutex<ResidualWorker>,
         parameters: &[f64],
         unknowns: &[f64],
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
-    ) -> Result<Evaluation, MathError> {
+    ) -> Result<crate::execution::TrialEvaluation, MathError> {
         observed!("implicit.residual", {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.source_ref("implicit.residual.source", self.identity.as_bytes());
@@ -396,13 +448,16 @@ impl Problem {
                     requirement: "implicit unknown outside its declared interval",
                 });
             }
-            let mut worker = self
-                .worker
+            let mut worker = residual_worker
                 .lock()
                 .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?;
-            let values = selected_inputs(&worker, unknowns, parameters)?;
-            let mut evaluation = worker.evaluate(
-                &values,
+            let ResidualWorker { worker,inputs }=&mut *worker;
+            for (&formal,value) in worker.input_formals().iter().zip(inputs.iter_mut()) {
+                *value=if formal<unknowns.len() { unknowns.get(formal) } else { parameters.get(formal-unknowns.len()) }
+                    .copied().ok_or_else(||MathError::Contract("implicit original-formal gather map".into()))?;
+            }
+            let mut evaluation = worker.evaluate_trial(
+                inputs,
                 order,
                 &mut *self
                     .providers
@@ -463,7 +518,7 @@ impl Problem {
     ) -> Result<(), MathError> {
         observed!("implicit.original_assessment", {
             self.validate_options(options)?;
-            let residual = self.evaluate(parameters, point, DerivativeOrder::Value, cancel)?;
+            let residual = self.evaluate_unknown(parameters, point, DerivativeOrder::Value, cancel)?;
             if residual.values.len() != self.rows.len()
                 || residual
                     .values
@@ -582,10 +637,8 @@ impl Problem {
             if p == 0 {
                 return Ok(output);
             }
-            let jet = self.evaluate(parameters, point, order, cancel)?;
-            if jet.jacobian.len() != n * width
-                || order == DerivativeOrder::Second && jet.hessians.len() != n * width * width
-            {
+            let jet = self.evaluate_trial_with(&self.worker, parameters, point, order, cancel)?;
+            if jet.jacobian.len() != n * width {
                 return Err(MathError::Contract("implicit residual jet extent".into()));
             }
             let values = (0..n)
@@ -625,12 +678,9 @@ impl Problem {
             let mut second = Mat::from_fn(n, pairs.len(), |i, j| {
                 let (a, b) = pairs[j];
                 let mut value = 0.0;
-                for k in 0..width {
-                    for l in 0..width {
-                        value -= jet.hessians[(i * width + k) * width + l]
-                            * tangent(k, a)
-                            * tangent(l, b);
-                    }
+                for (k,l,partial) in jet.second_entries(i) {
+                    value -= partial*tangent(k,a)*tangent(l,b);
+                    if k!=l { value -= partial*tangent(l,a)*tangent(k,b); }
                 }
                 value
             });
@@ -869,8 +919,8 @@ pub struct Factory {
     pub requirements: pse_kernels::DerivativeRequirements,
     /// Provider contract: parameters in, solved unknowns out.
     pub spec: pse_kernels::ProviderSpec,
-    /// Compiled residual body, unknowns first.
-    pub body: Arc<CompiledBody>,
+    /// Distinct unknown-only and parameter derivative programs of the same residual definition.
+    pub bodies: ResidualBodies,
     /// Unknowns in provider output order.
     pub unknowns: Vec<Unknown>,
     /// Residual equation identities in output order.
@@ -913,9 +963,12 @@ impl ImplicitFactory {
     }
     fn root_bytes(factory: &Factory) -> Option<usize> {
         factory
-            .body
+            .bodies.parameter
             .retained_bytes()
-            .checked_add(factory.body.scratch_bytes())?
+            .checked_add(factory.bodies.parameter.scratch_bytes())?
+            .checked_add(factory.bodies.unknown.retained_bytes())?
+            .checked_add(factory.bodies.unknown.worker_bytes())?
+            .checked_add((factory.bodies.unknown.input_formals().len()+factory.bodies.parameter.input_formals().len()).checked_mul(size_of::<f64>())?)?
             .checked_add(factory.solver.retained_bytes())?
             .checked_add(factory.solver.worker_bytes())?
             .checked_add(size_of::<SolverWorker>())?
@@ -991,7 +1044,8 @@ impl ImplicitFactory {
         };
         match self {
             Self::Root(factory) => {
-                retain(&mut factory.body);
+                retain(&mut factory.bodies.parameter);
+                retain(&mut factory.bodies.unknown);
                 for body in factory.hints.iter_mut().chain(&mut factory.terms) {
                     retain(body);
                 }
@@ -1006,7 +1060,8 @@ impl ImplicitFactory {
             }
             Self::Regimes(factory) => {
                 for branch in &mut factory.alternatives {
-                    retain(&mut branch.residual.body);
+                    retain(&mut branch.residual.bodies.parameter);
+                    retain(&mut branch.residual.bodies.unknown);
                     for body in branch
                         .residual
                         .hints
@@ -1136,7 +1191,8 @@ impl Factory {
     ) -> Result<Arc<Problem>, pse_kernels::ProviderError> {
         scope.check()?;
         if self.requirements.inner_minimum != self.solver.minimum_order()
-            || self.body.compiled_order() != self.requirements.residual_compilation
+            || self.bodies.parameter.compiled_order() != self.requirements.residual_compilation
+            || self.bodies.unknown.compiled_order() < self.requirements.inner_minimum
         {
             return Err(pse_kernels::ProviderError::Contract(
                 "implicit compiled requirements disagree with selected solver".into(),
@@ -1179,7 +1235,7 @@ impl Factory {
             self.unknowns.clone(),
             self.rows.clone(),
             self.spec.inputs.len(),
-            self.body.clone(),
+            self.bodies.clone(),
             self.max_entries,
             parallel,
         )
@@ -1193,7 +1249,9 @@ impl Factory {
             .map_err(|_| {
                 pse_kernels::ProviderError::Terminal("implicit worker lock poisoned".into())
             })?
-            .set_scope(scope.clone());
+            .worker.set_scope(scope.clone());
+        problem.unknown_worker.get_mut().map_err(|_|pse_kernels::ProviderError::Terminal("implicit unknown worker lock poisoned".into()))?
+            .worker.set_scope(scope.clone());
         let problem = Arc::new(problem);
         scope.check()?;
         if let Configuration::Fixed(_, options) = &self.configuration
@@ -1459,12 +1517,38 @@ fn provider_error(error: MathError) -> pse_kernels::ProviderError {
 }
 
 #[cfg(test)]
+pub(crate) fn residual_bodies_for_test(parameter:Arc<CompiledBody>) -> ResidualBodies {
+    let unknowns=parameter.prepared_support().outputs().len();
+    let order=parameter.compiled_order().min(DerivativeOrder::First);
+    let axes=if order>=DerivativeOrder::First {(0..unknowns).collect::<Vec<_>>()}else{Vec::new()};
+    let cancel=Arc::new(AtomicBool::new(false));
+    let support=parameter.prepared_support().incidence(&axes,&cancel).unwrap().at_order(order).unwrap();
+    let unknown=Arc::new(support.compile(crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&cancel).unwrap());
+    ResidualBodies{unknown,parameter}
+}
+
+#[cfg(test)]
 #[path = "implicit_deadline_tests.rs"]
 mod deadline_tests;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn implicit_dual_programs_refuse_a_different_original_definition() {
+        use crate::guarded::{PreparedBody,Stage};
+        use symbolica::atom::Atom;
+        crate::initialize().unwrap();
+        let x=crate::library::formal(0).unwrap();
+        let p=crate::library::formal(1).unwrap();
+        let cancel=Arc::new(AtomicBool::new(false));
+        let compile=|value:Atom,axes:&[usize]| Arc::new(PreparedBody::new(2,3,vec![2],vec![Stage::Block {
+            expressions:vec![value],outputs:vec![2],source:SemanticId::NIL,
+        }],DerivativeOrder::Second).unwrap().compile(&[0],axes,DerivativeOrder::First,
+            crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&cancel).unwrap());
+        let bodies=ResidualBodies {unknown:compile(&x-&p,&[0]),parameter:compile(&x+&p,&[0,1])};
+        assert!(matches!(bodies.check(1,1),Err(MathError::Contract(_))));
+    }
     #[test]
     fn compact_value_inputs_preserve_unknown_and_parameter_formal_positions() {
         let registry = pse_quantity::standard::standard_registry().unwrap();
@@ -1586,7 +1670,7 @@ mod tests {
             }],
             vec![pse_ids::named_id(id, "equation")],
             63,
-            compile(&[0], &(0..64).collect::<Vec<_>>(), DerivativeOrder::First),
+            residual_bodies_for_test(compile(&[0], &(0..64).collect::<Vec<_>>(), DerivativeOrder::First)),
             128,
         )
         .unwrap();
@@ -1601,6 +1685,12 @@ mod tests {
         });
         let mut parameters = vec![f64::NAN; 63];
         parameters[46] = 3.;
+        let unknown_only=problem.evaluate_unknown(&parameters,&[4.],DerivativeOrder::First,&cancel).unwrap();
+        assert_eq!(unknown_only.values,[1.]);
+        assert_eq!(unknown_only.jacobian,[1.],"native residual excludes all 63 parameter derivative axes");
+        assert!(!problem.worker.lock().unwrap().worker.census().instantiated_orders[1]);
+        assert!(problem.unknown_worker.lock().unwrap().worker.census().instantiated_orders[1]);
+
         assert_eq!(
             worker.anchor(&problem, &parameters, &cancel).unwrap(),
             Some(vec![3.])
@@ -1743,7 +1833,7 @@ mod tests {
                 vec![unknown.clone()],
                 vec![pse_ids::named_id(id, "equation")],
                 63,
-                compile(&[0], &(0..64).collect::<Vec<_>>(), DerivativeOrder::First),
+            residual_bodies_for_test(compile(&[0], &(0..64).collect::<Vec<_>>(), DerivativeOrder::First)),
                 128,
             )
             .unwrap(),
@@ -1868,7 +1958,7 @@ mod tests {
                 derivatives: DerivativeOrder::Second,
                 smoothness: DerivativeOrder::Second,
             },
-            body,
+            bodies:residual_bodies_for_test(body),
             unknowns: unknowns.clone(),
             rows: vec![pse_ids::named_id(id, "row")],
             configuration: Configuration::Fixed(unknowns, options.clone()),
@@ -2077,7 +2167,7 @@ mod tests {
             }],
             vec![pse_ids::named_id(id, "equation")],
             1,
-            body,
+            residual_bodies_for_test(body),
             100,
             Par::rayon(2),
         )

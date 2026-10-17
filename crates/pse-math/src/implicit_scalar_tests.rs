@@ -267,7 +267,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
             }],
             vec![SemanticId::NIL],
             1,
-            Arc::new(compiled),
+            residual_bodies_for_test(Arc::new(compiled)),
             1024,
         )
         .unwrap(),

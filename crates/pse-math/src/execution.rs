@@ -106,6 +106,14 @@ impl PreparedSupport {
             .position(|&i| i == output)
             .and_then(|row| self.support().second.get(row))
     }
+    /// Whether selected programs came from the same admitted original semantic body.
+    /// Weak allocation identity survives release; independent live equal admissions also match.
+    pub fn same_source(&self, other:&Self) -> bool {
+        self.data.source_inputs == other.data.source_inputs
+            && (self.data.source.ptr_eq(&other.data.source)
+                || self.data.source.upgrade().zip(other.data.source.upgrade())
+                    .is_some_and(|(a,b)| PreparedBody{data:a,owner:None} == PreparedBody{data:b,owner:None}))
+    }
     /// Unspent finite authored construction allowance.
     pub fn remaining_occurrences(&self) -> usize {
         self.data.remaining_occurrences
@@ -2749,7 +2757,11 @@ impl TrialEvaluation {
         self.second_pairs.binary_search(&(i, j)).ok()
             .map_or(0.0, |offset| self.second[row * self.second_pairs.len() + offset])
     }
-    fn into_evaluation(self) -> Evaluation {
+    pub(crate) fn second_entries(&self,row:usize) -> impl Iterator<Item=(usize,usize,f64)> + '_ {
+        self.second_pairs.iter().enumerate().map(move |(offset,&(i,j))|
+            (i,j,self.second[row*self.second_pairs.len()+offset]))
+    }
+    pub(crate) fn into_evaluation(self) -> Evaluation {
         let n = self.coordinates;
         let hessians = if !self.second_requested {
             Vec::new()

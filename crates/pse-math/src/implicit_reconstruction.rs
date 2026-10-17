@@ -1424,7 +1424,7 @@ impl<E> SelectedImplicitReconstruction<E> {
             if cancel.load(Ordering::Acquire) {
                 return Err(MathError::Cancelled);
             }
-            let structural = branch.body.incidence(cancel)?;
+            let structural = branch.bodies.parameter.incidence(cancel)?;
             let mut unknown_support = Vec::with_capacity(n);
             let mut parameter_support = Vec::with_capacity(n);
             for output in structural.outputs() {
@@ -2403,7 +2403,7 @@ mod tests {
                 derivatives: DerivativeOrder::First,
                 smoothness: DerivativeOrder::First,
             },
-            body,
+            bodies:crate::implicit::residual_bodies_for_test(body),
             unknowns: unknowns.clone(),
             rows: vec![row],
             configuration: Configuration::Fixed(

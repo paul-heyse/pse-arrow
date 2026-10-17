@@ -440,7 +440,7 @@ mod tests {
                         }],
                         vec![pse_ids::named_id(id, "row")],
                         1,
-                        body(0),
+            crate::implicit::residual_bodies_for_test(body(0)),
                         100,
                     )
                     .unwrap(),
@@ -1227,7 +1227,7 @@ mod tests {
                 previous.unknowns.clone(),
                 previous.rows.clone(),
                 1,
-                body,
+            crate::implicit::residual_bodies_for_test(body),
                 100,
             )
             .unwrap(),
