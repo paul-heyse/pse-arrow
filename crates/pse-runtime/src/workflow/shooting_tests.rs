@@ -1544,6 +1544,20 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
             .context()
             .with_record_tap(integrations.clone())
             .enter();
+        // Reserve this control's requested counters before optional, bounded IFT
+        // detail fills the catalogue. These are genuine zero initial counts;
+        // the actual owners below must still supply every expected increment.
+        for name in [
+            "dynamics.workflow_worker_constructions",
+            "dynamics.window_ivp_initializations",
+            "dynamics.window_adjoint_initializations",
+            "dynamics.window_layout_constructions",
+            "dynamics.window_layout_reuses",
+        ] {
+            pse_diagnostics::observation::current()
+                .unwrap()
+                .count(name, "count", 0);
+        }
         let mut oracle = ShootingOracle {
             observation: pse_diagnostics::observation::current().map(|context| {
                 context.producer(

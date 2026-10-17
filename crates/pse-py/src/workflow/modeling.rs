@@ -370,6 +370,10 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "PyO3 receiver/interpreter plus explicit source, samples, diagnostic policy, controls and original context are separate boundary meanings"
+    )]
     #[pyo3(signature=(case_id, settings, diagnostics, samples, *, controls=None, origin=None))]
     fn diagnose_samples(
         &self,

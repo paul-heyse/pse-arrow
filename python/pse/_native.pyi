@@ -22,6 +22,7 @@ from pse.contracts.documents import (
     DiagnosticCauseDocument,
     DiagnosticContextDocument,
     DiagnosticListRequest,
+    DiagnosticOrigin,
     DiagnosticProcessPage,
     EligibilityDocument,
     FrozenAdvice,
@@ -29,6 +30,7 @@ from pse.contracts.documents import (
     InspectionRequest,
     InvocationComparisonDocument,
     InvocationEvidenceDocument,
+    LaunchCaptureRequest,
     ManagedStudyDiagnosticsDocument,
     ModelingSourceMapDocument,
     NumericalPolicy,
@@ -37,6 +39,7 @@ from pse.contracts.documents import (
     OperationPage,
     OperationSnapshot,
     ProcessCheckpoint,
+    ProcessLocator,
     ProgressCheckpointDocument,
     ProgressCoverage,
     ProgressEventDocument,
@@ -346,6 +349,15 @@ class NativeDiagnostics:
     ) -> NativeOperationObservations | None: ...
 
 @final
+class NativeLaunchedCommand:
+    def cancel(self, /) -> int: ...
+    def close(self, /) -> int: ...
+    @property
+    def locator(self, /) -> ProcessLocator: ...
+    def try_wait(self, /) -> int | None: ...
+    def wait(self, /) -> int: ...
+
+@final
 class NativeLiveSimulationCursor:
     def close(self, /) -> None: ...
     def next_async(self, /) -> typing.Awaitable[NativeLiveSimulationEvent | None]: ...
@@ -421,6 +433,8 @@ class NativeModelingDiagnosticSamples:
     def failure(self, /, index: int) -> DiagnosticReport | None: ...
     def findings(self, /) -> TableStream: ...
     def ids(self, /) -> list[str]: ...
+    @property
+    def origin(self, /) -> DiagnosticOrigin | None: ...
     def result(self, /, index: int) -> NativeModelingDiagnostics | None: ...
     @property
     def stop(self, /) -> ModelingDiagnosticSampleStop: ...
@@ -436,6 +450,8 @@ class NativeModelingDiagnostics:
     @property
     def cutoff(self, /) -> float | None: ...
     def findings(self, /) -> list[DiagnosticReport]: ...
+    @property
+    def origin(self, /) -> DiagnosticOrigin | None: ...
     @property
     def profile(self, /) -> str: ...
     @property
@@ -497,6 +513,8 @@ class NativeModelingNativeAnalysis:
     @property
     def attempt_count(self, /) -> int: ...
     @property
+    def origin(self, /) -> DiagnosticOrigin | None: ...
+    @property
     def relation(self, /) -> str: ...
     def table(self, /) -> TableStream: ...
 
@@ -529,13 +547,31 @@ class NativeModelingPackage:
     ) -> NativeModelingConformance: ...
     def declarations(self, /) -> bytes: ...
     def diagnose(
-        self, /, case_id: str, settings: bytes, diagnostics: ModelingDiagnosticSettings
+        self,
+        /,
+        case_id: str,
+        settings: bytes,
+        diagnostics: ModelingDiagnosticSettings,
+        *,
+        origin: DiagnosticOrigin | None = None,
     ) -> NativeModelingDiagnostics: ...
     def diagnose_jacobian(
-        self, /, case_id: str, settings: bytes, *, controls: bytes | None = None
+        self,
+        /,
+        case_id: str,
+        settings: bytes,
+        *,
+        controls: bytes | None = None,
+        origin: DiagnosticOrigin | None = None,
     ) -> NativeModelingNativeAnalysis: ...
     def diagnose_linear(
-        self, /, case_id: str, settings: bytes, *, controls: bytes | None = None
+        self,
+        /,
+        case_id: str,
+        settings: bytes,
+        *,
+        controls: bytes | None = None,
+        origin: DiagnosticOrigin | None = None,
     ) -> NativeModelingNativeAnalysis: ...
     def diagnose_samples(
         self,
@@ -546,6 +582,7 @@ class NativeModelingPackage:
         samples: Sequence[tuple[str, dict[str, float]]],
         *,
         controls: bytes | None = None,
+        origin: DiagnosticOrigin | None = None,
     ) -> NativeModelingDiagnosticSamples: ...
     def diagnostic_source_map(
         self, /, case_id: str, settings: bytes, maximum_bytes: int, time_limit: float
@@ -738,6 +775,7 @@ class NativeRunResult:
         self, /, other: NativeRunResult, *, policy: ComparisonPolicy | None = None
     ) -> InvocationComparisonDocument: ...
     def completion(self, /) -> bytes: ...
+    def diagnostic_origin(self, /, step: int | None = None) -> DiagnosticOrigin: ...
     def diagnostics(self, /) -> list[DiagnosticReport]: ...
     def explain_invocation(
         self, /, *, policy: ComparisonPolicy | None = None
@@ -1060,6 +1098,9 @@ def diagnostic_inspect_image(
     image: ProcessCheckpoint,
     request: InspectionRequest,
 ) -> InspectionDocument: ...
+def diagnostic_launch_capture(
+    request: LaunchCaptureRequest,
+) -> tuple[NativeLaunchedCommand, NativeCaptureSession]: ...
 def diagnostic_list(
     request: DiagnosticListRequest, directory: str | PathLike[str] | None = None
 ) -> DiagnosticProcessPage: ...

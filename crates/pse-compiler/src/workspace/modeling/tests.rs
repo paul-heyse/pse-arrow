@@ -4433,7 +4433,7 @@ mod nonlinear_selection_isolation_tests {
     }
     fn configurations(
         inner: &AdmittedImplicit,
-        cancel: &pse_diagnostics::Cancellation,
+        cancel: &Cancellation,
     ) -> BTreeMap<SemanticId, Configuration> {
         inner
             .residuals

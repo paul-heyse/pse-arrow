@@ -1781,10 +1781,32 @@ mod tests {
                 .any(|location| location.source == alias_id
                     && location.path.ends_with(".supplied_alias"))
         );
-        assert!(combined.locations.iter().all(|location| location.document
-            == Some(SemanticId::from_bytes([83; 16]))
-            && location.occurrence_role.is_some()
-            && location.occurrence_position.is_some()));
+        for source in &original {
+            assert!(
+                combined
+                    .locations
+                    .iter()
+                    .any(|location| location.source == *source
+                        && location.document == Some(SemanticId::from_bytes([83; 16]))
+                        && location.occurrence_role.is_some()
+                        && location.occurrence_position.is_some())
+            );
+        }
+        // A plain declaration has authored lineage but no expression occurrence.
+        // Neither it nor the supplied alias may invent a field or byte range.
+        for source in [variable_id, alias_id] {
+            assert!(
+                combined
+                    .locations
+                    .iter()
+                    .any(|location| location.source == source
+                        && location.document.is_none()
+                        && location.occurrence_role.is_none()
+                        && location.occurrence_position.is_none()
+                        && location.start.is_none()
+                        && location.end.is_none())
+            );
+        }
         assert!(
             combined.causes[0]
                 .locations
