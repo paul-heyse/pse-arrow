@@ -1606,13 +1606,13 @@ impl ModelingPackage {
                 controls
                     .validate()
                     .map_err(crate::math::MathRuntimeError::from)?;
-                let control = pse_columnar::flight::FlightCancellation::default();
+                let control = pse_diagnostics::Cancellation::default();
                 let deadline = std::time::Instant::now()
                     .checked_add(controls.time_limit)
                     .ok_or(crate::math::MathRuntimeError::Limit(
                         "Jacobian diagnostic deadline extent",
                     ))?;
-                let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
+                let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(deadline));
                 prepared.validate_point(&values)?;
                 let ModelingDiagnosticPreparation {
                     model: prepared,

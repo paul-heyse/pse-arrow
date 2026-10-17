@@ -197,7 +197,7 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
     // Feed/product closure is a boundary observation, not the fixed-point residual.
     let controls = Controls::default();
     let execution = Execution::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         &controls,
     );
     let mut boundary = BTreeMap::from([(ports["mixer.inlet"], candidate.primal[0])]);

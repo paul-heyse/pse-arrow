@@ -529,7 +529,7 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
     profile.controls.time_limit = std::time::Duration::from_secs(10);
     let scoped_original = original.clone().within_task(scope.clone()).unwrap();
     let wrong_scope = ExecutionScope::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         scope.deadline(),
     );
     assert!(matches!(
@@ -687,7 +687,7 @@ async fn actual_shifted_frozen_mass_retains_offset_and_submission_scope() {
     assert_eq!(prepared.physical.constraints()[0].upper, 0.0);
     assert_eq!(budget.used(), 0);
     let expired = ExecutionScope::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         Some(Instant::now()),
     );
     assert!(
@@ -864,7 +864,7 @@ async fn least_deviation_exact_second_and_named_held_roles_use_actual_source() {
     };
     let id = source.prepared.prepared.plan.columns()[0];
     let scope = ExecutionScope::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
     );
     let mut profile = original.profile.clone();
@@ -992,7 +992,7 @@ async fn expired_optional_derived_preparation_refuses_before_dispatch_and_origin
     .await;
     let service = runtime.native();
     let enclosing = ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
     );
     let mut profile = original.profile.clone();
@@ -1104,7 +1104,7 @@ async fn actual_derived_callback_local_expiry_continues_with_charged_work_but_ot
     .await;
     let service = runtime.native();
     let enclosing = ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(Instant::now() + std::time::Duration::from_secs(4)),
     );
     let mut profile = original.profile.clone();
@@ -1326,7 +1326,7 @@ async fn derived_expiry_marker_preserves_actual_native_report_work_and_foreign_f
     .await;
     let service = runtime.native();
     let enclosing = ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
     );
     let mut profile = original.profile.clone();
@@ -2676,7 +2676,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         let receipt = report.certified_reconstruction.as_ref().unwrap();
         let mut values = prepared.source.values.clone();
         values.scalars.extend(report.coordinates.iter().copied());
-        let scope = ExecutionScope::new(Arc::default(), None);
+        let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let goals = prepared
             .original
             .coordinate_accuracy(service, &result.outcome, &values, &scope, &budget)
@@ -2850,7 +2850,7 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
     let prepared = package.prepare_declared(&declared, &cancel).await.unwrap();
     let service = runtime.native();
     let scope = ExecutionScope::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         Some(Instant::now() + prepared.solve.controls().time_limit),
     );
     let blocks = service

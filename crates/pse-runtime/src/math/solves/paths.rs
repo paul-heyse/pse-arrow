@@ -158,7 +158,7 @@ impl MathService {
         let quantities = case.prepared.compiled().quantities.clone();
         let checked = second.clone();
         let check_scope = scope.clone();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let construction = super::super::jobs::ConstructionEstimate::from_bound(
             base.assembly.support_upgrade_allocation_bound(
                 pse_math::jets::EvaluationLimits::default(),
@@ -180,7 +180,7 @@ impl MathService {
             Ok((h.finish_hash(),size_of::<CurvatureData>()))
         });
         tokio::pin!(operation);
-        let (key, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{scope.cancellation().store(true,Ordering::Release);control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let (key, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{scope.cancellation_control().cancel();control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         scope.check().map_err(ProblemError::Provider)?;
         Ok(PathCurvature(Arc::new(CurvatureData {
             source,
@@ -2987,11 +2987,11 @@ pub(crate) fn run_path(
     }
     outcome
 }
-struct PathCancellation(Option<Arc<std::sync::atomic::AtomicBool>>);
+struct PathCancellation(Option<pse_diagnostics::Cancellation>);
 impl Drop for PathCancellation {
     fn drop(&mut self) {
         if let Some(cancel) = &self.0 {
-            cancel.store(true, Ordering::Release);
+            cancel.cancel();
         }
     }
 }
@@ -3017,7 +3017,7 @@ impl MathService {
             .checked_add(extra_foreign)
             .and_then(|v| v.checked_add(retained_allowance))
             .ok_or(MathRuntimeError::Limit("path job extent"))?;
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let service = self.clone();
         let scope = path.scope.clone();
         let mut execution = Execution::within(
@@ -3030,7 +3030,7 @@ impl MathService {
                 .foreign_allowance(&path.request.corrector.controls),
         );
         let worker_budget = WorkerBudget::new(path.worker_bytes());
-        let mut abandoned = PathCancellation(Some(scope.cancellation().clone()));
+        let mut abandoned = PathCancellation(Some(scope.cancellation_control().clone()));
         let threads = path.request.corrector.controls.threads;
         let operation = self.job_retained_scoped(
             threads,
@@ -3063,7 +3063,7 @@ impl MathService {
             },
         );
         tokio::pin!(operation);
-        let result = tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{scope.cancellation().store(true,Ordering::Release);control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}};
+        let result = tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{scope.cancellation_control().cancel();control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}};
         abandoned.0 = None;
         result.map(|(mut outcome, owner)| {
             if let Ok(mut owners) = outcome.reports_owner.lock() {
@@ -3129,7 +3129,7 @@ impl MathService {
                 scope.cancellation().clone(),
                 Some(scope.deadline().map_or(local, |d| d.min(local))),
             );
-            let mut abandoned = PathCancellation(Some(scope.cancellation().clone()));
+            let mut abandoned = PathCancellation(Some(scope.cancellation_control().clone()));
             let result=async {
             scope.check().map_err(ProblemError::Provider)?;
             if original.semantic_point_key(&start.point)?!=start.source || original.profile.intent!=SolveIntent::Root {return Err(ProblemError::Contract("compiled path chart origin does not match original completion source".into()).into());}
@@ -3139,7 +3139,7 @@ impl MathService {
             let source=original.preparation_identity()?;let coordinates=case.prepared.compiled().plan.columns().to_vec();let values=case.values.clone();let assembly=program.program.assembly.clone();let parameter_value=program.parameters[0].1;
             let actual=native::assembled::contract(&assembly);let n=coordinates.len();
             let unknowns=actual.variables[..n].iter().map(|v|pse_math::implicit::Unknown {id:v.id,lower:v.lower,upper:v.upper}).collect::<Vec<_>>();
-            let control=FlightCancellation::default();let projection_scope=scope.clone();let limit=self.policy.worker_bytes/256;
+            let control=Cancellation::default();let projection_scope=scope.clone();let limit=self.policy.worker_bytes/256;
             let bound = assembly.factorable_allocation_bound(&pse_math::factorable::FactorableRequest::default(), limit)?
                 .map(|bytes| n.checked_mul(4 * size_of::<pse_math::factorable::Node>() + 4 * size_of::<usize>()).and_then(|extra| bytes.checked_add(extra)).ok_or(MathRuntimeError::Limit("path isolation construction extent")))
                 .transpose()?;
@@ -3151,7 +3151,7 @@ impl MathService {
                 projection_scope.check().map_err(ProblemError::Provider)?;let bytes=program.retained_bytes();Ok(((identity,Arc::new(program)),bytes))
             });
             tokio::pin!(projection);
-            let ((identity,program),projection_owner)=tokio::select! {result=&mut projection=>result?,()=driver.cancelled()=>{scope.cancellation().store(true,Ordering::Release);control.cancel();let _=projection.await;return Err(MathRuntimeError::Cancelled);}};
+            let ((identity,program),projection_owner)=tokio::select! {result=&mut projection=>result?,()=driver.cancelled()=>{scope.cancellation_control().cancel();control.cancel();let _=projection.await;return Err(MathRuntimeError::Cancelled);}};
             let service=Arc::downgrade(self);
             let verifier:Arc<dyn SelectionVerifier>=Arc::new(native::root_isolation::Ibex::with_transport_allocator(move |bytes| {
                 let service=service.upgrade().ok_or_else(||pse_math::MathError::Contract("proof transport allocation owner expired".into()))?;
@@ -3163,7 +3163,7 @@ impl MathService {
             let chart_bytes=n.checked_mul(256).and_then(|v|v.checked_add(size_of::<PathSelection>()+4096)).ok_or(MathRuntimeError::Limit("compiled path chart extent"))?;
             let bytes=workspace.checked_add(chart_bytes).ok_or(MathRuntimeError::Limit("compiled path proof extent"))?;
             let selection=case.prepared.compiled().plan.structure().rows()[0].id;
-            let alternative=SelectionScope {id:selection,program,residual_identity:identity,unknowns};let proof_scope=scope.clone();let proof_verifier=verifier.clone();let control=FlightCancellation::default();let allowance=original.time_limit();
+            let alternative=SelectionScope {id:selection,program,residual_identity:identity,unknowns};let proof_scope=scope.clone();let proof_verifier=verifier.clone();let control=Cancellation::default();let allowance=original.time_limit();
             let proof=self.job_retained_scoped(1,bytes,control.clone(),scope.deadline(),move |_| {
                 proof_scope.check().map_err(ProblemError::Provider)?;
                 let alternatives=[SelectionAlternative {id:alternative.id,program:&alternative.program,residual_identity:alternative.residual_identity,unknowns:&alternative.unknowns}];let parameters=[parameter_value];
@@ -3173,7 +3173,7 @@ impl MathService {
                 Ok((SelectionData {source,parameter,coordinates,verifier:proof_verifier,previous,alternatives:vec![alternative],winner:0,coverage:ChartChainCoverage::RootSheet,_owner:Some(projection_owner)},chart_bytes))
             });
             tokio::pin!(proof);
-            let (mut selected,owner)=tokio::select! {result=&mut proof=>result?,()=driver.cancelled()=>{scope.cancellation().store(true,Ordering::Release);control.cancel();let _=proof.await;return Err(MathRuntimeError::Cancelled);}};
+            let (mut selected,owner)=tokio::select! {result=&mut proof=>result?,()=driver.cancelled()=>{scope.cancellation_control().cancel();control.cancel();let _=proof.await;return Err(MathRuntimeError::Cancelled);}};
             selected._owner=Some(pse_math::retain_allocation_owner(selected._owner.take(),owner));Ok(PathSelection(Arc::new(selected)))
             }.await;
             abandoned.0 = None;

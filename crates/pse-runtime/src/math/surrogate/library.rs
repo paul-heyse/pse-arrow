@@ -546,7 +546,7 @@ impl<E: FidelityEvaluator> Worker<E> {
         let deadline = std::time::Instant::now()
             .checked_add(remaining)
             .ok_or(MathError::Limit("surrogate deadline extent"))?;
-        let scope = ExecutionScope::new(scope.cancellation().clone(), Some(deadline));
+        let scope = ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
         let workspace = options.workspace_bytes(&correspondence)?;
         let key = options.key(&correspondence)?;
         let bounds = Array2::from_shape_vec(
@@ -826,7 +826,7 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
         let deadline = std::time::Instant::now()
             .checked_add(allowance)
             .ok_or(MathError::Limit("surrogate deadline extent"))?;
-        let scope = ExecutionScope::new(scope.cancellation().clone(), Some(deadline));
+        let scope = ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(options.threads)
             .stack_size(options.stack_bytes)
@@ -1082,7 +1082,7 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
                 .chain(scope.deadline())
                 .min();
             let prior = callback.scope.clone();
-            callback.scope = ExecutionScope::new(prior.cancellation().clone(), deadline);
+            callback.scope = ExecutionScope::new(prior.cancellation_control().clone(), deadline);
             prior
         };
         let result = self.advance();
@@ -1192,7 +1192,7 @@ mod tests {
         }
     }
     fn scope() -> ExecutionScope {
-        ExecutionScope::new(Arc::new(AtomicBool::new(false)), None)
+        ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None)
     }
     fn snapshot<E: FidelityEvaluator>(task: &RetainedSurrogate<E>) -> SurrogateSnapshot {
         let pool: Arc<dyn pse_columnar::MemoryPool> =
@@ -1604,7 +1604,7 @@ mod tests {
         let mut task =
             RetainedSurrogate::new(Slow(evaluator(calls.clone())), options(), outer).unwrap();
         let wrong = ExecutionScope::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             Some(std::time::Instant::now() + Duration::from_secs(1)),
         );
         assert!(matches!(

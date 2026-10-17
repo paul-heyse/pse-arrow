@@ -122,7 +122,7 @@ fn proof_payload() -> PathSelection {
 #[test]
 fn actual_ibex_sheet_transport_consumes_original_endpoints_and_coverage() {
     let selection = proof_payload();
-    let execution = Execution::new(Arc::default(), &Controls::default());
+    let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
     let (chart, evidence) = selection
         .connect(
             &selection.previous,
@@ -142,7 +142,7 @@ fn actual_ibex_sheet_transport_consumes_original_endpoints_and_coverage() {
         .unwrap();
     assert!(chart.is_none());
     assert!(!matches!(evidence, ChartChainEvidence::Connected(_)));
-    execution.cancel.store(true, Ordering::Release);
+    execution.cancellation_control().cancel();
     assert!(matches!(
         selection.connect(&selection.previous, 1., &[1., 1.], &execution),
         Err(ProblemError::Cancelled)
@@ -250,7 +250,7 @@ fn request(original: &PreparedSolve, parameter: SemanticId) -> PathRequest {
 #[cfg(feature = "solver-ipopt")]
 fn scope() -> ExecutionScope {
     ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(20)),
     )
 }

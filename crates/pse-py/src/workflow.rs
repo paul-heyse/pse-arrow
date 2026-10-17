@@ -2190,7 +2190,7 @@ impl SimulationSettings {
     }
     #[staticmethod]
     fn from_json(py: Python<'_>, source: &str) -> PyResult<Self> {
-        documents::decode_versioned::<native::SimulationProfile, 1>(
+        documents::decode_versioned::<native::SimulationProfile, 2>(
             py,
             "simulation settings",
             source.as_bytes(),

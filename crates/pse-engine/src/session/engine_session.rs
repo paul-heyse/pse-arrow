@@ -30,7 +30,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct EngineSession {
     pub(super) invocation: Option<Arc<super::cache::CacheStore>>,
-    pub(super) query_admission: std::sync::Weak<tokio::sync::OwnedSemaphorePermit>,
+    pub(super) query_admission: std::sync::Weak<crate::resources::ReleasedPermit>,
     pub(crate) owners: Vec<Arc<dyn crate::provider::witness::ExecutionOwner>>,
     pub(super) requires_fresh: Arc<std::sync::atomic::AtomicBool>,
     pub(super) trace: Arc<super::trace::ExecutionTrace>,

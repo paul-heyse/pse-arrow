@@ -60,7 +60,7 @@ pub(super) fn service_with_policy(
     .unwrap();
     let service = MathService::new(
         pool,
-        Arc::new(tokio::sync::Semaphore::new(2)),
+        Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(2)),
         2,
         policy,
         &native,
@@ -71,7 +71,7 @@ pub(super) fn service_with_policy(
 async fn cancellation_before_entry_releases_admission_without_starting() {
     let s = service();
     let permit = s.cpu.clone().acquire_many_owned(2).await.unwrap();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let called = Arc::new(AtomicBool::new(false));
     let flag = called.clone();
     let baseline = s.pool.reserved();
@@ -91,7 +91,7 @@ async fn scoped_preparation_deadline_includes_cpu_wait_and_late_join() {
     use pse_backend_native::{LimitKind, ProblemError};
     let s = service();
     let permit = s.cpu.clone().acquire_many_owned(2).await.unwrap();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let baseline = s.pool.reserved();
     let called = Arc::new(AtomicBool::new(false));
     let flag = called.clone();
@@ -143,7 +143,7 @@ async fn task_preparation_waiter_expires_without_renewing_or_cancelling_parent()
         parent.clone(),
         Some(std::time::Instant::now() + std::time::Duration::from_millis(25)),
     );
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let called = Arc::new(AtomicBool::new(false));
     let observed = called.clone();
     let baseline = service.pool.reserved();
@@ -198,7 +198,7 @@ async fn abandoned_caller_holds_pool_and_cpu_through_tls_destructor() {
     let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
     let e = entered.clone();
     let g = gate.clone();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let baseline = s.pool.reserved();
     let mut job = Box::pin(s.job(2, 1024, control, move |_| {
         let non_send = std::rc::Rc::new(3);
@@ -231,7 +231,7 @@ async fn retained_result_capacity_transfers_without_a_second_reservation() {
     let active =
         bytes + s.policy.stack_bytes + s.policy.foreign_bytes + s.policy.inner_session_bytes;
     let (result, owner) = s
-        .job_retained(1, bytes, FlightCancellation::default(), move |_| {
+        .job_retained(1, bytes, Cancellation::default(), move |_| {
             assert_eq!(pool.reserved(), active);
             Ok((vec![3_u64; 16], 16 * size_of::<u64>()))
         })
@@ -249,7 +249,7 @@ async fn retained_result_capacity_transfers_without_a_second_reservation() {
 async fn retained_result_beyond_the_working_allowance_is_charged_at_its_extent() {
     let s = service();
     let (result, owner) = s
-        .job_retained(1, 0, FlightCancellation::default(), move |_| {
+        .job_retained(1, 0, Cancellation::default(), move |_| {
             Ok((vec![3_u64; 1 << 20], 8 << 20))
         })
         .await
@@ -260,7 +260,7 @@ async fn retained_result_beyond_the_working_allowance_is_charged_at_its_extent()
     assert_eq!(s.pool.reserved(), 0);
     // A product the pool cannot admit is refused after the work, as a pool limit.
     let refused = s
-        .job_retained(1, 0, FlightCancellation::default(), move |_| {
+        .job_retained(1, 0, Cancellation::default(), move |_| {
             Ok(((), 1 << 30))
         })
         .await;
@@ -319,7 +319,7 @@ async fn admission_pool_pressure_releases_cpu_and_uses_one_population_ticket() {
     let service = s.clone();
     let task = tokio::spawn(async move {
         service
-            .job_retained(1, 0, FlightCancellation::default(), move |_| {
+            .job_retained(1, 0, Cancellation::default(), move |_| {
                 entered.store(true, Ordering::Release);
                 Ok((42, 0))
             })
@@ -337,7 +337,7 @@ async fn admission_pool_pressure_releases_cpu_and_uses_one_population_ticket() {
     assert!(!called.load(Ordering::Acquire));
     assert_eq!(s.cpu.available_permits(), 2);
     let refused = s
-        .job_retained(1, 0, FlightCancellation::default(), |_| Ok(((), 0)))
+        .job_retained(1, 0, Cancellation::default(), |_| Ok(((), 0)))
         .await;
     assert!(matches!(
         refused,
@@ -367,7 +367,7 @@ async fn admission_only_deadline_expires_on_pressure_without_dispatch() {
     held.try_grow(256 << 20).unwrap();
     let called = Arc::new(AtomicBool::new(false));
     let entered = called.clone();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let result = s
         .job_retained(1, 0, control.clone(), move |_| {
             entered.store(true, Ordering::Release);
@@ -399,7 +399,7 @@ async fn admission_only_clock_does_not_reclassify_completed_unscoped_work() {
         },
     );
     let (answer, lease) = s
-        .job_retained(1, 0, FlightCancellation::default(), |_| {
+        .job_retained(1, 0, Cancellation::default(), |_| {
             std::thread::sleep(std::time::Duration::from_millis(50));
             Ok((42, 0))
         })
@@ -414,7 +414,7 @@ async fn admission_cancellation_during_pressure_releases_ticket_without_dispatch
     let s = service();
     let held = MemoryConsumer::new("retained-pressure").register(&s.pool);
     held.try_grow(512 << 20).unwrap();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let called = Arc::new(AtomicBool::new(false));
     let entered = called.clone();
     let service = s.clone();
@@ -446,7 +446,7 @@ async fn admission_oversized_extent_refuses_before_ticket_and_dispatch() {
     let called = Arc::new(AtomicBool::new(false));
     let entered = called.clone();
     let result = s
-        .job_retained(1, 512 << 20, FlightCancellation::default(), move |_| {
+        .job_retained(1, 512 << 20, Cancellation::default(), move |_| {
             entered.store(true, Ordering::Release);
             Ok(((), 0))
         })
@@ -856,7 +856,7 @@ async fn general_rebind_admits_small_projection_with_generous_worker_capacity() 
         .prepare_order(
             prepared.model.case.clone(),
             pse_kernels::DerivativeOrder::Second,
-            FlightCancellation::default(),
+            Cancellation::default(),
         )
         .await
         .unwrap();
@@ -1193,7 +1193,7 @@ async fn compiler_queue_owns_population_without_active_resources_and_cancelled_w
             .compiler_job(
                 first_workspace,
                 ConstructionEstimate::Known(0),
-                FlightCancellation::default(),
+                Cancellation::default(),
                 None,
                 move |authority, _| {
                     let _compiler = authority.lock()?;
@@ -1207,7 +1207,7 @@ async fn compiler_queue_owns_population_without_active_resources_and_cancelled_w
     });
     entered.await.unwrap();
     let running_bytes = service.pool.reserved();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let mut second = Box::pin(service.compiler_job(
         workspace.clone(),
         ConstructionEstimate::Known(0),
@@ -1237,7 +1237,7 @@ async fn compiler_queue_owns_population_without_active_resources_and_cancelled_w
     let mut third = Box::pin(service.compiler_job(
         workspace.clone(),
         ConstructionEstimate::Known(0),
-        FlightCancellation::default(),
+        Cancellation::default(),
         None,
         move |authority, _| {
             let _compiler = authority.lock()?;
@@ -1264,7 +1264,7 @@ async fn compiler_queue_cutoff_and_dispatch_refusal_release_exact_authority() {
     let workspace = compiler_workspace(&service);
     let baseline = service.pool.reserved();
     let authority = CompilerAuthority::private(workspace.clone()).unwrap();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let result = service
         .compiler_job(
             workspace.clone(),
@@ -1293,7 +1293,7 @@ async fn compiler_queue_cutoff_and_dispatch_refusal_release_exact_authority() {
         .compiler_job(
             workspace.clone(),
             ConstructionEstimate::Known(0),
-            FlightCancellation::default(),
+            Cancellation::default(),
             None,
             |_, _| Ok(()),
         )
@@ -1332,7 +1332,7 @@ async fn compiler_authority_and_workspace_remain_owned_through_tls_destructor_an
     let mut operation = Box::pin(service.compiler_job(
         workspace.clone(),
         ConstructionEstimate::Known(0),
-        FlightCancellation::default(),
+        Cancellation::default(),
         None,
         move |authority, _| {
             let _compiler = authority.lock()?;
@@ -1382,7 +1382,7 @@ async fn compiler_queue_is_bounded_by_existing_population_before_active_admissio
     let workspace = compiler_workspace(&service);
     let authority = CompilerAuthority::private(workspace.clone()).unwrap();
     let baseline = service.pool.reserved();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let mut first = Box::pin(service.compiler_job(
         workspace.clone(),
         ConstructionEstimate::Known(0),
@@ -1408,7 +1408,7 @@ async fn compiler_queue_is_bounded_by_existing_population_before_active_admissio
             .compiler_job(
                 workspace.clone(),
                 ConstructionEstimate::Known(0),
-                FlightCancellation::default(),
+                Cancellation::default(),
                 None,
                 |_, _| Ok(())
             )

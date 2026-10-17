@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
-use std::sync::atomic::AtomicBool;
 
 #[test]
 fn private_native_frames_refuse_oversize_and_keep_original_stop() {
@@ -9,12 +8,12 @@ fn private_native_frames_refuse_oversize_and_keep_original_stop() {
     writer
         .write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes())
         .unwrap();
-    let scope = ExecutionScope::new(Arc::default(), None);
+    let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
     assert!(matches!(
         receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope),
         Err(MathRuntimeError::Solve(_))
     ));
-    let cancel = Arc::new(AtomicBool::new(true));
+    let cancel = pse_diagnostics::Cancellation::new(true);
     let scope = ExecutionScope::new(cancel, None);
     assert!(receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope).is_err());
 }
@@ -211,7 +210,7 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
         let mut input = source();
         input.parameters[0] = target;
         let handle = service
-            .solve_portable_root(input, child.clone(), FlightCancellation::default(), None)
+            .solve_portable_root(input, child.clone(), Cancellation::default(), None)
             .unwrap();
         let (result, lease) = handle.finish().await.unwrap();
         assert_ne!(result.child_pid, std::process::id());
@@ -245,7 +244,7 @@ fn private_native_fake_process() {
         std::process::exit(17);
     }
     let mut channel = UnixStream::from(io::stdin().as_fd().try_clone_to_owned().unwrap());
-    let scope = ExecutionScope::new(Arc::default(), None);
+    let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
     let attempt =
         SemanticId::parse_hex(&std::env::var("PSE_PRIVATE_NATIVE_TEST_ATTEMPT").unwrap()).unwrap();
     let parent_record = std::fs::read_to_string("/proc/self/status").unwrap();
@@ -347,7 +346,7 @@ async fn actual_private_child_publishes_a_distinct_parent_linked_checkpoint() {
     let child = fake_child("actual", &directory.path().join("child.pid"));
     let (result, lease) = pse_diagnostics::observation::scope(Some(parent.context()), async {
         service
-            .solve_portable_root(source(), child, FlightCancellation::default(), None)
+            .solve_portable_root(source(), child, Cancellation::default(), None)
             .unwrap()
             .finish()
             .await
@@ -428,7 +427,7 @@ async fn private_native_process_death_foreign_attempt_and_original_residual_refu
             .solve_portable_root(
                 source(),
                 fake_child(mode, &marker),
-                FlightCancellation::default(),
+                Cancellation::default(),
                 None,
             )
             .unwrap();
@@ -464,7 +463,7 @@ async fn private_native_queue_wait_uses_original_clock_without_launch_or_cancell
     let marker = directory.path().join("must-not-launch");
     let child = fake_child("late", &marker);
     let occupied = service.cpu.clone().acquire_many_owned(2).await.unwrap();
-    let control = FlightCancellation::default();
+    let control = Cancellation::default();
     let handle = service
         .solve_portable_root(
             source(),
@@ -494,7 +493,7 @@ async fn private_native_late_output_and_cancellation_hold_parent_charges_until_r
     for cancel_owned in [false, true] {
         let directory = tempfile::tempdir().unwrap();
         let marker = directory.path().join("owned-child");
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let deadline = if cancel_owned {
             None
         } else {
@@ -551,7 +550,7 @@ async fn native_child_strict_complete_memory_selection_refuses_before_launch() {
     let mut child = NativeChild::qualify(std::env::current_exe().unwrap(), 128 << 20).unwrap();
     child.require_complete_memory_bound = true;
     assert!(matches!(
-        service.solve_portable_root(source(), child, FlightCancellation::default(), None),
+        service.solve_portable_root(source(), child, Cancellation::default(), None),
         Err(MathRuntimeError::Solve(
             pse_backend_native::ProblemError::Unsupported(_)
         ))

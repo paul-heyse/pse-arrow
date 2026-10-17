@@ -1129,7 +1129,7 @@ fn settled_results(
 /// A native stream with explicit batch ownership and no implicit full-result collection.
 /// Dropping it cancels unconsumed work and releases its retained resources.
 pub struct OwnedComputationStream {
-    query_permit: Option<Arc<tokio::sync::OwnedSemaphorePermit>>,
+    query_permit: Option<Arc<crate::resources::ReleasedPermit>>,
     operation: OperationObservation,
     prepared: PreparedComputation,
     physical: Arc<dyn datafusion::physical_plan::ExecutionPlan>,
@@ -1500,7 +1500,7 @@ fn stage_error(error: EngineError, stage: &str) -> EngineError {
 async fn query_admission(
     state: &datafusion::execution::session_state::SessionState,
     cancel: &CancellationToken,
-) -> Result<Option<Arc<tokio::sync::OwnedSemaphorePermit>>, EngineError> {
+) -> Result<Option<Arc<crate::resources::ReleasedPermit>>, EngineError> {
     if let Some(permit) = state
         .config()
         .get_extension::<super::execution::NativeExecutionContext>()
@@ -1536,14 +1536,14 @@ async fn query_admission(
         Some(service) => service
             .admit_query(cancel)
             .await
-            .map(|permit| Some(Arc::new(permit)))
+            .map(|permit| Some(Arc::new(crate::resources::ReleasedPermit::unobserved(permit))))
             .map_err(engine),
         None => Ok(None),
     }
 }
 fn register_query_admission(
     state: &datafusion::execution::session_state::SessionState,
-    permit: Option<&Arc<tokio::sync::OwnedSemaphorePermit>>,
+    permit: Option<&Arc<crate::resources::ReleasedPermit>>,
 ) {
     if let Some(permit) = permit
         && let Some(services) = state
@@ -1566,7 +1566,7 @@ mod durability_unit {
         let mut cache_policy = crate::cache_service::CacheBudget::for_memory(64 << 20);
         cache_policy.concurrent_outputs = std::num::NonZeroUsize::new(4).unwrap();
         let caches = crate::cache_service::NativeCacheService::new(cache_policy, &pool).unwrap();
-        let permits = Arc::new(tokio::sync::Semaphore::new(16));
+        let permits = Arc::new(crate::resources::ReleaseNotifyingSemaphore::new(16));
         let factory = super::super::EngineFactory::new(
             Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
             pool.clone(),
@@ -1643,7 +1643,7 @@ mod durability_unit {
 
     #[tokio::test]
     async fn roots_admit_partition_capacity_and_nested_work_borrows_the_owner() {
-        let cpu = Arc::new(tokio::sync::Semaphore::new(2));
+        let cpu = Arc::new(crate::resources::ReleaseNotifyingSemaphore::new(2));
         let factory = super::super::EngineFactory::from_builder(
             Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
             Arc::new(pse_columnar::GreedyMemoryPool::new(32 << 20)),
@@ -1698,7 +1698,7 @@ mod durability_unit {
     }
     #[tokio::test]
     async fn root_admission_uses_effective_session_partitions_and_releases_on_drop() {
-        let permits = Arc::new(tokio::sync::Semaphore::new(2));
+        let permits = Arc::new(crate::resources::ReleaseNotifyingSemaphore::new(2));
         let state = SessionStateBuilder::new_with_default_features()
             .with_config(
                 SessionConfig::new()

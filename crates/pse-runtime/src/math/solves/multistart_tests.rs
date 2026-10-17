@@ -65,7 +65,7 @@ async fn modeling_original(
 }
 fn scope() -> ExecutionScope {
     ExecutionScope::new(
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         Some(Instant::now() + Duration::from_secs(30)),
     )
 }
@@ -232,7 +232,7 @@ async fn original_invalid_start_guard_and_task_limits_preserve_causes_without_di
             .is_err()
     );
     assert!(!task.cancellation().load(Ordering::Acquire));
-    task.cancellation().store(true, Ordering::Release);
+    task.cancellation_control().cancel();
     assert!(
         service
             .screen_multistart_worker(&prepared, task, &budget)

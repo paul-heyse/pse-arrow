@@ -207,7 +207,7 @@ mod admission_tests {
         let mut cache_policy = CacheBudget::for_memory(512 << 20);
         cache_policy.concurrent_outputs = NonZeroUsize::new(4).unwrap();
         let caches = NativeCacheService::new(cache_policy, &pool).unwrap();
-        let permits = Arc::new(tokio::sync::Semaphore::new(16));
+        let permits = Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(16));
         let sessions = EngineFactory::new(
             Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
             pool.clone(),

@@ -103,7 +103,7 @@ pub struct LiveSimulationCursor {
     receiver: tokio::sync::Mutex<tokio::sync::mpsc::Receiver<LiveSimulationEvent>>,
     completion: Option<tokio::sync::watch::Receiver<Option<Arc<RunResult>>>>,
     joined: std::sync::atomic::AtomicBool,
-    closed: pse_columnar::flight::FlightCancellation,
+    closed: pse_diagnostics::Cancellation,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl LiveSimulationCursor {
@@ -341,7 +341,7 @@ impl super::SimulationSampleObserver for Observer {
 pub(super) async fn deliver(
     subscriber: &tokio::sync::mpsc::Sender<LiveSimulationEvent>,
     event: LiveSimulationEvent,
-    cancel: &pse_columnar::flight::FlightCancellation,
+    cancel: &pse_diagnostics::Cancellation,
     deadline: Instant,
 ) {
     let sent = subscriber.send(event);

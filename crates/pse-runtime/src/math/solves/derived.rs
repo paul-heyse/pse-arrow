@@ -1601,10 +1601,10 @@ impl MathService {
             .checked_add(profile.controls.time_limit)
             .ok_or(MathRuntimeError::Limit("derived submission deadline"))?;
         let deadline = scope.deadline().map_or(local, |outer| outer.min(local));
-        let operation_scope = ExecutionScope::new(scope.cancellation().clone(), Some(deadline));
+        let operation_scope = ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
         let worker_scope = operation_scope.clone();
         let task_scope = scope.clone();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let cores = profile.controls.threads;
         let service = self.clone();
         let workspace = preparation_bytes(&source, &request)?
@@ -1652,7 +1652,7 @@ impl MathService {
             Ok((PreparedDerivedData {original,source,physical,family,request,reduced,profile,backend,snapshot,decision,normalization,tolerances,accuracy,compatibility,original_identity,key,scope:task_scope,operation_scope:worker_scope,_owner:placeholder},bytes))
         });
         tokio::pin!(operation);
-        let (mut prepared, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{scope.cancellation().store(true,std::sync::atomic::Ordering::Release);control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let (mut prepared, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{scope.cancellation_control().cancel();control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         prepared._owner = owner;
         Ok(PreparedDerived {
             data: Arc::new(prepared),

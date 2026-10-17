@@ -35,8 +35,8 @@ pub struct NativeExecutionContext {
     cancel: CancellationToken,
     scopes: BTreeSet<ProviderScope>,
     inherited: bool,
-    parent_admission: std::sync::Weak<tokio::sync::OwnedSemaphorePermit>,
-    query_admission: std::sync::Mutex<std::sync::Weak<tokio::sync::OwnedSemaphorePermit>>,
+    parent_admission: std::sync::Weak<crate::resources::ReleasedPermit>,
+    query_admission: std::sync::Mutex<std::sync::Weak<crate::resources::ReleasedPermit>>,
 }
 impl NativeExecutionContext {
     /// Actual immutable planner/function owner captured before execution extensions bind.
@@ -151,18 +151,18 @@ impl NativeExecutionContext {
     /// Nested native queries use their live outer query's admission.
     pub(crate) fn inherited_query_admission(
         &self,
-    ) -> Option<Arc<tokio::sync::OwnedSemaphorePermit>> {
+    ) -> Option<Arc<crate::resources::ReleasedPermit>> {
         self.parent_admission.upgrade()
     }
     /// Retain the enclosing query admission through an actual blocking foreign job.
-    pub fn running_query_admission(&self) -> Option<Arc<tokio::sync::OwnedSemaphorePermit>> {
+    pub fn running_query_admission(&self) -> Option<Arc<crate::resources::ReleasedPermit>> {
         self.query_admission
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .upgrade()
             .or_else(|| self.parent_admission.upgrade())
     }
-    pub(super) fn register_query_admission(&self, permit: &Arc<tokio::sync::OwnedSemaphorePermit>) {
+    pub(super) fn register_query_admission(&self, permit: &Arc<crate::resources::ReleasedPermit>) {
         *self
             .query_admission
             .lock()

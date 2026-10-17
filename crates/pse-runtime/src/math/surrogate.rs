@@ -3,7 +3,7 @@
 //! Task-admitted egobox actor. Non-Send library objects never leave their owning worker.
 use super::{MathRuntimeError, MathService};
 use pse_backend_native::ProblemError;
-use pse_columnar::flight::FlightCancellation;
+use pse_diagnostics::Cancellation;
 mod library;
 use library::RetainedSurrogate;
 /// Runtime-owned retained library surrogate contracts.
@@ -39,12 +39,66 @@ enum Command {
     ),
     Stop,
 }
+/// The existing serialization mutex owns exclusion; notification owns no queue or permit.
+#[derive(Default)]
+struct ActorGate {
+    mutex: Mutex<()>,
+    released: pse_diagnostics::WakeSignal,
+}
+struct ActorGateGuard<'a> {
+    guard: Option<std::sync::MutexGuard<'a, ()>>,
+    released: &'a pse_diagnostics::WakeSignal,
+}
+impl Drop for ActorGateGuard<'_> {
+    fn drop(&mut self) {
+        self.guard.take(); // Publish actual unlock before waking blocked callers.
+        self.released.notify();
+    }
+}
+impl ActorGate {
+    fn poison() -> MathRuntimeError {
+        MathRuntimeError::Panic("surrogate actor gate poisoned".into())
+    }
+    fn lock(&self) -> Result<ActorGateGuard<'_>, MathRuntimeError> {
+        Ok(ActorGateGuard { guard: Some(self.mutex.lock().map_err(|_| Self::poison())?), released: &self.released })
+    }
+    fn lock_wait(
+        &self,
+        check: impl Fn() -> Result<(), MathRuntimeError>,
+        stop: impl std::future::Future<Output = ()>,
+        deadline: Option<Instant>,
+    ) -> Result<ActorGateGuard<'_>, MathRuntimeError> {
+        struct WakeThread(std::thread::Thread);
+        impl std::task::Wake for WakeThread {
+            fn wake(self: Arc<Self>) { self.0.unpark(); }
+            fn wake_by_ref(self: &Arc<Self>) { self.0.unpark(); }
+        }
+        let waker = std::task::Waker::from(Arc::new(WakeThread(std::thread::current())));
+        let mut context = std::task::Context::from_waker(&waker);
+        let mut stop = std::pin::pin!(stop);
+        loop {
+            // Register both wake sources before the original predicates/lock attempt.
+            let _release = self.released.watch(&waker);
+            let _ = stop.as_mut().poll(&mut context);
+            check()?;
+            match self.mutex.try_lock() {
+                Ok(guard) => return Ok(ActorGateGuard { guard: Some(guard), released: &self.released }),
+                Err(std::sync::TryLockError::Poisoned(_)) => return Err(Self::poison()),
+                Err(std::sync::TryLockError::WouldBlock) => {},
+            }
+            match deadline {
+                Some(at) => std::thread::park_timeout(at.saturating_duration_since(Instant::now())),
+                None => std::thread::park(),
+            }
+        }
+    }
+}
 struct Actor {
     observation: Option<pse_diagnostics::observation::ObservationContext>,
     sender: Sender<Command>,
     join: Mutex<Option<JoinHandle<()>>>,
-    gate: Mutex<()>,
-    abort: FlightCancellation,
+    gate: ActorGate,
+    abort: Cancellation,
     owner: Mutex<Option<Arc<pse_columnar::AllocationLease>>>,
 }
 impl std::fmt::Debug for Actor {
@@ -71,22 +125,10 @@ impl Actor {
         owner: Arc<pse_columnar::AllocationLease>,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<SurrogateSnapshot, MathRuntimeError> {
-        let _gate = loop {
-            cancel
-                .checkpoint()
-                .map_err(|_| MathRuntimeError::Cancelled)?;
-            match self.gate.try_lock() {
-                Ok(gate) => break gate,
-                Err(std::sync::TryLockError::Poisoned(_)) => {
-                    return Err(MathRuntimeError::Panic(
-                        "surrogate actor gate poisoned".into(),
-                    ));
-                }
-                Err(std::sync::TryLockError::WouldBlock) => {
-                    std::thread::sleep(std::time::Duration::from_millis(1))
-                }
-            }
-        };
+        let _gate = self.gate.lock_wait(
+            || cancel.checkpoint().map_err(|_| MathRuntimeError::Cancelled),
+            cancel.cancelled(), None,
+        )?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
             .send(Command::Snapshot(owner, cancel.clone(), reply))
@@ -96,10 +138,7 @@ impl Actor {
         })?
     }
     fn advance(&self) -> Result<SurrogateAdvance, MathRuntimeError> {
-        let _gate = self
-            .gate
-            .lock()
-            .map_err(|_| MathRuntimeError::Panic("surrogate actor gate poisoned".into()))?;
+        let _gate = self.gate.lock()?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
             .send(Command::Advance(reply))
@@ -109,10 +148,7 @@ impl Actor {
             .map_err(|_| MathRuntimeError::Panic("surrogate owning worker response lost".into()))?
     }
     fn proposal(&self) -> ProposalResult {
-        let _gate = self
-            .gate
-            .lock()
-            .map_err(|_| MathRuntimeError::Panic("surrogate actor gate poisoned".into()))?;
+        let _gate = self.gate.lock()?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
             .send(Command::Proposal(reply))
@@ -122,20 +158,10 @@ impl Actor {
             .map_err(|_| MathRuntimeError::Panic("surrogate owning worker response lost".into()))?
     }
     fn phase(&self, scope: pse_kernels::ExecutionScope) -> Result<PhaseReply, MathRuntimeError> {
-        let _gate = loop {
-            scope.check().map_err(ProblemError::Provider)?;
-            match self.gate.try_lock() {
-                Ok(gate) => break gate,
-                Err(std::sync::TryLockError::Poisoned(_)) => {
-                    return Err(MathRuntimeError::Panic(
-                        "surrogate actor gate poisoned".into(),
-                    ));
-                }
-                Err(std::sync::TryLockError::WouldBlock) => {
-                    std::thread::sleep(std::time::Duration::from_millis(1))
-                }
-            }
-        };
+        let _gate = self.gate.lock_wait(
+            || scope.check().map_err(ProblemError::Provider).map_err(Into::into),
+            scope.cancellation_control().cancelled(), scope.deadline(),
+        )?;
         let (reply, answer) = mpsc::sync_channel(1);
         if let (Some(caller), Some(producer)) =
             (pse_diagnostics::observation::current(), &self.observation)
@@ -153,10 +179,7 @@ impl Actor {
         })
     }
     fn work(&self) -> Result<SurrogateWork, MathRuntimeError> {
-        let _gate = self
-            .gate
-            .lock()
-            .map_err(|_| MathRuntimeError::Panic("surrogate actor gate poisoned".into()))?;
+        let _gate = self.gate.lock()?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
             .send(Command::Work(reply))
@@ -173,7 +196,7 @@ pub struct SurrogateHandle {
     service: Arc<MathService>,
     actor: Arc<Actor>,
     owner: Arc<pse_columnar::AllocationLease>,
-    control: FlightCancellation,
+    control: Cancellation,
     scope: pse_kernels::ExecutionScope,
     task_scope: pse_kernels::ExecutionScope,
     correspondence: Arc<FidelityCorrespondence>,
@@ -264,7 +287,7 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
     evaluator: E,
     options: SurrogateOptions,
     scope: pse_kernels::ExecutionScope,
-    abort: FlightCancellation,
+    abort: Cancellation,
 ) -> Result<Actor, MathRuntimeError> {
     let (sender, commands) = mpsc::channel();
     let (ready, initialized) = mpsc::sync_channel(1);
@@ -405,7 +428,7 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
             observation,
             sender,
             join: Mutex::new(Some(join)),
-            gate: Mutex::new(()),
+            gate: ActorGate::default(),
             abort,
             owner: Mutex::new(None),
         }),
@@ -450,9 +473,9 @@ impl MathService {
             .checked_add(options.time)
             .ok_or(MathRuntimeError::Limit("surrogate submission deadline"))?;
         let deadline = scope.deadline().map_or(local, |outer| outer.min(local));
-        let scope = pse_kernels::ExecutionScope::new(scope.cancellation().clone(), Some(deadline));
+        let scope = pse_kernels::ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
         let cores = options.threads;
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let worker_scope = scope.clone();
         let worker_control = control.clone();
         let operation = self.job_retained_scoped(
@@ -469,7 +492,7 @@ impl MathService {
             },
         );
         tokio::pin!(operation);
-        let (actor, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{scope.cancellation().store(true,std::sync::atomic::Ordering::Release);control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let (actor, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{scope.cancellation_control().cancel();control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         // The actor itself owns the lease so its Drop joins library/pool destruction before releasing it,
         // including when the last handle disappears during a detached active job.
         *actor
@@ -516,7 +539,7 @@ impl MathService {
             },
         );
         tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>result.map(|(mut advance,owner)|{advance.proposal=advance.proposal.map(|proposal|proposal.with_owner(owner));advance}),()=driver.cancelled()=>{handle.scope.cancellation().store(true,std::sync::atomic::Ordering::Release);control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
+        tokio::select! {result=&mut operation=>result.map(|(mut advance,owner)|{advance.proposal=advance.proposal.map(|proposal|proposal.with_owner(owner));advance}),()=driver.cancelled()=>{handle.scope.cancellation_control().cancel();control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
     }
 }
 
@@ -755,7 +778,7 @@ impl MathService {
             .chain(handle.scope.deadline())
             .chain([local])
             .min();
-        let operation = pse_kernels::ExecutionScope::new(scope.cancellation().clone(), deadline);
+        let operation = pse_kernels::ExecutionScope::new(scope.cancellation_control().clone(), deadline);
         let result_bytes = handle
             .correspondence
             .coordinates
@@ -887,11 +910,11 @@ mod tests {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<SurrogateHandle>();
         let (e, o, threads, destroyed) = fixture();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let task = actor(
             e,
             o,
-            pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
             control,
         )
         .unwrap();
@@ -915,11 +938,11 @@ mod tests {
     fn actor_refuses_expired_original_scope_before_evaluation_and_joins_failed_construction() {
         let (e, o, threads, destroyed) = fixture();
         let scope = pse_kernels::ExecutionScope::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             Some(Instant::now() - std::time::Duration::from_secs(1)),
         );
         assert!(matches!(
-            actor(e, o, scope, FlightCancellation::default()),
+            actor(e, o, scope, Cancellation::default()),
             Err(MathRuntimeError::Math(pse_math::MathError::Scope(
                 pse_kernels::ProviderError::Deadline
             )))
@@ -953,7 +976,7 @@ mod tests {
             Failed(e.correspondence.clone()),
             o,
             scope.clone(),
-            FlightCancellation::default(),
+            Cancellation::default(),
         )
         .unwrap();
         let reply = task.phase(scope.clone()).unwrap();
@@ -1002,7 +1025,7 @@ mod tests {
             Slow(e.correspondence.clone()),
             o,
             scope,
-            FlightCancellation::default(),
+            Cancellation::default(),
         )
         .unwrap();
         let phase = pse_kernels::ExecutionScope::new(
@@ -1102,7 +1125,7 @@ mod tests {
         evaluator.correspondence.model_target = identity;
         evaluator.correspondence.coordinates = original.original_coordinates().unwrap();
         let scope = pse_kernels::ExecutionScope::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             Some(Instant::now() + std::time::Duration::from_secs(20)),
         );
         let handle = Arc::new(
@@ -1113,7 +1136,7 @@ mod tests {
                 .unwrap(),
         );
         let unrelated =
-            pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), scope.deadline());
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), scope.deadline());
         assert!(
             runtime
                 .native()

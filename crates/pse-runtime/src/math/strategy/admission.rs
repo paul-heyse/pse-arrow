@@ -564,7 +564,7 @@ mod tests {
     fn task() -> Arc<TaskAdmission> {
         TaskAdmission::new(
             limits(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             None,
             false,
         )
@@ -612,7 +612,7 @@ mod tests {
     fn unknown_strict_linear_storage_and_unadmitted_observation_refuse() {
         let task = TaskAdmission::new(
             limits(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             None,
             true,
         );
@@ -646,7 +646,7 @@ mod tests {
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64));
         let task = TaskAdmission::new(
             limits(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             Some(pool.clone()),
             true,
         );
@@ -705,7 +705,7 @@ mod tests {
         let owner = pse_columnar::AllocationLease::new(reservation);
         let task = TaskAdmission::new(
             limits(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             Some(pool.clone()),
             true,
         );
@@ -724,7 +724,7 @@ mod tests {
                 evaluations: Some(3),
                 ..limits()
             },
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             None,
             false,
         );
@@ -753,7 +753,7 @@ mod tests {
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128));
         let task = TaskAdmission::new(
             limits(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             Some(pool.clone()),
             true,
         );
@@ -791,7 +791,7 @@ mod tests {
     fn uncapped_unknown_nested_iterations_remain_unknown_and_caps_refuse_before_work() {
         let task = TaskAdmission::new(
             limits(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             None,
             false,
         );
@@ -821,7 +821,7 @@ mod tests {
                 iterations: Some(10),
                 ..limits()
             },
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             None,
             false,
         );
@@ -847,7 +847,7 @@ mod tests {
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128));
         let task = TaskAdmission::new(
             limits(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             Some(pool.clone()),
             false,
         );
@@ -874,7 +874,7 @@ mod tests {
                 evaluations: Some(4),
                 ..limits()
             },
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             None,
             false,
         );

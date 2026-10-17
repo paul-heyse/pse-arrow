@@ -19,7 +19,7 @@ pub struct SharedRuntime {
     tracked: Arc<TrackConsumersPool<FairSpillPool>>,
     peak: Arc<PeakRecordingPool>,
     budget: ResourceBudget,
-    compiler_cpu: Arc<tokio::sync::Semaphore>,
+    compiler_cpu: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
     caches: Arc<pse_engine::cache_service::NativeCacheService>,
     math: Arc<crate::math::MathService>,
 }
@@ -59,7 +59,7 @@ impl SharedRuntime {
         let native_cores = std::thread::available_parallelism()
             .map_or(1, std::num::NonZeroUsize::get)
             .min(budget.threads.pool_threads.get());
-        let compiler_cpu = Arc::new(tokio::sync::Semaphore::new(native_cores));
+        let compiler_cpu = Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(native_cores));
         let math = crate::math::MathService::new(
             env.memory_pool.clone(),
             compiler_cpu.clone(),
@@ -83,7 +83,7 @@ impl SharedRuntime {
         &self.math
     }
 
-    pub(crate) fn compiler_cpu(&self) -> Arc<tokio::sync::Semaphore> {
+    pub(crate) fn compiler_cpu(&self) -> Arc<pse_engine::resources::ReleaseNotifyingSemaphore> {
         self.compiler_cpu.clone()
     }
 

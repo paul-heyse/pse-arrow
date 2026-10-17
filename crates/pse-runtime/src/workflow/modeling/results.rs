@@ -1925,7 +1925,7 @@ mod tests {
                 category: Termination::Success,
                 assurance,
             },
-            &Execution::new(Arc::default(), &Controls::default()),
+            &Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default()),
         );
         report.evidence.global = Some(GlobalEvidence {
             fidelity: pse_math::factorable::Fidelity::Exact,

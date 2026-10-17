@@ -555,7 +555,7 @@ mod tests {
             smoothness: pse_kernels::DerivativeOrder::Value,
         };
         let execution = Execution::new(
-            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             &Controls::default(),
         );
         let mut report = SolveReport::new(

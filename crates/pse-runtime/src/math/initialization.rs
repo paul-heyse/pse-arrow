@@ -9,7 +9,7 @@ use super::{
     solves::{Predecessor, SolveHandle, SolverProfile},
 };
 use pse_backend_native::{self as native, execution, kinsol, quality::Tolerances, solve::*};
-use pse_columnar::flight::FlightCancellation;
+use pse_diagnostics::Cancellation;
 use pse_compiler::workspace::Profile;
 use pse_ids::SemanticId;
 use pse_math::binding::CaseValues;
@@ -495,7 +495,7 @@ impl MathService {
         let driver = self.preparation_driver(driver)?;
         admit_unit_profile(&profile, &numerics)?;
         let preconditions = source.compiled().preconditions.clone();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job_retained(
             workspace,
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
@@ -1053,12 +1053,12 @@ impl MathService {
             .and_then(|v| v.checked_add(controls.report_allowance().ok()?))
             .ok_or(MathRuntimeError::Limit("declared root result allowance"))?;
         let owner = self.reserve("math:declared-root-result", bytes)?;
-        let cancel = FlightCancellation::default();
+        let cancel = Cancellation::default();
         let control = cancel.clone();
         let deadline = std::time::Instant::now()
             .checked_add(controls.time_limit)
             .ok_or(MathRuntimeError::Limit("declared root deadline extent"))?;
-        let scope = pse_kernels::ExecutionScope::new(cancel.flag().clone(), Some(deadline));
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), Some(deadline));
         let progress = Arc::new(Progress::new(controls.history));
         let events = progress.clone();
         let service = self.clone();
@@ -1256,7 +1256,7 @@ impl MathService {
             .map(|r| size_of_val(r) + r.declaration.owned_bytes())
             .sum::<usize>()
             + size_of_val(targets.as_slice());
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job_retained(
             workspace,
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
@@ -1389,8 +1389,8 @@ impl MathService {
             .ok_or(MathRuntimeError::Limit(
                 "initialization task deadline extent",
             ))?;
-        let control = FlightCancellation::default();
-        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
+        let control = Cancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(deadline));
         let run_id = pse_operations::mint_id();
         let session = self.open_session()?;
         let admission = profile.solver.composition.limits.map(|limits| {
@@ -2591,7 +2591,7 @@ mod tests {
     #[test]
     fn conditional_failure_preserves_shared_terminal_causes_and_actual_native_status() {
         let controls = Controls::default();
-        let execution = Execution::new(Arc::default(), &controls);
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &controls);
         let contract = native::OracleContract {
             identity: pse_ids::ContentHash::from_bytes([71; 32]),
             variables: vec![native::Variable {
@@ -2815,7 +2815,7 @@ mod tests {
         let expired = session
             .sequence(
                 pse_kernels::ExecutionScope::new(
-                    Arc::default(),
+                    pse_diagnostics::Cancellation::default(),
                     Some(std::time::Instant::now() + std::time::Duration::from_millis(20)),
                 ),
                 Controls::default(),
@@ -2851,7 +2851,7 @@ mod tests {
         let bound = session
             .sequence(
                 pse_kernels::ExecutionScope::new(
-                    Arc::default(),
+                    pse_diagnostics::Cancellation::default(),
                     Some(std::time::Instant::now() + std::time::Duration::from_secs(10)),
                 ),
                 Controls::default(),
@@ -3107,11 +3107,11 @@ mod tests {
             )
             .unwrap();
         let cancel = crate::CancelSource::new();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let deadline = std::time::Instant::now()
             .checked_add(profile.solver.controls.time_limit)
             .unwrap();
-        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
+        let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(deadline));
         let session = service.open_session().unwrap();
         let mut other_residents = Vec::new();
         for _ in 1..service.policy.jobs {
@@ -3220,7 +3220,7 @@ mod tests {
             assert!(refreshed.original.satisfied());
             assert_eq!(refreshed.work[0].observed.evaluations, Some(1));
             assert!(refreshed.product.observed.as_ref().unwrap().0.feasible());
-            let wrong_owner = pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), run.scope.deadline());
+            let wrong_owner = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), run.scope.deadline());
             let refused = assessor.assess(&super::super::solves::Outcome::Native(report.clone()),
                 Some(&wrong_owner), &budget);
             assert!(matches!(refused.original, OriginalConclusion::Unavailable { .. }));
@@ -3393,7 +3393,7 @@ mod tests {
             Backend::Kinsol,
             &contract,
             kinsol::termination(0),
-            &Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default()),
+            &Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default()),
         );
         r.quality = Some(native::quality::Quality::new(vec![], vec![], vec![]).unwrap());
         r.candidate = Some(Candidate {

@@ -29,7 +29,8 @@ use datafusion::execution::{
 };
 pub(crate) use jobs::{ConstructionEstimate, PopulationScope, Submission};
 pub use jobs::{WorkerBudget, WorkerCharge};
-use pse_columnar::flight::{FlightCancellation, Flights};
+use pse_columnar::flight::Flights;
+use pse_diagnostics::Cancellation;
 use pse_compiler::workspace::{
     CompileError, CompilerContext, CompilerWorkspace, PreparedCase, WorkspaceLimits,
 };
@@ -49,6 +50,15 @@ use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex, atomic::AtomicUsize},
 };
+/// Await the actual enclosing stop without periodically polling its read flag.
+pub(crate) async fn scope_stopped(scope: &pse_kernels::ExecutionScope) -> pse_kernels::ProviderError {
+    if let Err(error) = scope.check() { return error; }
+    tokio::select! {
+        biased;
+        () = scope.cancellation_control().cancelled() => pse_kernels::ProviderError::Cancelled,
+        () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => pse_kernels::ProviderError::Deadline,
+    }
+}
 /// Finite math allowances draw from the deployment pool, never a second memory budget.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MathPolicy {
@@ -350,11 +360,11 @@ const WITHIN_WORKSPACE: usize = 0;
 pub struct MathService {
     pool: Arc<dyn MemoryPool>,
     released: Arc<tokio::sync::Notify>,
-    cpu: Arc<tokio::sync::Semaphore>,
+    cpu: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
     cores: usize,
     policy: MathPolicy,
-    jobs: Arc<tokio::sync::Semaphore>,
-    active_jobs: Arc<tokio::sync::Semaphore>,
+    jobs: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
+    active_jobs: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
     entries: Arc<DefaultCache<Key, Value>>,
     pub(crate) modeling_cache: retention::ModelingCache,
     compiler_lanes: Mutex<Vec<modeling::CompilerLane>>,
@@ -692,7 +702,7 @@ impl ExecutionWorker {
 impl MathService {
     pub(crate) fn new(
         pool: Arc<dyn MemoryPool>,
-        cpu: Arc<tokio::sync::Semaphore>,
+        cpu: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
         cores: usize,
         policy: MathPolicy,
         native: &Arc<pse_engine::cache_service::NativeCacheService>,
@@ -714,8 +724,8 @@ impl MathService {
             released,
             cpu,
             cores,
-            jobs: Arc::new(tokio::sync::Semaphore::new(policy.jobs)),
-            active_jobs: Arc::new(tokio::sync::Semaphore::new(policy.jobs)),
+            jobs: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(policy.jobs)),
+            active_jobs: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(policy.jobs)),
             entries: pressure.artifacts(),
             modeling_cache: retention::ModelingCache::new(pressure.clone()),
             compiler_lanes: Mutex::default(),
@@ -870,7 +880,7 @@ impl MathService {
         case: Arc<ExecutableCase>,
         providers: BTreeMap<ProviderKey, pse_kernels::Registration>,
         driver: &crate::CancelSource,
-        task: Option<(pse_kernels::ExecutionScope, FlightCancellation)>,
+        task: Option<(pse_kernels::ExecutionScope, Cancellation)>,
         work: impl FnOnce(CaseWorker) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
         if driver.token().is_cancelled() {
@@ -890,9 +900,9 @@ impl MathService {
                 (scope, control)
             }
             None => {
-                let control = FlightCancellation::default();
+                let control = Cancellation::default();
                 (
-                    pse_kernels::ExecutionScope::new(control.flag(), None),
+                    pse_kernels::ExecutionScope::new(control.clone(), None),
                     control,
                 )
             }

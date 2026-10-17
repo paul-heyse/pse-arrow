@@ -22,7 +22,7 @@ impl MathService {
             .ok_or(MathRuntimeError::Limit(
                 "initialization task deadline extent",
             ))?;
-        let scope = pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline));
+        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline));
         let progress = Arc::new(Progress::new(profile.solver.controls.history));
         let report_bytes = prepared.blocks.iter().try_fold(
             original.scalars.len().saturating_mul(64),
@@ -322,7 +322,7 @@ impl MathService {
         let quantities = prepared.quantities.clone();
         let preconditions = prepared.preconditions.clone();
         let inputs = values.clone();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let construction = super::super::jobs::ConstructionEstimate::from_bound(
             view.binding_allocation_bound(&inputs)?,
             self.policy.worker_bytes,
@@ -453,8 +453,8 @@ impl MathService {
         let mut execution =
             Execution::within(scope.cancellation().clone(), controls, scope.clone())?;
         execution.work_admission = admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
-        let control = FlightCancellation::default();
-        let task = pse_kernels::ExecutionScope::new(control.flag(), scope.deadline());
+        let control = Cancellation::default();
+        let task = pse_kernels::ExecutionScope::new(control.clone(), scope.deadline());
         self.with_owned_worker(
             case,
             providers,

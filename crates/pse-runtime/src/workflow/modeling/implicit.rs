@@ -604,7 +604,7 @@ mod tests {
             .job(
                 1,
                 bytes,
-                pse_columnar::flight::FlightCancellation::default(),
+                pse_diagnostics::Cancellation::default(),
                 move |flag| {
                     let scope = pse_kernels::ExecutionScope::new(
                         flag.clone(),

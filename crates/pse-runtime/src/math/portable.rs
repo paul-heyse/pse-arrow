@@ -693,7 +693,7 @@ pub(crate) async fn qualify_replay(
     let Some(producer) = producer else {
         return Ok(None);
     };
-    let control = pse_columnar::flight::FlightCancellation::default();
+    let control = pse_diagnostics::Cancellation::default();
     let operation = service.job_scoped(
         1,
         OBSERVATION_WORK_BYTES,
@@ -848,7 +848,7 @@ impl super::MathService {
         deadline: std::time::Instant,
         driver: &crate::CancelSource,
     ) -> Result<ReplayAdmission, PortableError> {
-        let control = pse_columnar::flight::FlightCancellation::default();
+        let control = pse_diagnostics::Cancellation::default();
         let operation = self.job_retained_scoped(
             1,
             OBSERVATION_WORK_BYTES,
@@ -939,7 +939,7 @@ async fn startup_observation_job<T: Send + 'static>(
     driver: &crate::CancelSource,
     work: impl FnOnce(Arc<AtomicBool>) -> Result<(T, usize), PortableError> + Send + 'static,
 ) -> Result<(T, Arc<pse_columnar::AllocationLease>), PortableError> {
-    let control = pse_columnar::flight::FlightCancellation::default();
+    let control = pse_diagnostics::Cancellation::default();
     let operation =
         service.job_retained_scoped(1, bytes, control.clone(), Some(deadline), move |flag| {
             // Keep the complete work envelope through native join, then transfer
@@ -1041,7 +1041,7 @@ async fn native_receiving<T: Send + 'static>(
     bytes: usize,
     operation: impl FnOnce(Arc<AtomicBool>) -> Result<T, PortableError> + Send + 'static,
 ) -> Result<T, PortableError> {
-    let control = pse_columnar::flight::FlightCancellation::default();
+    let control = pse_diagnostics::Cancellation::default();
     let work = service.job_scoped(1, bytes, control.clone(), deadline, move |flag| {
         operation(flag).map_err(runtime_error)
     });

@@ -1055,7 +1055,7 @@ async fn model_retention_is_completed_only_and_preserves_live_nested_admission()
             > report.hits
     );
     // Saturate the only outer-query permit. A nested candidate inherits it.
-    let permit = Arc::new(service.admit_query(&cancel).await.unwrap());
+    let permit = Arc::new(crate::resources::ReleasedPermit::unobserved(service.admit_query(&cancel).await.unwrap()));
     let state = super::super::execution::NativeExecutionContext::bind(
         &session,
         session.bound_state().unwrap(),
@@ -1076,7 +1076,7 @@ async fn model_retention_is_completed_only_and_preserves_live_nested_admission()
     let sibling =
         super::super::execution::NativeExecutionContext::from_session(&sibling_state).unwrap();
     let sibling_permit = Arc::new(
-        Arc::new(tokio::sync::Semaphore::new(1))
+        Arc::new(crate::resources::ReleaseNotifyingSemaphore::new(1))
             .acquire_owned()
             .await
             .unwrap(),

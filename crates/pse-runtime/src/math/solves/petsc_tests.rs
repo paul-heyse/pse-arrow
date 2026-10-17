@@ -60,7 +60,7 @@ async fn original(text: &str) -> (crate::workflow::Runtime, PreparedSolve) {
 }
 fn scope() -> ExecutionScope {
     ExecutionScope::new(
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         Some(Instant::now() + Duration::from_secs(30)),
     )
 }
@@ -296,7 +296,7 @@ async fn actual_compiled_guard_inventory_and_deadline_are_mandatory() {
     );
     assert!(!cancel.load(Ordering::Acquire));
     let task = scope();
-    task.cancellation().store(true, Ordering::Release);
+    task.cancellation_control().cancel();
     assert!(
         service
             .prepare_petsc_source(original, guards, task, &crate::CancelSource::new())

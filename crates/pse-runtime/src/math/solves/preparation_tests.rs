@@ -123,7 +123,7 @@ async fn capped_original_kinsol_root_uses_actual_evaluation_hooks_and_refuses_op
         .await
         .unwrap();
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(20)),
     );
     let admission = super::super::strategy::admission::TaskAdmission::new(
@@ -373,7 +373,7 @@ async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_
     let service = runtime.native();
     let driver = crate::CancelSource::new();
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
     );
     for preconditioner in [Preconditioner::Jacobi, Preconditioner::BlockFactor] {
@@ -777,7 +777,7 @@ async fn explicit_coefficient_cone_retains_representation_and_paired_proof() {
     let evidence = runtime
         .shared
         .math()
-        .job(1, demand, FlightCancellation::default(), move |flag| {
+        .job(1, demand, Cancellation::default(), move |flag| {
             coefficients
                 .numerical_convexity(1.0, &scales, 1.0, 1e-12, 1e-12, allowance, &flag)
                 .map_err(Into::into)
@@ -1006,7 +1006,7 @@ async fn actual_convex_advice_selects_equivalent_original_profile_before_first_s
         "comparison identity excludes advice while preserving the actual ordered profile inventory"
     );
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
     );
     let admitted = prepared.solve.clone().within_task(scope).unwrap();
@@ -1298,7 +1298,7 @@ async fn fresh_replay_recursively_detaches_exhausted_original_graph_and_preserve
     assert_eq!(admission.observation().unwrap().attempts, 1);
     assert!(original.task_scope().unwrap().check().is_err());
     let new_scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
     );
     assert!(replay.within_task(new_scope).is_ok());

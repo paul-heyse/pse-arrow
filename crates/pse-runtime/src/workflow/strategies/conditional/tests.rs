@@ -269,7 +269,7 @@ async fn conditional_schedule_and_first_binding_enter_with_source_demand() {
         .job(
             1,
             demand,
-            pse_columnar::flight::FlightCancellation::default(),
+            pse_diagnostics::Cancellation::default(),
             move |flag| {
                 assert_eq!(observed.reserved(), baseline + fixed + demand);
                 let bound = view.bind(quantities, preconditions, &values, &flag)?;
@@ -1150,7 +1150,7 @@ async fn conditional_retention_control(ambiguous: bool) {
     assert_eq!(program.program.assembly.order(), DerivativeOrder::Value);
     let controls = Controls::default();
     let execution = Execution::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         &controls,
     );
     let budget = crate::math::WorkerBudget::new(16 << 20);
@@ -1467,7 +1467,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
     assert_eq!(program.program.assembly.order(), DerivativeOrder::Value);
     let controls = Controls::default();
     let execution = Execution::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         &controls,
     );
     let budget = crate::math::WorkerBudget::new(16 << 20);
@@ -1873,7 +1873,7 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
     );
     let original = program.values.identity();
     let execution = Execution::new(
-        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         &Controls::default(),
     );
     let budget = crate::math::WorkerBudget::new(16 << 20);

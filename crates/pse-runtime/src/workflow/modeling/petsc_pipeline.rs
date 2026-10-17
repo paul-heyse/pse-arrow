@@ -153,7 +153,7 @@ mod tests {
     async fn actual_complete_btf_and_guard_only_slots_reach_original_correction() {
         let (package,mut original)=original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(1); eq first:x+0*log(y)==1; eq second:y==2; } }").await;
         let scope = ExecutionScope::new(
-            Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             Some(Instant::now() + Duration::from_secs(30)),
         );
         let mut profile = original.profile.clone();

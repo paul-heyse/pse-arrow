@@ -5,7 +5,7 @@
 use super::*;
 use crate::math::{MathRuntimeError, Submission, solves::SolveHandle};
 use pse_backend_native::solve::{Controls, Execution, Progress};
-use pse_columnar::flight::FlightCancellation;
+use pse_diagnostics::Cancellation;
 use pse_kernels::ExecutionScope;
 
 /// Joined IC observations whose buffers and diagnostics retain their original reservation.
@@ -294,7 +294,7 @@ impl ModelingSimulation {
         request: native::ConsistentInitialization,
         controls: Controls,
         scope: ExecutionScope,
-        cancellation: FlightCancellation,
+        cancellation: Cancellation,
     ) -> Result<ConsistentInitializationResult, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity

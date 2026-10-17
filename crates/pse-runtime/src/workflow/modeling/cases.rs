@@ -4359,7 +4359,7 @@ mod tests {
             .charge(executable.assembly.numeric_worker_bytes())
             .unwrap();
         let execution = pse_backend_native::solve::Execution::new(
-            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             &resolved.solver.controls,
         );
         let worker = executable

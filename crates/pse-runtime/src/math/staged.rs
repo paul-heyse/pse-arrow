@@ -244,16 +244,17 @@ type Work = Box<dyn FnOnce(Result<&mut Retained, ProblemError>) + Send>;
 /// actual execution clock before the guarded native operation begins.
 #[derive(Clone, Debug)]
 pub(super) struct ComputeOwner {
-    jobs: Arc<tokio::sync::Semaphore>,
-    cpu: Arc<tokio::sync::Semaphore>,
+    jobs: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
+    cpu: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
     cores: u32,
     permit: Arc<std::sync::Mutex<Option<super::jobs::ActivePermits>>>,
     runtime: tokio::runtime::Handle,
+    blocked_cpu: bool,
 }
 impl ComputeOwner {
     pub(super) fn new(
-        jobs: Arc<tokio::sync::Semaphore>,
-        cpu: Arc<tokio::sync::Semaphore>,
+        jobs: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
+        cpu: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
         cores: u32,
         permit: super::jobs::ActivePermits,
         runtime: tokio::runtime::Handle,
@@ -264,6 +265,7 @@ impl ComputeOwner {
             cores,
             permit: Arc::new(std::sync::Mutex::new(Some(permit))),
             runtime,
+            blocked_cpu: false,
         }
     }
 }
@@ -286,8 +288,12 @@ impl execution::ComputeAdmission for ComputeOwner {
         if held.is_some() {
             return Ok(execution::ComputeAvailability::Acquired);
         }
-        *held = super::jobs::try_active(&self.jobs, &self.cpu, self.cores)
-            .map_err(MathRuntimeError::into_problem)?;
+        match super::jobs::try_active(&self.jobs, &self.cpu, self.cores)
+            .map_err(MathRuntimeError::into_problem)? {
+            super::jobs::ActiveAttempt::Ready(permit) => *held = Some(permit),
+            super::jobs::ActiveAttempt::JobsBusy => self.blocked_cpu = false,
+            super::jobs::ActiveAttempt::CpuBusy => self.blocked_cpu = true,
+        }
         execution.check().inspect_err(|_| {
             held.take();
         })?;
@@ -303,12 +309,27 @@ impl execution::ComputeAdmission for ComputeOwner {
     ) -> Result<(), ProblemError> {
         // Retry complete pairs, without a queued large CPU request blocking smaller work.
         let runtime = self.runtime.clone();
+        let jobs = self.jobs.released();
+        let cpu = self.cpu.released();
+        let scope = execution.scope()?;
         runtime.block_on(async {
             loop {
+                let abandoned = execution.abandonment.notified();
+                let jobs_released = jobs.notified();
+                let cpu_released = cpu.notified();
+                tokio::pin!(jobs_released, cpu_released);
+                jobs_released.as_mut().enable();
+                cpu_released.as_mut().enable();
                 if self.try_resume(execution)? == execution::ComputeAvailability::Acquired {
                     return Ok(());
                 }
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                tokio::select! {
+                    () = jobs_released, if !self.blocked_cpu => {},
+                    () = cpu_released, if self.blocked_cpu => {},
+                    () = abandoned => {},
+                    () = scope.cancellation_control().cancelled() => {},
+                    () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => {},
+                }
             }
         })
     }
@@ -515,7 +536,23 @@ struct Request {
     backends: Vec<Backend>,
     observation: Option<pse_diagnostics::observation::ObservationContext>,
     scope_owner: Option<Arc<pse_columnar::AllocationLease>>,
-    work: Work,
+    work: Option<Work>,
+}
+/// At most one coalesced wake can occupy the existing native command channel.
+/// The weak sender cannot keep the native thread or session alive.
+struct IdleWake {
+    sender: std::sync::Weak<mpsc::Sender<Request>>,
+    pending: AtomicBool,
+}
+impl std::task::Wake for IdleWake {
+    fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+    fn wake_by_ref(self: &Arc<Self>) {
+        if self.pending.swap(true, Ordering::AcqRel) { return; }
+        let sent = self.sender.upgrade().is_some_and(|sender| sender.send(Request {
+            threads: 1, backends: Vec::new(), observation: None, scope_owner: None, work: None,
+        }).is_ok());
+        if !sent { self.pending.store(false, Ordering::Release); }
+    }
 }
 struct RequestObservation {
     context: Option<pse_diagnostics::observation::ObservationContext>,
@@ -554,6 +591,7 @@ fn serve(
     receiver: &std::sync::Mutex<mpsc::Receiver<Request>>,
     pool: &Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
     pressure: &super::retention::Pressure,
+    idle: &Arc<IdleWake>,
     stack: usize,
     population: &super::jobs::PopulationLane,
     #[cfg(test)] fail_scope_entry: &AtomicBool,
@@ -612,6 +650,10 @@ fn serve(
                 let _scratch_lane = ScratchLaneGuard::install();
                 let mut retained = Retained::after_scope(discarded);
                 loop {
+                    let waker = std::task::Waker::from(idle.clone());
+                    let pressure_watch = pressure.watch_idle(&waker);
+                    let scheduler_watch = execution::watch_scheduler(&waker);
+                    if execution::scheduler_waiting() { retained.relinquish_scheduler(); }
                     let trim_idle = if pending.is_none() && pressure.active() {
                         let mut live = current
                             .lock()
@@ -651,20 +693,20 @@ fn serve(
                         // Only this thread receives; the lock lends the receiver to the scope.
                         None => match receiver
                             .lock()
-                            .map(|r| r.recv_timeout(std::time::Duration::from_millis(10)))
+                            .map(|r| r.recv())
                         {
                             Ok(Ok(request)) => request,
-                            Ok(Err(mpsc::RecvTimeoutError::Timeout)) => {
-                                if execution::scheduler_waiting() {
-                                    retained.relinquish_scheduler();
-                                }
-                                continue;
-                            }
-                            Ok(Err(mpsc::RecvTimeoutError::Disconnected)) | Err(_) => {
+                            Ok(Err(mpsc::RecvError)) | Err(_) => {
                                 return Ok::<_, ProblemError>(None);
                             }
                         },
                     };
+                    drop(pressure_watch);
+                    drop(scheduler_watch);
+                    if request.work.is_none() {
+                        idle.pending.store(false, Ordering::Release);
+                        continue;
+                    }
                     if !entered.admits(&request) {
                         if let Some(context) = &request.observation {
                             context.count("native.session.scope_replacements", "count", 1);
@@ -707,7 +749,7 @@ fn serve(
                             }
                         }
                     });
-                    (request.work)(Ok(&mut retained));
+                    if let Some(work) = request.work.take() { work(Ok(&mut retained)); }
                     SCRATCH_LANE.with(|slot| {
                         if let Some(lane) = slot.borrow_mut().as_mut() {
                             if pressure.active() {
@@ -736,7 +778,7 @@ fn serve(
                 // The scope could not be entered: refuse the step that needed it and serve
                 // on outside every adapter scope, which cannot fail to enter.
                 if let Some(request) = pending.take() {
-                    (request.work)(Err(error));
+                    if let Some(work) = request.work { work(Err(error)); }
                 }
                 scope = Scope {
                     backends: Vec::new(),
@@ -748,7 +790,7 @@ fn serve(
 }
 /// Stops an admitted step when its caller stops waiting for it.
 struct Stop(
-    Option<Arc<AtomicBool>>,
+    Option<pse_diagnostics::Cancellation>,
     Option<pse_diagnostics::observation::ObservationContext>,
 );
 impl Drop for Stop {
@@ -757,7 +799,7 @@ impl Drop for Stop {
             if let Some(context) = self.1.as_ref().filter(|context| context.is_active()) {
                 context.boolean("native.session.stop_requested", true);
             }
-            flag.store(true, Ordering::Release);
+            flag.cancel();
         }
     }
 }
@@ -768,7 +810,7 @@ pub(crate) struct NativeSession {
     dispatch: Arc<tokio::sync::Semaphore>,
     scope: Arc<std::sync::Mutex<Scope>>,
     service: Arc<MathService>,
-    sender: Option<mpsc::Sender<Request>>,
+    sender: Option<Arc<mpsc::Sender<Request>>>,
     joined: Option<tokio::sync::oneshot::Receiver<()>>,
     budget: Arc<WorkerBudget>,
     parked: bool,
@@ -783,7 +825,7 @@ pub(super) struct ParkedSession {
     population: Arc<super::jobs::PopulationLane>,
     dispatch: Arc<tokio::sync::Semaphore>,
     scope: Arc<std::sync::Mutex<Scope>>,
-    sender: Option<mpsc::Sender<Request>>,
+    sender: Option<Arc<mpsc::Sender<Request>>>,
     joined: Option<tokio::sync::oneshot::Receiver<()>>,
     budget: Arc<WorkerBudget>,
     #[cfg(test)]
@@ -858,7 +900,7 @@ impl MathService {
                 tokio::sync::TryAcquireError::NoPermits => MathRuntimeError::Limit("native jobs"),
             })?;
         let bytes = self.session_bytes()?;
-        let control = pse_columnar::flight::FlightCancellation::default();
+        let control = pse_diagnostics::Cancellation::default();
         let lease = tokio::select! {
             lease = self.reserve_entry("math:native-session", bytes, &control, deadline) => lease?,
             () = cancel.cancelled() => {
@@ -878,11 +920,12 @@ impl MathService {
             .stack_bytes
             .checked_add(self.policy.foreign_bytes)
             .and_then(|n| n.checked_add(self.policy.inner_session_bytes))
+            .and_then(|n| n.checked_add(size_of::<IdleWake>() + size_of::<Request>()))
             .ok_or(MathRuntimeError::Limit("native allowance overflow"))
     }
     fn session_on(
         self: &Arc<Self>,
-        slot: Arc<tokio::sync::OwnedSemaphorePermit>,
+        slot: Arc<pse_engine::resources::ReleasedPermit>,
     ) -> Result<NativeSession, MathRuntimeError> {
         let bytes = self.session_bytes()?;
         let lease = self.reserve("math:native-session", bytes)?;
@@ -890,11 +933,13 @@ impl MathService {
     }
     fn session_on_reserved(
         self: &Arc<Self>,
-        slot: Arc<tokio::sync::OwnedSemaphorePermit>,
+        slot: Arc<pse_engine::resources::ReleasedPermit>,
         lease: Arc<pse_columnar::AllocationLease>,
     ) -> Result<NativeSession, MathRuntimeError> {
         let sessions = self.policy.inner_session_bytes;
         let (sender, receiver) = mpsc::channel::<Request>();
+        let sender = Arc::new(sender);
+        let idle = Arc::new(IdleWake { sender: Arc::downgrade(&sender), pending: AtomicBool::new(false) });
         let stack = self.policy.stack_bytes;
         let pool = self.pool.clone();
         let pressure = self.pressure.clone();
@@ -921,6 +966,7 @@ impl MathService {
                     &std::sync::Mutex::new(receiver),
                     &pool,
                     &pressure,
+                    &idle,
                     stack,
                     &native_population,
                     #[cfg(test)]
@@ -1037,8 +1083,13 @@ impl MathService {
                 let _ = joined.await;
             }
         }
-        while self.jobs.available_permits() < self.policy.jobs {
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        let releases = self.jobs.released();
+        loop {
+            let released = releases.notified();
+            tokio::pin!(released);
+            released.as_mut().enable();
+            if self.jobs.available_permits() == self.policy.jobs { break; }
+            released.await;
         }
     }
 }
@@ -1070,7 +1121,7 @@ impl NativeSession {
         cancel: &crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
         ) -> Result<T, MathRuntimeError>
         + Send
@@ -1088,7 +1139,7 @@ impl NativeSession {
         cancel: &crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
         ) -> Result<T, MathRuntimeError>
         + Send
@@ -1113,7 +1164,7 @@ impl NativeSession {
         cancel: &crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
         ) -> Result<T, MathRuntimeError>
         + Send
@@ -1132,7 +1183,7 @@ impl NativeSession {
         cancel: &crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
         ) -> Result<T, MathRuntimeError>
         + Send
@@ -1158,7 +1209,7 @@ impl NativeSession {
         cancel: &'a crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
             &mut OperationContext,
         ) -> Result<T, MathRuntimeError>
@@ -1217,7 +1268,7 @@ impl NativeSession {
         cancel: &crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
             &mut OperationContext,
         ) -> Result<T, MathRuntimeError>
@@ -1247,11 +1298,13 @@ impl NativeSession {
         };
         let task_stop = async {
             match &enclosing {
-                Some(scope) => loop {
-                    if let Err(error) = scope.check() {
-                        break error;
+                Some(scope) => {
+                    if let Err(error) = scope.check() { return error; }
+                    tokio::select! {
+                        biased;
+                        () = scope.cancellation_control().cancelled() => pse_kernels::ProviderError::Cancelled,
+                        () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => pse_kernels::ProviderError::Deadline,
                     }
-                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
                 },
                 None => std::future::pending::<pse_kernels::ProviderError>().await,
             }
@@ -1292,11 +1345,11 @@ impl NativeSession {
                 )?
             }
         };
-        let control = pse_columnar::flight::FlightCancellation::default();
+        let control = pse_diagnostics::Cancellation::default();
         let (reservation, permits) = tokio::select! {
             permits = self.service.reserve_active("math:native-scope-stacks", cores as u32, stacks, &control, admission_deadline) => permits?,
             () = cancel.cancelled() => {
-                if let Some(scope)=&enclosing {scope.cancellation().store(true,Ordering::Release);}
+                if let Some(scope)=&enclosing {scope.cancellation_control().cancel();}
                 return Err(MathRuntimeError::Cancelled);
             },
             () = &mut expires => return Err(ProblemError::Limit {
@@ -1315,8 +1368,8 @@ impl NativeSession {
             scope.check().map_err(ProblemError::Provider)?;
         }
         let flag = enclosing.as_ref().map_or_else(
-            || Arc::new(AtomicBool::new(false)),
-            |scope| scope.cancellation().clone(),
+            pse_diagnostics::Cancellation::default,
+            |scope| scope.cancellation_control().clone(),
         );
         let mut stop = Stop(Some(flag.clone()), observation.clone());
         let budget = self.budget.clone();
@@ -1339,12 +1392,14 @@ impl NativeSession {
         let lane = self.population.clone();
         #[cfg(any(test, feature = "solver-kinsol"))]
         let runtime = tokio::runtime::Handle::current();
+        let invocation = crate::invocation::TransferredContext::capture();
         let request = Request {
             threads: cores,
             backends,
             observation: observation.clone(),
             scope_owner: Some(scope_owner),
-            work: Box::new(move |retained| {
+            work: Some(Box::new(move |retained| {
+                let _invocation = invocation.enter();
                 drop(waiting);
                 let _entered = observation.as_ref().map(|context| context.enter());
                 let _execution = crate::observation::native_execution_scope();
@@ -1407,7 +1462,7 @@ impl NativeSession {
                     });
                 }
                 let _ = reply.send(outcome);
-            }),
+            })),
         };
         if sender.send(request).is_err() {
             stop.0 = None;
@@ -1419,7 +1474,7 @@ impl NativeSession {
         let outcome = tokio::select! {
             outcome = &mut result => outcome,
             () = cancel.cancelled() => {
-                if let Some(flag)=&stop.0 {flag.store(true, Ordering::Release);}
+                if let Some(flag)=&stop.0 {flag.cancel();}
                 if let Some(context)=stop.1.as_ref().filter(|context| context.is_active()) {context.boolean("native.session.stop_requested", true);}
                 let _drain = pse_diagnostics::observation::phase("native.session.drain.wait");
                 result.await
@@ -2165,7 +2220,7 @@ mod admission_tests {
                 .unwrap();
             let cancel = crate::CancelSource::new();
             let scope = pse_kernels::ExecutionScope::new(
-                Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 Some(std::time::Instant::now() + std::time::Duration::from_millis(30)),
             );
             if cancelled {
@@ -2260,7 +2315,7 @@ mod admission_tests {
             backends: vec![Backend::Highs],
             observation: None,
             scope_owner: None,
-            work: Box::new(|_| {}),
+            work: Some(Box::new(|_| {})),
         };
         assert!(!current.admits(&request));
         let next = current.extended(&request);
@@ -2272,7 +2327,7 @@ mod admission_tests {
             backends: Vec::new(),
             observation: None,
             scope_owner: None,
-            work: Box::new(|_| {}),
+            work: Some(Box::new(|_| {})),
         };
         assert!(current.admits(&borrowing));
         assert!(
@@ -2643,7 +2698,7 @@ mod admission_tests {
             strategy::{Phase, Scope, StartOrigin, WorkCharge, WorkObservation},
         };
         let controls = Controls::default();
-        let scope = pse_kernels::ExecutionScope::new(Arc::default(), None);
+        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let declaration = strategy::direct(&controls);
         let cause = Arc::new(ProblemError::stopped(
             Termination::TimeLimit,
@@ -2666,7 +2721,7 @@ mod admission_tests {
                 category: Termination::TimeLimit,
                 assurance: Assurance::None,
             },
-            &Execution::new(scope.cancellation().clone(), &controls),
+            &Execution::new(scope.cancellation_control().clone(), &controls),
         );
         let work = WorkObservation {
             attempts: 1,
@@ -2876,7 +2931,7 @@ mod admission_tests {
             )
             .is_err()
         );
-        expired.cancellation().store(true, Ordering::Release);
+        expired.cancellation_control().cancel();
         let cancelled = Arc::new(ProblemError::Provider(expired.check().unwrap_err()));
         assert!(matches!(
             cancelled.as_ref(),
@@ -2906,7 +2961,7 @@ mod admission_tests {
             strategy::{Phase, Scope, StartOrigin, WorkCharge, WorkObservation},
         };
         let controls = Controls::default();
-        let scope = pse_kernels::ExecutionScope::new(Arc::default(), None);
+        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let declaration = strategy::direct(&controls);
         let cause = Arc::new(ProblemError::memory("scripted native memory stop"));
         let contract = pse_backend_native::OracleContract {
@@ -2926,7 +2981,7 @@ mod admission_tests {
                 category: Termination::ResourceExhausted,
                 assurance: Assurance::None,
             },
-            &Execution::new(scope.cancellation().clone(), &controls),
+            &Execution::new(scope.cancellation_control().clone(), &controls),
         ));
         let work = WorkObservation {
             attempts: 1,
@@ -3249,7 +3304,7 @@ mod admission_tests {
                     let child = local.preparation(worker_service.job_scoped(
                         1,
                         0,
-                        pse_columnar::flight::FlightCancellation::default(),
+                        pse_diagnostics::Cancellation::default(),
                         Some(deadline),
                         move |_| {
                             assert_eq!(child_service.jobs.available_permits(), 0);
@@ -3304,7 +3359,7 @@ mod admission_tests {
                     local.preparation(worker_service.job_scoped(
                         1,
                         4096,
-                        pse_columnar::flight::FlightCancellation::default(),
+                        pse_diagnostics::Cancellation::default(),
                         Some(deadline),
                         move |_| {
                             observed.notify_one();
@@ -3386,7 +3441,7 @@ mod admission_tests {
                 ..Default::default()
             };
             owner.resume(&pse_backend_native::solve::Execution::new(
-                Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 &controls,
             ))
         });
@@ -3522,7 +3577,7 @@ mod admission_tests {
         assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
         let one_cpu = service.cpu.clone().acquire_owned().await.unwrap();
         let execution =
-            pse_backend_native::solve::Execution::new(Arc::default(), &Default::default());
+            pse_backend_native::solve::Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         assert_eq!(
             owner.try_resume(&execution).unwrap(),
             ComputeAvailability::Unavailable
@@ -3539,14 +3594,14 @@ mod admission_tests {
             service.policy.jobs - 1
         );
         owner.pause();
-        execution.cancel.store(true, Ordering::Release);
+        execution.cancellation_control().cancel();
         assert!(matches!(
             owner.try_resume(&execution),
             Err(ProblemError::Cancelled)
         ));
         service.active_jobs.close();
         let execution =
-            pse_backend_native::solve::Execution::new(Arc::default(), &Default::default());
+            pse_backend_native::solve::Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         assert!(owner.try_resume(&execution).is_err());
         assert_eq!(service.cpu.available_permits(), service.cores);
     }

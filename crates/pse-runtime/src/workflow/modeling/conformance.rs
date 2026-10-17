@@ -2129,13 +2129,13 @@ impl ModelingPackage {
         let service = self.runtime.shared.math();
         let controls = resolution.solver.controls.clone();
         controls.validate().map_err(MathRuntimeError::from)?;
-        let control = pse_columnar::flight::FlightCancellation::default();
+        let control = pse_diagnostics::Cancellation::default();
         let deadline = std::time::Instant::now()
             .checked_add(controls.time_limit)
             .ok_or(MathRuntimeError::Limit(
                 "derivative diagnostic deadline extent",
             ))?;
-        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
+        let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(deadline));
         let owner = service.reserve(
             "modeling:derivative-sample",
             policy.allowance().map_err(MathRuntimeError::from)?,
@@ -3467,9 +3467,9 @@ mod tests {
                 })
                 .collect()
         };
-        let control = pse_columnar::flight::FlightCancellation::default();
+        let control = pse_diagnostics::Cancellation::default();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
+        let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(deadline));
         let expected = scope.clone();
         let values = resolution.model.values.clone();
         let result = service
@@ -3510,7 +3510,7 @@ mod tests {
         // after native admission, with no competing supervisor execution deadline.
         let original = resolution.providers.values().next().unwrap().clone();
         let observed_scopes = scopes.clone();
-        let control = pse_columnar::flight::FlightCancellation::default();
+        let control = pse_diagnostics::Cancellation::default();
         let (scope, result) = service
             .job(
                 1,
@@ -3600,9 +3600,9 @@ mod tests {
                 .await
         });
         entered.notified().await;
-        let control = pse_columnar::flight::FlightCancellation::default();
+        let control = pse_diagnostics::Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(
-            control.flag(),
+            control.clone(),
             Some(std::time::Instant::now() + std::time::Duration::from_millis(25)),
         );
         let driver = crate::CancelSource::new();

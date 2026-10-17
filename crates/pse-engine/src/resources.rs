@@ -15,6 +15,62 @@ use datafusion::execution::{
 };
 use std::{num::NonZeroUsize, path::PathBuf, sync::Arc};
 
+/// Release observation around the actual semaphore, without a second capacity count.
+#[derive(Debug)]
+pub struct ReleaseNotifyingSemaphore {
+    inner: Arc<tokio::sync::Semaphore>,
+    released: Arc<tokio::sync::Notify>,
+}
+impl ReleaseNotifyingSemaphore {
+    /// Construct the sole semaphore for this capacity owner.
+    pub fn new(permits: usize) -> Self {
+        Self { inner: Arc::new(tokio::sync::Semaphore::new(permits)), released: Arc::new(tokio::sync::Notify::new()) }
+    }
+    /// Register before attempting admission; notifications grant no capacity.
+    pub fn released(&self) -> Arc<tokio::sync::Notify> { self.released.clone() }
+    /// Actual currently free permits, never an independently maintained estimate.
+    pub fn available_permits(&self) -> usize { self.inner.available_permits() }
+    /// Close the actual semaphore and wake retrying owners to observe closure.
+    pub fn close(&self) { self.inner.close(); self.released.notify_waiters(); }
+    /// Attempt complete ownership without retaining a queued partial acquisition.
+    pub fn try_acquire_many_owned(self: Arc<Self>, permits: u32) -> Result<ReleasedPermit, tokio::sync::TryAcquireError> {
+        self.inner.clone().try_acquire_many_owned(permits).map(|permit| ReleasedPermit { permit: Some(permit), released: Some(self.released.clone()) })
+    }
+    /// Attempt one complete permit.
+    pub fn try_acquire_owned(self: Arc<Self>) -> Result<ReleasedPermit, tokio::sync::TryAcquireError> {
+        self.try_acquire_many_owned(1)
+    }
+    /// Await an already sanctioned queued acquisition at the existing semaphore.
+    pub async fn acquire_owned(self: Arc<Self>) -> Result<ReleasedPermit, tokio::sync::AcquireError> {
+        self.acquire_many_owned(1).await
+    }
+    /// Await an already sanctioned complete acquisition. Admission policy stays with callers.
+    pub async fn acquire_many_owned(self: Arc<Self>, permits: u32) -> Result<ReleasedPermit, tokio::sync::AcquireError> {
+        self.inner.clone().acquire_many_owned(permits).await.map(|permit| ReleasedPermit { permit: Some(permit), released: Some(self.released.clone()) })
+    }
+}
+
+/// Actual capacity remains charged through the last owner, then returns before notification.
+#[derive(Debug)]
+pub struct ReleasedPermit {
+    permit: Option<tokio::sync::OwnedSemaphorePermit>,
+    released: Option<Arc<tokio::sync::Notify>>,
+}
+impl ReleasedPermit {
+    /// Retain an existing non-CPU cache admission under the same query lifetime.
+    pub(crate) fn unobserved(permit: tokio::sync::OwnedSemaphorePermit) -> Self {
+        Self { permit: Some(permit), released: None }
+    }
+    /// Actual number of held permits.
+    pub fn num_permits(&self) -> usize { self.permit.as_ref().map_or(0, tokio::sync::OwnedSemaphorePermit::num_permits) }
+}
+impl Drop for ReleasedPermit {
+    fn drop(&mut self) {
+        drop(self.permit.take());
+        if let Some(released) = &self.released { released.notify_waiters(); }
+    }
+}
+
 /// Release observation around the actual shared allocator. Notifications never grant
 /// capacity: admission must retry the underlying pool after each observed release.
 #[derive(Debug)]
@@ -82,7 +138,7 @@ impl MemoryPool for ReleaseNotifyingPool {
 #[derive(Debug)]
 pub struct CpuAdmission {
     /// Same semaphore retained by blocking compiler workers.
-    pub permits: Arc<tokio::sync::Semaphore>,
+    pub permits: Arc<ReleaseNotifyingSemaphore>,
     /// Total deployment workers, independent of native task partitioning.
     pub workers: std::num::NonZeroU32,
 }
@@ -151,6 +207,30 @@ impl EngineResources {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn semaphore_release_returns_capacity_before_wake_and_last_owner() {
+        let semaphore = Arc::new(ReleaseNotifyingSemaphore::new(2));
+        let permit = Arc::new(semaphore.clone().try_acquire_many_owned(2).unwrap());
+        let retained = permit.clone();
+        let released = semaphore.released();
+        let notification = released.notified();
+        drop(permit);
+        assert_eq!(semaphore.available_permits(), 0);
+        drop(retained);
+        notification.await;
+        assert_eq!(semaphore.available_permits(), 2);
+        let all = semaphore.clone().try_acquire_many_owned(2).unwrap();
+        assert_eq!(all.num_permits(), 2);
+    }
+    #[tokio::test]
+    async fn semaphore_close_wakes_unpolled_retry_and_refuses_new_ownership() {
+        let semaphore = Arc::new(ReleaseNotifyingSemaphore::new(0));
+        let released = semaphore.released();
+        let notification = released.notified();
+        semaphore.close();
+        notification.await;
+        assert!(matches!(semaphore.try_acquire_owned(), Err(tokio::sync::TryAcquireError::Closed)));
+    }
     #[tokio::test]
     async fn release_notification_covers_unpolled_shrink_free_and_unregister() {
         let pool = Arc::new(ReleaseNotifyingPool::new(Arc::new(FairSpillPool::new(64))));

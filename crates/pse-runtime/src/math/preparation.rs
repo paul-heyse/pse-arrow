@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact immutable preparation products; current protection and publication stay with callers.
+use pse_diagnostics::Cancellation;
 use super::{
     MathRuntimeError, MathService, Workspace,
     modeling::{ModelingPreparation, ModelingRevision},
@@ -8,7 +9,7 @@ use super::{
 use crate::workflow::modeling::LocalSourcePremises;
 use pse_columnar::{
     AllocationLease,
-    flight::{FlightCancellation, FlightError},
+    flight::FlightError,
 };
 use pse_compiler::workspace::{ModelingPreparationFrontier, PreparedModeling};
 use pse_model::lineage::Solved;
@@ -305,7 +306,7 @@ impl MathService {
         if driver.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled);
         }
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.plan_frontier_controlled(
             workspace,
             revision,
@@ -333,7 +334,7 @@ impl MathService {
         instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
-        control: FlightCancellation,
+        control: Cancellation,
         deadline: Option<std::time::Instant>,
     ) -> Result<OwnedModelingFrontier, MathRuntimeError> {
         let service = self.clone();
@@ -449,7 +450,7 @@ impl MathService {
         if driver.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled);
         }
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.complete_frontier_controlled(
             workspace,
             frontier,
@@ -465,7 +466,7 @@ impl MathService {
         self: &Arc<Self>,
         workspace: Workspace,
         frontier: Arc<OwnedModelingFrontier>,
-        control: FlightCancellation,
+        control: Cancellation,
         deadline: Option<std::time::Instant>,
     ) -> Result<ModelingPreparation, MathRuntimeError> {
         let solved = frontier.solved;

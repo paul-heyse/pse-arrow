@@ -3,7 +3,7 @@
 //! Accounted pure flow preparation and native/library tear selection.
 use super::{MathRuntimeError, MathService, solves::SolveHandle};
 use pse_backend_native::{ProblemError, solve::*, tears};
-use pse_columnar::flight::FlightCancellation;
+use pse_diagnostics::Cancellation;
 /// Authored topology selection and explicit tear policies for public workflow callers.
 pub use pse_compiler::workspace::{
     FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection,
@@ -48,7 +48,7 @@ impl MathService {
         if demand > self.policy.workspace_bytes {
             return Err(MathRuntimeError::Limit("flow construction capacity"));
         }
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.job_retained(1, demand, control.clone(), move |flag| {
             if flag.load(std::sync::atomic::Ordering::Relaxed) {
                 return Err(MathRuntimeError::Cancelled);
@@ -118,7 +118,7 @@ impl MathService {
         if worker_bytes > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit("tear construction capacity"));
         }
-        let cancel = FlightCancellation::default();
+        let cancel = Cancellation::default();
         let deadline = std::time::Instant::now()
             .checked_add(controls.time_limit)
             .ok_or(MathRuntimeError::Limit("tear task deadline"))?;
@@ -129,7 +129,7 @@ impl MathService {
             Some(deadline),
             None,
         )?;
-        let scope = pse_kernels::ExecutionScope::new(cancel.flag(), Some(deadline));
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), Some(deadline));
         let control = cancel.clone();
         let progress = Arc::new(Progress::new(controls.history));
         let events = progress.clone();

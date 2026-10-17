@@ -50,7 +50,7 @@ fn admit(
             .block_on(service.compiler_job(
                 workspace,
                 super::super::ConstructionEstimate::Known(0),
-                FlightCancellation::default(),
+                Cancellation::default(),
                 None,
                 move |authority, flag| {
                     worker_service.modeling_revision_at(
@@ -106,7 +106,7 @@ async fn native_admission_evicts_idle_compiler_workspace_under_pool_pressure() {
         .job_scoped(
             1,
             demand,
-            FlightCancellation::default(),
+            Cancellation::default(),
             Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
             |_| Ok(()),
         )

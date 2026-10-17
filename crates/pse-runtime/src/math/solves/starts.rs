@@ -8,11 +8,11 @@ use pse_model::strategy::BranchPolicy;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Abandonment stops the enclosing task; ordinary deadline exhaustion never changes its flag.
-struct AbandonedTask(Option<Arc<AtomicBool>>);
+struct AbandonedTask(Option<pse_diagnostics::Cancellation>);
 impl Drop for AbandonedTask {
     fn drop(&mut self) {
         if let Some(flag) = &self.0 {
-            flag.store(true, Ordering::Release);
+            flag.cancel();
         }
     }
 }
@@ -378,10 +378,10 @@ impl MathService {
             || budget.clone(),
             |admission| budget.with_admission(admission),
         );
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let service = self.clone();
         let worker_scope = scope.clone();
-        let mut abandoned = AbandonedTask(Some(scope.cancellation().clone()));
+        let mut abandoned = AbandonedTask(Some(scope.cancellation_control().clone()));
         let operation =
             self.job_retained_scoped(1, bytes, control.clone(), scope.deadline(), move |_| {
                 let screened = service.screen_start_worker(
@@ -398,7 +398,7 @@ impl MathService {
         let result = tokio::select! {
             result=&mut operation=>result,
             ()=driver.cancelled()=>{
-                scope.cancellation().store(true,Ordering::Release);control.cancel();
+                scope.cancellation_control().cancel();control.cancel();
                 let _=operation.await;Err(MathRuntimeError::Cancelled)
             }
         };

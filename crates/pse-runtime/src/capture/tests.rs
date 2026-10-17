@@ -791,7 +791,7 @@ fn capture_owned_rust_and_linked_native_profile_control() {
                 let mut solves = 0;
                 while started.elapsed() < Duration::from_secs(7) {
                     recognizable_rust_capture_control(solves);
-                    let execution = Execution::new(Arc::new(AtomicBool::new(false)), &controls);
+                    let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &controls);
                     let mut session =
                         highs::Session::new(&problem, None, compatibility.clone(), &execution)
                             .unwrap();

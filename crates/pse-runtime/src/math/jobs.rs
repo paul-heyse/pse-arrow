@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Native ownership ends after join, including thread-local foreign destructors.
 use super::{MathRuntimeError, MathService};
-use pse_columnar::flight::FlightCancellation;
+use pse_diagnostics::Cancellation;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -12,16 +12,16 @@ tokio::task_local! { static POPULATION: Arc<PopulationLane>; }
 /// One resident population owner, with an exclusive loan through actual child join.
 #[derive(Debug)]
 pub(super) struct PopulationLane {
-    jobs: Arc<tokio::sync::Semaphore>,
-    _ticket: Arc<tokio::sync::OwnedSemaphorePermit>,
+    jobs: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
+    _ticket: Arc<pse_engine::resources::ReleasedPermit>,
     in_use: std::sync::atomic::AtomicBool,
     closed: std::sync::atomic::AtomicBool,
     drained: tokio::sync::Notify,
 }
 impl PopulationLane {
     pub(super) fn new(
-        jobs: Arc<tokio::sync::Semaphore>,
-        ticket: Arc<tokio::sync::OwnedSemaphorePermit>,
+        jobs: Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
+        ticket: Arc<pse_engine::resources::ReleasedPermit>,
     ) -> Arc<Self> {
         Arc::new(Self {
             jobs,
@@ -94,7 +94,7 @@ pub(super) async fn population_scope<T>(
 #[derive(Debug)]
 enum PopulationEntry {
     Owned {
-        _ticket: tokio::sync::OwnedSemaphorePermit,
+        _ticket: pse_engine::resources::ReleasedPermit,
     },
     Borrowed {
         _usage: PopulationUse,
@@ -103,8 +103,20 @@ enum PopulationEntry {
 /// Both active resources are acquired tentatively, never held while awaiting another.
 #[derive(Debug)]
 pub(super) struct ActivePermits {
-    _job: tokio::sync::OwnedSemaphorePermit,
-    _cpu: tokio::sync::OwnedSemaphorePermit,
+    _job: pse_engine::resources::ReleasedPermit,
+    _cpu: pse_engine::resources::ReleasedPermit,
+}
+/// The actual failed resource selects the wake source; tentative rollback must not
+/// wake its own retry loop through the other semaphore.
+pub(super) enum ActiveAttempt {
+    Ready(ActivePermits),
+    JobsBusy,
+    CpuBusy,
+}
+impl ActiveAttempt {
+    pub(super) fn acquired(self) -> Option<ActivePermits> {
+        match self { Self::Ready(permit) => Some(permit), Self::JobsBusy | Self::CpuBusy => None }
+    }
 }
 impl MathService {
     /// A genuine synchronous phase boundary lends its population to the nested team.
@@ -160,11 +172,20 @@ impl MathService {
                     .register(&self.pool),
             );
             let mut pressure = None;
+            let job_releases = self.active_jobs.released();
+            let cpu_releases = self.cpu.released();
+            let task_scope = execution.scope()?;
             loop {
+                let abandoned = execution.abandonment.notified();
                 execution.check()?;
                 let released = self.released.notified();
                 tokio::pin!(released);
                 released.as_mut().enable();
+                let jobs_released = job_releases.notified();
+                let cpu_released = cpu_releases.notified();
+                tokio::pin!(jobs_released, cpu_released);
+                jobs_released.as_mut().enable();
+                cpu_released.as_mut().enable();
                 let reserved = match lease.try_grow(bytes) {
                     Ok(()) => true,
                     Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
@@ -181,9 +202,12 @@ impl MathService {
                     }
                     Err(error) => return Err(MathRuntimeError::from(error)),
                 };
+                let mut cpu_busy = false;
                 if reserved {
-                    if let Some(active) = self.try_active(cores as u32)? {
-                        return Ok((lease, active));
+                    match try_active(&self.active_jobs, &self.cpu, cores as u32)? {
+                        ActiveAttempt::Ready(active) => return Ok((lease, active)),
+                        ActiveAttempt::CpuBusy => cpu_busy = true,
+                        ActiveAttempt::JobsBusy => {},
                     }
                     lease.shrink(bytes);
                 }
@@ -191,7 +215,11 @@ impl MathService {
                     // An active-capacity retry must not consume its own shrink
                     // notification; retain release wakeups for pool-pressure waits.
                     () = released, if !reserved => {},
-                    () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {},
+                    () = cpu_released, if reserved && cpu_busy => {},
+                    () = jobs_released, if reserved && !cpu_busy => {},
+                    () = abandoned => {},
+                    () = task_scope.cancellation_control().cancelled() => {},
+                    () = async { match task_scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => {},
                 }
             }
         });
@@ -232,7 +260,7 @@ impl MathService {
         name: &str,
         cores: u32,
         bytes: usize,
-        cancel: &FlightCancellation,
+        cancel: &Cancellation,
         at: std::time::Instant,
     ) -> Result<
         (
@@ -246,10 +274,17 @@ impl MathService {
             datafusion::execution::memory_pool::MemoryConsumer::new(name).register(&self.pool),
         );
         let mut pressure = None;
+        let job_releases = self.active_jobs.released();
+        let cpu_releases = self.cpu.released();
         let active = loop {
             let released = self.released.notified();
             tokio::pin!(released);
             released.as_mut().enable();
+            let jobs_released = job_releases.notified();
+            let cpu_released = cpu_releases.notified();
+            tokio::pin!(jobs_released, cpu_released);
+            jobs_released.as_mut().enable();
+            cpu_released.as_mut().enable();
             if cancel.flag().load(Ordering::Acquire) {
                 return Err(MathRuntimeError::Cancelled);
             }
@@ -271,9 +306,12 @@ impl MathService {
                 }
                 Err(error) => return Err(error.into()),
             };
+            let mut cpu_busy = false;
             if reserved {
-                if let Some(active) = self.try_active(cores)? {
-                    break active;
+                match try_active(&self.active_jobs, &self.cpu, cores)? {
+                    ActiveAttempt::Ready(active) => break active,
+                    ActiveAttempt::CpuBusy => cpu_busy = true,
+                    ActiveAttempt::JobsBusy => {},
                 }
                 lease.shrink(bytes);
             }
@@ -286,32 +324,33 @@ impl MathService {
                 // capacity was unavailable. Its own release notification must not
                 // turn this retry into a ready loop that starves cancellation tasks.
                 () = released, if !reserved => {},
-                () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {},
+                () = cpu_released, if reserved && cpu_busy => {},
+                () = jobs_released, if reserved && !cpu_busy => {},
             }
         };
         Ok((lease, active))
     }
     pub(super) fn try_active(&self, cores: u32) -> Result<Option<ActivePermits>, MathRuntimeError> {
-        try_active(&self.active_jobs, &self.cpu, cores)
+        try_active(&self.active_jobs, &self.cpu, cores).map(ActiveAttempt::acquired)
     }
 }
 pub(super) fn try_active(
-    jobs: &Arc<tokio::sync::Semaphore>,
-    cpu: &Arc<tokio::sync::Semaphore>,
+    jobs: &Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
+    cpu: &Arc<pse_engine::resources::ReleaseNotifyingSemaphore>,
     cores: u32,
-) -> Result<Option<ActivePermits>, MathRuntimeError> {
+) -> Result<ActiveAttempt, MathRuntimeError> {
     use tokio::sync::TryAcquireError;
     let job = match jobs.clone().try_acquire_owned() {
         Ok(job) => job,
-        Err(TryAcquireError::NoPermits) => return Ok(None),
+        Err(TryAcquireError::NoPermits) => return Ok(ActiveAttempt::JobsBusy),
         Err(TryAcquireError::Closed) => return Err(MathRuntimeError::Limit("active jobs closed")),
     };
     match cpu.clone().try_acquire_many_owned(cores) {
-        Ok(cpu) => Ok(Some(ActivePermits {
+        Ok(cpu) => Ok(ActiveAttempt::Ready(ActivePermits {
             _job: job,
             _cpu: cpu,
         })),
-        Err(TryAcquireError::NoPermits) => Ok(None),
+        Err(TryAcquireError::NoPermits) => Ok(ActiveAttempt::CpuBusy),
         Err(TryAcquireError::Closed) => Err(MathRuntimeError::Limit("CPU admission closed")),
     }
 }
@@ -604,7 +643,7 @@ impl Drop for WorkerAllocation {
     }
 }
 /// Cancels on future abandonment while the detached supervisor retains all resource owners.
-struct Caller(Option<FlightCancellation>);
+struct Caller(Option<Cancellation>);
 impl Drop for Caller {
     fn drop(&mut self) {
         if let Some(cancel) = &self.0 {
@@ -616,7 +655,7 @@ impl Drop for Caller {
 #[derive(Debug)]
 pub(crate) struct Submission {
     /// The operation's cancellation, shared with its public handle.
-    pub(crate) cancel: FlightCancellation,
+    pub(crate) cancel: Cancellation,
     /// Its event stream: bounded in memory, and tapped by a durable stream when durable.
     pub(crate) progress: Arc<pse_backend_native::solve::Progress>,
     /// Signalled once the operation holds its job slot, CPU permits and reservation.
@@ -628,7 +667,7 @@ impl Submission {
     /// In-memory work: a fresh cancellation, 256 retained events, refused when full.
     pub(crate) fn ephemeral() -> Self {
         Self {
-            cancel: FlightCancellation::default(),
+            cancel: Cancellation::default(),
             progress: Arc::new(pse_backend_native::solve::Progress::new(256)),
             admitted: None,
             deadline: None,
@@ -660,7 +699,7 @@ impl MathService {
         cores: usize,
         bytes: usize,
         work: impl FnOnce(
-            Arc<std::sync::atomic::AtomicBool>,
+            pse_diagnostics::Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -677,7 +716,7 @@ impl MathService {
         bytes: usize,
         submission: Submission,
         work: impl FnOnce(
-            Arc<std::sync::atomic::AtomicBool>,
+            pse_diagnostics::Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -694,7 +733,7 @@ impl MathService {
         construction: ConstructionEstimate,
         submission: Submission,
         work: impl FnOnce(
-            Arc<std::sync::atomic::AtomicBool>,
+            pse_diagnostics::Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -712,7 +751,7 @@ impl MathService {
         bytes: usize,
         submission: Submission,
         work: impl FnOnce(
-            Arc<std::sync::atomic::AtomicBool>,
+            pse_diagnostics::Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -734,7 +773,7 @@ impl MathService {
         submission: Submission,
         source_owns_deadline: bool,
         work: impl FnOnce(
-            Arc<std::sync::atomic::AtomicBool>,
+            pse_diagnostics::Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -760,7 +799,7 @@ impl MathService {
         let flag = cancel.clone();
         let events = progress.clone();
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(crate::observation::inherit(crate::observation::child(
+        tokio::spawn(crate::invocation::inherit(crate::observation::inherit(crate::observation::child(
             "math.submission",
             pse_operations::canonical::inherit_activity(async move {
                 let result = service
@@ -775,7 +814,7 @@ impl MathService {
                     .await;
                 let _ = sender.send(result);
             }),
-        )));
+        ))));
         Ok(super::solves::SolveHandle {
             cancel,
             receiver: Some(receiver),
@@ -786,8 +825,8 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         bytes: usize,
-        cancel: FlightCancellation,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<T, MathRuntimeError>
+        cancel: Cancellation,
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -800,9 +839,9 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         bytes: usize,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<T, MathRuntimeError>
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -819,8 +858,8 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         bytes: usize,
-        cancel: FlightCancellation,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
+        cancel: Cancellation,
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -833,9 +872,9 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         bytes: usize,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -848,9 +887,9 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         construction: ConstructionEstimate,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -868,9 +907,9 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         construction: ConstructionEstimate,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<T, MathRuntimeError>
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -886,11 +925,11 @@ impl MathService {
         self: &Arc<Self>,
         workspace: super::Workspace,
         construction: ConstructionEstimate,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         deadline: Option<std::time::Instant>,
         work: impl FnOnce(
             super::CompilerAuthority,
-            Arc<std::sync::atomic::AtomicBool>,
+            pse_diagnostics::Cancellation,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
@@ -942,11 +981,11 @@ impl MathService {
         self: &Arc<Self>,
         workspace: super::Workspace,
         construction: ConstructionEstimate,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         deadline: Option<std::time::Instant>,
         work: impl FnOnce(
             super::CompilerAuthority,
-            Arc<std::sync::atomic::AtomicBool>,
+            pse_diagnostics::Cancellation,
         ) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
@@ -963,7 +1002,7 @@ impl MathService {
     }
     async fn compiler_authority(
         workspace: super::Workspace,
-        cancel: &FlightCancellation,
+        cancel: &Cancellation,
         cutoff: std::time::Instant,
     ) -> Result<super::CompilerAuthority, MathRuntimeError> {
         if cancel.flag().load(Ordering::Acquire) {
@@ -995,10 +1034,10 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         bytes: usize,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         deadline: Option<std::time::Instant>,
         entry: AdmissionEntry,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<T, MathRuntimeError>
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -1013,10 +1052,10 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         bytes: usize,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         deadline: Option<std::time::Instant>,
         entry: AdmissionEntry,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -1037,7 +1076,7 @@ impl MathService {
         &self,
         cores: usize,
         bytes: usize,
-        cancel: &FlightCancellation,
+        cancel: &Cancellation,
         deadline: Option<std::time::Instant>,
         cutoff: Option<std::time::Instant>,
     ) -> Result<AdmissionEntry, MathRuntimeError> {
@@ -1132,7 +1171,7 @@ impl MathService {
         &self,
         name: &str,
         bytes: usize,
-        cancel: &FlightCancellation,
+        cancel: &Cancellation,
         deadline: Option<std::time::Instant>,
     ) -> Result<Arc<pse_columnar::AllocationLease>, MathRuntimeError> {
         self.check_entry_extent(bytes)?;
@@ -1179,14 +1218,14 @@ impl MathService {
         self: &Arc<Self>,
         cores: usize,
         bytes: usize,
-        cancel: FlightCancellation,
+        cancel: Cancellation,
         (admitted, deadline, source_owns_deadline): (
             Option<tokio::sync::oneshot::Sender<()>>,
             Option<std::time::Instant>,
             bool,
         ),
         entry: Option<AdmissionEntry>,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -1210,7 +1249,7 @@ impl MathService {
         let mut caller = Caller(Some(cancel.clone()));
         let service = self.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        tokio::spawn(crate::observation::inherit(crate::observation::child(
+        tokio::spawn(crate::invocation::inherit(crate::observation::inherit(crate::observation::child(
             "math.job",
             pse_operations::canonical::inherit_activity(async move {
                 let result = async {
@@ -1227,7 +1266,7 @@ impl MathService {
                 if let Some(admitted) = admitted {
                     let _ = admitted.send(());
                 }
-                let flag = cancel.flag();
+                let flag = cancel.clone();
                 let compute = super::staged::ComputeOwner::new(
                     service.active_jobs.clone(),
                     service.cpu.clone(),
@@ -1240,12 +1279,13 @@ impl MathService {
                     lease.clone(),
                     construction,
                     service.policy.worker_bytes,
-                    flag.clone(),
+                    flag.flag(),
                     service.pressure.clone(),
                 ));
                 let sessions = service.policy.inner_session_bytes;
                 let runtime = tokio::runtime::Handle::current();
                 let observation = pse_diagnostics::observation::current();
+                let invocation = crate::invocation::TransferredContext::capture();
                 let dispatch = tracing::dispatcher::get_default(Clone::clone);
                 let span = tracing::Span::current();
                 let handle = std::thread::Builder::new()
@@ -1253,6 +1293,7 @@ impl MathService {
                     .stack_size(service.policy.stack_bytes)
                     .spawn(move || {
                         let _runtime = runtime.enter();
+                        let _invocation = invocation.enter();
                         let _observation = observation.as_ref().map(pse_diagnostics::observation::ObservationContext::enter);
                         let _execution = crate::observation::native_execution_scope();
                         let _dispatch = tracing::dispatcher::set_default(&dispatch);
@@ -1330,7 +1371,7 @@ impl MathService {
                 drop(slot);
                 let _ = tx.send(result);
             }),
-        )));
+        ))));
         let result = rx
             .await
             .map_err(|_| MathRuntimeError::Infrastructure("lost native supervisor".into()))?;
@@ -1352,7 +1393,7 @@ mod construction_tests {
         let baseline = service.pool.reserved();
         let jobs = service.jobs.available_permits();
         let cores = service.cpu.available_permits();
-        let cancel = FlightCancellation::default();
+        let cancel = Cancellation::default();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
         let (started, start) = tokio::sync::oneshot::channel();
         let (observed, observation) = tokio::sync::oneshot::channel();
@@ -1526,7 +1567,7 @@ mod construction_tests {
         let answer = sessions[0]
             .prepare(async move {
                 borrowed
-                    .job(1, 0, FlightCancellation::default(), |_| Ok(42))
+                    .job(1, 0, Cancellation::default(), |_| Ok(42))
                     .await
             })
             .await
@@ -1630,7 +1671,7 @@ mod construction_tests {
             .acquire_many_owned(service.policy.jobs as u32)
             .await
             .unwrap();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let stop = control.clone();
         let released = service.released.notified();
         tokio::pin!(released);
@@ -1680,7 +1721,7 @@ mod construction_tests {
             .clone()
             .try_acquire_many_owned(service.policy.jobs as u32)
             .unwrap();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let at = std::time::Instant::now() + std::time::Duration::from_millis(20);
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(1),
@@ -1959,7 +2000,7 @@ mod construction_tests {
         let baseline = service.pool.reserved();
         let phase_service = service.clone();
         service
-            .job(1, capacity, FlightCancellation::default(), move |flag| {
+            .job(1, capacity, Cancellation::default(), move |flag| {
                 let execution =
                     pse_backend_native::solve::Execution::new(flag.clone(), &Default::default());
                 let parent = phase_service.pool.reserved();

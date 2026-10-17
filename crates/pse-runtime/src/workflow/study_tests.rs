@@ -697,7 +697,7 @@ async fn related_case_study_uses_secant_then_original_correction() {
         "no sensitivity/factor was requested"
     );
     let execution = pse_backend_native::solve::Execution::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         &pse_backend_native::solve::Controls::default(),
     );
     let proposal = second

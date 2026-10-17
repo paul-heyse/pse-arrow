@@ -115,6 +115,7 @@ pub(crate) struct RetainedBoundSolver {
 /// Neither pool admission nor an asynchronous wait runs under this barrier.
 pub(super) struct Pressure {
     demands: Mutex<usize>,
+    idle_changed: pse_diagnostics::WakeSignal,
     artifacts: Arc<DefaultCache<artifacts::Key, Value>>,
     modeling: Arc<WeightedCache<Key, Product>>,
     artifact_fence: Arc<pse_columnar::retention::RetentionFence>,
@@ -150,12 +151,15 @@ impl Drop for PressureDemand {
                     self.0.modeling.update_cache_limit(self.0.limit)
                 });
         }
+        drop(demands);
+        self.0.idle_changed.notify();
     }
 }
 impl Pressure {
     pub(super) fn new(limit: usize) -> Arc<Self> {
         Arc::new(Self {
             demands: Mutex::new(0),
+            idle_changed: pse_diagnostics::WakeSignal::new(),
             artifacts: Arc::new(DefaultCache::new(limit).with_name("pse.cache.math_artifacts")),
             modeling: Arc::new(WeightedCache::new(limit, "pse.cache.modeling_products")),
             artifact_fence: Arc::default(),
@@ -175,7 +179,13 @@ impl Pressure {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         *demands += 1;
+        drop(demands);
+        self.idle_changed.notify();
         PressureDemand(self.clone())
+    }
+    /// Register before inspecting active pressure; notification grants no trim authority.
+    pub(super) fn watch_idle(&self, waker: &std::task::Waker) -> pse_diagnostics::WakeWatch {
+        self.idle_changed.watch(waker)
     }
     pub(super) fn active(&self) -> bool {
         *self
@@ -841,8 +851,8 @@ mod pressure_tests {
         let live = MemoryConsumer::new("test:live-saturation").register(&service.pool);
         live.try_grow((64 << 20) - retained).unwrap();
         let deadline = Some(std::time::Instant::now() + std::time::Duration::from_secs(30));
-        let first_cancel = FlightCancellation::default();
-        let second_cancel = FlightCancellation::default();
+        let first_cancel = Cancellation::default();
+        let second_cancel = Cancellation::default();
         let first = service.reserve_entry("test:first-waiter", 16 << 20, &first_cancel, deadline);
         let second =
             service.reserve_entry("test:second-waiter", 16 << 20, &second_cancel, deadline);
@@ -908,7 +918,7 @@ mod pressure_tests {
         let live = MemoryConsumer::new("test:remaining-live").register(&service.pool);
         live.try_grow((64 << 20) - baseline).unwrap();
         let (_, result) = service
-            .job_retained(1, 0, FlightCancellation::default(), |_| Ok(((), 0)))
+            .job_retained(1, 0, Cancellation::default(), |_| Ok(((), 0)))
             .await
             .unwrap();
         assert_eq!(service.entries.len(), 0);

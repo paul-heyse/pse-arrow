@@ -10,7 +10,7 @@ use std::{
 #[test]
 fn physical_original_initial_rows_use_admitted_scale_offset_and_task_scope() {
     let scope = ExecutionScope::new(
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         Some(Instant::now() + Duration::from_secs(1)),
     );
     let coordinate = CoordinateBinding {
@@ -48,7 +48,7 @@ fn physical_original_initial_rows_use_admitted_scale_offset_and_task_scope() {
     )
     .unwrap();
     assert!(!checks[0].satisfied);
-    scope.cancellation().store(true, Ordering::Release);
+    scope.cancellation_control().cancel();
     assert!(matches!(
         original_initial_checks(run, 7.0, &[3.0], &[coordinate], &[obligation], &scope),
         Err(ProblemError::Provider(ProviderError::Cancelled))
@@ -140,9 +140,9 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
         controls: native::IdasInitialConditions::default(),
         trial_failures: native::TrialPolicy::Recoverable,
     };
-    let cancellation = FlightCancellation::default();
+    let cancellation = Cancellation::default();
     let scope = ExecutionScope::new(
-        cancellation.flag(),
+        cancellation.clone(),
         Some(Instant::now() + Duration::from_secs(5)),
     );
     let result = prepared
@@ -194,9 +194,9 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     let point = result.report().candidate.as_ref().unwrap();
     assert!((point.state[xi] - 1.0).abs() < 1e-7);
     assert!((point.state[yi] - 4.0).abs() < 1e-7);
-    let cancellation = FlightCancellation::default();
+    let cancellation = Cancellation::default();
     let scope = ExecutionScope::new(
-        cancellation.flag(),
+        cancellation.clone(),
         Some(Instant::now() + Duration::from_secs(5)),
     );
     let submission = Submission {
@@ -241,9 +241,9 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     );
     assert!(event.original.is_none());
     drop(owner);
-    let cancellation = FlightCancellation::default();
+    let cancellation = Cancellation::default();
     let scope = ExecutionScope::new(
-        cancellation.flag(),
+        cancellation.clone(),
         Some(Instant::now() + Duration::from_secs(5)),
     );
     let controls = Controls {
@@ -280,9 +280,9 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
         event.original,
         Some(crate::math::strategy::OriginalConclusion::Unavailable { .. })
     ));
-    let cancellation = FlightCancellation::default();
+    let cancellation = Cancellation::default();
     let scope = ExecutionScope::new(
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         Some(Instant::now() + Duration::from_secs(5)),
     );
     assert!(
@@ -299,9 +299,9 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     );
     let mut wrong_time = request.clone();
     wrong_time.time = 0.5;
-    let cancellation = FlightCancellation::default();
+    let cancellation = Cancellation::default();
     let scope = ExecutionScope::new(
-        cancellation.flag(),
+        cancellation.clone(),
         Some(Instant::now() + Duration::from_secs(5)),
     );
     assert!(
@@ -316,10 +316,10 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
             .await
             .is_err()
     );
-    let cancellation = FlightCancellation::default();
+    let cancellation = Cancellation::default();
     cancellation.cancel();
     let scope = ExecutionScope::new(
-        cancellation.flag(),
+        cancellation.clone(),
         Some(Instant::now() + Duration::from_secs(5)),
     );
     assert!(

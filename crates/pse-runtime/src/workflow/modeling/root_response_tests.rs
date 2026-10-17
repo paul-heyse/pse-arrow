@@ -161,7 +161,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
             .engineering_relative_fraction
     );
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(10)),
     );
     // Portable scientific point evidence reconstructs the existing library factor;
@@ -397,7 +397,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         time: std::time::Duration::from_secs(10),
     };
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(10)),
     );
     let handle = runtime
@@ -505,7 +505,7 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
     let cancel = crate::CancelSource::new();
     let mut prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(20)),
     );
     let auxiliary = runtime
@@ -1108,7 +1108,7 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         .push(pse_model::strategy::StartOrigin::Predicted);
     let cancel = crate::CancelSource::new();
     let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-    let mut execution = Execution::new(Arc::default(), &Controls::default());
+    let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
     let request = qp::Request {
         previous: &previous,
         source: &source,

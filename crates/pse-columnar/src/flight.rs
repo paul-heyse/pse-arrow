@@ -11,30 +11,10 @@ use std::{
     hash::Hash,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering},
     },
 };
-/// Cooperative cancellation shared with a completion-owned native worker.
-#[derive(Clone, Debug, Default)]
-pub struct FlightCancellation {
-    flag: Arc<AtomicBool>,
-    token: tokio_util::sync::CancellationToken,
-}
-impl FlightCancellation {
-    /// Flag passed to foreign-library abort callbacks.
-    pub fn flag(&self) -> Arc<AtomicBool> {
-        self.flag.clone()
-    }
-    /// Request cancellation; ownership remains until completion.
-    pub fn cancel(&self) {
-        self.flag.store(true, Ordering::Release);
-        self.token.cancel();
-    }
-    /// Wait without losing a cancellation notification.
-    pub async fn cancelled(&self) {
-        self.token.cancelled().await;
-    }
-}
+use pse_diagnostics::Cancellation;
 /// Coordination failures preserve the original typed loader failure.
 #[derive(Debug, thiserror::Error)]
 pub enum FlightError<E> {
@@ -75,7 +55,7 @@ type SharedLoad<V, E> = Shared<BoxFuture<'static, Result<Arc<V>, FlightError<E>>
 struct Flight<V, E> {
     observation: Option<pse_diagnostics::observation::ObservationContext>,
     result: SharedLoad<V, E>,
-    cancel: FlightCancellation,
+    cancel: Cancellation,
     waiters: AtomicUsize,
 }
 struct Waiter<V, E>(Arc<Flight<V, E>>);
@@ -117,7 +97,7 @@ where
     pub async fn load_owned<F>(
         &self,
         key: K,
-        create: impl FnOnce(FlightCancellation) -> F + Send + 'static,
+        create: impl FnOnce(Cancellation) -> F + Send + 'static,
     ) -> Result<Arc<V>, FlightError<E>>
     where
         F: Future<Output = Result<Arc<V>, E>> + Send + 'static,
@@ -132,7 +112,7 @@ where
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(f) = entries.get(&key) {
-                if f.cancel.flag.load(Ordering::Acquire) {
+                if f.cancel.is_cancelled() {
                     return Err(FlightError::Retiring);
                 }
                 match f
@@ -169,7 +149,7 @@ where
                 let f = Arc::new(Flight {
                     observation: observation.as_ref().map(|guard| guard.context()),
                     result,
-                    cancel: FlightCancellation::default(),
+                    cancel: Cancellation::default(),
                     waiters: AtomicUsize::new(1),
                 });
                 entries.insert(key.clone(), f.clone());
@@ -299,7 +279,7 @@ mod tests {
             let gate = gate.clone();
             let calls = calls.clone();
             let entered = entered.clone();
-            move |_: FlightCancellation| async move {
+            move |_: Cancellation| async move {
                 calls.fetch_add(1, Ordering::SeqCst);
                 entered.notify_one();
                 gate.notified().await;

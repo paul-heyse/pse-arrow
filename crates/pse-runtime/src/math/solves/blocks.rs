@@ -201,7 +201,7 @@ impl MathService {
             .job_retained_construction(
                 1,
                 construction,
-                FlightCancellation::default(),
+                Cancellation::default(),
                 None,
                 move |flag| {
                     let pse_compiler::workspace::Alternative::Available(schedule) =
@@ -286,7 +286,7 @@ impl MathService {
                 .job_retained_construction(
                     1,
                     construction,
-                    FlightCancellation::default(),
+                    Cancellation::default(),
                     None,
                     move |flag| {
                         let rows = boundary
@@ -424,7 +424,7 @@ impl MathService {
             );
         };
         let compiled = source.prepared.prepared.clone();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let construction = super::super::jobs::ConstructionEstimate::from_bound(
             compiled.initialization_allocation_bound()?,
             self.policy.workspace_bytes,
@@ -491,7 +491,7 @@ impl MathService {
             let quantities = source.prepared.prepared.quantities.clone();
             let preconditions = source.prepared.prepared.preconditions.clone();
             let values = source.values.clone();
-            let control = FlightCancellation::default();
+            let control = Cancellation::default();
             let construction = super::super::jobs::ConstructionEstimate::from_bound(
                 view.binding_allocation_bound(&values)?,
                 self.policy.worker_bytes,

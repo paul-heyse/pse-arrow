@@ -29,7 +29,7 @@ use pse_backend_native::{
     routing::{self, Route},
     solve::*,
 };
-use pse_columnar::flight::FlightCancellation;
+use pse_diagnostics::Cancellation;
 use pse_ids::FramedHasher;
 use pse_kernels::ProviderFactory;
 pub use pse_math::convexity::ConvexityPolicy;
@@ -2837,7 +2837,7 @@ pub(crate) struct Predecessor {
 }
 /// Dropping the handle requests cancellation; awaiting it witnesses native destruction and join.
 pub struct SolveHandle<T = StepReport> {
-    pub(super) cancel: FlightCancellation,
+    pub(super) cancel: Cancellation,
     pub(super) receiver: Option<tokio::sync::oneshot::Receiver<Result<T, MathRuntimeError>>>,
     pub(super) progress: Arc<Progress>,
 }
@@ -2864,7 +2864,7 @@ impl<T: Send + 'static> SolveHandle<T> {
     where
         F: Future<Output = Result<T, MathRuntimeError>> + Send + 'static,
     {
-        let cancel = FlightCancellation::default();
+        let cancel = Cancellation::default();
         let control = cancel.clone();
         let source = crate::CancelSource::new();
         let operation = work(source.clone());
@@ -2889,7 +2889,7 @@ impl<T: Send + 'static> SolveHandle<T> {
 }
 impl<T> SolveHandle<T> {
     /// Share cancellation with a public supervisor without moving native ownership.
-    pub fn cancellation(&self) -> FlightCancellation {
+    pub fn cancellation(&self) -> Cancellation {
         self.cancel.clone()
     }
     /// Shared bounded progress retained independently of a waiter.
@@ -3059,7 +3059,7 @@ impl MathService {
                 .job_retained_construction(
                     1,
                     construction,
-                    FlightCancellation::default(),
+                    Cancellation::default(),
                     None,
                     move |flag| {
                         let product = source.prepare_class(&bound_values, &flag)?;
@@ -3115,7 +3115,7 @@ impl MathService {
                 .job_retained_construction(
                     1,
                     construction,
-                    FlightCancellation::default(),
+                    Cancellation::default(),
                     None,
                     move |flag| {
                         let product = source.prepare_affine_rows(&values, &flag)?;
@@ -3279,7 +3279,7 @@ impl MathService {
                     ));
                 }
                 let evidence = self
-                    .job(1, demand, FlightCancellation::default(), move |flag| {
+                    .job(1, demand, Cancellation::default(), move |flag| {
                         Ok(coefficients.numerical_convexity(
                             sign,
                             &coordinates.variables,
@@ -3473,7 +3473,7 @@ impl MathService {
                         .job_construction(
                             1,
                             construction,
-                            FlightCancellation::default(),
+                            Cancellation::default(),
                             None,
                             move |flag| {
                                 let program = plan
@@ -3527,7 +3527,7 @@ impl MathService {
                         ));
                     }
                     let (lowered, lease) = self
-                        .job_retained(1, demand, FlightCancellation::default(), move |flag| {
+                        .job_retained(1, demand, Cancellation::default(), move |flag| {
                             if flag.load(std::sync::atomic::Ordering::Relaxed) {
                                 return Err(ProblemError::Cancelled.into());
                             }
@@ -3604,7 +3604,7 @@ impl MathService {
                         .job_retained_construction(
                             1,
                             super::jobs::ConstructionEstimate::Opaque(self.policy.worker_bytes),
-                            FlightCancellation::default(),
+                            Cancellation::default(),
                             None,
                             move |flag| {
                                 let program = plan
@@ -3668,7 +3668,7 @@ impl MathService {
             }
             if let Some(order) = order {
                 prepared = self
-                    .prepare_order(prepared, order, FlightCancellation::default())
+                    .prepare_order(prepared, order, Cancellation::default())
                     .await?;
             }
             if directional {
@@ -3746,14 +3746,14 @@ impl MathService {
                 ));
             }
             let order = self
-                .job(1, demand, FlightCancellation::default(), move |_| {
+                .job(1, demand, Cancellation::default(), move |_| {
                     execution::factorable_resolve_order(&program, intent, &controls)
                         .map_err(Into::into)
                 })
                 .await?;
             if let Some(order) = order {
                 let callbacks = self
-                    .prepare_order(prepared.clone(), order, FlightCancellation::default())
+                    .prepare_order(prepared.clone(), order, Cancellation::default())
                     .await?;
                 Some(PricingCase {
                     executable: self.assemble(callbacks.clone()).await?,
@@ -3889,7 +3889,7 @@ impl MathService {
             Self::within_task(
                 scope,
                 driver,
-                self.prepare_order(prepared, order, FlightCancellation::default()),
+                self.prepare_order(prepared, order, Cancellation::default()),
             )
             .await?
         } else {
@@ -4098,7 +4098,7 @@ impl MathService {
                 "conic validation construction capacity",
             ));
         }
-        self.job(1, demand, FlightCancellation::default(), move |_| {
+        self.job(1, demand, Cancellation::default(), move |_| {
             admitted.validate(proof.as_ref()).map_err(Into::into)
         })
         .await?;
@@ -4148,7 +4148,7 @@ impl MathService {
         let source = problem.clone();
         let extent = native::structural::conic_construction_bytes(&source)?;
         let (mut structure, lease) = self
-            .job_retained(1, extent, FlightCancellation::default(), move |flag| {
+            .job_retained(1, extent, Cancellation::default(), move |flag| {
                 let structure = native::structural::conic_structure_with_cancel(&source, &flag)?;
                 let bytes = native::structural::retained_bytes(&structure);
                 Ok((structure, bytes))
@@ -4316,7 +4316,7 @@ impl MathService {
                 .checked_add(step.time_limit())
                 .ok_or_else(|| ProblemError::Contract("submitted solve deadline extent".into()))?;
             step.within_task(pse_kernels::ExecutionScope::new(
-                Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 Some(deadline),
             ))?
         } else {
@@ -4639,7 +4639,7 @@ impl MathService {
         self.job_construction(
             1,
             super::jobs::ConstructionEstimate::Opaque(self.policy.worker_bytes),
-            FlightCancellation::default(),
+            Cancellation::default(),
             None,
             move |flag| {
                 let program = plan
@@ -5771,7 +5771,7 @@ impl MathService {
         let budget = admission.map_or_else(|| budget.clone(), |owner| budget.with_admission(owner));
         let service = self.clone();
         let worker_scope = scope.clone();
-        let stop = FlightCancellation::default();
+        let stop = Cancellation::default();
         let cancel = stop.clone();
         let operation = self.job_retained_scoped(1, bytes, stop, scope.deadline(), move |_| {
             let Representation::Algebraic(case) = &source.representation else {
@@ -5821,7 +5821,7 @@ impl MathService {
             Ok((predictor, bytes))
         });
         tokio::pin!(operation);
-        let result = tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{scope.cancellation().store(true,std::sync::atomic::Ordering::Release);cancel.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}};
+        let result = tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{scope.cancellation_control().cancel();cancel.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}};
         result.map(|(predictor, owner)| predictor.with_owner(owner))
     }
     /// Worker-scoped providers and one attempt-local evaluator on this thread.

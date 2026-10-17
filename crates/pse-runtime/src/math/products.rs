@@ -64,7 +64,7 @@ impl MathService {
         Self::within_task(
             scope,
             driver,
-            self.prepare_order(prepared, order, FlightCancellation::default()),
+            self.prepare_order(prepared, order, Cancellation::default()),
         )
         .await
     }
@@ -74,7 +74,7 @@ impl MathService {
         self: &Arc<Self>,
         prepared: Preparation,
         order: pse_kernels::DerivativeOrder,
-        control: FlightCancellation,
+        control: Cancellation,
     ) -> Result<Preparation, MathRuntimeError> {
         if prepared.compiled().plan.order() >= order {
             return Ok(prepared);
@@ -120,7 +120,7 @@ impl MathService {
             .job_retained_construction(
                 1,
                 construction,
-                FlightCancellation::default(),
+                Cancellation::default(),
                 None,
                 move |flag| {
                     let product = source.prepare_directional_actions(&flag)?;

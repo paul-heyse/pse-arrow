@@ -462,21 +462,16 @@ impl PreparedSolve {
     }
 }
 
-struct Preparing(Option<Arc<std::sync::atomic::AtomicBool>>);
+struct Preparing(Option<pse_diagnostics::Cancellation>);
 impl Drop for Preparing {
     fn drop(&mut self) {
         if let Some(flag) = &self.0 {
-            flag.store(true, std::sync::atomic::Ordering::Release);
+            flag.cancel();
         }
     }
 }
 async fn scope_stopped(scope: &ExecutionScope) -> ProblemError {
-    loop {
-        if let Err(error) = scope.check() {
-            return error.into();
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-    }
+    super::super::scope_stopped(scope).await.into()
 }
 
 impl MathService {
@@ -573,10 +568,10 @@ impl MathService {
                 "PETSc source preparation workspace",
             ));
         }
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let task = scope.clone();
         let worker_scope = scope.clone();
-        let mut preparing = Preparing(Some(scope.cancellation().clone()));
+        let mut preparing = Preparing(Some(scope.cancellation_control().clone()));
         let operation = self.job_retained_scoped(1, bytes, control.clone(), scope.deadline(), move |abort| {
             if abort.load(std::sync::atomic::Ordering::Acquire) { return Err(MathRuntimeError::Cancelled); }
             worker_scope.check().map_err(ProblemError::from)?;
@@ -593,7 +588,7 @@ impl MathService {
         tokio::pin!(operation);
         let ((original, source, physical, zero, guards), owner) = tokio::select! {
             result = &mut operation => {preparing.0=None;result?},
-            () = driver.cancelled() => { task.cancellation().store(true, std::sync::atomic::Ordering::Release); control.cancel(); let _ = operation.await; return Err(MathRuntimeError::Cancelled); }
+            () = driver.cancelled() => { task.cancellation_control().cancel(); control.cancel(); let _ = operation.await; return Err(MathRuntimeError::Cancelled); }
             error = scope_stopped(&task) => {preparing.0=None;control.cancel();let _=operation.await;return Err(error.into());}
         };
         task.check().map_err(ProblemError::from)?;
@@ -831,7 +826,7 @@ impl MathService {
         declaration: ContentHash,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetsc, MathRuntimeError> {
-        let mut preparing = Preparing(Some(source.scope.cancellation().clone()));
+        let mut preparing = Preparing(Some(source.scope.cancellation_control().clone()));
         let result = self
             .prepare_petsc_blocks_inner(source, compiler, profile, domain, declaration, driver)
             .await;
@@ -859,7 +854,7 @@ impl MathService {
         )?;
         let scope = source.scope.clone();
         let worker_scope = scope.clone();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let prepared = source.source.prepared.clone();
         let values = source.source.values.clone();
         let construction = super::super::jobs::ConstructionEstimate::from_bound(
@@ -894,7 +889,7 @@ impl MathService {
         tokio::pin!(operation);
         let (products, lease) = tokio::select! {
             result = &mut operation => result?,
-            () = driver.cancelled() => { scope.cancellation().store(true,std::sync::atomic::Ordering::Release); control.cancel(); let _ = operation.await; return Err(MathRuntimeError::Cancelled); }
+            () = driver.cancelled() => { scope.cancellation_control().cancel(); control.cancel(); let _ = operation.await; return Err(MathRuntimeError::Cancelled); }
             error = scope_stopped(&scope) => {control.cancel();let _=operation.await;return Err(error.into());}
         };
         // Each binding has its own value-dependent projection population. Check
@@ -915,7 +910,7 @@ impl MathService {
             let preconditions = source.source.prepared.compiled().preconditions.clone();
             let bound_values = values.clone();
             let checked_scope = scope.clone();
-            let control = FlightCancellation::default();
+            let control = Cancellation::default();
             let validation = self.job_construction(
                 1,
                 construction,
@@ -936,7 +931,7 @@ impl MathService {
             tokio::pin!(validation);
             tokio::select! {
                 result = &mut validation => result?,
-                () = driver.cancelled() => { scope.cancellation().store(true, std::sync::atomic::Ordering::Release); control.cancel(); let _ = validation.await; return Err(MathRuntimeError::Cancelled); }
+                () = driver.cancelled() => { scope.cancellation_control().cancel(); control.cancel(); let _ = validation.await; return Err(MathRuntimeError::Cancelled); }
                 error = scope_stopped(&scope) => { control.cancel(); let _ = validation.await; return Err(error.into()); }
             }
         }
@@ -1004,7 +999,7 @@ impl MathService {
                 tokio::pin!(operation);
                 let artifact = tokio::select! {
                     r=&mut operation=>r?,
-                    ()=driver.cancelled()=>{scope.cancellation().store(true,std::sync::atomic::Ordering::Release);return Err(MathRuntimeError::Cancelled);},
+                    ()=driver.cancelled()=>{scope.cancellation_control().cancel();return Err(MathRuntimeError::Cancelled);},
                     error=scope_stopped(&scope)=>return Err(error.into()),
                 };
                 scope.check().map_err(ProblemError::from)?;
