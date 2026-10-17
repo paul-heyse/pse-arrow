@@ -727,14 +727,14 @@ fn kernel_structure_follows_lazy_specialization_and_cancellation_is_transient() 
         demand: vec!["x".into()],
         ..Bindings::default()
     };
-    let cancel = pse_diagnostics::Cancellation::new(true);
+    let cancel = Cancellation::new(true);
     assert!(matches!(
         workspace.prepare_modeling_cancellable(
             root,
             InstanceId::from_id(SemanticId::NIL),
             bindings.clone(),
             Limits::default(),
-            cancel
+            cancel.flag()
         ),
         Err(CompileError::Cancelled)
     ));
@@ -806,14 +806,14 @@ fn declared_hybrid_event_guards_and_reset_values_have_callable_projections() {
         .find(|row| row.name == "evented")
         .unwrap()
         .declaration_id;
-    let cancel = pse_diagnostics::Cancellation::new(false);
+    let cancel = Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
             root_instance(root),
             Bindings::default().with_analysis(pse_modeling::analysis::Route::Integrated),
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     let event = &model.model.fixtures[&root_instance(root)].modes[0].events[0];
@@ -2921,7 +2921,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+                &pse_kernels::ExecutionScope::new(Cancellation::new(false), None),
             )
             .unwrap(),
     );
@@ -2971,7 +2971,7 @@ fn convexity_fact_rebinds_with_values() {
     ];
     for (text, convex, nonconvex) in cases {
         let (mut w, _, _, root) = setup(text);
-        let cancel = pse_diagnostics::Cancellation::new(false);
+        let cancel = Cancellation::new(false);
         let bindings = Bindings {
             demand: vec!["p".into(), "x".into(), "y".into()],
             ..Bindings::default()
@@ -2982,7 +2982,7 @@ fn convexity_fact_rebinds_with_values() {
                 InstanceId::from_id(SemanticId::NIL),
                 bindings,
                 Limits::default(),
-                cancel.clone(),
+                cancel.flag(),
             )
             .unwrap();
         let paths = &model.model.paths;
@@ -3035,7 +3035,7 @@ fn convexity_fact_rebinds_with_values() {
 fn class_proof_policy_is_consumed_on_bind_and_rebind_without_changing_artifacts() {
     let (mut workspace, _, _, root) =
         setup("package p { def Root { param p:Scalar=1; var x:Scalar; eq e:p*x==2; } }");
-    let cancel = pse_diagnostics::Cancellation::new(false);
+    let cancel = Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -3045,7 +3045,7 @@ fn class_proof_policy_is_consumed_on_bind_and_rebind_without_changing_artifacts(
                 ..Bindings::default()
             },
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
@@ -3117,7 +3117,7 @@ fn class_proof_policy_is_consumed_on_bind_and_rebind_without_changing_artifacts(
 fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
     let (mut workspace, _, _, root) =
         setup("package p { def Root { param p:Scalar=1; var x:Scalar; eq e:p*x*x==4; } }");
-    let cancel = pse_diagnostics::Cancellation::new(false);
+    let cancel = Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -3127,7 +3127,7 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
                 ..Bindings::default()
             },
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
@@ -3284,7 +3284,7 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
 fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
     let (mut w, _, _, root) =
         setup("package p { def Root { param p: Scalar = 2; var x: Scalar; eq e: x*p == 6; } }");
-    let cancel = pse_diagnostics::Cancellation::new(false);
+    let cancel = Cancellation::new(false);
     let bindings = Bindings {
         demand: vec!["p".into(), "x".into()],
         ..Bindings::default()
@@ -3295,7 +3295,7 @@ fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
             InstanceId::from_id(SemanticId::NIL),
             bindings,
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     let (x, p) = (model.model.paths["x"], model.model.paths["p"]);
@@ -3885,14 +3885,14 @@ fn kernel_integrated_axis_retains_symbolic_time_and_original_derivative_lineage(
         .declaration_id;
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
     workspace.publish_modeling(rows, names).unwrap();
-    let cancel = pse_diagnostics::Cancellation::new(false);
+    let cancel = Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
             root_instance(root),
             Bindings::default(),
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     assert_eq!(model.model.integrated.len(), 1);
@@ -6660,7 +6660,7 @@ fn selected_preparation_uses_one_plan_and_carries_observation_structure() {
     let (mut workspace, _, _, root) = setup(
         "package p { def Root { var x:Scalar; var y:Scalar; eq a:x*y==2; let good:Scalar=x+y; let bad:Scalar=log(-1); } }",
     );
-    let cancel = pse_diagnostics::Cancellation::new(false);
+    let cancel = Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -6670,7 +6670,7 @@ fn selected_preparation_uses_one_plan_and_carries_observation_structure() {
                 ..Default::default()
             },
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     let selected = ModelingOutput::Member(model.model.paths["good"]).row_id();
@@ -7046,7 +7046,7 @@ fn actual_numerical_facts_reach_conditional_boundaries_and_shared_preparation() 
             "package p {def Root {var x:LogFugacityCoefficient;}}",
             inputs,
         );
-        let cancel = pse_diagnostics::Cancellation::new(false);
+        let cancel = Cancellation::new(false);
         let model = workspace
             .prepare_modeling_cancellable(
                 root,
@@ -7056,7 +7056,7 @@ fn actual_numerical_facts_reach_conditional_boundaries_and_shared_preparation() 
                     ..Default::default()
                 },
                 Limits::default(),
-                cancel.clone(),
+                cancel.flag(),
             )
             .unwrap();
         let x = model.model.paths["x"];
@@ -7369,7 +7369,7 @@ fn affine_row_rebind_keeps_free_iterates_and_refreshes_parameter_coefficients_wi
     let (mut workspace, _, _, root) = setup(
         "package p { def Root { param p:Scalar=2; var x:Scalar; eq affine:p*x==6; eq nonlinear:x*x==9; } }",
     );
-    let cancel = pse_diagnostics::Cancellation::new(false);
+    let cancel = Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -7379,7 +7379,7 @@ fn affine_row_rebind_keeps_free_iterates_and_refreshes_parameter_coefficients_wi
                 ..Bindings::default()
             },
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
