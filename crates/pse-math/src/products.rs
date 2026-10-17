@@ -495,3 +495,7 @@ mod tests {
         assert!(!worker.census().instantiated_orders[2]);
     }
 }
+
+#[cfg(test)]
+#[path = "product_contract_tests.rs"]
+mod contract_tests;
