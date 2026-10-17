@@ -156,6 +156,7 @@ mod tests {
     }
     fn report() -> native::Report {
         native::Report {
+            forward_axes: Vec::new(),
             termination: native::Termination::Completed,
             completed_time: 1.,
             endpoint: Some(native::TrajectoryEndpoint {
@@ -183,6 +184,8 @@ mod tests {
     fn goal_accuracy_dynamic_contrast_changes_only_actual_work_controls() {
         let profile = native::Profile {
             rtol: 0.02,
+            sensitivity: native::DynamicSensitivity::Forward,
+            forward_axes: Some(vec![2, 0]),
             atol: vec![0.01],
             out_rtol: Some(0.03),
             out_atol: vec![0.04],
@@ -205,6 +208,7 @@ mod tests {
         let original = native::profile_json(&profile);
         let next = native::profile_json(&contrast);
         for field in [
+            "forward_axes",
             "numerics",
             "schedule",
             "samples",

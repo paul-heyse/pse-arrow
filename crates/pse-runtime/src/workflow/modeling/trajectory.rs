@@ -3,6 +3,47 @@
 //! Selected generated trajectory projection, preserving exact physical coordinates.
 use super::*;
 use crate::workflow::math;
+
+/// Each selected physical integration axis retains its contract parameter's physical
+/// identity, including every distinct interval of a scheduled input.
+fn sensitivity_parameters(
+    profile: &native::Profile,
+    parameters: usize,
+    axes: &[usize],
+) -> Result<Vec<usize>, WorkflowError> {
+    let first = profile.columns_at(parameters, profile.start);
+    axes.iter().enumerate().map(|(column, axis)| {
+        if axes[..column].contains(axis) {
+            return Err(contract("trajectory sensitivity axes repeat a physical column"));
+        }
+        first.iter().enumerate().find_map(|(parameter, start)| {
+            let intervals = profile.schedule.iter().find(|s| s.parameter == parameter)
+                .map_or(1, |s| s.times.len() + 1);
+            axis.checked_sub(*start).filter(|offset| *offset < intervals).map(|_| parameter)
+        }).ok_or_else(|| contract("trajectory physical sensitivity axis absent"))
+    }).collect()
+}
+
+#[cfg(test)]
+mod sensitivity_coordinate_tests {
+    use super::*;
+    #[test]
+    fn selected_public_parameters_follow_schedule_order_and_physical_axis_identity() {
+        let profile = native::Profile {
+            schedule: vec![
+                native::ScheduledInput { parameter: 2, times: vec![0.25, 0.75] },
+                native::ScheduledInput { parameter: 0, times: vec![0.5] },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(sensitivity_parameters(&profile, 3, &[5, 0, 2, 4]).unwrap(), vec![0, 1, 2, 0]);
+        assert!(sensitivity_parameters(&profile, 3, &[]).unwrap().is_empty());
+        for axes in [vec![0, 0], vec![6], vec![usize::MAX]] {
+            assert!(sensitivity_parameters(&profile, 3, &axes).is_err());
+        }
+    }
+}
+
 impl ModelingTrajectory {
     pub(in crate::workflow) fn relation_ids() -> Vec<SemanticId> {
         use pse_relations::generated::runtime::*;
@@ -383,7 +424,8 @@ impl ModelingTrajectory {
                     ),
                     (
                         if request.wants(response_sensitivities::RELATION_ID) {
-                            p.contract.parameters.len()
+                            p.contract.parameters.len().checked_add(r.forward_axes.len())
+                                .ok_or_else(|| contract("trajectory sensitivity metadata extent"))?
                         } else {
                             0
                         },
@@ -402,13 +444,15 @@ impl ModelingTrajectory {
                 let parameter_access =
                     pse_math::index::CheckedInventory::new(&parameter_ports, |v| v.id)
                         .map_err(math)?;
-                p.contract
-                    .parameters
-                    .iter()
-                    .map(|id| {
+                let selected = sensitivity_parameters(&p.profile, p.contract.parameters.len(), &r.forward_axes)?;
+                selected.iter().zip(&r.forward_axes)
+                    .map(|(parameter, axis)| {
+                        let id = p.contract.parameters.get(*parameter)
+                            .ok_or_else(|| contract("trajectory sensitivity parameter absent"))?;
                         parameter_access
                             .get(id)
                             .copied()
+                            .map(|port| (*axis, port))
                             .ok_or_else(|| contract("trajectory parameter port absent"))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -494,12 +538,14 @@ impl ModelingTrajectory {
                         .await
                         .map_err(relation)?;
                 } else if !point.output_sensitivities.is_empty() {
-                    for (j, parameter) in parameters.iter().enumerate() {
+                    let extent = width.checked_mul(parameters.len())
+                        .ok_or_else(|| contract("trajectory sensitivity extent overflow"))?;
+                    if point.output_sensitivities.len() != extent {
+                        return Err(contract("trajectory sensitivity extent"));
+                    }
+                    for (j, (axis, parameter)) in parameters.iter().enumerate() {
                         if columns.skip_next::<response_sensitivities::Row>() {
                             continue;
-                        }
-                        if point.output_sensitivities.len() != width * parameters.len() {
-                            return Err(contract("trajectory sensitivity extent"));
                         }
                         columns
                             .push(response_sensitivities::Row {
@@ -509,6 +555,8 @@ impl ModelingTrajectory {
                                 time: Some(point.time),
                                 output_id: symbol,
                                 parameter_id: parameter.id,
+                                parameter_column: i64::try_from(*axis)
+                                    .map_err(|_| contract("trajectory physical sensitivity column extent"))?,
                                 output_unit_id: unit,
                                 parameter_unit_id: parameter.unit.as_id(),
                                 value: point.output_sensitivities[column * parameters.len() + j],
