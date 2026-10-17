@@ -153,6 +153,11 @@ backward functional/direction trajectory. Segment resets, checkpoint restores an
 do not renew permission. Covered output consumes no advancement. Failed calls, rejected
 trials and setup work retain separate observations. Actual library-owner guards enforce
 opaque replay; outer cancellation, deadline and scientific WorkLimits remain authoritative.
+Public and nested execution requests use Version2; explicit Version1 execution refuses.
+IDAS backward integration retains NORMAL scheduling with advancement guards on each
+underlying backward memory. ONE_STEP advances all active backward directions and can lose
+covered interpolants while another direction catches up. The per-memory guards survive
+checkpoint-call boundaries without renewing accepted-step permission.
 Plan43d owns the combined implementation, consumer migration and acceptance.
 
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).

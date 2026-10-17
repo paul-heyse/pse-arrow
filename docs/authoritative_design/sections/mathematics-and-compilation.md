@@ -564,6 +564,12 @@ applicability remain barriers. Optional compiled derivative arithmetic uses the 
 compiler-child/module/scratch owners and conservative execution profile. Plan43b owns
 implementation and acceptance; this target statement does not assert their completion.
 
+Implicit residual preparation separates unknown-only Newton/Jacobian actions from final
+parameter IFT products while binding all consumed parameter, domain and provider inputs.
+IFT columns have canonical `[unknowns, parameters]` order. Original residual and derivative
+solve checks remain independent. One current faer factor may serve compatible IFT right-hand
+sides and orders; KINSOL/KLU allocation or symbolic reuse grants no numerical factor handoff.
+
 > Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
 
 Deployment configuration retains only consumed resource and execution settings. Removing the

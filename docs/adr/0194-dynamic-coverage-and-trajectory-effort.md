@@ -39,7 +39,7 @@ Profile Version2 interprets max_steps as accepted native advancement, independen
 
 ### Consequences
 
-Only genuine physical boundaries set hard stops. Root-aware native output service preserves event/reset ordering and consistent initialization. Forward remaining-step settings, owner-driven backward advancement and the maintained replay guard enforce the contract at actual advancement. Migrate public Rust/Python/nested requests to Version2; reject Version1 execution and regenerate design-phase inputs. Existing full-profile framed identity already consumes the changed version.
+Only genuine physical boundaries set hard stops. Root-aware native output service preserves event/reset ordering and consistent initialization. Forward remaining-step settings and maintained library-owner replay and per-backward-memory accepted-step guards enforce the contract at actual advancement. Retain IDAS NORMAL scheduling: ONE_STEP advances all active backward directions and can needlessly advance a direction whose output is already covered while another catches up. A backward guard is per underlying backward memory, survives checkpoint-call boundaries and preserves native output scheduling. Migrate public Rust/Python/nested requests to Version2; reject Version1 execution and regenerate design-phase inputs. Existing full-profile framed identity already consumes the changed version.
 
 ### Compensating controls
 

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 188
+revision: 189
 date: 2026-10-17
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 189 | 2026-10-17 | Plan43 G05 publishes selected implicit Newton/IFT demand and factor ownership (§14.3), typed MUMPS and authoritative FERAL refinement (§18.3), Version2 migration and per-memory NORMAL backward guards (§13.6), and the source-map caller clock (§23.1). | Maintainer delegated full-series execution; PSE_DESIGN_EDIT=1. Native runtime 76-control acceptance passed; Python/durable/static qualification remains with Plan43g. Formal ADR status is unchanged. |
 | 188 | 2026-10-17 | Plan43 RC03 clarifies requested-product versus unrequested intermediate-jet validity (§14.3), and RC11 corrects local diagnostic catalogue wording (§15); proposed ADR-0192/0196 extend source-linked pure analysis, static attribution, qualified singular modes, actual native detail, clock-aligned capture and three derived evidence views (§23.1). | Maintainer delegated full-series execution; PSE_DESIGN_EDIT=1. Functional source is integrated; assembled qualification remains at Plan43g. No complete IDAES Toolbox parity, automatic causal verdict or environment proof. |
 | 187 | 2026-10-17 | Proposed ADR-0196 (§23.1): registry-declared immutable diagnostic field views, exact event membership and existing leased Arrow/query consumers. | Delegated Plan43 E04 decision; visible `PSE_DESIGN_EDIT=1`; implementation/acceptance remain 43e/43g. |
 | 186 | 2026-10-17 | Proposed ADR-0195 (§14.3/§18.10): one notifying execution cancellation owner, actual permit-release wakeups and owned native exclusion/child readiness. | Delegated Plan43 F02 decision; visible `PSE_DESIGN_EDIT=1`; implementation/acceptance remain 43c/43f. |

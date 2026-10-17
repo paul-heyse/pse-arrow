@@ -282,7 +282,7 @@ if page.operations:
         snapshot = reader.snapshot()  # preceding 60 seconds
         document = reader.inspect(window=15.0)  # this exact operation only
     document = observations.inspect(InspectionRequest(
-        version=1,
+        version=2,
         operation=selected,
         window=ClosedDuration(secs=60, nanos=0),
         include_related=True,
@@ -318,7 +318,7 @@ for process in page.processes:
     for summary in process.operations:
         selected = diagnostics.operation_id(diagnostics.operation_text(summary.id))
         document = diagnostics.inspect_checkpoint(process.checkpoint, InspectionRequest(
-            version=1,
+            version=2,
             operation=selected,
             window=ClosedDuration(secs=60, nanos=0),
             include_related=True,
@@ -484,3 +484,76 @@ requested-product availability and later related access. Inclusive intervals ove
 The native-process harness retains every invocation, including warmups/failures, separately
 from Criterion statistics; measurement membership is unavailable when the harness does not
 establish it. These records do not introduce performance thresholds or provenance proof.
+
+## Selected numerical interpretation and retained evidence
+
+A whole coherent record identifies one producer event. Read `family_sequence`, generation,
+phase, coordinates, norm, availability and history coverage before comparing events.
+KLU reports actual issued/completed setup, symbolic, factor/refactor and solve work. Selected
+PETSc logging has one prepared producer population per native event and a common checkpoint
+ordinal; event time is completed inclusive time, not exclusive wall or accepted iterations.
+A zero-history request can retain current progress. Disabled/refused/absent observations are
+unavailable rather than measured zeros.
+
+`InspectionRequest` version2 optionally accepts `NumericalHistoryPolicy`. Thresholds are
+explicit caller choices; interpretation requires a sufficient compatible record suffix.
+The CLI accepts `just diagnostics inspect ... --numerical-policy <json>` with the same generated
+policy. Restoration, tiny directions, barrier changes, original worst members, inertia and
+raw recycle ratios produce source-linked facts, hypotheses or limitations. An initial zero
+placeholder is not a tiny step; a scaled search direction is not accepted physical motion.
+Coalesced endpoints and opaque intervals cannot establish stagnation or waiting.
+
+`RunResult.invocation_evidence()` preserves actual products, starts, attempts, work and
+independently observed qualification/terminal/response endpoints. `explain_invocation()` and
+`compare_invocation(other)` consume those documents without executing either model. Their
+optional generated `ComparisonPolicy` bounds inspected source items and returned statements.
+Comparisons distinguish more work from descriptive cost per unit and retain changed requests,
+failures, retries, coverage and overlapping inclusive clocks. They do not rank incompatible
+products or establish a causal performance verdict from timing alone.
+
+`ModelingPackage.diagnostic_source_map(case_id, settings, maximum_bytes=..., time_limit=...)`
+reads a bounded static source/product manifest. It retains document fields and repeated
+occurrence positions, aliases, gathers, fixed coordinates, shared arithmetic contributors and
+scales. Static eligible branch alternatives do not say which branch executed. Unavailable
+native pullbacks remain explicit. One caller clock covers Python declaration/preparation, artifact waits and mapping/copying;
+zero bounds refuse before preparation, and a narrower enclosing clock cannot be renewed.
+The operation prepares source maps but performs no residual,
+property or derivative evaluation. Explicit full bounded singular-mode diagnostics separately
+perform new numerical work and publish operator residual/normalization qualification; they do
+not certify global feasibility or optimum.
+
+`diagnostics.detail_arrow(records, offset=..., limit=..., maximum_bytes=..., memory_bytes=...)`,
+`diagnostics.capture_arrow(document, memory_bytes=...)` and `RunResult.invocation_arrow()`
+project retained evidence into registry-declared Arrow schemas. Rust supplies the same views
+and a DataFusion `MemTable` over selected detail. Escaped buffers retain their finite allocation
+lease. Count values remain UInt64; exact time is seconds plus nanoseconds, unavailable is null
+with a reason/category, and missing prefixes/gaps remain partial. Repeated source identities
+refuse a derived view rather than silently deduplicate raw records. Invocation/capture JSON
+preserves full source meaning alongside convenient columns. No store writes or hidden scientific
+evaluation are needed, and optional export failure leaves the source and scientific result intact.
+
+## Optional trace queries and profiler selection
+
+`just diagnostic-tools` explicitly installs the pinned optional Trace Processor. It never runs
+implicitly during capture or query. `just trace-query --help` describes the finite query adapter;
+select `just trace-query query <trace> <timeline|numerical|coverage> --output <fresh-directory>`.
+Raw trace/capture documents remain the authority even when import, query, output or timeout
+fails. Timeline slices are inclusive and may overlap. Coverage SQL reports importer errors/loss;
+an empty result is not proof that the source collected every event.
+
+The writer preserves actual MONOTONIC timestamps and emits MONOTONIC/BOOTTIME relationships
+with the measured sampling bracket before events, refreshed at source checkpoints. It does
+not relabel one clock as another. Source records use typed protobuf annotations; Trace Processor
+exposes them as `debug.*` arguments. Its SQL signed representation can show a large unsigned
+value as negative: use exact `display_value` for unsigned identities, or the direct UInt64 Arrow
+view for numerical analysis. Unknown source-clock alignment remains unknown.
+
+Use existing owned perf CPU capture and optional Samply rendering for a concrete hot-stack
+question; retain raw samples, loss, unwind/symbol and process/thread scope. User cycles and
+instructions do not imply raw/ftrace/uncore permission or prove bandwidth saturation. Heaptrack
+and Callgrind are eligible isolated experiments; a launch-injected profiler tied to the simulation
+is not an independently stoppable capture. BPF/off-CPU, Coz, Tracy, Tokio Console, SUNProfiler,
+Caliper and uProf require their actual question, build, permission and lifetime; no compulsory
+profiler stack or permanent daemon is installed. Compiler remarks/llvm-mca apply to a confirmed
+arithmetic region, not the whole workflow. Retain conservative current ISA/BLAS/allocator/build
+profiles unless independent scientific qualification supports a concrete change.

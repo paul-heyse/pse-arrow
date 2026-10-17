@@ -1084,6 +1084,16 @@ discarded before native construction. *Tested* by `presolve::tests::bounds` and
 force-validation, 2026-10-04). Transformation identity uses the bounds and recovery maps
 actually consumed by execution.
 
+MUMPS settings also declare pivot tolerance, maximum pivot tolerance, memory percentage
+and permuting/scaling selection. Registered native options validate their actual domains,
+retain valid zero values and report effective readback; raw options cannot override these
+typed controls. The settings declaration owns their defaults.
+
+POUNCE passes the declared FERAL refinement configuration unchanged through interior-point
+and SQP methods and exact or limited-memory curvature. No adapter silently replaces explicit
+refinement with a method-dependent zero. Effective configuration and performed refinement
+remain observable; numerical stopping and original-space acceptance remain independent.
+
 **Warm restarts.** A complete primal-dual seed restarts under a typed profile
 (`solve::WarmRestart`, part of both adapters' settings), because with the cold-start pushes
 a seeded interior point is pushed back towards the analytic centre and loses most of its
