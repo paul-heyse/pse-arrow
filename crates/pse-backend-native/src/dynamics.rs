@@ -8,11 +8,15 @@ use pse_math::index::{OriginalCol, OriginalRow};
 use pse_model::{document::Version, scalars::PositiveCount};
 use std::{
     collections::BTreeSet,
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
     time::Duration,
 };
 
 mod layout;
+#[cfg(any(feature = "diffsol", feature = "idas", test))]
+mod effort;
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+use effort::StepBudget;
 pub use layout::PreparedLayout;
 #[cfg(feature = "idas")]
 use layout::{csc, slot};
@@ -1156,7 +1160,7 @@ pub struct EndpointAssessment {
 #[serde(deny_unknown_fields)]
 pub struct Profile {
     /// Required execution interpretation version; legacy unversioned requests need readmission.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Native method selected from the required trial semantics; automatic when absent.
     #[serde(default = "automatic")]
     pub method: Method,
@@ -1185,7 +1189,10 @@ pub struct Profile {
     pub atol: Vec<f64>,
     /// Initial step in seconds.
     pub initial_step: f64,
-    /// Maximum native step calls across all segments.
+    /// Maximum accepted advancement steps in each complete trajectory: forward/recording,
+    /// all forward replay of one derivative operation, and each backward direction.
+    /// Physical segments, checkpoint restores and sample jumps do not renew this cap.
+    /// Interpolation consumes no steps; failed calls and rejected trials are separate work.
     pub max_steps: usize,
     /// Maximum retained event records.
     pub max_events: usize,
@@ -2693,7 +2700,7 @@ fn positive(x: f64) -> bool {
     x.is_finite() && x > 0.0
 }
 /// Share the same outer cancellation flag across fitting and integration.
-pub type Cancellation = Arc<AtomicBool>;
+pub use pse_diagnostics::Cancellation;
 
 impl std::fmt::Debug for Profile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

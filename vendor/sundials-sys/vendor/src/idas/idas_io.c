@@ -34,6 +34,23 @@
  * =================================================================
  */
 
+int IDASetAcceptedStepBudget(void* ida_mem, long int remaining)
+{
+  if (ida_mem == NULL) { return IDA_MEM_NULL; }
+  IDAMem mem = (IDAMem)ida_mem;
+  mem->ida_pse_accepted_remaining = remaining;
+  mem->ida_pse_accepted_steps = 0;
+  return IDA_SUCCESS;
+}
+
+int IDAGetAcceptedBudgetSteps(void* ida_mem, long int* accepted)
+{
+  if (ida_mem == NULL) { return IDA_MEM_NULL; }
+  if (accepted == NULL) { return IDA_ILL_INPUT; }
+  *accepted = ((IDAMem)ida_mem)->ida_pse_accepted_steps;
+  return IDA_SUCCESS;
+}
+
 int IDASetDeltaCjLSetup(void* ida_mem, sunrealtype dcj)
 {
   IDAMem IDA_mem;

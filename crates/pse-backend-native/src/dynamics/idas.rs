@@ -362,6 +362,7 @@ fn stopped(error: &ProblemError, execution: &Execution) -> Termination {
         crate::callback::Failure::Stopped(crate::solve::Termination::TimeLimit) => {
             Termination::TimeLimit
         }
+        _ if matches!(error, ProblemError::Limit { kind: crate::LimitKind::Work, .. }) => Termination::StepLimit,
         _ => match execution.stopped() {
             Some(crate::solve::Termination::Cancelled) => Termination::Cancelled,
             Some(crate::solve::Termination::TimeLimit) => Termination::TimeLimit,
@@ -1198,6 +1199,7 @@ struct Problem {
     /// The second-order user data, boxed so its address is stable while IDAS holds it.
     direction: Option<Box<Direction>>,
     counters: Counters,
+    steps: StepBudget,
 }
 /// The IDAS adjoint of one attempt: `IDAAdjInit` checkpoints and its backward problems,
 /// reinitialized at every segment and every observed sample.
@@ -1229,6 +1231,7 @@ type Adjoints = (Vec<Vec<f64>>, Vec<Vec<f64>>);
 /// The forward state, its rates and its state sensitivities at a restart time.
 type Forward = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>);
 struct Session<'a> {
+    replay_steps: Option<StepBudget>,
     observation_generation: u64,
     observation_counters: std::cell::RefCell<BTreeSet<&'static str>>,
     ctx: ffi::SUNContext,
@@ -1388,6 +1391,7 @@ impl<'a> Session<'a> {
         let newton_values = vec![0.0; layout.rows.len()];
         let newton_values_b = vec![0.0; layout.rows_b.len()];
         let mut s = Self {
+            replay_steps: None,
             observation_generation: crate::observation::generation(),
             observation_counters: std::cell::RefCell::default(),
             ctx: std::ptr::null_mut(),
@@ -2163,6 +2167,24 @@ impl<'a> Session<'a> {
         }
         Ok(flag)
     }
+    /// Charge actual replay acceptance, including a later failed native return.
+    fn charge_replay(&mut self, accepted: c_long) -> Result<(), ProblemError> {
+        let budget = self.replay_steps.as_mut().ok_or_else(|| ProblemError::internal("replay owner"))?;
+        let accepted = usize::try_from(accepted).map_err(|_| ProblemError::internal("negative replay steps"))?;
+        budget.charge(accepted, "adjoint forward replay")?;
+        let execution = &self.callback.callback.execution;
+        execution.progress.push(crate::solve::Event {
+            source: Some(crate::solve::EventSource::new("dynamic_replay_effort", Some("physical_model"), None)),
+            phase: "idas.adjoint.replay.acceptance".into(),
+            elapsed: execution.started.elapsed(),
+            values: BTreeMap::from([
+                ("accepted_steps_this_call".into(), crate::solve::Metric::Integer(i64::try_from(accepted).unwrap_or(i64::MAX))),
+                ("accepted_steps_cumulative".into(), crate::solve::Metric::Integer(i64::try_from(budget.used()).unwrap_or(i64::MAX))),
+                ("accepted_steps_remaining".into(), crate::solve::Metric::Integer(i64::try_from(budget.remaining()).unwrap_or(i64::MAX))),
+            ]), incumbent: None,
+        });
+        Ok(())
+    }
     /// Native counters of the current segment; IDAS resets them at each reinitialization.
     fn statistics(&self, flag: i32, p: &Profile, returned_time: Option<f64>) -> serde_json::Value {
         let mut value = serde_json::json!({
@@ -2274,24 +2296,21 @@ impl<'a> Session<'a> {
         output: &mut SampleOutput<'_>,
     ) -> Result<(Option<usize>, c_long), ProblemError> {
         let mut steps: c_long = 0;
+        // A physical segment is the sole hard stop. Native NORMAL output service
+        // preserves root ordering and sensitivity/quadrature output at each sample.
+        native!(ffi::IDASetStopTime(self.mem, stop), "physical stop time")?;
+        native!(ffi::IDASetMaxNumSteps(self.mem, -1), "owner-governed steps")?;
+        native!(ffi::IDASetAcceptedStepBudget(self.mem, budget), "trajectory steps")?;
         r.statistics.push(self.statistics(0, p, None));
         loop {
+            self.callback.callback.execution.check()?;
             let target = p
                 .samples
                 .get(r.coverage.produced())
                 .copied()
                 .filter(|t| *t < stop)
                 .unwrap_or(stop);
-            if steps >= budget {
-                r.termination = Termination::StepLimit;
-                return Ok((None, steps));
-            }
             let mut time = r.completed_time;
-            native!(ffi::IDASetStopTime(self.mem, target), "stop time")?;
-            native!(
-                ffi::IDASetMaxNumSteps(self.mem, budget - steps),
-                "remaining steps",
-            )?;
             let flag = self.solve(target, &mut time)?;
             native!(ffi::IDAGetNumSteps(self.mem, &raw mut steps), "step count")?;
             if let Some(last) = r.statistics.last_mut() {
@@ -2575,6 +2594,7 @@ impl Session<'_> {
         r: &Report,
         weights: &[f64],
     ) -> Result<(Vec<f64>, Option<SecondOrder>), ProblemError> {
+        self.replay_steps = Some(StepBudget::new(p.max_steps));
         let n = self.callback.contract.states.len();
         let np = self.callback.contract.parameters.len();
         let width = self.callback.integration.len();
@@ -2688,10 +2708,10 @@ impl Session<'_> {
     /// Rerun one segment's forward pass from its stored consistent start, with its state
     /// sensitivities when they are integrated, storing its checkpoints again.
     fn replay(&mut self, start: &Start, stop: f64, p: &Profile) -> Result<(), ProblemError> {
-        let steps: c_long = p
-            .max_steps
-            .try_into()
-            .map_err(|_| ProblemError::unsupported("IDAS step allowance extent"))?;
+        let budget = self.replay_steps.get_or_insert_with(|| StepBudget::new(p.max_steps));
+        budget.require_advance("adjoint forward replay")?;
+        let steps: c_long = budget.remaining().try_into()
+            .map_err(|_| ProblemError::unsupported("IDAS replay allowance extent"))?;
         // SAFETY: the session's state vector holds the `n` states the start was read from.
         unsafe { write(self.y, &start.y) };
         // SAFETY: as above, for the rates.
@@ -2722,11 +2742,19 @@ impl Session<'_> {
         native!(ffi::IDAAdjReInit(self.mem), "adjoint reinitialization")?;
         native!(ffi::IDASetStopTime(self.mem, stop), "stop time")?;
         native!(
-            ffi::IDASetMaxNumSteps(self.mem, steps),
-            "adjoint forward steps",
+            ffi::IDASetAcceptedStepBudget(self.mem, steps),
+            "adjoint forward replay steps",
         )?;
         let mut time = start.time;
-        let flag = self.solve(stop, &mut time)?;
+        self.observation_generation = crate::observation::generation();
+        self.observation_counters.borrow_mut().clear();
+        let result = self.solve(stop, &mut time);
+        let mut accepted: c_long = 0;
+        native!(ffi::IDAGetAcceptedBudgetSteps(self.mem, &raw mut accepted), "replay accepted steps")?;
+        self.charge_replay(accepted)?;
+        let flag = result?;
+        self.statistics(flag, p, (flag >= 0).then_some(time));
+        if flag == ffi::IDA_TOO_MUCH_WORK { return Err(StepBudget::exhausted("adjoint forward replay")); }
         if flag < 0 {
             return Err(self.callback.native_failure(flag, "adjoint forward pass"));
         }
@@ -2936,6 +2964,7 @@ impl Session<'_> {
                 quadrature,
                 direction: target.map(|column| Box::new(Direction { context, column })),
                 counters: [0; 4],
+                steps: StepBudget::new(p.max_steps),
             };
             let data: *mut c_void = problem
                 .direction
@@ -3037,11 +3066,43 @@ impl Session<'_> {
     /// Integrate every backward problem to `t`; their adjoint values and quadratures there.
     fn solve_backward(&mut self, t: f64) -> Result<Adjoints, ProblemError> {
         let mem = self.mem;
+        // Restored forward checkpoints never restore permission. Hidden replay
+        // uses its own cumulative owner; each backward direction owns its cap.
+        native!(ffi::IDASetAcceptedStepBudget(mem, -1), "disable recording guard during replay")?;
+        let replay = self.replay_steps.as_ref().ok_or_else(|| ProblemError::internal("replay owner"))?;
+        let remaining: c_long = replay.remaining().try_into()
+            .map_err(|_| ProblemError::unsupported("IDAS replay allowance extent"))?;
+        native!(ffi::IDASetReplayStepLimit(mem, remaining), "checkpoint replay steps")?;
+        for problem in &self.backward_mut()?.problems {
+            // SAFETY: this session owns the exact backward memory returned here.
+            let backward = unsafe { ffi::IDAGetAdjIDABmem(mem, problem.which) };
+            if backward.is_null() { return Err(ProblemError::internal("IDAS backward memory")); }
+            let remaining: c_long = problem.steps.remaining().try_into()
+                .map_err(|_| ProblemError::unsupported("IDAS backward allowance extent"))?;
+            native!(ffi::IDASetAcceptedStepBudget(backward, remaining), "backward trajectory steps")?;
+            native!(ffi::IDASetMaxNumSteps(backward, -1), "owner-governed backward steps")?;
+        }
         // SAFETY: the session's live IDAS memory on its owning thread; the backward
         // callbacks reach the context only through their user data.
         let flag = crate::observation::scoped("idas.backward", || unsafe {
             ffi::IDASolveB(mem, t, ffi::IDA_NORMAL)
         });
+        let mut replayed: c_long = 0;
+        native!(ffi::IDAGetReplayNumSteps(mem, &raw mut replayed), "checkpoint replay count")?;
+        self.charge_replay(replayed)?;
+        let mut exhausted = false;
+        for problem in &mut self.backward_mut()?.problems {
+            // SAFETY: this session owns the exact backward memory.
+            let backward = unsafe { ffi::IDAGetAdjIDABmem(mem, problem.which) };
+            let mut accepted: c_long = 0;
+            native!(ffi::IDAGetAcceptedBudgetSteps(backward, &raw mut accepted), "backward accepted count")?;
+            problem.steps.charge(usize::try_from(accepted)
+                .map_err(|_| ProblemError::internal("negative backward steps"))?, "adjoint backward trajectory")?;
+            exhausted |= problem.steps.remaining() == 0;
+        }
+        if flag == ffi::IDA_TOO_MUCH_WORK && (exhausted || self.replay_steps.as_ref().is_some_and(|b| b.remaining() == 0)) {
+            return Err(StepBudget::exhausted("adjoint trajectory"));
+        }
         if flag < 0 {
             return Err(self.callback.native_failure(flag, "adjoint step"));
         }
@@ -3240,6 +3301,8 @@ impl Session<'_> {
                     serde_json::json!({
                         "direction": q.direction.as_ref().map(|d| d.column),
                         "steps": q.counters[0],
+                        "accepted_step_allowance": q.steps.used() + q.steps.remaining(),
+                        "accepted_steps_charged": q.steps.used(),
                         "nonlinear_iterations": q.counters[1],
                         "nonlinear_convergence_failures": q.counters[2],
                         "error_test_failures": q.counters[3],
@@ -3691,12 +3754,12 @@ fn backward_route(
                 return Err(contract("adjoint cotangent extent or value"));
             }
             let result = s.backward(p, r, &weights)?;
-            Ok((result, s.backward_statistics()))
+            Ok((result, s.backward_statistics(), s.replay_steps.as_ref().map(StepBudget::used)))
         },
     );
     let completed = report.termination == Termination::Completed;
     let (gradient, hessian) = match outcome {
-        Some(((gradient, second), backward)) => {
+        Some(((gradient, second), backward, replay_steps)) => {
             report.statistics.push(serde_json::json!({
                 "adjoint": {
                     "checkpoints": checkpoints,
@@ -3705,6 +3768,8 @@ fn backward_route(
                     "second_order_directions": directions,
                     "hessian_asymmetry": second.as_ref().map(|(_, a)| *a),
                     "backward": backward,
+                    "accepted_step_cap_per_trajectory": p.max_steps,
+                    "forward_replay_accepted_steps": replay_steps,
                 }
             }));
             (Some(gradient), second.map(|(h, _)| h))
@@ -3744,7 +3809,8 @@ fn attempt<T>(
         admission,
     } = request;
     let execution = Execution {
-        cancel,
+        cancel: cancel.flag(),
+        cancellation: cancel,
         started: Instant::now(),
         time_limit: p.time_limit,
         progress,
@@ -4034,7 +4100,7 @@ mod initialization_tests {
         }
     }
     fn execution() -> Execution {
-        let mut e = Execution::new(Arc::default(), &crate::solve::Controls::default());
+        let mut e = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
         e.memory = Some(1 << 20);
         e
     }
@@ -4283,7 +4349,7 @@ mod initialization_tests {
             "an explicit constraint step floor still acts without line search"
         );
         let e = execution();
-        e.cancel.store(true, std::sync::atomic::Ordering::Release);
+        e.cancellation_control().cancel();
         assert!(matches!(
             initialize_consistent(&mut oracle, &[], &request(), e),
             Err(ProblemError::Cancelled)

@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 //! Exact pinned operator-contract controls, not a physical process qualification.
 use super::*;
-use std::sync::atomic::AtomicBool;
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
@@ -140,7 +139,7 @@ fn profile(dae: bool) -> Profile {
     }
 }
 fn run(t: &mut Toy, p: &Profile) -> Report {
-    integrate(t, p, &[2.0], Arc::new(AtomicBool::new(false))).unwrap()
+    integrate(t, p, &[2.0], pse_diagnostics::Cancellation::new(false)).unwrap()
 }
 #[test]
 fn smooth_forward_includes_initial_and_direct_output_parameter_terms() {
@@ -199,7 +198,7 @@ fn final_scheduled_change_is_reinitialized_and_observed() {
         &mut Toy::new(false, false),
         &p,
         &[2.0, 3.0],
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
@@ -241,7 +240,7 @@ fn typed_callback_failure_retains_only_completed_prefix() {
 fn cancellation_and_step_budget_are_distinct() {
     let mut t = Toy::new(false, false);
     let p = profile(false);
-    let r = integrate(&mut t, &p, &[2.0], Arc::new(AtomicBool::new(true))).unwrap();
+    let r = integrate(&mut t, &p, &[2.0], pse_diagnostics::Cancellation::new(true)).unwrap();
     assert_eq!(r.termination, Termination::Cancelled);
     assert!(r.samples.is_empty());
     let r = run(&mut t, &Profile { max_steps: 1, ..p });
@@ -260,7 +259,7 @@ fn native_step_observations_preserve_segment_restart_and_terminal_mesh_time() {
             times: vec![0.5],
         }];
         let report =
-            integrate(&mut Toy::new(false, false), &p, &[2.0, 1.0], Arc::default()).unwrap();
+            integrate(&mut Toy::new(false, false), &p, &[2.0, 1.0], pse_diagnostics::Cancellation::default()).unwrap();
         assert_eq!(
             report.termination,
             Termination::Completed,
@@ -315,7 +314,7 @@ fn native_step_observations_preserve_segment_restart_and_terminal_mesh_time() {
         // Keep the event away from requested IDAS stop/sample times so this control
         // actually distinguishes an interpolated root from the internal mesh point.
         p.samples = vec![0.0, 1.0];
-        let report = integrate(&mut oracle, &p, &[2.0], Arc::default()).unwrap();
+        let report = integrate(&mut oracle, &p, &[2.0], pse_diagnostics::Cancellation::default()).unwrap();
         assert_eq!(report.termination, Termination::Event, "{:?}", report.error);
         let observation = &report.statistics.last().unwrap()["native_step"];
         let returned = observation["returned_time"]["value"].as_f64().unwrap();
@@ -564,7 +563,7 @@ fn native_quadrature_does_not_invent_a_conservation_claim() {
             &mut oracle,
             &profile,
             &[1.],
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
         )
         .unwrap();
         assert_eq!(
@@ -615,7 +614,7 @@ fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
         &mut oracle,
         &profile,
         &[1.0, 2.0],
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
@@ -630,7 +629,7 @@ fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
         &mut event,
         &profile,
         &[1.0],
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Failed);
@@ -641,7 +640,7 @@ fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
         &mut event,
         &profile,
         &[1.0],
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
@@ -712,7 +711,7 @@ fn scheduled_input_sensitivities_cross_changes() {
                     &mut Toy::new(dae, false),
                     p,
                     v,
-                    Arc::new(AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::new(false),
                 )
                 .unwrap();
                 assert_eq!(
@@ -832,7 +831,7 @@ fn state_triggered_reset_sensitivity_includes_moving_event_and_dae_consistency()
         p.sensitivity = DynamicSensitivity::Forward;
         p.samples = vec![0.0, 1.0];
         let mut toy = ResetToy(Toy::new(dae, true));
-        let r = integrate(&mut toy, &p, &[2.0], Arc::default()).unwrap();
+        let r = integrate(&mut toy, &p, &[2.0], pse_diagnostics::Cancellation::default()).unwrap();
         assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
         let last = r.samples.last().unwrap();
         assert!(
@@ -910,7 +909,7 @@ fn idas_recovers_typed_trial_and_terminal_policy_stops() {
         let rejection = Arc::new(Rejection::default());
         // Observe the actual callback even when later progress replaces its history.
         let progress = Arc::new(crate::solve::Progress::tapped(0, rejection.clone()));
-        let r = integrate_with_progress(&mut toy, &p, &[2.0], Arc::default(), progress).unwrap();
+        let r = integrate_with_progress(&mut toy, &p, &[2.0], pse_diagnostics::Cancellation::default(), progress).unwrap();
         assert!(toy.rejected);
         assert_eq!(
             r.termination,
@@ -1069,7 +1068,7 @@ fn idas_conv_fail_is_numerical() {
     let mut p = profile(true);
     p.method = Method::Idas;
     let mut oracle = Unsolvable(Toy::new(true, false));
-    let r = integrate(&mut oracle, &p, &[2.0], Arc::default()).unwrap();
+    let r = integrate(&mut oracle, &p, &[2.0], pse_diagnostics::Cancellation::default()).unwrap();
     assert_eq!(r.termination, Termination::Failed);
     let Some(ProblemError::Numerical {
         status: Some(status),
@@ -1110,7 +1109,7 @@ fn terminal_endpoint_is_off_grid_and_keeps_pre_change_inputs() {
             kind: pse_model::generated::enums::EndpointPolicy::DeclaredTerminalEvent,
             event: Some(id(5)),
         };
-        let report = integrate(&mut oracle, &profile, &[1.0, 3.0], Arc::default()).unwrap();
+        let report = integrate(&mut oracle, &profile, &[1.0, 3.0], pse_diagnostics::Cancellation::default()).unwrap();
         assert_eq!(
             report.termination,
             Termination::Event,
@@ -1172,7 +1171,7 @@ fn completed_samples_full_and_compact_preserve_values_and_prefix() {
                 &mut Toy::new(false, false),
                 &profile,
                 &[1.],
-                Arc::new(AtomicBool::new(false)),
+                pse_diagnostics::Cancellation::new(false),
                 Arc::new(crate::solve::Progress::new(16)),
                 &snapshot,
                 retention,
@@ -1226,7 +1225,7 @@ fn failed_live_delivery_keeps_full_computed_prefix_and_typed_stop() {
             &mut Toy::new(false, false),
             &profile,
             &[1.],
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             Arc::new(crate::solve::Progress::new(16)),
             &snapshot,
             SampleRetention::Full,
@@ -1280,4 +1279,86 @@ fn compact_max_cells_checks_selected_retained_payload_and_diagnostics() {
             .validate_retention(oracle.contract(), &[1.], SampleRetention::Compact, 1)
             .is_err()
     );
+}
+
+#[cfg(feature = "idas")]
+#[test]
+fn idas_output_grid_does_not_force_advancement_or_renew_step_permission() {
+    fn steps(report: &Report) -> usize {
+        report.statistics.iter().map(|s| s["steps"].as_u64().unwrap() as usize).sum()
+    }
+    let mut sparse = profile(false);
+    sparse.method = Method::Idas;
+    sparse.sensitivity = DynamicSensitivity::Forward;
+    sparse.samples = vec![0., 0.001, 1.];
+    let reference = run(&mut Toy::new(false, false), &sparse);
+    assert_eq!(reference.termination, Termination::Completed, "{:?}", reference.error);
+    let mut dense = sparse.clone();
+    dense.samples = std::iter::once(0.).chain(std::iter::once(0.001))
+        .chain((1..=1000).map(|i| i as f64 / 1000.).filter(|t| *t > 0.001)).collect();
+    // The exact same accepted trajectory cap must still serve every covered
+    // sample after its final native step. Output service consumes zero steps.
+    dense.max_steps = steps(&reference);
+    let report = run(&mut Toy::new(false, false), &dense);
+    assert_eq!(report.termination, Termination::Completed, "{:?}", report.error);
+    assert_eq!(steps(&report), steps(&reference));
+    assert_eq!(report.samples.len(), dense.samples.len());
+    for sample in &report.samples {
+        let state = 2. * (-2. * sample.time).exp();
+        let response = (1. - 2. * sample.time) * (-2. * sample.time).exp() + 1.;
+        assert!((sample.state[0] - state).abs() < 1e-6);
+        assert!((sample.output_sensitivities[0] - response).abs() < 1e-5);
+    }
+}
+
+#[test]
+fn accepted_step_allowance_is_cumulative_across_physical_segments() {
+    for method in [Method::Diffsol, Method::Idas] {
+        if method == Method::Diffsol && !cfg!(feature = "diffsol")
+            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+        let mut p = profile(false);
+        p.method = method;
+        p.sensitivity = DynamicSensitivity::None;
+        p.schedule = vec![ScheduledInput { parameter: 0, times: vec![0.25, 0.5, 0.75] }];
+        let values = [2., 1., 1.5, 2.];
+        let complete = integrate(&mut Toy::new(false, false), &p, &values, Cancellation::default()).unwrap();
+        assert_eq!(complete.termination, Termination::Completed, "{:?}", complete.error);
+        let first = complete.statistics[0]["steps"].as_u64()
+            .or_else(|| complete.statistics[0]["number_of_steps"].as_u64()).unwrap() as usize;
+        p.max_steps = first + 1;
+        let prefix = integrate(&mut Toy::new(false, false), &p, &values, Cancellation::default()).unwrap();
+        assert_eq!(prefix.termination, Termination::StepLimit, "{:?}", prefix.error);
+        assert!(prefix.completed_time < p.end);
+        let actual: u64 = prefix.statistics.iter().map(|s| s["steps"].as_u64()
+            .or_else(|| s["number_of_steps"].as_u64()).unwrap()).sum();
+        assert_eq!(actual as usize, p.max_steps);
+    }
+}
+
+#[cfg(feature = "idas")]
+#[test]
+fn supported_idas_correctors_and_linear_routes_preserve_the_requested_response() {
+    for dae in [false, true] {
+        for corrector in [SensitivityCorrector::Simultaneous, SensitivityCorrector::Staggered] {
+            for linear in [IdasLinear::Klu, IdasLinear::Spgmr, IdasLinear::Spfgmr] {
+                let mut p = profile(dae);
+                p.method = Method::Idas;
+                p.sensitivity = DynamicSensitivity::Forward;
+                p.idas.sensitivity = corrector;
+                p.idas.linear = linear;
+                let report = run(&mut Toy::new(dae, false), &p);
+                assert_eq!(report.termination, Termination::Completed,
+                    "{dae:?} {corrector:?} {linear:?}: {:?}", report.error);
+                for s in &report.samples {
+                    let expected = 2. * (-2. * s.time).exp();
+                    let response = (1. - 2. * s.time) * (-2. * s.time).exp() + 1.;
+                    assert!((s.state[0] - expected).abs() < 1e-6);
+                    assert!((s.output_sensitivities[0] - response).abs() < 1e-5);
+                    if dae { assert!((s.state[1] - 2. * expected).abs() < 1e-6); }
+                }
+                assert!(report.statistics[0]["steps"].as_u64().unwrap() > 0);
+                assert!(report.statistics[0]["sensitivity_residual_evaluations"].as_u64().unwrap() > 0);
+            }
+        }
+    }
 }

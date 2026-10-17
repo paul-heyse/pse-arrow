@@ -152,6 +152,8 @@ int IDAAdjInit(void* ida_mem, long int steps, int interp)
   /* Initialization of interpolation data. */
   IDAADJ_mem->ia_interpType = interp;
   IDAADJ_mem->ia_nsteps     = steps;
+  IDAADJ_mem->ia_pse_replay_remaining = -1;
+  IDAADJ_mem->ia_pse_replay_steps = 0;
 
   /* Last index used in IDAAfindIndex, initailize to invalid value */
   IDAADJ_mem->ia_ilast = -1;
@@ -2398,7 +2400,7 @@ static int IDAAdataStore(IDAMem IDA_mem, IDAckpntMem ck_mem)
   IDAadjMem IDAADJ_mem;
   IDAdtpntMem* dt_mem;
   sunrealtype t;
-  long int i;
+  long int i, before, accepted;
   int flag, sign;
 
   IDAADJ_mem = IDA_mem->ida_adj_mem;
@@ -2423,8 +2425,25 @@ static int IDAAdataStore(IDAMem IDA_mem, IDAckpntMem ck_mem)
   /* Run IDASolve in IDA_ONE_STEP mode to set following structures in dt_mem[i]. */
   i = 1;
   do {
+    /* This loop is hidden inside IDASolveB. The public per-call mxstep setting
+       cannot bound it because each nested call requests ONE_STEP. Guard at the
+       actual replay owner, independently of restored checkpoint counters. */
+    if (IDAADJ_mem->ia_pse_replay_remaining == 0)
+    {
+      return (IDA_TOO_MUCH_WORK);
+    }
+    before = IDA_mem->ida_nst;
     flag = IDASolve(IDA_mem, ck_mem->ck_t1, &t, IDAADJ_mem->ia_yyTmp,
                     IDAADJ_mem->ia_ypTmp, IDA_ONE_STEP);
+    accepted = IDA_mem->ida_nst - before;
+    if (accepted > 0 && IDAADJ_mem->ia_pse_replay_remaining >= 0)
+    {
+      IDAADJ_mem->ia_pse_replay_steps += accepted;
+      if (IDAADJ_mem->ia_pse_replay_remaining > 0)
+      {
+        IDAADJ_mem->ia_pse_replay_remaining -= accepted;
+      }
+    }
     if (flag < 0) { return (IDA_FWD_FAIL); }
 
     dt_mem[i]->t = t;

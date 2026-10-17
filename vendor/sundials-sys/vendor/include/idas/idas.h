@@ -456,6 +456,17 @@ SUNDIALS_EXPORT int IDAAdjInit(void* ida_mem, long int steps, int interp);
 
 SUNDIALS_EXPORT int IDAAdjReInit(void* ida_mem);
 
+/* Maintained bounded checkpoint-replay owner API. Zero refuses advancement;
+   negative disables the guard. Setting permission resets only this observation,
+   never native history. Reinitialization/checkpoint restoration do not renew it. */
+/* Maintained owner budget, usable on forward or IDAGetAdjIDABmem memory.
+ * Zero permits covered output/root service but no further native advancement;
+ * negative disables the guard. Counter is accepted steps since the setter. */
+SUNDIALS_EXPORT int IDASetAcceptedStepBudget(void* ida_mem, long int remaining);
+SUNDIALS_EXPORT int IDAGetAcceptedBudgetSteps(void* ida_mem, long int* accepted);
+SUNDIALS_EXPORT int IDASetReplayStepLimit(void* ida_mem, long int remaining);
+SUNDIALS_EXPORT int IDAGetReplayNumSteps(void* ida_mem, long int* accepted);
+
 SUNDIALS_EXPORT void IDAAdjFree(void* ida_mem);
 
 /* Backward Problem Setup Functions */

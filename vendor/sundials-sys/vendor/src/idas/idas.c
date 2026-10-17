@@ -439,6 +439,8 @@ void* IDACreate(SUNContext sunctx)
   IDA_mem->ida_edata          = NULL;
   IDA_mem->ida_maxord         = MAXORD_DEFAULT;
   IDA_mem->ida_mxstep         = MXSTEP_DEFAULT;
+  IDA_mem->ida_pse_accepted_remaining = -1;
+  IDA_mem->ida_pse_accepted_steps = 0;
   IDA_mem->ida_hmax_inv       = HMAX_INV_DEFAULT;
   IDA_mem->ida_hmin           = HMIN_DEFAULT;
   IDA_mem->ida_eta_max_fx     = ETA_MAX_FX_DEFAULT;
@@ -2860,7 +2862,8 @@ int IDASolve(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
   {
     /* Check for too many steps taken. */
 
-    if ((IDA_mem->ida_mxstep > 0) && (nstloc >= IDA_mem->ida_mxstep))
+    if (IDA_mem->ida_pse_accepted_remaining == 0 ||
+        ((IDA_mem->ida_mxstep > 0) && (nstloc >= IDA_mem->ida_mxstep)))
     {
       IDAProcessError(IDA_mem, IDA_ILL_INPUT, __LINE__, __func__, __FILE__,
                       MSG_MAX_STEPS, IDA_mem->ida_tn);
@@ -2980,7 +2983,18 @@ int IDASolve(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
 
     /* Call IDAStep to take a step. */
 
-    sflag = IDAStep(IDA_mem);
+    {
+      long int before = IDA_mem->ida_nst;
+      sflag = IDAStep(IDA_mem);
+      long int accepted = IDA_mem->ida_nst - before;
+      /* IDAStep owns rejected trials; only its accepted counter consumes this
+         permission, including acceptance preceding a later failed return. */
+      if (accepted > 0 && IDA_mem->ida_pse_accepted_remaining >= 0)
+      {
+        IDA_mem->ida_pse_accepted_steps += accepted;
+        IDA_mem->ida_pse_accepted_remaining -= accepted;
+      }
+    }
 
     /* Process all failed-step cases, and exit loop. */
 

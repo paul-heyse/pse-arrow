@@ -40,6 +40,28 @@
 
 #define ONE SUN_RCONST(1.0)
 
+int IDASetReplayStepLimit(void* ida_mem, long int remaining)
+{
+  IDAMem mem;
+  if (ida_mem == NULL) { return IDA_MEM_NULL; }
+  mem = (IDAMem)ida_mem;
+  if (mem->ida_adj_mem == NULL) { return IDA_NO_ADJ; }
+  mem->ida_adj_mem->ia_pse_replay_remaining = remaining;
+  mem->ida_adj_mem->ia_pse_replay_steps = 0;
+  return IDA_SUCCESS;
+}
+
+int IDAGetReplayNumSteps(void* ida_mem, long int* accepted)
+{
+  IDAMem mem;
+  if (ida_mem == NULL) { return IDA_MEM_NULL; }
+  mem = (IDAMem)ida_mem;
+  if (mem->ida_adj_mem == NULL) { return IDA_NO_ADJ; }
+  if (accepted == NULL) { return IDA_ILL_INPUT; }
+  *accepted = mem->ida_adj_mem->ia_pse_replay_steps;
+  return IDA_SUCCESS;
+}
+
 /*
  * -----------------------------------------------------------------
  * Optional input functions for ASA

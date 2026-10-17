@@ -355,6 +355,10 @@ typedef struct IDAMemRec
     --------*/
 
   long int ida_nst; /* number of internal steps taken                    */
+  /* Maintained accepted-advancement budget, independent of per-call mxstep.
+     Reinitialization/restoration never grants new permission. */
+  long int ida_pse_accepted_remaining;
+  long int ida_pse_accepted_steps;
 
   long int ida_nre; /* number of function (res) calls                    */
   long int ida_nrQe;
@@ -807,6 +811,11 @@ struct IDAadjMemRec
 
   /* Number of steps between 2 check points */
   long int ia_nsteps;
+
+  /* Maintained owner-side guard for accepted checkpoint replay advancement.
+     Checkpoint restoration must not restore this permission or its observation. */
+  long int ia_pse_replay_remaining;
+  long int ia_pse_replay_steps;
 
   /* Last index used in IDAAfindIndex */
   long int ia_ilast;

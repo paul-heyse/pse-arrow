@@ -18,14 +18,41 @@ use std::{
     cell::{Cell, RefCell},
     panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
     rc::Rc,
-    sync::atomic::Ordering,
     time::Instant,
 };
+/// Each forward scheme's statistics, an inherent method of each Diffsol solver.
+trait Counted {
+    fn statistics(&self) -> &diffsol::ode_solver::OdeSolverStatistics;
+}
+impl<'o, LS: LinearSolver<M>, A: diffsol::AugmentedOdeEquationsImplicit<Equation<'o>>> Counted
+    for diffsol::Bdf<'_, Equation<'o>, LS, diffsol::FaerMat<f64>, A>
+{
+    fn statistics(&self) -> &diffsol::ode_solver::OdeSolverStatistics {
+        self.get_statistics()
+    }
+}
+impl<'o, LS: LinearSolver<M>, A: diffsol::AugmentedOdeEquationsImplicit<Equation<'o>>> Counted
+    for diffsol::Sdirk<'_, Equation<'o>, LS, diffsol::FaerMat<f64>, A>
+{
+    fn statistics(&self) -> &diffsol::ode_solver::OdeSolverStatistics {
+        self.get_statistics()
+    }
+}
+impl<'o, A: AugmentedOdeEquations<Equation<'o>>> Counted
+    for diffsol::ExplicitRk<'_, Equation<'o>, diffsol::FaerMat<f64>, A>
+{
+    fn statistics(&self) -> &diffsol::ode_solver::OdeSolverStatistics {
+        self.get_statistics()
+    }
+}
+
 type V = FaerVec<f64>;
 type M = FaerSparseMat<f64>;
 type Pattern = faer::sparse::SymbolicSparseColMat<usize>;
 #[derive(Debug)]
 struct Abort;
+#[derive(Debug)]
+struct StepLimitAbort(&'static str);
 struct Shared<'o> {
     oracle: RefCell<&'o mut dyn Oracle>,
     contract: Contract,
@@ -52,7 +79,7 @@ impl Shared<'_> {
         resume_unwind(Box::new(Abort))
     }
     fn check(&self) {
-        if self.cancel.load(Ordering::Acquire) {
+        if self.cancel.is_cancelled() {
             self.abort(
                 Termination::Cancelled,
                 pse_math::MathError::Cancelled.into(),
@@ -813,13 +840,17 @@ impl<'o> Shared<'o> {
                             kind: crate::LimitKind::Time,
                             ..
                         } => Termination::TimeLimit,
+                        ProblemError::Limit { kind: crate::LimitKind::Work, .. } => Termination::StepLimit,
                         _ => Termination::Failed,
                     };
                 }
                 report.error = Some(e);
             }
             Err(payload) => {
-                if payload.is::<Abort>() {
+                if let Some(limit) = payload.downcast_ref::<StepLimitAbort>() {
+                    report.termination = Termination::StepLimit;
+                    report.error = Some(StepBudget::exhausted(limit.0));
+                } else if payload.is::<Abort>() {
                     if let Some((status, error)) = self.failure.borrow_mut().take() {
                         report.termination = status;
                         report.error = Some(error);
@@ -976,7 +1007,7 @@ fn run<LS: LinearSolver<M>>(
     let scales = p.integration_parameters(&p.parameter_scales);
     let np = shared.contract.parameters.len();
     let mut segment = 0;
-    let mut steps = 0usize;
+    let mut steps = StepBudget::new(p.max_steps);
     loop {
         shared.check();
         let generation = crate::observation::generation();
@@ -1338,13 +1369,13 @@ struct SegmentContext<'a> {
     clippy::too_many_arguments,
     reason = "the concrete scheme supplies its owner-side statistics getter alongside independently owned solver, profile, report, output and step state"
 )]
-fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
+fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>> + Counted>(
     shared: &Rc<Shared<'o>>,
     s: &mut S,
     p: &Profile,
     r: &mut Report,
     segment: SegmentContext<'_>,
-    steps: &mut usize,
+    steps: &mut StepBudget,
     output: &mut SampleOutput<'_>,
     statistics: impl Fn(&S, u64),
 ) -> Result<(Option<usize>, Vec<f64>), ProblemError> {
@@ -1357,12 +1388,15 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     s.set_stop_time(stop).map_err(native)?;
     loop {
         shared.check();
-        if *steps >= p.max_steps {
+        if steps.remaining() == 0 {
             r.termination = Termination::StepLimit;
             return Ok((None, s.state().y.as_slice().to_vec()));
         }
-        *steps += 1;
+        let before = s.statistics().number_of_steps;
         let result = crate::observation::scoped("diffsol.step", || s.step());
+        let accepted = s.statistics().number_of_steps.checked_sub(before)
+            .ok_or_else(|| ProblemError::internal("Diffsol accepted-step counter moved backwards within a call"))?;
+        steps.charge(accepted, "forward")?;
         // OdeSolverMethod does not expose statistics. The concrete scheme owner
         // supplies its existing getter without adding a new library trait/API.
         statistics(s, generation);
@@ -1412,7 +1446,7 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             elapsed: shared.started.elapsed(),
             values: std::collections::BTreeMap::from([
                 ("time".into(), crate::solve::Metric::Real(time)),
-                ("steps".into(), crate::solve::Metric::Integer(*steps as i64)),
+                ("steps".into(), crate::solve::Metric::Integer(i64::try_from(steps.used()).unwrap_or(i64::MAX))),
             ]),
             incumbent: None,
         });
@@ -1676,7 +1710,7 @@ mod forward_initialization_tests {
                     &mut Affine::new(),
                     &affine_profile(linear),
                     &[rate],
-                    Arc::default(),
+                    pse_diagnostics::Cancellation::default(),
                 )
                 .unwrap();
                 assert_eq!(
@@ -1715,7 +1749,7 @@ mod forward_initialization_tests {
                 times: vec![0.5],
             }];
             let report =
-                integrate(&mut Affine::new(), &profile, &[3.0, 1.0], Arc::default()).unwrap();
+                integrate(&mut Affine::new(), &profile, &[3.0, 1.0], pse_diagnostics::Cancellation::default()).unwrap();
             assert_eq!(
                 report.termination,
                 Termination::Completed,

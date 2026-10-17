@@ -31,32 +31,6 @@ type Common = diffsol::ode_solver::state::StateCommon<V>;
 /// The forward checkpoints of one segment over the Hermite point state `S`.
 type Recorded<'o, S> = Checkpointing<Equation<'o>, Point<S>>;
 
-/// Each forward scheme's statistics, an inherent method of each Diffsol solver.
-trait Counted {
-    fn statistics(&self) -> &OdeSolverStatistics;
-}
-impl<'o, LS: LinearSolver<M>, A: diffsol::AugmentedOdeEquationsImplicit<Equation<'o>>> Counted
-    for diffsol::Bdf<'_, Equation<'o>, LS, diffsol::FaerMat<f64>, A>
-{
-    fn statistics(&self) -> &OdeSolverStatistics {
-        self.get_statistics()
-    }
-}
-impl<'o, LS: LinearSolver<M>, A: diffsol::AugmentedOdeEquationsImplicit<Equation<'o>>> Counted
-    for diffsol::Sdirk<'_, Equation<'o>, LS, diffsol::FaerMat<f64>, A>
-{
-    fn statistics(&self) -> &OdeSolverStatistics {
-        self.get_statistics()
-    }
-}
-impl<'o, A: AugmentedOdeEquations<Equation<'o>>> Counted
-    for diffsol::ExplicitRk<'_, Equation<'o>, diffsol::FaerMat<f64>, A>
-{
-    fn statistics(&self) -> &OdeSolverStatistics {
-        self.get_statistics()
-    }
-}
-
 /// One Diffsol scheme's constructors: its forward solver, the terminal state of its
 /// adjoint, and its adjoint solver from a state.
 struct Scheme<Fw, St, Rs> {
@@ -303,7 +277,7 @@ impl<'o> Passes<'_, 'o> {
         let (shared, p, segments) = (self.shared, self.p, self.segments);
         let np = shared.contract.parameters.len();
         let mut stored = Vec::with_capacity(problems.len());
-        let mut steps = 0usize;
+        let mut steps = StepBudget::new(p.max_steps);
         for (k, problem) in problems.iter().enumerate() {
             shared.check();
             let start = segments.starts[k];
@@ -386,6 +360,8 @@ impl<'o> Passes<'_, 'o> {
         {
             return Err(contract("adjoint cotangent extent or value"));
         }
+        let replay_budget = Rc::new(RefCell::new(StepBudget::new(p.max_steps)));
+        let mut backward_budget = StepBudget::new(p.max_steps);
         let mut carried: Option<Vec<f64>> = None;
         let mut total = vec![0.0; shared.width()];
         for (k, (checkpointing, mut solver, seed)) in stored.into_iter().enumerate().rev() {
@@ -412,6 +388,7 @@ impl<'o> Passes<'_, 'o> {
                 shared.started,
             );
             solver.observations.publish(solver.inner.statistics());
+            solver.replay_budget = Some(replay_budget.clone());
             let mut adjoint = problem.adjoint_equations(vec![checkpointing], Some(solver), Some(1));
             let mut state =
                 crate::observation::scoped("diffsol.adjoint.backward.terminal_initialize", || {
@@ -445,7 +422,7 @@ impl<'o> Passes<'_, 'o> {
                     first = Some(i);
                     break;
                 }
-                self.step_to(&mut solver, t, &mut backward)?;
+                self.step_to(&mut solver, t, &mut backward, &mut backward_budget)?;
                 let (state, adjoint) = split(solver)?;
                 let state = self.jumped::<B>(state, r, i, &weights)?;
                 solver = resumed(
@@ -457,7 +434,7 @@ impl<'o> Passes<'_, 'o> {
                     "sample cotangent jump",
                 )?;
             }
-            self.step_to(&mut solver, start, &mut backward)?;
+            self.step_to(&mut solver, start, &mut backward, &mut backward_budget)?;
             let (state, adjoint) = split(solver)?;
             let mut common = state.into_common();
             if let Some(i) = first {
@@ -496,6 +473,9 @@ impl<'o> Passes<'_, 'o> {
                 "checkpoints": out.checkpoints,
                 "steps_between_checkpoints": p.adjoint.steps_between_checkpoints.into_inner(),
                 "segments": problems.len(),
+                "accepted_step_cap_per_trajectory": p.max_steps,
+                "forward_replay_accepted_steps": replay_budget.borrow().used(),
+                "backward_accepted_steps": backward_budget.used(),
             }
         }));
         out.gradient = Some(total);
@@ -575,6 +555,7 @@ impl<'o> Passes<'_, 'o> {
         solver: &mut B,
         t: f64,
         observations: &mut StepObservations,
+        budget: &mut StepBudget,
     ) -> Result<(), ProblemError>
     where
         'o: 'a,
@@ -582,8 +563,13 @@ impl<'o> Passes<'_, 'o> {
         match solver.set_stop_time(t) {
             Ok(()) => loop {
                 self.shared.check();
+                budget.require_advance("adjoint backward")?;
+                let before = solver.statistics().number_of_steps;
                 let result =
                     crate::observation::scoped("diffsol.adjoint.backward.step", || solver.step());
+                let accepted = solver.statistics().number_of_steps.checked_sub(before)
+                    .ok_or_else(|| ProblemError::internal("Diffsol backward step counter moved backwards within a call"))?;
+                budget.charge(accepted, "adjoint backward")?;
                 observations.publish(solver.statistics());
                 publish_step(observations, solver, &result);
                 if result.map_err(native)? == OdeSolverStopReason::TstopReached {
@@ -602,7 +588,7 @@ impl<'o> Passes<'_, 'o> {
         s: &mut Replay<F>,
         r: &mut Report,
         k: usize,
-        steps: &mut usize,
+        steps: &mut StepBudget,
         count: &mut usize,
         observation: &mut crate::solve::NativeStepObservation,
     ) -> Result<Option<Recorded<'o, F::State>>, ProblemError>
@@ -632,12 +618,15 @@ impl<'o> Passes<'_, 'o> {
         s.set_stop_time(stop).map_err(native)?;
         loop {
             shared.check();
-            if *steps >= p.max_steps {
+            if steps.remaining() == 0 {
                 r.termination = Termination::StepLimit;
                 return Ok(None);
             }
-            *steps += 1;
+            let before = s.statistics().number_of_steps;
             let result = s.step();
+            let accepted = s.statistics().number_of_steps.checked_sub(before)
+                .ok_or_else(|| ProblemError::internal("Diffsol recording step counter moved backwards within a call"))?;
+            steps.charge(accepted, "forward recording")?;
             let returned_time = match &result {
                 Ok(OdeSolverStopReason::RootFound(time, _)) => Some(*time),
                 Ok(_) => Some(s.state().t),
@@ -676,7 +665,7 @@ impl<'o> Passes<'_, 'o> {
                 elapsed: shared.started.elapsed(),
                 values: std::collections::BTreeMap::from([
                     ("time".into(), crate::solve::Metric::Real(time)),
-                    ("steps".into(), crate::solve::Metric::Integer(*steps as i64)),
+                    ("steps".into(), crate::solve::Metric::Integer(i64::try_from(steps.used()).unwrap_or(i64::MAX))),
                 ]),
                 incumbent: None,
             });
@@ -807,6 +796,7 @@ struct Replay<F> {
     inner: F,
     dy: V,
     observations: StepObservations,
+    replay_budget: Option<Rc<RefCell<StepBudget>>>,
 }
 impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> Replay<F> {
     fn new(inner: F, observations: StepObservations) -> Self {
@@ -815,6 +805,7 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> Replay<F> {
             inner,
             dy,
             observations,
+            replay_budget: None,
         }
     }
     fn refresh(&mut self) {
@@ -905,10 +896,20 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> OdeSolverMethod
         if self.observations.baseline_pending {
             self.observations.publish(self.inner.statistics());
         }
+        if self.replay_budget.as_ref().is_some_and(|budget| budget.borrow().remaining() == 0) {
+            resume_unwind(Box::new(StepLimitAbort("adjoint forward replay")));
+        }
+        let before = self.inner.statistics().number_of_steps;
         let result =
             crate::observation::scoped(&format!("{}.step", self.observations.role), || {
                 self.inner.step()
             });
+        if let Some(budget) = &self.replay_budget {
+            let accepted = self.inner.statistics().number_of_steps.checked_sub(before)
+                .ok_or_else(|| DiffsolError::Other("Diffsol replay step counter moved backwards within a call".into()))?;
+            budget.borrow_mut().charge(accepted, "adjoint forward replay")
+                .map_err(|error| DiffsolError::Other(error.to_string()))?;
+        }
         self.observations.publish(self.inner.statistics());
         publish_step(&self.observations, &self.inner, &result);
         let reason = result?;
