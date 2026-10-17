@@ -216,6 +216,7 @@ struct CallbackFacts {
     elapsed: pse_diagnostics::observation::PreparedFact,
     seconds: pse_diagnostics::observation::PreparedFact,
     thread_cpu: pse_diagnostics::observation::PreparedFact,
+    thread_cpu_samples: pse_diagnostics::observation::PreparedFact,
     cpu_seconds: f64,
     cpu_samples: u64,
     cpu_missing: bool,
@@ -237,7 +238,8 @@ impl CallbackFacts {
             completed,
             elapsed: producer.fact(&format!("{name}.elapsed_nanoseconds"), "nanoseconds", FactKind::Duration),
             seconds: producer.fact(&format!("{name}.seconds"), "seconds", FactKind::Gauge),
-            thread_cpu: producer.fact(&format!("{name}.selected_thread_cpu_nanoseconds"), "selected_inclusive_thread_cpu_nanoseconds", FactKind::Duration),
+            thread_cpu: producer.fact(&format!("{name}.selected_thread_cpu_nanoseconds"), "selected_inclusive_thread_cpu_nanoseconds", FactKind::Counter),
+            thread_cpu_samples: producer.fact(&format!("{name}.selected_thread_cpu_samples"), "count", FactKind::Counter),
             cpu_seconds: 0.0, cpu_samples: 0, cpu_missing: false,
             cpu_requested: producer.thread_cpu_requested(),
             phase: name,
@@ -423,9 +425,17 @@ impl CallbackState {
                 if !cpu_requested {
                     facts.thread_cpu.unavailable("not_requested: synchronous boundary thread CPU");
                 } else if let Some(elapsed) = thread_cpu {
-                    facts.thread_cpu.duration(elapsed);
-                    facts.cpu_seconds += elapsed.as_secs_f64();
-                    facts.cpu_samples = facts.cpu_samples.saturating_add(1);
+                    if let Ok(nanoseconds) = u64::try_from(elapsed.as_nanos()) {
+                        // CPU is additive performed work observed at callback completion.
+                        // It is not a wall interval of CPU-sized length ending here.
+                        facts.thread_cpu.count(nanoseconds);
+                        facts.thread_cpu_samples.count(1);
+                        facts.cpu_seconds += elapsed.as_secs_f64();
+                        facts.cpu_samples = facts.cpu_samples.saturating_add(1);
+                    } else {
+                        facts.thread_cpu.unavailable("overflow: selected owning-thread CPU nanoseconds");
+                        facts.cpu_missing = true;
+                    }
                 } else {
                     facts.thread_cpu.unavailable("unsupported: owning-thread CPU clock sample unavailable");
                     facts.cpu_missing = true;
@@ -805,7 +815,10 @@ mod tests {
         let cpu = snapshot.metrics.iter().find(|m| m.name == "callback.residual.selected_thread_cpu_nanoseconds").unwrap();
         assert_eq!(cpu.unit, "selected_inclusive_thread_cpu_nanoseconds");
         match &cpu.latest {
-            Value::Count(_) => assert_eq!(cpu.duration_summary.as_ref().unwrap().samples, 1),
+            Value::Count(_) => {
+                assert!(cpu.duration_summary.is_none());
+                assert_eq!(snapshot.metrics.iter().find(|m| m.name == "callback.residual.selected_thread_cpu_samples").unwrap().cumulative, Value::Count(1));
+            },
             Value::Unavailable(reason) => assert!(reason.starts_with("unsupported")),
             other => panic!("unexpected CPU observation {other:?}"),
         }
@@ -850,7 +863,7 @@ mod tests {
         }
         assert_eq!(state.counts.len(), 1024);
         let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
-        assert_eq!(snapshot.metrics.len(), 6);
+        assert_eq!(snapshot.metrics.len(), 7);
         assert_eq!(snapshot.metrics.iter().find(|m| m.name == "callback.blocks.jacobian.completed_calls").unwrap().cumulative, Value::Count(1024));
         assert!(snapshot.metrics.iter().all(|m| !m.name.contains("block.0.")));
     }
