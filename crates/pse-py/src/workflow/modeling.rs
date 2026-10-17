@@ -394,6 +394,9 @@ impl NativeModelingPackage {
         let root = declaration(py, case_id)?;
         let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "diagnostic time limit must be finite and positive"))?;
+        let cancel = CancelSource::new();
+        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit.min(duration), origin.map(|value| value.0))
+            .map_err(|error| errors::diagnostic(py, &error))?;
         let samples = samples
             .into_iter()
             .map(|(name, values)| {
@@ -406,9 +409,6 @@ impl NativeModelingPackage {
                 ))
             })
             .collect::<PyResult<Vec<_>>>()?;
-        let cancel = CancelSource::new();
-        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit.min(duration), origin.map(|value| value.0))
-            .map_err(|error| errors::diagnostic(py, &error))?;
         let inner = blocking(
             py,
             &self.owner,
