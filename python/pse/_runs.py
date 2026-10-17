@@ -395,6 +395,7 @@ class RunResult:
         """Compare actual products, work, outcomes and clock scopes of two results."""
         return self._handle.compare_invocation(other._handle, policy=policy)
 
+    @property
     def accuracy_goals(
         self,
     ) -> tuple[RuntimeAccuracyGoalAssessmentsRow, ...]:

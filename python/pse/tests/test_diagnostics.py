@@ -754,7 +754,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             )
             assert len(bounded.statements) <= 1
             assert bounded.partial and bounded.omitted_source_items > 0
-            invocation_view = result.invocation_arrow
+            invocation_view = result.invocation_arrow()
             assert invocation_view.num_rows == 1
             assert invocation_view.column("attempt")[0].as_py() is None
             assert invocation_view.column("clock_scope")[0].as_py() == invocation.clock_scope
@@ -771,7 +771,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             escaped_run_column = invocation_view.column("run")
             del invocation_view
             gc.collect()
-            assert escaped_run_column[0].as_py() == invocation.run_id
+            assert escaped_run_column[0].as_py() == invocation.run_id.to_hex()
             assert codec.encode_json(result.invocation_evidence) == invocation_before
             assert codec.encode_json(result.attempt_summary) == summary_before
             assert invocation.timing_unavailable is None
