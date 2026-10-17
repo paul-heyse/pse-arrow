@@ -688,7 +688,12 @@ pub(super) fn discover_launch(
         Ok(_) => { failure(state, "launch checkpoint no longer matches owned process/start identity"); return; }
         Err(error) => { failure(state, error); return; }
     };
-    let selected: Vec<_> = image.operations.iter().take(512).map(|operation| operation.id).collect();
+    let mut selected = Vec::new();
+    for operation in &image.operations {
+        for id in std::iter::once(operation.id).chain(operation.children.iter().map(|child| child.id)) {
+            if !selected.contains(&id) && selected.len() < 512 { selected.push(id); }
+        }
+    }
     let mut entry = target(&image, &selected);
     entry.concurrent_operations = image.operations.iter().filter(|operation| operation.finished_at.is_none()).count() > 1;
     let mut state = document(state);
