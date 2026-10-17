@@ -71,7 +71,7 @@ fn evaluate(
     x: f64,
     order: DerivativeOrder,
 ) -> Result<Evaluation, MathError> {
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::new(false);
     let mut worker = body
         .compile(
             &[output],
@@ -79,7 +79,7 @@ fn evaluate(
             order,
             Optimization::default(),
             crate::jets::EvaluationLimits::default(),
-            &flag,
+            &pse_kernels::ExecutionScope::new(flag.clone(), None),
         )?
         .worker();
     worker.evaluate(&[x], order, &mut BTreeMap::new(), &flag)
@@ -265,7 +265,7 @@ fn numerical_prerequisite_keeps_input_value_and_partials_but_requires_source_eff
     };
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("neutral");
-    let cancelled = Arc::new(AtomicBool::new(false));
+    let cancelled = pse_diagnostics::Cancellation::new(false);
     for allowed in [false, true] {
         let mut builder = BodyBuilder::new(
             crate::initialize().unwrap(),
@@ -293,7 +293,7 @@ fn numerical_prerequisite_keeps_input_value_and_partials_but_requires_source_eff
                 &[actual, erased],
                 DerivativeOrder::Second,
                 Optimization::default(),
-                &cancelled,
+                &pse_kernels::ExecutionScope::new(cancelled.clone(), None),
             )
             .unwrap();
         let result = body.worker().evaluate(

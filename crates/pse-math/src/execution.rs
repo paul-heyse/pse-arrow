@@ -853,9 +853,7 @@ impl PreparedSupport {
             cancel,
             &mut cache,
         )?;
-        if cancel.load(Ordering::Acquire) {
-            return Err(MathError::Cancelled);
-        }
+        scope.check().map_err(crate::error::scope_error)?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_preparation_completed", "count", 1);
         }
@@ -2463,6 +2461,7 @@ impl PreparedBody {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.compiled_body_constructions_completed", "count", 1);
         }
+        scope.check().map_err(crate::error::scope_error)?;
         Ok(compiled)
     }
 }
@@ -5847,7 +5846,7 @@ mod compact_tests {
             order,
             Optimization::default(),
             EvaluationLimits::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap()
     }
@@ -5911,7 +5910,7 @@ mod compact_tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 reference,
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
             )
             .unwrap();
         assert!(unguarded_program.retained_bytes() + unguarded_program.worker_bytes() < bound);
@@ -5984,7 +5983,7 @@ mod compact_tests {
                 DerivativeOrder::First,
                 Optimization::default(),
                 limits,
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
             )
             .unwrap();
         assert_eq!(program.compiled_order(), DerivativeOrder::First);
@@ -6018,7 +6017,7 @@ mod compact_tests {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         assert_eq!(program.scalar_builds, 1);
@@ -6072,7 +6071,7 @@ mod compact_tests {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let mut worker = program.worker();
@@ -6184,7 +6183,7 @@ mod compact_tests {
             .prepare_scalars(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap()
             .with_owner(owner.clone());
@@ -6201,7 +6200,7 @@ mod compact_tests {
                 .compile_reusing(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
                     &scalars,
                 )
                 .unwrap();
@@ -6227,7 +6226,7 @@ mod compact_tests {
                     ..Optimization::default()
                 },
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
                 &scalars,
             )
             .unwrap();
@@ -6272,7 +6271,7 @@ mod compact_tests {
 
     #[test]
     fn retained_scalar_upgrades_detach_the_completed_producers_abort_control() {
-        let producer = Arc::new(AtomicBool::new(false));
+        let producer = pse_diagnostics::Cancellation::new(false);
         let body = analytic_body(4096);
         let value = body
             .prepare_support(&[0], &[Y, X], DerivativeOrder::Value, &producer)
@@ -6281,7 +6280,7 @@ mod compact_tests {
             .prepare_scalars(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &producer,
+                &pse_kernels::ExecutionScope::new(producer.clone(), None),
             )
             .unwrap();
         assert_eq!(
@@ -6290,23 +6289,23 @@ mod compact_tests {
             "exact evaluator must not retain the producer token"
         );
         // Successful Flight waiters cancel their token when the last waiter drains.
-        producer.store(true, Ordering::Release);
+        producer.cancel();
         let old = Arc::downgrade(&producer);
         drop(producer);
         assert!(old.upgrade().is_none());
         for order in [DerivativeOrder::First, DerivativeOrder::Second] {
-            let fresh = Arc::new(AtomicBool::new(false));
+            let fresh = pse_diagnostics::Cancellation::new(false);
             let support = value.upgrade(order, &fresh).unwrap();
             let retained = support
                 .compile_reusing(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &fresh,
+                    &pse_kernels::ExecutionScope::new(fresh.clone(), None),
                     &scalars,
                 )
                 .unwrap();
             let original = support
-                .compile(Optimization::default(), EvaluationLimits::default(), &fresh)
+                .compile(Optimization::default(), EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(fresh.clone(), None))
                 .unwrap();
             assert_eq!(retained.scalar_builds, 0);
             assert_eq!(
@@ -6346,12 +6345,12 @@ mod compact_tests {
                     eval(&mut original.worker(), &[2., 3., 1.], requested).unwrap()
                 );
             }
-            fresh.store(true, Ordering::Release);
+            fresh.cancel();
             assert!(matches!(
                 support.compile_reusing(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &fresh,
+                    &pse_kernels::ExecutionScope::new(fresh.clone(), None),
                     &scalars
                 ),
                 Err(MathError::Cancelled)
@@ -6370,14 +6369,14 @@ mod compact_tests {
             .prepare_scalars(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let program = support
             .compile_directional_reusing(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
                 &scalars,
             )
             .unwrap();
@@ -6413,7 +6412,7 @@ mod compact_tests {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let mut worker = program.worker();
@@ -6487,7 +6486,7 @@ mod compact_tests {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let first_stop = pse_diagnostics::Cancellation::default();
@@ -6534,7 +6533,7 @@ mod compact_tests {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let stop_control = pse_diagnostics::Cancellation::default();
@@ -6629,7 +6628,7 @@ mod compact_tests {
             .unwrap();
         assert!(demand < 1 << 20);
         let program = support
-            .compile(Optimization::default(), limits, &cancel)
+            .compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
             .unwrap();
         assert!(program.retained_bytes() + program.worker_bytes() < demand);
         let mut worker = program.worker();
@@ -6708,7 +6707,7 @@ mod compact_tests {
             .unwrap();
         assert!(second.retained_bytes() < upgrade_bound);
         let program = second
-            .compile(Optimization::default(), limits, &cancel)
+            .compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
             .unwrap();
         assert_eq!(program.input_formals().len(), 129);
         assert_eq!(program.coordinates(), &[0]);
@@ -6827,10 +6826,10 @@ mod compact_tests {
             Some(second_bound)
         );
         let program = second
-            .compile(Optimization::default(), limits, &cancel)
+            .compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
             .unwrap();
         let direction = first
-            .compile_directional(Optimization::default(), limits, &cancel)
+            .compile_directional(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
             .unwrap();
         assert!(program.retained_bytes() + program.worker_bytes() < second_bound);
         assert!(direction.retained_bytes() + direction.worker_bytes() < directional_bound);
@@ -6979,7 +6978,7 @@ mod compact_tests {
             .compile_directional(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         assert_eq!(directional.input_formals(), [X, Y, GUARD]);
@@ -7023,7 +7022,7 @@ mod compact_tests {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
             )
             .unwrap();
         assert_eq!(
@@ -7173,7 +7172,7 @@ mod compact_tests {
                 DerivativeOrder::Value,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
             )
             .unwrap();
         assert_eq!(value.input_formals(), [X, Y, GUARD]);
@@ -7430,7 +7429,7 @@ mod compact_tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         assert_eq!(product.input_formals(), [X, Y, GUARD]);
@@ -7579,7 +7578,7 @@ mod compact_tests {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let result = eval(&mut product.worker(), &[2., 3.], DerivativeOrder::Second).unwrap();
@@ -7595,7 +7594,7 @@ mod compact_tests {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         assert_eq!(
@@ -7636,7 +7635,7 @@ mod compact_tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 limits,
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let second = compiled.layouts[DerivativeOrder::Second].as_ref().unwrap();
@@ -7674,7 +7673,7 @@ mod compact_tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 limits,
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         assert_eq!(
@@ -7725,7 +7724,7 @@ mod compact_tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         assert_eq!(
@@ -7815,10 +7814,10 @@ mod compact_tests {
         let context = operation.context();
         let _entered = context.enter();
         let scalars = support
-            .prepare_scalars(Optimization::default(), limits, &cancel)
+            .prepare_scalars(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
             .unwrap();
         let program = support
-            .compile_reusing(options, limits, &cancel, &scalars)
+            .compile_reusing(options, limits, &pse_kernels::ExecutionScope::new(control.clone(), None), &scalars)
             .unwrap();
         assert_eq!(
             program.scalar_builds, 0,
@@ -7840,7 +7839,7 @@ mod compact_tests {
             }
         ));
         let reference = support
-            .compile_reusing(Optimization::default(), limits, &cancel, &scalars)
+            .compile_reusing(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None), &scalars)
             .unwrap();
         let mut expected = reference.worker();
         let mut first = program.worker();
@@ -7961,7 +7960,7 @@ mod compact_tests {
                     ..Default::default()
                 },
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let mut worker = program.worker();
@@ -8000,14 +7999,14 @@ mod compact_tests {
             .prepare_scalars(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let program = support
             .compile_reusing(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
                 &scalars,
             )
             .unwrap();

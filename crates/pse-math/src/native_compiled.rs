@@ -574,6 +574,21 @@ mod tests {
     }
 
     #[test]
+    fn native_scalar_original_deadline_wakes_and_drains_without_requesting_stop() {
+        let fixture = tempfile::tempdir().unwrap();
+        let marker = fixture.path().join("child");
+        let quoted = marker.to_string_lossy().replace('\'', "'\"'\"'");
+        let mut command = Command::new("/bin/sh");
+        command.arg("-c").arg(format!("sleep 60 &\nprintf '%s\\n' \"$!\" > '{quoted}'\nwait\n"));
+        let control = pse_diagnostics::Cancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(Instant::now() + Duration::from_secs(1)));
+        let result = run_compiler(command, &scope);
+        assert!(matches!(result, Err(MathError::Scope(pse_kernels::ProviderError::Deadline))));
+        assert!(!control.is_cancelled());
+        if let Ok(child) = std::fs::read_to_string(marker) { assert_stopped_at_return(child.trim()); }
+    }
+
+    #[test]
     fn native_scalar_driver_exit_drains_live_children_before_return() {
         for exit in [0, 7] {
             let fixture = tempfile::tempdir().unwrap();

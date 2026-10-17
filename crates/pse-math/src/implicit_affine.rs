@@ -172,7 +172,7 @@ mod tests {
                 DerivativeOrder::Second,
                 crate::library::Optimization::default(),
                 crate::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
         );
@@ -293,7 +293,7 @@ mod tests {
                 DerivativeOrder::Second,
                 crate::library::Optimization::default(),
                 crate::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
         );

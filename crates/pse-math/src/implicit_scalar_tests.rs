@@ -253,7 +253,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
             DerivativeOrder::Second,
             crate::library::Optimization::default(),
             crate::jets::EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap();
     let problem = Arc::new(

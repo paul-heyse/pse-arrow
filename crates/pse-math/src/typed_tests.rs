@@ -118,7 +118,7 @@ fn physical_intermediates_lower_ua_delta_t_and_qualified_cancellation() {
             &[rate, cancelled, partial],
             DerivativeOrder::First,
             Optimization::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap();
     let result = body
@@ -272,7 +272,7 @@ fn physical_point_subtraction_precedes_normalization() {
             &[difference],
             DerivativeOrder::Second,
             Optimization::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap()
         .worker();
@@ -315,7 +315,7 @@ fn nested_domain_dependencies_execute_before_division_and_log() {
             &[logarithm],
             DerivativeOrder::Second,
             Optimization::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap()
         .worker();
@@ -545,7 +545,7 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
             &[residual],
             DerivativeOrder::Second,
             Optimization::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -697,7 +697,7 @@ fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
             DerivativeOrder::First,
             Optimization::default(),
             Default::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap();
     assert_eq!(artifact.input_formals(), &[inputs - 1]);
@@ -995,7 +995,7 @@ fn symbolic_order_child() {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 Default::default(),
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
             )
             .unwrap();
         let jet = compiled
@@ -1087,7 +1087,7 @@ fn shared_let_blocks_bound_repeated_nonlinear_tree_growth() {
             DerivativeOrder::Second,
             Optimization::default(),
             crate::jets::EvaluationLimits::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap();
     let result = compiled
@@ -1146,7 +1146,7 @@ fn body_construction_allowance_can_be_explicitly_larger_than_default() {
                     &[value],
                     DerivativeOrder::First,
                     Optimization::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
                 )
                 .unwrap()
                 .worker();
@@ -1220,7 +1220,7 @@ fn shared_nonlinear_coefficients_preserve_affine_rate_support() {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 crate::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap()
             .worker();
@@ -1305,7 +1305,7 @@ fn exponential_of_nested_logarithms_preserves_values_and_derivatives() {
                 &[exponential, exponent],
                 DerivativeOrder::Second,
                 Optimization::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap()
             .worker();
@@ -1382,7 +1382,7 @@ fn shared_aliases_reuse_slots_but_partial_arguments_remain_independent() {
             DerivativeOrder::Second,
             Optimization::default(),
             crate::jets::EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap();
     let result = compiled
@@ -1563,13 +1563,13 @@ fn retained_finite_reduction_accepts_anonymous_prototype_even_when_empty() {
     let empty = builder
         .binary(Binary::Mul, empty, delta, None, source())
         .unwrap();
-    let cancellation = Arc::new(AtomicBool::new(false));
+    let cancellation = pse_diagnostics::Cancellation::new(false);
     let compiled = builder
         .finish(
             &[nonempty, empty],
             DerivativeOrder::First,
             Optimization::default(),
-            &cancellation,
+            &pse_kernels::ExecutionScope::new(cancellation.clone(), None),
         )
         .unwrap();
     let values = compiled

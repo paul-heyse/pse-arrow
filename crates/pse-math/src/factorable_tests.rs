@@ -158,7 +158,7 @@ fn case(
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap(),
     )
@@ -2068,7 +2068,7 @@ fn root_isolation_projects_general_rational_powers_under_original_positive_guard
                 DerivativeOrder::Value,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap()
             .worker();
@@ -2118,7 +2118,7 @@ fn root_isolation_raw_dyadic_powers_preserve_zero_and_negative_power_poles() {
                 DerivativeOrder::Value,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap()
             .worker();
@@ -2195,7 +2195,7 @@ fn root_isolation_integer_negative_base_domain_is_unchanged() {
             DerivativeOrder::Value,
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();

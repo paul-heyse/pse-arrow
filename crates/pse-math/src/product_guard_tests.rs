@@ -50,7 +50,7 @@ fn typed_sqrt_weighted_products(options: Optimization) {
         .binary(Binary::Add, square, quadratic, None, SemanticId::NIL)
         .unwrap();
     let body = builder.prepare(&[output]).unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let support = body
         .prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)
         .unwrap();
@@ -69,7 +69,7 @@ fn typed_sqrt_weighted_products(options: Optimization) {
         ),
     ] {
         let compiled = support
-            .compile_product(kind, options, EvaluationLimits::default(), &cancel)
+            .compile_product(kind, options, EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))
             .unwrap();
         assert_eq!(compiled.product_len(), 1);
         assert!(compiled.census().any(|entry| entry.direct_weighted));

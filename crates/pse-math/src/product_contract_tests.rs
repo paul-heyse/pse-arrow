@@ -30,7 +30,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
         DerivativeOrder::Second,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let support = body
         .prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)
         .unwrap();
@@ -39,7 +39,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
             ProductKind::SelectedPartials,
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )
         .unwrap();
     let mut selected = selected.worker();
@@ -64,7 +64,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
                 kind,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert!(
@@ -202,7 +202,7 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
         DerivativeOrder::Second,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let support = body
         .prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)
         .unwrap();
@@ -215,7 +215,7 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
                 kind,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let census = compiled
@@ -304,7 +304,7 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
         DerivativeOrder::Second,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let support = body
         .prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)
         .unwrap();
@@ -317,7 +317,7 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
                 kind,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let census = compiled

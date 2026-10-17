@@ -100,7 +100,7 @@ fn bounded(
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap(),
     )

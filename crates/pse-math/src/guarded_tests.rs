@@ -7,8 +7,7 @@ use crate::{
 };
 use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
-use std::sync::Arc;
-use std::{collections::BTreeMap, sync::atomic::AtomicBool};
+use std::collections::BTreeMap;
 use symbolica::atom::{Atom, AtomCore};
 
 fn compile_artifact(
@@ -17,7 +16,7 @@ fn compile_artifact(
     outputs: Vec<usize>,
     stages: &[Stage],
     options: Optimization,
-    cancel: &Arc<AtomicBool>,
+    cancel: &pse_diagnostics::Cancellation,
 ) -> Result<Worker, MathError> {
     let order = if stages.iter().any(|s| matches!(s, Stage::Branch { .. })) {
         DerivativeOrder::Value
@@ -37,7 +36,7 @@ fn compile_artifact(
         order,
         options,
         crate::jets::EvaluationLimits::default(),
-        cancel,
+        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
     )
     .map(|a| a.worker())
 }
@@ -58,7 +57,7 @@ fn compile(inputs: usize, slots: usize, stages: &[Stage], output: Slot) -> Worke
         vec![output],
         stages,
         Optimization::default(),
-        &Arc::new(AtomicBool::new(false)),
+        &pse_diagnostics::Cancellation::new(false),
     )
     .unwrap()
 }
@@ -72,7 +71,7 @@ fn run(
             inputs,
             order,
             &mut BTreeMap::new(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_diagnostics::Cancellation::new(false),
         )
         .map(|r| r.values)
 }
@@ -199,7 +198,7 @@ fn square_root_boundary_has_separate_value_and_derivative_admission() {
 #[test]
 fn bounded_layout_and_cancellation_reject_before_execution() {
     crate::initialize().unwrap();
-    let cancelled = Arc::new(AtomicBool::new(true));
+    let cancelled = pse_diagnostics::Cancellation::new(true);
     assert!(matches!(
         compile_artifact(
             0,
@@ -253,7 +252,7 @@ fn explicit_optimizer_thread_budget_uses_library_capability() {
             cores,
             ..Optimization::default()
         },
-        &Arc::new(AtomicBool::new(false)),
+        &pse_diagnostics::Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(
@@ -269,7 +268,7 @@ fn explicit_optimizer_thread_budget_uses_library_capability() {
 #[test]
 fn schedule_refuses_forward_reads_and_partial_branch_outputs() {
     crate::initialize().unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let attempt = |stages: Vec<Stage>| {
         compile_artifact(1, 3, vec![2], &stages, Optimization::default(), &cancel)
     };
@@ -331,7 +330,7 @@ fn high_precision_real_values_survive_optimizer_and_jet_profiles() {
             vec![1],
             &[block(expression, 1)],
             options,
-            &Arc::new(AtomicBool::new(false)),
+            &pse_diagnostics::Cancellation::new(false),
         )
         .unwrap();
         for row in reference["cases"].as_array().unwrap() {
@@ -385,7 +384,7 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
             DerivativeOrder::First,
             Optimization::default(),
             limits,
-            &cancel
+            &pse_kernels::ExecutionScope::new(control.clone(), None)
         )
         .is_err()
     );
@@ -396,7 +395,7 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
             DerivativeOrder::Second,
             Optimization::default(),
             limits,
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();

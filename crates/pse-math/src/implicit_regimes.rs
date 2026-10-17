@@ -371,7 +371,7 @@ mod tests {
             .unit(registry.quantity_type(q).unwrap().canonical_unit)
             .unwrap()
             .clone();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let unknown = pse_ids::named_id(SemanticId::NIL, "unknown");
         let alternatives = [-1., 1.]
             .into_iter()
@@ -428,7 +428,7 @@ mod tests {
                                 DerivativeOrder::First
                             },
                             crate::library::Optimization::default(),
-                            &cancel,
+                            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                         )
                         .unwrap(),
                     )
@@ -1219,7 +1219,7 @@ mod tests {
                 &[residual],
                 DerivativeOrder::Second,
                 crate::library::Optimization::default(),
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
             )
             .unwrap(),
         );

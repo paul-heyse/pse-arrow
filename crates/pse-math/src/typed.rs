@@ -29,7 +29,6 @@ use pse_quantity::{
 };
 use std::collections::BTreeSet;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use symbolica::atom::{Atom, AtomCore};
 
 /// A physically admitted value. Arithmetic storage belongs to Symbolica.

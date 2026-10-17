@@ -71,7 +71,7 @@ fn factory(delay: Duration) -> (Factory, Arc<AtomicUsize>, Arc<Mutex<Vec<Duratio
                 &[residual],
                 DerivativeOrder::First,
                 crate::library::Optimization::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );

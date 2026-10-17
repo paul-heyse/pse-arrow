@@ -457,6 +457,7 @@ impl PreparedSupport {
                 operations as i64,
             );
         }
+        scope.check().map_err(crate::error::scope_error)?;
         Ok(compiled)
     }
 }
@@ -680,7 +681,7 @@ mod tests {
     #[test]
     fn weighted_library_products_bind_runtime_coefficients_without_per_output_hessians() {
         let body = weighted_body();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let support = body
             .prepare_support(&[0, 1], &[0, 1], DerivativeOrder::Second, &cancel)
             .unwrap();
@@ -689,7 +690,7 @@ mod tests {
                 ProductKind::WeightedHessian,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert_eq!(matrix.product_pairs(), &[(0, 0), (0, 1), (1, 1)]);
@@ -767,7 +768,7 @@ mod tests {
                 ProductKind::WeightedHessianAction,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert_eq!(action.product_len(), 2);
@@ -835,7 +836,7 @@ mod tests {
             DerivativeOrder::Second,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let support = body
             .prepare_support(&[0, 1], &[1, 0], DerivativeOrder::Second, &cancel)
             .unwrap();
@@ -850,7 +851,7 @@ mod tests {
             ProductKind::WeightedHessianAction,
         ] {
             let compiled = support
-                .compile_product(kind, options, EvaluationLimits::default(), &cancel)
+                .compile_product(kind, options, EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))
                 .unwrap();
             let census = compiled
                 .census()
@@ -937,7 +938,7 @@ mod tests {
                     .is_err()
             );
             assert_eq!(output, completed);
-            cancel.store(true, Ordering::Release);
+            cancel.cancel();
             assert!(matches!(
                 independent.evaluate_product_into(
                     &[2., 3.],
@@ -978,7 +979,7 @@ mod tests {
             DerivativeOrder::Second,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let support = body
             .prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)
             .unwrap();
@@ -987,7 +988,7 @@ mod tests {
                 ProductKind::WeightedHessian,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let mut worker = compiled.worker();
@@ -996,7 +997,7 @@ mod tests {
             matches!(worker.evaluate_product_into(&[0.],ProductValues::WeightedHessian{weights:&[1.]},&mut BTreeMap::new(),&cancel,&mut out),Err(MathError::Domain{source_id,..}) if source_id==source)
         );
         assert_eq!(out, [93.]);
-        cancel.store(true, Ordering::Release);
+        cancel.cancel();
         assert!(matches!(
             worker.evaluate_product_into(
                 &[2.],
@@ -1045,7 +1046,7 @@ mod tests {
             DerivativeOrder::Second,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let support = body
             .prepare_support(&[0], &[1, 0], DerivativeOrder::Second, &cancel)
             .unwrap();
@@ -1054,7 +1055,7 @@ mod tests {
                 ProductKind::WeightedHessianAction,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let census = compiled
@@ -1098,7 +1099,7 @@ mod tests {
     #[test]
     fn compiled_first_only_product_does_not_construct_unused_second_programs() {
         let body = weighted_body();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let support = body
             .prepare_support(&[0, 1], &[1, 0], DerivativeOrder::First, &cancel)
             .unwrap();
@@ -1113,7 +1114,7 @@ mod tests {
                 ProductKind::SelectedPartials,
                 options,
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert_eq!(compiled.compiled_order(), DerivativeOrder::First);
