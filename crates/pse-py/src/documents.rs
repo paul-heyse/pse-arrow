@@ -140,6 +140,19 @@ impl DocumentType for pse_runtime::capture::DetailDocument {
 impl DocumentType for pse_runtime::capture::DetailRecordPage {
     const NAME: &'static str = "DetailRecordPage";
 }
+impl DocumentType for pse_runtime::workflow::modeling::ModelingSourceMapDocument {
+    const NAME: &'static str = "ModelingSourceMapDocument";
+}
+impl DocumentType for pse_runtime::workflow::modeling::ModelingSourceMap {
+    const NAME: &'static str = "ModelingSourceMapDocument";
+}
+impl DocumentType for pse_runtime::inspection_comparison::InvocationComparisonDocument {
+    const NAME: &'static str = "InvocationComparisonDocument";
+}
+impl DocumentType for pse_runtime::inspection_comparison::ComparisonPolicy {
+    const NAME: &'static str = "ComparisonPolicy";
+}
+
 impl DocumentType for pse_runtime::invocation::InvocationEvidenceDocument {
     const NAME: &'static str = "InvocationEvidenceDocument";
 }

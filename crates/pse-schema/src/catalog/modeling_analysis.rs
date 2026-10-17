@@ -76,6 +76,9 @@ pub(super) fn diagnostic_envelope_fields() -> Vec<T> {
             T::list(record(vec![
                 ("source_id", T::id()),
                 ("revision", T::hash().optional()),
+                ("document", T::id().optional()),
+                ("occurrence_role", text().optional()),
+                ("occurrence_position", count().optional()),
                 ("path", text()),
                 ("name", text().optional()),
                 ("start", count().optional()),
@@ -251,6 +254,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
                 record(vec![
                     ("rank", count()),
                     ("cutoff", real()),
+                    ("operator_frobenius", real()),
                     ("row_norms", coordinates()),
                     ("column_norms", coordinates()),
                     ("parallel_rows", parallel()),
@@ -261,6 +265,10 @@ pub(super) fn register(b: &mut RegistryBuilder) {
                             ("value", real()),
                             ("left", coordinates()),
                             ("right", coordinates()),
+                            ("left_residual", real().optional()),
+                            ("right_residual", real().optional()),
+                            ("normalization_error", real()),
+                            ("residual_bound", real()),
                         ])),
                     ),
                 ]),

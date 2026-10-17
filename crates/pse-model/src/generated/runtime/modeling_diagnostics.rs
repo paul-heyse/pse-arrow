@@ -254,12 +254,36 @@ pub struct RuntimeModelingDiagnosticsFieldMatrixModesItem {
     pub r#left: Vec<RuntimeModelingDiagnosticsFieldMatrixModesItemLeftItem>,
     ///right
     pub r#right: Vec<RuntimeModelingDiagnosticsFieldMatrixModesItemRightItem>,
+    ///left_residual
+    pub r#left_residual: Option<f64>,
+    ///right_residual
+    pub r#right_residual: Option<f64>,
+    ///normalization_error
+    pub r#normalization_error: f64,
+    ///residual_bound
+    pub r#residual_bound: f64,
 }
 impl crate::SemanticEq for RuntimeModelingDiagnosticsFieldMatrixModesItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
             && crate::SemanticEq::semantic_eq(&self.r#left, &other.r#left)
             && crate::SemanticEq::semantic_eq(&self.r#right, &other.r#right)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#left_residual,
+                &other.r#left_residual,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#right_residual,
+                &other.r#right_residual,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#normalization_error,
+                &other.r#normalization_error,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#residual_bound,
+                &other.r#residual_bound,
+            )
     }
 }
 impl PartialEq for RuntimeModelingDiagnosticsFieldMatrixModesItem {
@@ -278,6 +302,8 @@ pub struct RuntimeModelingDiagnosticsFieldMatrix {
     pub r#rank: i64,
     ///cutoff
     pub r#cutoff: f64,
+    ///operator_frobenius
+    pub r#operator_frobenius: f64,
     ///row_norms
     pub r#row_norms: Vec<RuntimeModelingDiagnosticsFieldMatrixRowNormsItem>,
     ///column_norms
@@ -295,7 +321,10 @@ impl crate::SemanticEq for RuntimeModelingDiagnosticsFieldMatrix {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#rank, &other.r#rank)
             && crate::SemanticEq::semantic_eq(&self.r#cutoff, &other.r#cutoff)
-            && crate::SemanticEq::semantic_eq(&self.r#row_norms, &other.r#row_norms)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#operator_frobenius,
+                &other.r#operator_frobenius,
+            ) && crate::SemanticEq::semantic_eq(&self.r#row_norms, &other.r#row_norms)
             && crate::SemanticEq::semantic_eq(
                 &self.r#column_norms,
                 &other.r#column_norms,
@@ -547,6 +576,14 @@ impl crate::SemanticFrame for RuntimeModelingDiagnosticsFieldMatrixModesItem {
         crate::SemanticFrame::frame(&self.r#left, hash);
         hash.str(stringify!(r#right));
         crate::SemanticFrame::frame(&self.r#right, hash);
+        hash.str(stringify!(r#left_residual));
+        crate::SemanticFrame::frame(&self.r#left_residual, hash);
+        hash.str(stringify!(r#right_residual));
+        crate::SemanticFrame::frame(&self.r#right_residual, hash);
+        hash.str(stringify!(r#normalization_error));
+        crate::SemanticFrame::frame(&self.r#normalization_error, hash);
+        hash.str(stringify!(r#residual_bound));
+        crate::SemanticFrame::frame(&self.r#residual_bound, hash);
     }
 }
 impl crate::HeapUsage for RuntimeModelingDiagnosticsFieldMatrixModesItem {
@@ -555,6 +592,10 @@ impl crate::HeapUsage for RuntimeModelingDiagnosticsFieldMatrixModesItem {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#left))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#right))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#left_residual))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#right_residual))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#normalization_error))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#residual_bound))
     }
 }
 impl crate::SemanticFrame for RuntimeModelingDiagnosticsFieldMatrix {
@@ -563,6 +604,8 @@ impl crate::SemanticFrame for RuntimeModelingDiagnosticsFieldMatrix {
         crate::SemanticFrame::frame(&self.r#rank, hash);
         hash.str(stringify!(r#cutoff));
         crate::SemanticFrame::frame(&self.r#cutoff, hash);
+        hash.str(stringify!(r#operator_frobenius));
+        crate::SemanticFrame::frame(&self.r#operator_frobenius, hash);
         hash.str(stringify!(r#row_norms));
         crate::SemanticFrame::frame(&self.r#row_norms, hash);
         hash.str(stringify!(r#column_norms));
@@ -580,6 +623,7 @@ impl crate::HeapUsage for RuntimeModelingDiagnosticsFieldMatrix {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rank))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#cutoff))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#operator_frobenius))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#row_norms))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#column_norms))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parallel_rows))

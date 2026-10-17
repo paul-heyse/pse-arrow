@@ -1376,3 +1376,16 @@ bench-case-smoke output *args:
 [positional-arguments]
 case-measure output *args:
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure "$@"
+
+[group('manual')]
+[doc('Install the explicitly pinned optional Trace Processor (no target capture)')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+diagnostic-tools:
+    python3 -m scripts.diagnostic_trace install
+
+[group('manual')]
+[doc('Query a retained Perfetto trace with a finite owned output; arguments pass through')]
+[positional-arguments]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+trace-query *args:
+    python3 -m scripts.diagnostic_trace query "$@"

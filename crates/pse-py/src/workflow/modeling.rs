@@ -489,6 +489,26 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
+    fn diagnostic_source_map(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &[u8],
+        maximum_bytes: usize,
+        time_limit: f64,
+    ) -> PyResult<documents::DocumentValue<native::modeling::ModelingSourceMap>> {
+        let time_limit = std::time::Duration::try_from_secs_f64(time_limit)
+            .map_err(|error| invalid(py, format!("source map clock: {error}")))?;
+        let settings = settings::solve_profile(py, settings)?;
+        let root = declaration(py, case_id)?;
+        let cancel = CancelSource::new();
+        blocking(py, &self.owner, async {
+            let execution = self.inner.declared_execution(root, Default::default(), settings,
+                Default::default(), self.limits, &cancel).await?;
+            let prepared = self.inner.prepare_declared_diagnostics(&execution, &cancel).await?;
+            self.inner.modeling_diagnostic_source_map(&prepared, maximum_bytes, time_limit, &cancel).await
+        }, || cancel.cancel()).map(documents::DocumentValue)
+    }
     fn diagnose(
         &self,
         py: Python<'_>,
@@ -1486,12 +1506,12 @@ impl NativeModelingDiagnostics {
             self.inner.columns.iter().map(|v| v.to_hex()).collect(),
         )
     }
-    fn singular_modes(&self) -> Vec<(f64, Vec<f64>, Vec<f64>)> {
+    fn singular_modes(&self) -> Vec<(f64, Vec<f64>, Vec<f64>, Option<f64>, Option<f64>, f64, f64)> {
         self.inner
             .matrix
             .iter()
             .flat_map(|m| &m.modes)
-            .map(|m| (m.value, m.left.clone(), m.right.clone()))
+            .map(|m| (m.value, m.left.clone(), m.right.clone(), m.left_residual, m.right_residual, m.normalization_error, m.residual_bound))
             .collect()
     }
 }

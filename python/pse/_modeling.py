@@ -53,6 +53,7 @@ from pse.contracts.documents import (
     LinearDiagnosticControls,
     ManagedStudyDiagnosticsDocument,
     ModelingInspection,
+    ModelingSourceMapDocument,
     ModelingNonlinearPolicy,
     OperationSource,
     PointOutcome,
@@ -473,6 +474,23 @@ class StudyReport:
 
 
 @attrs.frozen
+class SingularMode:
+    """Residual-qualified mode of the report's declared scaled local operator.
+
+    A rectangular null mode has an absent equation on one side. Physical right
+    perturbations multiply variable nominals; left multipliers divide row nominals.
+    """
+
+    value: float
+    left: tuple[float, ...]
+    right: tuple[float, ...]
+    left_residual: float | None
+    right_residual: float | None
+    normalization_error: float
+    residual_bound: float
+
+
+@attrs.frozen
 class ModelingDiagnostics:
     """Bounded point-specific evidence with named source coordinates."""
 
@@ -512,10 +530,10 @@ class ModelingDiagnostics:
 
     def singular_modes(
         self,
-    ) -> tuple[tuple[float, tuple[float, ...], tuple[float, ...]], ...]:
+    ) -> tuple[SingularMode, ...]:
         return tuple(
-            (value, tuple(left), tuple(right))
-            for value, left, right in self._handle.singular_modes()
+            SingularMode(value, tuple(left), tuple(right), left_residual, right_residual, normalization_error, residual_bound)
+            for value, left, right, left_residual, right_residual, normalization_error, residual_bound in self._handle.singular_modes()
         )
 
 
@@ -724,6 +742,19 @@ class ModelingPackage:
     ) -> ModelingTrajectory:
         """Integrate the authored case with the existing native dynamics engine."""
         return ModelingTrajectory(self._handle.simulate(case_id.to_hex(), settings))
+
+    def diagnostic_source_map(
+        self,
+        case_id: DeclarationId,
+        settings: SolveSettings,
+        *,
+        maximum_bytes: int = 16 << 20,
+        time_limit: float = 30.0,
+    ) -> ModelingSourceMapDocument:
+        """Read bounded static source/product attribution without executing a solve."""
+        return self._handle.diagnostic_source_map(
+            case_id.to_hex(), codec.encode_json(settings), maximum_bytes, time_limit
+        )
 
     def diagnose(
         self,

@@ -218,6 +218,8 @@ impl MathService {
                     () = cpu_released, if reserved && cpu_busy => {},
                     () = jobs_released, if reserved && !cpu_busy => {},
                     () = abandoned => {},
+                    () = self.active_jobs.closed() => {},
+                    () = self.cpu.closed() => {},
                     () = task_scope.cancellation_control().cancelled() => {},
                     () = async { match task_scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => {},
                 }
@@ -319,6 +321,8 @@ impl MathService {
             tokio::select! {
                 biased;
                 () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
+                () = self.active_jobs.closed() => {},
+                () = self.cpu.closed() => {},
                 () = tokio::time::sleep_until(at.into()) => return Err(Self::admission_timeout()),
                 // A successful tentative reservation was just shrunk when active
                 // capacity was unavailable. Its own release notification must not

@@ -7,6 +7,7 @@ from types import TracebackType
 from typing import Self, TypeAlias
 
 import attrs
+import pyarrow as pa
 
 from pse import codec
 from pse._analyses import Analysis
@@ -36,6 +37,8 @@ from pse.contracts.documents import (
     FitProfileDocument,
     FrozenAdvice,
     InvocationEvidenceDocument,
+    InvocationComparisonDocument,
+    ComparisonPolicy,
     ManagedStudyDiagnosticsDocument,
     NumericalStrategyDocument,
     PointStatus,
@@ -377,6 +380,22 @@ class RunResult:
         return self._handle.invocation_evidence()
 
     @property
+    def invocation_arrow(self, *, memory_bytes: int = 16 << 20) -> pa.RecordBatch:
+        """Project the actual joined invocation with independently missing endpoints."""
+        return pa.record_batch(self._handle.invocation_arrow(memory_bytes))
+
+    def explain_invocation(
+        self, *, policy: ComparisonPolicy | None = None
+    ) -> InvocationComparisonDocument:
+        """Explain actual work and limitations without reevaluating the model."""
+        return self._handle.explain_invocation(policy=policy)
+
+    def compare_invocation(
+        self, other: RunResult, *, policy: ComparisonPolicy | None = None
+    ) -> InvocationComparisonDocument:
+        """Compare actual products, work, outcomes and clock scopes of two results."""
+        return self._handle.compare_invocation(other._handle, policy=policy)
+
     def accuracy_goals(
         self,
     ) -> tuple[RuntimeAccuracyGoalAssessmentsRow, ...]:

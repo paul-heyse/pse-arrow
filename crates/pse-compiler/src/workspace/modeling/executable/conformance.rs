@@ -224,10 +224,10 @@ impl CompilerWorkspace {
         limits: Limits,
         values: &CaseValues,
         profile: Profile,
-        cancel: Arc<AtomicBool>,
+        cancel: pse_diagnostics::Cancellation,
     ) -> Result<ModelingPointChecks> {
         let model =
-            self.prepare_modeling_cancellable(root, instance, bindings, limits, cancel.clone())?;
+            self.prepare_modeling_cancellable(root, instance, bindings, limits, cancel.flag())?;
         self.check_prepared_modeling_point(&model, root, instance, values, profile, cancel)
     }
     /// Evaluate one already admitted exact model without repeating specialization or
@@ -239,7 +239,7 @@ impl CompilerWorkspace {
         instance: InstanceId,
         values: &CaseValues,
         profile: Profile,
-        cancel: Arc<AtomicBool>,
+        cancel: pse_diagnostics::Cancellation,
     ) -> Result<ModelingPointChecks> {
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
@@ -302,7 +302,7 @@ impl CompilerWorkspace {
             .rows()
             .iter()
             .map(|r| r.id)
-            .zip(output)
+            .zip(output.iter().copied())
             .collect();
         Ok(ModelingPointChecks {
             expectations: model.assess_expectations(&rows)?,

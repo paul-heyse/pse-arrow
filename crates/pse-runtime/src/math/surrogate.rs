@@ -637,7 +637,7 @@ impl PreparedSurrogate {
                 .into_iter()
                 .chain(self.0.operation.deadline())
                 .min();
-            let scope = pse_kernels::ExecutionScope::new(active.cancellation().clone(), deadline);
+            let scope = pse_kernels::ExecutionScope::new(active.cancellation_control().clone(), deadline);
             let reply = self.0.handle.actor.phase(scope.clone())?;
             outcome.callback_terminal = reply.callback_terminal;
             match reply.work {
@@ -1382,5 +1382,35 @@ mod tests {
         drop(handle);
         drop(result);
         assert!(destroyed.load(Ordering::Acquire));
+    }
+}
+
+#[cfg(test)]
+mod gate_wait_tests {
+    use super::*;
+    #[test]
+    fn surrogate_gate_release_and_cancel_wake_original_waiters() {
+        for cancel in [false,true] {
+            let gate=Arc::new(ActorGate::default());
+            let held=gate.lock().unwrap();
+            let stop=pse_columnar::CancellationToken::new();
+            let caller=stop.clone();let other=gate.clone();
+            let (send,recv)=mpsc::sync_channel(1);
+            let join=std::thread::spawn(move|| {
+                send.send(()).unwrap();
+                other.lock_wait(||caller.checkpoint().map_err(|_|MathRuntimeError::Cancelled),caller.cancelled(),None).is_ok()
+            });
+            recv.recv().unwrap();
+            if cancel { stop.cancel(); } else { drop(held); }
+            assert_eq!(join.join().unwrap(),!cancel);
+        }
+    }
+    #[test]
+    fn surrogate_gate_deadline_remains_original_and_does_not_request_stop() {
+        let gate=ActorGate::default();let _held=gate.lock().unwrap();
+        let stop=Cancellation::default();let at=Instant::now();
+        let scope=pse_kernels::ExecutionScope::new(stop.clone(),Some(at));
+        assert!(gate.lock_wait(||scope.check().map_err(ProblemError::Provider).map_err(Into::into),stop.cancelled(),Some(at)).is_err());
+        assert!(!stop.is_cancelled());
     }
 }

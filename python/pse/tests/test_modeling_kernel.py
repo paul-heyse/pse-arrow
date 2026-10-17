@@ -843,7 +843,11 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     assert len(rows) == len(columns) == 2
     modes = report.singular_modes()
     assert len(modes) == 2
-    assert len(modes[0][1]) == len(modes[0][2]) == 2
+    assert len(modes[0].left) == len(modes[0].right) == 2
+    assert modes[0].left_residual is not None
+    assert modes[0].right_residual is not None
+    assert modes[0].left_residual <= modes[0].residual_bound
+    assert modes[0].right_residual <= modes[0].residual_bound
     assert report.findings()
     del report
     durable = pa.table(diagnostic_table).to_pylist()[0]

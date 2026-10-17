@@ -40,9 +40,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    184u8, 158u8, 215u8, 240u8, 127u8, 204u8, 59u8, 66u8, 209u8, 22u8, 111u8, 172u8,
-    193u8, 66u8, 194u8, 178u8, 175u8, 90u8, 130u8, 6u8, 197u8, 135u8, 166u8, 70u8, 57u8,
-    10u8, 224u8, 34u8, 11u8, 106u8, 248u8, 115u8,
+    3u8, 42u8, 209u8, 218u8, 62u8, 122u8, 63u8, 157u8, 141u8, 0u8, 105u8, 143u8, 230u8,
+    250u8, 180u8, 236u8, 103u8, 148u8, 254u8, 113u8, 120u8, 81u8, 161u8, 109u8, 91u8,
+    121u8, 70u8, 68u8, 140u8, 193u8, 165u8, 165u8,
 ]);
 impl crate::columnar::ArrowValue
 for RuntimeSolveStrategyEventsFieldPathEventsItemLocalization {
@@ -629,10 +629,22 @@ for RuntimeSolveStrategyEventsFieldFailuresItemLocationsItem {
             &self.r#revision,
             children[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#path, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#name, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#start, children[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#end, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#document,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#occurrence_role,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#occurrence_position,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#path, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#end, children[8usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -649,16 +661,25 @@ for RuntimeSolveStrategyEventsFieldFailuresItemLocationsItem {
         <Option<
             pse_ids::ContentHash,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
             i64,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -679,26 +700,44 @@ for RuntimeSolveStrategyEventsFieldFailuresItemLocationsItem {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#path: <String as crate::columnar::ArrowValue>::read(
+            r#document: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#name: <Option<
+            r#occurrence_role: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#start: <Option<
+            r#occurrence_position: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
+            r#path: <String as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#start: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
             r#end: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -1517,10 +1556,22 @@ for RuntimeSolveStrategyEventsFieldFailuresItemCausesItemLocationsItem {
             &self.r#revision,
             children[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#path, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#name, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#start, children[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#end, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#document,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#occurrence_role,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#occurrence_position,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#path, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#end, children[8usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -1537,16 +1588,25 @@ for RuntimeSolveStrategyEventsFieldFailuresItemCausesItemLocationsItem {
         <Option<
             pse_ids::ContentHash,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
             i64,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -1567,26 +1627,44 @@ for RuntimeSolveStrategyEventsFieldFailuresItemCausesItemLocationsItem {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#path: <String as crate::columnar::ArrowValue>::read(
+            r#document: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#name: <Option<
+            r#occurrence_role: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#start: <Option<
+            r#occurrence_position: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
+            r#path: <String as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#start: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
             r#end: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -3141,10 +3219,10 @@ impl crate::columnar::RelationRow for RuntimeSolveStrategyEventsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        552_960_usize + size_of::<Self::Builder>()
+        567_296_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        4320usize
+        4432usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -3925,6 +4003,39 @@ impl crate::columnar::RelationRow for RuntimeSolveStrategyEventsRow {
                                                 )?;
                                                 bytes = crate::columnar::allocation_add(
                                                     bytes,
+                                                    if ((item).r#document).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if let Some(value) = ((item).r#occurrence_role).as_ref() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            crate::columnar::allocation_add(8, (value).len())?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#occurrence_position).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
                                                     crate::columnar::allocation_add(8, ((item).r#path).len())?,
                                                 )?;
                                                 bytes = crate::columnar::allocation_add(
@@ -4543,6 +4654,39 @@ impl crate::columnar::RelationRow for RuntimeSolveStrategyEventsRow {
                                                                             crate::columnar::allocation_add(
                                                                                 1,
                                                                                 Ok::<usize, crate::RelationError>(32usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#document).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if let Some(value) = ((item).r#occurrence_role).as_ref() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                crate::columnar::allocation_add(8, (value).len())?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#occurrence_position).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(8usize)?,
                                                                             )
                                                                         } else {
                                                                             Ok::<usize, crate::RelationError>(1)

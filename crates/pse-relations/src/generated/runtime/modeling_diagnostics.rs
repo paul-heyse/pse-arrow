@@ -30,9 +30,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    10u8, 158u8, 205u8, 108u8, 228u8, 61u8, 114u8, 174u8, 31u8, 8u8, 106u8, 199u8, 255u8,
-    23u8, 52u8, 167u8, 113u8, 150u8, 182u8, 135u8, 122u8, 145u8, 107u8, 196u8, 205u8,
-    196u8, 75u8, 237u8, 252u8, 239u8, 57u8, 77u8,
+    75u8, 182u8, 147u8, 48u8, 84u8, 159u8, 137u8, 115u8, 161u8, 34u8, 165u8, 24u8, 107u8,
+    34u8, 145u8, 128u8, 125u8, 157u8, 25u8, 194u8, 37u8, 79u8, 97u8, 232u8, 158u8, 8u8,
+    50u8, 143u8, 24u8, 171u8, 32u8, 129u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticsFieldPointItem {
     fn append(
@@ -571,6 +571,22 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticsFieldMatrixModesI
         crate::columnar::ArrowValue::append(&self.r#value, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#left, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#right, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#left_residual,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#right_residual,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#normalization_error,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#residual_bound,
+            children[6usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -588,6 +604,14 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticsFieldMatrixModesI
         <Vec<
             RuntimeModelingDiagnosticsFieldMatrixModesItemRightItem,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -614,6 +638,26 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticsFieldMatrixModesI
                 input.column(2usize).as_ref(),
                 index,
             )?,
+            r#left_residual: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#right_residual: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#normalization_error: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#residual_bound: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
         })
     }
 }
@@ -629,22 +673,26 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticsFieldMatrix {
         crate::columnar::ArrowValue::append(&self.r#rank, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#cutoff, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#row_norms,
+            &self.r#operator_frobenius,
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#column_norms,
+            &self.r#row_norms,
             children[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#parallel_rows,
+            &self.r#column_norms,
             children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#parallel_columns,
+            &self.r#parallel_rows,
             children[5usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#modes, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parallel_columns,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#modes, children[7usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -657,21 +705,22 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticsFieldMatrix {
         let children = output.field_builders_mut();
         <i64 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <f64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Vec<
             RuntimeModelingDiagnosticsFieldMatrixRowNormsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <Vec<
-            RuntimeModelingDiagnosticsFieldMatrixColumnNormsItem,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Vec<
-            RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem,
+            RuntimeModelingDiagnosticsFieldMatrixColumnNormsItem,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Vec<
-            RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem,
+            RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Vec<
-            RuntimeModelingDiagnosticsFieldMatrixModesItem,
+            RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Vec<
+            RuntimeModelingDiagnosticsFieldMatrixModesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -690,34 +739,38 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticsFieldMatrix {
                 input.column(1usize).as_ref(),
                 index,
             )?,
+            r#operator_frobenius: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
             r#row_norms: <Vec<
                 RuntimeModelingDiagnosticsFieldMatrixRowNormsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(2usize).as_ref(),
+                input.column(3usize).as_ref(),
                 index,
             )?,
             r#column_norms: <Vec<
                 RuntimeModelingDiagnosticsFieldMatrixColumnNormsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#parallel_rows: <Vec<
                 RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#parallel_columns: <Vec<
                 RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#modes: <Vec<
                 RuntimeModelingDiagnosticsFieldMatrixModesItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -994,10 +1047,10 @@ impl crate::columnar::RelationRow for RuntimeModelingDiagnosticsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        113_664_usize + size_of::<Self::Builder>()
+        123_904_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        888usize
+        968usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -1168,6 +1221,10 @@ impl crate::columnar::RelationRow for RuntimeModelingDiagnosticsRow {
                         )?;
                         bytes = crate::columnar::allocation_add(
                             bytes,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
                             ((value).r#row_norms)
                                 .iter()
                                 .try_fold(
@@ -1325,6 +1382,36 @@ impl crate::columnar::RelationRow for RuntimeModelingDiagnosticsRow {
                                                             }?,
                                                         ),
                                                     )?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                if ((item).r#left_residual).is_some() {
+                                                    crate::columnar::allocation_add(
+                                                        1,
+                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                    )
+                                                } else {
+                                                    Ok::<usize, crate::RelationError>(1)
+                                                }?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                if ((item).r#right_residual).is_some() {
+                                                    crate::columnar::allocation_add(
+                                                        1,
+                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                    )
+                                                } else {
+                                                    Ok::<usize, crate::RelationError>(1)
+                                                }?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                Ok::<usize, crate::RelationError>(8usize)?,
                                             )?;
                                             Ok::<usize, crate::RelationError>(bytes)
                                         }?,

@@ -852,7 +852,7 @@ impl CompilerWorkspace {
             cancel,
         )?);
         let mut plan = plan;
-        for action in actions.iter().copied().collect::<std::collections::BTreeSet<_>>() {
+        for action in actions.iter().copied().collect::<BTreeSet<_>>() {
             plan = Arc::new(match action {
                 pse_math::jets::ProductKind::JacobianAction => plan.with_directional_actions(cancel)?,
                 pse_math::jets::ProductKind::WeightedHessianAction => plan.with_hessian_actions(cancel)?,

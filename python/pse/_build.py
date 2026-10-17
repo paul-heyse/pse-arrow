@@ -121,3 +121,5 @@ def _check_native_compatibility(package_version: str) -> None:
 _NativeDetailSession = _native.NativeDetailSession
 _diagnostic_read_detail = _native.diagnostic_read_detail
 _diagnostic_detail_records = _native.diagnostic_detail_records
+_diagnostic_detail_arrow = _native.diagnostic_detail_arrow
+_diagnostic_capture_arrow = _native.diagnostic_capture_arrow

@@ -327,6 +327,8 @@ impl execution::ComputeAdmission for ComputeOwner {
                     () = jobs_released, if !self.blocked_cpu => {},
                     () = cpu_released, if self.blocked_cpu => {},
                     () = abandoned => {},
+                    () = self.jobs.closed() => {},
+                    () = self.cpu.closed() => {},
                     () = scope.cancellation_control().cancelled() => {},
                     () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => {},
                 }
@@ -3866,5 +3868,25 @@ mod admission_tests {
             .unwrap();
         session.close().await;
         assert_eq!(service.cpu.available_permits(), service.cores);
+    }
+}
+
+#[cfg(test)]
+mod idle_wake_tests {
+    use super::*;
+    #[test]
+    fn native_idle_notifications_coalesce_and_do_not_retain_sender() {
+        let (sender,receiver)=mpsc::channel::<Request>();
+        let sender=Arc::new(sender);
+        let wake=Arc::new(IdleWake {sender:Arc::downgrade(&sender),pending:AtomicBool::new(false)});
+        let waker=std::task::Waker::from(wake.clone());
+        for _ in 0..100 {waker.wake_by_ref()}
+        assert!(receiver.try_recv().unwrap().work.is_none());
+        assert!(matches!(receiver.try_recv(),Err(mpsc::TryRecvError::Empty)));
+        wake.pending.store(false,Ordering::Release);
+        waker.wake_by_ref();
+        assert!(receiver.try_recv().unwrap().work.is_none());
+        drop(sender);waker.wake_by_ref();
+        assert!(matches!(receiver.try_recv(),Err(mpsc::TryRecvError::Disconnected)));
     }
 }

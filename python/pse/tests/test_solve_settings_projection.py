@@ -124,7 +124,7 @@ def test_backend_settings_typed() -> None:
         ),
         NativeBackend.SCIP: pse.ScipSettings(seed=7, nodes=1000),
         NativeBackend.IPOPT: pse.IpoptSettings(
-            linear=documents.IpoptLinearMumps(ordering=MumpsOrdering.AMD),
+            linear=documents.IpoptLinearMumps(ordering=MumpsOrdering.AMD, pivot_tolerance=1e-6, maximum_pivot_tolerance=0.1, memory_percent=1000, permuting_scaling=7),
             mu_strategy=MuStrategy.ADAPTIVE,
         ),
     }
@@ -325,7 +325,7 @@ def test_solve_settings_backend_projection(
             pse.SolveSettings(
                 backend=NativeBackend.IPOPT,
                 settings=pse.IpoptSettings(
-                    linear=documents.IpoptLinearMumps(ordering=MumpsOrdering.AMD),
+                    linear=documents.IpoptLinearMumps(ordering=MumpsOrdering.AMD, pivot_tolerance=1e-6, maximum_pivot_tolerance=0.1, memory_percent=1000, permuting_scaling=7),
                     mu_strategy=MuStrategy.ADAPTIVE,
                 ),
             ),

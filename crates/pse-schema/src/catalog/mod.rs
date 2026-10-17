@@ -14,6 +14,7 @@
 
 mod cache;
 mod declarations;
+mod diagnostic_evidence;
 pub mod documents;
 pub mod enums_platform;
 pub mod inv;
@@ -99,6 +100,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     s6_15_semantic::declare(builder);
     normalization::declare(builder);
     documents::declare(builder);
+    diagnostic_evidence::declare(builder);
     invariants::declare(builder);
     s14_passes::declare(builder);
 }

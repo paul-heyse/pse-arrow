@@ -119,6 +119,12 @@ pub struct RuntimeProfilePointsFieldFailuresItemLocationsItem {
     pub r#source_id: pse_ids::SemanticId,
     ///revision
     pub r#revision: Option<pse_ids::ContentHash>,
+    ///document
+    pub r#document: Option<pse_ids::SemanticId>,
+    ///occurrence_role
+    pub r#occurrence_role: Option<String>,
+    ///occurrence_position
+    pub r#occurrence_position: Option<i64>,
     ///path
     pub r#path: String,
     ///name
@@ -132,7 +138,15 @@ impl crate::SemanticEq for RuntimeProfilePointsFieldFailuresItemLocationsItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
             && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
-            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#document, &other.r#document)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#occurrence_role,
+                &other.r#occurrence_role,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#occurrence_position,
+                &other.r#occurrence_position,
+            ) && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
             && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
             && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
             && crate::SemanticEq::semantic_eq(&self.r#end, &other.r#end)
@@ -481,6 +495,12 @@ pub struct RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem {
     pub r#source_id: pse_ids::SemanticId,
     ///revision
     pub r#revision: Option<pse_ids::ContentHash>,
+    ///document
+    pub r#document: Option<pse_ids::SemanticId>,
+    ///occurrence_role
+    pub r#occurrence_role: Option<String>,
+    ///occurrence_position
+    pub r#occurrence_position: Option<i64>,
     ///path
     pub r#path: String,
     ///name
@@ -494,7 +514,15 @@ impl crate::SemanticEq for RuntimeProfilePointsFieldFailuresItemCausesItemLocati
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
             && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
-            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#document, &other.r#document)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#occurrence_role,
+                &other.r#occurrence_role,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#occurrence_position,
+                &other.r#occurrence_position,
+            ) && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
             && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
             && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
             && crate::SemanticEq::semantic_eq(&self.r#end, &other.r#end)
@@ -996,6 +1024,12 @@ impl crate::SemanticFrame for RuntimeProfilePointsFieldFailuresItemLocationsItem
         crate::SemanticFrame::frame(&self.r#source_id, hash);
         hash.str(stringify!(r#revision));
         crate::SemanticFrame::frame(&self.r#revision, hash);
+        hash.str(stringify!(r#document));
+        crate::SemanticFrame::frame(&self.r#document, hash);
+        hash.str(stringify!(r#occurrence_role));
+        crate::SemanticFrame::frame(&self.r#occurrence_role, hash);
+        hash.str(stringify!(r#occurrence_position));
+        crate::SemanticFrame::frame(&self.r#occurrence_position, hash);
         hash.str(stringify!(r#path));
         crate::SemanticFrame::frame(&self.r#path, hash);
         hash.str(stringify!(r#name));
@@ -1011,6 +1045,9 @@ impl crate::HeapUsage for RuntimeProfilePointsFieldFailuresItemLocationsItem {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#document))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#occurrence_role))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#occurrence_position))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))
@@ -1266,6 +1303,12 @@ for RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem {
         crate::SemanticFrame::frame(&self.r#source_id, hash);
         hash.str(stringify!(r#revision));
         crate::SemanticFrame::frame(&self.r#revision, hash);
+        hash.str(stringify!(r#document));
+        crate::SemanticFrame::frame(&self.r#document, hash);
+        hash.str(stringify!(r#occurrence_role));
+        crate::SemanticFrame::frame(&self.r#occurrence_role, hash);
+        hash.str(stringify!(r#occurrence_position));
+        crate::SemanticFrame::frame(&self.r#occurrence_position, hash);
         hash.str(stringify!(r#path));
         crate::SemanticFrame::frame(&self.r#path, hash);
         hash.str(stringify!(r#name));
@@ -1281,6 +1324,9 @@ impl crate::HeapUsage for RuntimeProfilePointsFieldFailuresItemCausesItemLocatio
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#document))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#occurrence_role))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#occurrence_position))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))

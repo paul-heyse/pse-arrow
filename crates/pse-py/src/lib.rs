@@ -68,6 +68,7 @@ mod _native {
         diagnostics::{
             NativeCaptureSession, NativeDetailSession, NativeDiagnostics,
             NativeOperationObservations, diagnostic_capture, diagnostic_detail_records,
+            diagnostic_detail_arrow, diagnostic_capture_arrow,
             diagnostic_inspect, diagnostic_inspect_image, diagnostic_list, diagnostic_operation_id,
             diagnostic_operation_text, diagnostic_read_checkpoint, diagnostic_read_detail,
         },

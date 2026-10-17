@@ -1,0 +1,6 @@
+# Explicit optional tools; installation is never a passive diagnostic side effect.
+[trace-processor]
+version = "58.2"
+url = "https://github.com/google/perfetto/releases/download/v58.2/linux-amd64.zip"
+sha256 = "32c739f71b2d39721afd294c0b038f2499a44a71b5b6bcdd85b83faca0b240b9"
+member = "trace_processor_shell"

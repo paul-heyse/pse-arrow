@@ -449,6 +449,7 @@ impl ModelingDiagnostics {
                 .map(|m| RuntimeModelingDiagnosticsFieldMatrix {
                     rank: m.rank as i64,
                     cutoff: m.cutoff,
+                    operator_frobenius: m.operator_frobenius,
                     row_norms: self
                         .rows
                         .iter()
@@ -496,6 +497,10 @@ impl ModelingDiagnostics {
                         .iter()
                         .map(|mode| RuntimeModelingDiagnosticsFieldMatrixModesItem {
                             value: mode.value,
+                            left_residual: mode.left_residual,
+                            right_residual: mode.right_residual,
+                            normalization_error: mode.normalization_error,
+                            residual_bound: mode.residual_bound,
                             left: self
                                 .rows
                                 .iter()

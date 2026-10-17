@@ -20,7 +20,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing_perfetto_sdk_schema::{
-    DebugAnnotation, Trace, TracePacket, TrackDescriptor, TrackEvent, debug_annotation,
+    ClockSnapshot, DebugAnnotation, Trace, TracePacket, TrackDescriptor, TrackEvent, clock_snapshot, debug_annotation,
     trace_packet, track_descriptor, track_event,
 };
 
@@ -128,6 +128,44 @@ impl<W: Write> Projection<W> {
     }
     fn packet(&mut self, packet: TracePacket) -> std::io::Result<()> {
         self.output.append(packet)
+    }
+    // This writer runs without traced, so it must supply the builtin clock relationship
+    // that traced normally emits. Keep actual MONOTONIC events in their original domain.
+    #[cfg(target_os = "linux")]
+    fn synchronize_clocks(&mut self) -> std::io::Result<()> {
+        fn nanos(clock: rustix::time::ClockId) -> std::io::Result<u64> {
+            let value = rustix::time::clock_gettime(clock);
+            u64::try_from(value.tv_sec).ok().and_then(|seconds| seconds.checked_mul(1_000_000_000))
+                .and_then(|seconds| u64::try_from(value.tv_nsec).ok().and_then(|nanos| seconds.checked_add(nanos)))
+                .ok_or_else(|| std::io::Error::other("capture clock extent"))
+        }
+        let before = nanos(rustix::time::ClockId::Monotonic)?;
+        let boot = nanos(rustix::time::ClockId::Boottime)?;
+        let after = nanos(rustix::time::ClockId::Monotonic)?;
+        let width = after.checked_sub(before).ok_or_else(|| std::io::Error::other("capture clock reversal"))?;
+        let mono = before + width / 2;
+        self.packet(TracePacket {
+            data: Some(trace_packet::Data::ClockSnapshot(ClockSnapshot {
+                clocks: vec![
+                    clock_snapshot::Clock { clock_id: Some(3), timestamp: Some(mono), ..Default::default() },
+                    clock_snapshot::Clock { clock_id: Some(6), timestamp: Some(boot), ..Default::default() },
+                ],
+                primary_trace_clock: Some(6),
+            })),
+            ..Default::default()
+        })?;
+        if let Some(uuid) = self.track(Key::Events, "Capture clock alignment", None, false)? {
+            self.event(uuid, mono, track_event::Type::Instant, "clock alignment", vec![
+                count_annotation("sampling_width_ns", width),
+                annotation("meaning", "MONOTONIC bracket around BOOTTIME reading; midpoint alignment"),
+            ])?;
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    fn synchronize_clocks(&mut self) -> std::io::Result<()> {
+        document(&self.state).loss.unknown_clock = true;
+        Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "capture clock alignment requires Linux builtin clocks"))
     }
     fn track(
         &mut self,
@@ -422,10 +460,16 @@ impl<W: Write> Projection<W> {
         };
         let mut fields = vec![
             annotation("family", &record.family),
+            annotation("operation_id", record.producer.operation.to_string()),
+            count_annotation("producer_sequence", record.producer.sequence),
             count_annotation("source_sequence", record.sequence),
             count_annotation("generation", record.generation),
             bool_annotation("history_partial", partial),
         ];
+        fields.push(record.family_sequence.map_or_else(
+            || annotation("family_sequence.unavailable", "source did not publish family order"),
+            |sequence| count_annotation("family_sequence", sequence),
+        ));
         if let Some(coordinates) = &record.coordinates {
             fields.push(annotation("coordinates", coordinates));
         }
@@ -433,13 +477,20 @@ impl<W: Write> Projection<W> {
             fields.push(annotation("norm", norm));
         }
         for field in &record.values {
-            fields.push(annotation(
-                &field.name,
-                format!(
-                    "{:?} [{}; {:?}]",
-                    field.value, field.unit, field.availability
-                ),
-            ));
+            let name=&field.name;
+            fields.push(match &field.value {
+                Value::Count(value) => count_annotation(name,*value),
+                Value::Integer(value) => typed_annotation(name,debug_annotation::Value::IntValue(*value)),
+                Value::Number(value) if value.is_finite() => typed_annotation(name,debug_annotation::Value::DoubleValue(*value)),
+                Value::Boolean(value) => bool_annotation(name,*value),
+                Value::Text(value) => annotation(name,value),
+                Value::Unavailable(reason) => annotation(&format!("{name}.unavailable"),reason),
+                Value::NonFinite(value) => annotation(&format!("{name}.nonfinite"),format!("{value:?}")),
+                Value::Overflow => annotation(&format!("{name}.overflow"),"true"),
+                Value::Number(_) => annotation(&format!("{name}.unavailable"),"invalid unclassified nonfinite source number"),
+            });
+            fields.push(annotation(&format!("{name}.unit"),&field.unit));
+            if let Some(availability)=field.availability { fields.push(annotation(&format!("{name}.availability"),format!("{availability:?}"))); }
         }
         self.event(uuid, at, track_event::Type::Instant, &record.phase, fields)?;
         if let Some(track) = self.tracks.get_mut(key) {
@@ -673,6 +724,9 @@ impl<W: Write> Projection<W> {
         flushed
     }
 }
+fn typed_annotation(name:&str,value:debug_annotation::Value)->DebugAnnotation {
+    DebugAnnotation { name_field:Some(debug_annotation::NameField::Name(name.into())),value:Some(value),..Default::default() }
+}
 fn annotation(name: &str, value: impl ToString) -> DebugAnnotation {
     DebugAnnotation {
         name_field: Some(debug_annotation::NameField::Name(name.into())),
@@ -746,6 +800,7 @@ pub(super) fn run(
     let mut first = Some(initial);
     let mut sequences = HashMap::<PathBuf, (u64, usize)>::new();
     let result = (|| -> Result<(), CaptureError> {
+        projection.synchronize_clocks()?;
         loop {
             // Only explicit known links discover children; no unrelated checkpoint directory scan.
             let mut index = 0;
@@ -764,6 +819,8 @@ pub(super) fn run(
                 if let Some(image) = image
                     && sequences.get(&paths[index]) != Some(&(image.sequence, selected.len()))
                 {
+                    // Refresh the relationship at published checkpoints, including after suspend.
+                    projection.synchronize_clocks()?;
                     let mut growing = true;
                     while growing {
                         growing = false;

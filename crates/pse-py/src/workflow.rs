@@ -1769,6 +1769,29 @@ impl NativeRunResult {
             .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
     }
+    /// Arrow view of this actual joined invocation, retaining finite independent allocation.
+    #[pyo3(signature=(*, policy=None))]
+    fn explain_invocation(&self,py:Python<'_>,policy:Option<documents::DocumentInput<pse_runtime::inspection_comparison::ComparisonPolicy>>)
+        -> PyResult<documents::DocumentValue<pse_runtime::inspection_comparison::InvocationComparisonDocument>> {
+        let source=self.inner.invocation_evidence().map_err(|error|errors::diagnostic(py,&error))?;
+        Ok(documents::DocumentValue(pse_runtime::inspection_comparison::explain_invocation(&source,policy.map_or_else(Default::default,|value|value.0))))
+    }
+    /// Compare actual retained invocation documents without running either model.
+    #[pyo3(signature=(other, *, policy=None))]
+    fn compare_invocation(&self,py:Python<'_>,other:&Self,policy:Option<documents::DocumentInput<pse_runtime::inspection_comparison::ComparisonPolicy>>)
+        -> PyResult<documents::DocumentValue<pse_runtime::inspection_comparison::InvocationComparisonDocument>> {
+        let left=self.inner.invocation_evidence().map_err(|error|errors::diagnostic(py,&error))?;
+        let right=other.inner.invocation_evidence().map_err(|error|errors::diagnostic(py,&error))?;
+        Ok(documents::DocumentValue(pse_runtime::inspection_comparison::compare_invocations(&left,&right,policy.map_or_else(Default::default,|value|value.0))))
+    }
+    /// Arrow view of this actual joined invocation, retaining finite independent allocation.
+    fn invocation_arrow(&self,py:Python<'_>,memory_bytes:usize)->PyResult<pyo3_arrow::PyRecordBatch> {
+        let document=self.inner.invocation_evidence().map_err(|error|errors::diagnostic(py,&error))?;
+        py.detach(|| {
+            let pool:Arc<dyn pse_columnar::MemoryPool>=Arc::new(pse_columnar::GreedyMemoryPool::new(memory_bytes));
+            pse_runtime::capture::evidence::invocation_arrow(&document,&pool,&pse_columnar::CancellationToken::new())
+        }).map(pyo3_arrow::PyRecordBatch::new).map_err(|error|errors::diagnostic(py,&error))
+    }
     fn fit_profiles(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         let report = self
             .inner

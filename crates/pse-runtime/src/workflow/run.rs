@@ -13,7 +13,7 @@ use super::{
 };
 use crate::math::{MathRuntimeError, Submission};
 use pse_backend_native::solve::{Event, Progress};
-use pse_columnar::flight::FlightCancellation;
+use pse_diagnostics::Cancellation;
 use pse_ids::SemanticId;
 use pse_model::generated::identities::RunId;
 use std::{collections::BTreeMap, sync::Arc};
@@ -44,7 +44,7 @@ pub(in crate::workflow) fn family_worker_entry() -> Option<FamilyWorkerEntry> {
 /// the supervisor retains the actual native handle until its join completes.
 #[derive(Debug)]
 struct Lease(
-    FlightCancellation,
+    Cancellation,
     Option<crate::CancelSource>,
     Option<pse_diagnostics::observation::ObservationContext>,
 );
@@ -162,7 +162,7 @@ impl RunHandle {
         Self {
             observation: observations_for(run_id, canonical_keys.as_ref()),
             lease: Arc::new(Lease(
-                FlightCancellation::default(),
+                Cancellation::default(),
                 Some(checks),
                 pse_diagnostics::observation::current(),
             )),
@@ -508,6 +508,9 @@ impl RunResult {
                 role: "identifiability".into(),
                 availability: availability(true, report.is_some_and(|r| r.rank.is_some())),
             });
+            // Completed computation remains in the report; estimate-derived products
+            // require the actual governing original qualification as well.
+            let original_permission = self.usable();
             let covariance = report.and_then(|r| r.covariance.as_ref());
             products.push(InvocationProduct {
                 step: None,
@@ -520,7 +523,7 @@ impl RunResult {
                             .parameters
                             .iter()
                             .any(|p| !p.fixed),
-                    covariance.is_some_and(|r| r.values.is_ok()),
+                    original_permission && covariance.is_some_and(|r| r.values.is_ok()),
                 ),
             });
             let uncertainty = prepared.problem.profile.uncertainty.as_ref();
@@ -529,7 +532,7 @@ impl RunResult {
                 role: "wald_intervals".into(),
                 availability: availability(
                     uncertainty.is_some(),
-                    report
+                    original_permission && report
                         .and_then(|r| r.wald.as_ref())
                         .is_some_and(Result::is_ok),
                 ),
@@ -539,7 +542,7 @@ impl RunResult {
                 role: "profile_intervals".into(),
                 availability: availability(
                     uncertainty.is_some_and(|u| u.profile.is_some()),
-                    report
+                    original_permission && report
                         .and_then(|r| r.profiles.as_ref())
                         .is_some_and(Result::is_ok),
                 ),
@@ -709,7 +712,7 @@ async fn admit<T>(
 /// Submit a native operation under bounded population admission. Durable provenance
 /// observes when CPU and memory are admitted without adding another waiting population.
 fn submission(
-    cancel: &FlightCancellation,
+    cancel: &Cancellation,
     progress: &Arc<Progress>,
     durable: bool,
     deadline: std::time::Instant,
@@ -856,7 +859,7 @@ impl super::ModelingSimulation {
                 .and_then(DurableAttempt::claimed_run)
                 .unwrap_or(run_id);
             let progress = progress_for(256, durable.as_ref());
-            let cancel = FlightCancellation::default();
+            let cancel = Cancellation::default();
             let forwarding = cancel.clone();
             let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
             let canonical_attempt = durable.as_ref().map(|attempt| attempt.canonical_keys(run_id).1);
@@ -1091,7 +1094,7 @@ impl super::ShootingProblem {
             let run_id: RunId = pse_operations::mint_id();
             let mut durable = attempt_for(&runtime, None)?;
             let progress = progress_for(256, durable.as_ref());
-            let cancel = FlightCancellation::default();
+            let cancel = Cancellation::default();
             let forwarding = cancel.clone();
             let deadline = std::time::Instant::now()
                 .checked_add(self.solver.controls.time_limit)
@@ -1331,7 +1334,7 @@ impl super::PreparedFit {
                 .and_then(DurableAttempt::claimed_run)
                 .unwrap_or(run_id);
             let progress = progress_for(256, durable.as_ref());
-            let cancel = FlightCancellation::default();
+            let cancel = Cancellation::default();
             let forwarding = cancel.clone();
             let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
             // Estimation admits only its own demand. Profile teams acquire their next
@@ -1978,7 +1981,7 @@ mod cancellation_tests {
         let context = operation.context();
         let reader = operation.reader();
         let lease = super::Lease(
-            pse_columnar::flight::FlightCancellation::default(),
+            pse_diagnostics::Cancellation::default(),
             None,
             Some(context),
         );
@@ -1997,7 +2000,7 @@ mod cancellation_tests {
     #[tokio::test]
     async fn replay_parent_cancellation_reaches_pending_supervisor_and_keeps_drain_owned() {
         let parent = crate::CancelSource::new();
-        let native = pse_columnar::flight::FlightCancellation::default();
+        let native = pse_diagnostics::Cancellation::default();
         let flight = native.clone();
         let (observed, cancellation) = tokio::sync::oneshot::channel();
         let (release, drain) = tokio::sync::oneshot::channel();

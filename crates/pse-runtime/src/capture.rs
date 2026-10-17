@@ -19,6 +19,7 @@ use std::{
 };
 
 mod cpu;
+pub mod evidence;
 mod detail;
 pub use detail::{
     DetailDocument, DetailEnd, DetailFamilyCoverage, DetailOutcome, DetailRecordPage,

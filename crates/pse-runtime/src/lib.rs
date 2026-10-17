@@ -41,6 +41,7 @@ pub mod env;
 pub mod error;
 pub mod inspection;
 pub mod inspection_documents;
+pub mod inspection_comparison;
 pub mod invocation;
 pub mod observation;
 pub use inspection_documents::{ResourceConsumer, TableName};
