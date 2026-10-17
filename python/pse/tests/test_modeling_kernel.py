@@ -761,6 +761,57 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
             declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
         )
     rows, columns = report.coordinates()
+    source_settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+    # Refused inspection allowances must not replace the available diagnostic product.
+    for maximum_bytes, time_limit in (
+        (0, 30.0), (4 << 20, 0.0), (4 << 20, float("nan"))
+    ):
+        with pytest.raises(pse.InspectionError):
+            package.diagnostic_source_map(
+                declaration(220), source_settings,
+                maximum_bytes=maximum_bytes, time_limit=time_limit,
+            )
+    source_map = package.diagnostic_source_map(
+        declaration(220), source_settings, maximum_bytes=4 << 20, time_limit=30.0
+    )
+    source_map_bytes = codec.encode_json(source_map)
+    assert codec.decode_json(
+        source_map_bytes, documents.ModelingSourceMapDocument
+    ) == source_map
+    assert source_map.scope == "static_eligible_alternatives"
+    assert source_map.rows == tuple(row.to_hex() for row in rows)
+    assert source_map.columns == tuple(column.to_hex() for column in columns)
+    assert "no transformed native attempt" in source_map.native_pullback_unavailable
+    assert source_map.source_identity.startswith("blake3:")
+    assert source_map.numerical_identity.startswith("blake3:")
+    original_equations = {identity(225).to_hex(), identity(226).to_hex()}
+    fields = [field for field in source_map.fields if field.declaration in original_equations]
+    assert fields
+    for field in fields:
+        assert field.document is not None
+        assert field.start is not None and field.end is not None
+        assert 0 <= field.start < field.end <= len(source.encode())
+        assert field.role and field.position >= 0
+    members = {member.member: member for member in source_map.members}
+    assert {members[row].declaration for row in source_map.rows} == original_equations
+    templates = {template.template: template for template in source_map.templates}
+    assert templates and source_map.instances
+    for occurrence in source_map.instances:
+        assert occurrence.demands
+        assert all(original in members for _, original in occurrence.checked_members)
+        for demand in occurrence.demands:
+            template = templates[demand.template]
+            assert template.body == occurrence.body
+            assert template.outputs == demand.outputs
+            assert template.coordinates == demand.coordinates
+            assert template.product == "selected_partials", (
+                "First-order source inspection does not silently compile action products"
+            )
+            assert all(
+                origin.start_output < origin.end_output
+                and (origin.source is None) == (origin.source_unavailable is not None)
+                for origin in template.arithmetic
+            )
     samples = package.diagnose_samples(
         declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
@@ -848,6 +899,15 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     assert modes[0].right_residual is not None
     assert modes[0].left_residual <= modes[0].residual_bound
     assert modes[0].right_residual <= modes[0].residual_bound
+    assert all(mode.normalization_error >= 0 and mode.residual_bound > 0 for mode in modes)
+    assert all(
+        sum(value * value for value in mode.left) == pytest.approx(1.0, abs=1e-10)
+        and sum(value * value for value in mode.right) == pytest.approx(1.0, abs=1e-10)
+        for mode in modes
+    ), "singular mode coordinates retain normalized scaled-operator vectors"
+    assert codec.encode_json(source_map) == source_map_bytes, (
+        "the decoded static document survives package/runtime release unchanged"
+    )
     assert report.findings()
     del report
     durable = pa.table(diagnostic_table).to_pylist()[0]
