@@ -309,7 +309,7 @@ impl<'o> Passes<'_, 'o> {
             let start = segments.starts[k];
             *shared.columns.borrow_mut() = p.columns_at(np, start);
             let seed = shared.seed.borrow().clone();
-            let mut observation_owner = StepObservations::new("diffsol.adjoint.forward_record");
+            let mut observation_owner = StepObservations::new("diffsol.adjoint.forward_record", shared.progress.clone(), shared.started);
             observation_owner.zero_baseline();
             let inner =
                 crate::observation::scoped("diffsol.adjoint.forward_record.initialize", || {
@@ -343,6 +343,7 @@ impl<'o> Passes<'_, 'o> {
                 )
             }));
             r.statistics.push(segment_statistics(
+                shared,
                 solver.statistics(),
                 &p.diffsol,
                 &observation,
@@ -401,7 +402,7 @@ impl<'o> Passes<'_, 'o> {
                 .peekable();
             // Forward recording and checkpoint replay consume different work.
             // A replay starts from a retained native counter baseline, never zero.
-            solver.observations = StepObservations::new("diffsol.adjoint.replay");
+            solver.observations = StepObservations::new("diffsol.adjoint.replay", shared.progress.clone(), shared.started);
             solver.observations.publish(solver.inner.statistics());
             let mut adjoint = problem.adjoint_equations(vec![checkpointing], Some(solver), Some(1));
             let mut state =
@@ -416,7 +417,7 @@ impl<'o> Passes<'_, 'o> {
             if let Some(i) = observed.next_if(|i| r.samples[*i].time >= stop) {
                 state = self.jumped::<B>(state, r, i, &weights)?;
             }
-            let mut backward = StepObservations::new("diffsol.adjoint.backward");
+            let mut backward = StepObservations::new("diffsol.adjoint.backward", shared.progress.clone(), shared.started);
             let mut solver = resumed(
                 &scheme,
                 problem,
@@ -461,7 +462,7 @@ impl<'o> Passes<'_, 'o> {
             }
             carried = Some(lambda.as_slice().to_vec());
             shared.progress.push(crate::solve::Event {
-                phase: "simulation.adjoint".into(),
+                source: Some(crate::solve::EventSource::new("dynamic_adjoint", Some("physical_model"), None)), phase: "simulation.adjoint".into(),
                 elapsed: shared.started.elapsed(),
                 values: std::collections::BTreeMap::from([
                     ("time".into(), crate::solve::Metric::Real(start)),
@@ -567,7 +568,7 @@ impl<'o> Passes<'_, 'o> {
                 let result =
                     crate::observation::scoped("diffsol.adjoint.backward.step", || solver.step());
                 observations.publish(solver.statistics());
-                publish_step(observations.role, solver, &result);
+                publish_step(observations, solver, &result);
                 if result.map_err(native)? == OdeSolverStopReason::TstopReached {
                     return Ok(());
                 }
@@ -649,7 +650,7 @@ impl<'o> Passes<'_, 'o> {
             }
             r.completed_time = time;
             shared.progress.push(crate::solve::Event {
-                phase: "simulation.step".into(),
+                source: Some(crate::solve::EventSource::new("dynamic_native_return", Some("physical_model"), None)), phase: "simulation.step".into(),
                 elapsed: shared.started.elapsed(),
                 values: std::collections::BTreeMap::from([
                     ("time".into(), crate::solve::Metric::Real(time)),
@@ -689,60 +690,60 @@ impl<'o> Passes<'_, 'o> {
 /// One actual solver owner/counter generation. Cloning a checkpoint solver creates
 /// a distinct producer whose inherited counters are a baseline, not new work.
 struct StepObservations {
+    progress: Arc<crate::solve::Progress>,
+    started: std::time::Instant,
+    producer: Option<pse_diagnostics::observation::Producer>,
     role: &'static str,
     generation: u64,
     baseline_pending: bool,
 }
 impl Clone for StepObservations {
     fn clone(&self) -> Self {
-        Self::new(self.role)
+        Self::new(self.role, self.progress.clone(), self.started)
     }
 }
 impl StepObservations {
-    fn new(role: &'static str) -> Self {
+    fn new(role: &'static str, progress: Arc<crate::solve::Progress>, started: std::time::Instant) -> Self {
         Self {
+            progress, started,
+            producer: pse_diagnostics::observation::current().map(|context| context.producer(pse_diagnostics::observation::ProducerRole::NativeIteration, role)),
             role,
             generation: crate::observation::generation(),
             baseline_pending: true,
         }
     }
     fn zero_baseline(&mut self) {
+        let _entered = self.producer.as_ref().map(|producer| producer.context().enter());
         live_statistics_for(self.role, &Default::default(), self.generation);
         self.baseline_pending = false;
     }
     fn publish(&mut self, statistics: &OdeSolverStatistics) {
+        let _entered = self.producer.as_ref().map(|producer| producer.context().enter());
         live_statistics_for(self.role, statistics, self.generation);
         self.baseline_pending = false;
     }
 }
 fn publish_step<'a, 'o: 'a, S: OdeSolverMethod<'a, Equation<'o>>>(
-    role: &str,
+    observations: &StepObservations,
     solver: &S,
     result: &Result<OdeSolverStopReason<f64>, DiffsolError>,
 ) {
-    let Some(context) = pse_diagnostics::observation::current() else {
-        return;
-    };
     let returned = match result {
         Ok(OdeSolverStopReason::RootFound(time, _)) => Some(*time),
         Ok(_) => Some(solver.state().t),
         Err(_) => None,
     };
     let observation = step_observation(solver, returned);
-    if let Ok(value) = serde_json::to_value(observation) {
-        crate::observation::structured(&format!("{role}.native_step"), &value);
+    if let Ok(mut value) = serde_json::to_value(observation) {
+        if let Some(fields) = value.as_object_mut() {
+            fields.insert("physical_time".into(), serde_json::json!(solver.state().t));
+            fields.insert("last_step_returned_success".into(), serde_json::json!(result.is_ok()));
+        }
+        crate::observation::structured(&observations.progress, observations.started, observations.producer.as_ref(),
+            "dynamic_native_step", &format!("{}.native_step", observations.role), &value);
     }
-    context.gauge(
-        &format!("{role}.physical_time"),
-        "seconds",
-        solver.state().t,
-    );
-    context.boolean(
-        &format!("{role}.last_step_returned_success"),
-        result.is_ok(),
-    );
-    if result.is_err() {
-        context.count(&format!("{role}.failed_step_calls"), "count", 1);
+    if result.is_err() && let Some(producer) = &observations.producer {
+        producer.context().count(&format!("{}.failed_step_calls", observations.role), "count", 1);
     }
 }
 
@@ -805,7 +806,7 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> OdeSolverMethod
         }
     }
     fn set_state(&mut self, state: Self::State) {
-        self.observations = StepObservations::new(self.observations.role);
+        self.observations = StepObservations::new(self.observations.role, self.observations.progress.clone(), self.observations.started);
         // Checkpoint restores keep native counters, so take their actual retained
         // baseline rather than pretending a new zero native counter epoch.
         self.observations.publish(self.inner.statistics());
@@ -856,7 +857,7 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> OdeSolverMethod
                 self.inner.step()
             });
         self.observations.publish(self.inner.statistics());
-        publish_step(self.observations.role, &self.inner, &result);
+        publish_step(&self.observations, &self.inner, &result);
         let reason = result?;
         self.refresh();
         Ok(reason)
@@ -997,7 +998,7 @@ where
     B: AdjointOdeSolverMethod<'a, Equation<'o>, F> + Counted,
     Rs: Fn(&'a Problem<'o>, B::State, Adjoint<'a, 'o, F>) -> Result<B, DiffsolError>,
 {
-    *observations = StepObservations::new("diffsol.adjoint.backward");
+    *observations = StepObservations::new("diffsol.adjoint.backward", observations.progress.clone(), observations.started);
     observations.zero_baseline();
     if let Some(context) = pse_diagnostics::observation::current() {
         context.text("diffsol.adjoint.backward.setup_reason", reason);

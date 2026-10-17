@@ -389,12 +389,14 @@ impl SolveReport {
         extent.vector(&self.events)?;
         for event in &self.events {
             let Event {
+                source: _,
                 phase: _,
                 elapsed: _,
                 values: _,
                 incumbent: _,
             } = event;
             extent.add(event.phase.capacity())?;
+            if let Some(source) = &event.source { extent.add(source.retained_bytes())?; }
             extent.metrics(&event.values)?;
             if let Some(IncumbentEvent {
                 objective: _,

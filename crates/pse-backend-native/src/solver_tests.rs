@@ -187,7 +187,7 @@ fn history_is_bounded_and_deadline_is_distinct_from_cancellation() {
     let e = Execution::new(Arc::new(AtomicBool::new(false)), &c);
     for _ in 0..5 {
         e.progress.push(Event {
-            phase: "unit".into(),
+            source: Some(EventSource::new("test_checkpoint", None, None)), phase: "unit".into(),
             elapsed: std::time::Duration::ZERO,
             values: Default::default(),
             incumbent: None,
@@ -223,7 +223,7 @@ fn native_extensions_cannot_override_nested_semantics_or_unbound_history_strings
     assert!(reject_reserved(&options, &["jac_c_constant"]).is_err());
     let progress = Progress::new(1);
     progress.push(Event {
-        phase: "x".repeat(8192),
+        source: Some(EventSource::new("test_checkpoint", None, None)), phase: "x".repeat(8192),
         elapsed: std::time::Duration::ZERO,
         values: BTreeMap::new(),
         incumbent: None,

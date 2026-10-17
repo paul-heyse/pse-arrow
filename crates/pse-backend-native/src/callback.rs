@@ -204,11 +204,47 @@ impl std::fmt::Display for CallbackKey {
         }
     }
 }
+/// Prepared observation population. Block callbacks aggregate by demand locally;
+/// per-block scientific accounting below remains unchanged.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum ObservationKey { Named(&'static str), Blocks(&'static str) }
+#[derive(Debug)]
+struct CallbackFacts {
+    phase: String,
+    calls: pse_diagnostics::observation::PreparedFact,
+    completed: pse_diagnostics::observation::PreparedFact,
+    elapsed: pse_diagnostics::observation::PreparedFact,
+    seconds: pse_diagnostics::observation::PreparedFact,
+    completed_count: u64,
+    completed_seconds: f64,
+}
+impl CallbackFacts {
+    fn new(producer: &pse_diagnostics::observation::Producer, key: ObservationKey, generation: u64) -> Self {
+        use pse_diagnostics::observation::FactKind;
+        let name = match key {
+            ObservationKey::Named(name) => format!("callback.{name}"),
+            ObservationKey::Blocks(name) => format!("callback.blocks.{name}"),
+        };
+        let completed = producer.fact(&format!("{name}.completed_calls"), "count", FactKind::AbsoluteCounter);
+        completed.count_value(0, generation);
+        Self {
+            calls: producer.fact(&format!("{name}.calls"), "count", FactKind::Counter),
+            completed,
+            elapsed: producer.fact(&format!("{name}.elapsed_nanoseconds"), "nanoseconds", FactKind::Duration),
+            seconds: producer.fact(&format!("{name}.seconds"), "seconds", FactKind::Gauge),
+            phase: name,
+            completed_count: 0,
+            completed_seconds: 0.0,
+        }
+    }
+}
 /// Worker-local failure state; recoverable history never becomes a terminal latch.
 #[derive(Debug)]
 pub struct CallbackState {
     observation_generation: u64,
-    observation_context: Option<pse_diagnostics::observation::ObservationContext>,
+    observation_producer: Option<pse_diagnostics::observation::Producer>,
+    observation_facts: BTreeMap<ObservationKey, CallbackFacts>,
+    failure_facts: BTreeMap<&'static str, pse_diagnostics::observation::PreparedFact>,
     /// Rejected evaluations, including recoverable trials. Diagnostic consumers must
     /// not interpret a partially evaluated library check as successful evidence.
     pub rejected_evaluations: usize,
@@ -234,15 +270,29 @@ pub struct CallbackState {
 }
 impl CallbackState {
     pub(crate) fn observation_scope(&self) -> Option<pse_diagnostics::observation::EnterGuard> {
-        self.observation_context
+        self.observation_producer
             .as_ref()
-            .map(|context| context.enter())
+            .map(|producer| producer.context().enter())
     }
     /// Start a worker-local callback boundary.
     pub fn new(execution: Execution) -> Self {
+        let role = execution.callback_role;
+        Self::new_with_role(execution, role)
+    }
+    /// Select the actual performing owner independently from scientific charging.
+    pub fn new_with_role(mut execution: Execution, role: pse_diagnostics::observation::ProducerRole) -> Self {
+        execution.callback_role = role;
+        let observation_producer = pse_diagnostics::observation::current()
+            .map(|context| context.producer(role, "native.callback"));
+        if let Some(producer) = &observation_producer {
+            producer.fact("callback.work_owner", "boolean", pse_diagnostics::observation::FactKind::Gauge)
+                .boolean(execution.callback_work_owner);
+        }
         Self {
             observation_generation: crate::observation::generation(),
-            observation_context: pse_diagnostics::observation::current(),
+            observation_producer,
+            observation_facts: BTreeMap::new(),
+            failure_facts: BTreeMap::new(),
             rejected_evaluations: 0,
             trial_rejections: 0,
             last_failure: None,
@@ -304,29 +354,22 @@ impl CallbackState {
                 }
             }
         }
-        if self.observation_context.is_some() && !self.counts.contains_key(&demand) {
-            // This owner knows the per-attempt count is zero before its first
-            // callback. Supply that baseline so the first completed call and a
-            // one-call retry both contribute to cumulative/recent work.
-            crate::observation::counter(
-                &format!("callback.{demand}.completed_calls"),
-                "count",
-                0,
-                self.observation_generation,
-            );
-        }
+        let observation_key = match demand {
+            CallbackKey::Named(name) => ObservationKey::Named(name),
+            CallbackKey::Block { demand, .. } => ObservationKey::Blocks(demand),
+        };
+        let phase = self.observation_producer.as_ref().map(|producer| {
+            let facts = self.observation_facts.entry(observation_key)
+                .or_insert_with(|| CallbackFacts::new(producer, observation_key, self.observation_generation));
+            facts.calls.count(1);
+            producer.context().phase(&facts.phase)
+        });
         let start = std::time::Instant::now();
-        let evaluate = || {
-            catch_unwind(AssertUnwindSafe(|| {
-                let _original = crate::execution::original_scope(&self.execution);
-                work()
-            }))
-        };
-        let result = if self.observation_context.is_some() {
-            crate::observation::scoped(&format!("callback.{demand}"), evaluate)
-        } else {
-            evaluate()
-        };
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            let _original = crate::execution::original_scope(&self.execution);
+            work()
+        }));
+        drop(phase);
         if let Some(admission) = &self.execution.work_admission
             && self.execution.callback_work_owner
         {
@@ -353,33 +396,25 @@ impl CallbackState {
         *self.seconds.entry(demand).or_default() += elapsed.as_secs_f64();
         // Publish already-produced cumulative owner facts at every safe return. Nested
         // callbacks remain inclusive; the work-owner flag states which boundary charges.
-        if self.observation_context.is_some() {
-            crate::observation::counter(
-                &format!("callback.{demand}.completed_calls"),
-                "count",
-                u64::try_from(self.counts[&demand]).unwrap_or(u64::MAX),
-                self.observation_generation,
-            );
-            if let Some(context) = pse_diagnostics::observation::current() {
-                context.duration(&format!("callback.{demand}.elapsed_nanoseconds"), elapsed);
+        if let Some(producer) = &self.observation_producer {
+            if let Some(facts) = self.observation_facts.get_mut(&observation_key) {
+                facts.completed_count = facts.completed_count.saturating_add(1);
+                facts.completed_seconds += elapsed.as_secs_f64();
+                facts.completed.count_value(facts.completed_count, self.observation_generation);
+                facts.elapsed.duration(elapsed);
+                facts.seconds.gauge(facts.completed_seconds);
             }
-            crate::observation::gauge(
-                &format!("callback.{demand}.seconds"),
-                "seconds",
-                self.seconds[&demand],
-            );
-            crate::observation::boolean("callback.work_owner", self.execution.callback_work_owner);
-            match &result {
-                Ok(Err(error)) => crate::observation::count(
-                    match classify(error) {
-                        Failure::Trial => "callback.failed_trial.calls",
-                        Failure::Fatal => "callback.fatal.calls",
-                        Failure::Stopped(_) => "callback.stopped.calls",
-                    },
-                    1,
-                ),
-                Err(_) => crate::observation::count("callback.panicked.calls", 1),
-                Ok(Ok(_)) => {}
+            let failure = match &result {
+                Ok(Err(error)) => Some(match classify(error) {
+                    Failure::Trial => "callback.failed_trial.calls",
+                    Failure::Fatal => "callback.fatal.calls",
+                    Failure::Stopped(_) => "callback.stopped.calls",
+                }),
+                Err(_) => Some("callback.panicked.calls"),
+                Ok(Ok(_)) => None,
+            };
+            if let Some(name) = failure {
+                self.failure_facts.entry(name).or_insert_with(|| producer.fact(name, "count", pse_diagnostics::observation::FactKind::Counter)).count(1);
             }
         }
         if self.terminal.is_some() {
@@ -417,8 +452,8 @@ impl CallbackState {
         if failure == Failure::Trial {
             self.trial_rejections = self.trial_rejections.saturating_add(1);
         }
-        self.execution.progress.push(Event {
-            phase: format!("{demand}.failure"),
+        let event = Event {
+            source: Some(crate::solve::EventSource::new("callback_failure", None, None).with_role(self.execution.callback_role)), phase: format!("{demand}.failure"),
             elapsed: self.execution.started.elapsed(),
             values: BTreeMap::from([
                 ("message".into(), Metric::Text(message.clone())),
@@ -428,7 +463,12 @@ impl CallbackState {
                 ),
             ]),
             incumbent: None,
-        });
+        };
+        if let Some(producer) = &self.observation_producer {
+            self.execution.progress.push_from(event, producer);
+        } else {
+            self.execution.progress.push(event);
+        }
         match failure {
             Failure::Trial => {}
             Failure::Stopped(stop) => {
@@ -474,27 +514,38 @@ impl CallbackState {
             regime_crossings: self.regime_crossings,
             terminal_failure: self.terminal.is_some(),
         };
+        let role = match self.execution.callback_role {
+            pse_diagnostics::observation::ProducerRole::NativeCallback => "native_callback",
+            pse_diagnostics::observation::ProducerRole::CoordinateTransport => "coordinate_transport",
+            pse_diagnostics::observation::ProducerRole::OriginalOracle => "original_oracle",
+            pse_diagnostics::observation::ProducerRole::NativeIteration => "native_iteration",
+            pse_diagnostics::observation::ProducerRole::Evaluator => "evaluator",
+            pse_diagnostics::observation::ProducerRole::Provider => "provider",
+            pse_diagnostics::observation::ProducerRole::Workflow => "workflow",
+            pse_diagnostics::observation::ProducerRole::NativeFactor => "native_factor",
+        };
+        report.metrics.insert(format!("callback.{role}.work_owner"), Metric::Bool(self.execution.callback_work_owner));
         report.metrics.insert(
-            "callback.trial_rejections".into(),
+            format!("callback.{role}.trial_rejections"),
             Metric::Integer(self.trial_rejections.try_into().unwrap_or(i64::MAX)),
         );
         report.metrics.insert(
-            "callback.regime_crossings".into(),
+            format!("callback.{role}.regime_crossings"),
             Metric::Integer(self.regime_crossings.try_into().unwrap_or(i64::MAX)),
         );
         report.metrics.insert(
-            "callback.terminal_failure".into(),
+            format!("callback.{role}.terminal_failure"),
             Metric::Bool(self.terminal.is_some()),
         );
         for (name, count) in &self.counts {
             report
                 .metrics
-                .insert(format!("callback.{name}.calls"), Metric::Integer(*count));
+                .insert(format!("callback.{role}.{name}.calls"), Metric::Integer(*count));
         }
         for (name, seconds) in &self.seconds {
             report
                 .metrics
-                .insert(format!("callback.{name}.seconds"), Metric::Real(*seconds));
+                .insert(format!("callback.{role}.{name}.seconds"), Metric::Real(*seconds));
         }
         if let Some((kind, message)) = &self.terminal {
             report.termination.category = *kind;
@@ -637,23 +688,66 @@ mod tests {
         let snapshot = operation
             .reader()
             .snapshot(std::time::Duration::from_secs(60));
-        let absolute = snapshot
-            .metrics
-            .iter()
-            .find(|m| m.name == "callback.residual.completed_calls")
-            .unwrap();
-        assert_eq!(absolute.latest, Value::Count(1));
-        assert_eq!(absolute.resets, 1);
-        assert_eq!(absolute.cumulative, Value::Count(3));
-        assert_eq!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "callback.residual.calls")
-                .unwrap()
-                .cumulative,
-            Value::Count(3)
-        );
+        let absolute: Vec<_> = snapshot.metrics.iter()
+            .filter(|m| m.name == "callback.residual.completed_calls").collect();
+        assert_eq!(absolute.len(), 2);
+        assert_ne!(absolute[0].producer, absolute[1].producer);
+        assert!(absolute.iter().all(|metric| metric.resets == 0));
+        assert_eq!(absolute.iter().map(|metric| match metric.cumulative {
+            Value::Count(count) => count,
+            _ => panic!("callback count unavailable"),
+        }).sum::<u64>(), 3);
+    }
+    #[test]
+    fn nested_same_demand_keeps_distinct_producers_and_one_charge_owner() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, ProducerRole, Value};
+        use std::sync::{Arc, atomic::Ordering};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("native.same-demand");
+        let _entered = operation.context().enter();
+        let admission = Arc::new(Capped { cap: 3, admitted: 0.into(), observed: 0.into() });
+        let mut execution = Execution::new(Arc::default(), &Default::default());
+        execution.work_admission = Some(admission.clone());
+        let mut original = CallbackState::new_with_role(execution.clone(), ProducerRole::OriginalOracle);
+        let mut forwarded = execution;
+        forwarded.callback_work_owner = false;
+        let mut outer = CallbackState::new_with_role(forwarded, ProducerRole::CoordinateTransport);
+        for trial in 0..2 {
+            let result = outer.evaluate("jacobian", || original.evaluate("jacobian", || {
+                if trial == 0 { Ok(7) } else { Err(ProblemError::Math(pse_math::MathError::Domain { source_id: pse_ids::SemanticId::NIL, requirement: "positive" })) }
+            }).ok_or_else(|| ProblemError::Math(pse_math::MathError::Domain { source_id: pse_ids::SemanticId::NIL, requirement: "positive" })));
+            assert_eq!(result, (trial == 0).then_some(7));
+        }
+        assert_eq!(admission.observed.load(Ordering::SeqCst), 2);
+        let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+        let metrics: Vec<_> = snapshot.metrics.iter().filter(|m| m.name == "callback.jacobian.completed_calls").collect();
+        assert_eq!(metrics.len(), 2);
+        assert_ne!(metrics[0].producer, metrics[1].producer);
+        assert!(metrics.iter().all(|m| m.resets == 0 && m.cumulative == Value::Count(2)));
+        assert!(snapshot.producers.iter().any(|p| p.descriptor.role == ProducerRole::OriginalOracle));
+        assert!(snapshot.producers.iter().any(|p| p.descriptor.role == ProducerRole::CoordinateTransport));
+        let mut final_report = report(&original.execution);
+        outer.finish(&mut final_report);
+        original.finish(&mut final_report);
+        assert_eq!(final_report.metrics["callback.coordinate_transport.jacobian.calls"], Metric::Integer(2));
+        assert_eq!(final_report.metrics["callback.original_oracle.jacobian.calls"], Metric::Integer(2));
+        assert!(!final_report.metrics.contains_key("callback.jacobian.calls"));
+    }
+    #[test]
+    fn block_demands_publish_bounded_populations_without_losing_local_counts() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("native.block-populations");
+        let _entered = operation.context().enter();
+        let mut state = CallbackState::new(Execution::new(std::sync::Arc::default(), &Default::default()));
+        for index in 0..1024 {
+            assert_eq!(state.evaluate(CallbackKey::Block { index, demand: "jacobian" }, || Ok(7)), Some(7));
+        }
+        assert_eq!(state.counts.len(), 1024);
+        let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(snapshot.metrics.len(), 5);
+        assert_eq!(snapshot.metrics.iter().find(|m| m.name == "callback.blocks.jacobian.completed_calls").unwrap().cumulative, Value::Count(1024));
+        assert!(snapshot.metrics.iter().all(|m| !m.name.contains("block.0.")));
     }
     #[test]
     fn callback_restores_its_captured_attempt_context_and_leaves_calling_context_intact() {

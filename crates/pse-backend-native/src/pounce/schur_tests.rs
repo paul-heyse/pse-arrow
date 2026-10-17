@@ -591,7 +591,7 @@ fn actual_partitioned_width_degradation_and_fd_reuse_consume_first_only_oracle()
             "{report:?}"
         );
         assert_eq!(
-            integer(&report, "callback.gradient.calls"),
+            integer(&report, "callback.native_callback.gradient.calls"),
             i64::try_from(gradients.load(Ordering::SeqCst)).unwrap()
         );
         assert!(probes.load(Ordering::SeqCst) > 0);
@@ -653,7 +653,7 @@ fn actual_fd_probe_failure_never_substitutes_a_cached_derivative() {
     assert!(probes.load(Ordering::SeqCst) > 0);
     assert!(report.evidence.callback.trial_rejections > 0);
     assert_eq!(
-        integer(&report, "callback.gradient.calls"),
+        integer(&report, "callback.native_callback.gradient.calls"),
         i64::try_from(gradients.load(Ordering::SeqCst)).unwrap()
     );
     assert_eq!(hessian.load(Ordering::SeqCst), 0);

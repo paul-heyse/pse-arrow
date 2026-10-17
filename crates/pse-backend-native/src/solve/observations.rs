@@ -337,6 +337,8 @@ const _: () = assert!(
 
 #[cfg(any(feature = "kinsol", test))]
 pub(crate) struct RawMapCapture {
+    progress: Arc<super::Progress>,
+    started: std::time::Instant,
     history: RawMapHistory,
     limit: usize,
     ordinal: u64,
@@ -359,6 +361,8 @@ impl RawMapCapture {
             .and_then(|n| n.checked_add(3 * SAMPLE_BYTES))
             .ok_or_else(|| crate::ProblemError::memory("raw map history extent"))?;
         Ok(Self {
+            progress: Arc::new(super::Progress::new(0)),
+            started: std::time::Instant::now(),
             history: RawMapHistory {
                 problem: contract.identity,
                 profile,
@@ -381,6 +385,11 @@ impl RawMapCapture {
                 .take(SAMPLE_COORDINATES)
                 .collect(),
         })
+    }
+    pub(crate) fn with_progress(mut self, progress: Arc<super::Progress>, started: std::time::Instant) -> Self {
+        self.progress = progress;
+        self.started = started;
+        self
     }
     pub(crate) fn with_inner_context(mut self, inner: RawMapInnerContext) -> Self {
         self.inner = inner;
@@ -450,104 +459,41 @@ impl RawMapCapture {
             inner_branch: self.inner.branch,
             inner_accuracy: self.inner.accuracy,
         });
-        if let Some(context) = pse_diagnostics::observation::current() {
-            context.integer(
-                "kinsol.raw_map.ordinal",
-                "ordinal",
-                i64::try_from(sample.ordinal).unwrap_or(i64::MAX),
-            );
-            context.text("kinsol.raw_map.role", &format!("{:?}", sample.role));
-            context.text("kinsol.raw_map.failure", &format!("{:?}", sample.failure));
-            context.text(
-                "kinsol.raw_map.inner_context",
-                &format!("{:?}", sample.inner_context),
-            );
-            context.boolean("kinsol.raw_map.successful_map", successful_map);
-            context.boolean("kinsol.raw_map.coordinate_prefix_partial", sample.partial);
-            context.text(
-                "kinsol.raw_map.coordinates",
-                &format!("{:?}", sample.coordinates),
-            );
-            // Residuals can have different physical units, so never collapse them
-            // into a dimensionful norm. Copy four source-associated scalar slots.
-            let scalar_coordinates = sample.values.len().min(4);
-            context.boolean(
-                "kinsol.raw_map.scalar_prefix_partial",
-                scalar_coordinates < sample.total_coordinates,
-            );
-            context.integer(
-                "kinsol.raw_map.captured_prefix.coordinates",
-                "count",
-                i64::try_from(sample.values.len()).unwrap_or(i64::MAX),
-            );
-            for (index, coordinate) in sample.values.iter().take(scalar_coordinates).enumerate() {
-                let prefix = format!("kinsol.raw_map.scalar.{index}");
-                context.source_ref(
-                    &format!("{prefix}.variable"),
-                    coordinate.variable.as_bytes(),
-                );
-                context.source_ref(&format!("{prefix}.row"), coordinate.row.as_bytes());
-                for (name, value, unit) in [
-                    ("residual", coordinate.residual, "source_coordinate"),
-                    (
-                        "physical_error_ratio",
-                        coordinate.physical_error_ratio,
-                        "ratio",
-                    ),
-                ] {
-                    if let Some(value) = value {
-                        context.gauge(&format!("{prefix}.{name}"), unit, value);
-                    } else {
-                        context.unavailable(&format!("{prefix}.{name}"), "latest source sample supplied no value; failed/inapplicable is distinct from zero");
-                    }
-                }
-            }
-            // Ratios are dimensionless and may be compared across physical tear
-            // coordinates. This maximum covers only the already captured prefix.
-            let ratio = sample
-                .values
-                .iter()
-                .filter_map(|coordinate| coordinate.physical_error_ratio)
-                .reduce(|a, b| {
-                    if a.is_nan() || b.is_nan() {
-                        f64::NAN
-                    } else {
-                        a.max(b)
-                    }
-                });
-            if let Some(ratio) = ratio {
-                context.gauge(
-                    "kinsol.raw_map.captured_prefix.max_physical_error_ratio",
-                    "ratio",
-                    ratio,
-                );
-            } else {
-                context.unavailable(
-                    "kinsol.raw_map.captured_prefix.max_physical_error_ratio",
-                    "no physical error ratio supplied for latest captured prefix",
-                );
-            }
-            if let Some(tolerance) = sample.inner_tolerance {
-                context.gauge("kinsol.raw_map.inner_tolerance", "native", tolerance);
-            } else {
-                context.unavailable(
-                    "kinsol.raw_map.inner_tolerance",
-                    "not supplied by inner owner",
-                );
-            }
-            for (name, reference) in [
-                ("start", sample.inner_start),
-                ("branch", sample.inner_branch),
-                ("accuracy", sample.inner_accuracy),
-            ] {
-                if let Some(reference) = reference {
-                    context.source_ref(
-                        &format!("kinsol.raw_map.inner_{name}"),
-                        reference.as_bytes(),
-                    );
-                }
-            }
+        // One source-issued tuple, not separately updated gauges. The compact live
+        // checkpoint carries two associated scalars; full scientific prefix ownership
+        // and latest-successful preservation remain in RawMapHistory.
+        let mut values = std::collections::BTreeMap::from([
+            ("ordinal".into(), super::Metric::Integer(i64::try_from(sample.ordinal).unwrap_or(i64::MAX))),
+            ("role".into(), super::Metric::Text(format!("{:?}", sample.role))),
+            ("failure".into(), super::Metric::Text(format!("{:?}", sample.failure))),
+            ("inner_context".into(), super::Metric::Text(format!("{:?}", sample.inner_context))),
+            ("successful_map".into(), super::Metric::Bool(successful_map)),
+            ("coordinate_prefix_partial".into(), super::Metric::Bool(sample.partial)),
+            ("scalar_prefix_partial".into(), super::Metric::Bool(sample.total_coordinates > 2)),
+            ("captured_prefix.coordinates".into(), super::Metric::Integer(i64::try_from(sample.values.len()).unwrap_or(i64::MAX))),
+        ]);
+        let optional = |value: Option<f64>| value.map_or(super::Metric::Unavailable(super::UnavailableReason::NotComputed), super::Metric::Real);
+        for (index, coordinate) in sample.values.iter().take(2).enumerate() {
+            let prefix = format!("scalar.{index}");
+            values.insert(format!("{prefix}.variable"), super::Metric::Text(coordinate.variable.to_string()));
+            values.insert(format!("{prefix}.row"), super::Metric::Text(coordinate.row.to_string()));
+            values.insert(format!("{prefix}.residual"), optional(coordinate.residual));
+            values.insert(format!("{prefix}.physical_error_ratio"), optional(coordinate.physical_error_ratio));
         }
+        let ratio = sample.values.iter().filter_map(|coordinate| coordinate.physical_error_ratio)
+            .reduce(|a, b| if a.is_nan() || b.is_nan() { f64::NAN } else { a.max(b) });
+        values.insert("captured_prefix.max_physical_error_ratio".into(), optional(ratio));
+        values.insert("inner_tolerance".into(), optional(sample.inner_tolerance));
+        for (name, reference) in [("start", sample.inner_start), ("branch", sample.inner_branch), ("accuracy", sample.inner_accuracy)] {
+            if let Some(reference) = reference { values.insert(format!("inner_{name}"), super::Metric::Text(reference.to_string())); }
+        }
+        self.progress.push(super::Event {
+            source: Some(super::EventSource::new("root_raw_map", Some(match sample.coordinates {
+                ObservationCoordinates::PhysicalTears => "physical_tears",
+                ObservationCoordinates::SubmittedOracle => "submitted_oracle",
+            }), None).with_role(pse_diagnostics::observation::ProducerRole::NativeCallback)),
+            phase: "kinsol.raw_map".into(), elapsed: self.started.elapsed(), values, incumbent: None,
+        });
         if successful_map {
             self.history.last_successful = Some(sample.clone());
         }
@@ -563,6 +509,13 @@ impl RawMapCapture {
 
 #[cfg(test)]
 mod tests {
+    fn live_value(snapshot: &pse_diagnostics::observation::OperationSnapshot, name: &str) -> pse_diagnostics::observation::Value {
+        let field = name.strip_prefix("kinsol.raw_map.").unwrap_or(name);
+        snapshot.producers.iter().filter_map(|p| p.current.as_ref())
+            .find(|record| record.family == "root_raw_map").unwrap().values.iter()
+            .find(|value| value.name == field).unwrap().value.clone()
+    }
+
     use super::*;
     #[test]
     fn raw_map_context_survives_truncation_and_failed_latest_sample() {
@@ -580,7 +533,8 @@ mod tests {
         };
         let mut capture = RawMapCapture::new(&contract, contract.identity, 0, true, &[0.25])
             .unwrap()
-            .with_inner_context(context);
+            .with_inner_context(context)
+            .with_progress(Arc::new(crate::solve::Progress::new(0)), std::time::Instant::now());
         capture.record(
             &contract,
             &[1.0],
@@ -599,47 +553,25 @@ mod tests {
             .reader()
             .snapshot(std::time::Duration::from_secs(60));
         assert_eq!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.successful_map")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.successful_map"),
             Value::Boolean(false)
         );
         assert_eq!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.failure")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.failure"),
             Value::Text("Some(Trial)".into())
         );
         assert!(matches!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.scalar.0.residual")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.scalar.0.residual"),
             Value::Unavailable(_)
         ));
         assert!(matches!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.captured_prefix.max_physical_error_ratio")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.captured_prefix.max_physical_error_ratio"),
             Value::Unavailable(_)
         ));
         assert!(
-            snapshot
-                .sources
-                .iter()
-                .any(|source| source.name == "kinsol.raw_map.inner_branch")
+            snapshot.producers.iter().filter_map(|p| p.current.as_ref()).any(|record| record.values.iter().any(|field| field.name == "inner_branch"))
         );
+        assert!(capture.progress.current().is_some());
         let history = capture.finish();
         assert_eq!(history.omitted, 2);
         for sample in [&history.last_successful, &history.last_evaluation] {
@@ -738,30 +670,15 @@ mod tests {
             .reader()
             .snapshot(std::time::Duration::from_secs(60));
         assert_eq!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.scalar.0.residual")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.scalar.0.residual"),
             Value::Number(1.0)
         );
         assert_eq!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.scalar_prefix_partial")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.scalar_prefix_partial"),
             Value::Boolean(true)
         );
         assert!(matches!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.captured_prefix.max_physical_error_ratio")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.captured_prefix.max_physical_error_ratio"),
             Value::Unavailable(_)
         ));
     }
@@ -792,33 +709,26 @@ mod tests {
         let snapshot = operation
             .reader()
             .snapshot(std::time::Duration::from_secs(60));
-        let metric = |name: &str| {
-            &snapshot
-                .metrics
-                .iter()
-                .find(|metric| metric.name == name)
-                .unwrap()
-                .latest
-        };
+        let metric = |name: &str| live_value(&snapshot, name);
         assert_eq!(
             metric("kinsol.raw_map.captured_prefix.max_physical_error_ratio"),
-            &Value::Number(14.0)
+            Value::Number(14.0)
         );
         assert_eq!(
             metric("kinsol.raw_map.coordinate_prefix_partial"),
-            &Value::Boolean(true)
+            Value::Boolean(true)
         );
         assert_eq!(
             metric("kinsol.raw_map.scalar_prefix_partial"),
-            &Value::Boolean(true)
+            Value::Boolean(true)
         );
         assert_eq!(
             metric("kinsol.raw_map.captured_prefix.coordinates"),
-            &Value::Integer(SAMPLE_COORDINATES as i64)
+            Value::Integer(SAMPLE_COORDINATES as i64)
         );
         assert_eq!(
             metric("kinsol.raw_map.scalar.0.physical_error_ratio"),
-            &Value::Number(4.0)
+            Value::Number(4.0)
         );
     }
     #[test]
@@ -854,21 +764,11 @@ mod tests {
             .reader()
             .snapshot(std::time::Duration::from_secs(60));
         assert_eq!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.scalar.0.residual")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.scalar.0.residual"),
             Value::NonFinite(NonFinite::NegativeInfinity)
         );
         assert_eq!(
-            snapshot
-                .metrics
-                .iter()
-                .find(|m| m.name == "kinsol.raw_map.captured_prefix.max_physical_error_ratio")
-                .unwrap()
-                .latest,
+            live_value(&snapshot, "kinsol.raw_map.captured_prefix.max_physical_error_ratio"),
             Value::NonFinite(NonFinite::PositiveInfinity)
         );
     }

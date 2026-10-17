@@ -485,6 +485,9 @@ pub enum Metric {
 /// One owned, bounded event. No pointers or borrowed native buffers escape.
 #[derive(Clone, Debug)]
 pub struct Event {
+    /// Source identity assigned before fan-out. Emitters supply family semantics;
+    /// Progress supplies attempt generation and monotonically increasing sequence.
+    pub source: Option<EventSource>,
     /// Phase or callback name.
     pub phase: String,
     /// Time since admitted execution began.
@@ -494,6 +497,53 @@ pub struct Event {
     /// A new incumbent of a branch-and-bound search, typed; its bounds are not repeated
     /// among `values`.
     pub incumbent: Option<IncumbentEvent>,
+}
+/// Owner-supplied semantics and pre-loss identity of a native checkpoint.
+#[derive(Clone, Debug)]
+pub struct EventSource {
+    /// Explicit performing role; independent of family and display phase names.
+    pub role: pse_diagnostics::observation::ProducerRole,
+    /// Actual method-specific event family, independent of display phase spelling.
+    pub family: String,
+    /// Attempt-local progress generation, assigned before publication.
+    pub generation: u64,
+    /// Monotone source sequence, assigned before any observer may drop this event.
+    pub sequence: u64,
+    /// Owner-stated coordinate convention, absent when not supplied.
+    pub coordinates: Option<String>,
+    /// Owner-stated norm convention, absent when not supplied.
+    pub norm: Option<String>,
+    /// Operation-associated producer, absent when operation collection is unavailable.
+    pub producer: Option<pse_diagnostics::observation::ProducerId>,
+    /// Reset generation of the producer population.
+    pub producer_generation: Option<u64>,
+    /// Per-producer sequence, distinct from this Progress stream's sequence.
+    pub producer_sequence: Option<u64>,
+    /// Actual event time on the associated operation's process clock.
+    pub observed_at: Option<Duration>,
+}
+impl EventSource {
+    /// Source descriptor. Identity is filled by the actual Progress owner.
+    pub fn new(family: &str, coordinates: Option<&str>, norm: Option<&str>) -> Self {
+        Self {
+            role: pse_diagnostics::observation::ProducerRole::NativeIteration,
+            family: family.into(), generation: 0, sequence: 0,
+            coordinates: coordinates.map(str::to_owned), norm: norm.map(str::to_owned),
+            producer: None, producer_generation: None, producer_sequence: None, observed_at: None,
+        }
+    }
+    /// Copied descriptor extent retained by a native event.
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(self.family.capacity())
+            .saturating_add(self.coordinates.as_ref().map_or(0, String::capacity))
+            .saturating_add(self.norm.as_ref().map_or(0, String::capacity))
+
+    }
+    /// Set the actual callback/checkpoint role at the performing owner.
+    pub fn with_role(mut self, role: pse_diagnostics::observation::ProducerRole) -> Self {
+        self.role = role;
+        self
+    }
 }
 /// A new incumbent of a branch-and-bound search, reported while it runs (Plan 22 G8): the
 /// objective in original units under the post-solve convention (authored sense, the
@@ -598,10 +648,18 @@ pub trait ProgressTap: Send + Sync + std::fmt::Debug {
 /// durable stream.
 #[derive(Debug)]
 pub struct Progress {
+    generation: u64,
+    sequence: AtomicU64,
+    observers: Mutex<ProgressObservers>,
     limit: usize,
     events: Mutex<ProgressState>,
     dropped: AtomicU64,
     tap: Option<Arc<dyn ProgressTap>>,
+}
+#[derive(Debug)]
+struct ProgressObservers {
+    context: Option<pse_diagnostics::observation::ObservationContext>,
+    producers: Vec<(pse_diagnostics::observation::ProducerRole, String, pse_diagnostics::observation::Producer)>,
 }
 #[derive(Debug, Default)]
 struct ProgressState {
@@ -622,6 +680,7 @@ impl Event {
                     })
             })
             .saturating_add(self.incumbent.as_ref().map_or(0, IncumbentEvent::bytes))
+            .saturating_add(self.source.as_ref().map_or(0, EventSource::retained_bytes))
     }
 }
 impl Metric {
@@ -642,6 +701,12 @@ impl Progress {
     /// Retain a rolling admitted history and the latest bounded checkpoint.
     pub fn new(limit: usize) -> Self {
         Self {
+            generation: crate::observation::generation(),
+            sequence: AtomicU64::new(0),
+            observers: Mutex::new(ProgressObservers {
+                context: pse_diagnostics::observation::current(),
+                producers: Vec::new(),
+            }),
             limit,
             events: Mutex::new(ProgressState::default()),
             dropped: AtomicU64::new(0),
@@ -658,8 +723,33 @@ impl Progress {
     /// Copy an owned event into the bounded stream, after offering it to the tap. A
     /// retained event holds at most 4 KiB: an incumbent whose solution is larger is
     /// retained without it (the tap received it whole).
-    pub fn push(&self, mut event: Event) {
-        crate::observation::event(&event);
+    pub fn push(&self, event: Event) {
+        self.push_observed(event, None);
+    }
+    /// Publish from an explicit native owner, including distinct replay instances.
+    pub(crate) fn push_from(&self, event: Event, producer: &pse_diagnostics::observation::Producer) {
+        self.push_observed(event, Some(producer));
+    }
+    fn push_observed(&self, mut event: Event, owner: Option<&pse_diagnostics::observation::Producer>) {
+        let source = event.source.get_or_insert_with(|| EventSource::new("unspecified", None, None));
+        source.generation = self.generation;
+        source.sequence = self.sequence.try_update(Ordering::Relaxed, Ordering::Relaxed,
+            |old| Some(old.saturating_add(1))).unwrap_or(u64::MAX).saturating_add(1);
+        let producer = owner.cloned().or_else(|| self.observers.try_lock().ok().and_then(|mut observers| {
+            if observers.context.is_none() {
+                observers.context = pse_diagnostics::observation::current();
+            }
+            let context = observers.context.clone()?;
+            if let Some((_, _, producer)) = observers.producers.iter()
+                .find(|(role, family, _)| *role == source.role && *family == source.family) {
+                return Some(producer.clone());
+            }
+            if observers.producers.len() >= 32 || source.family.len() > 128 { return None; }
+            let producer = context.producer(source.role, &source.family);
+            observers.producers.push((source.role, source.family.clone(), producer.clone()));
+            Some(producer)
+        }));
+        crate::observation::event(&mut event, producer.as_ref());
         if let Some(tap) = &self.tap {
             tap.observe(&event);
         }
@@ -714,7 +804,7 @@ mod progress_contention_tests {
         let progress = Progress::new(2);
         let held = progress.events.lock().unwrap();
         progress.push(Event {
-            phase: "contended".into(),
+            source: Some(EventSource::new("test_checkpoint", None, None)), phase: "contended".into(),
             elapsed: Duration::ZERO,
             values: BTreeMap::new(),
             incumbent: None,
@@ -854,6 +944,8 @@ pub struct Execution {
     /// This callback boundary owns scientific callback charges. A transported adapter
     /// disables forwarding here when its original TNLP already owns those same callbacks.
     pub callback_work_owner: bool,
+    /// Explicit observer role, independent of which boundary charges scientific work.
+    pub callback_role: pse_diagnostics::observation::ProducerRole,
 }
 impl Execution {
     /// Construct at the admitted worker boundary.
@@ -868,6 +960,7 @@ impl Execution {
             abandonment: Arc::default(),
             work_admission: None,
             callback_work_owner: true,
+            callback_role: pse_diagnostics::observation::ProducerRole::NativeCallback,
         }
     }
     /// Admit a native attempt within the original task scope, capping its local

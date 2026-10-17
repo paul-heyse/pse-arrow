@@ -67,7 +67,7 @@ fn copied_watch_context_attributes_progress_and_restores_foreign_worker_context(
                 let _observation = watch.observation_scope();
                 assert_eq!(current().unwrap().id(), captured.id());
                 watch.progress.push(Event {
-                    phase: "scip.incumbent".into(),
+                    source: Some(crate::solve::EventSource::new("branch_and_bound", Some("original_source"), None)), phase: "scip.incumbent".into(),
                     elapsed: Duration::ZERO,
                     values: BTreeMap::from([("worker_probe".into(), Metric::Integer(7))]),
                     incumbent: None,

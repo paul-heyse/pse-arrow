@@ -1488,7 +1488,8 @@ impl Session {
                     oracle.physical_tear_coordinates(),
                     &tolerances.rows,
                 )?
-                .with_inner_context(oracle.inner_context()),
+                .with_inner_context(oracle.inner_context())
+                .with_progress(execution.progress.clone(), execution.started),
             ),
             _ => None,
         };
@@ -3182,7 +3183,7 @@ mod tests {
             assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
             assert_eq!(report.evidence.work.evaluations, Some(2));
             assert_eq!(
-                report.metrics["callback.native.validation.residual.calls"],
+                report.metrics["callback.native_callback.native.validation.residual.calls"],
                 Metric::Integer(1)
             );
             assert_eq!(report.validation_failure().is_some(), fail);

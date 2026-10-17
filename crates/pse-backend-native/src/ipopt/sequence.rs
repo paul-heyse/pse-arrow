@@ -1609,7 +1609,7 @@ mod tests {
             fresh.evidence.work.iterations
         );
         assert_eq!(
-            updated.metrics["callback.gradient.calls"], fresh.metrics["callback.gradient.calls"],
+            updated.metrics["callback.native_callback.gradient.calls"], fresh.metrics["callback.native_callback.gradient.calls"],
             "retained application must evaluate current gradient scaling like a fresh application"
         );
     }
@@ -1699,7 +1699,7 @@ mod tests {
         assert!(report.warm_start.is_none());
         assert!(sequence.owned.is_none());
         assert!(matches!(
-            report.metrics.get("callback.gradient.calls"),
+            report.metrics.get("callback.native_callback.gradient.calls"),
             Some(Metric::Integer(1))
         ));
         oracle.fail = false;

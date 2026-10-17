@@ -888,7 +888,7 @@ mod tests {
         assert!(report.candidate.is_none());
         assert!(report.warm_start.is_none());
         assert!(matches!(
-            report.metrics.get("callback.gradient.calls"),
+            report.metrics.get("callback.native_callback.gradient.calls"),
             Some(Metric::Integer(1))
         ));
     }

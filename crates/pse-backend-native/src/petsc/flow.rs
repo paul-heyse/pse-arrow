@@ -473,7 +473,7 @@ unsafe extern "C" fn post_step(ctx: *mut c_void, ts: ffi::Handle) -> i32 {
     // Post-step is an owner checkpoint; artificial TS time is never physical time.
     if let Ok((reason, steps, iterations, rejects, failures, time, dt)) = statistics(ts) {
         c.state.execution.progress.push(Event {
-            phase: "petsc.ts.accepted_artificial".into(),
+            source: Some(crate::solve::EventSource::new("artificial_time_step", Some("native_root"), None)), phase: "petsc.ts.accepted_artificial".into(),
             elapsed: c.state.execution.started.elapsed(),
             values: std::collections::BTreeMap::from([
                 ("reason".into(), Metric::Integer(reason.into())),

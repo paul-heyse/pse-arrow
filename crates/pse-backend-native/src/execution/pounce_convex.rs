@@ -676,7 +676,7 @@ mod native {
             ("warm_started".into(), Metric::Bool(false)),
         ]);
         execution.progress.push(Event {
-            phase: "pounce_convex.solve".into(),
+            source: Some(crate::solve::EventSource::new("convex_return", Some("native_coefficients"), None)), phase: "pounce_convex.solve".into(),
             elapsed: execution.started.elapsed(),
             values: report.metrics.clone(),
             incumbent: None,

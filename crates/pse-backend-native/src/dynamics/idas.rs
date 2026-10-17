@@ -2250,7 +2250,8 @@ impl<'a> Session<'a> {
         if let Ok(observation) = serde_json::to_value(observation) {
             value["native_step"] = observation;
         }
-        crate::observation::structured("idas.segment", &value);
+        let execution = &self.callback.callback.execution;
+        crate::observation::structured(&execution.progress, execution.started, None, "dynamic_segment_summary", "idas.segment", &value);
         value
     }
     /// Integrate one segment toward `stop`, sampling every requested time before it.
@@ -2299,7 +2300,7 @@ impl<'a> Session<'a> {
             r.completed_time = time;
             let execution = &self.callback.callback.execution;
             execution.progress.push(crate::solve::Event {
-                phase: "idas.output".into(),
+                source: Some(crate::solve::EventSource::new("dynamic_output", Some("physical_model"), None)), phase: "idas.output".into(),
                 elapsed: execution.started.elapsed(),
                 values: std::collections::BTreeMap::from([
                     ("time".into(), crate::solve::Metric::Real(time)),
@@ -2632,7 +2633,7 @@ impl Session<'_> {
             carried = Some(states);
             let execution = &self.callback.callback.execution;
             execution.progress.push(crate::solve::Event {
-                phase: "idas.adjoint".into(),
+                source: Some(crate::solve::EventSource::new("dynamic_adjoint", Some("physical_model"), None)), phase: "idas.adjoint".into(),
                 elapsed: execution.started.elapsed(),
                 values: std::collections::BTreeMap::from([
                     ("time".into(), crate::solve::Metric::Real(start.time)),
@@ -3733,6 +3734,7 @@ fn attempt<T>(
         memory: admission.as_ref().map(|(_, memory)| *memory),
         work_admission: None,
         callback_work_owner: true,
+        callback_role: pse_diagnostics::observation::ProducerRole::NativeCallback,
         enclosing_scope: None,
         abandonment: Arc::default(),
     };

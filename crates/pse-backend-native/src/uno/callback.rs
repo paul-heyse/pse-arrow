@@ -444,7 +444,7 @@ pub(crate) unsafe extern "C" fn iteration(
                 );
             }
             execution.progress.push(crate::solve::Event {
-                phase: "ipopt.iteration".into(),
+                source: Some(crate::solve::EventSource::new("nonlinear_iteration", Some("native_nlp"), None)), phase: "ipopt.iteration".into(),
                 elapsed: execution.started.elapsed(),
                 values,
                 incumbent: None,

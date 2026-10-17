@@ -661,7 +661,7 @@ impl Session {
         self.solver
             .set_termination_callback(move |info: &DefaultInfo<f64>| {
                 callback.progress.push(Event {
-                    phase: "clarabel.iteration".into(),
+                    source: Some(crate::solve::EventSource::new("conic_iteration", Some("native_conic"), None)), phase: "clarabel.iteration".into(),
                     elapsed: callback.started.elapsed(),
                     values: metrics(info),
                     incumbent: None,
