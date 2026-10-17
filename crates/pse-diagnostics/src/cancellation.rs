@@ -108,6 +108,9 @@ impl WakeSignal {
     pub const fn new() -> Self { Self(Event::new()) }
     /// Signal a change after publishing it at its actual owner.
     pub fn notify(&self) { self.0.notify(usize::MAX); }
+    /// Register at construction, before inspecting the actual owner predicate.
+    /// A notification is only a hint to inspect that predicate again.
+    pub fn notified(&self) -> impl Future<Output = ()> + Send + 'static { self.0.listen() }
     /// Register a signal-only waker before inspecting the actual owner predicate.
     pub fn watch(&self, waker: &Waker) -> WakeWatch {
         let mut listener = self.0.listen();
