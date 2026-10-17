@@ -410,7 +410,7 @@ impl RunResult {
         use crate::invocation::{InvocationEndpoints, InvocationEvidenceDocument, InvocationOutcome, InvocationProduct, ProductAvailability};
         let (operation, endpoints, intervals, omitted_intervals, preparations) = self.invocation.as_ref()
             .map(|recorder| recorder.projection()).unwrap_or((None, InvocationEndpoints::default(), Vec::new(), 0, None));
-        let family = match self.request { RunRequest::Horizon(_) => "horizon", RunRequest::Modeling(_) => "modeling",
+        let family = match self.original_horizon_request.as_ref().unwrap_or(&self.request) { RunRequest::Horizon(_) => "horizon", RunRequest::Modeling(_) => "modeling",
             RunRequest::Simulation(_) => "simulation", RunRequest::Fit(_) => "fit",
             #[cfg(feature = "solver-diffsol")] RunRequest::Shooting { .. } => "shooting" };
         let mut products = vec![InvocationProduct { step: None, role: "original_scientific_result".into(), availability: if self.usable() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }];
