@@ -472,6 +472,10 @@ pub(crate) async fn counted<T>(work: impl Future<Output = T>) -> (T, Preparation
     let output = SCOPES.scope(scopes, work).await;
     (output, counters.snapshot())
 }
+/// Snapshot the innermost operation-local preparation scope, never global service deltas.
+pub(crate) fn current_preparations() -> Option<PreparationCounts> {
+    SCOPES.try_with(|scopes| scopes.last().map(|scope| scope.snapshot())).ok().flatten()
+}
 /// Structural preparations and value rebinds: of a math service, or of one operation such
 /// as a study (A6).
 #[derive(

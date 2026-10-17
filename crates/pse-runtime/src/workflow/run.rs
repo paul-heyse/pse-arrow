@@ -211,6 +211,8 @@ pub enum RunRequest {
 /// Immutable joined outcome. Table encoding and retention never invoke a solver again.
 #[derive(Debug)]
 pub struct RunResult {
+    /// Supervisor-owned joined evidence clock; absent when constructed outside a supervised invocation.
+    pub(super) invocation: Option<Arc<crate::invocation::Recorder>>,
     pub(super) modeling_continue_independent: bool,
     pub(super) attempt_summary: std::sync::OnceLock<Arc<super::AttemptSummary>>,
     pub(super) modeling_origin: usize,
@@ -259,6 +261,7 @@ impl RunResult {
         let projection_owner =
             super::result_export::ProjectionOwner::new(&runtime, result_validation.clone());
         Self {
+            invocation: crate::invocation::current(),
             modeling_continue_independent: false,
             attempt_summary: Default::default(),
             result_validation,
@@ -341,14 +344,19 @@ impl RunResult {
                 attempt: 0,
             });
         }
+        let stage = crate::invocation::stage("original_qualification_and_completion");
         self.assessments = self.assess_candidates();
         self.completion = self.capture_completion().map_err(Arc::new);
+        let qualified = self.completion.is_ok() && self.usable();
+        if let Some(recorder) = &self.invocation { recorder.qualified(qualified); }
+        stage.finish(if qualified { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
         self.reset_result_projection();
         self
     }
     /// Capture completion, then record the attempt's end durably when the run is durable.
     pub(super) async fn finished(self, durable: Option<DurableAttempt>, cancelled: bool) -> Self {
         let _phase = pse_diagnostics::observation::phase("run.completion.and.publication");
+        if let Some(recorder) = &self.invocation { recorder.terminal(); }
         let mut result = self.completed();
         if let Some(context) = pse_diagnostics::observation::current() {
             context.boolean("run.cancel_requested", cancelled);
@@ -357,7 +365,9 @@ impl RunResult {
             context.source_ref("run.identity", result.run_id.as_id().to_string().as_bytes());
         }
         if let Some(attempt) = durable {
+            let publication = crate::invocation::stage("required_durable_publication");
             let record = attempt.finish(&result, cancelled).await;
+            publication.finish(if record.attempt.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.boolean("run.publication.failed", record.attempt.is_err());
             }
@@ -367,10 +377,12 @@ impl RunResult {
             }
             result.durability = RunDurability::Durable(Arc::new(record));
         }
+        if let Some(recorder) = &result.invocation { recorder.ready(); }
         result
     }
     /// A durable run that failed before it ran: record why, and publish the failure.
     pub(super) async fn refused(mut self, durable: Option<DurableAttempt>) -> Self {
+        if let Some(recorder) = &self.invocation { recorder.terminal(); }
         self = self.completed();
         if let (Some(attempt), Err(error)) = (durable, &self.report) {
             let error = error.clone();
@@ -383,9 +395,27 @@ impl RunResult {
             }
             self.durability = RunDurability::Durable(Arc::new(record));
         }
+        if let Some(recorder) = &self.invocation { recorder.ready(); }
         self
     }
 
+    /// Joined invocation facts without performing new mathematics or materializing result tables.
+    pub fn invocation_evidence(&self) -> Result<crate::invocation::InvocationEvidenceDocument, WorkflowError> {
+        use crate::invocation::{InvocationEndpoints, InvocationEvidenceDocument, InvocationOutcome, InvocationProduct, ProductAvailability};
+        let (operation, endpoints, intervals, omitted_intervals, preparations) = self.invocation.as_ref()
+            .map(|recorder| recorder.projection()).unwrap_or((None, InvocationEndpoints::default(), Vec::new(), 0, None));
+        let family = match self.request { RunRequest::Horizon(_) => "horizon", RunRequest::Modeling(_) => "modeling",
+            RunRequest::Simulation(_) => "simulation", RunRequest::Fit(_) => "fit",
+            #[cfg(feature = "solver-diffsol")] RunRequest::Shooting { .. } => "shooting" };
+        let attempt_id = match &self.durability { RunDurability::Ephemeral => None,
+            RunDurability::Durable(record) => Some(record.attempt_id) };
+        Ok(InvocationEvidenceDocument { version: 1, run_id: self.run_id, attempt_id, operation, family: family.into(),
+            canonical_run: self.canonical_run_key().map(str::to_owned), canonical_attempt: self.canonical_attempt_key().map(str::to_owned),
+            outcome: if self.report.is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
+            endpoints, intervals, omitted_intervals, preparations,
+            products: vec![InvocationProduct { role: "original_scientific_result".into(), availability: if self.usable() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }],
+            attempts: self.attempt_summary()?, })
+    }
     /// Full typed reports and backend-specific metrics; errors preserve their original causes.
     pub fn report(&self) -> Result<&RunReport, &WorkflowError> {
         self.report.as_ref().map_err(AsRef::as_ref)
@@ -502,7 +532,7 @@ fn supervised_with_cancel(
     // Box before constructing the supervisor future. Keeping the full scientific
     // future inline makes task-local polling/drop exceed ordinary executor stacks.
     let mut work = Box::pin(work);
-    async move {
+    crate::invocation::scope(async move {
         if let Some(parent) = parent {
             tokio::select! {
                 () = &mut work => {},
@@ -511,7 +541,7 @@ fn supervised_with_cancel(
         } else {
             work.await;
         }
-    }
+    })
 }
 
 impl super::ModelingSimulation {

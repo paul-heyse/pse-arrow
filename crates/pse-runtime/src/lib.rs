@@ -40,6 +40,7 @@ pub mod capture;
 pub mod env;
 pub mod error;
 pub mod inspection;
+pub mod invocation;
 pub mod inspection_documents;
 pub mod observation;
 pub use inspection_documents::{ResourceConsumer, TableName};
