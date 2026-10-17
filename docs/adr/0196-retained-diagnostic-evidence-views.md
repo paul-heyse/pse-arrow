@@ -23,7 +23,7 @@ Plan43e requires queryable retained evidence without mixing values from differen
 
 ## Scope
 
-Add a derived diagnostic field relation within blueprint §23.1. The maintainer delegated complete Plan43 choices; formal ADR acceptance remains separate.
+Add derived diagnostic field, invocation and capture relations within blueprint §23.1. The maintainer delegated complete Plan43 choices; formal ADR acceptance remains separate.
 
 ## Drivers
 
@@ -35,7 +35,7 @@ Inferring schemas or flattening only numeric values loses meaning. A second pers
 
 ## Outcome
 
-`runtime.diagnostic_evidence_fields` declares the projection. Event and field ordinals preserve membership; zero field ordinal preserves an empty event. Typed values and explicit unavailable/nonfinite categories remain distinct. Source pages remain the raw authority, and repeated event identities refuse this projection rather than silently deduplicate them.
+`runtime.diagnostic_evidence_fields` declares the field projection. `runtime.diagnostic_invocations` and `runtime.diagnostic_captures` preserve the actual joined invocation and optional capture documents, their endpoint/coverage meaning and exact operation links. Event and field ordinals preserve membership; zero field ordinal preserves an empty event. Typed values and explicit unavailable/nonfinite categories remain distinct. Source pages remain the raw authority, and repeated event identities refuse this projection rather than silently deduplicate them.
 
 ### Consequences
 

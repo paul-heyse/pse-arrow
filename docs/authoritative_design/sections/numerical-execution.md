@@ -23,10 +23,11 @@ actually achieved in original coordinates. Both are consumers of the complete ad
 case from the compiler ([§14](mathematics-and-compilation.md#section-14)); neither
 evaluates a partial inventory as if it were complete.
 
-IDAES `DiagnosticsToolbox` parity is not a current capability: there is no
-threshold relation, no named structural/numerical check catalogue and no
-`report_*`/`assert_*` view family. The checks below are the ones the native lifecycle
-actually performs.
+Full IDAES `DiagnosticsToolbox` parity is not a current capability. The local system
+has named structural/numerical findings, explicit diagnostic profiles and bounded
+rank/nullspace reports under its own contracts; these do not establish the complete
+IDAES threshold catalogue or `report_*`/`assert_*` view family. The checks below
+describe the local native lifecycle and independently requested diagnostics.
 
 ### 15.2 Structural checks without numerical values
 

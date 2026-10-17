@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 187
+revision: 188
 date: 2026-10-17
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 188 | 2026-10-17 | Plan43 RC11 corrects local diagnostic catalogue wording (§15); proposed ADR-0192/0196 extend source-linked pure analysis, static attribution, qualified singular modes, actual native detail, clock-aligned capture and three derived evidence views (§23.1). | Maintainer delegated full-series execution; PSE_DESIGN_EDIT=1. Functional source is integrated; assembled qualification remains at Plan43g. No complete IDAES Toolbox parity, automatic causal verdict or environment proof. |
 | 187 | 2026-10-17 | Proposed ADR-0196 (§23.1): registry-declared immutable diagnostic field views, exact event membership and existing leased Arrow/query consumers. | Delegated Plan43 E04 decision; visible `PSE_DESIGN_EDIT=1`; implementation/acceptance remain 43e/43g. |
 | 186 | 2026-10-17 | Proposed ADR-0195 (§14.3/§18.10): one notifying execution cancellation owner, actual permit-release wakeups and owned native exclusion/child readiness. | Delegated Plan43 F02 decision; visible `PSE_DESIGN_EDIT=1`; implementation/acceptance remain 43c/43f. |
 | 185 | 2026-10-17 | Proposed ADR-0193/0194 (§14.3/§13.6): explicit demanded mathematical products and qualified compiled derivatives; output coverage separated from cumulative trajectory advancement. | Maintainer delegates concrete remaining Plan43 choices; visible `PSE_DESIGN_EDIT=1`; implementation and acceptance remain with 43b/43d. |
