@@ -139,7 +139,7 @@ fn profile(dae: bool) -> Profile {
     }
 }
 fn run(t: &mut Toy, p: &Profile) -> Report {
-    integrate(t, p, &[2.0], pse_diagnostics::Cancellation::new(false)).unwrap()
+    integrate(t, p, &[2.0], Cancellation::new(false)).unwrap()
 }
 #[test]
 fn smooth_forward_includes_initial_and_direct_output_parameter_terms() {
@@ -198,7 +198,7 @@ fn final_scheduled_change_is_reinitialized_and_observed() {
         &mut Toy::new(false, false),
         &p,
         &[2.0, 3.0],
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
@@ -240,7 +240,7 @@ fn typed_callback_failure_retains_only_completed_prefix() {
 fn cancellation_and_step_budget_are_distinct() {
     let mut t = Toy::new(false, false);
     let p = profile(false);
-    let r = integrate(&mut t, &p, &[2.0], pse_diagnostics::Cancellation::new(true)).unwrap();
+    let r = integrate(&mut t, &p, &[2.0], Cancellation::new(true)).unwrap();
     assert_eq!(r.termination, Termination::Cancelled);
     assert!(r.samples.is_empty());
     let r = run(&mut t, &Profile { max_steps: 1, ..p });
@@ -259,7 +259,7 @@ fn native_step_observations_preserve_segment_restart_and_terminal_mesh_time() {
             times: vec![0.5],
         }];
         let report =
-            integrate(&mut Toy::new(false, false), &p, &[2.0, 1.0], pse_diagnostics::Cancellation::default()).unwrap();
+            integrate(&mut Toy::new(false, false), &p, &[2.0, 1.0], Cancellation::default()).unwrap();
         assert_eq!(
             report.termination,
             Termination::Completed,
@@ -314,7 +314,7 @@ fn native_step_observations_preserve_segment_restart_and_terminal_mesh_time() {
         // Keep the event away from requested IDAS stop/sample times so this control
         // actually distinguishes an interpolated root from the internal mesh point.
         p.samples = vec![0.0, 1.0];
-        let report = integrate(&mut oracle, &p, &[2.0], pse_diagnostics::Cancellation::default()).unwrap();
+        let report = integrate(&mut oracle, &p, &[2.0], Cancellation::default()).unwrap();
         assert_eq!(report.termination, Termination::Event, "{:?}", report.error);
         let observation = &report.statistics.last().unwrap()["native_step"];
         let returned = observation["returned_time"]["value"].as_f64().unwrap();
@@ -563,7 +563,7 @@ fn native_quadrature_does_not_invent_a_conservation_claim() {
             &mut oracle,
             &profile,
             &[1.],
-            pse_diagnostics::Cancellation::new(false),
+            Cancellation::new(false),
         )
         .unwrap();
         assert_eq!(
@@ -614,7 +614,7 @@ fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
         &mut oracle,
         &profile,
         &[1.0, 2.0],
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
@@ -629,7 +629,7 @@ fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
         &mut event,
         &profile,
         &[1.0],
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Failed);
@@ -640,7 +640,7 @@ fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
         &mut event,
         &profile,
         &[1.0],
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
@@ -711,7 +711,7 @@ fn scheduled_input_sensitivities_cross_changes() {
                     &mut Toy::new(dae, false),
                     p,
                     v,
-                    pse_diagnostics::Cancellation::new(false),
+                    Cancellation::new(false),
                 )
                 .unwrap();
                 assert_eq!(
@@ -831,7 +831,7 @@ fn state_triggered_reset_sensitivity_includes_moving_event_and_dae_consistency()
         p.sensitivity = DynamicSensitivity::Forward;
         p.samples = vec![0.0, 1.0];
         let mut toy = ResetToy(Toy::new(dae, true));
-        let r = integrate(&mut toy, &p, &[2.0], pse_diagnostics::Cancellation::default()).unwrap();
+        let r = integrate(&mut toy, &p, &[2.0], Cancellation::default()).unwrap();
         assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
         let last = r.samples.last().unwrap();
         assert!(
@@ -909,7 +909,7 @@ fn idas_recovers_typed_trial_and_terminal_policy_stops() {
         let rejection = Arc::new(Rejection::default());
         // Observe the actual callback even when later progress replaces its history.
         let progress = Arc::new(crate::solve::Progress::tapped(0, rejection.clone()));
-        let r = integrate_with_progress(&mut toy, &p, &[2.0], pse_diagnostics::Cancellation::default(), progress).unwrap();
+        let r = integrate_with_progress(&mut toy, &p, &[2.0], Cancellation::default(), progress).unwrap();
         assert!(toy.rejected);
         assert_eq!(
             r.termination,
@@ -1068,7 +1068,7 @@ fn idas_conv_fail_is_numerical() {
     let mut p = profile(true);
     p.method = Method::Idas;
     let mut oracle = Unsolvable(Toy::new(true, false));
-    let r = integrate(&mut oracle, &p, &[2.0], pse_diagnostics::Cancellation::default()).unwrap();
+    let r = integrate(&mut oracle, &p, &[2.0], Cancellation::default()).unwrap();
     assert_eq!(r.termination, Termination::Failed);
     let Some(ProblemError::Numerical {
         status: Some(status),
@@ -1109,7 +1109,7 @@ fn terminal_endpoint_is_off_grid_and_keeps_pre_change_inputs() {
             kind: pse_model::generated::enums::EndpointPolicy::DeclaredTerminalEvent,
             event: Some(id(5)),
         };
-        let report = integrate(&mut oracle, &profile, &[1.0, 3.0], pse_diagnostics::Cancellation::default()).unwrap();
+        let report = integrate(&mut oracle, &profile, &[1.0, 3.0], Cancellation::default()).unwrap();
         assert_eq!(
             report.termination,
             Termination::Event,
@@ -1171,7 +1171,7 @@ fn completed_samples_full_and_compact_preserve_values_and_prefix() {
                 &mut Toy::new(false, false),
                 &profile,
                 &[1.],
-                pse_diagnostics::Cancellation::new(false),
+                Cancellation::new(false),
                 Arc::new(crate::solve::Progress::new(16)),
                 &snapshot,
                 retention,
@@ -1225,7 +1225,7 @@ fn failed_live_delivery_keeps_full_computed_prefix_and_typed_stop() {
             &mut Toy::new(false, false),
             &profile,
             &[1.],
-            pse_diagnostics::Cancellation::new(false),
+            Cancellation::new(false),
             Arc::new(crate::solve::Progress::new(16)),
             &snapshot,
             SampleRetention::Full,

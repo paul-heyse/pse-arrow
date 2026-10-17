@@ -38,7 +38,7 @@ impl<'o, LS: LinearSolver<M>, A: diffsol::AugmentedOdeEquationsImplicit<Equation
         self.get_statistics()
     }
 }
-impl<'o, A: AugmentedOdeEquations<Equation<'o>>> Counted
+impl<'o, A: diffsol::AugmentedOdeEquations<Equation<'o>>> Counted
     for diffsol::ExplicitRk<'_, Equation<'o>, diffsol::FaerMat<f64>, A>
 {
     fn statistics(&self) -> &diffsol::ode_solver::OdeSolverStatistics {
@@ -1710,7 +1710,7 @@ mod forward_initialization_tests {
                     &mut Affine::new(),
                     &affine_profile(linear),
                     &[rate],
-                    pse_diagnostics::Cancellation::default(),
+                    Cancellation::default(),
                 )
                 .unwrap();
                 assert_eq!(
@@ -1749,7 +1749,7 @@ mod forward_initialization_tests {
                 times: vec![0.5],
             }];
             let report =
-                integrate(&mut Affine::new(), &profile, &[3.0, 1.0], pse_diagnostics::Cancellation::default()).unwrap();
+                integrate(&mut Affine::new(), &profile, &[3.0, 1.0], Cancellation::default()).unwrap();
             assert_eq!(
                 report.termination,
                 Termination::Completed,

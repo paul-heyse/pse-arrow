@@ -2177,7 +2177,7 @@ impl<'a> Session<'a> {
             source: Some(crate::solve::EventSource::new("dynamic_replay_effort", Some("physical_model"), None)),
             phase: "idas.adjoint.replay.acceptance".into(),
             elapsed: execution.started.elapsed(),
-            values: BTreeMap::from([
+            values: std::collections::BTreeMap::from([
                 ("accepted_steps_this_call".into(), crate::solve::Metric::Integer(i64::try_from(accepted).unwrap_or(i64::MAX))),
                 ("accepted_steps_cumulative".into(), crate::solve::Metric::Integer(i64::try_from(budget.used()).unwrap_or(i64::MAX))),
                 ("accepted_steps_remaining".into(), crate::solve::Metric::Integer(i64::try_from(budget.remaining()).unwrap_or(i64::MAX))),
@@ -4100,7 +4100,7 @@ mod initialization_tests {
         }
     }
     fn execution() -> Execution {
-        let mut e = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let mut e = Execution::new(Cancellation::default(), &crate::solve::Controls::default());
         e.memory = Some(1 << 20);
         e
     }

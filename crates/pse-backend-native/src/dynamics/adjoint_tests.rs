@@ -231,7 +231,7 @@ fn adjoint(oracle: &mut Reactor, p: &Profile, parameters: &[f64]) -> Gradient {
         p,
         parameters,
         &mut |report: &Report| Ok(weights(report.samples.len())),
-        pse_diagnostics::Cancellation::default(),
+        Cancellation::default(),
         256 << 20,
     )
     .unwrap()
@@ -364,7 +364,7 @@ fn adjoint_equals_forward_and_differences(method: Method) {
             // Forward sensitivities of the same samples.
             p.sensitivity = DynamicSensitivity::Forward;
             let forward =
-                integrate(&mut Reactor::new(dae), &p, &parameters, pse_diagnostics::Cancellation::default()).unwrap();
+                integrate(&mut Reactor::new(dae), &p, &parameters, Cancellation::default()).unwrap();
             assert_eq!(
                 forward.termination,
                 Termination::Completed,
@@ -392,7 +392,7 @@ fn adjoint_equals_forward_and_differences(method: Method) {
                     let at = |delta: f64| {
                         let mut q = parameters.clone();
                         q[j] += delta;
-                        let r = integrate(&mut Reactor::new(dae), &p, &q, pse_diagnostics::Cancellation::default()).unwrap();
+                        let r = integrate(&mut Reactor::new(dae), &p, &q, Cancellation::default()).unwrap();
                         assert_eq!(r.termination, Termination::Completed, "{case}");
                         functional(&r)
                     };
@@ -449,7 +449,7 @@ fn idas_many_changes_preserve_reverse_jump_gradient_and_hessian() {
             &parameters,
             &directions,
             &mut |report: &Report| Ok(weights(report.samples.len())),
-            pse_diagnostics::Cancellation::default(),
+            Cancellation::default(),
             256 << 20,
         )
         .unwrap();
@@ -469,7 +469,7 @@ fn idas_many_changes_preserve_reverse_jump_gradient_and_hessian() {
                 &mut Reactor::new(dae),
                 &reference,
                 parameters,
-                pse_diagnostics::Cancellation::default(),
+                Cancellation::default(),
             )
             .unwrap();
             assert_eq!(
@@ -545,7 +545,7 @@ fn diffsol_adjoint_starts_at_a_nearly_steady_stop() {
         );
         let adjoint = g.gradient.unwrap();
         p.sensitivity = DynamicSensitivity::Forward;
-        let forward = integrate(&mut Reactor::new(false), &p, &parameters, pse_diagnostics::Cancellation::default()).unwrap();
+        let forward = integrate(&mut Reactor::new(false), &p, &parameters, Cancellation::default()).unwrap();
         let w = weights(forward.samples.len());
         let np = parameters.len();
         for (j, value) in adjoint.iter().enumerate() {
@@ -652,7 +652,7 @@ fn checkpoints_bounded(method: Method) {
         &p,
         &parameters,
         &mut |r: &Report| Ok(weights(r.samples.len())),
-        pse_diagnostics::Cancellation::default(),
+        Cancellation::default(),
         bytes - 1,
     )
     .unwrap_err();
@@ -672,7 +672,7 @@ fn checkpoints_bounded(method: Method) {
         &p,
         &parameters,
         &mut |r: &Report| Ok(weights(r.samples.len())),
-        pse_diagnostics::Cancellation::default(),
+        Cancellation::default(),
         bytes,
     )
     .unwrap();
@@ -736,7 +736,7 @@ fn adjoint_profile_limits_are_typed_refusals() {
             &forward,
             &parameters,
             &mut |_: &Report| Ok(vec![]),
-            pse_diagnostics::Cancellation::default(),
+            Cancellation::default(),
             1 << 30
         ),
         Err(ProblemError::Contract(_))
@@ -746,7 +746,7 @@ fn adjoint_profile_limits_are_typed_refusals() {
         &p,
         &parameters,
         &mut |_: &Report| Ok(vec![1.0]),
-        pse_diagnostics::Cancellation::default(),
+        Cancellation::default(),
         1 << 30,
     )
     .unwrap();
@@ -778,7 +778,7 @@ fn second_order_adjoint_matches_finite_difference() {
                     &parameters,
                     directions,
                     &mut |report: &Report| Ok(weights(report.samples.len())),
-                    pse_diagnostics::Cancellation::default(),
+                    Cancellation::default(),
                     256 << 20,
                 )
                 .unwrap()
@@ -829,7 +829,7 @@ fn second_order_adjoint_matches_finite_difference() {
                 reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, dae, scheduled);
             reference.sensitivity = DynamicSensitivity::Forward;
             let contracted = |q: &[f64]| -> Vec<f64> {
-                let r = integrate(&mut Reactor::new(dae), &reference, q, pse_diagnostics::Cancellation::default()).unwrap();
+                let r = integrate(&mut Reactor::new(dae), &reference, q, Cancellation::default()).unwrap();
                 assert_eq!(
                     r.termination,
                     Termination::Completed,
@@ -894,7 +894,7 @@ fn second_order_route_limits_are_typed_refusals() {
             &parameters,
             directions,
             &mut |r: &Report| Ok(weights(r.samples.len())),
-            pse_diagnostics::Cancellation::default(),
+            Cancellation::default(),
             memory,
         )
     };
