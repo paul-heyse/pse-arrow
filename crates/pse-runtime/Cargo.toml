@@ -28,6 +28,7 @@ force-validate = [
   "pse-testkit/force-validate",
 ]
 default = []
+compiled-evaluator = ["pse-math/compiled-evaluator"]
 canonical-tests = ["pse-operations/canonical-tests"]
 solver-ipopt = ["pse-backend-native/ipopt"]
 solver-uno = ["pse-backend-native/uno"]

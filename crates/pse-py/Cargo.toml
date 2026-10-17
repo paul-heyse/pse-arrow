@@ -30,6 +30,7 @@ doctest = false
 bench = false
 
 [features]
+compiled-evaluator = ["pse-runtime/compiled-evaluator"]
 native-solvers = ["pse-runtime/native-solvers", "solver-highs"]
 solver-ipopt = ["pse-runtime/solver-ipopt"]
 solver-pounce = ["pse-runtime/solver-pounce"]

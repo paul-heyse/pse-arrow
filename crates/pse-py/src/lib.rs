@@ -44,6 +44,7 @@ fn registry_fingerprint() -> String {
 #[pyfunction]
 fn compiled_features() -> Vec<String> {
     [
+        ("compiled-evaluator", cfg!(feature = "compiled-evaluator")),
         ("force-validate", cfg!(feature = "force-validate")),
         ("native-solvers", cfg!(feature = "native-solvers")),
         ("solver-diffsol", cfg!(feature = "solver-diffsol")),
