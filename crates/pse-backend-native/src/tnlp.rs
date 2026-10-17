@@ -586,6 +586,10 @@ impl TNLP for Adapter {
                 pounce_nlp::return_codes::AlgorithmMode::RegularMode => crate::solve::NativePhase::Main,
                 pounce_nlp::return_codes::AlgorithmMode::RestorationPhaseMode => crate::solve::NativePhase::Restoration,
             });
+            values.insert("step_norm_kind".into(),Metric::Text("infinity".into()));
+            values.insert("step_coordinates".into(),Metric::Text("native_primal_and_slack".into()));
+            values.insert("step_semantics".into(),Metric::Text("search_direction".into()));
+            values.insert("step_available".into(),Metric::Bool(s.direction_available));
             execution.progress.push(Event{source: Some(crate::solve::EventSource::new("nonlinear_iteration", Some("native_nlp"), None)), phase:"pounce.iteration".into(),elapsed:execution.started.elapsed(),values,incumbent:None});Ok(())}).is_some()
     }
 }

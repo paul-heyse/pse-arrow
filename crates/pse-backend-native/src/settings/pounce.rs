@@ -320,7 +320,7 @@ mod scaling {
             ScalingStrategy::Mc64Symmetric => FeralScaling::Mc64Symmetric,
             ScalingStrategy::Identity => FeralScaling::Identity,
             ScalingStrategy::Auto => FeralScaling::Auto,
-            ScalingStrategy::External(_) => {
+            ScalingStrategy::External(_) | ScalingStrategy::ExternalShared(_) => {
                 return Err(ser::Error::custom(
                     "an external FERAL scaling vector is problem data, not a setting",
                 ));

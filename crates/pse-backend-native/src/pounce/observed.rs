@@ -30,6 +30,7 @@ pub(super) struct Observation {
     separator: Option<SolveSeparator>,
     allowance: Option<usize>,
     state: RefCell<State>,
+    detail: Option<pse_diagnostics::observation::Producer>,
 }
 fn index(path: Path) -> usize {
     match path {
@@ -49,6 +50,8 @@ impl Observation {
             separator,
             allowance,
             state: RefCell::new(State::default()),
+            detail: pse_diagnostics::observation::current().map(|context| context.producer(
+                pse_diagnostics::observation::ProducerRole::NativeFactor, "pounce.linear.detail")),
         }
     }
     fn fail(&self, error: ProblemError) -> Abort {
@@ -179,6 +182,33 @@ impl Observation {
     }
 }
 impl Observer for Observation {
+    fn wants_detail(&self, family: &str) -> bool {
+        self.detail.as_ref().is_some_and(|producer| producer.detail_selected(family))
+    }
+    fn detail(&self, family: &str, fields: &[pounce_common::observed::DetailField<'_>]) {
+        use pounce_common::observed::DetailValue;
+        let Some(producer) = &self.detail else { return; };
+        let overflow = fields.iter().any(|field| field.name == "counter_overflow" && matches!(field.value, DetailValue::Flag(true)));
+        let mut values = std::collections::BTreeMap::from([("backend".into(), Metric::Text("pounce".into()))]);
+        for field in fields {
+            let value = match field.value {
+                DetailValue::Count(value) => (if overflow { None } else { i64::try_from(value).ok() })
+                    .map_or(Metric::Unavailable(crate::solve::UnavailableReason::Unknown), Metric::Integer),
+                DetailValue::Number(value) => Metric::Real(value),
+                DetailValue::Flag(value) => Metric::Bool(value),
+                DetailValue::Text(value) => Metric::Text(value.into()),
+            };
+            values.insert(field.name.into(), value);
+        }
+        self.execution.progress.push_from(crate::solve::Event {
+            source: Some(crate::solve::EventSource::new(family.strip_suffix(".v1").unwrap_or(family), Some("native_linear_system"), None)
+                .with_role(pse_diagnostics::observation::ProducerRole::NativeFactor)),
+            phase: format!("pounce.{family}"), elapsed: self.execution.started.elapsed(), values, incumbent: None,
+        }, producer);
+    }
+    fn detail_failed(&self, family: &str) {
+        if let Some(producer) = &self.detail { producer.context().unavailable("native.detail.failed", family); }
+    }
     fn bind_layout(&self, layout: &Layout) -> Result<Option<Vec<usize>>, Abort> {
         self.execution.check().map_err(|e| self.fail(e))?;
         let mapped = self

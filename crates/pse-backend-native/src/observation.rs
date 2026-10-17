@@ -173,6 +173,15 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
     }
     fn unit(family: &str, name: &str) -> &'static str {
         match (family, name) {
+            ("native_linear_work", name) if name.ends_with(".issued") || name.ends_with(".completed") => "native_linear_calls",
+            ("native_factor", "input_nonzeros" | "factor_nonzeros") => "nonzeros",
+            ("native_factor", "fill_ratio") => "ratio",
+            ("native_refinement", name) if name.contains("rhs_issued") || name.contains("rhs_completed") => "rhs_substitutions",
+            ("native_refinement", "correction_batches_issued" | "correction_batches_completed") => "substitution_batches",
+            ("native_refinement", "residual_products") => "matrix_vector_products",
+            ("native_refinement", "best_updates") => "rhs_iterate_updates",
+            ("native_refinement", name) if name.ends_with("_rhs") => "right_hand_sides",
+
             ("nonlinear_iteration", "iteration" | "line_search.trials" | "regime.crossings") => {
                 "count"
             }
