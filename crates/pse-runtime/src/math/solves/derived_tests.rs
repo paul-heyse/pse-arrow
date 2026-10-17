@@ -124,22 +124,24 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + Duration::from_secs(60)));
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
     let make_factory = |tight| {
-        let factory = inner
-            .factory(
-                BTreeMap::from([(
-                    residual.id,
-                    Configuration::Fixed(unknowns.clone(), options(tight)),
-                )]),
-                ImplicitCapabilities {
-                    solver: Arc::new(native::implicit::Kinsol),
-                    verifier: Some(Arc::new(native::root_isolation::Ibex::default())),
-                    accelerators: &accelerators,
-                },
-                DerivativeOrder::First,
-                flag.clone(),
-                pse_math::jets::EvaluationLimits::default(),
-            )
-            .unwrap();
+        let configurations = BTreeMap::from([(
+            residual.id,
+            Configuration::Fixed(unknowns.clone(), options(tight)),
+        )]);
+        let capabilities = ImplicitCapabilities {
+            solver: Arc::new(native::implicit::Kinsol),
+            verifier: Some(Arc::new(native::root_isolation::Ibex::default())),
+            accelerators: &accelerators,
+        };
+        let limits = pse_math::jets::EvaluationLimits::default();
+        let (requests, mut programs) = inner.program_requests(&configurations, &capabilities,
+            DerivativeOrder::First, &flag, limits).unwrap();
+        for request in requests {
+            let body = Arc::new(request.artifact().build(&scope).unwrap());
+            programs.bind(request, body).unwrap();
+        }
+        let factory = inner.factory_reusing(configurations, capabilities,
+            DerivativeOrder::First, flag.clone(), limits, &programs).unwrap();
         let ImplicitFactory::Regimes(factory) = factory else {
             panic!("compiler-issued isolated selector")
         };
