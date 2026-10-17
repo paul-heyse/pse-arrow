@@ -71,6 +71,27 @@ struct Point {
     /// The enclosing fit job admits this storage through `FitProblem::bytes`.
     curvatures: Option<Vec<Option<Vec<f64>>>>,
 }
+/// Additional numeric residency while the installed complete point and a private
+/// replacement coexist. Previous trajectory Arcs already coexist during upgrade;
+/// curvature is moved only on success and is never duplicated here.
+pub(super) fn replacement_point_bytes(
+    experiments: &[Experiment], layout: &sparse::Layout, variables: usize, rows: usize, observations: usize,
+) -> Option<usize> {
+    let mut bytes = size_of::<Point>()
+        .checked_add(layout.responses.retained_bytes())?
+        .checked_add(layout.constraints.retained_bytes())?
+        .checked_add(variables.checked_mul(2)?.checked_add(rows)?.checked_add(observations)?.checked_mul(size_of::<f64>())?)?
+        .checked_add(experiments.len().checked_mul(size_of::<Option<SparseColMat<usize, f64>>>())?)?;
+    for experiment in experiments {
+        if let Experiment::Steady(steady) = experiment {
+            let pattern = steady.case.assembly.jacobian_pattern();
+            bytes = bytes.checked_add(size_of_val(pattern.col_ptr()))?
+                .checked_add(size_of_val(pattern.row_idx()))?
+                .checked_add(pattern.row_idx().len().checked_mul(size_of::<f64>())?)?;
+        }
+    }
+    Some(bytes)
+}
 #[derive(Debug, Default)]
 pub(super) struct ExperimentProducts {
     predictions: Vec<(usize, f64)>,
