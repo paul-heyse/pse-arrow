@@ -295,7 +295,8 @@ impl ImplicitProgramRequest {
             + self.artifact.descriptor_bytes() + self.artifact.support.retained_bytes()
     }
 }
-/// One assembly's exact immutable programs; native/provider/configuration state is absent.
+/// One assembly's exact programs and admitted solver descriptors. Mutable native,
+/// provider, numerical configuration and cancellation state stays in the fresh factory.
 #[derive(Debug)]
 pub struct ImplicitPrograms {
     limits: EvaluationLimits,

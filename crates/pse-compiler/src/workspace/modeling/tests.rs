@@ -7498,7 +7498,8 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
         fn admit(&self, body: &pse_math::guarded::PreparedBody, unknowns: usize,
             _: EvaluationLimits, cancel: &Arc<AtomicBool>) -> std::result::Result<Arc<dyn pse_math::implicit::InnerSolver>, MathError> {
             self.0.fetch_add(1, Ordering::Relaxed);
-            Ok(Arc::new(pse_math::implicit::Affine::with_cancel(body, unknowns, cancel)?))
+            if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+            Ok(Arc::new(pse_math::implicit::Affine::new(body, unknowns)?))
         }
     }
     let (mut workspace, _, _, root) = setup("package p {def Root {var x:Scalar;implicit root select branch(y>=0) {var y:Scalar;eq residual:y==x/2;}realize r on root using accelerated(counter);eq pin:root.y==2;}}");
