@@ -35,7 +35,7 @@ fn compile(
             order,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+            &ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap()
 }
@@ -92,7 +92,7 @@ fn wide_opaque_affine_support_retains_sparse_derivatives() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+            &ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap()
         .worker();
@@ -157,7 +157,7 @@ fn shared_branch_snapshots_keep_distinct_alternatives_isolated() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -229,7 +229,7 @@ fn separately_reconstructed_equal_branch_facts_remain_symbolic() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -291,7 +291,7 @@ fn local_guard_facts_do_not_copy_the_enclosing_slot_inventory() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -362,7 +362,7 @@ fn shared_domain_snapshots_preserve_dense_support_and_local_isolation() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -435,7 +435,7 @@ fn opaque_nonlinear_support_refuses_actual_work_and_preserves_complete_pairs() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+            &ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap()
         .worker()
@@ -561,7 +561,7 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker()
@@ -799,7 +799,7 @@ fn conditional_second_reuses_exhausted_support_and_projects_selected_controls() 
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -871,7 +871,7 @@ fn support_construction_consumes_the_remaining_authored_body_allowance() {
             .unwrap();
         builder.prepare(&[value])
     };
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let body = prepare(128).unwrap();
     assert_eq!(body.occurrence_count(), 2);
     let value = body
@@ -905,7 +905,7 @@ fn support_construction_consumes_the_remaining_authored_body_allowance() {
                 DerivativeOrder::Value,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None)
+                &ExecutionScope::new(cancel.clone(), None)
             )
             .is_ok()
     );
@@ -1136,7 +1136,7 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -1160,7 +1160,7 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -1222,7 +1222,7 @@ fn composed_external_partials_use_symbolica_chain_rule_through_nested_calls() {
                 order,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &ExecutionScope::new(control.clone(), None),
             )
             .unwrap()
             .worker();
@@ -1246,7 +1246,7 @@ fn composed_external_partials_use_symbolica_chain_rule_through_nested_calls() {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None)
+                &ExecutionScope::new(control.clone(), None)
             )
             .is_err()
         );
@@ -1326,7 +1326,7 @@ fn derivative_budget_cancellation_and_numeric_zero_support() {
             DerivativeOrder::Second,
             Optimization::default(),
             budget,
-            &pse_kernels::ExecutionScope::new(control.clone(), None)
+            &ExecutionScope::new(control.clone(), None)
         ),
         Err(MathError::Limit(_))
     ));
@@ -1337,7 +1337,7 @@ fn derivative_budget_cancellation_and_numeric_zero_support() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap();
     let mut worker = body.worker();
@@ -1398,7 +1398,7 @@ fn parameter_only_switches_preserve_all_branch_support() {
             DerivativeOrder::First,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None)
+            &ExecutionScope::new(control.clone(), None)
         )
         .is_err()
     );
@@ -1409,7 +1409,7 @@ fn parameter_only_switches_preserve_all_branch_support() {
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -1625,7 +1625,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &ExecutionScope::new(control.clone(), None),
             )
             .unwrap()
             .worker()
@@ -1729,7 +1729,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap(),
     );
@@ -1851,7 +1851,7 @@ fn derivative_work_refusal_retains_required_and_available_operations() {
                 operations: 2,
                 ..Default::default()
             },
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+            &ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
         .unwrap_err();
     assert!(
@@ -1888,7 +1888,7 @@ fn local_taylor_coordinates_preserve_transitive_and_permuted_derivatives() {
                 operations: 5000,
                 ..Default::default()
             },
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap();
     let inputs = (0..n).map(|i| (i + 1) as f64 / 10.0).collect::<Vec<_>>();
@@ -2019,7 +2019,7 @@ fn selected_provider_demand_matches_fixed_coordinate_program_and_authored_partia
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -2042,7 +2042,7 @@ fn selected_provider_demand_matches_fixed_coordinate_program_and_authored_partia
             DerivativeOrder::First,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap_err();
     assert!(
@@ -2140,7 +2140,7 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None)
+                &ExecutionScope::new(control.clone(), None)
             )
             .is_err()
     );
@@ -2153,7 +2153,7 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -2192,7 +2192,7 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
             DerivativeOrder::Second,
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -2332,7 +2332,7 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
         support.compile(
             Optimization::default(),
             limits,
-            &pse_kernels::ExecutionScope::new(control.clone(), None)
+            &ExecutionScope::new(control.clone(), None)
         ),
         Err(MathError::Limit("derivative components"))
     ));
@@ -2340,7 +2340,7 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
         .compile_directional(
             Optimization::default(),
             limits,
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap();
     assert!(action.is_directional());
@@ -2354,7 +2354,7 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker()
@@ -2449,7 +2449,7 @@ fn demanded_directional_provider_composition_keeps_original_guard_and_first_part
         .compile_directional(
             Optimization::default(),
             limits,
-            &pse_kernels::ExecutionScope::new(control.clone(), None),
+            &ExecutionScope::new(control.clone(), None),
         )
         .unwrap()
         .worker();
@@ -2662,7 +2662,7 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );
@@ -2687,7 +2687,7 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );

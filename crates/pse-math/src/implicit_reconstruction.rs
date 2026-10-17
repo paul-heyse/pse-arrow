@@ -2378,7 +2378,7 @@ mod tests {
                     DerivativeOrder::First,
                     crate::library::Optimization::default(),
                     crate::jets::EvaluationLimits::default(),
-                    &pse_kernels::ExecutionScope::new(control.clone(), None),
+                    &ExecutionScope::new(control.clone(), None),
                 )
                 .unwrap(),
         );

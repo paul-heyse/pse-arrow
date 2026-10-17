@@ -49,7 +49,6 @@ fn factory(delay: Duration) -> (Factory, Arc<AtomicUsize>, Arc<Mutex<Vec<Duratio
     let id = pse_ids::named_id(SemanticId::NIL, "deadline-root");
     let unknown = pse_ids::named_id(id, "unknown");
     let control = pse_diagnostics::Cancellation::new(false);
-    let cancel = control.flag();
     let mut builder = BodyBuilder::new(
         crate::initialize().unwrap(),
         &registry,
@@ -71,7 +70,7 @@ fn factory(delay: Duration) -> (Factory, Arc<AtomicUsize>, Arc<Mutex<Vec<Duratio
                 &[residual],
                 DerivativeOrder::First,
                 crate::library::Optimization::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );

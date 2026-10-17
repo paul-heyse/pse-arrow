@@ -7687,7 +7687,7 @@ mod compact_tests {
             DerivativeOrder::Second,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let limits = EvaluationLimits {
             derivative_components: 6,
             ..Default::default()
@@ -7699,7 +7699,7 @@ mod compact_tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 limits,
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let second = compiled.layouts[DerivativeOrder::Second].as_ref().unwrap();
@@ -7737,7 +7737,7 @@ mod compact_tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 limits,
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert_eq!(
@@ -7780,7 +7780,7 @@ mod compact_tests {
             DerivativeOrder::Second,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let compiled = body
             .compile(
                 &[0, 1],
@@ -7788,7 +7788,7 @@ mod compact_tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert_eq!(

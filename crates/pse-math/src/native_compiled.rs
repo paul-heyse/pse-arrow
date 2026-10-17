@@ -870,7 +870,7 @@ mod tests {
         let flag = cancelled.clone();
         let started = marker.clone();
         let observer = std::thread::spawn(move || {
-            let deadline = std::time::Instant::now() + Duration::from_secs(10);
+            let deadline = Instant::now() + Duration::from_secs(10);
             loop {
                 if let Ok(text) = std::fs::read_to_string(&started)
                     && text.lines().count() == 2
@@ -878,7 +878,7 @@ mod tests {
                     flag.cancel();
                     return text;
                 }
-                if std::time::Instant::now() >= deadline {
+                if Instant::now() >= deadline {
                     flag.cancel();
                     panic!("owned compiler fixture did not start");
                 }
