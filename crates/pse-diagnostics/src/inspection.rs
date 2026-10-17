@@ -191,7 +191,8 @@ pub fn seconds_per_call(
         .unwrap_or(&duration.name);
     let stem = name
         .strip_suffix(".nanoseconds")
-        .or_else(|| name.strip_suffix(".wall"));
+        .or_else(|| name.strip_suffix(".wall"))
+        .or_else(|| name.strip_suffix(".elapsed_nanoseconds"));
     if stem.is_some_and(|stem| snapshot.phases.iter().any(|phase| phase.kind == stem)) {
         return None;
     }
@@ -213,6 +214,11 @@ pub fn seconds_per_call(
         return None;
     };
     if *count == 0 {
+        return None;
+    }
+    if let Some(summary) = &duration.duration_summary
+        && (summary.overflow || summary.samples != *count)
+    {
         return None;
     }
     let seconds = *nanoseconds as f64 / 1_000_000_000.0 / *count as f64;

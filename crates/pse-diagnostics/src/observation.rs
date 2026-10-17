@@ -10,7 +10,7 @@ pub use crate::{NonFinite, OperationOutcome as Outcome, Relationship};
 mod producer;
 mod thread_cpu;
 pub use thread_cpu::ThreadCpuSample;
-pub use producer::{CoherentRecord, DurationSummary, FactKind, PreparedFact, Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability, RecordCoverage, RecordField, OwnerReservation, RecordTap};
+pub use producer::{CoherentRecord, DurationSummary, FactKind, PreparedFact, Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability, RecordCoverage, RecordField, OwnerReservation, OwnerBudget, RecordTap};
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -1154,7 +1154,7 @@ impl State {
     }
     fn producer_elapsed(&mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, at: Duration, elapsed: Duration) {
         if let Some(metric) = self.producer_aggregate_metric(policy, producer, name, "nanoseconds", at) {
-            if (metric.counter && !metric.duration)
+            if metric.prepared_kind.is_some_and(|kind|kind!=FactKind::Duration) || (metric.counter && !metric.duration)
                 || (!metric.counter && !matches!(metric.latest, Value::Unavailable(_)))
             {
                 self.refused = self.refused.saturating_add(1);
@@ -1704,7 +1704,7 @@ impl ObservationContext {
         node.update(|state, at| {
             if let Some(index) = state.producer_metric_index(&node.policy, self.producer, name, unit, at) {
                 let metric = &mut state.metrics[index];
-                if metric.counter {
+                if metric.prepared_kind.is_some_and(|kind|kind!=FactKind::Gauge) || metric.counter {
                     state.refused = state.refused.saturating_add(1);
                     return;
                 }
@@ -1721,7 +1721,7 @@ impl ObservationContext {
         };
         node.update(|state, at| {
             if let Some(metric) = state.producer_aggregate_metric(&node.policy, self.producer, name, unit, at) {
-                if metric.duration
+                if metric.prepared_kind.is_some_and(|kind|kind!=FactKind::Counter) || metric.duration
                     || metric.absolute.is_some()
                     || (!metric.counter && !matches!(metric.latest, Value::Unavailable(_)))
                 {
@@ -1755,7 +1755,7 @@ impl ObservationContext {
         node.update(|state, at| {
             if let Some(index) = state.producer_aggregate_index(&node.policy, self.producer, name, unit, at) {
                 let metric = &mut state.metrics[index];
-                if metric.duration || (metric.counter && metric.absolute.is_none()) {
+                if metric.prepared_kind.is_some_and(|kind|kind!=FactKind::AbsoluteCounter) || metric.duration || (metric.counter && metric.absolute.is_none()) {
                     state.refused = state.refused.saturating_add(1);
                     return;
                 }
@@ -3476,3 +3476,6 @@ mod scope_layout_tests {
         assert_eq!(future.as_mut().poll(&mut cx), std::task::Poll::Ready(7));
     }
 }
+#[cfg(test)]
+#[path = "observation/acceptance_tests.rs"]
+mod acceptance_tests;

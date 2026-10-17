@@ -201,6 +201,12 @@ pub trait RecordTap: std::any::Any + Send + Sync + std::fmt::Debug {
     fn selected(&self, family: &str) -> bool;
     /// Explicit synchronous boundary thread-CPU selection; never enabled by default.
     fn thread_cpu(&self) -> bool { false }
+    /// Whether an explicitly selected finite owner remains active.
+    fn is_active(&self) -> bool { true }
+    /// Optional owner-local storage from the selected collector's separate allowance.
+    fn reserve_owner_bytes(&self, _bytes:usize)->Option<OwnerReservation>{None}
+    /// Observe a source-issued head before lossy publication, including a lost final event.
+    fn issued(&self, _record: &CoherentRecord) {}
     /// Offer an already-issued source record; losses remain with the selected collector.
     fn observe(&self, record: &CoherentRecord);
     /// Offer bounded producer metadata before its first source record.
@@ -248,19 +254,21 @@ impl Producer {
     /// Captured performing context, suitable for explicit propagation.
     #[must_use]
     pub fn context(&self) -> &ObservationContext { &self.context }
-    /// Whether this producer obtained ordinary observation admission.
+    /// Whether ordinary or explicitly selected observation admission is available.
     #[must_use]
-    pub fn enabled(&self) -> bool { self.index.is_some() }
+    pub fn enabled(&self) -> bool { self.index.is_some() || self.context.record_tap.as_ref().is_some_and(|tap|std::panic::catch_unwind(std::panic::AssertUnwindSafe(||tap.is_active())).unwrap_or(false)) }
     /// Reserve optional owner-local observation storage outside scientific admission.
     /// The token must live as long as the actual local rows/copies it covers.
     #[must_use]
     pub fn reserve_owner_bytes(&self, bytes: usize) -> Option<OwnerReservation> {
-        if !self.enabled() || bytes == 0 { return None; }
-        let node = self.context.node.as_ref()?;
-        let Ok(mut state) = node.state.try_lock() else { bump(&node.lost); return None; };
-        let reservation = state.budget.reserve(bytes);
-        if reservation.is_none() { state.refused = state.refused.saturating_add(1); }
-        reservation.map(|reservation| OwnerReservation { _reservation: reservation })
+        if bytes==0{return None;}
+        if self.index.is_some() && let Some(node)=&self.context.node {
+            if let Ok(mut state)=node.state.try_lock(){
+                if let Some(reservation)=state.budget.reserve(bytes){return Some(OwnerReservation{_reservation:reservation});}
+                state.refused=state.refused.saturating_add(1);
+            }else{bump(&node.lost);}
+        }
+        self.context.record_tap.as_ref().and_then(|tap|std::panic::catch_unwind(std::panic::AssertUnwindSafe(||tap.reserve_owner_bytes(bytes))).ok().flatten())
     }
     /// Whether explicitly selected detail consumes this source family now.
     #[must_use]
@@ -281,7 +289,7 @@ impl Producer {
                 index = state.producer_metric_index(&node.policy, Some(self.id), name, unit, at);
                 if let Some(i) = index {
                     let metric=&state.metrics[i];
-                    let incompatible=(kind==FactKind::Duration && unit!="nanoseconds") || (metric.counter && !matches!(kind,FactKind::Counter|FactKind::AbsoluteCounter|FactKind::Duration)) || (metric.duration && kind!=FactKind::Duration) || (metric.absolute.is_some() && kind!=FactKind::AbsoluteCounter) || (!metric.counter && !matches!(metric.latest,Value::Unavailable(_)) && kind!=FactKind::Gauge);
+                    let incompatible=(kind==FactKind::Duration && unit!="nanoseconds") || (metric.counter && metric.absolute.is_none() && !metric.duration && kind!=FactKind::Counter) || (metric.duration && kind!=FactKind::Duration) || (metric.absolute.is_some() && kind!=FactKind::AbsoluteCounter) || (!metric.counter && !matches!(metric.latest,Value::Unavailable(_)) && kind!=FactKind::Gauge);
                     if incompatible {state.refused=state.refused.saturating_add(1);index=None;return;}
                     if state.metrics[i].prepared_kind.is_some_and(|prior| prior != kind) {
                         state.refused = state.refused.saturating_add(1); index = None; return;
@@ -300,13 +308,19 @@ impl Producer {
     #[must_use]
     pub fn record(&self, family: &str, phase: &str, coordinates: Option<&str>, norm: Option<&str>, values: Vec<RecordField>) -> CoherentRecord {
         let family_sequence=self.next_family_sequence(family);
-        CoherentRecord {
+        let record = CoherentRecord {
             producer: self.id, generation: self.id.sequence,
             sequence: self.sequence.try_update(Ordering::Relaxed,Ordering::Relaxed,|v|Some(v.saturating_add(1))).unwrap_or(u64::MAX),
             family_sequence,
             observed_at: self.context.clock.as_ref().map_or(Duration::ZERO, |clock| clock.now()),
             family: family.into(), phase: phase.into(), coordinates: coordinates.map(str::to_owned), norm: norm.map(str::to_owned), values,
+        };
+        if let Some(tap) = &self.context.record_tap {
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if tap.selected(family) { tap.issued(&record); }
+            }));
         }
+        record
     }
     fn next_family_sequence(&self,family:&str)->Option<u64> {
         let mut families=self.families.try_lock().ok()?;
@@ -520,3 +534,15 @@ impl std::fmt::Debug for OwnerReservation {
 #[derive(Default)]
 struct FamilySequences { values: Vec<(String,u64)>, reservations:Vec<OwnerReservation> }
 impl std::fmt::Debug for FamilySequences {fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result {f.debug_struct("FamilySequences").field("families",&self.values.len()).finish_non_exhaustive()}}
+
+/// Existing diagnostic allocation mechanism composed with a separately selected finite allowance.
+#[derive(Clone,Debug)]
+pub struct OwnerBudget(Arc<Budget>);
+impl OwnerBudget {
+    /// Create an explicitly finite copied-observation allowance.
+    #[must_use]
+    pub fn new(bytes:usize)->Self{Self(Arc::new(Budget{used:AtomicUsize::new(0),limit:bytes}))}
+    /// Reserve local observation storage before growth; the token owns its exact lifetime.
+    #[must_use]
+    pub fn reserve(&self,bytes:usize)->Option<OwnerReservation>{self.0.reserve(bytes).map(|reservation|OwnerReservation{_reservation:reservation})}
+}
