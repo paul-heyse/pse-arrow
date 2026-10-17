@@ -47,14 +47,6 @@ fn expansion(c: OperationCount, layout: &JetLayout) -> Result<usize, MathError> 
     })?;
     expansion_with_products(c, layout.order, layout.width(), products)
 }
-fn expansion_for(
-    c: OperationCount,
-    n: usize,
-    order: pse_kernels::DerivativeOrder,
-    w: usize,
-) -> Result<usize, MathError> {
-    expansion_with_products(c, order, w, products_for(n, order)?)
-}
 fn expansion_with_products(
     c: OperationCount,
     order: pse_kernels::DerivativeOrder,
@@ -131,21 +123,15 @@ pub(crate) fn evaluator_construction(
     coordinates: usize,
     order: pse_kernels::DerivativeOrder,
 ) -> Result<EvaluatorConstruction, MathError> {
-    let source = expressions
-        .iter()
-        .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
-    let operations = source_operations(expressions)?;
-    let first = if order >= pse_kernels::DerivativeOrder::First {
-        coordinates
-    } else {
-        0
-    };
-    let second = if order >= pse_kernels::DerivativeOrder::Second {
-        mul(coordinates, add(coordinates, 1)?)? / 2
-    } else {
-        0
-    };
-    let width = add(add(1, first)?, second)?;
+    let first=if order>=pse_kernels::DerivativeOrder::First {coordinates}else{0};
+    let second=if order>=pse_kernels::DerivativeOrder::Second {mul(coordinates,add(coordinates,1)?)?/2}else{0};
+    evaluator_construction_shape(expressions,parameters,order,add(add(1,first)?,second)?,products_for(coordinates,order)?)
+}
+pub(crate) fn evaluator_construction_shape(
+    expressions:&[Atom],parameters:usize,order:pse_kernels::DerivativeOrder,width:usize,products:usize,
+) -> Result<EvaluatorConstruction,MathError> {
+    let source=expressions.iter().try_fold(0,|bytes,atom|add(bytes,atom.as_view().get_byte_size()))?;
+    let operations=source_operations(expressions)?;
     let mut per_operation = 0;
     for count in [
         OperationCount::new(1, 0, 0, 0),
@@ -153,7 +139,7 @@ pub(crate) fn evaluator_construction(
         OperationCount::new(0, 0, 1, 0),
         OperationCount::new(0, 0, 0, 1),
     ] {
-        per_operation = per_operation.max(expansion_for(count, coordinates, order, width)?);
+        per_operation = per_operation.max(expansion_with_products(count, order, width, products)?);
     }
     let expanded = mul(operations, per_operation)?;
     let scalar_instructions = add(add(source, operations)?, expressions.len())?;
@@ -486,12 +472,9 @@ pub(crate) fn bounded_evaluator(
             "invalid structural Taylor zero component".into(),
         ));
     }
-    let construction = evaluator_construction(
-        expressions,
-        parameters.len(),
-        layout.coordinates.len(),
-        layout.order,
-    )?;
+    let first=if layout.order>=pse_kernels::DerivativeOrder::First {mul(2,layout.coordinates.len())?}else{0};
+    let products=layout.pairs.iter().try_fold(add(1,first)?,|n,&(i,j)|add(n,if i==j{3}else{4}))?;
+    let construction=evaluator_construction_shape(expressions,parameters.len(),layout.order,layout.width(),products)?;
     let source_work = expressions.iter().try_fold(0, |sum, expression| {
         add(sum, total(expression.count_operations())?)
     })?;

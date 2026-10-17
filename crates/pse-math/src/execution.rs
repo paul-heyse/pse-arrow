@@ -550,6 +550,9 @@ impl PreparedSupport {
         let body = self.body();
         let coordinates = self.coordinates().len();
         let axes = if directional { 1 } else { coordinates };
+        // A sum bounds the selected union without allocating a duplicate support map.
+        let second_pairs=self.support().second.iter().try_fold(0usize,|n,row|n.checked_add(row.len()))
+            .ok_or_else(overflow)?;
         // Construction admission precedes every coordinate/read/reachability map.
         // The compact slot population and global selected axes upper-bound every
         // block-local selection without allocating those selections in preflight.
@@ -562,9 +565,10 @@ impl PreparedSupport {
             DerivativeOrder::Second,
         ]
         .into_iter()
-        .filter(|order| *order <= requested)
+        .filter(|order| *order <= requested && (!directional || *order==DerivativeOrder::First))
         {
-            let width = construction_taylor_width(axes, order)?;
+            let pair_count=if order>=DerivativeOrder::Second {second_pairs}else{0};
+            let width=add(add(1,if order>=DerivativeOrder::First {axes}else{0})?,pair_count)?;
             let output_width = add(
                 add(
                     1,
@@ -574,11 +578,7 @@ impl PreparedSupport {
                         0
                     },
                 )?,
-                if order >= DerivativeOrder::Second {
-                    mul(axes, axes)?
-                } else {
-                    0
-                },
+                pair_count,
             )?;
             let mut entries = add(
                 mul(body.slots, width)?,
@@ -586,7 +586,7 @@ impl PreparedSupport {
             )?;
             // Global layouts persist in the immutable program. Growing shape and
             // pair vectors, plus a construction copy, retain separate headroom.
-            descriptors = add(descriptors, construction_layout_bytes(axes, order)?)?;
+            descriptors = add(descriptors, construction_layout_shape_bytes(axes, width)?)?;
             for stage in &body.stages {
                 let Stage::Block {
                     expressions,
@@ -602,9 +602,9 @@ impl PreparedSupport {
                 } else {
                     0
                 };
-                let local_width = construction_taylor_width(local_axes, order)?;
-                let block =
-                    library::evaluator_construction(expressions, body.slots, local_axes, order)?;
+                let local_width = width;
+                let products=add(add(1,if order>=DerivativeOrder::First {mul(2,axes)?}else{0})?,mul(4,pair_count)?)?;
+                let block=library::evaluator_construction_shape(expressions,body.slots,order,local_width,products)?;
                 entries = add(
                     entries,
                     add(
@@ -617,7 +617,7 @@ impl PreparedSupport {
                 // A block's local layout/zero-component list exists only while it
                 // compiles; summing them also covers their temporary coexistence
                 // with every prior retained stage and the full outer layout.
-                descriptors = add(descriptors, construction_layout_bytes(local_axes, order)?)?;
+                descriptors = add(descriptors, construction_layout_shape_bytes(local_axes, local_width)?)?;
                 descriptors = add(
                     descriptors,
                     mul(
@@ -1627,6 +1627,23 @@ impl PreparedBody {
         requested: DerivativeOrder,
         limits: EvaluationLimits,
     ) -> Result<Option<usize>, MathError> {
+        self.arithmetic_compilation_bound(requested,limits,self.inputs,self.outputs.len())
+    }
+    /// Source-issued initial reservation for selected derivative axes and outputs.
+    /// Conservative scalar/source populations remain borrowed; unselected input values
+    /// never become derivative axes. No support map or numerical program is constructed.
+    pub fn arithmetic_selected_compilation_allocation_bound(
+        &self,outputs:&[usize],coordinates:&[usize],requested:DerivativeOrder,limits:EvaluationLimits,
+    ) -> Result<Option<usize>,MathError> {
+        if outputs.is_empty() || outputs.iter().enumerate().any(|(i,&v)|v>=self.outputs.len() || outputs[..i].contains(&v))
+            || coordinates.iter().enumerate().any(|(i,&v)|v>=self.inputs || coordinates[..i].contains(&v)) {
+            return Err(MathError::Contract("selected construction output/coordinate extent".into()));
+        }
+        self.arithmetic_compilation_bound(requested,limits,coordinates.len(),outputs.len())
+    }
+    fn arithmetic_compilation_bound(
+        &self,requested:DerivativeOrder,limits:EvaluationLimits,coordinate_count:usize,output_count:usize,
+    ) -> Result<Option<usize>,MathError> {
         if !self.is_flat_arithmetic() {
             return Ok(None);
         }
@@ -1634,7 +1651,7 @@ impl PreparedBody {
         let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
         let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
         let n = if requested > DerivativeOrder::Value {
-            self.inputs
+            coordinate_count
         } else {
             0
         };
@@ -1667,7 +1684,7 @@ impl PreparedBody {
             };
             let mut entries = add(
                 mul(self.slots, width)?,
-                mul(self.outputs.len(), add(add(1, first)?, dense)?)?,
+                mul(output_count, add(add(1, first)?, dense)?)?,
             )?;
             // Full/local layouts, coordinate maps, component maps and the sparse
             // zero-component (parameter,component) list coexist during a block build.
@@ -1722,7 +1739,7 @@ impl PreparedBody {
         let support_width = add(add(1, n)?, second)?;
         let support_population = mul(
             mul(
-                add(add(self.slots, self.inputs)?, self.outputs.len())?,
+                add(add(self.slots, self.inputs)?, output_count)?,
                 support_width,
             )?,
             4,
@@ -3358,6 +3375,9 @@ fn construction_taylor_width(n: usize, order: DerivativeOrder) -> Result<usize, 
 
 fn construction_layout_bytes(n: usize, order: DerivativeOrder) -> Result<usize, MathError> {
     let width = construction_taylor_width(n, order)?;
+    construction_layout_shape_bytes(n,width)
+}
+fn construction_layout_shape_bytes(n:usize,width:usize) -> Result<usize,MathError> {
     let shape = n
         .checked_mul(size_of::<usize>())
         .and_then(|bytes| bytes.checked_add(size_of::<Vec<usize>>() + size_of::<(usize, usize)>()));
