@@ -137,7 +137,10 @@ impl LaunchedCommand {
             }
             // The unreaped leader reserves this PGID. Stop the entire owned group
             // before inventory so surviving members cannot keep forking past an empty scan.
-            match rustix::process::kill_process_group(owned_pid(self.child.id())?, rustix::process::Signal::KILL) {
+            match rustix::process::kill_process_group(
+                owned_pid(self.child.id())?,
+                rustix::process::Signal::KILL,
+            ) {
                 Ok(()) | Err(rustix::io::Errno::SRCH) => {}
                 Err(error) => return Err(std::io::Error::from(error).into()),
             }
@@ -235,17 +238,36 @@ fn group_members(leader: u32) -> Result<Vec<std::os::fd::OwnedFd>, CaptureError>
         if after.1 == leader && after.2 == before.2 {
             // A zombie TGID leader may still have executing threads. Only the process
             // descriptor becoming exit-readable establishes whole-thread-group exit.
-            let mut readiness = [rustix::event::PollFd::new(&member, rustix::event::PollFlags::IN)];
+            let mut readiness = [rustix::event::PollFd::new(
+                &member,
+                rustix::event::PollFlags::IN,
+            )];
             loop {
-                match rustix::event::poll(&mut readiness, Some(&rustix::event::Timespec { tv_sec: 0, tv_nsec: 0 })) {
+                match rustix::event::poll(
+                    &mut readiness,
+                    Some(&rustix::event::Timespec {
+                        tv_sec: 0,
+                        tv_nsec: 0,
+                    }),
+                ) {
                     Err(rustix::io::Errno::INTR) => continue,
                     Err(error) => return Err(std::io::Error::from(error).into()),
                     Ok(_) => break,
                 }
             }
             let ready = readiness[0].revents();
-            if ready.contains(rustix::event::PollFlags::NVAL) { return Err(CaptureError::Invalid("launch member descriptor invalid".into())); }
-            if !ready.intersects(rustix::event::PollFlags::IN | rustix::event::PollFlags::HUP | rustix::event::PollFlags::ERR) { members.push(member); }
+            if ready.contains(rustix::event::PollFlags::NVAL) {
+                return Err(CaptureError::Invalid(
+                    "launch member descriptor invalid".into(),
+                ));
+            }
+            if !ready.intersects(
+                rustix::event::PollFlags::IN
+                    | rustix::event::PollFlags::HUP
+                    | rustix::event::PollFlags::ERR,
+            ) {
+                members.push(member);
+            }
         }
     }
     Ok(members)

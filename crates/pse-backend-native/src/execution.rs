@@ -182,9 +182,12 @@ struct NativeWaitSignal {
 }
 #[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc"))]
 impl std::task::Wake for NativeWaitSignal {
-    fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+    fn wake(self: Arc<Self>) {
+        self.wake_by_ref();
+    }
     fn wake_by_ref(self: &Arc<Self>) {
-        self.notified.store(true, std::sync::atomic::Ordering::Release);
+        self.notified
+            .store(true, std::sync::atomic::Ordering::Release);
         self.thread.unpark();
     }
 }
@@ -209,11 +212,17 @@ impl NativeWait {
         }
     }
     pub(crate) fn wait(self, deadline: Option<std::time::Instant>) {
-        while !self.signal.notified.load(std::sync::atomic::Ordering::Acquire) {
+        while !self
+            .signal
+            .notified
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
             match deadline {
                 Some(deadline) => {
                     let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-                    if remaining.is_zero() { return; }
+                    if remaining.is_zero() {
+                        return;
+                    }
                     std::thread::park_timeout(remaining);
                 }
                 None => std::thread::park(),

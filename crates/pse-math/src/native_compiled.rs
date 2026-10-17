@@ -288,17 +288,34 @@ fn group_members(group: i32) -> std::io::Result<Vec<std::os::fd::OwnedFd>> {
         };
         if after.1 == group && after.2 == before.2 {
             // TGID state Z alone does not establish exit of its remaining threads.
-            let mut readiness = [rustix::event::PollFd::new(&fd, rustix::event::PollFlags::IN)];
+            let mut readiness = [rustix::event::PollFd::new(
+                &fd,
+                rustix::event::PollFlags::IN,
+            )];
             loop {
-                match rustix::event::poll(&mut readiness, Some(&rustix::event::Timespec { tv_sec: 0, tv_nsec: 0 })) {
+                match rustix::event::poll(
+                    &mut readiness,
+                    Some(&rustix::event::Timespec {
+                        tv_sec: 0,
+                        tv_nsec: 0,
+                    }),
+                ) {
                     Err(rustix::io::Errno::INTR) => continue,
                     Err(error) => return Err(error.into()),
                     Ok(_) => break,
                 }
             }
             let ready = readiness[0].revents();
-            if ready.contains(rustix::event::PollFlags::NVAL) { return Err(std::io::Error::other("compiler member descriptor invalid")); }
-            if !ready.intersects(rustix::event::PollFlags::IN | rustix::event::PollFlags::HUP | rustix::event::PollFlags::ERR) { members.push(fd); }
+            if ready.contains(rustix::event::PollFlags::NVAL) {
+                return Err(std::io::Error::other("compiler member descriptor invalid"));
+            }
+            if !ready.intersects(
+                rustix::event::PollFlags::IN
+                    | rustix::event::PollFlags::HUP
+                    | rustix::event::PollFlags::ERR,
+            ) {
+                members.push(fd);
+            }
         }
     }
     Ok(members)

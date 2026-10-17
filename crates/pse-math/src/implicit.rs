@@ -2565,7 +2565,8 @@ mod tests {
             assert!(matches!(
                 problem.derivatives(&[0.0], &[0.0], DerivativeOrder::Second, &options, &cancel),
                 Err(MathError::Domain {
-                    requirement: "implicit derivative residual verification failed", ..
+                    requirement: "implicit derivative residual verification failed",
+                    ..
                 })
             ));
             let snapshot = operation.reader().snapshot(Duration::from_secs(60));
@@ -2586,10 +2587,22 @@ mod tests {
             // verification then refuses the nonfinite solve. Report those actual stages,
             // rather than inventing a library factorization error for numerical singularity.
             assert_eq!(count("implicit.factor.numeric.failures"), None);
-            assert_eq!(count("implicit.factor.numeric.completed"), Some(Value::Count(1)));
-            assert_eq!(count("implicit.derivatives.first_rhs.completed"), Some(Value::Count(1)));
-            assert_eq!(count("implicit.factor.solve.completed"), Some(Value::Count(1)));
-            assert_eq!(count("implicit.derivatives.verification.failures"), Some(Value::Count(1)));
+            assert_eq!(
+                count("implicit.factor.numeric.completed"),
+                Some(Value::Count(1))
+            );
+            assert_eq!(
+                count("implicit.derivatives.first_rhs.completed"),
+                Some(Value::Count(1))
+            );
+            assert_eq!(
+                count("implicit.factor.solve.completed"),
+                Some(Value::Count(1))
+            );
+            assert_eq!(
+                count("implicit.derivatives.verification.failures"),
+                Some(Value::Count(1))
+            );
             assert_eq!(count("implicit.derivatives.verification.completed"), None);
             assert_eq!(count("implicit.derivatives.second_rhs.calls"), None);
             assert_eq!(count("implicit.derivatives.expansion.calls"), None);
