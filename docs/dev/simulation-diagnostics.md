@@ -467,6 +467,10 @@ can also be recorded separately, so their samples must not be added as exclusive
 Inspect `symbols.checked`, resolved/unresolved frame counts and bounded names rather than treating
 file creation or profile conversion as useful-frame evidence. Missing tools, permissions,
 unwinding, symbols or target identity surface as independent capture failures/partiality.
+If a successful callchain decode produces no frame tokens, the same bounded decoder checks
+sampled leaf instruction pointers. Useful leaf names establish that narrower symbol capability;
+they do not establish complete unwinding. The original perf recording and Samply profile retain
+their independent evidence and limitations.
 Kernel sampling loss remains unknown unless quantified by the adapter.
 
 For short commands, `pse.diagnostics.launch_capture(LaunchCaptureRequest(...))` returns

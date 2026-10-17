@@ -1,6 +1,6 @@
 ---
 title: Dynamics, fitting and workflow effectiveness
-status: in-progress
+status: done
 date: 2026-10-17
 adrs: [ADR-0194]
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -62,7 +62,7 @@ A04 owns invocation/event record meaning; D02 supplies its actual purpose/start/
 
 Acceptance covers new trial, exact cache reuse, same-point response/curvature upgrades, changed accuracy/configuration/output/direction, failed upgrades and repeated final assessment. Verify complete product validity independently and assert actual integration roles/counts. Observe legitimate additional work without labeling it inefficiency automatically.
 
-**Remaining production alignment — 2026-10-17:** `ShootingOracle::adjoint` in `crates/pse-runtime/src/workflow/shooting.rs` reuses the exact point but labels a newly required integral-objective `window_gradient` with `self.purpose`, which is `PrimalTrial` for the production oracle. The forward same-point upgrade path already selects `DerivativeUpgrade`. Give the missing adjoint product its actual derivative-upgrade purpose; retain distinct original-assessment/response purposes, legitimate additional integration and transactional caching. A value→gradient→repeated-gradient sequence must distinguish new derivative work from both primal work and reuse.
+**Implemented — production-completeness correction, 2026-10-17:** a same-point integral-objective adjoint now records `DerivativeUpgrade` for the newly required window integrations. Original-assessment, identifiability and curvature purposes retain their explicit meaning. Repeated same-point gradients reuse the completed cached product without another integration; the existing worker and transactional publication remain.
 
 <a id="d03"></a>
 
@@ -88,16 +88,16 @@ Migrate dynamic/fitting/shooting and applicable study/result Rust/Python consume
 
 Acceptance covers usable point with withheld local analysis, original failure after native success, analysis failure after qualification, publication/materialization/reopen failure, partial trajectory, cancelled fitting/study and related-owner expiry. Required outputs and governing outcomes remain interpretable after complete or prefix-only diagnostic retention.
 
-**Remaining production alignment — 2026-10-17:** `RunResult::invocation_evidence` in `crates/pse-runtime/src/workflow/run.rs` derives modeling sensitivity/root-response/reduced-Hessian availability from native `Result::is_ok` and shooting-trajectory availability from `trajectory.is_some()`. Native products survive later authored assessment in `modeling/results.rs::from_assessment`; shooting retains stitched data even when original checks refuse it. Complete the joined scientific-product availability contract using the actual governing original permission and requested product outcome. Modeling products use their individual step's completion; another step's refusal must not erase a valid step's product. Keep computed native evidence/partial trajectories available as explicitly diagnostic data, and keep response readiness separate. D04 owns this correction; A04 consumes it without a second availability authority.
+**Implemented — production-completeness correction, 2026-10-17:** joined modeling sensitivities/root responses/reduced Hessians require their individual step’s original completion; shooting scientific trajectory availability requires the governing original permission. Raw native products and partial trajectories remain diagnostic data. An accepted earlier step keeps its product availability when another step fails. A04 consumes this shared permission through existing joined projections, with caller readiness and diagnostic origin independent.
 
 ## Work packages
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
 | D01 | Accepted RC06; pinned IDAS interpolation/event/effort contract; actual dependent consumer inventory | Combined boundary/interpolation/budget correction with all dynamic/workflow consumers and edge controls; remove sample-hard-stop path | done |
-| D02 | Existing product validity; A04 record slice; B projection/product slice where changed | Actual integration purpose and complete same-point upgrades/reuse across fit/shooting/response/curvature; remove misleading aggregate-only interpretation | in progress |
+| D02 | Existing product validity; A04 record slice; B projection/product slice where changed | Actual integration purpose and complete same-point upgrades/reuse across fit/shooting/response/curvature; remove misleading aggregate-only interpretation | done |
 | D03 | Q03 capability/accuracy/profile decision; C06 only for new native capability | Equivalent supported derivative/linear/corrector/checkpoint profiles or retained defaults, with correct work generations and eligibility | done |
-| D04 | A04 endpoint meaning; actual workflow/result/publication owners | Complete qualification/withholding/readiness facts and consumers, without changing science or artifact authority | in progress |
+| D04 | A04 endpoint meaning; actual workflow/result/publication owners | Complete qualification/withholding/readiness facts and consumers, without changing science or artifact authority | done |
 
 <!-- Package state is owned in this table. -->
 
@@ -105,13 +105,13 @@ D01 is a combined correctness delivery, not independent mesh/budget/event edits 
 
 ## Verification and checkpoint
 
-**Interface-checked — production completeness, 2026-10-17:** D01/D03 match the selected boundary/interpolation/cumulative-budget and retained-profile targets. D02 remains incomplete for same-point shooting adjoint purposes; D04 for joined scientific-product availability after authored refusal. **Tested, earlier 2026-10-17:** the Outcome below retains acceptance of the implemented scope and supported inquiry branches. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The packet table is the native progress owner; formal proposed ADR status does not assert or replace implementation acceptance.
+**Implemented — production-completeness correction, 2026-10-17:** the corrected production clauses above are integrated with their actual consumers. Selected numerical/profile/tool decisions remain settled. Affected functional checks and scope-end integration acceptance are complete; [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns commands, repaired checks and exclusions. Earlier acceptance below retains its original scope.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-**Implemented — delivered scope; D02/D04 retain the production remainders above:** D01–D04 separate genuine event/reset/physical boundaries from covered output interpolation. Profile Version2 governs accepted advancement cumulatively for the complete forward trajectory, aggregate replay of a derivative operation and each complete backward functional/direction trajectory. Sampling, restores and reinitialization do not renew permission. Public Rust/Python/nested consumers migrate together and Version1 is explicitly rejected. Maintained IDAS guards operate at actual replay/per-memory advancement while NORMAL scheduling preserves covered output. Diffsol restores retain the actual producer and cumulative counters. Selected JVP/HVP products and admitted scratch serve actions; exact-point fit upgrades install complete products transactionally. Qualification, requested response/curvature, statistics withholding and readiness tails stay distinct.
+**Implemented — delivered scope and production-completeness correction:** D01–D04 separate genuine event/reset/physical boundaries from covered output interpolation. Profile Version2 governs accepted advancement cumulatively for the complete forward trajectory, aggregate replay of a derivative operation and each complete backward functional/direction trajectory. Sampling, restores and reinitialization do not renew permission. Public Rust/Python/nested consumers migrate together and Version1 is explicitly rejected. Maintained IDAS guards operate at actual replay/per-memory advancement while NORMAL scheduling preserves covered output. Diffsol restores retain the actual producer and cumulative counters. Selected JVP/HVP products and admitted scratch serve actions; exact-point fit upgrades install complete products transactionally. Qualification, requested response/curvature, statistics withholding and readiness tails stay distinct.
 
 **Tested, 2026-10-17:** the linked native 284-case selection includes independent trajectories, covered-output exhaustion, events/IC/sensitivity/quadrature, reset/sample order, replay/backward budgets, product actions and restored producer work. The integrated runtime selection passed 76/76, including nonlinear DAE sensitivities, terminal integrals, event routes, scaled actions, shooting/multiple shooting, exact/first covariance, failed original-fit withholding and horizon reuse. Native Python ordinary consumers and all three managed sixteen-owner/equal-occurrence/cancellation study journeys passed with cleanup; their composite boundary and exact commands are recorded in [43g Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation).
 

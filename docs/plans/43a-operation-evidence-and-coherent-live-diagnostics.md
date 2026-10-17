@@ -1,6 +1,6 @@
 ---
 title: Operation evidence and coherent live diagnostics
-status: in-progress
+status: done
 date: 2026-10-17
 adrs: [ADR-0192]
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -73,7 +73,7 @@ D02/D04 supply fitting/shooting/dynamic product reasons and readiness facts; B s
 
 Acceptance: two invocations with different retries/products retain different work/timing/outcomes; failure/cancellation/withholding preserve missing endpoints; cold/warm/explicit-seed roles remain distinct; unknown totals do not become known after joins. Nested durations remain inclusive. Server statement nanoseconds do not become client elapsed, and process RSS does not become an operation-private peak.
 
-**Remaining production alignment — 2026-10-17:** joined scientific-product availability is not yet governed consistently by original workflow completion. `RunResult::invocation_evidence` in `crates/pse-runtime/src/workflow/run.rs` advertises modeling sensitivities/root responses/reduced Hessians from successful native evidence and shooting trajectories from retained-data presence. Native analysis and retained trajectory construction can precede a later authored refusal. [43d/D04](43d-dynamics-fitting-and-workflow-effectiveness.md#d04) owns the shared correction: distinguish retained diagnostic data from available qualified scientific products, then migrate the joined Rust/Python/query projections. Preserve terminal/response readiness and raw or partial data. A04 closes after that actual consumer correction; this is not a missing-test finding.
+**Implemented — production-completeness correction, 2026-10-17:** joined scientific-product availability now uses each modeling step’s governing original completion and the shooting result’s original permission. Native sensitivity/root-response/reduced-Hessian evidence and partial trajectories remain retained diagnostic data after refusal. A later failed step cannot revoke an earlier accepted step’s products. [43d/D04](43d-dynamics-fitting-and-workflow-effectiveness.md#d04) owns that permission; A04 consumes it through the existing joined Rust/Python/query projection. Terminal elapsed and caller readiness remain independent.
 
 <a id="a05"></a>
 
@@ -92,7 +92,7 @@ Separate genuinely observational retention from mathematical preparation identit
 | A01 | Existing callback/work authority; RC01 for changed external contracts | Explicit producer scopes/prepared facts across all shared callback consumers; actual same-demand failure/control cases; remove old ambiguous publications | done |
 | A02 | A01 producer contract; RC01 | Coherent current/recent records and versioned complete consumer migration; no mixed event under contention/history-off | done |
 | A03 | A02 record meaning; RC02; C06's owner-safe extraction slice only where needed | Finite sampled/complete-selected collection with honest outcomes and bounded native retention; retire end-only truncation/flattening in migrated paths | done |
-| A04 | Early invocation/endpoint contract and existing work identities; RC01 where needed | Joined records across harness/workflow/analysis consumers with failures/withholding and correct sample populations; remove aggregate-only interpretation | in progress |
+| A04 | Early invocation/endpoint contract and existing work identities; RC01 where needed | Joined records across harness/workflow/analysis consumers with failures/withholding and correct sample populations; remove aggregate-only interpretation | done |
 | A05 | Current control/key consumers; RC10 before identity change | Effect-classification decision plus qualified identity separation or supported retained-identity branch; mode propagation and consumer migration | done |
 
 A05 may start before A01/A02. A04's consumers depend on particular producer facts, not every detailed collector. Logical independence still requires shared schema/callback/publication edit coordination.
@@ -101,7 +101,7 @@ A05 may start before A01/A02. A04's consumers depend on particular producer fact
 
 **Proposed:** low-level collection/interpretation tests use injected clocks/contention/loss and need no solver or store. Native extraction tests are scoped separately; regenerate changed documents/contracts through their owners. Compile touched packages and run focused tests with force-validation where Arrow is consumed. G02 qualifies active and terminal Rust/Python/managed consumer integration after functional completion; G03 assesses selected observer-cost questions without a fixed SLA.
 
-Current state: A01–A03/A05 remain implemented for their selected scope. The production-completeness audit reopens A04 for the D04-owned scientific-product availability correction above. Earlier foundation acceptance remains recorded below; it does not close this remaining production mismatch. B–G retain their own current package states.
+Current state: A01–A05 are complete, including the D04-owned governing scientific-product availability correction. [43g’s remediation Outcome](43g-qualification-and-design-publication.md#production-completeness-remediation-2026-10-17) records its affected acceptance; earlier foundation acceptance below retains its original scope.
 
 
 ### A05 effect classification and selected branch — 2026-10-17
@@ -124,17 +124,17 @@ Detailed selection reaches future Rust async/native owners and explicitly budget
 
 ### Execution checkpoint — 2026-10-17
 
-Historical foundation checkpoint: A01–A05 and observation-only B01/B05/C01/C06/D02/D04/E01/E04 support were integrated and accepted for the then-selected scope. The current checkpoint above supersedes its overall completion interpretation. Actual ordinary-stack local Python and managed-child journeys pass, including original scientific assertions and enclosing cleanup. Replaced ambiguous publications, end-only POUNCE flattening and aggregate service-counter joins are removed. All three owned worktrees were integrated and removed. The Outcome records repaired static checks and the full-book input limitation. The incomplete feature sweep moves to G04 after the now-authorized B–F changes; it is not passing evidence. Plan43 owns finding disposition and the remaining full-series execution.
+Historical foundation checkpoint: A01–A05 and observation-only B01/B05/C01/C06/D02/D04/E01/E04 support were integrated and accepted for the then-selected scope. The current checkpoint above supersedes its overall completion interpretation. Actual ordinary-stack local Python and managed-child journeys pass, including original scientific assertions and enclosing cleanup. Replaced ambiguous publications, end-only POUNCE flattening and aggregate service-counter joins are removed. All three owned worktrees were integrated and removed. The Outcome records repaired static checks and the full-book input limitation. The then-incomplete feature sweep subsequently completed in G04’s recorded composite acceptance. Plan43 owns the final finding dispositions; this historical checkpoint does not supersede the completed current state.
 
 ## Outcome
 
 ### Delivery and boundaries
 
-**Implemented — delivered foundation; A04 remains partially complete as recorded above:** performing-owner producer roles and prepared typed facts; coherent native/current/recent records; bounded selected JSONL capture and finite page readers; explicit synchronous thread CPU; actual managed child selection and canonical StudyHandle/StudyReport readback; per-invocation workflow/harness evidence with distinct endpoints and populations. Process checkpoints, inspection and progress documents are versioned, and generated Rust/Python schemas and native stubs are regenerated through their owners. Durable progress, inspection, timeline, CLI, reports and benchmark consumers use the same source meanings.
+**Implemented — delivered foundation and production-completeness correction:** performing-owner producer roles and prepared typed facts; coherent native/current/recent records; bounded selected JSONL capture and finite page readers; explicit synchronous thread CPU; actual managed child selection and canonical StudyHandle/StudyReport readback; per-invocation workflow/harness evidence with distinct endpoints and populations. Process checkpoints, inspection and progress documents are versioned, and generated Rust/Python schemas and native stubs are regenerated through their owners. Durable progress, inspection, timeline, CLI, reports and benchmark consumers use the same source meanings.
 
-The selected enabling slices add mathematical census/demand observations, native activation-aware facts and safe selected extraction, fitting/shooting requested-product reasons and artifact/inspection transport. They do not implement the remaining B–G numerical, platform, profiler or assembled full-series scope. Conservative full Controls identity is retained for the real report-memory admission effect; existing narrower native-session and mathematical compatibility remain valid. No numerical permission or original scientific assertion is weakened. ADR-0192 remains formally proposed.
+The selected enabling slices add mathematical census/demand observations, native activation-aware facts and safe selected extraction, fitting/shooting requested-product reasons and artifact/inspection transport. B–G’s subsequent numerical, platform, profiler and assembled scope is recorded in those companions and 43g; this foundation Outcome retains its original acceptance boundary. Conservative full Controls identity is retained for the real report-memory admission effect; existing narrower native-session and mathematical compatibility remain valid. No numerical permission or original scientific assertion is weakened. ADR-0192 remains formally proposed.
 
-Ambiguous shared callback publications, end-only POUNCE history flattening and aggregate before/after service-counter joins are deleted. Three owned worktrees were integrated before removal. Owned qualification services were quiesced, drained and stopped; fixture data and evidence remain retained. Enduring diagnostic meanings are published under blueprint §23.1/§21.1 and the simulation diagnostics guide. This companion remains while the active Plan43 consumes it.
+Ambiguous shared callback publications, end-only POUNCE history flattening and aggregate before/after service-counter joins are deleted. Three owned worktrees were integrated before removal. Owned qualification services were quiesced, drained and stopped; fixture data and evidence remain retained. Enduring diagnostic meanings are published under blueprint §23.1/§21.1 and the simulation diagnostics guide. This companion remains because Plan43’s retained Outcome and proposed ADR verification consume it.
 
 ### Mistakes corrected
 

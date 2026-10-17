@@ -5,10 +5,12 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
-is active again following its production-completeness audit. The owning
-[current checkpoint](43-solver-diagnostics-and-performance.md#current-checkpoint)
-routes the remaining production corrections and companion integration. Existing numerical
-work and supported retained choices remain; the audit does not introduce an evidence campaign.
+is complete after its production-completeness remediation. Its
+[current checkpoint](43-solver-diagnostics-and-performance.md#current-checkpoint) records
+all 36 packages done, F01–F08 resolved and the retained Q01–Q07 choices.
+[43g’s Outcome](43g-qualification-and-design-publication.md#production-completeness-remediation-2026-10-17)
+records selected functional/static acceptance, repaired failures and publication limits.
+The highest coordinator and consumed companions remain retained; other plans keep their scope.
 
 [Plan 42: Post-Plan41 simulation efficiency and diagnostics](42-post-plan41-simulation-efficiency-and-diagnostics.md)
 is complete. Its [Outcome](42-post-plan41-simulation-efficiency-and-diagnostics.md#outcome-recorded-after-implementation)

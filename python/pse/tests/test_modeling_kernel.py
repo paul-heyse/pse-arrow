@@ -917,7 +917,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     assert native.origin == origin
     assert len(native.attempts()) == 4
     native_table = native.table()
-    native_origin = pa.table(native_table).to_pylist()[0]["origin_json"]
+    native_origin = pa.table(native.table()).to_pylist()[0]["origin_json"]
     assert codec.decode_json(native_origin, documents.DiagnosticOrigin) == origin
     limited = package.diagnose_jacobian(
         declaration(220),

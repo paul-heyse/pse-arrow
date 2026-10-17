@@ -39,7 +39,7 @@ Inferring schemas or flattening only numeric values loses meaning. A second pers
 
 ### Production-completeness correction — 2026-10-17
 
-**Interface-checked:** Launch captures extend the existing capture projection with an explicit process subject and optional operation link; the derived key identifies the actual operation or launched process without inventing a diagnostic operation before execution publishes one. Numerical diagnostic exports retain optional originating invocation/attempt/failure context. These references preserve interpretation only and do not grant scientific use, replay, cancellation or publication permission. Changed view/document versions migrate all actual consumers through the registry and existing generators.
+**Implemented / Tested, 2026-10-17:** Launch captures extend the existing capture projection with an explicit process subject and optional operation link; the derived key identifies the actual operation or launched process without inventing a diagnostic operation before execution publishes one. Numerical diagnostic exports retain optional originating invocation/attempt/failure context. These references preserve interpretation only and do not grant scientific use, replay, cancellation or publication permission. Changed view/document versions migrate all actual consumers through the registry and existing generators. Selected functional checks and public consumers are recorded in [43g’s remediation Outcome](../plans/43g-qualification-and-design-publication.md#production-completeness-remediation-2026-10-17); formal proposed status remains separate.
 
 ### Consequences
 
