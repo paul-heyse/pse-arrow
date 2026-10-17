@@ -1583,6 +1583,7 @@ impl pse_model::diagnostic::DiagnosticProjection for CompileError {
                 d.locations.push(SourceLocation {
                     source: *definition,
                     revision: None,
+            document: None, occurrence_role: None, occurrence_position: None,
                     path: format!("definition/{definition}/source/{source_index}"),
                     name: None,
                     start,

@@ -298,6 +298,7 @@ impl ModelingPackage {
                 .push(pse_model::diagnostic::SourceLocation {
                     source: member,
                     revision: Some(self.revision.identity().as_id()),
+            document: None, occurrence_role: None, occurrence_position: None,
                     path: match target {
                         BindingTarget::Path(path) => path.clone(),
                         BindingTarget::Member(id) => id.to_string(),

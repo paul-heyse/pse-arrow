@@ -199,6 +199,7 @@ pse_diagnostics::impl_diagnostic! {
         if let Some(span) = span {
             facts.sources.push(*span.document_id.as_bytes());
             facts.locations.push(DiagnosticLocation { source: *span.document_id.as_bytes(), revision: None,
+            document: Some(*span.document_id.as_bytes()), occurrence_role: None, occurrence_position: None,
                 path: format!("document/{}", span.document_id), name: None, start: Some(span.start), end: Some(span.end) });
         }
         facts

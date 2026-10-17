@@ -645,6 +645,7 @@ mod tests {
                 .push(pse_model::diagnostic::SourceLocation {
                     source: token,
                     revision: Some(pse_ids::ContentHash::from_bytes([11; 32])),
+            document: None, occurrence_role: None, occurrence_position: None,
                     path: "authored/model.pse".into(),
                     name: Some("original declaration".into()),
                     start: Some(3),

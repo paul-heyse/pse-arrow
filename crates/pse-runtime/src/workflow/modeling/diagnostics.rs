@@ -345,6 +345,7 @@ pub(super) fn attribute(
             diagnostic.locations.push(SourceLocation {
                 source: *id,
                 revision: None,
+            document: None, occurrence_role: None, occurrence_position: None,
                 path: l.path.clone(),
                 name: None,
                 start: None,

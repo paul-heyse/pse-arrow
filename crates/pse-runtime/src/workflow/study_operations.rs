@@ -706,6 +706,7 @@ impl StudyOperation {
                 .push(pse_model::diagnostic::SourceLocation {
                     source: target,
                     revision: Some(self.source.revision.as_id()),
+            document: None, occurrence_role: None, occurrence_position: None,
                     path: target.to_string(),
                     name: None,
                     start: None,

@@ -155,6 +155,15 @@ pub struct SourceLocation {
     /// Immutable source interpretation context; absence is explicitly unattributed.
     #[serde(default)]
     pub revision: Option<ContentHash>,
+    /// Actual parser document identity; absence cannot qualify byte offsets.
+    #[serde(default)]
+    pub document: Option<SemanticId>,
+    /// Compiler-supplied occurrence role, independent of a display name.
+    #[serde(default)]
+    pub occurrence_role: Option<String>,
+    /// Original position within that occurrence role.
+    #[serde(default)]
+    pub occurrence_position: Option<u32>,
     /// Definition or document path, never a backend-local node identifier.
     pub path: String,
     /// Optional authored display name.
@@ -315,7 +324,7 @@ impl crate::HeapUsage for BoundaryDiagnostic {
             + self
                 .locations
                 .iter()
-                .map(|v| v.path.capacity() + v.name.as_ref().map_or(0, String::capacity))
+                .map(|v| v.path.capacity() + v.name.as_ref().map_or(0, String::capacity) + v.occurrence_role.as_ref().map_or(0, String::capacity))
                 .sum::<usize>()
             + self
                 .observations
@@ -502,6 +511,9 @@ pub fn project_facts(
         .map(|location| SourceLocation {
             source: SemanticId::from_bytes(location.source),
             revision: location.revision.map(ContentHash::from_bytes),
+            document: location.document.map(SemanticId::from_bytes),
+            occurrence_role: location.occurrence_role,
+            occurrence_position: location.occurrence_position,
             path: location.path,
             name: location.name,
             start: location.start,
@@ -581,6 +593,7 @@ mod tests {
                 original.locations.push(SourceLocation {
                     source: a,
                     revision: Some(ContentHash::from_bytes([5; 32])),
+            document: None, occurrence_role: None, occurrence_position: None,
                     path: "authored.pse".into(),
                     name: None,
                     start: Some(0),

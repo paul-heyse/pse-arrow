@@ -51,7 +51,7 @@ observations: $f.observations.iter().map(|(name,value)| {
     }
     row
 }).collect(),
-locations:$f.locations.iter().map(|l|$location{source_id:l.source,revision:l.revision,path:l.path.clone(),name:l.name.clone(),start:l.start.map(i64::from),end:l.end.map(i64::from)}).collect(),
+locations:$f.locations.iter().map(|l|$location{source_id:l.source,revision:l.revision,document:l.document,occurrence_role:l.occurrence_role.clone(),occurrence_position:l.occurrence_position.map(i64::from),path:l.path.clone(),name:l.name.clone(),start:l.start.map(i64::from),end:l.end.map(i64::from)}).collect(),
 validity:$f.validity.as_ref().map(|v|$validity{layer:v.layer,source_id:v.source,form_id:v.form,set_ids:v.sets.clone(),variables:v.variables.iter().map(|v|i64::from(*v)).collect(),member_ids:v.members.clone()}),
 applicability:$f.applicability.iter().map(|o|$applicability{
     claim:$claim{id:o.claim.id,coverage:o.claim.coverage,owner:o.claim.owner,owner_lineage:o.claim.owner_lineage.clone(),evidence:o.claim.evidence,form:o.claim.form,call:o.claim.call,records:o.claim.records.clone(),dependencies:o.claim.dependencies.clone(),layer:o.claim.layer,basis:o.claim.basis,reason:o.claim.reason.clone()},
@@ -285,6 +285,7 @@ mod tests {
         diagnostic.locations.push(SourceLocation {
             source,
             revision: Some(revision),
+            document: None, occurrence_role: None, occurrence_position: None,
             path: "unit.pse".into(),
             name: Some("balance".into()),
             start: Some(5),

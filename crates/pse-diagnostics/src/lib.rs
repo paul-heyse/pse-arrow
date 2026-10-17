@@ -37,6 +37,12 @@ pub struct DiagnosticLocation {
     pub source: [u8; 16],
     /// Immutable revision, when supplied by the source owner.
     pub revision: Option<[u8; 32]>,
+    /// Actual source document identity, when supplied.
+    pub document: Option<[u8; 16]>,
+    /// Compiler-supplied occurrence role.
+    pub occurrence_role: Option<String>,
+    /// Original role-local occurrence position.
+    pub occurrence_position: Option<u32>,
     /// Authored path.
     pub path: String,
     /// Authored display name.
