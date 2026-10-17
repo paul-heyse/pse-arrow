@@ -331,6 +331,8 @@ impl ModelingDiagnostics {
 /// projection, never a numerical pullback or an instruction to re-evaluate a row.
 fn original_contributors(model: &pse_compiler::workspace::PreparedModeling, id: SemanticId) -> std::collections::BTreeSet<SemanticId> {
     let mut sources = std::collections::BTreeSet::from([id]);
+    sources.extend(model.model.ports.values().filter(|port| port.symbol == id).map(|port| port.id));
+    sources.extend(model.model.material_ports.values().filter(|port| port.coordinates.values().any(|coordinate| *coordinate == id)).map(|port| port.id));
     for output in model.admitted.outputs.iter().filter(|output| output.row_id() == id) {
         match output {
             ModelingOutput::DynamicRate { state, equations } => { sources.insert(*state); sources.extend(equations); }
@@ -1440,6 +1442,7 @@ mod tests {
         combined.causes.push(finding(FindingKind::EquationLargeResidual, [original[0], missing], None, None));
         attribute(&mut combined, &attributed);
         assert!(original.iter().all(|source| combined.locations.iter().any(|location| location.source == *source)));
+        assert!(combined.sources.contains(&alias_id));
         assert!(combined.locations.iter().any(|location| location.source == alias_id && location.path.ends_with(".supplied_alias")));
         assert!(combined.locations.iter().all(|location| location.document == Some(SemanticId::from_bytes([83; 16]))
             && location.occurrence_role.is_some() && location.occurrence_position.is_some()));
