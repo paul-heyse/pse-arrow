@@ -897,3 +897,85 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
         assert codec.encode_json(result.attempt_summary) == summary_before
     finally:
         runtime.close()
+
+
+@pytest.mark.unit
+def test_launch_capture_public_command_survives_sampler_stop(tmp_path: Path) -> None:
+    """Actual public owners remain independent even when perf is unavailable."""
+    from pse.contracts.documents import LaunchCaptureRequest
+
+    request = LaunchCaptureRequest(
+        version=1,
+        argv=["/bin/sh", "-c", "sleep 60 & wait"],
+        cwd=None,
+        output=str(tmp_path / "capture"),
+        duration=ClosedDuration(secs=1, nanos=0),
+        startup_timeout=ClosedDuration(secs=1, nanos=0),
+        budget=CaptureBudget(memory_bytes=4 << 20, output_bytes=1 << 20),
+    )
+    command, session = diagnostics.launch_capture(request)
+    try:
+        assert command.locator.pid > 0
+        document = session.stop()
+        assert command.try_wait() is None
+        assert document.operation is None
+        assert document.launch_process is not None
+        assert document.launch_process.pid == command.locator.pid
+        view = diagnostics.capture_arrow(document)
+        assert view.column("operation")[0].as_py() is None
+        assert view.column("launch_process_json")[0].as_py() is not None
+    finally:
+        session.stop()
+        command.close()
+    assert command.try_wait() == 137
+
+
+@pytest.mark.unit
+def test_launch_capture_cli_retains_command_and_returns_scientific_exit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A sampler failure cannot hide or replace a nonzero scientific outcome."""
+    assert diagnostics.main(
+        [
+            "capture-launch", "--output", str(tmp_path / "capture"),
+            "--duration", "0.05", "--startup-timeout", "1", "--",
+            "/bin/sh", "-c", "printf finished > \"$1\"; exit 7", "science",
+            str(tmp_path / "science-finished"),
+        ]
+    ) == 7
+    assert (tmp_path / "science-finished").read_text() == "finished"
+    document = codec.decode_json(capsys.readouterr().out, CaptureDocument)
+    assert document.operation is None
+    assert document.launch_process is not None
+
+
+@pytest.mark.unit
+def test_launch_capture_public_literal_arguments_and_working_directory(tmp_path: Path) -> None:
+    from pse.contracts.documents import LaunchCaptureRequest
+
+    command, session = diagnostics.launch_capture(
+        LaunchCaptureRequest(
+            version=1,
+            argv=["/bin/sh", "-c", "printf '%s' \"$1\" > literal", "science", "$(touch WRONG); a b"],
+            cwd=str(tmp_path), output=str(tmp_path / "capture"),
+            duration=ClosedDuration(secs=0, nanos=50_000_000),
+            startup_timeout=ClosedDuration(secs=1, nanos=0),
+            budget=CaptureBudget(memory_bytes=4 << 20, output_bytes=1 << 20),
+        )
+    )
+    try:
+        assert command.wait() == 0
+        session.stop()
+    finally:
+        session.stop()
+        command.close()
+    assert (tmp_path / "literal").read_text() == "$(touch WRONG); a b"
+    assert not (tmp_path / "WRONG").exists()
+
+
+@pytest.mark.unit
+def test_launch_capture_cli_requires_explicit_executable(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        diagnostics.main(["capture-launch", "--output", str(tmp_path / "unused")])
+    assert error.value.code == 2
+    assert not (tmp_path / "unused").exists()

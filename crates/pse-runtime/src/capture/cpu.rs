@@ -226,11 +226,11 @@ fn start_sampler(
             "CPU process exited or its PID was reused before attachment".into(),
         ));
     }
-    start_sampler_for(request.output.as_path(), image.locator.pid, image.locator.start_ticks, allowance, files, state, None)
+    start_sampler_for(request.output.as_path(), image.locator.pid, image.locator.start_ticks, allowance, files, state, None, "perf")
 }
 fn start_sampler_for(
     output_path: &Path, pid: u32, ticks: Option<u64>, allowance: u64,
-    files: &mut OwnedFiles, state: &Shared, control: Option<(&Path, &Path)>,
+    files: &mut OwnedFiles, state: &Shared, control: Option<(&Path, &Path)>, sampler_program: &str,
 ) -> Result<Sampler, CaptureError> {
     let label = format!(
         "{}-{:016x}",
@@ -244,7 +244,7 @@ fn start_sampler_for(
     files.reserve_pair(&raw, &log, file_limit)?;
     output(state, &raw, CaptureOutputKind::PerfData, false);
     output(state, &log, CaptureOutputKind::ToolLog, false);
-    let mut command = command("perf", file_limit, &log)?;
+    let mut command = command(sampler_program, file_limit, &log)?;
     // Default inheritance covers threads born after attachment, and also forked descendants.
     // Those samples remain inclusive process/task evidence, never exclusive operation CPU.
     command
@@ -665,6 +665,15 @@ pub(super) fn run_launched(
     stop: &AtomicBool, state: &Shared,
     ready: &std::sync::mpsc::SyncSender<Result<(), String>>,
 ) -> Result<(), CaptureError> {
+    run_launched_program(request, locator, stop, state, ready, "perf")
+}
+pub(super) fn run_launched_program(
+    request: &super::launch::LaunchCaptureRequest,
+    locator: &crate::observation::ProcessLocator,
+    stop: &AtomicBool, state: &Shared,
+    ready: &std::sync::mpsc::SyncSender<Result<(), String>>,
+    sampler_program: &str,
+) -> Result<(), CaptureError> {
     use std::os::unix::fs::OpenOptionsExt;
     let control_path = request.output.join("perf-control.fifo");
     let ack_path = request.output.join("perf-ack.fifo");
@@ -678,7 +687,7 @@ pub(super) fn run_launched(
     let mut files = OwnedFiles::new(request.budget.output_bytes);
     let allowance = request.budget.output_bytes / 4 * 3;
     let mut sampler = start_sampler_for(&request.output, locator.pid, locator.start_ticks,
-        allowance, &mut files, state, Some((&control_path, &ack_path)))?;
+        allowance, &mut files, state, Some((&control_path, &ack_path)), sampler_program)?;
     let result = (|| {
         control.write_all(b"enable\n")?;
         let started = Instant::now();

@@ -92,3 +92,46 @@ fn launch_capture_direct_arguments_preserve_spaces_metacharacters_and_cwd() {
     assert_eq!(std::fs::read_to_string(directory.path().join("literal")).unwrap(), "$(touch WRONG); a b");
     assert!(!directory.path().join("WRONG").exists());
 }
+
+#[test]
+fn launch_capture_real_control_protocol_enables_sampling_before_exec() {
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("scientific-first-instruction");
+    let enabled = directory.path().join("sampling-enabled");
+    let sampler = directory.path().join("sampler");
+    // This executable substitutes only the external sampler. Actual FIFO creation, fd wiring,
+    // enable command, acknowledgement, gated exec and both independent owners remain production.
+    let script = format!("#!/bin/sh\nIFS= read -r command <&3 || exit 4\n[ \"$command\" = enable ] || exit 5\n[ ! -e '{}' ] || exit 6\nprintf enabled > '{}'\nprintf 'ack\\n' >&4\nwhile [ ! -e '{}' ]; do sleep .01; done\n", marker.display(), enabled.display(), marker.display());
+    std::fs::write(&sampler, script).unwrap();
+    std::fs::set_permissions(&sampler, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let mut request = request(directory.path(), &["/bin/sh", "-c", "test -e \"$1\" || exit 8; printf science > \"$2\"", "science"]);
+    request.startup_timeout = Duration::from_secs(2);
+    request.argv.extend([enabled.display().to_string(), marker.display().to_string()]);
+    let sampler = sampler.display().to_string();
+    let (mut command, capture) = launch_with(request, move |request, locator, stop, state, ready| {
+        cpu::run_launched_program(request, locator, stop, state, ready, &sampler)
+    }).unwrap();
+    assert_eq!(command.wait().unwrap(), 0);
+    let document = capture.wait().unwrap();
+    assert_eq!(std::fs::read_to_string(marker).unwrap(), "science");
+    // No samples were manufactured by this protocol-only control.
+    assert_eq!(document.status, CaptureStatus::Failed);
+    assert!(document.loss.sampling_loss_unknown);
+    assert!(!directory.path().join("capture/perf-control.fifo").exists());
+    assert!(!directory.path().join("capture/perf-ack.fifo").exists());
+}
+#[test]
+fn launch_capture_actual_sampler_start_failure_preserves_logs_and_science() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut request = request(directory.path(), &["/bin/sh", "-c", "exit 9"]);
+    request.startup_timeout = Duration::from_secs(1);
+    let (mut command, capture) = launch_with(request, |request, locator, stop, state, ready| {
+        cpu::run_launched_program(request, locator, stop, state, ready, "/no/such/pse-sampler")
+    }).unwrap();
+    assert_eq!(command.wait().unwrap(), 9);
+    let document = capture.wait().unwrap();
+    assert_eq!(document.status, CaptureStatus::Failed);
+    assert!(document.outputs.iter().any(|output| output.kind == super::super::CaptureOutputKind::ToolLog));
+    assert!(!document.errors.is_empty());
+}
