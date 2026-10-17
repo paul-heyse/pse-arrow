@@ -32,9 +32,9 @@ impl std::task::Wake for ReleasedWake {
     fn wake(self: std::sync::Arc<Self>) { notify(); }
     fn wake_by_ref(self: &std::sync::Arc<Self>) { notify(); }
 }
-fn cancellation_watch(execution: &Execution) -> pse_diagnostics::CancellationWatch {
+fn stop_watches(execution: &Execution) -> (pse_diagnostics::CancellationWatch, pse_diagnostics::WakeWatch) {
     let wake = std::task::Waker::from(std::sync::Arc::new(ReleasedWake));
-    execution.cancellation_control().watch(&wake)
+    (execution.cancellation_control().watch(&wake), execution.abandonment.watch(&wake))
 }
 fn wait(changed: std::sync::MutexGuard<'_, ()>, execution: &Execution) -> Result<(), ProblemError> {
     if let Some(deadline) = execution.scope()?.deadline() {
@@ -83,7 +83,7 @@ pub(crate) fn read(execution: &Execution) -> Result<RwLockReadGuard<'static, ()>
         ));
     }
     crate::execution::pause_compute();
-    let _cancel_watch = cancellation_watch(execution);
+    let _stop_watches = stop_watches(execution);
     loop {
         execution.check()?;
         // Registration and native-guard inspection share the release condition.
@@ -157,7 +157,7 @@ pub(crate) fn exclusive(execution: &Execution) -> Result<Exclusive, ProblemError
     }
     let _waiting = Waiting::new();
     crate::execution::pause_compute();
-    let _cancel_watch = cancellation_watch(execution);
+    let _stop_watches = stop_watches(execution);
     loop {
         execution.check()?;
         let changed = CHANGE
@@ -194,7 +194,7 @@ mod tests {
     };
     use std::sync::{
         Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering},
         mpsc,
     };
     #[derive(Debug)]

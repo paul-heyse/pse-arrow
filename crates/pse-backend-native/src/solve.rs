@@ -10,7 +10,7 @@ use crate::ProblemError;
 pub use exact_objective::ExactObjectiveTransport;
 #[cfg(any(feature = "kinsol", test))]
 pub(crate) use observations::RawMapCapture;
-#[cfg(feature = "ipopt")]
+#[cfg(any(feature = "ipopt", feature = "uno"))]
 pub(crate) use observations::SNAPSHOT_COORDINATES;
 pub use observations::{
     NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
@@ -975,6 +975,7 @@ mod progress_contention_tests {
 #[derive(Debug, Default)]
 pub struct AttemptAbandonment {
     reason: AtomicU8,
+    changed: pse_diagnostics::WakeSignal,
 }
 impl AttemptAbandonment {
     /// Record the first numerical abandonment reason. Operational failures cannot be
@@ -994,10 +995,17 @@ impl AttemptAbandonment {
                 ));
             }
         };
-        Ok(self
-            .reason
-            .compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire)
-            .is_ok())
+        let recorded = self.reason.compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire).is_ok();
+        if recorded { self.changed.notify(); }
+        Ok(recorded)
+    }
+    /// Register before inspecting the abandonment predicate and parking.
+    pub fn watch(&self, waker: &std::task::Waker) -> pse_diagnostics::WakeWatch {
+        self.changed.watch(waker)
+    }
+    /// Register an owned one-shot listener now, before checking attempt state.
+    pub fn notified(&self) -> impl std::future::Future<Output = ()> + Send + 'static {
+        self.changed.notified()
     }
     /// Exact recorded reason; absence means the attempt was not abandoned.
     pub fn observation(&self) -> Option<pse_model::generated::enums::NumericalAttemptObservation> {
