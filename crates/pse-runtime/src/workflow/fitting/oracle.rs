@@ -1584,6 +1584,8 @@ pub(super) fn evaluate_experiment(
     previous: Option<&native::dynamics::Report>,
     validity: &UpgradeValidity,
 ) -> Result<ExperimentProducts, ProblemError> {
+    // Only activated transient backends can report upgrade contradictions below.
+    let _ = validity;
     let operation = pse_diagnostics::observation::current().map(|parent| {
         parent.count("fit.experiment_attempts", "count", 1);
         parent.child(

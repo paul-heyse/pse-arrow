@@ -2987,7 +2987,7 @@ pub(crate) fn run_path(
     }
     outcome
 }
-struct PathCancellation(Option<pse_diagnostics::Cancellation>);
+struct PathCancellation(Option<Cancellation>);
 impl Drop for PathCancellation {
     fn drop(&mut self) {
         if let Some(cancel) = &self.0 {

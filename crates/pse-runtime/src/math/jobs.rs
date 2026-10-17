@@ -706,7 +706,7 @@ impl MathService {
         cores: usize,
         bytes: usize,
         work: impl FnOnce(
-            pse_diagnostics::Cancellation,
+            Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -723,7 +723,7 @@ impl MathService {
         bytes: usize,
         submission: Submission,
         work: impl FnOnce(
-            pse_diagnostics::Cancellation,
+            Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -740,7 +740,7 @@ impl MathService {
         construction: ConstructionEstimate,
         submission: Submission,
         work: impl FnOnce(
-            pse_diagnostics::Cancellation,
+            Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -758,7 +758,7 @@ impl MathService {
         bytes: usize,
         submission: Submission,
         work: impl FnOnce(
-            pse_diagnostics::Cancellation,
+            Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -780,7 +780,7 @@ impl MathService {
         submission: Submission,
         source_owns_deadline: bool,
         work: impl FnOnce(
-            pse_diagnostics::Cancellation,
+            Cancellation,
             Arc<pse_backend_native::solve::Progress>,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
@@ -833,7 +833,7 @@ impl MathService {
         cores: usize,
         bytes: usize,
         cancel: Cancellation,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -848,7 +848,7 @@ impl MathService {
         bytes: usize,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -866,7 +866,7 @@ impl MathService {
         cores: usize,
         bytes: usize,
         cancel: Cancellation,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -881,7 +881,7 @@ impl MathService {
         bytes: usize,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -896,7 +896,7 @@ impl MathService {
         construction: ConstructionEstimate,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -916,7 +916,7 @@ impl MathService {
         construction: ConstructionEstimate,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -936,7 +936,7 @@ impl MathService {
         deadline: Option<std::time::Instant>,
         work: impl FnOnce(
             super::CompilerAuthority,
-            pse_diagnostics::Cancellation,
+            Cancellation,
         ) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
@@ -992,7 +992,7 @@ impl MathService {
         deadline: Option<std::time::Instant>,
         work: impl FnOnce(
             super::CompilerAuthority,
-            pse_diagnostics::Cancellation,
+            Cancellation,
         ) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
@@ -1044,7 +1044,7 @@ impl MathService {
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
         entry: AdmissionEntry,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -1062,7 +1062,7 @@ impl MathService {
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
         entry: AdmissionEntry,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -1232,7 +1232,7 @@ impl MathService {
             bool,
         ),
         entry: Option<AdmissionEntry>,
-        work: impl FnOnce(pse_diagnostics::Cancellation) -> Result<(T, usize), MathRuntimeError>
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {

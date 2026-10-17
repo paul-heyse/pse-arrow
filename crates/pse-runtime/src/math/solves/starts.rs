@@ -5,10 +5,9 @@ use super::*;
 use crate::math::prediction::{Proposal, Screened};
 use native::NlpOracle;
 use pse_model::strategy::BranchPolicy;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Abandonment stops the enclosing task; ordinary deadline exhaustion never changes its flag.
-struct AbandonedTask(Option<pse_diagnostics::Cancellation>);
+struct AbandonedTask(Option<Cancellation>);
 impl Drop for AbandonedTask {
     fn drop(&mut self) {
         if let Some(flag) = &self.0 {

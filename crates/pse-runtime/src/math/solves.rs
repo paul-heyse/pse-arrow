@@ -4316,7 +4316,7 @@ impl MathService {
                 .checked_add(step.time_limit())
                 .ok_or_else(|| ProblemError::Contract("submitted solve deadline extent".into()))?;
             step.within_task(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
+                Cancellation::default(),
                 Some(deadline),
             ))?
         } else {
@@ -4391,7 +4391,7 @@ impl MathService {
         previous: Option<Predecessor>,
         attempt: usize,
         retained: &mut Retained,
-        flag: &pse_diagnostics::Cancellation,
+        flag: &Cancellation,
         progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
         owner: &Arc<pse_columnar::AllocationLease>,
@@ -4428,7 +4428,7 @@ impl MathService {
         &self,
         members: Vec<BatchMember>,
         retained: &mut Retained,
-        flag: &pse_diagnostics::Cancellation,
+        flag: &Cancellation,
         progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
         scope: &pse_kernels::ExecutionScope,
@@ -4500,7 +4500,7 @@ impl MathService {
         step: PreparedSolve,
         previous: Option<Predecessor>,
         retained: &mut Retained,
-        flag: &pse_diagnostics::Cancellation,
+        flag: &Cancellation,
         progress: &Arc<Progress>,
         scope: Option<&pse_kernels::ExecutionScope>,
     ) -> Result<Admitted, Outcome> {

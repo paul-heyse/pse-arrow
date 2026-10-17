@@ -912,7 +912,7 @@ mod tests {
         let task = actor(
             e,
             o,
-            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+            pse_kernels::ExecutionScope::new(Cancellation::new(false), None),
             control,
         )
         .unwrap();
@@ -995,7 +995,7 @@ mod tests {
     fn actor_refuses_expired_original_scope_before_evaluation_and_joins_failed_construction() {
         let (e, o, threads, destroyed) = fixture();
         let scope = pse_kernels::ExecutionScope::new(
-            pse_diagnostics::Cancellation::new(false),
+            Cancellation::new(false),
             Some(Instant::now() - std::time::Duration::from_secs(1)),
         );
         assert!(matches!(
@@ -1024,7 +1024,7 @@ mod tests {
             }
         }
         let (e, o, _, _) = fixture();
-        let cancel = pse_diagnostics::Cancellation::default();
+        let cancel = Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(
             cancel.clone(),
             Some(Instant::now() + std::time::Duration::from_secs(20)),
@@ -1073,7 +1073,7 @@ mod tests {
             }
         }
         let (e, o, _, _) = fixture();
-        let cancel = pse_diagnostics::Cancellation::default();
+        let cancel = Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(
             cancel.clone(),
             Some(Instant::now() + std::time::Duration::from_secs(20)),
@@ -1182,7 +1182,7 @@ mod tests {
         evaluator.correspondence.model_target = identity;
         evaluator.correspondence.coordinates = original.original_coordinates().unwrap();
         let scope = pse_kernels::ExecutionScope::new(
-            pse_diagnostics::Cancellation::new(false),
+            Cancellation::new(false),
             Some(Instant::now() + std::time::Duration::from_secs(20)),
         );
         let handle = Arc::new(
@@ -1193,7 +1193,7 @@ mod tests {
                 .unwrap(),
         );
         let unrelated =
-            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), scope.deadline());
+            pse_kernels::ExecutionScope::new(Cancellation::new(false), scope.deadline());
         assert!(
             runtime
                 .native()
