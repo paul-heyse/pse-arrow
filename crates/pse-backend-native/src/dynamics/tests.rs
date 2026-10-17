@@ -1392,6 +1392,20 @@ fn checkpointed_dense_output_uses_returned_time_for_sensitivities_and_quadrature
         .chain((1..=200).map(|i| i as f64 / 200.)).collect();
     p.out_rtol = Some(1e-8);
     p.out_atol = vec![1e-10];
+    // Declared quadratures retain their supported forward-response route. The
+    // checkpointed Hessian route intentionally refuses declared quadratures.
+    p.sensitivity = DynamicSensitivity::Forward;
+    let forward = run(&mut oracle, &p);
+    assert_eq!(forward.termination, Termination::Completed, "{:?}", forward.error);
+    for sample in &forward.samples {
+        let decay = (-2. * sample.time).exp();
+        assert!((sample.state_sensitivities[0] - (1. - 2. * sample.time) * decay).abs() < 1e-5);
+        assert!((sample.integrals[0] - (2. * decay - 2.)).abs() < 1e-6);
+    }
+    oracle.c.quadratures.clear();
+    p.sensitivity = DynamicSensitivity::Adjoint;
+    p.out_rtol = None;
+    p.out_atol.clear();
     let result = hessian(&mut oracle, &p, &[2.], &[0], &mut |report: &Report| {
         let mut weights = vec![0.; report.samples.len()];
         *weights.last_mut().unwrap() = 1.;
@@ -1403,7 +1417,6 @@ fn checkpointed_dense_output_uses_returned_time_for_sensitivities_and_quadrature
         assert!((sample.state[0] - 2. * decay).abs() < 1e-6);
         assert!((sample.state_sensitivities[0] - (1. - 2. * sample.time) * decay).abs() < 1e-5);
         assert!((sample.output_sensitivities[0] - ((1. - 2. * sample.time) * decay + 1.)).abs() < 1e-5);
-        assert!((sample.integrals[0] - (2. * decay - 2.)).abs() < 1e-6);
     }
     assert!((result.gradient.as_ref().unwrap()[0] - (1. - (-2f64).exp())).abs() < 1e-5);
     assert!(result.hessian.as_ref().unwrap()[(0, 0)].abs() < 1e-5);

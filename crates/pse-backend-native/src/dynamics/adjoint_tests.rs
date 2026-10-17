@@ -282,14 +282,15 @@ fn diffsol_adjoint_live_roles_preserve_counter_epochs_and_scientific_calls() {
             matches!(metric("number_of_steps").cumulative, Value::Count(value) if value > 0),
             "{role}"
         );
-        assert!(
-            matches!(metric("physical_time").latest, Value::Number(_)),
-            "{role}"
-        );
-        assert_eq!(
-            metric("last_step_returned_success").latest,
-            Value::Boolean(true)
-        );
+        let checkpoint = snapshot.producers.iter()
+            .filter(|producer| producer.descriptor.name == role)
+            .filter_map(|producer| producer.current.as_ref())
+            .find(|record| record.family == "dynamic_native_step.v1").unwrap();
+        assert_eq!(checkpoint.phase, format!("{role}.native_step"));
+        assert!(checkpoint.values.iter().any(|field| field.name == "physical_time"
+            && matches!(field.value, Value::Number(_))), "{role}");
+        assert!(checkpoint.values.iter().any(|field| field.name == "last_step_returned_success"
+            && field.value == Value::Boolean(true)), "{role}");
         assert!(snapshot.metrics.iter().any(|metric| metric.name
             == format!("{role}.number_of_linear_solver_setups_from_checkpoint")));
     }
