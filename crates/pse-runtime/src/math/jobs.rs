@@ -1972,7 +1972,7 @@ mod construction_tests {
     fn passive_worker_allocation_retains_idle_charge_without_original_task_admission() {
         let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(4096));
         let lane = WorkerBudget::drawing(1024, &pool);
-        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stop = Cancellation::default();
         let old_stop = Arc::downgrade(&stop);
         let admission = super::super::strategy::admission::TaskAdmission::new(
             pse_model::strategy::WorkLimits {

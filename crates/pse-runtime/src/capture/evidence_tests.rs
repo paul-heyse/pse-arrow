@@ -23,7 +23,7 @@ fn record(sequence: u64, family_sequence: Option<u64>, values: Vec<RecordField>)
 fn page(records: Vec<CoherentRecord>) -> DetailRecordPage {
     DetailRecordPage { version: Default::default(), records, producers: Vec::new(), next_offset: None, partial: false }
 }
-fn array<'a, T: datafusion::arrow::array::Array + 'static>(batch: &'a RecordBatch, name: &str) -> &'a T {
+fn array<'a, T: Array + 'static>(batch: &'a RecordBatch, name: &str) -> &'a T {
     batch.column_by_name(name).unwrap().as_any().downcast_ref::<T>().unwrap()
 }
 #[test]

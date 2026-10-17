@@ -2826,7 +2826,7 @@ mod admission_tests {
         // Deterministically observe the boundary after the actual engine assessment;
         // neither sleeping nor a second numerical attempt is needed to expire it.
         let expired = pse_kernels::ExecutionScope::new(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             Some(std::time::Instant::now()),
         );
         let deadline = Arc::new(ProblemError::Provider(expired.check().unwrap_err()));
@@ -3408,7 +3408,7 @@ mod admission_tests {
         let mut session = service.open_session().unwrap();
         let (sender, receiver) = mpsc::channel();
         drop(receiver);
-        session.sender = Some(sender);
+        session.sender = Some(Arc::new(sender));
         let cancelled = crate::CancelSource::new();
         assert!(matches!(
             session.run(2, None, &cancelled, |_, _, _| Ok(())).await,
