@@ -818,6 +818,15 @@ poisons unfinished pure work instead of letting a later consumer restart it.
 
 #### 14.3.2 Resource ownership and admission limits
 
+> Decision: [ADR-0195](../../adr/0195-notification-owned-execution-waits.md) (proposed; maintainer-authorized Plan43 target).
+
+Completion-owned flights and kernel execution scopes share one notifying cancellation
+owner. Scientific callbacks borrow its atomic read flag; blocked owners register before
+checking stop. Actual semaphore releases notify after capacity returns, preserving complete
+team admission and tentative rollback. Native process exclusion and child readiness remain
+with their existing safety/drain owners; notifications create no scheduler or release authority.
+Plan43f owns implementation and acceptance.
+
 > Decision: [ADR-0176](../../adr/0176-quiescent-admission-and-exclusive-scratch-transfer.md)
 > (proposed; maintainer-authorized Plan 36 target). Population, resident bytes and active
 > stage admission have distinct owners. Independent child work follows quiescent parent

@@ -193,7 +193,7 @@ fn envelope_violation_is_typed_contract_error() {
     // Scoped workers are checked the same way.
     assert!(matches!(
         outside
-            .worker_scoped(ExecutionScope::new(Arc::new(AtomicBool::new(false)), None))
+            .worker_scoped(ExecutionScope::new(pse_diagnostics::Cancellation::default(), None))
             .unwrap()
             .evaluate(&[1.0], &all, &context),
         Err(ProviderError::Contract(_))

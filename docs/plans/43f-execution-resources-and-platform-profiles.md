@@ -1,8 +1,8 @@
 ---
 title: Execution resources and platform profiles
-status: planned
+status: in-progress
 date: 2026-10-17
-adrs: []
+adrs: [ADR-0195]
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
 scenario_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
 doc_owner: docs/plans/43-solver-diagnostics-and-performance.md

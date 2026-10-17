@@ -85,15 +85,17 @@ impl ProviderRequest {
 /// A direct mathematical invocation has no outer deadline; local native allowances remain finite.
 #[derive(Clone, Debug)]
 pub struct ExecutionScope {
+    control: pse_diagnostics::Cancellation,
     cancel: Arc<AtomicBool>,
     deadline: Option<Instant>,
     admitted_threads: NonZeroUsize,
 }
 impl ExecutionScope {
     /// Bind an execution's original deadline without starting or renewing its clock.
-    pub fn new(cancel: Arc<AtomicBool>, deadline: Option<Instant>) -> Self {
+    pub fn new(control: pse_diagnostics::Cancellation, deadline: Option<Instant>) -> Self {
         Self {
-            cancel,
+            cancel: control.flag(),
+            control,
             deadline,
             admitted_threads: NonZeroUsize::MIN,
         }
@@ -110,11 +112,15 @@ impl ExecutionScope {
     }
     /// A synchronous nested provider shares the original stop but owns no extra team.
     pub fn nested(&self) -> Self {
-        Self::new(self.cancel.clone(), self.deadline)
+        Self::new(self.control.clone(), self.deadline)
     }
     /// Same cancellation owner shared by every nested operation.
     pub fn cancellation(&self) -> &Arc<AtomicBool> {
         &self.cancel
+    }
+    /// Notifying owner shared by blocked execution and native exclusion waits.
+    pub fn cancellation_control(&self) -> &pse_diagnostics::Cancellation {
+        &self.control
     }
     /// Original absolute deadline; absent only for direct mathematical invocation.
     pub fn deadline(&self) -> Option<Instant> {
@@ -989,7 +995,7 @@ impl Registration {
     /// # Errors
     /// Returns factory failure or a contract error when its product changes meaning.
     pub fn worker(&self) -> Result<Box<dyn Provider>, ProviderError> {
-        self.worker_scoped(ExecutionScope::new(Arc::new(AtomicBool::new(false)), None))
+        self.worker_scoped(ExecutionScope::new(pse_diagnostics::Cancellation::default(), None))
     }
     /// Construct a worker with the enclosing attempt's immutable execution scope.
     pub fn worker_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {

@@ -5,6 +5,8 @@
 
 mod document;
 pub use document::ClosedDuration;
+mod cancellation;
+pub use cancellation::{Cancellation, CancellationWatch};
 
 pub mod inspection;
 pub mod observation;

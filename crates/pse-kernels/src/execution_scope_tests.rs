@@ -7,29 +7,29 @@
 use super::*;
 #[test]
 fn execution_scope_clones_share_absolute_deadline_and_cancellation_owner() {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let deadline = Instant::now() + Duration::from_secs(1);
     let original = ExecutionScope::new(cancel.clone(), Some(deadline))
         .with_admitted_threads(NonZeroUsize::new(3).unwrap());
     let child = original.clone();
     assert_eq!(child.deadline(), Some(deadline));
-    assert!(Arc::ptr_eq(child.cancellation(), &cancel));
+    assert!(Arc::ptr_eq(child.cancellation(), &cancel.flag()));
     assert_eq!(child.admitted_threads().get(), 3);
     let nested = child.nested();
     assert_eq!(nested.admitted_threads().get(), 1);
     assert_eq!(nested.deadline(), Some(deadline));
-    assert!(Arc::ptr_eq(nested.cancellation(), &cancel));
+    assert!(Arc::ptr_eq(nested.cancellation(), &cancel.flag()));
     assert!(child.remaining(Duration::from_secs(20)).unwrap() <= Duration::from_secs(1));
     let expired = ExecutionScope::new(cancel.clone(), Some(Instant::now()));
     assert!(matches!(expired.check(), Err(ProviderError::Deadline)));
-    assert!(!cancel.load(Ordering::Acquire));
-    cancel.store(true, Ordering::Release);
+    assert!(!cancel.is_cancelled());
+    cancel.cancel();
     assert!(matches!(expired.check(), Err(ProviderError::Cancelled)));
 }
 
 #[test]
 fn zero_local_allowance_is_not_an_expired_deadline() {
-    let scope = ExecutionScope::new(Arc::new(AtomicBool::new(false)), None);
+    let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
     assert!(matches!(
         scope.remaining(Duration::ZERO),
         Err(ProviderError::Limit("execution time allowance"))
