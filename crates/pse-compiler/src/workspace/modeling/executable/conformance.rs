@@ -292,7 +292,7 @@ impl CompilerWorkspace {
         let assembly = Arc::new(prepared.plan.compile(
             profile.optimization,
             profile.evaluation,
-            &cancel,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )?);
         let mut worker = assembly.worker(BTreeMap::new(), cancel);
         let output = worker.constraints(&inputs)?;

@@ -2180,7 +2180,7 @@ mod construction_tests {
                         DerivativeOrder::Value,
                         pse_math::library::Optimization::default(),
                         limits,
-                        &flag,
+                        &pse_kernels::ExecutionScope::new(flag.clone(), None),
                     )
                 };
                 for construction in [

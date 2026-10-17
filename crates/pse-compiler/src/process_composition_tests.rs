@@ -180,7 +180,7 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel.flag(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )
         .unwrap(),
     );

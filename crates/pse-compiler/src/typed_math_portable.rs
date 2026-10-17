@@ -559,7 +559,7 @@ mod tests {
             .0
             .clone();
         assert_eq!(wire["functions"][&key]["version"], 2);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         reconstruct_fixture(
             &payload,
             portable_payload_hash(&payload),
@@ -634,7 +634,7 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let rebuilt = reconstruct_fixture(
             &payload,
             portable_payload_hash(&payload),
@@ -651,7 +651,7 @@ mod tests {
                 DerivativeOrder::First,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let jet = compiled
@@ -707,7 +707,7 @@ mod tests {
         let payload = body.portable_payload().unwrap();
         let spec = body.spec.clone();
         drop(body);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let rebuilt = reconstruct_fixture(
             &payload,
             portable_payload_hash(&payload),
@@ -724,7 +724,7 @@ mod tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let mut worker = compiled.worker();
@@ -809,7 +809,7 @@ mod tests {
         let payload = body.portable_payload().unwrap();
         assert!(payload.len() > 3 * 1024 * 1024);
         assert_eq!(body.portable_payload_bytes().unwrap(), payload.len());
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let restored = reconstruct_fixture(
             &payload,
             portable_payload_hash(&payload),
@@ -827,7 +827,7 @@ mod tests {
                 DerivativeOrder::First,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let jet = compiled
@@ -954,7 +954,7 @@ mod tests {
         // Nothing from the original admitted body, its native atoms, or its backing
         // allocation survives into reconstruction.
         drop(body);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let rebuilt = reconstruct_fixture(&payload, expected, &spec, &registry, &cancel).unwrap();
         assert_eq!(rebuilt.spec, spec);
         assert_eq!(rebuilt.semantic_identity(), Some(identity));
@@ -966,7 +966,7 @@ mod tests {
                 DerivativeOrder::First,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let mut worker = compiled.worker();
@@ -992,7 +992,7 @@ mod tests {
         let (registry, body) = admitted();
         let spec = body.spec.clone();
         let payload = body.portable_payload().unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         assert!(
             reconstruct_fixture(
                 &payload,

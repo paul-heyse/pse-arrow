@@ -472,7 +472,7 @@ pub(crate) fn test_residual_bodies(
     } else {
         Vec::new()
     };
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let support = parameter
         .prepared_support()
         .incidence(&axes, &cancel)
@@ -481,7 +481,7 @@ pub(crate) fn test_residual_bodies(
         .unwrap();
     let unknown = Arc::new(
         support
-            .compile(Default::default(), Default::default(), &cancel)
+            .compile(Default::default(), Default::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))
             .unwrap(),
     );
     pse_math::implicit::ResidualBodies { unknown, parameter }
@@ -847,7 +847,7 @@ mod tests {
                     &[residual],
                     DerivativeOrder::First,
                     Default::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -1121,7 +1121,7 @@ mod tests {
                         &[a, b],
                         order,
                         pse_math::library::Optimization::default(),
-                        &cancel,
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                     )
                     .unwrap(),
             );
@@ -1359,7 +1359,7 @@ mod tests {
                     &[residual],
                     DerivativeOrder::Second,
                     pse_math::library::Optimization::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -1433,7 +1433,7 @@ mod tests {
                     &[residual],
                     DerivativeOrder::Second,
                     pse_math::library::Optimization::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );

@@ -771,7 +771,7 @@ mod pressure_tests {
     fn retained_artifact(service: &Arc<MathService>, value: u8) -> Arc<Artifact> {
         let (preparation, _, _) = tests::component_fixture(service);
         let program = preparation.compiled().artifacts[0]
-            .build(&Arc::default())
+            .build(&pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None))
             .unwrap();
         let lease = service
             .reserve(

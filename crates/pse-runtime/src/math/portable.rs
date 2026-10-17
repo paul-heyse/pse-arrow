@@ -2326,7 +2326,7 @@ mod portable_frame_tests {
     )]
     fn scoped_local_replay_configuration_cancellation_cannot_mint() {
         fn anchor() {}
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = pse_diagnostics::Cancellation::new(false);
         let stop = cancelled.clone();
         let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let observed_calls = calls.clone();
@@ -2834,7 +2834,7 @@ mod canonical_portable_body_tests {
                 .await
                 .unwrap(),
         );
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let restored = reuse_body(
             &service, &store, &mut read, &producer, identity, &context, &cancel,
         )
@@ -2850,7 +2850,7 @@ mod canonical_portable_body_tests {
                 pse_kernels::DerivativeOrder::Value,
                 pse_math::library::Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert_eq!(value_support.input_formals().len(), 1);
@@ -2863,7 +2863,7 @@ mod canonical_portable_body_tests {
                 pse_kernels::DerivativeOrder::First,
                 pse_math::library::Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let values = vec![9.0; compiled.input_formals().len()];
@@ -2945,7 +2945,7 @@ mod canonical_portable_body_tests {
         store.corrupt_product_block(published.key()).await.unwrap();
         let tiny = crate::math::tests::limited_service(1024);
         let identity = body.semantic_identity().unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let error = reuse_body(
             &tiny, &store, &mut read, &producer, identity, &context, &cancel,
         )
@@ -3337,7 +3337,7 @@ mod canonical_portable_body_tests {
         let service = crate::math::tests::service();
         let receiving = restarted_admission(local);
         assert_eq!(receiving.key(), initial_key);
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = pse_diagnostics::Cancellation::new(false);
         let rebuilt = reuse_body(
             &service,
             &store,
@@ -3370,7 +3370,7 @@ mod canonical_portable_body_tests {
                 pse_kernels::DerivativeOrder::First,
                 pse_math::library::Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancelled,
+                &pse_kernels::ExecutionScope::new(cancelled.clone(), None),
             )
             .unwrap();
         let mut worker = compiled.worker();
@@ -3610,7 +3610,7 @@ mod canonical_portable_body_tests {
             physical_identity(&context.quantities, &context.preconditions).to_prefixed(),
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let rebuilt = reuse_body(
             &crate::math::tests::service(),
             &store,
@@ -3632,7 +3632,7 @@ mod canonical_portable_body_tests {
                 pse_kernels::DerivativeOrder::First,
                 pse_math::library::Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let mut x = 9.0;

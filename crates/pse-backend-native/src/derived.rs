@@ -1283,7 +1283,7 @@ mod tests {
                     DerivativeOrder::First,
                     Optimization::default(),
                     pse_math::jets::EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -1295,7 +1295,7 @@ mod tests {
                     DerivativeOrder::First,
                     Optimization::default(),
                     pse_math::jets::EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -1307,7 +1307,7 @@ mod tests {
                     DerivativeOrder::First,
                     Optimization::default(),
                     pse_math::jets::EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -1727,7 +1727,7 @@ mod tests {
                     DerivativeOrder::First,
                     Optimization::default(),
                     pse_math::jets::EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -1739,7 +1739,7 @@ mod tests {
                     DerivativeOrder::First,
                     Optimization::default(),
                     pse_math::jets::EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -1751,7 +1751,7 @@ mod tests {
                     DerivativeOrder::First,
                     Optimization::default(),
                     pse_math::jets::EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );

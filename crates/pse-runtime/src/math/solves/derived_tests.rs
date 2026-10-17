@@ -1554,7 +1554,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
             .compile(
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &flag,
+                &pse_kernels::ExecutionScope::new(flag.clone(), None),
             )
             .unwrap(),
     );
@@ -1607,7 +1607,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 DerivativeOrder::First,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &flag,
+                &pse_kernels::ExecutionScope::new(flag.clone(), None),
             )
             .unwrap(),
     );
@@ -1619,7 +1619,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 DerivativeOrder::First,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &flag,
+                &pse_kernels::ExecutionScope::new(flag.clone(), None),
             )
             .unwrap(),
     );
@@ -1674,7 +1674,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                                 DerivativeOrder::First,
                                 Optimization::default(),
                                 pse_math::jets::EvaluationLimits::default(),
-                                &flag,
+                                &pse_kernels::ExecutionScope::new(flag.clone(), None),
                             )
                             .unwrap(),
                     ),
@@ -2423,7 +2423,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
                 DerivativeOrder::First,
                 pse_math::library::Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &flag,
+                &pse_kernels::ExecutionScope::new(flag.clone(), None),
             )
             .unwrap(),
         )
@@ -3750,7 +3750,7 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
                 DerivativeOrder::First,
                 pse_math::library::Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &flag,
+                &pse_kernels::ExecutionScope::new(flag.clone(), None),
             )
             .unwrap(),
         );
@@ -3786,7 +3786,7 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
                             DerivativeOrder::First,
                             pse_math::library::Optimization::default(),
                             pse_math::jets::EvaluationLimits::default(),
-                            &flag,
+                            &pse_kernels::ExecutionScope::new(flag.clone(), None),
                         )
                         .unwrap(),
                     ),

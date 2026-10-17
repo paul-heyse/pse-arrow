@@ -462,7 +462,7 @@ fn primitive(
         DerivativeOrder::Second,
         optimization,
         limits,
-        scope.cancellation(),
+        scope,
     )?;
     assert_eq!(residual.coordinates(), &(0..width).collect::<Vec<_>>());
     let eligibility = root.eligibility.compile(
@@ -471,7 +471,7 @@ fn primitive(
         DerivativeOrder::Value,
         optimization,
         limits,
-        scope.cancellation(),
+        scope,
     )?;
     Ok((residual, eligibility))
 }

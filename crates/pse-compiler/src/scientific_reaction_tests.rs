@@ -141,7 +141,7 @@ fn contributions(text: &str, point: &str) -> Vec<(String, f64)> {
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel.flag(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )
         .unwrap(),
     );

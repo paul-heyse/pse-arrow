@@ -268,17 +268,17 @@ impl Request<'_> {
         checker: &dyn InvariantChecker,
         order: DerivativeOrder,
         options: Optimization,
-        cancelled: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<Body, MathError> {
         pse_math::initialize()?;
-        let prepared = Arc::new(self.admit(registry, checker, cancelled)?);
+        let prepared = Arc::new(self.admit(registry, checker, scope.cancellation())?);
         let artifact = Arc::new(prepared.math.compile(
             &(0..prepared.math.output_count()).collect::<Vec<_>>(),
             &(0..self.formals.len()).collect::<Vec<_>>(),
             order,
             options,
             pse_math::jets::EvaluationLimits::default(),
-            cancelled,
+            scope,
         )?);
         Ok(Body { prepared, artifact })
     }
@@ -2006,7 +2006,7 @@ mod tests {
             &StandardInvariantChecker,
             order,
             Optimization::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
     }
     fn checked_physical_product(registry: &QuantityRegistry) -> pse_modeling::Function {
@@ -2092,7 +2092,7 @@ mod tests {
         }];
         let h = ContentHash::from_bytes([1; 32]);
         let empty = BTreeMap::new();
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = pse_diagnostics::Cancellation::new(false);
         let request = Request {
             definition: SemanticId::from_bytes([82; 16]),
             expressions: std::slice::from_ref(&expression),
@@ -2125,7 +2125,7 @@ mod tests {
                 DerivativeOrder::Second,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancelled,
+                &pse_kernels::ExecutionScope::new(cancelled.clone(), None),
             )
             .unwrap();
         let values = compiled
@@ -2206,7 +2206,7 @@ mod tests {
         }];
         let expression = dsl::parse_expr("guarded(x)").unwrap();
         let h = ContentHash::from_bytes([84; 32]);
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = pse_diagnostics::Cancellation::new(false);
         let request = Request {
             definition: SemanticId::from_bytes([84; 16]),
             expressions: std::slice::from_ref(&expression),
@@ -2252,7 +2252,7 @@ mod tests {
                     DerivativeOrder::Value,
                     Optimization::default(),
                     pse_math::jets::EvaluationLimits::default(),
-                    &cancelled,
+                    &pse_kernels::ExecutionScope::new(cancelled.clone(), None),
                 )
                 .unwrap();
             let mut worker = compiled.worker();
@@ -2326,7 +2326,7 @@ mod tests {
             quantity: scalar,
         }];
         let h = ContentHash::from_bytes([85; 32]);
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = pse_diagnostics::Cancellation::new(false);
         for (text, expected) in [
             ("finite_sum(x,x)", 6.0),
             ("finite_sum()", 0.0),
@@ -2395,7 +2395,7 @@ mod tests {
                     DerivativeOrder::Value,
                     Optimization::default(),
                     pse_math::jets::EvaluationLimits::default(),
-                    &cancelled,
+                    &pse_kernels::ExecutionScope::new(cancelled.clone(), None),
                 )
                 .unwrap();
             assert_eq!(
@@ -2568,7 +2568,7 @@ mod tests {
             path: "x".into(),
             quantity: ids::quantity("neutral"),
         }];
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         for (text, x, value, first, second) in [
             ("x^2", 3.0, 9.0, 6.0, 2.0),
             ("x^-1", 2.0, 0.5, -0.25, 0.25),
@@ -2779,7 +2779,7 @@ mod tests {
             &StandardInvariantChecker,
             DerivativeOrder::Value,
             Optimization::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         )
     }
     fn evaluate(body: &mut Body, values: &[f64]) -> Vec<f64> {
@@ -2918,14 +2918,14 @@ mod tests {
 
             limits: BodyLimits::default(),
         };
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let a = request
             .compile(
                 &registry,
                 &StandardInvariantChecker,
                 DerivativeOrder::First,
                 Optimization::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let b = request
@@ -2937,7 +2937,7 @@ mod tests {
                     cores: 2,
                     ..Optimization::default()
                 },
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert_eq!(a.spec, b.spec);
@@ -3058,7 +3058,7 @@ mod tests {
 
             limits: BodyLimits::default(),
         };
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         assert!(
             request
                 .compile(
@@ -3066,7 +3066,7 @@ mod tests {
                     &StandardInvariantChecker,
                     DerivativeOrder::First,
                     Optimization::default(),
-                    &cancel
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None)
                 )
                 .is_err()
         );
@@ -3076,7 +3076,7 @@ mod tests {
                 &StandardInvariantChecker,
                 DerivativeOrder::Value,
                 Optimization::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let mut extra = providers.clone();
@@ -3114,7 +3114,7 @@ mod tests {
                 DerivativeOrder::Value,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         let mut worker = restored_math.worker();
@@ -3154,7 +3154,7 @@ mod tests {
         let payload = body.prepared.portable_payload().unwrap();
         let spec = body.prepared.spec.clone();
         drop(body);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let original = standard_registry().unwrap();
         let mut shaped = original
             .quantity_type(ids::quantity("neutral"))
@@ -3184,7 +3184,7 @@ mod tests {
                 DerivativeOrder::Value,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         assert_eq!(
@@ -3238,7 +3238,7 @@ mod tests {
                 DerivativeOrder::First,
                 Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
         for x in [2.0, -2.0] {

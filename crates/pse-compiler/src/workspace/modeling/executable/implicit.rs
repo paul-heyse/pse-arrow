@@ -404,7 +404,7 @@ impl AdmittedImplicit {
         native_minimum: DerivativeOrder,
         verifier: Option<&dyn pse_math::implicit::SelectionVerifier>,
         accelerators: &pse_math::implicit::accelerators::Accelerators,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
         limits: EvaluationLimits,
     ) -> Result<pse_kernels::DerivativeRequirements> {
         let mut available = None;
@@ -796,7 +796,7 @@ impl AdmittedImplicit {
                             order,
                             Optimization::default(),
                             limits,
-                            &cancel,
+                            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                         )
                         .map_err(|error| {
                             error.with_derivative_body(Some(residual.id), body.spec.key())
@@ -845,7 +845,7 @@ impl AdmittedImplicit {
                             },
                             Optimization::default(),
                             limits,
-                            &cancel,
+                            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                         )
                         .map(Arc::new)
                         .map_err(|error| {
@@ -870,7 +870,7 @@ impl AdmittedImplicit {
                     unknown_order,
                     Optimization::default(),
                     limits,
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .map_err(|error| {
                     error.with_derivative_body(Some(residual.id), residual.body.spec.key())
@@ -935,7 +935,7 @@ impl AdmittedImplicit {
                             },
                             Optimization::default(),
                             limits,
-                            &cancel,
+                            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                         )
                         .map_err(|error| {
                             error.with_derivative_body(Some(residual.id), body.spec.key())
@@ -2175,7 +2175,7 @@ pub(super) fn admit(
             });
         }
         if implicit.selection.meaning == ImplicitMeaning::MinimumScore {
-            let cancel = Arc::new(AtomicBool::new(false));
+            let cancel = pse_diagnostics::Cancellation::new(false);
             for residual in &mut residuals {
                 let Some(assessment) = &residual.assessment else {
                     continue;

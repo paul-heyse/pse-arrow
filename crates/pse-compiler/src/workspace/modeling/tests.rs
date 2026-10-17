@@ -727,7 +727,7 @@ fn kernel_structure_follows_lazy_specialization_and_cancellation_is_transient() 
         demand: vec!["x".into()],
         ..Bindings::default()
     };
-    let cancel = Arc::new(AtomicBool::new(true));
+    let cancel = pse_diagnostics::Cancellation::new(true);
     assert!(matches!(
         workspace.prepare_modeling_cancellable(
             root,
@@ -806,7 +806,7 @@ fn declared_hybrid_event_guards_and_reset_values_have_callable_projections() {
         .find(|row| row.name == "evented")
         .unwrap()
         .declaration_id;
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -982,7 +982,7 @@ fn kernel_conservation_assembles_local_derivatives() {
         )
         .unwrap();
     let assembly = Arc::new(
-        plan.compile(Default::default(), Default::default(), &flag)
+        plan.compile(Default::default(), Default::default(), &pse_kernels::ExecutionScope::new(flag.clone(), None))
             .unwrap(),
     );
     let mut worker = assembly.worker(BTreeMap::new(), flag);
@@ -2917,7 +2917,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
             )
             .unwrap(),
     );
@@ -2967,7 +2967,7 @@ fn convexity_fact_rebinds_with_values() {
     ];
     for (text, convex, nonconvex) in cases {
         let (mut w, _, _, root) = setup(text);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let bindings = Bindings {
             demand: vec!["p".into(), "x".into(), "y".into()],
             ..Bindings::default()
@@ -3031,7 +3031,7 @@ fn convexity_fact_rebinds_with_values() {
 fn class_proof_policy_is_consumed_on_bind_and_rebind_without_changing_artifacts() {
     let (mut workspace, _, _, root) =
         setup("package p { def Root { param p:Scalar=1; var x:Scalar; eq e:p*x==2; } }");
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -3113,7 +3113,7 @@ fn class_proof_policy_is_consumed_on_bind_and_rebind_without_changing_artifacts(
 fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
     let (mut workspace, _, _, root) =
         setup("package p { def Root { param p:Scalar=1; var x:Scalar; eq e:p*x*x==4; } }");
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -3151,7 +3151,7 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
         .unwrap();
     let assembly = baseline
         .plan
-        .compile(profile.optimization, profile.evaluation, &cancel)
+        .compile(profile.optimization, profile.evaluation, &pse_kernels::ExecutionScope::new(cancel.clone(), None))
         .unwrap();
     let bytes = assembly.numeric_worker_bytes();
     assert!(bytes > 1);
@@ -3176,7 +3176,7 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
     );
     let exact_assembly = directional
         .plan
-        .compile(exact.optimization, exact.evaluation, &cancel)
+        .compile(exact.optimization, exact.evaluation, &pse_kernels::ExecutionScope::new(cancel.clone(), None))
         .unwrap();
     assert_eq!(exact_assembly.numeric_worker_bytes(), bytes);
     let rebound = directional.rebind(&values, &cancel).unwrap();
@@ -3272,7 +3272,7 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
 fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
     let (mut w, _, _, root) =
         setup("package p { def Root { param p: Scalar = 2; var x: Scalar; eq e: x*p == 6; } }");
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let bindings = Bindings {
         demand: vec!["p".into(), "x".into()],
         ..Bindings::default()
@@ -3419,7 +3419,7 @@ fn fixture(
 ) -> Result<Fixture> {
     let plan = admitted.plan(&registry, order, AssemblyLimits::default(), cancel)?;
     let assembly =
-        Arc::new(plan.compile(Optimization::default(), EvaluationLimits::default(), cancel)?);
+        Arc::new(plan.compile(Optimization::default(), EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))?);
     Ok(Fixture {
         admitted: admitted.clone(),
         assembly,
@@ -3581,7 +3581,7 @@ fn affine_row_demand_keeps_opaque_rows_and_original_domain_execution() {
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )
         .unwrap();
     let mut worker = Arc::new(assembly).worker(BTreeMap::new(), cancel.clone());
@@ -3870,7 +3870,7 @@ fn kernel_integrated_axis_retains_symbolic_time_and_original_derivative_lineage(
         .declaration_id;
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
     workspace.publish_modeling(rows, names).unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -4036,7 +4036,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
                 DerivativeOrder::Value,
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap()
             .worker();
@@ -4418,7 +4418,7 @@ mod nonlinear_selection_isolation_tests {
     }
     fn configurations(
         inner: &AdmittedImplicit,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
     ) -> BTreeMap<SemanticId, Configuration> {
         inner
             .residuals
@@ -4438,7 +4438,7 @@ mod nonlinear_selection_isolation_tests {
                         DerivativeOrder::Value,
                         Optimization::default(),
                         EvaluationLimits::default(),
-                        cancel,
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                     )
                     .unwrap()
                     .worker();
@@ -6591,7 +6591,7 @@ fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control
             )
             .unwrap();
         let assembly = Arc::new(
-            plan.compile(Default::default(), Default::default(), &cancel)
+            plan.compile(Default::default(), Default::default(), &pse_kernels::ExecutionScope::new(cancel.clone(), None))
                 .unwrap(),
         );
         let mut worker = assembly.worker(BTreeMap::new(), cancel);
@@ -6641,7 +6641,7 @@ fn selected_preparation_uses_one_plan_and_carries_observation_structure() {
     let (mut workspace, _, _, root) = setup(
         "package p { def Root { var x:Scalar; var y:Scalar; eq a:x*y==2; let good:Scalar=x+y; let bad:Scalar=log(-1); } }",
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -6922,7 +6922,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap(),
     );
@@ -7027,7 +7027,7 @@ fn actual_numerical_facts_reach_conditional_boundaries_and_shared_preparation() 
             "package p {def Root {var x:LogFugacityCoefficient;}}",
             inputs,
         );
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::new(false);
         let model = workspace
             .prepare_modeling_cancellable(
                 root,
@@ -7229,7 +7229,7 @@ fn compiled_conditional_chain_shares_original_universe_and_actual_facts() {
                 .compile(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -7350,7 +7350,7 @@ fn affine_row_rebind_keeps_free_iterates_and_refreshes_parameter_coefficients_wi
     let (mut workspace, _, _, root) = setup(
         "package p { def Root { param p:Scalar=2; var x:Scalar; eq affine:p*x==6; eq nonlinear:x*x==9; } }",
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let model = workspace
         .prepare_modeling_cancellable(
             root,
@@ -7410,7 +7410,7 @@ fn affine_row_rebind_keeps_free_iterates_and_refreshes_parameter_coefficients_wi
     assert_eq!(refreshed.presolve.class_status, ClassStatus::Unassessed);
     assert_eq!(refreshed.presolve.row_sources, first.presolve.row_sources);
     assert_eq!(refreshed.presolve.obligations, first.presolve.obligations);
-    cancel.store(true, Ordering::Release);
+    cancel.cancel();
     assert!(
         matches!(base.prepare_affine_rows(&values(2.0, 3.0), &cancel),
         Err(CompileError::Math(error)) if matches!(error.as_ref(), MathError::Cancelled))

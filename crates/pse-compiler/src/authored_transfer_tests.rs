@@ -148,7 +148,7 @@ fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel.flag(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )
         .unwrap(),
     );

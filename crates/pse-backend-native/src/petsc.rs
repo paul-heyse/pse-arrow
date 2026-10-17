@@ -192,7 +192,7 @@ pub fn shutdown() -> Result<(), ProblemError> {
             return Err(ProblemError::internal("PETSc process owner poisoned"));
         }
     };
-    match *phase {
+    let result = (|| { match *phase {
         Phase::Ready => {
             *phase = Phase::Failed;
             // SAFETY: admission owns the same mutex through all object destruction.
@@ -213,7 +213,10 @@ pub fn shutdown() -> Result<(), ProblemError> {
         Phase::Failed => Err(ProblemError::Unsupported(
             "failed PETSc process owner cannot finalize safely".into(),
         )),
-    }
+    } })();
+    drop(phase);
+    notify_release();
+    result
 }
 
 fn check(code: i32, operation: &str) -> Result<(), ProblemError> {

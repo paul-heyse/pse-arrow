@@ -84,7 +84,7 @@ impl Case {
                 .compile(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel.flag(),
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         );
@@ -181,7 +181,7 @@ fn derived_parameters_rebind_with_the_values_they_consume() {
         "package p { def Root { param p: Power = 2{W}; var x: Power; disjunction route { alternative low { eq cap: x <= p; } alternative high { eq floor: x >= 5{W}; } } realize how on route using bigm(derived); } }",
     );
     let case = Case::new(&mut w, root, &[("x", Some(0.0), Some(10.0))]).unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let (p, x) = (case.symbol("Root.p"), case.symbol("Root.x"));
     let (cap, floor) = (
         case.symbol("cap.big_m_upper"),

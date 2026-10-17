@@ -72,7 +72,7 @@ fn evaluate(
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel.flag(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )
         .unwrap(),
     );
@@ -145,7 +145,7 @@ fn objective_bounds_rows_generated_per_level() {
     // Structural support includes every level even though the value program
     // evaluates only the primary objective. Later coefficient-only objectives
     // must not depend on the existence of a primary numerical demand group.
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let plan = all
         .admitted
         .plan(

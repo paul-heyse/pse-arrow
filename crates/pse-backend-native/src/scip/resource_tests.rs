@@ -548,3 +548,36 @@ fn injected_free_failure_exposes_typed_cause_and_quarantines_only_uncertain_comp
         assert!(gate.try_lock().is_ok());
     }
 }
+
+#[test]
+fn concurrent_gate_failed_teardown_wakes_waiters_while_gate_remains_retained() {
+    let lock = Arc::new(Mutex::new(()));
+    let retained = lock.lock().unwrap();
+    let failed = Arc::new(AtomicBool::new(false));
+    let available = Arc::new(AtomicUsize::new(0));
+    let (paused, pause) = mpsc::channel();
+    let (finished, outcome) = mpsc::channel();
+    let worker_lock = lock.clone();
+    let worker_failed = failed.clone();
+    let worker_available = available.clone();
+    let worker = std::thread::spawn(move || {
+        compute_scoped(Box::new(Compute {
+            available: worker_available,
+            attempts: Arc::new(AtomicUsize::new(0)),
+            paused: Some(paused),
+            held: true,
+        }), || {
+            let result = ConcurrentAdmission::acquire(&worker_lock, &worker_failed, &execution());
+            finished.send(matches!(result, Err(ProblemError::Internal(_)))).unwrap();
+        });
+    });
+    pause.recv_timeout(Duration::from_secs(2)).unwrap();
+    failed.store(true, Ordering::Release);
+    CONCURRENT_CHANGED.notify();
+    assert!(outcome.recv_timeout(Duration::from_secs(2)).unwrap());
+    // The terminal latch, not release of this uncertain native gate, ends admission.
+    assert!(matches!(lock.try_lock(), Err(TryLockError::WouldBlock)));
+    worker.join().unwrap();
+    assert_eq!(available.load(Ordering::Acquire), 1);
+    drop(retained);
+}

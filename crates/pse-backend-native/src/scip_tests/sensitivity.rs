@@ -88,7 +88,7 @@ fn parameterized(
         )
         .unwrap(),
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::new(false);
     let plan = CasePlan::prepare(
         structure,
         BTreeMap::from([(key, Arc::new(body))]),
@@ -110,7 +110,7 @@ fn parameterized(
                 .compile(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                 )
                 .unwrap(),
         )
@@ -158,7 +158,7 @@ impl Parameterized {
                 self.rows(),
             ))?;
         if facts {
-            let cancel = Arc::new(AtomicBool::new(false));
+            let cancel = pse_diagnostics::Cancellation::new(false);
             oracle = oracle.with_presolve_facts(
                 Arc::new(assembly.presolve_facts(&self.values, 100_000, &cancel)?).into(),
             )?;

@@ -86,7 +86,7 @@ fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &pse_diagnostics::Cancellation::default().flag(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
         )
         .unwrap(),
     );

@@ -357,7 +357,7 @@ fn compile_problem(
         DerivativeOrder::First,
         pse_math::library::Optimization::default(),
         limits,
-        scope.cancellation(),
+        scope,
     )?;
     let unknown = body.math().compile(
         &(0..rows.len()).collect::<Vec<_>>(),
@@ -365,7 +365,7 @@ fn compile_problem(
         DerivativeOrder::First,
         pse_math::library::Optimization::default(),
         limits,
-        scope.cancellation(),
+        scope,
     )?;
     checkpoint(scope)?;
     Ok(Arc::new(Problem::new(

@@ -1754,7 +1754,7 @@ mod directional_identity_tests {
         assert_ne!(requests[normal.len()].key(), normal[0].key());
         let programs = requests
             .iter()
-            .map(|r| Arc::new(r.build(&cancel.flag()).unwrap()))
+            .map(|r| Arc::new(r.build(&pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap()))
             .collect();
         let assembly = Arc::new(Arc::new(directional).assemble(programs).unwrap());
         let inputs = CaseValues {
