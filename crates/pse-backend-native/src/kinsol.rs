@@ -9,6 +9,8 @@
 //! settings are typed [`Method`] fields (Plan 22 Y6); one-sided bounds are shifted to
 //! native sign constraints.
 mod linear_work;
+#[cfg(test)]
+mod profile_tests;
 mod restarts;
 use crate::{
     NleOracle, OracleContract, ProblemError,
