@@ -22,9 +22,9 @@ from pse import codec
 from pse._build import (
     InspectionError,
     _diagnostic_capture,
-    _diagnostic_detail_records,
-    _diagnostic_detail_arrow,
     _diagnostic_capture_arrow,
+    _diagnostic_detail_arrow,
+    _diagnostic_detail_records,
     _diagnostic_inspect,
     _diagnostic_inspect_image,
     _diagnostic_list,
@@ -50,10 +50,10 @@ from pse.contracts.documents import (
     DiagnosticProcessPage,
     InspectionDocument,
     InspectionRequest,
+    NumericalHistoryPolicy,
     OperationId,
     OperationPage,
     OperationSnapshot,
-    NumericalHistoryPolicy,
     ProcessCheckpoint,
 )
 from pse.contracts.enums import CaptureKind, CaptureStatus
@@ -198,16 +198,27 @@ def read_detail(path: str | Path, *, maximum_bytes: int = 256 << 20) -> DetailDo
     return _diagnostic_read_detail(Path(path), maximum_bytes)
 
 
-def detail_arrow(records: Path, *, offset: int = 0, limit: int = 16, maximum_bytes: int = 16 << 20, memory_bytes: int = 16 << 20) -> pa.RecordBatch:
+def detail_arrow(
+    records: Path,
+    *,
+    offset: int = 0,
+    limit: int = 16,
+    maximum_bytes: int = 16 << 20,
+    memory_bytes: int = 16 << 20,
+) -> pa.RecordBatch:
     """Project one finite raw page with source event/field keys and leased buffers.
 
     Use detail_records for the next cursor and original producer declarations.
     The view does not imply a complete history or scientific permission.
     """
-    return pa.record_batch(_diagnostic_detail_arrow(records, offset, limit, maximum_bytes, memory_bytes))
+    return pa.record_batch(
+        _diagnostic_detail_arrow(records, offset, limit, maximum_bytes, memory_bytes)
+    )
 
 
-def capture_arrow(document: CaptureDocument, *, memory_bytes: int = 16 << 20) -> pa.RecordBatch:
+def capture_arrow(
+    document: CaptureDocument, *, memory_bytes: int = 16 << 20
+) -> pa.RecordBatch:
     """Link the original optional capture document to its exact operation."""
     return pa.record_batch(_diagnostic_capture_arrow(document, memory_bytes))
 
@@ -389,7 +400,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     inspecting.add_argument("--related-limit", type=_bounded_count, default=16)
     inspecting.add_argument("--no-related", action="store_true")
     inspecting.add_argument("--json", action="store_true")
-    inspecting.add_argument("--numerical-policy", type=Path, help="explicit versioned analytical policy JSON")
+    inspecting.add_argument(
+        "--numerical-policy",
+        type=Path,
+        help="explicit versioned analytical policy JSON",
+    )
     capturing = commands.add_parser(
         "capture", help="start explicit bounded optional capture"
     )
@@ -450,7 +465,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     window=_duration(args.window),
                     include_related=not args.no_related,
                     related_limit=args.related_limit,
-                    numerical_history_policy=None if args.numerical_policy is None else codec.decode_json(args.numerical_policy.read_bytes(), NumericalHistoryPolicy),
+                    numerical_history_policy=None
+                    if args.numerical_policy is None
+                    else codec.decode_json(
+                        args.numerical_policy.read_bytes(), NumericalHistoryPolicy
+                    ),
                 ),
             )
             if args.json:

@@ -822,7 +822,15 @@ impl CompilerWorkspace {
         profile: Profile,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedFunctions> {
-        self.prepare_modeling_function_products(model, rows, coordinates, order, &[], profile, cancel)
+        self.prepare_modeling_function_products(
+            model,
+            rows,
+            coordinates,
+            order,
+            &[],
+            profile,
+            cancel,
+        )
     }
     /// Prepare only the action products selected by the consuming numerical route.
     pub fn prepare_modeling_function_products(
@@ -854,9 +862,17 @@ impl CompilerWorkspace {
         let mut plan = plan;
         for action in actions.iter().copied().collect::<BTreeSet<_>>() {
             plan = Arc::new(match action {
-                pse_math::jets::ProductKind::JacobianAction => plan.with_directional_actions(cancel)?,
-                pse_math::jets::ProductKind::WeightedHessianAction => plan.with_hessian_actions(cancel)?,
-                _ => return Err(CompileError::Missing("function action request must select an action product".into())),
+                pse_math::jets::ProductKind::JacobianAction => {
+                    plan.with_directional_actions(cancel)?
+                }
+                pse_math::jets::ProductKind::WeightedHessianAction => {
+                    plan.with_hessian_actions(cancel)?
+                }
+                _ => {
+                    return Err(CompileError::Missing(
+                        "function action request must select an action product".into(),
+                    ));
+                }
             });
         }
         Ok(PreparedFunctions {

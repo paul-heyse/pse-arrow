@@ -360,7 +360,9 @@ pub fn solve(
     );
     struct NativeWake;
     impl std::task::Wake for NativeWake {
-        fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
         fn wake_by_ref(self: &Arc<Self>) {
             // SAFETY: process-global signal retains no handle or callback pointer.
             unsafe { ffi::pse_uno_notify_waiters() };

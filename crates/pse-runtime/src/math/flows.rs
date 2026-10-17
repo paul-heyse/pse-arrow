@@ -3,11 +3,11 @@
 //! Accounted pure flow preparation and native/library tear selection.
 use super::{MathRuntimeError, MathService, solves::SolveHandle};
 use pse_backend_native::{ProblemError, solve::*, tears};
-use pse_diagnostics::Cancellation;
 /// Authored topology selection and explicit tear policies for public workflow callers.
 pub use pse_compiler::workspace::{
     FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection,
 };
+use pse_diagnostics::Cancellation;
 use pse_ids::SemanticId;
 pub use pse_structural::flowsheet::{Decision, Policy};
 use std::sync::Arc;

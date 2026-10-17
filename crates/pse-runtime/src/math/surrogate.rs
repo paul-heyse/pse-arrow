@@ -60,7 +60,10 @@ impl ActorGate {
         MathRuntimeError::Panic("surrogate actor gate poisoned".into())
     }
     fn lock(&self) -> Result<ActorGateGuard<'_>, MathRuntimeError> {
-        Ok(ActorGateGuard { guard: Some(self.mutex.lock().map_err(|_| Self::poison())?), released: &self.released })
+        Ok(ActorGateGuard {
+            guard: Some(self.mutex.lock().map_err(|_| Self::poison())?),
+            released: &self.released,
+        })
     }
     fn lock_wait(
         &self,
@@ -70,8 +73,12 @@ impl ActorGate {
     ) -> Result<ActorGateGuard<'_>, MathRuntimeError> {
         struct WakeThread(std::thread::Thread);
         impl std::task::Wake for WakeThread {
-            fn wake(self: Arc<Self>) { self.0.unpark(); }
-            fn wake_by_ref(self: &Arc<Self>) { self.0.unpark(); }
+            fn wake(self: Arc<Self>) {
+                self.0.unpark();
+            }
+            fn wake_by_ref(self: &Arc<Self>) {
+                self.0.unpark();
+            }
         }
         let waker = std::task::Waker::from(Arc::new(WakeThread(std::thread::current())));
         let mut context = std::task::Context::from_waker(&waker);
@@ -82,9 +89,14 @@ impl ActorGate {
             let _ = stop.as_mut().poll(&mut context);
             check()?;
             match self.mutex.try_lock() {
-                Ok(guard) => return Ok(ActorGateGuard { guard: Some(guard), released: &self.released }),
+                Ok(guard) => {
+                    return Ok(ActorGateGuard {
+                        guard: Some(guard),
+                        released: &self.released,
+                    });
+                }
                 Err(std::sync::TryLockError::Poisoned(_)) => return Err(Self::poison()),
-                Err(std::sync::TryLockError::WouldBlock) => {},
+                Err(std::sync::TryLockError::WouldBlock) => {}
             }
             match deadline {
                 Some(at) => std::thread::park_timeout(at.saturating_duration_since(Instant::now())),
@@ -127,7 +139,8 @@ impl Actor {
     ) -> Result<SurrogateSnapshot, MathRuntimeError> {
         let _gate = self.gate.lock_wait(
             || cancel.checkpoint().map_err(|_| MathRuntimeError::Cancelled),
-            cancel.cancelled(), None,
+            cancel.cancelled(),
+            None,
         )?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
@@ -159,8 +172,14 @@ impl Actor {
     }
     fn phase(&self, scope: pse_kernels::ExecutionScope) -> Result<PhaseReply, MathRuntimeError> {
         let _gate = self.gate.lock_wait(
-            || scope.check().map_err(ProblemError::Provider).map_err(Into::into),
-            scope.cancellation_control().cancelled(), scope.deadline(),
+            || {
+                scope
+                    .check()
+                    .map_err(ProblemError::Provider)
+                    .map_err(Into::into)
+            },
+            scope.cancellation_control().cancelled(),
+            scope.deadline(),
         )?;
         let (reply, answer) = mpsc::sync_channel(1);
         if let (Some(caller), Some(producer)) =
@@ -471,7 +490,8 @@ impl MathService {
             .checked_add(options.time)
             .ok_or(MathRuntimeError::Limit("surrogate submission deadline"))?;
         let deadline = scope.deadline().map_or(local, |outer| outer.min(local));
-        let scope = pse_kernels::ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
+        let scope =
+            pse_kernels::ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
         let cores = options.threads;
         let control = Cancellation::default();
         let worker_scope = scope.clone();
@@ -635,7 +655,8 @@ impl PreparedSurrogate {
                 .into_iter()
                 .chain(self.0.operation.deadline())
                 .min();
-            let scope = pse_kernels::ExecutionScope::new(active.cancellation_control().clone(), deadline);
+            let scope =
+                pse_kernels::ExecutionScope::new(active.cancellation_control().clone(), deadline);
             let reply = self.0.handle.actor.phase(scope.clone())?;
             outcome.callback_terminal = reply.callback_terminal;
             match reply.work {
@@ -776,7 +797,8 @@ impl MathService {
             .chain(handle.scope.deadline())
             .chain([local])
             .min();
-        let operation = pse_kernels::ExecutionScope::new(scope.cancellation_control().clone(), deadline);
+        let operation =
+            pse_kernels::ExecutionScope::new(scope.cancellation_control().clone(), deadline);
         let result_bytes = handle
             .correspondence
             .coordinates
@@ -949,10 +971,16 @@ mod tests {
         );
         let baseline = service.pool.reserved();
         let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), None);
-        let handle = Arc::new(service.prepare_surrogate(
-            evaluator, options, scope, &crate::CancelSource::new(),
-        ).await.unwrap());
-        assert!(!Arc::ptr_eq(&handle.scope.cancellation_control().flag(), &handle.control.flag()));
+        let handle = Arc::new(
+            service
+                .prepare_surrogate(evaluator, options, scope, &crate::CancelSource::new())
+                .await
+                .unwrap(),
+        );
+        assert!(!Arc::ptr_eq(
+            &handle.scope.cancellation_control().flag(),
+            &handle.control.flag()
+        ));
         let held = handle.actor.gate.lock().unwrap();
         let waiter = handle.clone();
         let (registered, registration) = mpsc::sync_channel(1);
@@ -963,18 +991,31 @@ mod tests {
             let mut registered = Some(registered);
             let stop = futures_util::future::poll_fn(move |context| {
                 let polled = stop.as_mut().poll(context);
-                if polled.is_pending() && let Some(registered) = registered.take() {
+                if polled.is_pending()
+                    && let Some(registered) = registered.take()
+                {
                     registered.send(()).unwrap();
                 }
                 polled
             });
             let result = waiter.actor.gate.lock_wait(
-                || waiter.scope.check().map_err(ProblemError::Provider).map_err(Into::into),
-                stop, waiter.scope.deadline(),
+                || {
+                    waiter
+                        .scope
+                        .check()
+                        .map_err(ProblemError::Provider)
+                        .map_err(Into::into)
+                },
+                stop,
+                waiter.scope.deadline(),
             );
-            send.send(matches!(result, Err(MathRuntimeError::Solve(
-                ProblemError::Provider(pse_kernels::ProviderError::Cancelled)
-            )))).unwrap();
+            send.send(matches!(
+                result,
+                Err(MathRuntimeError::Solve(ProblemError::Provider(
+                    pse_kernels::ProviderError::Cancelled
+                )))
+            ))
+            .unwrap();
         });
         let registration = registration.recv_timeout(Duration::from_secs(1));
         handle.cancel();
@@ -983,8 +1024,14 @@ mod tests {
         // the waiter or the actor's actual library/pool lifetime out of this test.
         drop(held);
         join.join().unwrap();
-        assert!(registration.is_ok(), "waiter must register before cancellation");
-        assert!(result.unwrap(), "scope cancellation must wake the held-gate waiter");
+        assert!(
+            registration.is_ok(),
+            "waiter must register before cancellation"
+        );
+        assert!(
+            result.unwrap(),
+            "scope cancellation must wake the held-gate waiter"
+        );
         assert!(handle.scope.cancellation_control().is_cancelled());
         assert!(handle.control.is_cancelled());
         drop(handle);
@@ -1447,27 +1494,50 @@ mod gate_wait_tests {
     use super::*;
     #[test]
     fn surrogate_gate_release_and_cancel_wake_original_waiters() {
-        for cancel in [false,true] {
-            let gate=Arc::new(ActorGate::default());
-            let held=gate.lock().unwrap();
-            let stop=pse_columnar::CancellationToken::new();
-            let caller=stop.clone();let other=gate.clone();
-            let (send,recv)=mpsc::sync_channel(1);
-            let join=std::thread::spawn(move|| {
+        for cancel in [false, true] {
+            let gate = Arc::new(ActorGate::default());
+            let held = gate.lock().unwrap();
+            let stop = pse_columnar::CancellationToken::new();
+            let caller = stop.clone();
+            let other = gate.clone();
+            let (send, recv) = mpsc::sync_channel(1);
+            let join = std::thread::spawn(move || {
                 send.send(()).unwrap();
-                other.lock_wait(||caller.checkpoint().map_err(|_|MathRuntimeError::Cancelled),caller.cancelled(),None).is_ok()
+                other
+                    .lock_wait(
+                        || caller.checkpoint().map_err(|_| MathRuntimeError::Cancelled),
+                        caller.cancelled(),
+                        None,
+                    )
+                    .is_ok()
             });
             recv.recv().unwrap();
-            if cancel { stop.cancel(); } else { drop(held); }
-            assert_eq!(join.join().unwrap(),!cancel);
+            if cancel {
+                stop.cancel();
+            } else {
+                drop(held);
+            }
+            assert_eq!(join.join().unwrap(), !cancel);
         }
     }
     #[test]
     fn surrogate_gate_deadline_remains_original_and_does_not_request_stop() {
-        let gate=ActorGate::default();let _held=gate.lock().unwrap();
-        let stop=Cancellation::default();let at=Instant::now();
-        let scope=pse_kernels::ExecutionScope::new(stop.clone(),Some(at));
-        assert!(gate.lock_wait(||scope.check().map_err(ProblemError::Provider).map_err(Into::into),stop.cancelled(),Some(at)).is_err());
+        let gate = ActorGate::default();
+        let _held = gate.lock().unwrap();
+        let stop = Cancellation::default();
+        let at = Instant::now();
+        let scope = pse_kernels::ExecutionScope::new(stop.clone(), Some(at));
+        assert!(
+            gate.lock_wait(
+                || scope
+                    .check()
+                    .map_err(ProblemError::Provider)
+                    .map_err(Into::into),
+                stop.cancelled(),
+                Some(at)
+            )
+            .is_err()
+        );
         assert!(!stop.is_cancelled());
     }
 }

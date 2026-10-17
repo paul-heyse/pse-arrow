@@ -122,22 +122,40 @@ pub(crate) struct Recorder {
     _reservation: pse_diagnostics::observation::OwnerReservation,
 }
 tokio::task_local! { static CURRENT: (Option<Arc<Recorder>>, Option<pse_diagnostics::observation::RecordAvailability>); }
-type ContextValue = (Option<Arc<Recorder>>, Option<pse_diagnostics::observation::RecordAvailability>);
+type ContextValue = (
+    Option<Arc<Recorder>>,
+    Option<pse_diagnostics::observation::RecordAvailability>,
+);
 thread_local! { static SYNCHRONOUS: std::cell::RefCell<Option<ContextValue>> = const { std::cell::RefCell::new(None) }; }
 /// Explicitly transferred copied diagnostic context; never native/result ownership.
 #[derive(Clone)]
 pub(crate) struct TransferredContext(ContextValue);
-pub(crate) struct EnteredContext(Option<ContextValue>, std::marker::PhantomData<std::rc::Rc<()>>);
+pub(crate) struct EnteredContext(
+    Option<ContextValue>,
+    std::marker::PhantomData<std::rc::Rc<()>>,
+);
 impl TransferredContext {
     pub(crate) fn capture() -> Self {
-        Self(CURRENT.try_with(Clone::clone).unwrap_or_else(|_| SYNCHRONOUS.with(|scope| scope.borrow().clone()).unwrap_or((None, Some(pse_diagnostics::observation::RecordAvailability::Unavailable)))))
+        Self(CURRENT.try_with(Clone::clone).unwrap_or_else(|_| {
+            SYNCHRONOUS.with(|scope| scope.borrow().clone()).unwrap_or((
+                None,
+                Some(pse_diagnostics::observation::RecordAvailability::Unavailable),
+            ))
+        }))
     }
     pub(crate) fn enter(&self) -> EnteredContext {
-        EnteredContext(SYNCHRONOUS.with(|scope| scope.replace(Some(self.0.clone()))), std::marker::PhantomData)
+        EnteredContext(
+            SYNCHRONOUS.with(|scope| scope.replace(Some(self.0.clone()))),
+            std::marker::PhantomData,
+        )
     }
 }
 impl Drop for EnteredContext {
-    fn drop(&mut self) { SYNCHRONOUS.with(|scope| { scope.replace(self.0.take()); }); }
+    fn drop(&mut self) {
+        SYNCHRONOUS.with(|scope| {
+            scope.replace(self.0.take());
+        });
+    }
 }
 /// Capture at future construction, before the caller dispatches an independent task.
 pub(crate) fn inherit<T>(work: impl Future<Output = T>) -> impl Future<Output = T> {
@@ -209,10 +227,21 @@ impl Recorder {
     }
 }
 pub(crate) fn current() -> Option<Arc<Recorder>> {
-    CURRENT.try_with(|scope| scope.0.clone()).unwrap_or_else(|_| SYNCHRONOUS.with(|scope| scope.borrow().as_ref().and_then(|scope| scope.0.clone())))
+    CURRENT
+        .try_with(|scope| scope.0.clone())
+        .unwrap_or_else(|_| {
+            SYNCHRONOUS.with(|scope| scope.borrow().as_ref().and_then(|scope| scope.0.clone()))
+        })
 }
 pub(crate) fn current_unavailability() -> Option<pse_diagnostics::observation::RecordAvailability> {
-    CURRENT.try_with(|scope| scope.1).unwrap_or_else(|_| SYNCHRONOUS.with(|scope| scope.borrow().as_ref().map_or(Some(pse_diagnostics::observation::RecordAvailability::Unavailable), |scope| scope.1)))
+    CURRENT.try_with(|scope| scope.1).unwrap_or_else(|_| {
+        SYNCHRONOUS.with(|scope| {
+            scope.borrow().as_ref().map_or(
+                Some(pse_diagnostics::observation::RecordAvailability::Unavailable),
+                |scope| scope.1,
+            )
+        })
+    })
 }
 pub(crate) async fn scope<T>(work: impl Future<Output = T>) -> T {
     let recorder = Recorder::new();
@@ -383,13 +412,16 @@ mod tests {
                     stage("original.qualification").finish(InvocationOutcome::Completed);
                 }
                 assert!(current().is_none());
-            }).join().unwrap();
+            })
+            .join()
+            .unwrap();
             let (_, _, intervals, omitted, _) = recorder.projection();
             assert_eq!(omitted, 0);
             assert_eq!(intervals.len(), 1);
             assert_eq!(intervals[0].stage, "original.qualification");
             assert!(intervals[0].ended_seconds.is_some());
-        }).await;
+        })
+        .await;
     }
     #[tokio::test]
     async fn invocation_stage_capacity_and_unfinished_intervals_are_explicit() {

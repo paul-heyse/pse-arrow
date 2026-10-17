@@ -210,99 +210,99 @@ impl FitProblem {
         approximation: CovarianceApproximation,
     ) -> Result<Vec<f64>, FitWithheld> {
         crate::workflow::dynamics::analysis("fit.covariance_analysis", || {
-        self.estimate_valid(report)?;
-        let np = self.free().count();
-        let (Some(rank), Some(directions)) = (report.rank, report.directions.as_ref()) else {
-            return Err(FitWithheld::Responses(report.diagnostic.clone()));
-        };
-        if rank < np {
-            return Err(FitWithheld::RankDeficient {
-                rank,
-                parameters: np,
-            });
-        }
-        let candidate = report
-            .candidate
-            .as_ref()
-            .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
-        let (lower_dual, upper_dual) = report
-            .solve
-            .as_ref()
-            .and_then(|solve| solve.candidate.as_ref())
-            .and_then(|candidate| candidate.bound_dual.as_ref())
-            .ok_or(FitWithheld::Local(Withheld::Multipliers))?;
-        if lower_dual.len() != candidate.len() || upper_dual.len() != candidate.len() {
-            return Err(FitWithheld::Local(Withheld::Multipliers));
-        }
-        let held: Vec<_> = self
-            .free()
-            .filter(|(k, col)| {
-                let parameter = &self.declaration.parameters[*k];
-                let column = col.get();
-                // The same original-coordinate activity used by native KKT
-                // analysis includes interior-point active bounds with finite slack.
-                native::kkt::bound_activity(
-                    candidate[column],
-                    (
-                        parameter.lower.unwrap_or(f64::NEG_INFINITY),
-                        parameter.upper.unwrap_or(f64::INFINITY),
-                    ),
-                    self.tolerances.variables[column],
-                    (lower_dual[column], upper_dual[column]),
-                    (
-                        self.normalization.variables[column],
-                        self.normalization.objective,
-                    ),
-                    self.accuracy.stationarity,
-                )
-                .is_active()
-            })
-            .map(|(k, _)| self.declaration.parameters[k].symbol_id)
-            .collect();
-        if !held.is_empty() {
-            return Err(FitWithheld::AtBound(held));
-        }
-        match approximation {
-            CovarianceApproximation::Exact => {
-                let solve = report
-                    .solve
-                    .as_ref()
-                    .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
-                match &solve.evidence.inverse_reduced_hessian {
-                    Some(Ok(block)) if block.values.iter().any(|v| !v.is_finite()) => {
-                        Err(FitWithheld::Local(Withheld::Backsolve))
-                    }
-                    Some(Ok(block)) if block.columns.len() == np => Ok(block.values.clone()),
-                    Some(Ok(_)) | None => Err(FitWithheld::Local(Withheld::Analysis(
-                        native::kkt::Unavailable::from(ProblemError::internal(
-                            "the fit's analysis read no inverse reduced Hessian over its parameters",
-                        )),
-                    ))),
-                    Some(Err(withheld)) => Err(FitWithheld::Local(withheld.clone())),
-                }
+            self.estimate_valid(report)?;
+            let np = self.free().count();
+            let (Some(rank), Some(directions)) = (report.rank, report.directions.as_ref()) else {
+                return Err(FitWithheld::Responses(report.diagnostic.clone()));
+            };
+            if rank < np {
+                return Err(FitWithheld::RankDeficient {
+                    rank,
+                    parameters: np,
+                });
             }
-            CovarianceApproximation::GaussNewton => {
-                // Σ = S·V·diag(s⁻²)·Vᵀ·S over the full-rank spectrum.
-                let s = &report.singular_values;
-                let scales: Vec<f64> = self
-                    .free()
-                    .map(|(k, _)| self.declaration.parameters[k].scale)
-                    .collect();
-                let mut values = vec![0.0; np * np];
-                for i in 0..np {
-                    for j in 0..np {
-                        let scaled: f64 = (0..np)
-                            .map(|k| directions[(i, k)] * directions[(j, k)] / (s[k] * s[k]))
-                            .sum();
-                        values[i * np + j] = scales[i] * scaled * scales[j];
+            let candidate = report
+                .candidate
+                .as_ref()
+                .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
+            let (lower_dual, upper_dual) = report
+                .solve
+                .as_ref()
+                .and_then(|solve| solve.candidate.as_ref())
+                .and_then(|candidate| candidate.bound_dual.as_ref())
+                .ok_or(FitWithheld::Local(Withheld::Multipliers))?;
+            if lower_dual.len() != candidate.len() || upper_dual.len() != candidate.len() {
+                return Err(FitWithheld::Local(Withheld::Multipliers));
+            }
+            let held: Vec<_> = self
+                .free()
+                .filter(|(k, col)| {
+                    let parameter = &self.declaration.parameters[*k];
+                    let column = col.get();
+                    // The same original-coordinate activity used by native KKT
+                    // analysis includes interior-point active bounds with finite slack.
+                    native::kkt::bound_activity(
+                        candidate[column],
+                        (
+                            parameter.lower.unwrap_or(f64::NEG_INFINITY),
+                            parameter.upper.unwrap_or(f64::INFINITY),
+                        ),
+                        self.tolerances.variables[column],
+                        (lower_dual[column], upper_dual[column]),
+                        (
+                            self.normalization.variables[column],
+                            self.normalization.objective,
+                        ),
+                        self.accuracy.stationarity,
+                    )
+                    .is_active()
+                })
+                .map(|(k, _)| self.declaration.parameters[k].symbol_id)
+                .collect();
+            if !held.is_empty() {
+                return Err(FitWithheld::AtBound(held));
+            }
+            match approximation {
+                CovarianceApproximation::Exact => {
+                    let solve = report
+                        .solve
+                        .as_ref()
+                        .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
+                    match &solve.evidence.inverse_reduced_hessian {
+                        Some(Ok(block)) if block.values.iter().any(|v| !v.is_finite()) => {
+                            Err(FitWithheld::Local(Withheld::Backsolve))
+                        }
+                        Some(Ok(block)) if block.columns.len() == np => Ok(block.values.clone()),
+                        Some(Ok(_)) | None => Err(FitWithheld::Local(Withheld::Analysis(
+                            native::kkt::Unavailable::from(ProblemError::internal(
+                                "the fit's analysis read no inverse reduced Hessian over its parameters",
+                            )),
+                        ))),
+                        Some(Err(withheld)) => Err(FitWithheld::Local(withheld.clone())),
                     }
                 }
-                if values.iter().any(|v| !v.is_finite()) {
-                    return Err(FitWithheld::Local(Withheld::Backsolve));
+                CovarianceApproximation::GaussNewton => {
+                    // Σ = S·V·diag(s⁻²)·Vᵀ·S over the full-rank spectrum.
+                    let s = &report.singular_values;
+                    let scales: Vec<f64> = self
+                        .free()
+                        .map(|(k, _)| self.declaration.parameters[k].scale)
+                        .collect();
+                    let mut values = vec![0.0; np * np];
+                    for i in 0..np {
+                        for j in 0..np {
+                            let scaled: f64 = (0..np)
+                                .map(|k| directions[(i, k)] * directions[(j, k)] / (s[k] * s[k]))
+                                .sum();
+                            values[i * np + j] = scales[i] * scaled * scales[j];
+                        }
+                    }
+                    if values.iter().any(|v| !v.is_finite()) {
+                        return Err(FitWithheld::Local(Withheld::Backsolve));
+                    }
+                    Ok(values)
                 }
-                Ok(values)
             }
-        }
         })
     }
     /// Wald intervals `θ̂ₖ ± z·√Σₖₖ` with `z` the standard normal quantile of
@@ -313,35 +313,35 @@ impl FitProblem {
         level: f64,
     ) -> Result<Vec<Interval>, FitWithheld> {
         crate::workflow::dynamics::analysis("fit.wald_interval_analysis", || {
-        let covariance = report
-            .covariance
-            .as_ref()
-            .ok_or(FitWithheld::Upstream(DerivedQuantity::ParameterCovariance))?;
-        let errors = covariance
-            .standard_errors()
-            .ok_or(FitWithheld::Upstream(DerivedQuantity::ParameterCovariance))?;
-        let candidate = report
-            .candidate
-            .as_ref()
-            .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
-        let z = Normal::standard().inverse_cdf(0.5 * (1.0 + level));
-        Ok(self
-            .free()
-            .zip(errors)
-            .map(|((k, col), error)| {
-                let estimate = candidate[col.get()];
-                let end = |value: f64| IntervalBound {
-                    value: Some(value),
-                    outcome: IntervalOutcome::Threshold,
-                };
-                Interval {
-                    parameter: self.declaration.parameters[k].symbol_id,
-                    estimate,
-                    lower: end(estimate - z * error),
-                    upper: end(estimate + z * error),
-                }
-            })
-            .collect())
+            let covariance = report
+                .covariance
+                .as_ref()
+                .ok_or(FitWithheld::Upstream(DerivedQuantity::ParameterCovariance))?;
+            let errors = covariance
+                .standard_errors()
+                .ok_or(FitWithheld::Upstream(DerivedQuantity::ParameterCovariance))?;
+            let candidate = report
+                .candidate
+                .as_ref()
+                .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
+            let z = Normal::standard().inverse_cdf(0.5 * (1.0 + level));
+            Ok(self
+                .free()
+                .zip(errors)
+                .map(|((k, col), error)| {
+                    let estimate = candidate[col.get()];
+                    let end = |value: f64| IntervalBound {
+                        value: Some(value),
+                        outcome: IntervalOutcome::Threshold,
+                    };
+                    Interval {
+                        parameter: self.declaration.parameters[k].symbol_id,
+                        estimate,
+                        lower: end(estimate - z * error),
+                        upper: end(estimate + z * error),
+                    }
+                })
+                .collect())
         })
     }
     /// The quantities the fit derives from its estimate: the covariance, and on request

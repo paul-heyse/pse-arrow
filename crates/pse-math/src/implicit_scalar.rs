@@ -101,8 +101,12 @@ impl InnerWorker for BracketedRoot {
             options.time_limit,
             cancel,
             |point| {
-                let evaluation =
-                    problem.evaluate_unknown(parameters, &[point], DerivativeOrder::Value, cancel)?;
+                let evaluation = problem.evaluate_unknown(
+                    parameters,
+                    &[point],
+                    DerivativeOrder::Value,
+                    cancel,
+                )?;
                 evaluation
                     .values
                     .first()

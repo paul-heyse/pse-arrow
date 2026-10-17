@@ -128,16 +128,24 @@ impl Oracle for Toy {
             jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
         })
     }
-    fn weighted_hessian(&mut self, _: usize, function: Function, _: f64, _: &[f64], _: &[f64], weights: &[f64])
-        -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
+    fn weighted_hessian(
+        &mut self,
+        _: usize,
+        function: Function,
+        _: f64,
+        _: &[f64],
+        _: &[f64],
+        weights: &[f64],
+    ) -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
         let width = self.c.states.len() + self.c.parameters.len();
         let terms = if matches!(function, Function::Rhs | Function::QuadratureFlux) {
             vec![faer::sparse::Triplet::new(width - 1, 0, -weights[0])]
-        } else { vec![] };
+        } else {
+            vec![]
+        };
         faer::sparse::SparseColMat::try_new_from_triplets(width, width, &terms)
             .map_err(|error| ProblemError::internal(format!("analytic toy curvature: {error:?}")))
     }
-
 }
 fn profile(dae: bool) -> Profile {
     Profile {
@@ -268,8 +276,13 @@ fn native_step_observations_preserve_segment_restart_and_terminal_mesh_time() {
             parameter: 0,
             times: vec![0.5],
         }];
-        let report =
-            integrate(&mut Toy::new(false, false), &p, &[2.0, 1.0], Cancellation::default()).unwrap();
+        let report = integrate(
+            &mut Toy::new(false, false),
+            &p,
+            &[2.0, 1.0],
+            Cancellation::default(),
+        )
+        .unwrap();
         assert_eq!(
             report.termination,
             Termination::Completed,
@@ -497,7 +510,10 @@ fn dynamics_identity_covers_every_option_field() {
     assert_eq!(encoded["version"], 2);
     let mut legacy = encoded.clone();
     legacy["version"] = serde_json::json!(1);
-    assert!(serde_json::from_value::<Profile>(legacy).is_err(), "per-call legacy effort meaning must be readmitted");
+    assert!(
+        serde_json::from_value::<Profile>(legacy).is_err(),
+        "per-call legacy effort meaning must be readmitted"
+    );
     let mut leaves = Vec::new();
     perturbations(&encoded, &mut vec![], &mut leaves);
     let json = profile_json(&base);
@@ -573,13 +589,7 @@ fn native_quadrature_does_not_invent_a_conservation_claim() {
             out_atol: vec![1e-10],
             ..Default::default()
         };
-        let report = integrate(
-            &mut oracle,
-            &profile,
-            &[1.],
-            Cancellation::new(false),
-        )
-        .unwrap();
+        let report = integrate(&mut oracle, &profile, &[1.], Cancellation::new(false)).unwrap();
         assert_eq!(
             report.termination,
             Termination::Completed,
@@ -624,13 +634,7 @@ fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
         }],
         ..Default::default()
     };
-    let r = integrate(
-        &mut oracle,
-        &profile,
-        &[1.0, 2.0],
-        Cancellation::new(false),
-    )
-    .unwrap();
+    let r = integrate(&mut oracle, &profile, &[1.0, 2.0], Cancellation::new(false)).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     for point in &r.conservation {
         assert!(point.defects[0].abs() < 1e-6, "{point:?}");
@@ -639,24 +643,12 @@ fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
     event.c.quadratures = oracle.c.quadratures.clone();
     event.c.balances = oracle.c.balances.clone();
     profile.schedule.clear();
-    let r = integrate(
-        &mut event,
-        &profile,
-        &[1.0],
-        Cancellation::new(false),
-    )
-    .unwrap();
+    let r = integrate(&mut event, &profile, &[1.0], Cancellation::new(false)).unwrap();
     assert_eq!(r.termination, Termination::Failed);
     assert!(r.error.unwrap().to_string().contains("transfer"));
     let impulse = (-0.25f64).exp();
     event.c.balances[0].transfers.insert(id(5));
-    let r = integrate(
-        &mut event,
-        &profile,
-        &[1.0],
-        Cancellation::new(false),
-    )
-    .unwrap();
+    let r = integrate(&mut event, &profile, &[1.0], Cancellation::new(false)).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     for point in &r.conservation {
         assert!(point.defects[0].abs() < 1e-6, "{point:?}");
@@ -721,13 +713,8 @@ fn scheduled_input_sensitivities_cross_changes() {
                 times: vec![0.3, 0.6],
             }];
             let outputs = |p: &Profile, v: &[f64]| {
-                let r = integrate(
-                    &mut Toy::new(dae, false),
-                    p,
-                    v,
-                    Cancellation::new(false),
-                )
-                .unwrap();
+                let r =
+                    integrate(&mut Toy::new(dae, false), p, v, Cancellation::new(false)).unwrap();
                 assert_eq!(
                     r.termination,
                     Termination::Completed,
@@ -923,7 +910,8 @@ fn idas_recovers_typed_trial_and_terminal_policy_stops() {
         let rejection = Arc::new(Rejection::default());
         // Observe the actual callback even when later progress replaces its history.
         let progress = Arc::new(crate::solve::Progress::tapped(0, rejection.clone()));
-        let r = integrate_with_progress(&mut toy, &p, &[2.0], Cancellation::default(), progress).unwrap();
+        let r = integrate_with_progress(&mut toy, &p, &[2.0], Cancellation::default(), progress)
+            .unwrap();
         assert!(toy.rejected);
         assert_eq!(
             r.termination,
@@ -1123,7 +1111,8 @@ fn terminal_endpoint_is_off_grid_and_keeps_pre_change_inputs() {
             kind: pse_model::generated::enums::EndpointPolicy::DeclaredTerminalEvent,
             event: Some(id(5)),
         };
-        let report = integrate(&mut oracle, &profile, &[1.0, 3.0], Cancellation::default()).unwrap();
+        let report =
+            integrate(&mut oracle, &profile, &[1.0, 3.0], Cancellation::default()).unwrap();
         assert_eq!(
             report.termination,
             Termination::Event,
@@ -1299,22 +1288,38 @@ fn compact_max_cells_checks_selected_retained_payload_and_diagnostics() {
 #[test]
 fn idas_output_grid_does_not_force_advancement_or_renew_step_permission() {
     fn steps(report: &Report) -> usize {
-        report.statistics.iter().map(|s| s["steps"].as_u64().unwrap() as usize).sum()
+        report
+            .statistics
+            .iter()
+            .map(|s| s["steps"].as_u64().unwrap() as usize)
+            .sum()
     }
     let mut sparse = profile(false);
     sparse.method = Method::Idas;
     sparse.sensitivity = DynamicSensitivity::Forward;
     sparse.samples = vec![0., 0.001, 1.];
     let reference = run(&mut Toy::new(false, false), &sparse);
-    assert_eq!(reference.termination, Termination::Completed, "{:?}", reference.error);
+    assert_eq!(
+        reference.termination,
+        Termination::Completed,
+        "{:?}",
+        reference.error
+    );
     let mut dense = sparse.clone();
-    dense.samples = std::iter::once(0.).chain(std::iter::once(0.001))
-        .chain((1..=1000).map(|i| i as f64 / 1000.).filter(|t| *t > 0.001)).collect();
+    dense.samples = std::iter::once(0.)
+        .chain(std::iter::once(0.001))
+        .chain((1..=1000).map(|i| i as f64 / 1000.).filter(|t| *t > 0.001))
+        .collect();
     // The exact same accepted trajectory cap must still serve every covered
     // sample after its final native step. Output service consumes zero steps.
     dense.max_steps = steps(&reference);
     let report = run(&mut Toy::new(false, false), &dense);
-    assert_eq!(report.termination, Termination::Completed, "{:?}", report.error);
+    assert_eq!(
+        report.termination,
+        Termination::Completed,
+        "{:?}",
+        report.error
+    );
     assert_eq!(steps(&report), steps(&reference));
     assert_eq!(report.samples.len(), dense.samples.len());
     for sample in &report.samples {
@@ -1329,22 +1334,60 @@ fn idas_output_grid_does_not_force_advancement_or_renew_step_permission() {
 fn accepted_step_allowance_is_cumulative_across_physical_segments() {
     for method in [Method::Diffsol, Method::Idas] {
         if method == Method::Diffsol && !cfg!(feature = "diffsol")
-            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+            || method == Method::Idas && !cfg!(feature = "idas")
+        {
+            continue;
+        }
         let mut p = profile(false);
         p.method = method;
         p.sensitivity = DynamicSensitivity::None;
-        p.schedule = vec![ScheduledInput { parameter: 0, times: vec![0.25, 0.5, 0.75] }];
+        p.schedule = vec![ScheduledInput {
+            parameter: 0,
+            times: vec![0.25, 0.5, 0.75],
+        }];
         let values = [2., 1., 1.5, 2.];
-        let complete = integrate(&mut Toy::new(false, false), &p, &values, Cancellation::default()).unwrap();
-        assert_eq!(complete.termination, Termination::Completed, "{:?}", complete.error);
-        let first = complete.statistics[0]["steps"].as_u64()
-            .or_else(|| complete.statistics[0]["number_of_steps"].as_u64()).unwrap() as usize;
+        let complete = integrate(
+            &mut Toy::new(false, false),
+            &p,
+            &values,
+            Cancellation::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            complete.termination,
+            Termination::Completed,
+            "{:?}",
+            complete.error
+        );
+        let first = complete.statistics[0]["steps"]
+            .as_u64()
+            .or_else(|| complete.statistics[0]["number_of_steps"].as_u64())
+            .unwrap() as usize;
         p.max_steps = first + 1;
-        let prefix = integrate(&mut Toy::new(false, false), &p, &values, Cancellation::default()).unwrap();
-        assert_eq!(prefix.termination, Termination::StepLimit, "{:?}", prefix.error);
+        let prefix = integrate(
+            &mut Toy::new(false, false),
+            &p,
+            &values,
+            Cancellation::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            prefix.termination,
+            Termination::StepLimit,
+            "{:?}",
+            prefix.error
+        );
         assert!(prefix.completed_time < p.end);
-        let actual: u64 = prefix.statistics.iter().map(|s| s["steps"].as_u64()
-            .or_else(|| s["number_of_steps"].as_u64()).unwrap()).sum();
+        let actual: u64 = prefix
+            .statistics
+            .iter()
+            .map(|s| {
+                s["steps"]
+                    .as_u64()
+                    .or_else(|| s["number_of_steps"].as_u64())
+                    .unwrap()
+            })
+            .sum();
         assert_eq!(actual as usize, p.max_steps);
     }
 }
@@ -1353,27 +1396,49 @@ fn accepted_step_allowance_is_cumulative_across_physical_segments() {
 #[test]
 fn supported_idas_correctors_and_linear_routes_preserve_the_requested_response() {
     for dae in [false, true] {
-        for corrector in [SensitivityCorrector::Simultaneous, SensitivityCorrector::Staggered] {
-            for linear in [IdasLinear::Klu,
-                IdasLinear::Spgmr { dimension: PositiveCount::try_new(8).unwrap(), preconditioner: crate::solve::Preconditioner::None },
-                IdasLinear::Spfgmr { dimension: PositiveCount::try_new(8).unwrap(), preconditioner: crate::solve::Preconditioner::Jacobi }] {
+        for corrector in [
+            SensitivityCorrector::Simultaneous,
+            SensitivityCorrector::Staggered,
+        ] {
+            for linear in [
+                IdasLinear::Klu,
+                IdasLinear::Spgmr {
+                    dimension: PositiveCount::try_new(8).unwrap(),
+                    preconditioner: crate::solve::Preconditioner::None,
+                },
+                IdasLinear::Spfgmr {
+                    dimension: PositiveCount::try_new(8).unwrap(),
+                    preconditioner: crate::solve::Preconditioner::Jacobi,
+                },
+            ] {
                 let mut p = profile(dae);
                 p.method = Method::Idas;
                 p.sensitivity = DynamicSensitivity::Forward;
                 p.idas.sensitivity = corrector;
                 p.idas.linear = linear;
                 let report = run(&mut Toy::new(dae, false), &p);
-                assert_eq!(report.termination, Termination::Completed,
-                    "{dae:?} {corrector:?} {linear:?}: {:?}", report.error);
+                assert_eq!(
+                    report.termination,
+                    Termination::Completed,
+                    "{dae:?} {corrector:?} {linear:?}: {:?}",
+                    report.error
+                );
                 for s in &report.samples {
                     let expected = 2. * (-2. * s.time).exp();
                     let response = (1. - 2. * s.time) * (-2. * s.time).exp() + 1.;
                     assert!((s.state[0] - expected).abs() < 1e-6);
                     assert!((s.output_sensitivities[0] - response).abs() < 1e-5);
-                    if dae { assert!((s.state[1] - 2. * expected).abs() < 1e-6); }
+                    if dae {
+                        assert!((s.state[1] - 2. * expected).abs() < 1e-6);
+                    }
                 }
                 assert!(report.statistics[0]["steps"].as_u64().unwrap() > 0);
-                assert!(report.statistics[0]["sensitivity_residual_evaluations"].as_u64().unwrap() > 0);
+                assert!(
+                    report.statistics[0]["sensitivity_residual_evaluations"]
+                        .as_u64()
+                        .unwrap()
+                        > 0
+                );
             }
         }
     }
@@ -1388,15 +1453,22 @@ fn checkpointed_dense_output_uses_returned_time_for_sensitivities_and_quadrature
     let mut p = profile(false);
     p.method = Method::Idas;
     p.sensitivity = DynamicSensitivity::Adjoint;
-    p.samples = std::iter::once(0.).chain(std::iter::once(0.001))
-        .chain((1..=200).map(|i| i as f64 / 200.)).collect();
+    p.samples = std::iter::once(0.)
+        .chain(std::iter::once(0.001))
+        .chain((1..=200).map(|i| i as f64 / 200.))
+        .collect();
     p.out_rtol = Some(1e-8);
     p.out_atol = vec![1e-10];
     // Declared quadratures retain their supported forward-response route. The
     // checkpointed Hessian route intentionally refuses declared quadratures.
     p.sensitivity = DynamicSensitivity::Forward;
     let forward = run(&mut oracle, &p);
-    assert_eq!(forward.termination, Termination::Completed, "{:?}", forward.error);
+    assert_eq!(
+        forward.termination,
+        Termination::Completed,
+        "{:?}",
+        forward.error
+    );
     for sample in &forward.samples {
         let decay = (-2. * sample.time).exp();
         assert!((sample.state_sensitivities[0] - (1. - 2. * sample.time) * decay).abs() < 1e-5);
@@ -1406,17 +1478,33 @@ fn checkpointed_dense_output_uses_returned_time_for_sensitivities_and_quadrature
     p.sensitivity = DynamicSensitivity::Adjoint;
     p.out_rtol = None;
     p.out_atol.clear();
-    let result = hessian(&mut oracle, &p, &[2.], &[0], &mut |report: &Report| {
-        let mut weights = vec![0.; report.samples.len()];
-        *weights.last_mut().unwrap() = 1.;
-        Ok(weights)
-    }, Cancellation::default(), 256 << 20).unwrap();
-    assert_eq!(result.report.termination, Termination::Completed, "{:?}", result.report.error);
+    let result = hessian(
+        &mut oracle,
+        &p,
+        &[2.],
+        &[0],
+        &mut |report: &Report| {
+            let mut weights = vec![0.; report.samples.len()];
+            *weights.last_mut().unwrap() = 1.;
+            Ok(weights)
+        },
+        Cancellation::default(),
+        256 << 20,
+    )
+    .unwrap();
+    assert_eq!(
+        result.report.termination,
+        Termination::Completed,
+        "{:?}",
+        result.report.error
+    );
     for sample in &result.report.samples {
         let decay = (-2. * sample.time).exp();
         assert!((sample.state[0] - 2. * decay).abs() < 1e-6);
         assert!((sample.state_sensitivities[0] - (1. - 2. * sample.time) * decay).abs() < 1e-5);
-        assert!((sample.output_sensitivities[0] - ((1. - 2. * sample.time) * decay + 1.)).abs() < 1e-5);
+        assert!(
+            (sample.output_sensitivities[0] - ((1. - 2. * sample.time) * decay + 1.)).abs() < 1e-5
+        );
     }
     assert!((result.gradient.as_ref().unwrap()[0] - (1. - (-2f64).exp())).abs() < 1e-5);
     assert!(result.hessian.as_ref().unwrap()[(0, 0)].abs() < 1e-5);

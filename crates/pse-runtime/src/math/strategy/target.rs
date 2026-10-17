@@ -619,7 +619,8 @@ mod tests {
             start: StartOrigin::Specification,
             start_identity: None,
         };
-        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let mut dispatched = 0;
         let (value, trace) = callable(
             &service,
@@ -738,7 +739,8 @@ mod tests {
         let service = crate::math::tests::service();
         let mut solver = super::super::super::solves::SolverProfile::default();
         solver.controls.history = 0;
-        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let project = |profile: &super::super::super::solves::SolverProfile| {
             let ordinary = super::super::super::solves::profile_key(profile)?.as_id();
             if projected {
@@ -769,7 +771,8 @@ mod tests {
             |profile, _| {
                 let profile = profile.unwrap();
                 profiles.push(project(profile).unwrap());
-                let execution = Execution::new(pse_diagnostics::Cancellation::default(), &profile.controls);
+                let execution =
+                    Execution::new(pse_diagnostics::Cancellation::default(), &profile.controls);
                 let contract = pse_backend_native::OracleContract {
                     identity: hash(1),
                     derivatives: pse_kernels::DerivativeOrder::First,

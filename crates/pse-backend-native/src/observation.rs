@@ -141,11 +141,14 @@ pub(crate) fn iteration_metadata(
     for (key, value) in [
         ("backend", backend.as_str()),
         ("checkpoint_kind", "native_iteration"),
-        ("native_phase", match phase {
-            crate::solve::NativePhase::Main => "main",
-            crate::solve::NativePhase::Restoration => "restoration",
-            crate::solve::NativePhase::Unknown => "unknown",
-        }),
+        (
+            "native_phase",
+            match phase {
+                crate::solve::NativePhase::Main => "main",
+                crate::solve::NativePhase::Restoration => "restoration",
+                crate::solve::NativePhase::Unknown => "unknown",
+            },
+        ),
         ("iterate_semantics", "current_native_iterate"),
     ] {
         values.insert(key.into(), Metric::Text(value.into()));
@@ -175,12 +178,25 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
         match (family, name) {
             ("petsc_event", "completed_seconds") => "seconds",
             ("petsc_event", "completed_flops") => "flops",
-            ("petsc_event", "entered_calls" | "native_event_depth" | "stage" | "checkpoint_ordinal") => "native_count",
-            ("native_linear_work", name) if name.ends_with(".issued") || name.ends_with(".completed") => "native_linear_calls",
+            (
+                "petsc_event",
+                "entered_calls" | "native_event_depth" | "stage" | "checkpoint_ordinal",
+            ) => "native_count",
+            ("native_linear_work", name)
+                if name.ends_with(".issued") || name.ends_with(".completed") =>
+            {
+                "native_linear_calls"
+            }
             ("native_factor", "input_nonzeros" | "factor_nonzeros") => "nonzeros",
             ("native_factor", "fill_ratio") => "ratio",
-            ("native_refinement", name) if name.contains("rhs_issued") || name.contains("rhs_completed") => "rhs_substitutions",
-            ("native_refinement", "correction_batches_issued" | "correction_batches_completed") => "substitution_batches",
+            ("native_refinement", name)
+                if name.contains("rhs_issued") || name.contains("rhs_completed") =>
+            {
+                "rhs_substitutions"
+            }
+            ("native_refinement", "correction_batches_issued" | "correction_batches_completed") => {
+                "substitution_batches"
+            }
             ("native_refinement", "residual_products") => "matrix_vector_products",
             ("native_refinement", "best_updates") => "rhs_iterate_updates",
             ("native_refinement", name) if name.ends_with("_rhs") => "right_hand_sides",
@@ -606,26 +622,32 @@ mod tests {
         );
     }
 }
-    #[test]
-    fn nonlinear_iteration_semantics_are_explicit_and_preserve_native_values() {
-        for backend in [crate::solve::Backend::Ipopt, crate::solve::Backend::Pounce] {
-            for (phase, name) in [
-                (crate::solve::NativePhase::Main, "main"),
-                (crate::solve::NativePhase::Restoration, "restoration"),
-                (crate::solve::NativePhase::Unknown, "unknown"),
-            ] {
-                let mut values = std::collections::BTreeMap::from([
-                    ("inf_pr".into(), Metric::Real(0.125)),
-                    ("iteration".into(), Metric::Integer(0)),
-                ]);
-                iteration_metadata(&mut values, backend, phase);
-                assert_eq!(values["backend"], Metric::Text(backend.as_str().into()));
-                assert_eq!(values["native_phase"], Metric::Text(name.into()));
-                assert_eq!(values["checkpoint_kind"], Metric::Text("native_iteration".into()));
-                assert_eq!(values["iterate_semantics"], Metric::Text("current_native_iterate".into()));
-                assert_eq!(values["inf_pr"], Metric::Real(0.125));
-                assert_eq!(values["iteration"], Metric::Integer(0));
-                assert!(!values.contains_key("accepted"));
-            }
+#[test]
+fn nonlinear_iteration_semantics_are_explicit_and_preserve_native_values() {
+    for backend in [crate::solve::Backend::Ipopt, crate::solve::Backend::Pounce] {
+        for (phase, name) in [
+            (crate::solve::NativePhase::Main, "main"),
+            (crate::solve::NativePhase::Restoration, "restoration"),
+            (crate::solve::NativePhase::Unknown, "unknown"),
+        ] {
+            let mut values = std::collections::BTreeMap::from([
+                ("inf_pr".into(), Metric::Real(0.125)),
+                ("iteration".into(), Metric::Integer(0)),
+            ]);
+            iteration_metadata(&mut values, backend, phase);
+            assert_eq!(values["backend"], Metric::Text(backend.as_str().into()));
+            assert_eq!(values["native_phase"], Metric::Text(name.into()));
+            assert_eq!(
+                values["checkpoint_kind"],
+                Metric::Text("native_iteration".into())
+            );
+            assert_eq!(
+                values["iterate_semantics"],
+                Metric::Text("current_native_iterate".into())
+            );
+            assert_eq!(values["inf_pr"], Metric::Real(0.125));
+            assert_eq!(values["iteration"], Metric::Integer(0));
+            assert!(!values.contains_key("accepted"));
         }
     }
+}

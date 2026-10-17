@@ -717,7 +717,10 @@ mod tests {
                     category: Termination::Success,
                     assurance: Assurance::NativeOptimal,
                 },
-                &Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default()),
+                &Execution::new(
+                    pse_diagnostics::Cancellation::default(),
+                    &Controls::default(),
+                ),
             );
             report.candidate = Some(Candidate {
                 kind: CandidateKind::FinalIterate,

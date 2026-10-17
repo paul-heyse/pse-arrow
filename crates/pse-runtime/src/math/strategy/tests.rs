@@ -831,7 +831,10 @@ async fn contained_native_panic_is_terminal_while_original_numerical_cause_is_re
         variables: vec![],
         rows: vec![],
     };
-    let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default());
+    let execution = Execution::new(
+        pse_diagnostics::Cancellation::new(false),
+        &Controls::default(),
+    );
     let mut report = SolveReport::new(
         Backend::Pounce,
         &contract,
@@ -1216,7 +1219,10 @@ async fn tagged_native_report_failures_are_terminal_under_declared_recovery() {
         ),
         (NativeFailureKind::Numerical, Observation::NumericalFailure),
     ] {
-        let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &Controls::default(),
+        );
         let mut report = SolveReport::new(
             Backend::Petsc,
             &contract,
@@ -1799,7 +1805,10 @@ async fn abandoned_block_native_refusal_reaches_direct_through_production_projec
             category: Termination::Infeasible,
             assurance: Assurance::None,
         },
-        &Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default()),
+        &Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        ),
     );
     report.candidate = Some(Candidate {
         kind: CandidateKind::FinalIterate,
@@ -2026,7 +2035,10 @@ async fn malformed_component_metadata_stops_explicit_direct_despite_native_obser
                 category,
                 assurance: Assurance::None,
             },
-            &Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default()),
+            &Execution::new(
+                pse_diagnostics::Cancellation::default(),
+                &Controls::default(),
+            ),
         );
         report.candidate = Some(Candidate {
             kind: CandidateKind::FinalIterate,
@@ -2107,7 +2119,10 @@ async fn effective_original_failure_controls_commit_auto_and_explicit_terminal_p
         smoothness: pse_kernels::DerivativeOrder::First,
     };
     let with_callback = |cause: ProblemError| {
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         let mut report = SolveReport::new(
             Backend::Kinsol,
             &contract,

@@ -172,11 +172,23 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     );
     assert_eq!(numerical.spec.inputs.len(), 1);
     assert_eq!(numerical.bodies.parameter.coordinates(), [0, 1, 2]);
-    assert_eq!(numerical.bodies.parameter.prepared_support().outputs(), [0, 1]);
-    assert_eq!(numerical.bodies.parameter.compiled_order(), DerivativeOrder::First);
+    assert_eq!(
+        numerical.bodies.parameter.prepared_support().outputs(),
+        [0, 1]
+    );
+    assert_eq!(
+        numerical.bodies.parameter.compiled_order(),
+        DerivativeOrder::First
+    );
     assert_eq!(numerical.bodies.unknown.coordinates(), [0, 1]);
-    assert_eq!(numerical.bodies.unknown.prepared_support().outputs(), [0, 1]);
-    assert_eq!(numerical.bodies.unknown.compiled_order(), DerivativeOrder::First);
+    assert_eq!(
+        numerical.bodies.unknown.prepared_support().outputs(),
+        [0, 1]
+    );
+    assert_eq!(
+        numerical.bodies.unknown.compiled_order(),
+        DerivativeOrder::First
+    );
     assert_eq!(numerical.spec, reference.spec);
     assert_ne!(numerical.configuration_key(), reference.configuration_key());
 
@@ -531,10 +543,7 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
     let mut profile = original.profile.clone();
     profile.controls.time_limit = std::time::Duration::from_secs(10);
     let scoped_original = original.clone().within_task(scope.clone()).unwrap();
-    let wrong_scope = ExecutionScope::new(
-        Cancellation::new(false),
-        scope.deadline(),
-    );
+    let wrong_scope = ExecutionScope::new(Cancellation::new(false), scope.deadline());
     assert!(matches!(
         service
             .prepare_derived(
@@ -689,10 +698,7 @@ async fn actual_shifted_frozen_mass_retains_offset_and_submission_scope() {
     );
     assert_eq!(prepared.physical.constraints()[0].upper, 0.0);
     assert_eq!(budget.used(), 0);
-    let expired = ExecutionScope::new(
-        Cancellation::new(false),
-        Some(Instant::now()),
-    );
+    let expired = ExecutionScope::new(Cancellation::new(false), Some(Instant::now()));
     assert!(
         service
             .prepare_derived(

@@ -500,19 +500,43 @@ impl NativeModelingPackage {
         let time_limit = Duration::try_from_secs_f64(time_limit)
             .map_err(|error| invalid(py, format!("source map clock: {error}")))?;
         if maximum_bytes == 0 || time_limit.is_zero() {
-            return Err(invalid(py, "source map requires a positive finite allocation and clock"));
+            return Err(invalid(
+                py,
+                "source map requires a positive finite allocation and clock",
+            ));
         }
-        let deadline = std::time::Instant::now().checked_add(time_limit)
+        let deadline = std::time::Instant::now()
+            .checked_add(time_limit)
             .ok_or_else(|| invalid(py, "source map deadline extent"))?;
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let cancel = CancelSource::new().with_deadline(Some(deadline));
-        blocking(py, &self.owner, async {
-            let execution = self.inner.declared_execution(root, Default::default(), settings,
-                Default::default(), self.limits, &cancel).await?;
-            let prepared = self.inner.prepare_declared_diagnostics(&execution, &cancel).await?;
-            self.inner.modeling_diagnostic_source_map(&prepared, maximum_bytes, time_limit, &cancel).await
-        }, || cancel.cancel()).map(documents::DocumentValue)
+        blocking(
+            py,
+            &self.owner,
+            async {
+                let execution = self
+                    .inner
+                    .declared_execution(
+                        root,
+                        Default::default(),
+                        settings,
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                let prepared = self
+                    .inner
+                    .prepare_declared_diagnostics(&execution, &cancel)
+                    .await?;
+                self.inner
+                    .modeling_diagnostic_source_map(&prepared, maximum_bytes, time_limit, &cancel)
+                    .await
+            },
+            || cancel.cancel(),
+        )
+        .map(documents::DocumentValue)
     }
     fn diagnose(
         &self,
@@ -1516,7 +1540,17 @@ impl NativeModelingDiagnostics {
             .matrix
             .iter()
             .flat_map(|m| &m.modes)
-            .map(|m| (m.value, m.left.clone(), m.right.clone(), m.left_residual, m.right_residual, m.normalization_error, m.residual_bound))
+            .map(|m| {
+                (
+                    m.value,
+                    m.left.clone(),
+                    m.right.clone(),
+                    m.left_residual,
+                    m.right_residual,
+                    m.normalization_error,
+                    m.residual_bound,
+                )
+            })
             .collect()
     }
 }

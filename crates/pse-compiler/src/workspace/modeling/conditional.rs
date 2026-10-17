@@ -653,7 +653,13 @@ mod tests {
             assert!(blocks.len() > 1);
             for block in blocks.iter() {
                 assert_eq!(block.plan.order(), order);
-                assert!(block.plan.supports().iter().any(|support| support.order() == order));
+                assert!(
+                    block
+                        .plan
+                        .supports()
+                        .iter()
+                        .any(|support| support.order() == order)
+                );
                 for projected in block.plan.supports() {
                     let original = source
                         .plan

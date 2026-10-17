@@ -21,7 +21,10 @@ pub(crate) fn contract() -> OracleContract {
 }
 #[cfg(any(feature = "ipopt", feature = "pounce", feature = "kinsol"))]
 pub(crate) fn execution() -> Execution {
-    Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default())
+    Execution::new(
+        pse_diagnostics::Cancellation::new(false),
+        &Controls::default(),
+    )
 }
 /// The exact certificate of a PSD test matrix; panics when it is not certified.
 pub(crate) fn certify(q: &faer::sparse::SparseColMat<usize, f64>, sign: f64) -> GramCertificate {

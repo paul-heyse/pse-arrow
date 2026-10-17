@@ -672,13 +672,26 @@ async fn profile_chain_seeds_from_predecessor() {
     assert!(unidentifiable[1].abs() < 1e-6, "{directions:?}");
     let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
     assert_eq!(chains.len(), 6);
-    assert!(!report.estimate_qualified(), "joint identifiability is not required for profile likelihood");
+    assert!(
+        !report.estimate_qualified(),
+        "joint identifiability is not required for profile likelihood"
+    );
     assert!(result.usable());
     let evidence = result.invocation_evidence().unwrap();
-    assert!(evidence.products.iter().any(|product| product.role == "profile_intervals"
-        && product.availability == crate::invocation::ProductAvailability::Available));
-    assert!(evidence.products.iter().any(|product| product.role == "parameter_covariance"
-        && product.availability == crate::invocation::ProductAvailability::Unavailable));
+    assert!(
+        evidence
+            .products
+            .iter()
+            .any(|product| product.role == "profile_intervals"
+                && product.availability == crate::invocation::ProductAvailability::Available)
+    );
+    assert!(
+        evidence
+            .products
+            .iter()
+            .any(|product| product.role == "parameter_covariance"
+                && product.availability == crate::invocation::ProductAvailability::Unavailable)
+    );
     let r = |p: &ProfilePoint| p.statistic.unwrap();
     for chain in chains {
         let flat = chain.parameter != id(B);

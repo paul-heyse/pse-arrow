@@ -216,7 +216,10 @@ impl Pipeline {
         let want_duals = duals.is_some();
         let original = Rc::new(RefCell::new(Adapter {
             scratch: crate::tnlp::Scratch::new(
-                source_contract.variables.len(), source_contract.rows.len(), jac.rows.len(), hess.rows.len(),
+                source_contract.variables.len(),
+                source_contract.rows.len(),
+                jac.rows.len(),
+                hess.rows.len(),
             ),
             normalization,
             certification_budget: None,
@@ -1222,11 +1225,11 @@ impl NlpOracle for Transport {
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         let v = &mut self.jac_values;
         v.fill(f64::NAN);
-        if !self.outer.borrow_mut().eval_jac_g(
-            Some(x),
-            true,
-            SparsityRequest::Values { values: v },
-        ) {
+        if !self
+            .outer
+            .borrow_mut()
+            .eval_jac_g(Some(x), true, SparsityRequest::Values { values: v })
+        {
             return Err(failure(&self.original));
         }
         refill(&mut self.jac, v, out)

@@ -59,7 +59,9 @@ impl SharedRuntime {
         let native_cores = std::thread::available_parallelism()
             .map_or(1, std::num::NonZeroUsize::get)
             .min(budget.threads.pool_threads.get());
-        let compiler_cpu = Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(native_cores));
+        let compiler_cpu = Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(
+            native_cores,
+        ));
         let math = crate::math::MathService::new(
             env.memory_pool.clone(),
             compiler_cpu.clone(),

@@ -1140,7 +1140,7 @@ fn body_construction_allowance_can_be_explicitly_larger_than_default() {
         } else {
             assert!(failure.is_none());
             let control = pse_diagnostics::Cancellation::new(false);
-    let cancel = control.flag();
+            let cancel = control.flag();
             let mut worker = builder
                 .finish(
                     &[value],

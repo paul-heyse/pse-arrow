@@ -425,7 +425,11 @@ impl ArtifactRequest {
         scalars: &pse_math::library::ScalarProducts,
     ) -> std::result::Result<CompiledBody, MathError> {
         let compiled = self.support.compile_product_reusing(
-            self.demand.product, self.optimization, self.evaluation, cancel, scalars,
+            self.demand.product,
+            self.optimization,
+            self.evaluation,
+            cancel,
+            scalars,
         );
         compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
     }
@@ -441,11 +445,7 @@ impl ArtifactRequest {
     /// limits remain independent; opaque control/provider bodies return None.
     pub fn construction_allocation_bound(&self) -> std::result::Result<Option<usize>, MathError> {
         self.support
-            .compilation_allocation_bound(
-                self.evaluation,
-                self.demand.product,
-                self.optimization,
-            )?
+            .compilation_allocation_bound(self.evaluation, self.demand.product, self.optimization)?
             .map(|body| {
                 body.checked_add(self.descriptor_bytes())
                     .ok_or(MathError::Limit("artifact construction extent"))
@@ -456,7 +456,10 @@ impl ArtifactRequest {
     pub fn build(&self, cancel: &Arc<AtomicBool>) -> std::result::Result<CompiledBody, MathError> {
         let _span = tracing::info_span!("pse.case.program_optimization").entered();
         let compiled = self.support.compile_product(
-            self.demand.product, self.optimization, self.evaluation, cancel,
+            self.demand.product,
+            self.optimization,
+            self.evaluation,
+            cancel,
         );
         compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
     }
@@ -1583,7 +1586,9 @@ impl pse_model::diagnostic::DiagnosticProjection for CompileError {
                 d.locations.push(SourceLocation {
                     source: *definition,
                     revision: None,
-            document: None, occurrence_role: None, occurrence_position: None,
+                    document: None,
+                    occurrence_role: None,
+                    occurrence_position: None,
                     path: format!("definition/{definition}/source/{source_index}"),
                     name: None,
                     start,

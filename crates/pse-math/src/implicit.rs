@@ -111,33 +111,52 @@ pub struct Options {
     pub derivative_tolerance: f64,
 }
 /// Distinct requested derivative programs over one original residual definition.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct ResidualBodies {
     /// Unknown-only native/Newton product; parameters remain ordinary value inputs.
-    pub unknown:Arc<CompiledBody>,
+    pub unknown: Arc<CompiledBody>,
     /// Parameter and unknown partials required by implicit-function differentiation.
-    pub parameter:Arc<CompiledBody>,
+    pub parameter: Arc<CompiledBody>,
 }
 impl ResidualBodies {
-    fn check(&self,unknowns:usize,inputs:usize) -> Result<(),MathError> {
-        let a=self.unknown.prepared_support();
-        let b=self.parameter.prepared_support();
-        let axes=if self.unknown.compiled_order()>=DerivativeOrder::First {
+    fn check(&self, unknowns: usize, inputs: usize) -> Result<(), MathError> {
+        let a = self.unknown.prepared_support();
+        let b = self.parameter.prepared_support();
+        let axes = if self.unknown.compiled_order() >= DerivativeOrder::First {
             (0..unknowns).collect::<Vec<_>>()
-        } else {Vec::new()};
-        let width=unknowns.checked_add(inputs).ok_or_else(||MathError::Contract("implicit formal extent".into()))?;
-        let parameter_axes=if self.parameter.compiled_order()>=DerivativeOrder::First {
+        } else {
+            Vec::new()
+        };
+        let width = unknowns
+            .checked_add(inputs)
+            .ok_or_else(|| MathError::Contract("implicit formal extent".into()))?;
+        let parameter_axes = if self.parameter.compiled_order() >= DerivativeOrder::First {
             (0..width).collect::<Vec<_>>()
-        } else {Vec::new()};
-        if !a.same_source(b) || a.outputs()!=b.outputs()
-            || self.unknown.product_kind()!=crate::guarded::ProductKind::SelectedPartials
-            || self.parameter.product_kind()!=crate::guarded::ProductKind::SelectedPartials
-            || self.unknown.compiled_order()>DerivativeOrder::First
-            || self.unknown.coordinates()!=axes
-            || self.parameter.coordinates()!=parameter_axes
-            || self.unknown.input_formals().iter().any(|formal|!self.parameter.input_formals().contains(formal))
-            || self.parameter.input_formals().iter().any(|formal|*formal>=width)
-        { return Err(MathError::Contract("implicit residual programs have different source/output/input premises".into())); }
+        } else {
+            Vec::new()
+        };
+        if !a.same_source(b)
+            || a.outputs() != b.outputs()
+            || self.unknown.product_kind() != crate::guarded::ProductKind::SelectedPartials
+            || self.parameter.product_kind() != crate::guarded::ProductKind::SelectedPartials
+            || self.unknown.compiled_order() > DerivativeOrder::First
+            || self.unknown.coordinates() != axes
+            || self.parameter.coordinates() != parameter_axes
+            || self
+                .unknown
+                .input_formals()
+                .iter()
+                .any(|formal| !self.parameter.input_formals().contains(formal))
+            || self
+                .parameter
+                .input_formals()
+                .iter()
+                .any(|formal| *formal >= width)
+        {
+            return Err(MathError::Contract(
+                "implicit residual programs have different source/output/input premises".into(),
+            ));
+        }
         Ok(())
     }
 }
@@ -161,7 +180,7 @@ pub struct Problem {
     pub requirements: pse_kernels::DerivativeRequirements,
     residual_offsets: Vec<f64>,
     worker: Mutex<ResidualWorker>,
-    unknown_worker:Mutex<ResidualWorker>,
+    unknown_worker: Mutex<ResidualWorker>,
     providers: Mutex<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>>,
     pattern: SymbolicSparseColMat<usize>,
     symbolic: SymbolicLu<usize>,
@@ -169,12 +188,15 @@ pub struct Problem {
 }
 #[derive(Debug)]
 struct ResidualWorker {
-    worker:Worker,
-    inputs:Vec<f64>,
+    worker: Worker,
+    inputs: Vec<f64>,
 }
 impl ResidualWorker {
-    fn new(body:&CompiledBody) -> Self {
-        Self { worker:body.worker(), inputs:vec![f64::NAN;body.input_formals().len()] }
+    fn new(body: &CompiledBody) -> Self {
+        Self {
+            worker: body.worker(),
+            inputs: vec![f64::NAN; body.input_formals().len()],
+        }
     }
 }
 struct FactorWorkspace {
@@ -256,8 +278,8 @@ impl Problem {
         parallel: Par,
     ) -> Result<Self, MathError> {
         let n = unknowns.len();
-        bodies.check(n,inputs)?;
-        let body=&bodies.parameter;
+        bodies.check(n, inputs)?;
+        let body = &bodies.parameter;
         let extent = n
             .checked_add(inputs)
             .and_then(|width| match body.compiled_order() {
@@ -362,7 +384,7 @@ impl Problem {
             .map_err(|e| MathError::Contract(e.to_string()))?,
             residual_offsets,
             worker: Mutex::new(ResidualWorker::new(body)),
-            unknown_worker:Mutex::new(ResidualWorker::new(&bodies.unknown)),
+            unknown_worker: Mutex::new(ResidualWorker::new(&bodies.unknown)),
             providers: Mutex::new(BTreeMap::new()),
             pattern,
             symbolic,
@@ -415,18 +437,29 @@ impl Problem {
     }
     /// Interval guards are checked before library evaluation, without clipping a trial.
     pub fn evaluate(
-        &self,parameters:&[f64],unknowns:&[f64],order:DerivativeOrder,cancel:&Arc<AtomicBool>,
-    ) -> Result<Evaluation,MathError> {
-        self.evaluate_trial_with(&self.worker,parameters,unknowns,order,cancel).map(crate::execution::TrialEvaluation::into_evaluation)
+        &self,
+        parameters: &[f64],
+        unknowns: &[f64],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Evaluation, MathError> {
+        self.evaluate_trial_with(&self.worker, parameters, unknowns, order, cancel)
+            .map(crate::execution::TrialEvaluation::into_evaluation)
     }
     /// Native residual/unknown Jacobian product. Parameter derivative axes are never executed.
     pub fn evaluate_unknown(
-        &self,parameters:&[f64],unknowns:&[f64],order:DerivativeOrder,cancel:&Arc<AtomicBool>,
-    ) -> Result<Evaluation,MathError> {
-        self.evaluate_trial_with(&self.unknown_worker,parameters,unknowns,order,cancel).map(crate::execution::TrialEvaluation::into_evaluation)
+        &self,
+        parameters: &[f64],
+        unknowns: &[f64],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Evaluation, MathError> {
+        self.evaluate_trial_with(&self.unknown_worker, parameters, unknowns, order, cancel)
+            .map(crate::execution::TrialEvaluation::into_evaluation)
     }
     fn evaluate_trial_with(
-        &self, residual_worker:&Mutex<ResidualWorker>,
+        &self,
+        residual_worker: &Mutex<ResidualWorker>,
         parameters: &[f64],
         unknowns: &[f64],
         order: DerivativeOrder,
@@ -456,10 +489,15 @@ impl Problem {
             let mut worker = residual_worker
                 .lock()
                 .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?;
-            let ResidualWorker { worker,inputs }=&mut *worker;
-            for (&formal,value) in worker.input_formals().iter().zip(inputs.iter_mut()) {
-                *value=if formal<unknowns.len() { unknowns.get(formal) } else { parameters.get(formal-unknowns.len()) }
-                    .copied().ok_or_else(||MathError::Contract("implicit original-formal gather map".into()))?;
+            let ResidualWorker { worker, inputs } = &mut *worker;
+            for (&formal, value) in worker.input_formals().iter().zip(inputs.iter_mut()) {
+                *value = if formal < unknowns.len() {
+                    unknowns.get(formal)
+                } else {
+                    parameters.get(formal - unknowns.len())
+                }
+                .copied()
+                .ok_or_else(|| MathError::Contract("implicit original-formal gather map".into()))?;
             }
             let mut evaluation = worker.evaluate_trial(
                 inputs,
@@ -523,7 +561,8 @@ impl Problem {
     ) -> Result<(), MathError> {
         observed!("implicit.original_assessment", {
             self.validate_options(options)?;
-            let residual = self.evaluate_unknown(parameters, point, DerivativeOrder::Value, cancel)?;
+            let residual =
+                self.evaluate_unknown(parameters, point, DerivativeOrder::Value, cancel)?;
             if residual.values.len() != self.rows.len()
                 || residual
                     .values
@@ -683,9 +722,11 @@ impl Problem {
             let mut second = Mat::from_fn(n, pairs.len(), |i, j| {
                 let (a, b) = pairs[j];
                 let mut value = 0.0;
-                for (k,l,partial) in jet.second_entries(i) {
-                    value -= partial*tangent(k,a)*tangent(l,b);
-                    if k!=l { value -= partial*tangent(l,a)*tangent(k,b); }
+                for (k, l, partial) in jet.second_entries(i) {
+                    value -= partial * tangent(k, a) * tangent(l, b);
+                    if k != l {
+                        value -= partial * tangent(l, a) * tangent(k, b);
+                    }
                 }
                 value
             });
@@ -968,12 +1009,17 @@ impl ImplicitFactory {
     }
     fn root_bytes(factory: &Factory) -> Option<usize> {
         factory
-            .bodies.parameter
+            .bodies
+            .parameter
             .retained_bytes()
             .checked_add(factory.bodies.parameter.scratch_bytes())?
             .checked_add(factory.bodies.unknown.retained_bytes())?
             .checked_add(factory.bodies.unknown.worker_bytes())?
-            .checked_add((factory.bodies.unknown.input_formals().len()+factory.bodies.parameter.input_formals().len()).checked_mul(size_of::<f64>())?)?
+            .checked_add(
+                (factory.bodies.unknown.input_formals().len()
+                    + factory.bodies.parameter.input_formals().len())
+                .checked_mul(size_of::<f64>())?,
+            )?
             .checked_add(factory.solver.retained_bytes())?
             .checked_add(factory.solver.worker_bytes())?
             .checked_add(size_of::<SolverWorker>())?
@@ -1254,9 +1300,16 @@ impl Factory {
             .map_err(|_| {
                 pse_kernels::ProviderError::Terminal("implicit worker lock poisoned".into())
             })?
-            .worker.set_scope(scope.clone());
-        problem.unknown_worker.get_mut().map_err(|_|pse_kernels::ProviderError::Terminal("implicit unknown worker lock poisoned".into()))?
-            .worker.set_scope(scope.clone());
+            .worker
+            .set_scope(scope.clone());
+        problem
+            .unknown_worker
+            .get_mut()
+            .map_err(|_| {
+                pse_kernels::ProviderError::Terminal("implicit unknown worker lock poisoned".into())
+            })?
+            .worker
+            .set_scope(scope.clone());
         let problem = Arc::new(problem);
         scope.check()?;
         if let Configuration::Fixed(_, options) = &self.configuration
@@ -1407,7 +1460,12 @@ impl Nested {
             }
             None => self
                 .solver
-                .solve(self.problem.clone(), inputs, &options, self.scope.cancellation_control())
+                .solve(
+                    self.problem.clone(),
+                    inputs,
+                    &options,
+                    self.scope.cancellation_control(),
+                )
                 .map_err(provider_error)?,
         };
         self.scope
@@ -1522,14 +1580,31 @@ fn provider_error(error: MathError) -> pse_kernels::ProviderError {
 }
 
 #[cfg(test)]
-pub(crate) fn residual_bodies_for_test(parameter:Arc<CompiledBody>) -> ResidualBodies {
-    let unknowns=parameter.prepared_support().outputs().len();
-    let order=parameter.compiled_order().min(DerivativeOrder::First);
-    let axes=if order>=DerivativeOrder::First {(0..unknowns).collect::<Vec<_>>()}else{Vec::new()};
-    let cancel=Arc::new(AtomicBool::new(false));
-    let support=parameter.prepared_support().incidence(&axes,&cancel).unwrap().at_order(order).unwrap();
-    let unknown=Arc::new(support.compile(crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&cancel).unwrap());
-    ResidualBodies{unknown,parameter}
+pub(crate) fn residual_bodies_for_test(parameter: Arc<CompiledBody>) -> ResidualBodies {
+    let unknowns = parameter.prepared_support().outputs().len();
+    let order = parameter.compiled_order().min(DerivativeOrder::First);
+    let axes = if order >= DerivativeOrder::First {
+        (0..unknowns).collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    let cancel = Arc::new(AtomicBool::new(false));
+    let support = parameter
+        .prepared_support()
+        .incidence(&axes, &cancel)
+        .unwrap()
+        .at_order(order)
+        .unwrap();
+    let unknown = Arc::new(
+        support
+            .compile(
+                crate::library::Optimization::default(),
+                crate::jets::EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    ResidualBodies { unknown, parameter }
 }
 
 #[cfg(test)]
@@ -1541,53 +1616,134 @@ mod tests {
     use super::*;
     #[test]
     fn implicit_dual_programs_require_canonical_parameter_axes_and_analytic_ift() {
-        use crate::guarded::{PreparedBody,Stage};
+        use crate::guarded::{PreparedBody, Stage};
         use symbolica::atom::Atom;
         crate::initialize().unwrap();
-        let x=crate::library::formal(0).unwrap();
-        let p=crate::library::formal(1).unwrap();
-        let id=SemanticId::from_bytes([43;16]);
-        let cancel=Arc::new(AtomicBool::new(false));
+        let x = crate::library::formal(0).unwrap();
+        let p = crate::library::formal(1).unwrap();
+        let id = SemanticId::from_bytes([43; 16]);
+        let cancel = Arc::new(AtomicBool::new(false));
         // u = 2p + p² independently gives u'(3)=8 and u''(3)=2.
-        let source=PreparedBody::new(2,3,vec![2],vec![Stage::Block {
-            expressions:vec![x-Atom::num(2)*&p-&p*&p],outputs:vec![2],source:id,
-        }],DerivativeOrder::Second).unwrap();
-        let compile=|axes:&[usize],order|Arc::new(source.compile(&[0],axes,order,
-            crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&cancel).unwrap());
-        let unknown=compile(&[0],DerivativeOrder::First);
-        for axes in [&[1,0][..],&[0][..],&[1][..]] {
-            let bodies=ResidualBodies{unknown:unknown.clone(),parameter:compile(axes,DerivativeOrder::First)};
-            assert!(matches!(bodies.check(1,1),Err(MathError::Contract(_))),"axes {axes:?}");
+        let source = PreparedBody::new(
+            2,
+            3,
+            vec![2],
+            vec![Stage::Block {
+                expressions: vec![x - Atom::num(2) * &p - &p * &p],
+                outputs: vec![2],
+                source: id,
+            }],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        let compile = |axes: &[usize], order| {
+            Arc::new(
+                source
+                    .compile(
+                        &[0],
+                        axes,
+                        order,
+                        crate::library::Optimization::default(),
+                        crate::jets::EvaluationLimits::default(),
+                        &cancel,
+                    )
+                    .unwrap(),
+            )
+        };
+        let unknown = compile(&[0], DerivativeOrder::First);
+        for axes in [&[1, 0][..], &[0][..], &[1][..]] {
+            let bodies = ResidualBodies {
+                unknown: unknown.clone(),
+                parameter: compile(axes, DerivativeOrder::First),
+            };
+            assert!(
+                matches!(bodies.check(1, 1), Err(MathError::Contract(_))),
+                "axes {axes:?}"
+            );
         }
-        let options=Options{start:vec![15.],variable_nominals:vec![1.],variable_tolerance:vec![1e-10],
-            residual_tolerance:vec![1e-10],iterations:10,time_limit:Duration::from_secs(1),derivative_tolerance:1e-10};
-        for order in [DerivativeOrder::First,DerivativeOrder::Second] {
-            let bodies=ResidualBodies{unknown:unknown.clone(),parameter:compile(&[0,1],order)};
-            let problem=Problem::new(id,ContentHash::from_bytes([43;32]),vec![Unknown{id,lower:-100.,upper:100.}],
-                vec![id],1,bodies,1024).unwrap();
-            let actual=problem.derivatives(&[3.],&[15.],order,&options,&cancel).unwrap();
-            assert_eq!(actual.values,[15.]);
-            assert!((actual.jacobian[0]-8.).abs()<1e-12);
-            if order==DerivativeOrder::Second {assert!((actual.hessians[0]-2.).abs()<1e-12);}
-            else {assert!(actual.hessians.is_empty());}
+        let options = Options {
+            start: vec![15.],
+            variable_nominals: vec![1.],
+            variable_tolerance: vec![1e-10],
+            residual_tolerance: vec![1e-10],
+            iterations: 10,
+            time_limit: Duration::from_secs(1),
+            derivative_tolerance: 1e-10,
+        };
+        for order in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let bodies = ResidualBodies {
+                unknown: unknown.clone(),
+                parameter: compile(&[0, 1], order),
+            };
+            let problem = Problem::new(
+                id,
+                ContentHash::from_bytes([43; 32]),
+                vec![Unknown {
+                    id,
+                    lower: -100.,
+                    upper: 100.,
+                }],
+                vec![id],
+                1,
+                bodies,
+                1024,
+            )
+            .unwrap();
+            let actual = problem
+                .derivatives(&[3.], &[15.], order, &options, &cancel)
+                .unwrap();
+            assert_eq!(actual.values, [15.]);
+            assert!((actual.jacobian[0] - 8.).abs() < 1e-12);
+            if order == DerivativeOrder::Second {
+                assert!((actual.hessians[0] - 2.).abs() < 1e-12);
+            } else {
+                assert!(actual.hessians.is_empty());
+            }
         }
-        let value=ResidualBodies{unknown:compile(&[],DerivativeOrder::Value),parameter:compile(&[],DerivativeOrder::Value)};
-        value.check(1,1).unwrap();
+        let value = ResidualBodies {
+            unknown: compile(&[], DerivativeOrder::Value),
+            parameter: compile(&[], DerivativeOrder::Value),
+        };
+        value.check(1, 1).unwrap();
     }
     #[test]
     fn implicit_dual_programs_refuse_a_different_original_definition() {
-        use crate::guarded::{PreparedBody,Stage};
+        use crate::guarded::{PreparedBody, Stage};
         use symbolica::atom::Atom;
         crate::initialize().unwrap();
-        let x=crate::library::formal(0).unwrap();
-        let p=crate::library::formal(1).unwrap();
-        let cancel=Arc::new(AtomicBool::new(false));
-        let compile=|value:Atom,axes:&[usize]| Arc::new(PreparedBody::new(2,3,vec![2],vec![Stage::Block {
-            expressions:vec![value],outputs:vec![2],source:SemanticId::NIL,
-        }],DerivativeOrder::Second).unwrap().compile(&[0],axes,DerivativeOrder::First,
-            crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&cancel).unwrap());
-        let bodies=ResidualBodies {unknown:compile(&x-&p,&[0]),parameter:compile(&x+&p,&[0,1])};
-        assert!(matches!(bodies.check(1,1),Err(MathError::Contract(_))));
+        let x = crate::library::formal(0).unwrap();
+        let p = crate::library::formal(1).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let compile = |value: Atom, axes: &[usize]| {
+            Arc::new(
+                PreparedBody::new(
+                    2,
+                    3,
+                    vec![2],
+                    vec![Stage::Block {
+                        expressions: vec![value],
+                        outputs: vec![2],
+                        source: SemanticId::NIL,
+                    }],
+                    DerivativeOrder::Second,
+                )
+                .unwrap()
+                .compile(
+                    &[0],
+                    axes,
+                    DerivativeOrder::First,
+                    crate::library::Optimization::default(),
+                    crate::jets::EvaluationLimits::default(),
+                    &cancel,
+                )
+                .unwrap(),
+            )
+        };
+        let bodies = ResidualBodies {
+            unknown: compile(&x - &p, &[0]),
+            parameter: compile(&x + &p, &[0, 1]),
+        };
+        assert!(matches!(bodies.check(1, 1), Err(MathError::Contract(_))));
     }
     #[test]
     fn compact_value_inputs_preserve_unknown_and_parameter_formal_positions() {
@@ -1710,7 +1866,11 @@ mod tests {
             }],
             vec![pse_ids::named_id(id, "equation")],
             63,
-            residual_bodies_for_test(compile(&[0], &(0..64).collect::<Vec<_>>(), DerivativeOrder::First)),
+            residual_bodies_for_test(compile(
+                &[0],
+                &(0..64).collect::<Vec<_>>(),
+                DerivativeOrder::First,
+            )),
             128,
         )
         .unwrap();
@@ -1725,11 +1885,33 @@ mod tests {
         });
         let mut parameters = vec![f64::NAN; 63];
         parameters[46] = 3.;
-        let unknown_only=problem.evaluate_unknown(&parameters,&[4.],DerivativeOrder::First,&cancel).unwrap();
-        assert_eq!(unknown_only.values,[1.]);
-        assert_eq!(unknown_only.jacobian,[1.],"native residual excludes all 63 parameter derivative axes");
-        assert!(!problem.worker.lock().unwrap().worker.census().instantiated_orders[1]);
-        assert!(problem.unknown_worker.lock().unwrap().worker.census().instantiated_orders[1]);
+        let unknown_only = problem
+            .evaluate_unknown(&parameters, &[4.], DerivativeOrder::First, &cancel)
+            .unwrap();
+        assert_eq!(unknown_only.values, [1.]);
+        assert_eq!(
+            unknown_only.jacobian,
+            [1.],
+            "native residual excludes all 63 parameter derivative axes"
+        );
+        assert!(
+            !problem
+                .worker
+                .lock()
+                .unwrap()
+                .worker
+                .census()
+                .instantiated_orders[1]
+        );
+        assert!(
+            problem
+                .unknown_worker
+                .lock()
+                .unwrap()
+                .worker
+                .census()
+                .instantiated_orders[1]
+        );
 
         assert_eq!(
             worker.anchor(&problem, &parameters, &cancel).unwrap(),
@@ -1873,7 +2055,11 @@ mod tests {
                 vec![unknown.clone()],
                 vec![pse_ids::named_id(id, "equation")],
                 63,
-            residual_bodies_for_test(compile(&[0], &(0..64).collect::<Vec<_>>(), DerivativeOrder::First)),
+                residual_bodies_for_test(compile(
+                    &[0],
+                    &(0..64).collect::<Vec<_>>(),
+                    DerivativeOrder::First,
+                )),
                 128,
             )
             .unwrap(),
@@ -1998,7 +2184,7 @@ mod tests {
                 derivatives: DerivativeOrder::Second,
                 smoothness: DerivativeOrder::Second,
             },
-            bodies:residual_bodies_for_test(body),
+            bodies: residual_bodies_for_test(body),
             unknowns: unknowns.clone(),
             rows: vec![pse_ids::named_id(id, "row")],
             configuration: Configuration::Fixed(unknowns, options.clone()),

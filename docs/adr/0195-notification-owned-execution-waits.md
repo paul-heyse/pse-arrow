@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, DP-21, PS-10]
 blueprint: [§14.3, §18.10]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Interface-checked — existing flight, kernel scope, math admission and native process-exclusion owners; pinned event-listener 5.4.2 contracts.
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A wait cannot observe its actual resource release or stop without renewed polling or another scheduler.
@@ -49,7 +49,7 @@ Retain original clock, cancellation-versus-deadline distinctions, memory/job/CPU
 
 ### Confirmation
 
-**Interface-checked:** source inspection establishes the periodic paths and pinned event-listener registration/Future behavior. Plan43f records implementation and revealing tests. This proposed record does not certify them or alter formal ADR acceptance.
+**Tested, 2026-10-17:** permit rollback/closure, wake-before-wait, cancellation/deadline, surrogate release and exact private-child readiness controls passed, as did actual managed exclusive-worker study cancellation and drain. Plan43f/43g Outcomes own commands and scope; notification is not permission to release unjoined issued work.
 
 ## Pros and cons
 

@@ -185,8 +185,9 @@ fn directed(dae: bool, direction: EventDirection, terminal: bool) -> ResetToy {
 #[test]
 fn idas_events_without_sensitivities() {
     let root = 2f64.ln() / 2.0;
-    let go =
-        |oracle: &mut ResetToy, p: &Profile| integrate(oracle, p, &[2.0], Cancellation::default()).unwrap();
+    let go = |oracle: &mut ResetToy, p: &Profile| {
+        integrate(oracle, p, &[2.0], Cancellation::default()).unwrap()
+    };
     for dae in [false, true] {
         let mut p = profile(dae);
         p.method = Method::Idas;
@@ -620,10 +621,22 @@ fn idas_sensitivity_sparse_products() {
     let parameters = [0.4, 0.3, 1.5];
     let mut idas = p.clone();
     idas.method = Method::Idas;
-    let a = integrate(&mut Chain::new(n), &idas, &parameters, Cancellation::default()).unwrap();
+    let a = integrate(
+        &mut Chain::new(n),
+        &idas,
+        &parameters,
+        Cancellation::default(),
+    )
+    .unwrap();
     let mut diffsol = p.clone();
     diffsol.method = Method::Diffsol;
-    let b = integrate(&mut Chain::new(n), &diffsol, &parameters, Cancellation::default()).unwrap();
+    let b = integrate(
+        &mut Chain::new(n),
+        &diffsol,
+        &parameters,
+        Cancellation::default(),
+    )
+    .unwrap();
     assert_eq!(a.termination, Termination::Completed, "{:?}", a.error);
     assert_eq!(b.termination, Termination::Completed, "{:?}", b.error);
     for (x, y) in a.samples.iter().zip(&b.samples) {

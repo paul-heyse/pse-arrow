@@ -324,7 +324,11 @@ impl crate::HeapUsage for BoundaryDiagnostic {
             + self
                 .locations
                 .iter()
-                .map(|v| v.path.capacity() + v.name.as_ref().map_or(0, String::capacity) + v.occurrence_role.as_ref().map_or(0, String::capacity))
+                .map(|v| {
+                    v.path.capacity()
+                        + v.name.as_ref().map_or(0, String::capacity)
+                        + v.occurrence_role.as_ref().map_or(0, String::capacity)
+                })
                 .sum::<usize>()
             + self
                 .observations
@@ -593,7 +597,9 @@ mod tests {
                 original.locations.push(SourceLocation {
                     source: a,
                     revision: Some(ContentHash::from_bytes([5; 32])),
-            document: None, occurrence_role: None, occurrence_position: None,
+                    document: None,
+                    occurrence_role: None,
+                    occurrence_position: None,
                     path: "authored.pse".into(),
                     name: None,
                     start: Some(0),

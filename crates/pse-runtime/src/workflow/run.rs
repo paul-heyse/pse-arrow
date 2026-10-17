@@ -532,9 +532,10 @@ impl RunResult {
                 role: "wald_intervals".into(),
                 availability: availability(
                     uncertainty.is_some(),
-                    original_permission && report
-                        .and_then(|r| r.wald.as_ref())
-                        .is_some_and(Result::is_ok),
+                    original_permission
+                        && report
+                            .and_then(|r| r.wald.as_ref())
+                            .is_some_and(Result::is_ok),
                 ),
             });
             products.push(InvocationProduct {
@@ -542,9 +543,10 @@ impl RunResult {
                 role: "profile_intervals".into(),
                 availability: availability(
                     uncertainty.is_some_and(|u| u.profile.is_some()),
-                    original_permission && report
-                        .and_then(|r| r.profiles.as_ref())
-                        .is_some_and(Result::is_ok),
+                    original_permission
+                        && report
+                            .and_then(|r| r.profiles.as_ref())
+                            .is_some_and(Result::is_ok),
                 ),
             });
         }

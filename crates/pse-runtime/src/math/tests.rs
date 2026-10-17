@@ -260,9 +260,7 @@ async fn retained_result_beyond_the_working_allowance_is_charged_at_its_extent()
     assert_eq!(s.pool.reserved(), 0);
     // A product the pool cannot admit is refused after the work, as a pool limit.
     let refused = s
-        .job_retained(1, 0, Cancellation::default(), move |_| {
-            Ok(((), 1 << 30))
-        })
+        .job_retained(1, 0, Cancellation::default(), move |_| Ok(((), 1 << 30)))
         .await;
     assert!(matches!(refused, Err(MathRuntimeError::Pool(_))));
     assert_eq!(s.pool.reserved(), 0);

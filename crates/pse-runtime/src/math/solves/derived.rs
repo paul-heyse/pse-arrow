@@ -1601,7 +1601,8 @@ impl MathService {
             .checked_add(profile.controls.time_limit)
             .ok_or(MathRuntimeError::Limit("derived submission deadline"))?;
         let deadline = scope.deadline().map_or(local, |outer| outer.min(local));
-        let operation_scope = ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
+        let operation_scope =
+            ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
         let worker_scope = operation_scope.clone();
         let task_scope = scope.clone();
         let control = Cancellation::default();

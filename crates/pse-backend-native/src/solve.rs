@@ -995,8 +995,13 @@ impl AttemptAbandonment {
                 ));
             }
         };
-        let recorded = self.reason.compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire).is_ok();
-        if recorded { self.changed.notify(); }
+        let recorded = self
+            .reason
+            .compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok();
+        if recorded {
+            self.changed.notify();
+        }
         Ok(recorded)
     }
     /// Register before inspecting the abandonment predicate and parking.
@@ -2593,7 +2598,10 @@ mod numerical_tests {
                 category: Termination::Evaluation,
                 assurance: Assurance::None,
             },
-            &Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default()),
+            &Execution::new(
+                pse_diagnostics::Cancellation::default(),
+                &Controls::default(),
+            ),
         )
     }
     fn trial_failure() -> Arc<ProblemError> {
@@ -2776,7 +2784,10 @@ mod numerical_tests {
         let tolerance = 100.0 * pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
         let accuracy = ResolvedAccuracy::from_policy(&policy, tolerance / 100.0).unwrap();
         let contract = crate::solver_tests::contract();
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         let mut report = SolveReport::new(
             Backend::Ipopt,
             &contract,
@@ -2840,8 +2851,12 @@ mod numerical_tests {
         use pse_model::generated::enums::NumericalAttemptObservation as O;
         struct Wake(AtomicBool);
         impl std::task::Wake for Wake {
-            fn wake(self: Arc<Self>) { self.0.store(true, Ordering::Release); }
-            fn wake_by_ref(self: &Arc<Self>) { self.0.store(true, Ordering::Release); }
+            fn wake(self: Arc<Self>) {
+                self.0.store(true, Ordering::Release);
+            }
+            fn wake_by_ref(self: &Arc<Self>) {
+                self.0.store(true, Ordering::Release);
+            }
         }
         let source = AttemptAbandonment::default();
         let wake = Arc::new(Wake(AtomicBool::new(false)));
@@ -2851,12 +2866,17 @@ mod numerical_tests {
         assert!(source.abandon(O::Stalled).unwrap());
         assert!(wake.0.load(Ordering::Acquire));
         let mut future = std::pin::pin!(future);
-        assert!(Future::poll(future.as_mut(), &mut std::task::Context::from_waker(&waker)).is_ready());
+        assert!(
+            Future::poll(future.as_mut(), &mut std::task::Context::from_waker(&waker)).is_ready()
+        );
         drop(watch);
         wake.0.store(false, Ordering::Release);
         let _watch = source.watch(&waker);
         assert!(!source.abandon(O::NumericalFailure).unwrap());
-        assert!(!wake.0.load(Ordering::Acquire), "repeated stop is not a new owner transition");
+        assert!(
+            !wake.0.load(Ordering::Acquire),
+            "repeated stop is not a new owner transition"
+        );
     }
     #[test]
     fn attempt_abandonment_is_local_typed_and_first_write() {
@@ -2923,7 +2943,8 @@ mod numerical_tests {
         ));
         assert!(Execution::within(cancel.clone(), &Controls::default(), original).is_err());
         assert!(!cancel.is_cancelled());
-        let foreign = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let foreign =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         assert!(matches!(
             Execution::within(cancel, &Controls::default(), foreign),
             Err(ProblemError::Contract(_))

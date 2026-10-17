@@ -987,7 +987,10 @@ impl Session {
         report
             .provenance
             .insert("feral.effective".into(), effective.to_string());
-        report.provenance.insert("feral.refinement_policy".into(), "explicit_typed_configuration".into());
+        report.provenance.insert(
+            "feral.refinement_policy".into(),
+            "explicit_typed_configuration".into(),
+        );
         observation.record(&mut report);
         if let Some(mut candidate) = a.solution.take()
             && candidate.primal.iter().all(|v| v.is_finite())
@@ -1224,17 +1227,41 @@ mod tests {
     fn prepared_tnlp_transport_reuses_current_point_and_changed_multiplier_scales() {
         let mut a = adapter();
         a.normalization = pse_math::normalization::Normalization {
-            variables: vec![2.], rows: vec![4.], objective: 8.,
+            variables: vec![2.],
+            rows: vec![4.],
+            objective: 8.,
         };
         let mut out = [0.];
         assert!(a.eval_grad_f(&[3.], true, &mut out));
         assert_eq!(out, [3.]);
-        assert!(a.eval_jac_g(Some(&[3.]), true, SparsityRequest::Values { values: &mut out }));
+        assert!(a.eval_jac_g(
+            Some(&[3.]),
+            true,
+            SparsityRequest::Values { values: &mut out }
+        ));
         assert_eq!(out, [54.]);
-        assert!(a.eval_h(Some(&[3.]), true, 4., Some(&[3.]), true, SparsityRequest::Values { values: &mut out }));
+        assert!(a.eval_h(
+            Some(&[3.]),
+            true,
+            4.,
+            Some(&[3.]),
+            true,
+            SparsityRequest::Values { values: &mut out }
+        ));
         assert_eq!(out, [112.]);
-        assert!(a.eval_h(Some(&[2.]), true, 4., Some(&[-8.]), true, SparsityRequest::Values { values: &mut out }));
-        assert_eq!(out, [-188.], "new multipliers and point replace previous scratch values");
+        assert!(a.eval_h(
+            Some(&[2.]),
+            true,
+            4.,
+            Some(&[-8.]),
+            true,
+            SparsityRequest::Values { values: &mut out }
+        ));
+        assert_eq!(
+            out,
+            [-188.],
+            "new multipliers and point replace previous scratch values"
+        );
     }
     #[test]
     fn prepared_tnlp_failure_never_publishes_partial_or_nonfinite_output() {
@@ -1252,7 +1279,11 @@ mod tests {
         let mut a = adapter();
         let mut wrong_size = [73., 91.];
         assert!(!a.eval_grad_f(&[2.], true, &mut wrong_size));
-        assert_eq!(wrong_size, [73., 91.], "malformed output stays completely unchanged");
+        assert_eq!(
+            wrong_size,
+            [73., 91.],
+            "malformed output stays completely unchanged"
+        );
     }
     #[test]
     fn objective_support_remains_conservative_at_stationary_start() {
@@ -1372,17 +1403,40 @@ mod tests {
     #[test]
     fn empty_declared_tnlp_hessian_does_not_request_unavailable_second_order_work() {
         let mut a = adapter();
-        a.oracle = Box::new(FirstOnly::new(Arc::new(std::sync::atomic::AtomicUsize::new(0)), false));
+        a.oracle = Box::new(FirstOnly::new(
+            Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            false,
+        ));
         a.normalization = pse_math::normalization::Normalization::identity(4, 1);
         a.scratch = crate::tnlp::Scratch::new(4, 1, 4, 0);
         a.jac = Pattern::new(a.oracle.jacobian_pattern(), false).unwrap();
-        a.hess = Pattern { rows: vec![], columns: vec![] };
-        assert!(a.eval_h(Some(&[0.;4]), true, 1., Some(&[0.]), true,
-            SparsityRequest::Values { values: &mut [] }));
-        assert!(a.state.terminal.is_none(), "optional empty curvature query cannot request the first-only oracle Hessian");
+        a.hess = Pattern {
+            rows: vec![],
+            columns: vec![],
+        };
+        assert!(a.eval_h(
+            Some(&[0.; 4]),
+            true,
+            1.,
+            Some(&[0.]),
+            true,
+            SparsityRequest::Values { values: &mut [] }
+        ));
+        assert!(
+            a.state.terminal.is_none(),
+            "optional empty curvature query cannot request the first-only oracle Hessian"
+        );
         let mut malformed = [73.];
-        assert!(!a.eval_h(Some(&[0.;4]), true, 1., Some(&[0.]), true,
-            SparsityRequest::Values { values: &mut malformed }));
+        assert!(!a.eval_h(
+            Some(&[0.; 4]),
+            true,
+            1.,
+            Some(&[0.]),
+            true,
+            SparsityRequest::Values {
+                values: &mut malformed
+            }
+        ));
         assert_eq!(malformed, [73.]);
     }
     fn first_run(
@@ -1536,7 +1590,9 @@ mod tests {
     }
     #[test]
     fn selected_native_factor_and_refinement_records_come_from_actual_library_owners() {
-        use pse_diagnostics::observation::{CoherentRecord, ObservationHub, Policy, RecordTap, Value};
+        use pse_diagnostics::observation::{
+            CoherentRecord, ObservationHub, Policy, RecordTap, Value,
+        };
         #[derive(Debug, Default)]
         struct Tap(Mutex<Vec<CoherentRecord>>);
         impl RecordTap for Tap {
@@ -1544,7 +1600,9 @@ mod tests {
                 matches!(family, "native_factor.v1" | "native_refinement.v1")
             }
             fn observe(&self, record: &CoherentRecord) {
-                if self.selected(&record.family) { self.0.lock().unwrap().push(record.clone()); }
+                if self.selected(&record.family) {
+                    self.0.lock().unwrap().push(record.clone());
+                }
             }
         }
         let hub = ObservationHub::new(Policy::default());
@@ -1556,40 +1614,97 @@ mod tests {
         assert_eq!(report.termination.category, Termination::Success);
         assert!(report.quality.unwrap().feasible());
         let records = tap.0.lock().unwrap();
-        let field = |record: &CoherentRecord, name: &str| record.values.iter()
-            .find(|field| field.name == name).unwrap().value.clone();
-        let factor = records.iter().find(|record| record.family == "native_factor.v1"
-            && field(record, "factor_values_available") == Value::Boolean(true)).unwrap();
+        let field = |record: &CoherentRecord, name: &str| {
+            record
+                .values
+                .iter()
+                .find(|field| field.name == name)
+                .unwrap()
+                .value
+                .clone()
+        };
+        let factor = records
+            .iter()
+            .find(|record| {
+                record.family == "native_factor.v1"
+                    && field(record, "factor_values_available") == Value::Boolean(true)
+            })
+            .unwrap();
         assert!(matches!(field(factor, "input_nonzeros"), Value::Integer(value) if value > 0));
         assert!(matches!(field(factor, "actual_ordering"), Value::Text(_)));
-        let refinement = records.iter().find(|record| record.family == "native_refinement.v1").unwrap();
+        let refinement = records
+            .iter()
+            .find(|record| record.family == "native_refinement.v1")
+            .unwrap();
         assert_eq!(field(refinement, "counter_overflow"), Value::Boolean(false));
-        assert_eq!(field(refinement, "precheck_rhs_issued"), Value::Integer(0), "the explicit default profile does not enable the target precheck");
-        assert_eq!(field(refinement, "refinement_entered"), Value::Boolean(true));
-        assert!(matches!(field(refinement, "initial_rhs_issued"), Value::Integer(value) if value > 0));
+        assert_eq!(
+            field(refinement, "precheck_rhs_issued"),
+            Value::Integer(0),
+            "the explicit default profile does not enable the target precheck"
+        );
+        assert_eq!(
+            field(refinement, "refinement_entered"),
+            Value::Boolean(true)
+        );
+        assert!(
+            matches!(field(refinement, "initial_rhs_issued"), Value::Integer(value) if value > 0)
+        );
         assert_eq!(field(refinement, "path"), Value::Text("monolithic".into()));
-        assert!(records.iter().all(|record| record.producer.operation == operation.context().id()));
+        assert!(
+            records
+                .iter()
+                .all(|record| record.producer.operation == operation.context().id())
+        );
     }
     #[test]
     fn explicit_refinement_configuration_survives_method_and_curvature_composition() {
         for method in [Method::InteriorPoint, Method::ActiveSetSqp] {
             for hessian in [HessianMode::Exact, HessianMode::LimitedMemory] {
                 for refine in [false, true] {
-                    let mut settings = Settings { method, ..Default::default() };
+                    let mut settings = Settings {
+                        method,
+                        ..Default::default()
+                    };
                     settings.linear.refine = refine;
                     settings.linear.refine_max_steps = 3;
-                    let report = Session::new().solve(
-                        Box::new(crate::solver_tests::Polynomial::new()), &[2.], ObjectiveSense::Minimize,
-                        &Controls { hessian, ..Default::default() }, &ResolvedAccuracy::verification(),
-                        &settings, crate::solver_tests::execution(),
-                        &Tolerances { variables: vec![1e-8], rows: vec![1e-8], integrality: 1e-8 },
-                        None, crate::solver_tests::stamp(Backend::Pounce),
-                    ).unwrap();
-                    let effective: serde_json::Value = serde_json::from_str(&report.provenance["feral.effective"]).unwrap();
-                    assert_eq!(effective["refine"], serde_json::json!(refine), "{method:?}/{hessian:?}");
+                    let report = Session::new()
+                        .solve(
+                            Box::new(crate::solver_tests::Polynomial::new()),
+                            &[2.],
+                            ObjectiveSense::Minimize,
+                            &Controls {
+                                hessian,
+                                ..Default::default()
+                            },
+                            &ResolvedAccuracy::verification(),
+                            &settings,
+                            crate::solver_tests::execution(),
+                            &Tolerances {
+                                variables: vec![1e-8],
+                                rows: vec![1e-8],
+                                integrality: 1e-8,
+                            },
+                            None,
+                            crate::solver_tests::stamp(Backend::Pounce),
+                        )
+                        .unwrap();
+                    let effective: serde_json::Value =
+                        serde_json::from_str(&report.provenance["feral.effective"]).unwrap();
+                    assert_eq!(
+                        effective["refine"],
+                        serde_json::json!(refine),
+                        "{method:?}/{hessian:?}"
+                    );
                     assert_eq!(effective["refine_max_steps"], serde_json::json!(3));
-                    assert_eq!(report.provenance["feral.refinement_policy"], "explicit_typed_configuration");
-                    assert_eq!(report.termination.category, Termination::Success, "{method:?}/{hessian:?}/{refine}");
+                    assert_eq!(
+                        report.provenance["feral.refinement_policy"],
+                        "explicit_typed_configuration"
+                    );
+                    assert_eq!(
+                        report.termination.category,
+                        Termination::Success,
+                        "{method:?}/{hessian:?}/{refine}"
+                    );
                     assert!(report.quality.unwrap().feasible());
                 }
             }

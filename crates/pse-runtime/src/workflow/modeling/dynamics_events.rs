@@ -285,7 +285,11 @@ impl ModelingPackage {
                 .and_then(|bytes| {
                     bytes.checked_add(
                         next.profile
-                            .native_scatter_bytes(next.layout.native(), native::DynamicDemand::Base, next.contract.parameters.len())
+                            .native_scatter_bytes(
+                                next.layout.native(),
+                                native::DynamicDemand::Base,
+                                next.contract.parameters.len(),
+                            )
                             .ok()?,
                     )
                 })
@@ -461,7 +465,11 @@ impl ModelingPackage {
                 bytes.checked_add(
                     result
                         .profile
-                        .native_scatter_bytes(layout.native(), native::DynamicDemand::Base, result.contract.parameters.len())
+                        .native_scatter_bytes(
+                            layout.native(),
+                            native::DynamicDemand::Base,
+                            result.contract.parameters.len(),
+                        )
                         .ok()?,
                 )
             })

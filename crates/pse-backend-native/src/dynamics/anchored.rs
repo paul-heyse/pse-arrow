@@ -210,13 +210,23 @@ impl<O: Oracle> Anchored<O> {
         self.n + self.states() + self.np + self.anchors.len()
     }
     /// Curvature excludes linear anchor and observed-quadrature contributions.
-    fn curvature_terms(&self, mode: usize, function: Function, weights: &[f64]) -> Result<Vec<(Function, Vec<f64>)>, ProblemError> {
+    fn curvature_terms(
+        &self,
+        mode: usize,
+        function: Function,
+        weights: &[f64],
+    ) -> Result<Vec<(Function, Vec<f64>)>, ProblemError> {
         let n = self.n;
         let rows = match function {
             Function::Rhs | Function::Initial | Function::Reset(_) => self.contract.states.len(),
             Function::Output => self.contract.outputs.len(),
             Function::QuadratureFlux => self.contract.quadratures.len(),
-            Function::Roots => self.contract.events.get(mode).ok_or_else(|| ProblemError::Contract("anchored curvature mode".into()))?.len(),
+            Function::Roots => self
+                .contract
+                .events
+                .get(mode)
+                .ok_or_else(|| ProblemError::Contract("anchored curvature mode".into()))?
+                .len(),
             Function::Inventory | Function::Transfer(_) => self.contract.balances.len(),
         };
         if weights.len() != rows || weights.iter().any(|v| !v.is_finite()) {
@@ -563,65 +573,148 @@ impl<O: Oracle> Oracle for Anchored<O> {
         };
         Ok(Evaluation { values, jacobian })
     }
-    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings"
+    )]
     fn jacobian_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], direction: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
-        if state.len() != self.contract.states.len() || parameters.len() != self.contract.parameters.len()
-            || direction.len() != self.width() || direction.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("anchored Jacobian action binding".into()));
+        if state.len() != self.contract.states.len()
+            || parameters.len() != self.contract.parameters.len()
+            || direction.len() != self.width()
+            || direction.iter().any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "anchored Jacobian action binding".into(),
+            ));
         }
         let quadratures = self.states();
         let rows = match function {
             Function::Rhs | Function::Initial | Function::Reset(_) => self.n + quadratures,
             Function::Output => self.m + quadratures,
             Function::QuadratureFlux => self.nq,
-            Function::Roots => self.contract.events.get(mode).ok_or_else(|| ProblemError::Contract("anchored action mode".into()))?.len(),
+            Function::Roots => self
+                .contract
+                .events
+                .get(mode)
+                .ok_or_else(|| ProblemError::Contract("anchored action mode".into()))?
+                .len(),
             Function::Inventory | Function::Transfer(_) => self.contract.balances.len(),
         };
-        if output.len() != rows { return Err(ProblemError::Contract("anchored Jacobian action output".into())); }
-        let seed = (0..self.n + self.np).map(|i| direction[self.column(i)]).collect::<Vec<_>>();
+        if output.len() != rows {
+            return Err(ProblemError::Contract(
+                "anchored Jacobian action output".into(),
+            ));
+        }
+        let seed = (0..self.n + self.np)
+            .map(|i| direction[self.column(i)])
+            .collect::<Vec<_>>();
         let mut candidate = vec![0.; rows];
         let inner_rows = match function {
             Function::Rhs | Function::Initial | Function::Reset(_) => self.n,
             Function::Output => self.m,
             _ => rows,
         };
-        self.inner.jacobian_action(mode, function, time, &state[..self.n], &parameters[..self.np], &seed, &mut candidate[..inner_rows])?;
+        self.inner.jacobian_action(
+            mode,
+            function,
+            time,
+            &state[..self.n],
+            &parameters[..self.np],
+            &seed,
+            &mut candidate[..inner_rows],
+        )?;
         match function {
-            Function::Rhs if self.observed => self.inner.jacobian_action(mode, Function::QuadratureFlux, time,
-                &state[..self.n], &parameters[..self.np], &seed, &mut candidate[self.n..])?,
-            Function::Initial => for (k, &row) in self.anchors.iter().enumerate() { candidate[row] = direction[self.anchor(k)]; },
-            Function::Output => candidate[self.m..].copy_from_slice(&direction[self.n..self.n + quadratures]),
-            Function::Reset(_) => candidate[self.n..].copy_from_slice(&direction[self.n..self.n + quadratures]),
-            _ => {},
+            Function::Rhs if self.observed => self.inner.jacobian_action(
+                mode,
+                Function::QuadratureFlux,
+                time,
+                &state[..self.n],
+                &parameters[..self.np],
+                &seed,
+                &mut candidate[self.n..],
+            )?,
+            Function::Initial => {
+                for (k, &row) in self.anchors.iter().enumerate() {
+                    candidate[row] = direction[self.anchor(k)];
+                }
+            }
+            Function::Output => {
+                candidate[self.m..].copy_from_slice(&direction[self.n..self.n + quadratures])
+            }
+            Function::Reset(_) => {
+                candidate[self.n..].copy_from_slice(&direction[self.n..self.n + quadratures])
+            }
+            _ => {}
         }
-        if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite anchored Jacobian action")); }
+        if candidate.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical(
+                "nonfinite anchored Jacobian action",
+            ));
+        }
         output.copy_from_slice(&candidate);
         Ok(())
     }
-    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings"
+    )]
     fn weighted_hessian_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], weights: &[f64], direction: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
-        if state.len() != self.contract.states.len() || parameters.len() != self.contract.parameters.len()
-            || direction.len() != self.width() || output.len() != self.width()
-            || direction.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("anchored Hessian action direction".into()));
+        if state.len() != self.contract.states.len()
+            || parameters.len() != self.contract.parameters.len()
+            || direction.len() != self.width()
+            || output.len() != self.width()
+            || direction.iter().any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "anchored Hessian action direction".into(),
+            ));
         }
         let terms = self.curvature_terms(mode, function, weights)?;
-        let inner_direction = (0..self.n + self.np).map(|i| direction[self.column(i)]).collect::<Vec<_>>();
+        let inner_direction = (0..self.n + self.np)
+            .map(|i| direction[self.column(i)])
+            .collect::<Vec<_>>();
         let mut candidate = vec![0.; self.width()];
         for (function, weights) in terms {
-            if weights.iter().all(|v| *v == 0.) { continue; }
+            if weights.iter().all(|v| *v == 0.) {
+                continue;
+            }
             let mut product = vec![0.; inner_direction.len()];
-            self.inner.weighted_hessian_action(mode, function, time, &state[..self.n], &parameters[..self.np],
-                &weights, &inner_direction, &mut product)?;
-            for (i, value) in product.into_iter().enumerate() { candidate[self.column(i)] += value; }
+            self.inner.weighted_hessian_action(
+                mode,
+                function,
+                time,
+                &state[..self.n],
+                &parameters[..self.np],
+                &weights,
+                &inner_direction,
+                &mut product,
+            )?;
+            for (i, value) in product.into_iter().enumerate() {
+                candidate[self.column(i)] += value;
+            }
         }
-        if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite anchored Hessian action")); }
+        if candidate.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite anchored Hessian action"));
+        }
         output.copy_from_slice(&candidate);
         Ok(())
     }

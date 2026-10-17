@@ -200,24 +200,41 @@ pub(crate) fn diagnostic_detail_records(
 #[pyfunction]
 #[pyo3(signature = (path, offset, limit, maximum_bytes, memory_bytes) -> "object")]
 pub(crate) fn diagnostic_detail_arrow(
-    py:Python<'_>,path:PathBuf,offset:u64,limit:usize,maximum_bytes:u64,memory_bytes:usize,
-)->PyResult<pyo3_arrow::PyRecordBatch> {
+    py: Python<'_>,
+    path: PathBuf,
+    offset: u64,
+    limit: usize,
+    maximum_bytes: u64,
+    memory_bytes: usize,
+) -> PyResult<pyo3_arrow::PyRecordBatch> {
     py.detach(|| {
-        let page=capture::read_detail_records(&path,offset,limit,maximum_bytes)?;
-        let pool:Arc<dyn pse_columnar::MemoryPool>=Arc::new(pse_columnar::GreedyMemoryPool::new(memory_bytes));
-        capture::evidence::detail_arrow(&page,&pool,&pse_columnar::CancellationToken::new())
-    }).map(pyo3_arrow::PyRecordBatch::new).map_err(|error|errors::diagnostic(py,&error))
+        let page = capture::read_detail_records(&path, offset, limit, maximum_bytes)?;
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(memory_bytes));
+        capture::evidence::detail_arrow(&page, &pool, &pse_columnar::CancellationToken::new())
+    })
+    .map(pyo3_arrow::PyRecordBatch::new)
+    .map_err(|error| errors::diagnostic(py, &error))
 }
 /// The original capture document remains independent from this optional view.
 #[pyfunction]
 #[pyo3(signature = (document, memory_bytes) -> "object")]
 pub(crate) fn diagnostic_capture_arrow(
-    py:Python<'_>,document:DocumentInput<CaptureDocument>,memory_bytes:usize,
-)->PyResult<pyo3_arrow::PyRecordBatch> {
+    py: Python<'_>,
+    document: DocumentInput<CaptureDocument>,
+    memory_bytes: usize,
+) -> PyResult<pyo3_arrow::PyRecordBatch> {
     py.detach(|| {
-        let pool:Arc<dyn pse_columnar::MemoryPool>=Arc::new(pse_columnar::GreedyMemoryPool::new(memory_bytes));
-        capture::evidence::capture_arrow(&document.0,&pool,&pse_columnar::CancellationToken::new())
-    }).map(pyo3_arrow::PyRecordBatch::new).map_err(|error|errors::diagnostic(py,&error))
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(memory_bytes));
+        capture::evidence::capture_arrow(
+            &document.0,
+            &pool,
+            &pse_columnar::CancellationToken::new(),
+        )
+    })
+    .map(pyo3_arrow::PyRecordBatch::new)
+    .map_err(|error| errors::diagnostic(py, &error))
 }
 
 /// An exact operation read lease, independent from RunHandle's cancellation owner.

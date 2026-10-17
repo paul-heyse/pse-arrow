@@ -980,7 +980,10 @@ mod tests {
                 category,
                 assurance: Assurance::None,
             },
-            &Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default()),
+            &Execution::new(
+                pse_diagnostics::Cancellation::default(),
+                &Controls::default(),
+            ),
         );
         report.candidate = Some(Candidate {
             kind: CandidateKind::FinalIterate,

@@ -178,7 +178,20 @@ impl EvaluationContext<'_> {
 }
 
 /// Required partial derivative order; distinct from physical phase and conditioning.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, enum_map::Enum, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    enum_map::Enum,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum DerivativeOrder {
     /// Values only.
@@ -996,7 +1009,10 @@ impl Registration {
     /// # Errors
     /// Returns factory failure or a contract error when its product changes meaning.
     pub fn worker(&self) -> Result<Box<dyn Provider>, ProviderError> {
-        self.worker_scoped(ExecutionScope::new(pse_diagnostics::Cancellation::default(), None))
+        self.worker_scoped(ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            None,
+        ))
     }
     /// Construct a worker with the enclosing attempt's immutable execution scope.
     pub fn worker_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {

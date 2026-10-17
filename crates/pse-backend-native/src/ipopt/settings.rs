@@ -69,16 +69,28 @@ fn linear_options(linear: &Linear) -> Vec<(&'static str, OptionValue)> {
     let text = |v: &str| OptionValue::Text(v.into());
     let mut out = vec![("linear_solver", text(linear.solver().as_str()))];
     match *linear {
-        Linear::Mumps { ordering, pivot_tolerance, maximum_pivot_tolerance, memory_percent, permuting_scaling } => {
+        Linear::Mumps {
+            ordering,
+            pivot_tolerance,
+            maximum_pivot_tolerance,
+            memory_percent,
+            permuting_scaling,
+        } => {
             out.push((
                 "mumps_pivot_order",
                 OptionValue::Integer(mumps_pivot_order(ordering)),
             ));
             out.extend([
                 ("mumps_pivtol", OptionValue::Real(pivot_tolerance)),
-                ("mumps_pivtolmax", OptionValue::Real(maximum_pivot_tolerance)),
+                (
+                    "mumps_pivtolmax",
+                    OptionValue::Real(maximum_pivot_tolerance),
+                ),
                 ("mumps_mem_percent", OptionValue::Integer(memory_percent)),
-                ("mumps_permuting_scaling", OptionValue::Integer(i32::from(permuting_scaling))),
+                (
+                    "mumps_permuting_scaling",
+                    OptionValue::Integer(i32::from(permuting_scaling)),
+                ),
             ]);
         }
         Linear::Spral {

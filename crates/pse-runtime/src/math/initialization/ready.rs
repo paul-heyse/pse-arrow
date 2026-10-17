@@ -450,8 +450,11 @@ impl MathService {
         cancel: &crate::CancelSource,
     ) -> Result<bool, MathRuntimeError> {
         let structure = case.assembly.structure().clone();
-        let mut execution =
-            Execution::within(scope.cancellation_control().clone(), controls, scope.clone())?;
+        let mut execution = Execution::within(
+            scope.cancellation_control().clone(),
+            controls,
+            scope.clone(),
+        )?;
         execution.work_admission = admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
         let control = Cancellation::default();
         let task = pse_kernels::ExecutionScope::new(control.clone(), scope.deadline());

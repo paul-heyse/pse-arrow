@@ -567,7 +567,8 @@ impl NleOracle for AlgebraicOracle {
         self.admit_nle()?;
         self.trial(x)?;
         let values = self.worker.constraints(self.bound.trial(x)?)?;
-        for ((out, value), (lower, _)) in self.root_output.iter_mut().zip(values).zip(&self.bounds) {
+        for ((out, value), (lower, _)) in self.root_output.iter_mut().zip(values).zip(&self.bounds)
+        {
             *out = value - lower;
         }
         crate::tnlp::finite(&self.root_output)?;

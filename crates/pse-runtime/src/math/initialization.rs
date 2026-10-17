@@ -9,8 +9,8 @@ use super::{
     solves::{Predecessor, SolveHandle, SolverProfile},
 };
 use pse_backend_native::{self as native, execution, kinsol, quality::Tolerances, solve::*};
-use pse_diagnostics::Cancellation;
 use pse_compiler::workspace::Profile;
+use pse_diagnostics::Cancellation;
 use pse_ids::SemanticId;
 use pse_math::binding::CaseValues;
 use std::{

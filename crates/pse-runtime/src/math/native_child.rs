@@ -5,11 +5,11 @@
 //! remain authoritative; this is neither continuation nor distributed decomposition.
 use super::{MathRuntimeError, MathService, Submission, solves::SolveHandle};
 use pse_columnar::AllocationLease;
-use pse_diagnostics::Cancellation;
 use pse_compiler::{
     typed_math::{AdmittedBody, portable_payload_hash, reconstruct_portable},
     workspace::CompilerContext,
 };
+use pse_diagnostics::Cancellation;
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, ExecutionScope};
 use pse_math::{
@@ -360,8 +360,12 @@ fn compile_problem(
         scope.cancellation(),
     )?;
     let unknown = body.math().compile(
-        &(0..rows.len()).collect::<Vec<_>>(), &(0..unknowns.len()).collect::<Vec<_>>(),
-        DerivativeOrder::First, pse_math::library::Optimization::default(), limits, scope.cancellation(),
+        &(0..rows.len()).collect::<Vec<_>>(),
+        &(0..unknowns.len()).collect::<Vec<_>>(),
+        DerivativeOrder::First,
+        pse_math::library::Optimization::default(),
+        limits,
+        scope.cancellation(),
     )?;
     checkpoint(scope)?;
     Ok(Arc::new(Problem::new(
@@ -370,7 +374,10 @@ fn compile_problem(
         unknowns.to_vec(),
         rows.to_vec(),
         parameters,
-        pse_math::implicit::ResidualBodies { unknown: Arc::new(unknown), parameter: Arc::new(compiled) },
+        pse_math::implicit::ResidualBodies {
+            unknown: Arc::new(unknown),
+            parameter: Arc::new(compiled),
+        },
         max_entries,
     )?))
 }
@@ -398,7 +405,10 @@ impl OwnedChild {
                     Ok(())
                 };
             }
-            let readiness = self.process_fd.as_ref().ok_or_else(|| infrastructure("missing owned process descriptor"))
+            let readiness = self
+                .process_fd
+                .as_ref()
+                .ok_or_else(|| infrastructure("missing owned process descriptor"))
                 .and_then(|fd| wait_ready(scope, fd, rustix::event::PollFlags::IN));
             if let Err(error) = readiness {
                 let _ = self.process.kill();
@@ -563,15 +573,27 @@ fn owned_process_fd(pid: u32) -> Result<std::os::fd::OwnedFd, MathRuntimeError> 
 }
 #[cfg(not(target_os = "linux"))]
 fn owned_process_fd(_pid: u32) -> Result<std::os::fd::OwnedFd, MathRuntimeError> {
-    Err(pse_backend_native::ProblemError::Unsupported("private native child readiness requires Linux pidfd".into()).into())
+    Err(pse_backend_native::ProblemError::Unsupported(
+        "private native child readiness requires Linux pidfd".into(),
+    )
+    .into())
 }
 
 #[cfg(target_os = "linux")]
-fn wait_ready(scope: &ExecutionScope, fd: &impl AsFd, events: rustix::event::PollFlags) -> Result<(), MathRuntimeError> {
-    use rustix::{event::{EventfdFlags, PollFd, PollFlags, Timespec}, io::Errno};
+fn wait_ready(
+    scope: &ExecutionScope,
+    fd: &impl AsFd,
+    events: rustix::event::PollFlags,
+) -> Result<(), MathRuntimeError> {
+    use rustix::{
+        event::{EventfdFlags, PollFd, PollFlags, Timespec},
+        io::Errno,
+    };
     struct Signal(std::os::fd::OwnedFd);
     impl std::task::Wake for Signal {
-        fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
         fn wake_by_ref(self: &Arc<Self>) {
             loop {
                 match rustix::io::write(&self.0, &1_u64.to_ne_bytes()) {
@@ -581,28 +603,48 @@ fn wait_ready(scope: &ExecutionScope, fd: &impl AsFd, events: rustix::event::Pol
             }
         }
     }
-    let signal = Arc::new(Signal(rustix::event::eventfd(0, EventfdFlags::CLOEXEC | EventfdFlags::NONBLOCK).map_err(infrastructure)?));
+    let signal = Arc::new(Signal(
+        rustix::event::eventfd(0, EventfdFlags::CLOEXEC | EventfdFlags::NONBLOCK)
+            .map_err(infrastructure)?,
+    ));
     let waker = std::task::Waker::from(signal.clone());
     let _watch = scope.cancellation_control().watch(&waker);
     loop {
         checkpoint(scope)?;
-        let timeout = scope.deadline().map(|deadline| Timespec::try_from(deadline.saturating_duration_since(Instant::now())))
-            .transpose().map_err(infrastructure)?;
-        let mut descriptors = [PollFd::new(fd, events), PollFd::new(&signal.0, PollFlags::IN)];
+        let timeout = scope
+            .deadline()
+            .map(|deadline| Timespec::try_from(deadline.saturating_duration_since(Instant::now())))
+            .transpose()
+            .map_err(infrastructure)?;
+        let mut descriptors = [
+            PollFd::new(fd, events),
+            PollFd::new(&signal.0, PollFlags::IN),
+        ];
         match rustix::event::poll(&mut descriptors, timeout.as_ref()) {
             Err(Errno::INTR) => continue,
             Err(error) => return Err(infrastructure(error)),
-            Ok(_) => {},
+            Ok(_) => {}
         }
         checkpoint(scope)?;
         let ready = descriptors[0].revents();
-        if ready.contains(PollFlags::NVAL) { return Err(infrastructure("owned readiness descriptor invalid")); }
-        if ready.intersects(events | PollFlags::HUP | PollFlags::ERR) { return Ok(()); }
+        if ready.contains(PollFlags::NVAL) {
+            return Err(infrastructure("owned readiness descriptor invalid"));
+        }
+        if ready.intersects(events | PollFlags::HUP | PollFlags::ERR) {
+            return Ok(());
+        }
     }
 }
 #[cfg(not(target_os = "linux"))]
-fn wait_ready(_scope: &ExecutionScope, _fd: &impl AsFd, _events: rustix::event::PollFlags) -> Result<(), MathRuntimeError> {
-    Err(pse_backend_native::ProblemError::Unsupported("private native child readiness requires Linux eventfd".into()).into())
+fn wait_ready(
+    _scope: &ExecutionScope,
+    _fd: &impl AsFd,
+    _events: rustix::event::PollFlags,
+) -> Result<(), MathRuntimeError> {
+    Err(pse_backend_native::ProblemError::Unsupported(
+        "private native child readiness requires Linux eventfd".into(),
+    )
+    .into())
 }
 
 fn io_until(
@@ -637,7 +679,9 @@ fn write_bytes(
     scope: &ExecutionScope,
 ) -> Result<(), MathRuntimeError> {
     while !bytes.is_empty() {
-        let count = io_until(scope, channel, rustix::event::PollFlags::OUT, |channel| channel.write(bytes))?;
+        let count = io_until(scope, channel, rustix::event::PollFlags::OUT, |channel| {
+            channel.write(bytes)
+        })?;
         if count == 0 {
             return Err(infrastructure("closed request channel"));
         }
@@ -651,7 +695,9 @@ fn read_bytes(
     scope: &ExecutionScope,
 ) -> Result<(), MathRuntimeError> {
     while !bytes.is_empty() {
-        let count = io_until(scope, channel, rustix::event::PollFlags::IN, |channel| channel.read(bytes))?;
+        let count = io_until(scope, channel, rustix::event::PollFlags::IN, |channel| {
+            channel.read(bytes)
+        })?;
         if count == 0 {
             return Err(infrastructure("child died or closed its private channel"));
         }
@@ -862,7 +908,12 @@ fn reconstruct_and_solve(
         .remaining(options.time_limit)
         .map_err(pse_math::MathError::Scope)?;
     let mut worker = pse_backend_native::implicit::Kinsol.worker();
-    let point = worker.solve(problem, &wire.parameters, &options, scope.cancellation_control())?;
+    let point = worker.solve(
+        problem,
+        &wire.parameters,
+        &options,
+        scope.cancellation_control(),
+    )?;
     checkpoint(scope)?;
     Ok(point)
 }

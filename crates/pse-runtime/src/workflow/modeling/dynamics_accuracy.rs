@@ -487,10 +487,8 @@ mod tests {
             complete: true,
             error: None,
         };
-        let scope = pse_kernels::ExecutionScope::new(
-            pse_diagnostics::Cancellation::new(false),
-            None,
-        );
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
         for (termination, expected) in [
             (native::Termination::Cancelled, "cancelled"),
             (native::Termination::TimeLimit, "time"),
@@ -1993,16 +1991,18 @@ impl ModelingSimulation {
         (native::Report, checks::SampleChecks, Vec<GoalResult>),
         crate::math::MathRuntimeError,
     > {
-        if self.numerics().policy.goals.is_empty() { return Ok((report, checks, Vec::new())); }
-        crate::workflow::dynamics::analysis("dynamic.output_accuracy_and_refinement", || {
-        let (mut report, checks, accuracy) =
-            self.assess_dynamic_accuracy_inner(report, checks, &mut context)?;
-        if !context.charges.is_empty() {
-            report
-                .statistics
-                .push(serde_json::json!({ "accuracy_work_charges": context.charges }));
+        if self.numerics().policy.goals.is_empty() {
+            return Ok((report, checks, Vec::new()));
         }
-        Ok((report, checks, accuracy))
+        crate::workflow::dynamics::analysis("dynamic.output_accuracy_and_refinement", || {
+            let (mut report, checks, accuracy) =
+                self.assess_dynamic_accuracy_inner(report, checks, &mut context)?;
+            if !context.charges.is_empty() {
+                report
+                    .statistics
+                    .push(serde_json::json!({ "accuracy_work_charges": context.charges }));
+            }
+            Ok((report, checks, accuracy))
         })
     }
 

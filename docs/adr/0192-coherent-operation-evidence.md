@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, PS-09, PS-10]
 blueprint: [§23.1, §21.1]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Tested — Plan43a producer/current/finite-coverage/native/workflow/Python controls; its Outcome records exact commands, conditions and qualification limits.
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A consumed native event family cannot fit the bounded owner-issued record or a collection setting changes scientific work or admission.

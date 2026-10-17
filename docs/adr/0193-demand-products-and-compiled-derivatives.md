@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, PS-06, PS-09, PS-10]
 blueprint: [§14.3]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Interface-checked — pinned source and Plan43 execution investigations; dependent implementation remains with its owning packets.
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: An admitted product cannot preserve source attribution, scientific validity or bounded execution under this contract.
@@ -47,7 +47,7 @@ Preserve aliases and ordered off-diagonal contributions, portable reconstruction
 
 ### Confirmation
 
-**Interface-checked:** Plan43 preparation inspected exact library and caller contracts. The owning companion records subsequent implemented/tested evidence and failures; this decision is not an acceptance claim.
+**Tested, 2026-10-17:** independent nonlinear IFT, canonical-axis refusal, analytic/interpreted/compiled weighted/action products, source guards, first-only cold Second, projection/failure and assembled native consumer controls passed. Plan43b/43g Outcomes own exact commands and composite conditions. This is selected functional acceptance, not universal speedup or formal ADR acceptance.
 
 ## Pros and cons
 

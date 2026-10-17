@@ -34,7 +34,9 @@ pub fn factory(
         pse_engine::session::native_engine_profile(),
     )?
     .with_extension(Arc::new(pse_engine::resources::CpuAdmission {
-        permits: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(threads.pool_threads.get())),
+        permits: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(
+            threads.pool_threads.get(),
+        )),
         workers: threads
             .pool_threads
             .try_into()
@@ -100,7 +102,9 @@ impl NativeFixture {
         )?
         .with_cache_service(resources.caches.clone())
         .with_extension(Arc::new(pse_engine::resources::CpuAdmission {
-            permits: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(threads.pool_threads.get())),
+            permits: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(
+                threads.pool_threads.get(),
+            )),
             workers: threads
                 .pool_threads
                 .try_into()

@@ -30,10 +30,10 @@ use datafusion::execution::{
 pub(crate) use jobs::{ConstructionEstimate, PopulationScope, Submission};
 pub use jobs::{WorkerBudget, WorkerCharge};
 use pse_columnar::flight::Flights;
-use pse_diagnostics::Cancellation;
 use pse_compiler::workspace::{
     CompileError, CompilerContext, CompilerWorkspace, PreparedCase, WorkspaceLimits,
 };
+use pse_diagnostics::Cancellation;
 use pse_engine::cache_service::CacheComponent;
 use pse_kernels::{Provider, ProviderKey};
 use pse_math::assembly::{CaseAssembly, CaseWorker};
@@ -52,8 +52,12 @@ use std::{
 };
 /// Await the actual enclosing stop without periodically polling its read flag.
 #[cfg(feature = "solver-petsc")]
-pub(crate) async fn scope_stopped(scope: &pse_kernels::ExecutionScope) -> pse_kernels::ProviderError {
-    if let Err(error) = scope.check() { return error; }
+pub(crate) async fn scope_stopped(
+    scope: &pse_kernels::ExecutionScope,
+) -> pse_kernels::ProviderError {
+    if let Err(error) = scope.check() {
+        return error;
+    }
     tokio::select! {
         biased;
         () = scope.cancellation_control().cancelled() => pse_kernels::ProviderError::Cancelled,
@@ -725,8 +729,12 @@ impl MathService {
             released,
             cpu,
             cores,
-            jobs: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(policy.jobs)),
-            active_jobs: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(policy.jobs)),
+            jobs: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(
+                policy.jobs,
+            )),
+            active_jobs: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(
+                policy.jobs,
+            )),
             entries: pressure.artifacts(),
             modeling_cache: retention::ModelingCache::new(pressure.clone()),
             compiler_lanes: Mutex::default(),

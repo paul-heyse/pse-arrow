@@ -5,7 +5,10 @@ use event_listener::{Event, EventListener, Listener};
 use std::{
     future::Future,
     pin::Pin,
-    sync::{Arc, atomic::{AtomicBool, Ordering}},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     task::{Context, Waker},
     time::Instant,
 };
@@ -71,7 +74,9 @@ impl Cancellation {
         let listener = self.0.changed.listen();
         if !self.is_cancelled() {
             match deadline {
-                Some(deadline) => { listener.wait_deadline(deadline); }
+                Some(deadline) => {
+                    listener.wait_deadline(deadline);
+                }
                 None => listener.wait(),
             }
         }
@@ -83,12 +88,16 @@ impl Cancellation {
     /// It must not access borrowed session pointers or perform numerical work.
     pub fn watch(&self, waker: &Waker) -> CancellationWatch {
         let mut listener = self.0.changed.listen();
-        let ready = Pin::new(&mut listener).poll(&mut Context::from_waker(waker)).is_ready();
+        let ready = Pin::new(&mut listener)
+            .poll(&mut Context::from_waker(waker))
+            .is_ready();
         if ready || self.is_cancelled() {
             waker.wake_by_ref();
             CancellationWatch { _listener: None }
         } else {
-            CancellationWatch { _listener: Some(listener) }
+            CancellationWatch {
+                _listener: Some(listener),
+            }
         }
     }
 }
@@ -105,24 +114,39 @@ pub struct CancellationWatch {
 pub struct WakeSignal(Event);
 impl WakeSignal {
     /// A process-owned signal can be static without another worker or runtime.
-    pub const fn new() -> Self { Self(Event::new()) }
+    pub const fn new() -> Self {
+        Self(Event::new())
+    }
     /// Signal a change after publishing it at its actual owner.
-    pub fn notify(&self) { self.0.notify(usize::MAX); }
+    pub fn notify(&self) {
+        self.0.notify(usize::MAX);
+    }
     /// Register at construction, before inspecting the actual owner predicate.
     /// A notification is only a hint to inspect that predicate again.
-    pub fn notified(&self) -> impl Future<Output = ()> + Send + 'static { self.0.listen() }
+    pub fn notified(&self) -> impl Future<Output = ()> + Send + 'static {
+        self.0.listen()
+    }
     /// Register a signal-only waker before inspecting the actual owner predicate.
     pub fn watch(&self, waker: &Waker) -> WakeWatch {
         let mut listener = self.0.listen();
-        if Pin::new(&mut listener).poll(&mut Context::from_waker(waker)).is_ready() {
+        if Pin::new(&mut listener)
+            .poll(&mut Context::from_waker(waker))
+            .is_ready()
+        {
             waker.wake_by_ref();
             WakeWatch { _listener: None }
-        } else { WakeWatch { _listener: Some(listener) } }
+        } else {
+            WakeWatch {
+                _listener: Some(listener),
+            }
+        }
     }
 }
 /// One waiting interval, with no capacity, execution or cleanup authority.
 #[derive(Debug)]
-pub struct WakeWatch { _listener: Option<EventListener> }
+pub struct WakeWatch {
+    _listener: Option<EventListener>,
+}
 
 #[cfg(test)]
 mod tests {
@@ -132,8 +156,12 @@ mod tests {
     #[derive(Default)]
     struct Count(AtomicUsize);
     impl Wake for Count {
-        fn wake(self: Arc<Self>) { self.0.fetch_add(1, Ordering::AcqRel); }
-        fn wake_by_ref(self: &Arc<Self>) { self.0.fetch_add(1, Ordering::AcqRel); }
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::AcqRel);
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            self.0.fetch_add(1, Ordering::AcqRel);
+        }
     }
     #[test]
     fn cancellation_before_and_after_registration_wakes_without_a_runtime() {

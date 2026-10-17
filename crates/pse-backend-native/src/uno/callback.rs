@@ -73,7 +73,11 @@ impl<'a> Context<'a> {
         demand: &'static str,
         work: impl FnOnce(&mut dyn NlpOracle, &mut Scratch) -> Result<(), ProblemError>,
     ) -> i32 {
-        if self.state.evaluate(demand, || work(self.oracle, &mut self.scratch)).is_some() {
+        if self
+            .state
+            .evaluate(demand, || work(self.oracle, &mut self.scratch))
+            .is_some()
+        {
             0
         } else if self.state.terminal.is_none() {
             1
@@ -348,19 +352,38 @@ pub(crate) fn remaining(execution: &Execution) -> Result<f64, ProblemError> {
 /// native iteration or original-model convergence is inferred from these calls.
 #[cfg(feature = "uno")]
 pub(crate) unsafe extern "C" fn uno_observe(
-    kind: i32, ordinal: u64, n: i32, m: i32, point: *const f64,
-    multiplier: f64, primal: f64, stationarity: f64, complementarity: f64,
+    kind: i32,
+    ordinal: u64,
+    n: i32,
+    m: i32,
+    point: *const f64,
+    multiplier: f64,
+    primal: f64,
+    stationarity: f64,
+    complementarity: f64,
     data: *mut c_void,
 ) {
     // SAFETY: bridge retains the live slot through this synchronous callback.
-    let Some(slot) = (unsafe { data.cast::<Slot>().as_ref() }) else { return; };
+    let Some(slot) = (unsafe { data.cast::<Slot>().as_ref() }) else {
+        return;
+    };
     // SAFETY: activation is exclusive and exists only in with_active.
-    let Some(context) = (unsafe { slot.active.get().cast::<Context<'_>>().as_mut() }) else { return; };
+    let Some(context) = (unsafe { slot.active.get().cast::<Context<'_>>().as_mut() }) else {
+        return;
+    };
     let observed = catch_unwind(AssertUnwindSafe(|| -> Result<(), ProblemError> {
         context.dimensions(n, Some(m))?;
         let (checkpoint, semantics, ordinal_name) = match kind {
-            1 => ("native_accepted_iterate", "native_accepted_iterate", "accepted.ordinal"),
-            2 => ("native_termination_check", "current_native_trial", "termination_check.ordinal"),
+            1 => (
+                "native_accepted_iterate",
+                "native_accepted_iterate",
+                "accepted.ordinal",
+            ),
+            2 => (
+                "native_termination_check",
+                "current_native_trial",
+                "termination_check.ordinal",
+            ),
             _ => return Err(ProblemError::internal("unknown Uno observation kind")),
         };
         // SAFETY: native owner supplies n immutable primal coordinates during this callback.
@@ -369,31 +392,75 @@ pub(crate) unsafe extern "C" fn uno_observe(
         context.current = Some(std::sync::Arc::new(crate::solve::NativeSnapshot {
             iteration: None,
             phase: crate::solve::NativePhase::Unknown,
-            values: context.oracle.contract().variables.iter().zip(point).take(length)
-                .map(|(variable, value)| crate::solve::NativeCoordinate { variable: variable.id, value: *value }).collect(),
+            values: context
+                .oracle
+                .contract()
+                .variables
+                .iter()
+                .zip(point)
+                .take(length)
+                .map(|(variable, value)| crate::solve::NativeCoordinate {
+                    variable: variable.id,
+                    value: *value,
+                })
+                .collect(),
             total_coordinates: context.n,
             partial: length < context.n,
         }));
         let values = std::collections::BTreeMap::from([
             ("backend".into(), crate::solve::Metric::Text("uno".into())),
-            ("checkpoint_kind".into(), crate::solve::Metric::Text(checkpoint.into())),
-            ("native_phase".into(), crate::solve::Metric::Text("unknown".into())),
-            ("iterate_semantics".into(), crate::solve::Metric::Text(semantics.into())),
-            (ordinal_name.into(), crate::solve::Metric::Integer(i64::try_from(ordinal).unwrap_or(i64::MAX))),
-            ("objective_multiplier.native".into(), crate::solve::Metric::Real(multiplier)),
-            ("primal_feasibility.native".into(), crate::solve::Metric::Real(primal)),
-            ("stationarity.native".into(), crate::solve::Metric::Real(stationarity)),
-            ("complementarity.native".into(), crate::solve::Metric::Real(complementarity)),
+            (
+                "checkpoint_kind".into(),
+                crate::solve::Metric::Text(checkpoint.into()),
+            ),
+            (
+                "native_phase".into(),
+                crate::solve::Metric::Text("unknown".into()),
+            ),
+            (
+                "iterate_semantics".into(),
+                crate::solve::Metric::Text(semantics.into()),
+            ),
+            (
+                ordinal_name.into(),
+                crate::solve::Metric::Integer(i64::try_from(ordinal).unwrap_or(i64::MAX)),
+            ),
+            (
+                "objective_multiplier.native".into(),
+                crate::solve::Metric::Real(multiplier),
+            ),
+            (
+                "primal_feasibility.native".into(),
+                crate::solve::Metric::Real(primal),
+            ),
+            (
+                "stationarity.native".into(),
+                crate::solve::Metric::Real(stationarity),
+            ),
+            (
+                "complementarity.native".into(),
+                crate::solve::Metric::Real(complementarity),
+            ),
         ]);
         let execution = &context.state.execution;
         execution.progress.push(crate::solve::Event {
-            source: Some(crate::solve::EventSource::new("nonlinear_iteration", Some("submitted_oracle"), None)),
-            phase: format!("uno.{checkpoint}"), elapsed: execution.started.elapsed(), values, incumbent: None,
+            source: Some(crate::solve::EventSource::new(
+                "nonlinear_iteration",
+                Some("submitted_oracle"),
+                None,
+            )),
+            phase: format!("uno.{checkpoint}"),
+            elapsed: execution.started.elapsed(),
+            values,
+            incumbent: None,
         });
         Ok(())
     }));
     if !matches!(observed, Ok(Ok(()))) {
-        crate::observation::unavailable("uno.native_checkpoint", "optional native observation failed or extent was unsupported");
+        crate::observation::unavailable(
+            "uno.native_checkpoint",
+            "optional native observation failed or extent was unsupported",
+        );
     }
 }
 
@@ -488,15 +555,31 @@ pub(crate) unsafe extern "C" fn iteration(
                     crate::solve::Metric::Integer(i64::from(trials)),
                 ),
             ]);
-            crate::observation::iteration_metadata(&mut values, crate::solve::Backend::Ipopt, match mode {
-                0 => crate::solve::NativePhase::Main,
-                1 => crate::solve::NativePhase::Restoration,
-                _ => crate::solve::NativePhase::Unknown,
-            });
-            values.insert("step_norm_kind".into(), crate::solve::Metric::Text("infinity".into()));
-            values.insert("step_coordinates".into(), crate::solve::Metric::Text("native_primal_and_slack".into()));
-            values.insert("step_semantics".into(), crate::solve::Metric::Text("search_direction".into()));
-            values.insert("step_available".into(), crate::solve::Metric::Bool(direction_available == 1));
+            crate::observation::iteration_metadata(
+                &mut values,
+                crate::solve::Backend::Ipopt,
+                match mode {
+                    0 => crate::solve::NativePhase::Main,
+                    1 => crate::solve::NativePhase::Restoration,
+                    _ => crate::solve::NativePhase::Unknown,
+                },
+            );
+            values.insert(
+                "step_norm_kind".into(),
+                crate::solve::Metric::Text("infinity".into()),
+            );
+            values.insert(
+                "step_coordinates".into(),
+                crate::solve::Metric::Text("native_primal_and_slack".into()),
+            );
+            values.insert(
+                "step_semantics".into(),
+                crate::solve::Metric::Text("search_direction".into()),
+            );
+            values.insert(
+                "step_available".into(),
+                crate::solve::Metric::Bool(direction_available == 1),
+            );
             if !current.is_null() {
                 // SAFETY: the bridge supplies a nonnull current vector of the checked extent,
                 // immutable for this callback; only copied scalar observations are retained.
@@ -565,8 +648,13 @@ mod tests {
             unsafe { uno_observe(1, 7, 1, 1, &2., 1., 0.2, 0.3, 0.4, data) };
         });
         let event = context.state.execution.progress.current().unwrap();
-        assert!(matches!(&event.values["checkpoint_kind"], crate::solve::Metric::Text(v) if v == "native_accepted_iterate"));
-        assert!(matches!(event.values["accepted.ordinal"], crate::solve::Metric::Integer(7)));
+        assert!(
+            matches!(&event.values["checkpoint_kind"], crate::solve::Metric::Text(v) if v == "native_accepted_iterate")
+        );
+        assert!(matches!(
+            event.values["accepted.ordinal"],
+            crate::solve::Metric::Integer(7)
+        ));
         assert!(!event.values.contains_key("iteration"));
         let current = context.current.as_ref().unwrap();
         assert_eq!(current.iteration, None);
@@ -579,8 +667,13 @@ mod tests {
             unsafe { uno_observe(1, 8, 2, 1, ptr::null(), 1., 0., 0., 0., data) };
         });
         let event = context.state.execution.progress.current().unwrap();
-        assert!(matches!(&event.values["iterate_semantics"], crate::solve::Metric::Text(v) if v == "current_native_trial"));
-        assert!(context.state.terminal.is_none(), "optional diagnostics do not revoke scientific permission");
+        assert!(
+            matches!(&event.values["iterate_semantics"], crate::solve::Metric::Text(v) if v == "current_native_trial")
+        );
+        assert!(
+            context.state.terminal.is_none(),
+            "optional diagnostics do not revoke scientific permission"
+        );
         assert_eq!(context.current.as_ref().unwrap().values[0].value, 3.);
     }
     #[test]
@@ -605,7 +698,10 @@ mod tests {
                 #[cfg(feature = "ipopt")]
                 for multiplier in [0., 4., -1.] {
                     // SAFETY: exact scalar point, multiplier and output extents.
-                    assert_eq!(unsafe { hessian(1, 1, 1, &x, 3., &multiplier, &mut out, data) }, 0);
+                    assert_eq!(
+                        unsafe { hessian(1, 1, 1, &x, 3., &multiplier, &mut out, data) },
+                        0
+                    );
                     assert_eq!(out, 6. + 6. * x * multiplier);
                 }
             });

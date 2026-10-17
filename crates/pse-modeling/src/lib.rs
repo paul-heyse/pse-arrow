@@ -197,7 +197,9 @@ impl ModelingError {
                         .push(pse_model::diagnostic::SourceLocation {
                             source: *source,
                             revision: None,
-            document: None, occurrence_role: None, occurrence_position: None,
+                            document: None,
+                            occurrence_role: None,
+                            occurrence_position: None,
                             path: format!("document/{}", span.document_id),
                             name: Some(name.clone()),
                             start: Some(span.start),

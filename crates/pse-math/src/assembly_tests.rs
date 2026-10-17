@@ -135,12 +135,17 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
         },
     )
 }
-fn assembled_jacobian_action(worker:&mut CaseWorker,values:&CaseValues,direction:&[f64],output:&mut[f64]) {
-    let matrix=worker.jacobian(values).unwrap();
+fn assembled_jacobian_action(
+    worker: &mut CaseWorker,
+    values: &CaseValues,
+    direction: &[f64],
+    output: &mut [f64],
+) {
+    let matrix = worker.jacobian(values).unwrap();
     output.fill(0.0);
-    for (column,&seed) in direction.iter().enumerate() {
-        for entry in matrix.symbolic().col_ptr()[column]..matrix.symbolic().col_ptr()[column+1] {
-            output[matrix.row_idx()[entry]]+=matrix.val()[entry]*seed;
+    for (column, &seed) in direction.iter().enumerate() {
+        for entry in matrix.symbolic().col_ptr()[column]..matrix.symbolic().col_ptr()[column + 1] {
+            output[matrix.row_idx()[entry]] += matrix.val()[entry] * seed;
         }
     }
 }
@@ -169,7 +174,7 @@ fn aliases_repeated_rows_isolates_and_stable_refill() {
     assert_eq!(w.jacobian(&x).unwrap().val().as_ptr(), ptr);
     assert_eq!(w.hessian(&x, 1.0, &[0.0, 0.0]).unwrap().val(), &[2.0]);
     let mut out = vec![0.0; 2];
-    assembled_jacobian_action(&mut w,&x,&[4.0,9.0],&mut out);
+    assembled_jacobian_action(&mut w, &x, &[4.0, 9.0], &mut out);
     assert_eq!(out, vec![40.0, 0.0]);
 }
 #[test]
@@ -1983,7 +1988,8 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
         assert!(
             requested.demands()[old.len()..]
                 .iter()
-                .all(|d| d.product==crate::guarded::ProductKind::JacobianAction && d.order == DerivativeOrder::First)
+                .all(|d| d.product == crate::guarded::ProductKind::JacobianAction
+                    && d.order == DerivativeOrder::First)
         );
         assert_eq!(
             requested
@@ -2005,7 +2011,7 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
         let mut assembled = reference.worker(BTreeMap::new(), control.clone());
         for direction in [[2.0, -3.0], [-5.0, 7.0], [0.0, 0.0]] {
             let mut expected = [0.0; 2];
-            assembled_jacobian_action(&mut assembled,&values,&direction,&mut expected);
+            assembled_jacobian_action(&mut assembled, &values, &direction, &mut expected);
             let mut output = [123.0; 2];
             actual
                 .jacobian_product(&values, &direction, &mut output)
@@ -2053,14 +2059,18 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
             .prepare_order(DerivativeOrder::Second, &cancel)
             .unwrap();
         assert_eq!(
-            upgraded.demands().iter().filter(|d| d.product==crate::guarded::ProductKind::JacobianAction).count(),
+            upgraded
+                .demands()
+                .iter()
+                .filter(|d| d.product == crate::guarded::ProductKind::JacobianAction)
+                .count(),
             1
         );
         assert!(
             upgraded
                 .demands()
                 .iter()
-                .filter(|d| d.product==crate::guarded::ProductKind::JacobianAction)
+                .filter(|d| d.product == crate::guarded::ProductKind::JacobianAction)
                 .all(|d| d.order == DerivativeOrder::First)
         );
     }
@@ -2189,7 +2199,12 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
             .unwrap(),
     );
     let mut expected = [0.0];
-    assembled_jacobian_action(&mut reference.worker(BTreeMap::new(),control.clone()),&values,&[9.0,4.0],&mut expected);
+    assembled_jacobian_action(
+        &mut reference.worker(BTreeMap::new(), control.clone()),
+        &values,
+        &[9.0, 4.0],
+        &mut expected,
+    );
     let mut output = [0.0];
     direct
         .worker(BTreeMap::new(), control.clone())
@@ -2586,7 +2601,8 @@ fn assembly_first_order_callbacks_leave_second_order_workers_cold() {
         1
     );
     assert_eq!(orders.iter().filter(|orders| !orders.is_empty()).count(), 3);
-    let mut independent = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut independent =
+        assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert!(independent.instantiated_orders().iter().all(Vec::is_empty));
     assert_eq!(independent.gradient(&values).unwrap(), vec![3.0, 2.0]);
     assert!(
@@ -2666,7 +2682,10 @@ fn operation_demands_use_consumed_ceilings_and_upgrade_all_products() {
     assert_eq!(only_constraints.demands().len(), 2);
     assert_eq!(only_constraints.demands()[0].order, DerivativeOrder::First);
     assert_eq!(only_constraints.demands()[1].order, DerivativeOrder::Second);
-    assert_eq!(only_constraints.demands()[1].product,crate::guarded::ProductKind::WeightedHessian);
+    assert_eq!(
+        only_constraints.demands()[1].product,
+        crate::guarded::ProductKind::WeightedHessian
+    );
 }
 
 #[test]
@@ -2883,7 +2902,10 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     });
     let returned = Arc::new(std::sync::Mutex::new(None));
     let output = returned.clone();
-    let mut worker = assembly.worker(BTreeMap::from([(spec.key(), provider)]), stop_control.clone());
+    let mut worker = assembly.worker(
+        BTreeMap::from([(spec.key(), provider)]),
+        stop_control.clone(),
+    );
     worker.recycle_on_drop(move |scratch| {
         assert!(
             dropped.load(std::sync::atomic::Ordering::Acquire),
@@ -4203,238 +4225,471 @@ fn complete_constraint_and_gradient_results_reuse_owned_storage_after_failed_tri
 
 #[test]
 fn weighted_case_hessian_actions_preserve_aliases_scales_and_runtime_bindings() {
-    let control=pse_diagnostics::Cancellation::default();
-    let cancel=control.flag();
-    for alias in [false,true] {
-        let (original,values)=fixture(alias,false);
-        let plan=original.with_hessian_actions(&cancel).unwrap();
+    let control = pse_diagnostics::Cancellation::default();
+    let cancel = control.flag();
+    for alias in [false, true] {
+        let (original, values) = fixture(alias, false);
+        let plan = original.with_hessian_actions(&cancel).unwrap();
         assert!(plan.has_hessian_actions());
-        assert_eq!(plan.with_hessian_actions(&cancel).unwrap().demands(),plan.demands());
-        let assembly=Arc::new(Arc::new(plan).compile(Optimization::default(),EvaluationLimits::default(),&cancel).unwrap());
-        let mut worker=assembly.worker(BTreeMap::new(),control.clone());
-        let mut action=[91.;2];
-        worker.hessian_product(&values,3.,&[5.,7.],&[5.,7.],&mut action).unwrap();
-        assert_eq!(action,if alias {[30.,0.]}else{[21.,15.]});
-        worker.hessian_product(&values,2.,&[7.,5.],&[7.,5.],&mut action).unwrap();
-        assert_eq!(action,if alias {[28.,0.]}else{[10.,14.]});
-        worker.hessian_product(&values,3.,&[5.,7.],&[5.,7.],&mut action).unwrap();
-        assert_eq!(action,if alias {[30.,0.]}else{[21.,15.]});
-        let matrix=worker.hessian(&values,3.,&[5.,7.]).unwrap().to_dense();
-        if alias {assert_eq!(matrix[(0,0)],6.);} else {assert_eq!(matrix[(1,0)],3.);}
-        action=[91.;2];
-        assert!(worker.hessian_product(&values,3.,&[5.,7.],&[f64::NAN,7.],&mut action).is_err());
-        assert_eq!(action,[91.;2]);
-        assert!(assembly.demands().iter().all(|request|request.order<DerivativeOrder::Second || request.product!=crate::guarded::ProductKind::SelectedPartials),
-            "no unused per-output Second partial program is admitted for native weighted consumers");
+        assert_eq!(
+            plan.with_hessian_actions(&cancel).unwrap().demands(),
+            plan.demands()
+        );
+        let assembly = Arc::new(
+            Arc::new(plan)
+                .compile(
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &cancel,
+                )
+                .unwrap(),
+        );
+        let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+        let mut action = [91.; 2];
+        worker
+            .hessian_product(&values, 3., &[5., 7.], &[5., 7.], &mut action)
+            .unwrap();
+        assert_eq!(action, if alias { [30., 0.] } else { [21., 15.] });
+        worker
+            .hessian_product(&values, 2., &[7., 5.], &[7., 5.], &mut action)
+            .unwrap();
+        assert_eq!(action, if alias { [28., 0.] } else { [10., 14.] });
+        worker
+            .hessian_product(&values, 3., &[5., 7.], &[5., 7.], &mut action)
+            .unwrap();
+        assert_eq!(action, if alias { [30., 0.] } else { [21., 15.] });
+        let matrix = worker.hessian(&values, 3., &[5., 7.]).unwrap().to_dense();
+        if alias {
+            assert_eq!(matrix[(0, 0)], 6.);
+        } else {
+            assert_eq!(matrix[(1, 0)], 3.);
+        }
+        action = [91.; 2];
+        assert!(
+            worker
+                .hessian_product(&values, 3., &[5., 7.], &[f64::NAN, 7.], &mut action)
+                .is_err()
+        );
+        assert_eq!(action, [91.; 2]);
+        assert!(
+            assembly
+                .demands()
+                .iter()
+                .all(|request| request.order < DerivativeOrder::Second
+                    || request.product != crate::guarded::ProductKind::SelectedPartials),
+            "no unused per-output Second partial program is admitted for native weighted consumers"
+        );
     }
 }
 
-fn overlapping_output_fixture(provider:Option<Box<dyn pse_kernels::Provider>>,second:bool) -> (Arc<CaseAssembly>,CaseValues) {
+fn overlapping_output_fixture(
+    provider: Option<Box<dyn pse_kernels::Provider>>,
+    second: bool,
+) -> (Arc<CaseAssembly>, CaseValues) {
     use symbolica::atom::AtomCore;
-    let (original,values)=fixture(false,false);
-    let mut instances=original.structure().instances().to_vec();
-    for contribution in &mut instances[0].contributions {contribution.output=0;}
-    let structure=Arc::new(CaseStructure::new(original.structure().variables().to_vec(),vec![],instances,
-        original.structure().rows().to_vec(),original.structure().objective().cloned(),CaseLimits::default()).unwrap());
-    let bodies=if let Some(provider)=provider {
+    let (original, values) = fixture(false, false);
+    let mut instances = original.structure().instances().to_vec();
+    for contribution in &mut instances[0].contributions {
+        contribution.output = 0;
+    }
+    let structure = Arc::new(
+        CaseStructure::new(
+            original.structure().variables().to_vec(),
+            vec![],
+            instances,
+            original.structure().rows().to_vec(),
+            original.structure().objective().cloned(),
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let bodies = if let Some(provider) = provider {
         use crate::guarded::Stage;
-        let spec=provider.spec().clone();
-        let formal=crate::library::formal(2).unwrap();
-        let mut body=PreparedBody::new(2,4,vec![3],vec![
-            Stage::Provider{spec,partial:vec![],inputs:vec![0,1],outputs:vec![2],source:id(101)},
-            Stage::Block{expressions:vec![formal.pow(2)],outputs:vec![3],source:id(102)},
-        ],DerivativeOrder::Second).unwrap();
-        body.set_quantities(vec![Some(ids::quantity("neutral"));2],vec![ids::quantity("neutral")]);
-        BTreeMap::from([(*original.bodies().keys().next().unwrap(),Arc::new(body))])
-    } else {original.bodies().clone()};
-    let cancel=Arc::new(AtomicBool::new(false));
-    let plan=CasePlan::prepare(structure,bodies,&standard_registry().unwrap(),
-        if second {DerivativeOrder::Second}else{DerivativeOrder::First},AssemblyLimits::default(),&cancel).unwrap();
-    (Arc::new(Arc::new(plan).compile(Optimization::default(),EvaluationLimits::default(),&cancel).unwrap()),values)
+        let spec = provider.spec().clone();
+        let formal = crate::library::formal(2).unwrap();
+        let mut body = PreparedBody::new(
+            2,
+            4,
+            vec![3],
+            vec![
+                Stage::Provider {
+                    spec,
+                    partial: vec![],
+                    inputs: vec![0, 1],
+                    outputs: vec![2],
+                    source: id(101),
+                },
+                Stage::Block {
+                    expressions: vec![formal.pow(2)],
+                    outputs: vec![3],
+                    source: id(102),
+                },
+            ],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        body.set_quantities(
+            vec![Some(ids::quantity("neutral")); 2],
+            vec![ids::quantity("neutral")],
+        );
+        BTreeMap::from([(*original.bodies().keys().next().unwrap(), Arc::new(body))])
+    } else {
+        original.bodies().clone()
+    };
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(
+        structure,
+        bodies,
+        &standard_registry().unwrap(),
+        if second {
+            DerivativeOrder::Second
+        } else {
+            DerivativeOrder::First
+        },
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    (
+        Arc::new(
+            Arc::new(plan)
+                .compile(
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &cancel,
+                )
+                .unwrap(),
+        ),
+        values,
+    )
 }
 
 #[test]
 fn lazy_cross_demand_projection_tracks_changed_inputs_and_skips_evaluator_work() {
-    use pse_diagnostics::observation::{ObservationHub,Policy};
-    let hub=ObservationHub::new(Policy::default());
-    let operation=hub.start("cross-demand projection");
-    let _entered=operation.context().enter();
-    let (assembly,mut values)=overlapping_output_fixture(None,false);
-    let mut worker=assembly.worker(BTreeMap::new(),pse_diagnostics::Cancellation::default());
-    assert_eq!(worker.gradient(&values).unwrap(),[3.,2.]);
-    assert_eq!(worker.constraints(&values).unwrap(),[30.,0.]);
-    assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0,0)],15.);
-    let count=worker.demand_statistics().find(|row|row.demand==EvaluationDemand::Constraints && row.requested==DerivativeOrder::Value).unwrap().counts;
-    assert_eq!((count.calls,count.evaluations,count.cache_projections),(1,0,1));
-    let count=worker.demand_statistics().find(|row|row.demand==EvaluationDemand::Constraints && row.requested==DerivativeOrder::First).unwrap().counts;
-    assert_eq!((count.evaluations,count.cache_hits),(0,1));
-    values.scalars.insert(id(1),0.0);
+    use pse_diagnostics::observation::{ObservationHub, Policy};
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("cross-demand projection");
+    let _entered = operation.context().enter();
+    let (assembly, mut values) = overlapping_output_fixture(None, false);
+    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    assert_eq!(worker.gradient(&values).unwrap(), [3., 2.]);
+    assert_eq!(worker.constraints(&values).unwrap(), [30., 0.]);
+    assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 0)], 15.);
+    let count = worker
+        .demand_statistics()
+        .find(|row| {
+            row.demand == EvaluationDemand::Constraints && row.requested == DerivativeOrder::Value
+        })
+        .unwrap()
+        .counts;
+    assert_eq!(
+        (count.calls, count.evaluations, count.cache_projections),
+        (1, 0, 1)
+    );
+    let count = worker
+        .demand_statistics()
+        .find(|row| {
+            row.demand == EvaluationDemand::Constraints && row.requested == DerivativeOrder::First
+        })
+        .unwrap()
+        .counts;
+    assert_eq!((count.evaluations, count.cache_hits), (0, 1));
+    values.scalars.insert(id(1), 0.0);
     worker.gradient(&values).unwrap();
-    assert_eq!(worker.constraints(&values).unwrap(),[0.,0.]);
-    values.scalars.insert(id(1),1e-100);
+    assert_eq!(worker.constraints(&values).unwrap(), [0., 0.]);
+    values.scalars.insert(id(1), 1e-100);
     worker.constraints(&values).unwrap();
-    let count=worker.demand_statistics().find(|row|row.demand==EvaluationDemand::Constraints && row.requested==DerivativeOrder::Value).unwrap().counts;
-    assert_eq!(count.evaluations,1,"changed consumed input prevents same-point substitution");
+    let count = worker
+        .demand_statistics()
+        .find(|row| {
+            row.demand == EvaluationDemand::Constraints && row.requested == DerivativeOrder::Value
+        })
+        .unwrap()
+        .counts;
+    assert_eq!(
+        count.evaluations, 1,
+        "changed consumed input prevents same-point substitution"
+    );
 }
 
 #[derive(Debug)]
 struct ControlledJetProvider {
-    spec:pse_kernels::ProviderSpec,
-    control:Arc<std::sync::atomic::AtomicU8>,
-    calls:Arc<std::sync::atomic::AtomicUsize>,
+    spec: pse_kernels::ProviderSpec,
+    control: Arc<std::sync::atomic::AtomicU8>,
+    calls: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl pse_kernels::Provider for ControlledJetProvider {
-    fn spec(&self)->&pse_kernels::ProviderSpec {&self.spec}
-    fn evaluate(&mut self,inputs:&[f64],request:&pse_kernels::ProviderRequest,context:&pse_kernels::EvaluationContext<'_>)
-        ->Result<pse_kernels::ProviderValues,pse_kernels::ProviderError> {
+    fn spec(&self) -> &pse_kernels::ProviderSpec {
+        &self.spec
+    }
+    fn evaluate(
+        &mut self,
+        inputs: &[f64],
+        request: &pse_kernels::ProviderRequest,
+        context: &pse_kernels::EvaluationContext<'_>,
+    ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
         context.check()?;
-        self.calls.fetch_add(1,std::sync::atomic::Ordering::Relaxed);
-        if request.order>=DerivativeOrder::First {
-            match self.control.swap(0,std::sync::atomic::Ordering::AcqRel) {
-                1=>return Err(pse_kernels::ProviderError::Limit("controlled upgrade allowance")),
-                2=>return Err(pse_kernels::ProviderError::Trial("controlled original contradiction".into())),
-                3=>return Err(pse_kernels::ProviderError::Cancelled),
-                _=>{}
+        self.calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if request.order >= DerivativeOrder::First {
+            match self.control.swap(0, std::sync::atomic::Ordering::AcqRel) {
+                1 => {
+                    return Err(pse_kernels::ProviderError::Limit(
+                        "controlled upgrade allowance",
+                    ));
+                }
+                2 => {
+                    return Err(pse_kernels::ProviderError::Trial(
+                        "controlled original contradiction".into(),
+                    ));
+                }
+                3 => return Err(pse_kernels::ProviderError::Cancelled),
+                _ => {}
             }
         }
-        Ok(pse_kernels::ProviderValues{values:vec![inputs[0]*inputs[1]],
-            jacobian:if request.order>=DerivativeOrder::First {vec![inputs[1],inputs[0]]}else{vec![]},
-            hessians:if request.order>=DerivativeOrder::Second {vec![0.,1.,1.,0.]}else{vec![]}})
+        Ok(pse_kernels::ProviderValues {
+            values: vec![inputs[0] * inputs[1]],
+            jacobian: if request.order >= DerivativeOrder::First {
+                vec![inputs[1], inputs[0]]
+            } else {
+                vec![]
+            },
+            hessians: if request.order >= DerivativeOrder::Second {
+                vec![0., 1., 1., 0.]
+            } else {
+                vec![]
+            },
+        })
     }
 }
-fn controlled_jet_provider() -> (ControlledJetProvider,Arc<std::sync::atomic::AtomicU8>,Arc<std::sync::atomic::AtomicUsize>) {
-    let registry=standard_registry().unwrap();
-    let quantity=ids::quantity("neutral");
-    let port=|n|Port{id:id(n),quantity,unit:registry.quantity_type(quantity).unwrap().canonical_unit};
-    let control=Arc::new(std::sync::atomic::AtomicU8::new(0));
-    let calls=Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    (ControlledJetProvider{spec:pse_kernels::ProviderSpec{
-        id:id(101),revision:ContentHash::from_bytes([101;32]),data:ContentHash::from_bytes([102;32]),
-        inputs:vec![port(20),port(21)],outputs:vec![port(22)],shapes:Default::default(),
-        derivative_source:pse_kernels::DerivativeSource::Analytic,derivatives:DerivativeOrder::Second,smoothness:DerivativeOrder::Second,
-    },control:control.clone(),calls:calls.clone()},control,calls)
+fn controlled_jet_provider() -> (
+    ControlledJetProvider,
+    Arc<std::sync::atomic::AtomicU8>,
+    Arc<std::sync::atomic::AtomicUsize>,
+) {
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let port = |n| Port {
+        id: id(n),
+        quantity,
+        unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+    };
+    let control = Arc::new(std::sync::atomic::AtomicU8::new(0));
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    (
+        ControlledJetProvider {
+            spec: pse_kernels::ProviderSpec {
+                id: id(101),
+                revision: ContentHash::from_bytes([101; 32]),
+                data: ContentHash::from_bytes([102; 32]),
+                inputs: vec![port(20), port(21)],
+                outputs: vec![port(22)],
+                shapes: Default::default(),
+                derivative_source: pse_kernels::DerivativeSource::Analytic,
+                derivatives: DerivativeOrder::Second,
+                smoothness: DerivativeOrder::Second,
+            },
+            control: control.clone(),
+            calls: calls.clone(),
+        },
+        control,
+        calls,
+    )
 }
 
 #[test]
 fn failed_or_cancelled_upgrade_preserves_only_independently_complete_provider_result() {
-    for refusal in [1,3,2] {
-        let (provider,control,calls)=controlled_jet_provider();
-        let key=provider.spec.key();
-        let (assembly,values)=overlapping_output_fixture(Some(Box::new(ControlledJetProvider{
-            spec:provider.spec.clone(),control:control.clone(),calls:calls.clone(),
-        })),false);
-        let provider:Box<dyn pse_kernels::Provider>=Box::new(provider);
-        let mut worker=assembly.worker(BTreeMap::from([(key,provider)]),pse_diagnostics::Cancellation::default());
-        assert_eq!(worker.objective(&values).unwrap(),36.);
-        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed),1);
-        control.store(refusal,std::sync::atomic::Ordering::Release);
+    for refusal in [1, 3, 2] {
+        let (provider, control, calls) = controlled_jet_provider();
+        let key = provider.spec.key();
+        let (assembly, values) = overlapping_output_fixture(
+            Some(Box::new(ControlledJetProvider {
+                spec: provider.spec.clone(),
+                control: control.clone(),
+                calls: calls.clone(),
+            })),
+            false,
+        );
+        let provider: Box<dyn pse_kernels::Provider> = Box::new(provider);
+        let mut worker = assembly.worker(
+            BTreeMap::from([(key, provider)]),
+            pse_diagnostics::Cancellation::default(),
+        );
+        assert_eq!(worker.objective(&values).unwrap(), 36.);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+        control.store(refusal, std::sync::atomic::Ordering::Release);
         assert!(worker.gradient(&values).is_err());
         assert!(worker.applicability_observations().is_empty());
-        assert_eq!(worker.objective(&values).unwrap(),36.);
-        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed),if refusal==2 {3}else{2},
-            "only typed allowance/cancellation refusals preserve the lower completion");
-        let before=calls.load(std::sync::atomic::Ordering::Relaxed);
+        assert_eq!(worker.objective(&values).unwrap(), 36.);
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::Relaxed),
+            if refusal == 2 { 3 } else { 2 },
+            "only typed allowance/cancellation refusals preserve the lower completion"
+        );
+        let before = calls.load(std::sync::atomic::Ordering::Relaxed);
         worker.constraints(&values).unwrap();
-        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed),before+1,
-            "a stateful provider without an explicit retained-premise token is not cross-demand projected");
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::Relaxed),
+            before + 1,
+            "a stateful provider without an explicit retained-premise token is not cross-demand projected"
+        );
     }
 }
 
 #[test]
 fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partials() {
-    let (provider,control,calls)=controlled_jet_provider();
-    let key=provider.spec.key();
-    let (original,values)=overlapping_output_fixture(Some(Box::new(ControlledJetProvider{
-        spec:provider.spec.clone(),control,calls,
-    })),true);
-    let cancel=Arc::new(AtomicBool::new(false));
-    let plan=original.with_hessian_actions(&cancel).unwrap();
-    let assembly=Arc::new(Arc::new(plan).compile(Optimization::default(),EvaluationLimits::default(),&cancel).unwrap());
-    let provider:Box<dyn pse_kernels::Provider>=Box::new(provider);
-    let mut worker=assembly.worker(BTreeMap::from([(key,provider)]),pse_diagnostics::Cancellation::default());
-    let mut output=[f64::NAN;2];
-    worker.hessian_product(&values,1.,&[0.,0.],&[5.,7.],&mut output).unwrap();
-    assert_eq!(output,[258.,176.]);
-    let census=assembly.demand_census().find(|d|d.demand.product==crate::guarded::ProductKind::WeightedHessianAction).unwrap()
-        .program.census().find(|c|c.order==DerivativeOrder::Second).unwrap();
-    assert_eq!(census.second_pairs,2);
-    assert_eq!(census.provider_stages,1);
+    let (provider, control, calls) = controlled_jet_provider();
+    let key = provider.spec.key();
+    let (original, values) = overlapping_output_fixture(
+        Some(Box::new(ControlledJetProvider {
+            spec: provider.spec.clone(),
+            control,
+            calls,
+        })),
+        true,
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = original.with_hessian_actions(&cancel).unwrap();
+    let assembly = Arc::new(
+        Arc::new(plan)
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    let provider: Box<dyn pse_kernels::Provider> = Box::new(provider);
+    let mut worker = assembly.worker(
+        BTreeMap::from([(key, provider)]),
+        pse_diagnostics::Cancellation::default(),
+    );
+    let mut output = [f64::NAN; 2];
+    worker
+        .hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output)
+        .unwrap();
+    assert_eq!(output, [258., 176.]);
+    let census = assembly
+        .demand_census()
+        .find(|d| d.demand.product == crate::guarded::ProductKind::WeightedHessianAction)
+        .unwrap()
+        .program
+        .census()
+        .find(|c| c.order == DerivativeOrder::Second)
+        .unwrap();
+    assert_eq!(census.second_pairs, 2);
+    assert_eq!(census.provider_stages, 1);
     assert!(!census.direct_weighted);
 }
 
 #[test]
 fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancellation() {
-    use std::sync::{Barrier,Mutex,atomic::Ordering};
+    use std::sync::{Barrier, Mutex, atomic::Ordering};
     #[derive(Debug)]
     struct ConcurrentProvider {
-        inner:ControlledJetProvider,
-        barrier:Arc<Barrier>,
-        entered:bool,
-        dropped:Arc<AtomicBool>,
+        inner: ControlledJetProvider,
+        barrier: Arc<Barrier>,
+        entered: bool,
+        dropped: Arc<AtomicBool>,
     }
     impl Drop for ConcurrentProvider {
-        fn drop(&mut self) {self.dropped.store(true,Ordering::Release);}
-    }
-    impl pse_kernels::Provider for ConcurrentProvider {
-        fn spec(&self)->&pse_kernels::ProviderSpec {&self.inner.spec}
-        fn evaluate(&mut self,inputs:&[f64],request:&pse_kernels::ProviderRequest,context:&pse_kernels::EvaluationContext<'_>)
-            ->Result<pse_kernels::ProviderValues,pse_kernels::ProviderError> {
-            if !self.entered {self.entered=true;self.barrier.wait();}
-            pse_kernels::Provider::evaluate(&mut self.inner,inputs,request,context)
+        fn drop(&mut self) {
+            self.dropped.store(true, Ordering::Release);
         }
     }
-    let (template,_,_)=controlled_jet_provider();
-    let (assembly,values)=overlapping_output_fixture(Some(Box::new(template)),false);
-    let barrier=Arc::new(Barrier::new(2));
-    let mut lanes=Vec::new();
+    impl pse_kernels::Provider for ConcurrentProvider {
+        fn spec(&self) -> &pse_kernels::ProviderSpec {
+            &self.inner.spec
+        }
+        fn evaluate(
+            &mut self,
+            inputs: &[f64],
+            request: &pse_kernels::ProviderRequest,
+            context: &pse_kernels::EvaluationContext<'_>,
+        ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+            if !self.entered {
+                self.entered = true;
+                self.barrier.wait();
+            }
+            pse_kernels::Provider::evaluate(&mut self.inner, inputs, request, context)
+        }
+    }
+    let (template, _, _) = controlled_jet_provider();
+    let (assembly, values) = overlapping_output_fixture(Some(Box::new(template)), false);
+    let barrier = Arc::new(Barrier::new(2));
+    let mut lanes = Vec::new();
     for lane in 0..2 {
-        let assembly=assembly.clone();
-        let barrier=barrier.clone();
-        let mut values=values.clone();
+        let assembly = assembly.clone();
+        let barrier = barrier.clone();
+        let mut values = values.clone();
         lanes.push(std::thread::spawn(move || {
-            let (provider,refusal,calls)=controlled_jet_provider();
-            let key=provider.spec.key();
-            let dropped=Arc::new(AtomicBool::new(false));
-            let provider:Box<dyn pse_kernels::Provider>=Box::new(ConcurrentProvider {
-                inner:provider,barrier,entered:false,dropped:dropped.clone(),
+            let (provider, refusal, calls) = controlled_jet_provider();
+            let key = provider.spec.key();
+            let dropped = Arc::new(AtomicBool::new(false));
+            let provider: Box<dyn pse_kernels::Provider> = Box::new(ConcurrentProvider {
+                inner: provider,
+                barrier,
+                entered: false,
+                dropped: dropped.clone(),
             });
-            let control=pse_diagnostics::Cancellation::default();
-            let old_control=Arc::downgrade(&control.flag());
-            let mut worker=assembly.worker(BTreeMap::from([(key,provider)]),control.clone());
-            let returned=Arc::new(Mutex::new(None));
-            let captured=returned.clone();
+            let control = pse_diagnostics::Cancellation::default();
+            let old_control = Arc::downgrade(&control.flag());
+            let mut worker = assembly.worker(BTreeMap::from([(key, provider)]), control.clone());
+            let returned = Arc::new(Mutex::new(None));
+            let captured = returned.clone();
             worker.recycle_on_drop(move |scratch| {
-                assert!(dropped.load(Ordering::Acquire),"provider state must depart before scratch publication");
-                *captured.lock().unwrap()=Some(scratch);
+                assert!(
+                    dropped.load(Ordering::Acquire),
+                    "provider state must depart before scratch publication"
+                );
+                *captured.lock().unwrap() = Some(scratch);
             });
-            let x=2.+f64::from(lane);
-            values.scalars.insert(id(1),x);
-            assert_eq!(worker.gradient(&values).unwrap(),[18.*x,6.*x*x]);
-            assert_eq!(worker.objective(&values).unwrap(),9.*x*x);
-            assert_eq!(calls.load(Ordering::Relaxed),1,"each lane owns its provider and reuses its complete same-demand First result");
-            values.scalars.insert(id(1),x+1.);
-            if lane==0 {
-                refusal.store(1,Ordering::Release);
+            let x = 2. + f64::from(lane);
+            values.scalars.insert(id(1), x);
+            assert_eq!(worker.gradient(&values).unwrap(), [18. * x, 6. * x * x]);
+            assert_eq!(worker.objective(&values).unwrap(), 9. * x * x);
+            assert_eq!(
+                calls.load(Ordering::Relaxed),
+                1,
+                "each lane owns its provider and reuses its complete same-demand First result"
+            );
+            values.scalars.insert(id(1), x + 1.);
+            if lane == 0 {
+                refusal.store(1, Ordering::Release);
                 assert!(worker.gradient(&values).is_err());
                 control.cancel();
                 assert!(worker.objective(&values).is_err());
             } else {
-                assert_eq!(worker.gradient(&values).unwrap(),[18.*(x+1.),6.*(x+1.)*(x+1.)]);
+                assert_eq!(
+                    worker.gradient(&values).unwrap(),
+                    [18. * (x + 1.), 6. * (x + 1.) * (x + 1.)]
+                );
                 assert!(!control.is_cancelled());
             }
-            let used=worker.evaluator_census().map(|(_,c)| {
-                assert!(c.used_allowance_bytes<=c.admitted_bytes);
-                c.admitted_bytes
-            }).sum::<usize>();
-            assert!(used<=assembly.census().numeric_worker_bytes);
+            let used = worker
+                .evaluator_census()
+                .map(|(_, c)| {
+                    assert!(c.used_allowance_bytes <= c.admitted_bytes);
+                    c.admitted_bytes
+                })
+                .sum::<usize>();
+            assert!(used <= assembly.census().numeric_worker_bytes);
             drop(worker);
             drop(control);
-            assert!(old_control.upgrade().is_none(),"detached scratch retains no old execution control");
-            let scratch=returned.lock().unwrap().take().unwrap();
+            assert!(
+                old_control.upgrade().is_none(),
+                "detached scratch retains no old execution control"
+            );
+            let scratch = returned.lock().unwrap().take().unwrap();
             assert!(scratch.compatible(&assembly));
-            assert!(scratch.reset().is_err(),"a provider lift without a qualified reset route is destroyed rather than reused");
+            assert!(
+                scratch.reset().is_err(),
+                "a provider lift without a qualified reset route is destroyed rather than reused"
+            );
             calls.load(Ordering::Relaxed)
         }));
     }
-    for lane in lanes {assert_eq!(lane.join().unwrap(),2);}
+    for lane in lanes {
+        assert_eq!(lane.join().unwrap(), 2);
+    }
 }

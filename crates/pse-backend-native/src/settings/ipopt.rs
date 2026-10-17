@@ -144,11 +144,24 @@ impl Settings {
                 "Ipopt bound_frac must be at most 0.5".into(),
             ));
         }
-        if let Linear::Mumps { pivot_tolerance, maximum_pivot_tolerance, memory_percent, permuting_scaling, .. } = self.linear {
-            if !pivot_tolerance.is_finite() || !(0. ..=1.).contains(&pivot_tolerance)
-                || !maximum_pivot_tolerance.is_finite() || !(pivot_tolerance..=1.).contains(&maximum_pivot_tolerance)
-                || memory_percent < 0 || permuting_scaling > 7 {
-                return Err(ProblemError::Contract("MUMPS controls outside registered native ranges".into()));
+        if let Linear::Mumps {
+            pivot_tolerance,
+            maximum_pivot_tolerance,
+            memory_percent,
+            permuting_scaling,
+            ..
+        } = self.linear
+        {
+            if !pivot_tolerance.is_finite()
+                || !(0. ..=1.).contains(&pivot_tolerance)
+                || !maximum_pivot_tolerance.is_finite()
+                || !(pivot_tolerance..=1.).contains(&maximum_pivot_tolerance)
+                || memory_percent < 0
+                || permuting_scaling > 7
+            {
+                return Err(ProblemError::Contract(
+                    "MUMPS controls outside registered native ranges".into(),
+                ));
             }
         }
         self.restart.validate()
@@ -159,21 +172,39 @@ impl Settings {
 mod tests {
     use super::*;
     fn settings(pivot: f64, maximum: f64, memory: i32, scaling: u8) -> Settings {
-        Settings { linear: Linear::Mumps { ordering: MumpsOrdering::Metis, pivot_tolerance: pivot,
-            maximum_pivot_tolerance: maximum, memory_percent: memory, permuting_scaling: scaling }, ..Default::default() }
+        Settings {
+            linear: Linear::Mumps {
+                ordering: MumpsOrdering::Metis,
+                pivot_tolerance: pivot,
+                maximum_pivot_tolerance: maximum,
+                memory_percent: memory,
+                permuting_scaling: scaling,
+            },
+            ..Default::default()
+        }
     }
     #[test]
     fn mumps_controls_match_registered_ranges_including_zero() {
         assert!(Settings::default().validate().is_ok());
-        for valid in [settings(0.,0.,0,0),settings(1.,1.,i32::MAX,7),settings(1e-6,0.1,1000,7)] {
+        for valid in [
+            settings(0., 0., 0, 0),
+            settings(1., 1., i32::MAX, 7),
+            settings(1e-6, 0.1, 1000, 7),
+        ] {
             assert!(valid.validate().is_ok());
             let encoded = serde_json::to_vec(&valid).unwrap();
             let decoded: Settings = serde_json::from_slice(&encoded).unwrap();
             assert_eq!(decoded, valid);
         }
-        for invalid in [settings(-1.,0.1,1000,7),settings(f64::NAN,0.1,1000,7),
-            settings(0.2,0.1,1000,7),settings(0.,f64::INFINITY,1000,7),settings(0.,1.1,1000,7),
-            settings(0.,0.1,-1,7),settings(0.,0.1,1000,8)] {
+        for invalid in [
+            settings(-1., 0.1, 1000, 7),
+            settings(f64::NAN, 0.1, 1000, 7),
+            settings(0.2, 0.1, 1000, 7),
+            settings(0., f64::INFINITY, 1000, 7),
+            settings(0., 1.1, 1000, 7),
+            settings(0., 0.1, -1, 7),
+            settings(0., 0.1, 1000, 8),
+        ] {
             assert!(invalid.validate().is_err());
         }
     }

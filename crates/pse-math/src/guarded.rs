@@ -6,11 +6,11 @@
 //! This layer never interprets arithmetic operations. A block is a Symbolica evaluator;
 //! only branch selection, obligations and fallible provider calls are project-owned.
 use crate::MathError;
-pub use crate::jets::{ProductKind, ProductValues};
 pub use crate::execution::{
-    ArithmeticOrigin, CompiledBody, CompiledOrderCensus, Evaluation, PreparedBody, PreparedSupport, Support, Worker,
-    WorkerCensus,
+    ArithmeticOrigin, CompiledBody, CompiledOrderCensus, Evaluation, PreparedBody, PreparedSupport,
+    Support, Worker, WorkerCensus,
 };
+pub use crate::jets::{ProductKind, ProductValues};
 use pse_ids::SemanticId;
 use pse_kernels::{DerivativeOrder, ProviderSpec};
 use symbolica::atom::{Atom, AtomCore, Symbol};

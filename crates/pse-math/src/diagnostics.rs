@@ -265,50 +265,99 @@ pub fn analyze_matrix<R: From<usize>, C: From<usize>>(
         .count();
     let operator_frobenius = scaled.norm_l2();
     if !operator_frobenius.is_finite() {
-        return Err(MathError::Library("diagnostic operator norm is nonfinite".into()));
+        return Err(MathError::Library(
+            "diagnostic operator norm is nonfinite".into(),
+        ));
     }
     let mut left_residual = Mat::<f64>::zeros(m, 1);
     let mut right_residual = Mat::<f64>::zeros(n, 1);
     let mut modes = Vec::with_capacity(m.max(n));
     for i in 0..m.max(n) {
-        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
-        let value = if i < k { singular.column_vector()[i] } else { 0. };
+        if cancel.load(Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
+        let value = if i < k {
+            singular.column_vector()[i]
+        } else {
+            0.
+        };
         // Each available equation is checked against the original scaled
         // rectangular operator. No J^T J eigenvalue is interpreted as sigma.
         left_residual.fill(0.);
         if i < n {
-            matmul(left_residual.as_mut(), Accum::Replace, scaled.as_ref(),
-                right.as_ref().col(i).as_mat(), 1., Par::Seq);
+            matmul(
+                left_residual.as_mut(),
+                Accum::Replace,
+                scaled.as_ref(),
+                right.as_ref().col(i).as_mat(),
+                1.,
+                Par::Seq,
+            );
             if i < m {
-                for row in 0..m { left_residual[(row, 0)] -= value * left[(row, i)]; }
+                for row in 0..m {
+                    left_residual[(row, 0)] -= value * left[(row, i)];
+                }
             }
         }
         right_residual.fill(0.);
         if i < m {
-            matmul(right_residual.as_mut(), Accum::Replace, scaled.as_ref().transpose(),
-                left.as_ref().col(i).as_mat(), 1., Par::Seq);
+            matmul(
+                right_residual.as_mut(),
+                Accum::Replace,
+                scaled.as_ref().transpose(),
+                left.as_ref().col(i).as_mat(),
+                1.,
+                Par::Seq,
+            );
             if i < n {
-                for column in 0..n { right_residual[(column, 0)] -= value * right[(column, i)]; }
+                for column in 0..n {
+                    right_residual[(column, 0)] -= value * right[(column, i)];
+                }
             }
         }
-        let normalization_error = if i < m { (left.col(i).norm_l2() - 1.).abs() } else { 0. }
-            .max(if i < n { (right.col(i).norm_l2() - 1.).abs() } else { 0. });
+        let normalization_error = if i < m {
+            (left.col(i).norm_l2() - 1.).abs()
+        } else {
+            0.
+        }
+        .max(if i < n {
+            (right.col(i).norm_l2() - 1.).abs()
+        } else {
+            0.
+        });
         let roundoff = 64. * f64::EPSILON * m.max(n).max(1) as f64;
         let residual_bound = roundoff * operator_frobenius.max(value.abs());
         let mode = SingularMode {
             value,
-            left: if i < m { (0..m).map(|j| left[(j, i)]).collect() } else { vec![] },
-            right: if i < n { (0..n).map(|j| right[(j, i)]).collect() } else { vec![] },
+            left: if i < m {
+                (0..m).map(|j| left[(j, i)]).collect()
+            } else {
+                vec![]
+            },
+            right: if i < n {
+                (0..n).map(|j| right[(j, i)]).collect()
+            } else {
+                vec![]
+            },
             left_residual: (i < n).then(|| left_residual.norm_l2()),
             right_residual: (i < m).then(|| right_residual.norm_l2()),
             normalization_error,
             residual_bound,
         };
-        if !mode.value.is_finite() || mode.value < 0.
-            || mode.left_residual.into_iter().chain(mode.right_residual).any(|residual| !residual.is_finite() || residual > mode.residual_bound)
-            || !mode.normalization_error.is_finite() || !mode.residual_bound.is_finite()
-            || mode.normalization_error > roundoff {
-            return Err(MathError::Library(format!("diagnostic SVD mode {i} failed residual/normalization qualification")));
+        if !mode.value.is_finite()
+            || mode.value < 0.
+            || mode
+                .left_residual
+                .into_iter()
+                .chain(mode.right_residual)
+                .any(|residual| !residual.is_finite() || residual > mode.residual_bound)
+            || !mode.normalization_error.is_finite()
+            || !mode.residual_bound.is_finite()
+            || mode.normalization_error > roundoff
+        {
+            return Err(MathError::Library(format!(
+                "diagnostic SVD mode {i} failed residual/normalization qualification"
+            )));
         }
         modes.push(mode);
     }
@@ -401,37 +450,78 @@ mod tests {
     }
     #[test]
     fn diagnostics_residual_qualification_preserves_scaled_rectangular_lifting() {
-        let matrix = faer::sparse::SparseColMat::try_new_from_triplets(2, 3, &[
-            faer::sparse::Triplet::new(0, 0, 1.),
-            faer::sparse::Triplet::new(1, 1, 2.),
-            faer::sparse::Triplet::new(0, 2, 1.),
-        ]).unwrap();
+        let matrix = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            3,
+            &[
+                faer::sparse::Triplet::new(0, 0, 1.),
+                faer::sparse::Triplet::new(1, 1, 2.),
+                faer::sparse::Triplet::new(0, 2, 1.),
+            ],
+        )
+        .unwrap();
         let rows = [1e6, 1e-3];
         let columns = [1e3, 2e-3, 1.];
-        let policy = MatrixPolicy { dense_entries: 100, findings: 100,
-            parallel_tolerance: 1e-8, rank_absolute: 1e-12,
-            rank_relative: 1e-8, singular_vector: 0.1 };
-        let report: Report = analyze_matrix(matrix.as_ref(), &rows, &columns, policy, &AtomicBool::new(false)).unwrap();
+        let policy = MatrixPolicy {
+            dense_entries: 100,
+            findings: 100,
+            parallel_tolerance: 1e-8,
+            rank_absolute: 1e-12,
+            rank_relative: 1e-8,
+            singular_vector: 0.1,
+        };
+        let report: Report = analyze_matrix(
+            matrix.as_ref(),
+            &rows,
+            &columns,
+            policy,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert_eq!(report.rank, 2);
         assert_eq!(report.modes.len(), 3);
         assert!((report.operator_frobenius - (1e12_f64 + 1e6 + 1.).sqrt()).abs() < 1e-8);
         for mode in &report.modes {
-            assert!(mode.left_residual.is_none_or(|value| value <= mode.residual_bound));
-            assert!(mode.right_residual.is_none_or(|value| value <= mode.residual_bound));
+            assert!(
+                mode.left_residual
+                    .is_none_or(|value| value <= mode.residual_bound)
+            );
+            assert!(
+                mode.right_residual
+                    .is_none_or(|value| value <= mode.residual_bound)
+            );
             assert!(mode.normalization_error < 1e-12);
             // Independent original-coordinate lifting. A normalized direction is
             // not a physical coordinate vector until its column scales are applied.
             if mode.value <= report.cutoff {
-                let physical = mode.right.iter().zip(columns).map(|(v, scale)| v / scale).collect::<Vec<_>>();
+                let physical = mode
+                    .right
+                    .iter()
+                    .zip(columns)
+                    .map(|(v, scale)| v / scale)
+                    .collect::<Vec<_>>();
                 let original_residual = [physical[0] + physical[2], 2. * physical[1]];
-                let residual = original_residual.iter().zip(rows).map(|(v, scale)| (v * scale).powi(2)).sum::<f64>().sqrt();
+                let residual = original_residual
+                    .iter()
+                    .zip(rows)
+                    .map(|(v, scale)| (v * scale).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
                 assert!(residual <= mode.residual_bound);
             }
         }
         // Exactly zero is a valid operator, with normalized rectangular bases and
         // exact zero residual; it is not an absent measurement.
-        let zero = faer::sparse::SparseColMat::<usize, f64>::try_new_from_triplets(3, 2, &[]).unwrap();
-        let report: Report = analyze_matrix(zero.as_ref(), &[1.; 3], &[1.; 2], policy, &AtomicBool::new(false)).unwrap();
+        let zero =
+            faer::sparse::SparseColMat::<usize, f64>::try_new_from_triplets(3, 2, &[]).unwrap();
+        let report: Report = analyze_matrix(
+            zero.as_ref(),
+            &[1.; 3],
+            &[1.; 2],
+            policy,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert_eq!(report.rank, 0);
         assert_eq!(report.operator_frobenius, 0.);
         for mode in report.modes {

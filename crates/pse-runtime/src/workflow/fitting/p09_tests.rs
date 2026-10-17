@@ -1850,15 +1850,36 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         assert!(oracle.point.is_none());
         let memory = oracle.execution.memory.take();
         let complete_lower = oracle.objective(&[1.3]).unwrap();
-        let trajectory = oracle.point.as_ref().unwrap().trajectories.values().next().unwrap().clone();
+        let trajectory = oracle
+            .point
+            .as_ref()
+            .unwrap()
+            .trajectories
+            .values()
+            .next()
+            .unwrap()
+            .clone();
         assert!(oracle.gradient(&[1.3], &mut first).is_err());
         // Missing admission for a richer product is not contradictory scientific
         // evidence. The exact complete primal product remains reusable.
         assert!(oracle.point.as_ref().is_some_and(|p| p.adjoint.is_none()));
         let passes = oracle.transient_passes;
-        assert_eq!(oracle.objective(&[1.3]).unwrap().to_bits(), complete_lower.to_bits());
+        assert_eq!(
+            oracle.objective(&[1.3]).unwrap().to_bits(),
+            complete_lower.to_bits()
+        );
         assert_eq!(oracle.transient_passes, passes);
-        assert!(Arc::ptr_eq(&trajectory, oracle.point.as_ref().unwrap().trajectories.values().next().unwrap()));
+        assert!(Arc::ptr_eq(
+            &trajectory,
+            oracle
+                .point
+                .as_ref()
+                .unwrap()
+                .trajectories
+                .values()
+                .next()
+                .unwrap()
+        ));
         oracle.execution.memory = memory;
         oracle.gradient(&[1.3], &mut first).unwrap();
         // Signed zero has a distinct candidate key even with equal numerical values.

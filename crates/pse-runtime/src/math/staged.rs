@@ -289,7 +289,8 @@ impl execution::ComputeAdmission for ComputeOwner {
             return Ok(execution::ComputeAvailability::Acquired);
         }
         match super::jobs::try_active(&self.jobs, &self.cpu, self.cores)
-            .map_err(MathRuntimeError::into_problem)? {
+            .map_err(MathRuntimeError::into_problem)?
+        {
             super::jobs::ActiveAttempt::Ready(permit) => *held = Some(permit),
             super::jobs::ActiveAttempt::JobsBusy => self.blocked_cpu = false,
             super::jobs::ActiveAttempt::CpuBusy => self.blocked_cpu = true,
@@ -547,13 +548,27 @@ struct IdleWake {
     pending: AtomicBool,
 }
 impl std::task::Wake for IdleWake {
-    fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+    fn wake(self: Arc<Self>) {
+        self.wake_by_ref();
+    }
     fn wake_by_ref(self: &Arc<Self>) {
-        if self.pending.swap(true, Ordering::AcqRel) { return; }
-        let sent = self.sender.upgrade().is_some_and(|sender| sender.send(Request {
-            threads: 1, backends: Vec::new(), observation: None, scope_owner: None, work: None,
-        }).is_ok());
-        if !sent { self.pending.store(false, Ordering::Release); }
+        if self.pending.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let sent = self.sender.upgrade().is_some_and(|sender| {
+            sender
+                .send(Request {
+                    threads: 1,
+                    backends: Vec::new(),
+                    observation: None,
+                    scope_owner: None,
+                    work: None,
+                })
+                .is_ok()
+        });
+        if !sent {
+            self.pending.store(false, Ordering::Release);
+        }
     }
 }
 struct RequestObservation {
@@ -655,7 +670,9 @@ fn serve(
                     let waker = std::task::Waker::from(idle.clone());
                     let pressure_watch = pressure.watch_idle(&waker);
                     let scheduler_watch = execution::watch_scheduler(&waker);
-                    if execution::scheduler_waiting() { retained.relinquish_scheduler(); }
+                    if execution::scheduler_waiting() {
+                        retained.relinquish_scheduler();
+                    }
                     let trim_idle = if pending.is_none() && pressure.active() {
                         let mut live = current
                             .lock()
@@ -693,10 +710,7 @@ fn serve(
                     let mut request = match pending.take() {
                         Some(request) => request,
                         // Only this thread receives; the lock lends the receiver to the scope.
-                        None => match receiver
-                            .lock()
-                            .map(|r| r.recv())
-                        {
+                        None => match receiver.lock().map(|r| r.recv()) {
                             Ok(Ok(request)) => request,
                             Ok(Err(mpsc::RecvError)) | Err(_) => {
                                 return Ok::<_, ProblemError>(None);
@@ -751,7 +765,9 @@ fn serve(
                             }
                         }
                     });
-                    if let Some(work) = request.work.take() { work(Ok(&mut retained)); }
+                    if let Some(work) = request.work.take() {
+                        work(Ok(&mut retained));
+                    }
                     SCRATCH_LANE.with(|slot| {
                         if let Some(lane) = slot.borrow_mut().as_mut() {
                             if pressure.active() {
@@ -780,7 +796,9 @@ fn serve(
                 // The scope could not be entered: refuse the step that needed it and serve
                 // on outside every adapter scope, which cannot fail to enter.
                 if let Some(request) = pending.take() {
-                    if let Some(work) = request.work { work(Err(error)); }
+                    if let Some(work) = request.work {
+                        work(Err(error));
+                    }
                 }
                 scope = Scope {
                     backends: Vec::new(),
@@ -941,7 +959,10 @@ impl MathService {
         let sessions = self.policy.inner_session_bytes;
         let (sender, receiver) = mpsc::channel::<Request>();
         let sender = Arc::new(sender);
-        let idle = Arc::new(IdleWake { sender: Arc::downgrade(&sender), pending: AtomicBool::new(false) });
+        let idle = Arc::new(IdleWake {
+            sender: Arc::downgrade(&sender),
+            pending: AtomicBool::new(false),
+        });
         let stack = self.policy.stack_bytes;
         let pool = self.pool.clone();
         let pressure = self.pressure.clone();
@@ -1090,7 +1111,9 @@ impl MathService {
             let released = releases.notified();
             tokio::pin!(released);
             released.as_mut().enable();
-            if self.jobs.available_permits() == self.policy.jobs { break; }
+            if self.jobs.available_permits() == self.policy.jobs {
+                break;
+            }
             released.await;
         }
     }
@@ -1301,13 +1324,15 @@ impl NativeSession {
         let task_stop = async {
             match &enclosing {
                 Some(scope) => {
-                    if let Err(error) = scope.check() { return error; }
+                    if let Err(error) = scope.check() {
+                        return error;
+                    }
                     tokio::select! {
                         biased;
                         () = scope.cancellation_control().cancelled() => pse_kernels::ProviderError::Cancelled,
                         () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => pse_kernels::ProviderError::Deadline,
                     }
-                },
+                }
                 None => std::future::pending::<pse_kernels::ProviderError>().await,
             }
         };
@@ -1369,10 +1394,11 @@ impl NativeSession {
         if let Some(scope) = &enclosing {
             scope.check().map_err(ProblemError::Provider)?;
         }
-        let flag = enclosing.as_ref().map_or_else(
-            pse_diagnostics::Cancellation::default,
-            |scope| scope.cancellation_control().clone(),
-        );
+        let flag = enclosing
+            .as_ref()
+            .map_or_else(pse_diagnostics::Cancellation::default, |scope| {
+                scope.cancellation_control().clone()
+            });
         let mut stop = Stop(Some(flag.clone()), observation.clone());
         let budget = self.budget.clone();
         let (reply, result) = tokio::sync::oneshot::channel();
@@ -2700,7 +2726,8 @@ mod admission_tests {
             strategy::{Phase, Scope, StartOrigin, WorkCharge, WorkObservation},
         };
         let controls = Controls::default();
-        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let declaration = strategy::direct(&controls);
         let cause = Arc::new(ProblemError::stopped(
             Termination::TimeLimit,
@@ -2963,7 +2990,8 @@ mod admission_tests {
             strategy::{Phase, Scope, StartOrigin, WorkCharge, WorkObservation},
         };
         let controls = Controls::default();
-        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let declaration = strategy::direct(&controls);
         let cause = Arc::new(ProblemError::memory("scripted native memory stop"));
         let contract = pse_backend_native::OracleContract {
@@ -3578,8 +3606,10 @@ mod admission_tests {
         owner.pause();
         assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
         let one_cpu = service.cpu.clone().acquire_owned().await.unwrap();
-        let execution =
-            pse_backend_native::solve::Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
+        let execution = pse_backend_native::solve::Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        );
         assert_eq!(
             owner.try_resume(&execution).unwrap(),
             ComputeAvailability::Unavailable
@@ -3602,8 +3632,10 @@ mod admission_tests {
             Err(ProblemError::Cancelled)
         ));
         service.active_jobs.close();
-        let execution =
-            pse_backend_native::solve::Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
+        let execution = pse_backend_native::solve::Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        );
         assert!(owner.try_resume(&execution).is_err());
         assert_eq!(service.cpu.available_permits(), service.cores);
     }
@@ -3876,17 +3908,29 @@ mod idle_wake_tests {
     use super::*;
     #[test]
     fn native_idle_notifications_coalesce_and_do_not_retain_sender() {
-        let (sender,receiver)=mpsc::channel::<Request>();
-        let sender=Arc::new(sender);
-        let wake=Arc::new(IdleWake {sender:Arc::downgrade(&sender),pending:AtomicBool::new(false)});
-        let waker=std::task::Waker::from(wake.clone());
-        for _ in 0..100 {waker.wake_by_ref()}
+        let (sender, receiver) = mpsc::channel::<Request>();
+        let sender = Arc::new(sender);
+        let wake = Arc::new(IdleWake {
+            sender: Arc::downgrade(&sender),
+            pending: AtomicBool::new(false),
+        });
+        let waker = std::task::Waker::from(wake.clone());
+        for _ in 0..100 {
+            waker.wake_by_ref()
+        }
         assert!(receiver.try_recv().unwrap().work.is_none());
-        assert!(matches!(receiver.try_recv(),Err(mpsc::TryRecvError::Empty)));
-        wake.pending.store(false,Ordering::Release);
+        assert!(matches!(
+            receiver.try_recv(),
+            Err(mpsc::TryRecvError::Empty)
+        ));
+        wake.pending.store(false, Ordering::Release);
         waker.wake_by_ref();
         assert!(receiver.try_recv().unwrap().work.is_none());
-        drop(sender);waker.wake_by_ref();
-        assert!(matches!(receiver.try_recv(),Err(mpsc::TryRecvError::Disconnected)));
+        drop(sender);
+        waker.wake_by_ref();
+        assert!(matches!(
+            receiver.try_recv(),
+            Err(mpsc::TryRecvError::Disconnected)
+        ));
     }
 }

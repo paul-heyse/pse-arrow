@@ -253,7 +253,11 @@ impl pse_kernels::Provider for SelectedProvider {
                 "regime selection requires its admitted outer cancellation owner".into(),
             ));
         }
-        let control = self.selection.execution_control().map_err(super::provider_error)?.clone();
+        let control = self
+            .selection
+            .execution_control()
+            .map_err(super::provider_error)?
+            .clone();
         let selected = self
             .selection
             .evaluate(inputs, request.order, &control)
@@ -440,7 +444,7 @@ mod tests {
                         }],
                         vec![pse_ids::named_id(id, "row")],
                         1,
-            crate::implicit::residual_bodies_for_test(body(0)),
+                        crate::implicit::residual_bodies_for_test(body(0)),
                         100,
                     )
                     .unwrap(),
@@ -744,7 +748,7 @@ mod tests {
             _: &Options,
             cancel: &pse_diagnostics::Cancellation,
         ) -> Result<Vec<f64>, MathError> {
-        let control = cancel;
+            let control = cancel;
             match self.0 {
                 "resource" => Err(MathError::Limit("controlled root resources")),
                 "cancel" => {
@@ -1227,7 +1231,7 @@ mod tests {
                 previous.unknowns.clone(),
                 previous.rows.clone(),
                 1,
-            crate::implicit::residual_bodies_for_test(body),
+                crate::implicit::residual_bodies_for_test(body),
                 100,
             )
             .unwrap(),
@@ -1617,7 +1621,9 @@ impl RegimeSelection {
         Ok(())
     }
     pub(super) fn execution_control(&self) -> Result<&pse_diagnostics::Cancellation, MathError> {
-        self.control.as_ref().ok_or_else(|| MathError::Contract("regime selection has no originating execution control".into()))
+        self.control.as_ref().ok_or_else(|| {
+            MathError::Contract("regime selection has no originating execution control".into())
+        })
     }
     /// Actual most recent chain proof, separate from endpoint selection and accuracy.
     pub fn chart_chain_proof(&self) -> Option<super::ChartChainProof> {
@@ -2347,7 +2353,9 @@ impl RegimeSelection {
     ) -> Result<SelectedRegime, MathError> {
         if let Some(scope) = &self.scope {
             if !Arc::ptr_eq(scope.cancellation(), &control.flag()) {
-                return Err(MathError::Contract("regime selection execution control differs from its scope".into()));
+                return Err(MathError::Contract(
+                    "regime selection execution control differs from its scope".into(),
+                ));
             }
         }
         self.control = Some(control.clone());
@@ -3063,9 +3071,11 @@ impl RegimeSelection {
                 .and_then(|p| p.proposals[index].clone())
             {
                 Some(point) => point,
-                None => regime
-                    .solver
-                    .solve(regime.problem.clone(), parameters, options, &control)?,
+                None => {
+                    regime
+                        .solver
+                        .solve(regime.problem.clone(), parameters, options, &control)?
+                }
             };
             proposals[index] = Some(point.clone());
             checkpoint()?;

@@ -1780,7 +1780,10 @@ pub(crate) fn curvature(
     program: &FactorableProgram,
     roots: &[pse_math::factorable::NodeId],
 ) -> Result<Vec<ScipCurvature>, ProblemError> {
-    let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default());
+    let execution = Execution::new(
+        pse_diagnostics::Cancellation::new(false),
+        &Controls::default(),
+    );
     let mut instance = Instance::new(&execution, Modes::default())?;
     let coordinates = program
         .variables
@@ -3844,7 +3847,10 @@ pub(crate) mod testing {
     ) -> Result<(f64, usize, usize), ProblemError> {
         let plan = crate::execution::factorable::plan(program, intent)
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         let mut instance = Instance::new(&execution, Modes::default())?;
         let export = export(&mut instance, &plan, &identity(program))?;
         let mut worst: f64 = 0.0;
@@ -3864,7 +3870,10 @@ pub(crate) mod testing {
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
         let reference = crate::execution::factorable::plan(checked, SolveIntent::FeasiblePoint)
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         let mut instance = Instance::new(&execution, Modes::default())?;
         let export = export(&mut instance, &plan, &identity(exported))?;
         let mut worst: f64 = 0.0;

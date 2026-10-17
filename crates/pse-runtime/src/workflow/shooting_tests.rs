@@ -169,7 +169,8 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
                 upper: Some(2.),
             });
             let problem = Arc::new(simulation.shooting(profile).unwrap());
-            let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+            let mut execution =
+                Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
             execution.memory = Some(
                 problem
                     .runtime
@@ -372,9 +373,9 @@ async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
     oracle.objective(&[-0., 1.]).unwrap();
     assert_eq!(oracle.execution.progress.snapshot().0.len(), count);
     let original_execution = oracle.execution.clone();
-        oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
-        oracle.execution.cancel = oracle.execution.cancellation.flag();
-        oracle.execution.enclosing_scope = None;
+    oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
+    oracle.execution.cancel = oracle.execution.cancellation.flag();
+    oracle.execution.enclosing_scope = None;
     assert!(matches!(
         oracle.objective(&[-0., 1.]),
         Err(ProblemError::Cancelled)
@@ -842,7 +843,10 @@ async fn multiple_shooting_continuity_closes() {
                     ))
                     .unwrap(),
             );
-            let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &solver().controls);
+            let execution = Execution::new(
+                pse_diagnostics::Cancellation::new(false),
+                &solver().controls,
+            );
             let mut initial = problem.initial_point(&execution).unwrap();
             let controls = problem.controls();
             for node in &mut initial[controls..] {
@@ -1483,7 +1487,8 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
                 ))
                 .unwrap(),
         );
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+        let mut execution =
+            Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
         execution.memory = Some(
             problem
                 .runtime
@@ -1578,9 +1583,7 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
                 "{method:?}: {a} vs {b}"
             );
         }
-        oracle
-            .execution
-            .cancellation_control().cancel();
+        oracle.execution.cancellation_control().cancel();
         assert!(matches!(
             oracle.gradient(&x, &mut gradient),
             Err(ProblemError::Cancelled)

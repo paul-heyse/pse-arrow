@@ -1214,7 +1214,7 @@ fn composed_external_partials_use_symbolica_chain_rule_through_nested_calls() {
         let partial = b.partial(scope, z, &vec![x; partials], id(23)).unwrap();
         let body = b.prepare(&[partial]).unwrap();
         let control = pse_diagnostics::Cancellation::new(false);
-    let cancel = control.flag();
+        let cancel = control.flag();
         let mut compiled = body
             .compile(
                 &[0],

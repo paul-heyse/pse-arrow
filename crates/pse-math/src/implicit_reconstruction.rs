@@ -422,7 +422,7 @@ impl SupplierSelection {
                 Self::Regimes(v) => {
                     let control = v.execution_control()?.clone();
                     v.evaluate(parameters, order, &control)
-                },
+                }
             }
         });
         if let (Some(context), Ok(selected)) = (pse_diagnostics::observation::current(), &result) {
@@ -775,9 +775,12 @@ impl RootSelection {
             return Ok(values.clone());
         }
         options.time_limit = deadline.saturating_duration_since(std::time::Instant::now());
-        let point = self
-            .solver
-            .solve(self.problem.clone(), parameters, &options, self.scope.cancellation_control())?;
+        let point = self.solver.solve(
+            self.problem.clone(),
+            parameters,
+            &options,
+            self.scope.cancellation_control(),
+        )?;
         self.problem.verify(parameters, &point, &options, cancel)?;
         self.selection
             .verify(&self.problem, parameters, &point, order, cancel)?;
@@ -1107,9 +1110,12 @@ impl RootSelection {
         options.time_limit = options
             .time_limit
             .min(deadline.saturating_duration_since(std::time::Instant::now()));
-        let point = self
-            .solver
-            .solve(self.problem.clone(), parameters, &options, self.scope.cancellation_control())?;
+        let point = self.solver.solve(
+            self.problem.clone(),
+            parameters,
+            &options,
+            self.scope.cancellation_control(),
+        )?;
         self.problem.verify(parameters, &point, &options, cancel)?;
         self.selection.verify(
             &self.problem,
@@ -2403,7 +2409,7 @@ mod tests {
                 derivatives: DerivativeOrder::First,
                 smoothness: DerivativeOrder::First,
             },
-            bodies:crate::implicit::residual_bodies_for_test(body),
+            bodies: crate::implicit::residual_bodies_for_test(body),
             unknowns: unknowns.clone(),
             rows: vec![row],
             configuration: Configuration::Fixed(

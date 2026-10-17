@@ -53,8 +53,8 @@ from pse.contracts.documents import (
     LinearDiagnosticControls,
     ManagedStudyDiagnosticsDocument,
     ModelingInspection,
-    ModelingSourceMapDocument,
     ModelingNonlinearPolicy,
+    ModelingSourceMapDocument,
     OperationSource,
     PointOutcome,
     PointOverlay,
@@ -532,8 +532,24 @@ class ModelingDiagnostics:
         self,
     ) -> tuple[SingularMode, ...]:
         return tuple(
-            SingularMode(value, tuple(left), tuple(right), left_residual, right_residual, normalization_error, residual_bound)
-            for value, left, right, left_residual, right_residual, normalization_error, residual_bound in self._handle.singular_modes()
+            SingularMode(
+                value,
+                tuple(left),
+                tuple(right),
+                left_residual,
+                right_residual,
+                normalization_error,
+                residual_bound,
+            )
+            for (
+                value,
+                left,
+                right,
+                left_residual,
+                right_residual,
+                normalization_error,
+                residual_bound,
+            ) in self._handle.singular_modes()
         )
 
 
@@ -751,7 +767,7 @@ class ModelingPackage:
         maximum_bytes: int = 16 << 20,
         time_limit: float = 30.0,
     ) -> ModelingSourceMapDocument:
-        """Read static attribution under one preparation-and-copy clock, without a solve."""
+        """Read static attribution under one preparation and copy clock."""
         return self._handle.diagnostic_source_map(
             case_id.to_hex(), codec.encode_json(settings), maximum_bytes, time_limit
         )

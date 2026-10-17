@@ -561,7 +561,9 @@ mod tests {
         boundary.locations.push(SourceLocation {
             source,
             revision: Some(revision),
-            document: None, occurrence_role: None, occurrence_position: None,
+            document: None,
+            occurrence_role: None,
+            occurrence_position: None,
             path: "source.pse".into(),
             name: None,
             start: None,

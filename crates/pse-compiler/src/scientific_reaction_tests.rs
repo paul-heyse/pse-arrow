@@ -17,10 +17,7 @@ use pse_modeling::{
     Bindings, Limits, PhysicalScope,
     specialize::{SpecializedModel, root_instance},
 };
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 const FIXTURE: &str = r#"package scientific_reaction_fixture {
 use chemistry @"1.0.0"; use reaction_forms @"1.0.0"; use reactions @"1.0.0"; use references @"1.0.0";

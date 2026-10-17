@@ -5,9 +5,19 @@ use super::*;
 use pse_diagnostics::observation::{ObservationContext, Producer, ProducerRole};
 const FAMILY: &str = "petsc_event.v1";
 const EVENTS: [&CStr; 13] = [
-    c"SNESSolve", c"SNESFunctionEval", c"SNESJacobianEval", c"KSPSolve",
-    c"KSPSetUp", c"PCSetUp", c"PCApply", c"SNESNPCSolve", c"SNESLineSearch",
-    c"TSStep", c"TSFunctionEval", c"TSJacobianEval", c"TSPseudoCmptTStp",
+    c"SNESSolve",
+    c"SNESFunctionEval",
+    c"SNESJacobianEval",
+    c"KSPSolve",
+    c"KSPSetUp",
+    c"PCSetUp",
+    c"PCApply",
+    c"SNESNPCSolve",
+    c"SNESLineSearch",
+    c"TSStep",
+    c"TSFunctionEval",
+    c"TSJacobianEval",
+    c"TSPseudoCmptTStp",
 ];
 /// Must be constructed and dropped inside the actual serialized PETSc admission.
 /// No native reference escapes; checkpoints run only on that same owning thread.
@@ -25,28 +35,50 @@ impl Log {
         let selected = context.record_tap().is_some_and(|tap| {
             catch_unwind(AssertUnwindSafe(|| tap.selected(FAMILY))).unwrap_or(false)
         });
-        if !selected { return None; }
+        if !selected {
+            return None;
+        }
         let mut raw = ptr::null_mut();
         // SAFETY: caller retains process serialization and initialized PETSc.
         let code = unsafe { ffi::pse_petsc_log_create(&mut raw) };
         if code != 0 || raw.is_null() {
             context.record_source_unavailable(FAMILY);
-            context.unavailable("petsc.logging", "selected handler unavailable or registration refused");
+            context.unavailable(
+                "petsc.logging",
+                "selected handler unavailable or registration refused",
+            );
             return None;
         }
-        let producers = std::array::from_fn(|index| context.producer(
-            ProducerRole::NativeFactor, &format!("petsc.events.{}", EVENTS[index].to_string_lossy())));
-        Some(Self { raw, producers, context, ordinal: Cell::new(Some(1)), execution: execution.clone() })
+        let producers = std::array::from_fn(|index| {
+            context.producer(
+                ProducerRole::NativeFactor,
+                &format!("petsc.events.{}", EVENTS[index].to_string_lossy()),
+            )
+        });
+        Some(Self {
+            raw,
+            producers,
+            context,
+            ordinal: Cell::new(Some(1)),
+            execution: execution.clone(),
+        })
     }
     pub(super) fn checkpoint(&self, phase: &str, owner_returned: bool) {
-        if !self.producers[0].detail_selected(FAMILY) { return; }
+        if !self.producers[0].detail_selected(FAMILY) {
+            return;
+        }
         let ordinal = self.ordinal.get();
-        self.ordinal.set(ordinal.and_then(|value| value.checked_add(1)));
-        if catch_unwind(AssertUnwindSafe(|| self.sample(phase, owner_returned, ordinal))).is_err() {
+        self.ordinal
+            .set(ordinal.and_then(|value| value.checked_add(1)));
+        if catch_unwind(AssertUnwindSafe(|| {
+            self.sample(phase, owner_returned, ordinal)
+        }))
+        .is_err()
+        {
             let _ = catch_unwind(AssertUnwindSafe(|| {
                 self.context.record_source_unavailable(FAMILY);
-                self.context.unavailable(
-                "petsc.logging", "selected event projection failed");
+                self.context
+                    .unavailable("petsc.logging", "selected event projection failed");
             }));
         }
     }
@@ -60,40 +92,90 @@ impl Log {
             // SAFETY: independent live handler on its serialized native owner;
             // getter copies scalars and never invokes numerical work.
             let code = unsafe { ffi::pse_petsc_log_event(self.raw, event.as_ptr(), &mut info) };
-            let measured = code == 0 && info.available != 0 && info.entered_calls >= 0
-                && info.active_depth >= 0 && info.completed_seconds.is_finite()
-                && info.completed_seconds >= 0. && info.completed_flops.is_finite()
+            let measured = code == 0
+                && info.available != 0
+                && info.entered_calls >= 0
+                && info.active_depth >= 0
+                && info.completed_seconds.is_finite()
+                && info.completed_seconds >= 0.
+                && info.completed_flops.is_finite()
                 && info.completed_flops >= 0.;
             let unavailable = if code == 0 && info.registered != 0 && info.activated == 0 {
                 UnavailableReason::NotRequested
-            } else { UnavailableReason::NotComputed };
-            let flag = |value| if code == 0 { Metric::Bool(value) } else {
-                Metric::Unavailable(UnavailableReason::Unknown)
+            } else {
+                UnavailableReason::NotComputed
             };
-            let value = |value| if measured { Metric::Integer(value) } else { Metric::Unavailable(unavailable) };
-            let real = |value| if measured { Metric::Real(value) } else { Metric::Unavailable(unavailable) };
-            self.execution.progress.push_from(Event {
-                source: Some(EventSource::new("petsc_event", None, None).with_role(ProducerRole::NativeFactor)),
-                phase: phase.into(), elapsed: self.execution.started.elapsed(), incumbent: None,
-                values: std::collections::BTreeMap::from([
-                    ("backend".into(), Metric::Text("petsc".into())),
-                    ("checkpoint_ordinal".into(), ordinal.and_then(|value| i64::try_from(value).ok())
-                        .map_or(Metric::Unavailable(UnavailableReason::Unknown), Metric::Integer)),
-                    ("native_event".into(), Metric::Text(event.to_string_lossy().into_owned())),
-                    ("scope".into(), Metric::Text("selected_handler_current_stage".into())),
-                    ("count_semantics".into(), Metric::Text("outermost_native_event_entries".into())),
-                    ("time_semantics".into(), Metric::Text("inclusive_completed_event_intervals".into())),
-                    ("source_available".into(), Metric::Bool(measured)),
-                    ("event_registered".into(), flag(info.registered != 0)),
-                    ("event_activated".into(), flag(info.activated != 0)),
-                    ("stage".into(), value(i64::from(info.stage))),
-                    ("entered_calls".into(), value(i64::from(info.entered_calls))),
-                    ("native_event_depth".into(), value(i64::from(info.active_depth))),
-                    ("owner_returned".into(), Metric::Bool(owner_returned)),
-                    ("completed_seconds".into(), real(info.completed_seconds)),
-                    ("completed_flops".into(), real(info.completed_flops)),
-                ]),
-            }, producer);
+            let flag = |value| {
+                if code == 0 {
+                    Metric::Bool(value)
+                } else {
+                    Metric::Unavailable(UnavailableReason::Unknown)
+                }
+            };
+            let value = |value| {
+                if measured {
+                    Metric::Integer(value)
+                } else {
+                    Metric::Unavailable(unavailable)
+                }
+            };
+            let real = |value| {
+                if measured {
+                    Metric::Real(value)
+                } else {
+                    Metric::Unavailable(unavailable)
+                }
+            };
+            self.execution.progress.push_from(
+                Event {
+                    source: Some(
+                        EventSource::new("petsc_event", None, None)
+                            .with_role(ProducerRole::NativeFactor),
+                    ),
+                    phase: phase.into(),
+                    elapsed: self.execution.started.elapsed(),
+                    incumbent: None,
+                    values: std::collections::BTreeMap::from([
+                        ("backend".into(), Metric::Text("petsc".into())),
+                        (
+                            "checkpoint_ordinal".into(),
+                            ordinal.and_then(|value| i64::try_from(value).ok()).map_or(
+                                Metric::Unavailable(UnavailableReason::Unknown),
+                                Metric::Integer,
+                            ),
+                        ),
+                        (
+                            "native_event".into(),
+                            Metric::Text(event.to_string_lossy().into_owned()),
+                        ),
+                        (
+                            "scope".into(),
+                            Metric::Text("selected_handler_current_stage".into()),
+                        ),
+                        (
+                            "count_semantics".into(),
+                            Metric::Text("outermost_native_event_entries".into()),
+                        ),
+                        (
+                            "time_semantics".into(),
+                            Metric::Text("inclusive_completed_event_intervals".into()),
+                        ),
+                        ("source_available".into(), Metric::Bool(measured)),
+                        ("event_registered".into(), flag(info.registered != 0)),
+                        ("event_activated".into(), flag(info.activated != 0)),
+                        ("stage".into(), value(i64::from(info.stage))),
+                        ("entered_calls".into(), value(i64::from(info.entered_calls))),
+                        (
+                            "native_event_depth".into(),
+                            value(i64::from(info.active_depth)),
+                        ),
+                        ("owner_returned".into(), Metric::Bool(owner_returned)),
+                        ("completed_seconds".into(), real(info.completed_seconds)),
+                        ("completed_flops".into(), real(info.completed_flops)),
+                    ]),
+                },
+                producer,
+            );
         }
     }
 }
@@ -103,8 +185,12 @@ impl Drop for Log {
         // PETSc admission. Stop/destroy touches only this handler, never a global toggle.
         let code = unsafe { ffi::pse_petsc_log_destroy(&mut self.raw) };
         if code != 0 {
-            let _ = catch_unwind(AssertUnwindSafe(|| self.context.unavailable(
-                "petsc.logging.cleanup", "selected handler stop/destroy failed")));
+            let _ = catch_unwind(AssertUnwindSafe(|| {
+                self.context.unavailable(
+                    "petsc.logging.cleanup",
+                    "selected handler stop/destroy failed",
+                )
+            }));
         }
     }
 }

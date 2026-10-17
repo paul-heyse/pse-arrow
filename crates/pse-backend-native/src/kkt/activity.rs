@@ -462,7 +462,10 @@ mod tests {
         }
     }
     fn activity(source: KktFactor, admission: Arc<Admission>) -> Factor {
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
         execution.work_admission = Some(admission);
         Factor::new(
             source,

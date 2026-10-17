@@ -5,10 +5,10 @@
 #[path = "diagnostic_linear.rs"]
 mod linear;
 use super::*;
-use pse_compiler::workspace::ModelingOutput;
 use crate::math::modeling::ModelingCasePreparation;
 #[cfg(feature = "solver-highs")]
 pub use linear::ModelingLinearDiagnostics;
+use pse_compiler::workspace::ModelingOutput;
 use pse_model::generated::identities::RunId;
 #[path = "diagnostic_nonlinear.rs"]
 mod nonlinear;
@@ -16,7 +16,6 @@ mod nonlinear;
 mod samples;
 #[path = "diagnostic_source_map.rs"]
 mod source_map;
-pub use source_map::{ModelingSourceMap, ModelingSourceMapDocument};
 pub use nonlinear::{
     ElasticObservation, ModelingElasticAttempt, ModelingInfeasibilityCertificate,
     ModelingNonlinearExplanation, ModelingNonlinearPolicy,
@@ -32,6 +31,7 @@ use pse_model::{
     numerics::ResolvedNumericalPolicy,
 };
 pub use samples::{DiagnosticSampleStop, ModelingDiagnosticSamples};
+pub use source_map::{ModelingSourceMap, ModelingSourceMapDocument};
 use std::sync::Arc;
 
 /// Diagnostic preparation resolves the same case and native dependencies without solver admission.
@@ -333,27 +333,83 @@ impl ModelingDiagnostics {
 }
 /// Resolve only compiler-supplied original contributors. This is a source
 /// projection, never a numerical pullback or an instruction to re-evaluate a row.
-fn original_contributors(model: &pse_compiler::workspace::PreparedModeling, id: SemanticId) -> std::collections::BTreeSet<SemanticId> {
+fn original_contributors(
+    model: &pse_compiler::workspace::PreparedModeling,
+    id: SemanticId,
+) -> std::collections::BTreeSet<SemanticId> {
     let mut sources = std::collections::BTreeSet::from([id]);
-    sources.extend(model.model.ports.values().filter(|port| port.symbol == id).map(|port| port.id));
-    sources.extend(model.model.material_ports.values().filter(|port| port.coordinates.values().any(|coordinate| *coordinate == id)).map(|port| port.id));
-    for output in model.admitted.outputs.iter().filter(|output| output.row_id() == id) {
+    sources.extend(
+        model
+            .model
+            .ports
+            .values()
+            .filter(|port| port.symbol == id)
+            .map(|port| port.id),
+    );
+    sources.extend(
+        model
+            .model
+            .material_ports
+            .values()
+            .filter(|port| {
+                port.coordinates
+                    .values()
+                    .any(|coordinate| *coordinate == id)
+            })
+            .map(|port| port.id),
+    );
+    for output in model
+        .admitted
+        .outputs
+        .iter()
+        .filter(|output| output.row_id() == id)
+    {
         match output {
-            ModelingOutput::DynamicRate { state, equations } => { sources.insert(*state); sources.extend(equations); }
-            ModelingOutput::InitialState { state, equation } => { sources.extend([*state, *equation]); }
-            ModelingOutput::Contribution { accumulator, contribution } => { sources.extend([*accumulator, *contribution]); }
-            ModelingOutput::InventoryTransfer { balance, event } => { sources.extend([*balance, *event]); }
-            ModelingOutput::Hint { target, declaration, .. } => { sources.extend([*target, declaration.as_id()]); }
-            ModelingOutput::Term { equation, .. } => { sources.insert(*equation); }
-            ModelingOutput::OriginalEquation(source) | ModelingOutput::Penalty(source)
-            | ModelingOutput::Member(source) | ModelingOutput::Inventory(source)
-            | ModelingOutput::ConditionalBoundary(source) => { sources.insert(*source); }
-            ModelingOutput::Test { id, .. } | ModelingOutput::Equation { id, .. } => { sources.insert(*id); }
+            ModelingOutput::DynamicRate { state, equations } => {
+                sources.insert(*state);
+                sources.extend(equations);
+            }
+            ModelingOutput::InitialState { state, equation } => {
+                sources.extend([*state, *equation]);
+            }
+            ModelingOutput::Contribution {
+                accumulator,
+                contribution,
+            } => {
+                sources.extend([*accumulator, *contribution]);
+            }
+            ModelingOutput::InventoryTransfer { balance, event } => {
+                sources.extend([*balance, *event]);
+            }
+            ModelingOutput::Hint {
+                target,
+                declaration,
+                ..
+            } => {
+                sources.extend([*target, declaration.as_id()]);
+            }
+            ModelingOutput::Term { equation, .. } => {
+                sources.insert(*equation);
+            }
+            ModelingOutput::OriginalEquation(source)
+            | ModelingOutput::Penalty(source)
+            | ModelingOutput::Member(source)
+            | ModelingOutput::Inventory(source)
+            | ModelingOutput::ConditionalBoundary(source) => {
+                sources.insert(*source);
+            }
+            ModelingOutput::Test { id, .. } | ModelingOutput::Equation { id, .. } => {
+                sources.insert(*id);
+            }
             ModelingOutput::LevelBound { row, .. } => {
                 for level in &model.model.objectives.levels {
                     if level.bound.as_ref().is_some_and(|bound| bound.row == *row) {
                         for member in model.model.objectives.members_of(level) {
-                            sources.extend([member.target, member.term, member.lineage.declaration.as_id()]);
+                            sources.extend([
+                                member.target,
+                                member.term,
+                                member.lineage.declaration.as_id(),
+                            ]);
                         }
                     }
                 }
@@ -368,45 +424,122 @@ pub(super) fn attribute(
     diagnostic: &mut BoundaryDiagnostic,
     model: &pse_compiler::workspace::PreparedModeling,
 ) {
-    let sources = diagnostic.sources.iter().flat_map(|&id| original_contributors(model, id))
+    let sources = diagnostic
+        .sources
+        .iter()
+        .flat_map(|&id| original_contributors(model, id))
         .collect::<std::collections::BTreeSet<_>>();
     diagnostic.sources = sources.iter().copied().collect();
     let occurrences = model.occurrence_identity();
     let mut add = |source: SemanticId, lineage: &pse_modeling::specialize::Lineage| {
-        let fields = occurrences.iter().filter(|(declaration, _, _, _)| *declaration == lineage.declaration).collect::<Vec<_>>();
+        let fields = occurrences
+            .iter()
+            .filter(|(declaration, _, _, _)| *declaration == lineage.declaration)
+            .collect::<Vec<_>>();
         let mut append = |document, role, position, start, end| {
-            if diagnostic.locations.iter().any(|location| location.source == source
-                && location.path == lineage.path && location.document == document
-                && location.occurrence_role == role && location.occurrence_position == position
-                && location.start == start && location.end == end) { return; }
+            if diagnostic.locations.iter().any(|location| {
+                location.source == source
+                    && location.path == lineage.path
+                    && location.document == document
+                    && location.occurrence_role == role
+                    && location.occurrence_position == position
+                    && location.start == start
+                    && location.end == end
+            }) {
+                return;
+            }
             diagnostic.locations.push(SourceLocation {
-                source, revision: None, document, occurrence_role: role, occurrence_position: position,
-                path: lineage.path.clone(), name: None, start, end,
+                source,
+                revision: None,
+                document,
+                occurrence_role: role,
+                occurrence_position: position,
+                path: lineage.path.clone(),
+                name: None,
+                start,
+                end,
             });
         };
-        if fields.is_empty() { append(None, None, None, None, None); }
+        if fields.is_empty() {
+            append(None, None, None, None, None);
+        }
         for (_, role, position, span) in fields {
             let document = (span.document_id != SemanticId::NIL).then_some(span.document_id);
             let ranged = document.is_some() && !span.is_empty();
-            append(document, Some(role.clone()), u32::try_from(*position).ok(),
-                ranged.then_some(span.start), ranged.then_some(span.end));
+            append(
+                document,
+                Some(role.clone()),
+                u32::try_from(*position).ok(),
+                ranged.then_some(span.start),
+                ranged.then_some(span.end),
+            );
         }
     };
     for id in sources {
-        if let Some(symbol) = model.model.symbols.get(&id) { add(id, &symbol.lineage); }
-        for row in model.model.equations.iter().filter(|row| row.id == id) { add(id, &row.lineage); }
-        for port in model.model.ports.values().filter(|port| port.id == id || port.symbol == id) { add(port.id, &port.lineage); }
-        for port in model.model.material_ports.values().filter(|port| port.id == id || port.coordinates.values().any(|coordinate| *coordinate == id)) { add(port.id, &port.lineage); }
-        for balance in model.model.inventory_balances.values().filter(|balance| balance.id == id || balance.inventory_id == id || balance.flux_id == id || balance.state == Some(id)) { add(balance.id, &balance.lineage); }
-        for condition in model.model.inventory_initial_conditions.values().filter(|condition| condition.row == id) { add(id, &condition.lineage); }
-        for lowering in model.model.lowerings.iter().filter(|lowering| lowering.rows.contains(&id) || lowering.variables.contains(&id)) {
+        if let Some(symbol) = model.model.symbols.get(&id) {
+            add(id, &symbol.lineage);
+        }
+        for row in model.model.equations.iter().filter(|row| row.id == id) {
+            add(id, &row.lineage);
+        }
+        for port in model
+            .model
+            .ports
+            .values()
+            .filter(|port| port.id == id || port.symbol == id)
+        {
+            add(port.id, &port.lineage);
+        }
+        for port in model.model.material_ports.values().filter(|port| {
+            port.id == id
+                || port
+                    .coordinates
+                    .values()
+                    .any(|coordinate| *coordinate == id)
+        }) {
+            add(port.id, &port.lineage);
+        }
+        for balance in model.model.inventory_balances.values().filter(|balance| {
+            balance.id == id
+                || balance.inventory_id == id
+                || balance.flux_id == id
+                || balance.state == Some(id)
+        }) {
+            add(balance.id, &balance.lineage);
+        }
+        for condition in model
+            .model
+            .inventory_initial_conditions
+            .values()
+            .filter(|condition| condition.row == id)
+        {
+            add(id, &condition.lineage);
+        }
+        for lowering in model
+            .model
+            .lowerings
+            .iter()
+            .filter(|lowering| lowering.rows.contains(&id) || lowering.variables.contains(&id))
+        {
             // The retained owner instance prevents a shared form definition from
             // falsely attributing every other instance that uses that definition.
-            for symbol in model.model.symbols.values().filter(|symbol| symbol.lineage.declaration == lowering.source && symbol.lineage.instance == lowering.instance) { add(id, &symbol.lineage); }
-            for row in model.model.equations.iter().filter(|row| row.lineage.declaration == lowering.source && row.lineage.instance == lowering.instance) { add(id, &row.lineage); }
+            for symbol in model.model.symbols.values().filter(|symbol| {
+                symbol.lineage.declaration == lowering.source
+                    && symbol.lineage.instance == lowering.instance
+            }) {
+                add(id, &symbol.lineage);
+            }
+            for row in model.model.equations.iter().filter(|row| {
+                row.lineage.declaration == lowering.source
+                    && row.lineage.instance == lowering.instance
+            }) {
+                add(id, &row.lineage);
+            }
         }
     }
-    for cause in &mut diagnostic.causes { attribute(cause, model); }
+    for cause in &mut diagnostic.causes {
+        attribute(cause, model);
+    }
 }
 impl ModelingPackage {
     /// Resolve starts, specifications, source precedence and nested providers without requesting a solve.
@@ -1428,54 +1561,174 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(prepared.model.case.structure().matching.len(), 2);
-        let source_map = rt.modeling_diagnostic_source_map(&prepared, 1 << 20,
-            std::time::Duration::from_secs(10), &cancel).await.unwrap();
-        assert_eq!(source_map.document().source_identity, prepared.model.case.compiled().plan.structure().key());
-        assert_eq!(source_map.document().numerical_identity, prepared.numerics.key);
-        assert_eq!(source_map.document().row_nominals.iter().map(|(row, _)| *row).collect::<Vec<_>>(), source_map.document().rows);
-        assert_eq!(source_map.document().variable_nominals.iter().map(|(column, _)| *column).collect::<Vec<_>>(), source_map.document().columns);
+        let source_map = rt
+            .modeling_diagnostic_source_map(
+                &prepared,
+                1 << 20,
+                std::time::Duration::from_secs(10),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            source_map.document().source_identity,
+            prepared.model.case.compiled().plan.structure().key()
+        );
+        assert_eq!(
+            source_map.document().numerical_identity,
+            prepared.numerics.key
+        );
+        assert_eq!(
+            source_map
+                .document()
+                .row_nominals
+                .iter()
+                .map(|(row, _)| *row)
+                .collect::<Vec<_>>(),
+            source_map.document().rows
+        );
+        assert_eq!(
+            source_map
+                .document()
+                .variable_nominals
+                .iter()
+                .map(|(column, _)| *column)
+                .collect::<Vec<_>>(),
+            source_map.document().columns
+        );
         assert!(!source_map.document().templates.is_empty());
         assert!(!source_map.document().instances.is_empty());
-        assert!(source_map.document().fields.iter().all(|field| field.document == Some(SemanticId::from_bytes([83; 16]))));
-        assert!(source_map.document().templates.iter().all(|template| !template.arithmetic.is_empty()));
-        assert!(source_map.document().templates.iter().flat_map(|template| &template.arithmetic)
-            .all(|origin| origin.source.is_some() == origin.source_unavailable.is_none()));
+        assert!(
+            source_map
+                .document()
+                .fields
+                .iter()
+                .all(|field| field.document == Some(SemanticId::from_bytes([83; 16])))
+        );
+        assert!(
+            source_map
+                .document()
+                .templates
+                .iter()
+                .all(|template| !template.arithmetic.is_empty())
+        );
+        assert!(
+            source_map
+                .document()
+                .templates
+                .iter()
+                .flat_map(|template| &template.arithmetic)
+                .all(|origin| origin.source.is_some() == origin.source_unavailable.is_none())
+        );
         for instance in &source_map.document().instances {
-            assert_eq!(instance.contributions.len(), prepared.model.case.compiled().plan.structure().instances()[instance.ordinal].contributions.len());
+            assert_eq!(
+                instance.contributions.len(),
+                prepared.model.case.compiled().plan.structure().instances()[instance.ordinal]
+                    .contributions
+                    .len()
+            );
             assert!(!instance.demands.is_empty());
-            assert!(instance.demands.iter().all(|demand| source_map.document().templates.iter().any(|template| template.template == demand.template)));
+            assert!(instance.demands.iter().all(|demand| {
+                source_map
+                    .document()
+                    .templates
+                    .iter()
+                    .any(|template| template.template == demand.template)
+            }));
         }
-        assert!(source_map.document().native_pullback_unavailable.contains("no transformed native attempt"));
-        assert!(rt.modeling_diagnostic_source_map(&prepared, 1,
-            std::time::Duration::from_secs(10), &cancel).await.is_err());
+        assert!(
+            source_map
+                .document()
+                .native_pullback_unavailable
+                .contains("no transformed native attempt")
+        );
+        assert!(
+            rt.modeling_diagnostic_source_map(
+                &prepared,
+                1,
+                std::time::Duration::from_secs(10),
+                &cancel
+            )
+            .await
+            .is_err()
+        );
         let stopped_map = crate::CancelSource::new();
         stopped_map.cancel();
-        assert!(rt.modeling_diagnostic_source_map(&prepared, 1 << 20,
-            std::time::Duration::from_secs(10), &stopped_map).await.is_err());
+        assert!(
+            rt.modeling_diagnostic_source_map(
+                &prepared,
+                1 << 20,
+                std::time::Duration::from_secs(10),
+                &stopped_map
+            )
+            .await
+            .is_err()
+        );
         let mut attributed = prepared.model.model.compiled().clone();
         let mut model = (*attributed.model).clone();
         let original = model.equations.iter().map(|row| row.id).collect::<Vec<_>>();
-        let variable = model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".x")).unwrap();
+        let variable = model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".x"))
+            .unwrap();
         let variable_id = variable.id;
         let alias_id = pse_ids::named_id(variable_id, "diagnostic-alias");
         let mut alias_lineage = variable.lineage.clone();
         alias_lineage.path.push_str(".supplied_alias");
-        model.ports.insert(alias_id, pse_modeling::specialize::Port {
-            id: alias_id, symbol: variable_id, lineage: alias_lineage,
-        });
+        model.ports.insert(
+            alias_id,
+            pse_modeling::specialize::Port {
+                id: alias_id,
+                symbol: variable_id,
+                lineage: alias_lineage,
+            },
+        );
         attributed.model = Arc::new(model).into();
-        let mut combined = finding(FindingKind::JacobianNumericalRankDeficiency,
-            original.iter().copied().chain([variable_id]), None, None);
+        let mut combined = finding(
+            FindingKind::JacobianNumericalRankDeficiency,
+            original.iter().copied().chain([variable_id]),
+            None,
+            None,
+        );
         let missing = pse_ids::named_id(root.as_id(), "truly-unmapped");
-        combined.causes.push(finding(FindingKind::EquationLargeResidual, [original[0], missing], None, None));
+        combined.causes.push(finding(
+            FindingKind::EquationLargeResidual,
+            [original[0], missing],
+            None,
+            None,
+        ));
         attribute(&mut combined, &attributed);
-        assert!(original.iter().all(|source| combined.locations.iter().any(|location| location.source == *source)));
+        assert!(original.iter().all(|source| {
+            combined
+                .locations
+                .iter()
+                .any(|location| location.source == *source)
+        }));
         assert!(combined.sources.contains(&alias_id));
-        assert!(combined.locations.iter().any(|location| location.source == alias_id && location.path.ends_with(".supplied_alias")));
-        assert!(combined.locations.iter().all(|location| location.document == Some(SemanticId::from_bytes([83; 16]))
-            && location.occurrence_role.is_some() && location.occurrence_position.is_some()));
-        assert!(combined.causes[0].locations.iter().any(|location| location.source == original[0]));
-        assert!(!combined.causes[0].locations.iter().any(|location| location.source == missing));
+        assert!(
+            combined
+                .locations
+                .iter()
+                .any(|location| location.source == alias_id
+                    && location.path.ends_with(".supplied_alias"))
+        );
+        assert!(combined.locations.iter().all(|location| location.document
+            == Some(SemanticId::from_bytes([83; 16]))
+            && location.occurrence_role.is_some()
+            && location.occurrence_position.is_some()));
+        assert!(
+            combined.causes[0]
+                .locations
+                .iter()
+                .any(|location| location.source == original[0])
+        );
+        assert!(
+            !combined.causes[0]
+                .locations
+                .iter()
+                .any(|location| location.source == missing)
+        );
         let locations = combined.locations.len();
         attribute(&mut combined, &attributed);
         assert_eq!(combined.locations.len(), locations);
@@ -1521,8 +1774,14 @@ mod tests {
             .unwrap();
         assert_eq!(report.matrix.as_ref().unwrap().rank, 1);
         for mode in &report.matrix.as_ref().unwrap().modes {
-            assert!(mode.left_residual.is_none_or(|value| value <= mode.residual_bound));
-            assert!(mode.right_residual.is_none_or(|value| value <= mode.residual_bound));
+            assert!(
+                mode.left_residual
+                    .is_none_or(|value| value <= mode.residual_bound)
+            );
+            assert!(
+                mode.right_residual
+                    .is_none_or(|value| value <= mode.residual_bound)
+            );
             assert!(mode.normalization_error < 1e-12);
         }
         assert!(report.complete);

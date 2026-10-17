@@ -788,7 +788,9 @@ pub fn solve_flow(
         })
     };
     context.logging = ptr::null();
-    if let Some(logging) = &logging { logging.checkpoint("petsc.ts.return", true); }
+    if let Some(logging) = &logging {
+        logging.checkpoint("petsc.ts.return", true);
+    }
     drop(logging);
     let (reason, steps, iterations, rejections, failures, time, dt) = statistics(ts)?;
     let mut name = ptr::null();

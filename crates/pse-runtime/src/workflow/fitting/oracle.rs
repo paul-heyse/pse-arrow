@@ -20,8 +20,12 @@ use pse_math::{assembly::CaseWorker, sparse::AssemblyMatrix};
 pub(super) struct UpgradeValidity(Arc<std::sync::atomic::AtomicBool>);
 impl UpgradeValidity {
     #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
-    fn contradicts(&self) { self.0.store(true, std::sync::atomic::Ordering::Release); }
-    fn contradicted(&self) -> bool { self.0.load(std::sync::atomic::Ordering::Acquire) }
+    fn contradicts(&self) {
+        self.0.store(true, std::sync::atomic::Ordering::Release);
+    }
+    fn contradicted(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Acquire)
+    }
 }
 /// Products actually requested at an exact trial point. Native integration still
 /// computes the Jacobians its numerical method requires, independently of fit output demand.
@@ -76,17 +80,32 @@ struct Point {
 /// replacement coexist. Previous trajectory Arcs already coexist during upgrade;
 /// curvature is moved only on success and is never duplicated here.
 pub(super) fn replacement_point_bytes(
-    experiments: &[Experiment], layout: &sparse::Layout, variables: usize, rows: usize, observations: usize,
+    experiments: &[Experiment],
+    layout: &sparse::Layout,
+    variables: usize,
+    rows: usize,
+    observations: usize,
 ) -> Option<usize> {
     let mut bytes = size_of::<Point>()
         .checked_add(layout.responses.retained_bytes())?
         .checked_add(layout.constraints.retained_bytes())?
-        .checked_add(variables.checked_mul(2)?.checked_add(rows)?.checked_add(observations)?.checked_mul(size_of::<f64>())?)?
-        .checked_add(experiments.len().checked_mul(size_of::<Option<SparseColMat<usize, f64>>>())?)?;
+        .checked_add(
+            variables
+                .checked_mul(2)?
+                .checked_add(rows)?
+                .checked_add(observations)?
+                .checked_mul(size_of::<f64>())?,
+        )?
+        .checked_add(
+            experiments
+                .len()
+                .checked_mul(size_of::<Option<SparseColMat<usize, f64>>>())?,
+        )?;
     for experiment in experiments {
         if let Experiment::Steady(steady) = experiment {
             let pattern = steady.case.assembly.jacobian_pattern();
-            bytes = bytes.checked_add(size_of_val(pattern.col_ptr()))?
+            bytes = bytes
+                .checked_add(size_of_val(pattern.col_ptr()))?
                 .checked_add(size_of_val(pattern.row_idx()))?
                 .checked_add(pattern.row_idx().len().checked_mul(size_of::<f64>())?)?;
         }
@@ -333,7 +352,9 @@ impl FitOracle {
         // Keep the complete lower product installed until every replacement product
         // succeeds. Trajectory Arcs are immutable; the comparison witness invalidates
         // the lower product only when new scientific evidence contradicts it.
-        if !same { self.point = None; }
+        if !same {
+            self.point = None;
+        }
         let validity = UpgradeValidity::default();
         let previous = self.point.as_ref().map(|point| point.trajectories.clone());
         let mut point = Point {
@@ -388,7 +409,9 @@ impl FitOracle {
         let products = match products {
             Ok(products) => products,
             Err(error) => {
-                if validity.contradicted() { self.point = None; }
+                if validity.contradicted() {
+                    self.point = None;
+                }
                 return Err(error);
             }
         };
@@ -458,7 +481,10 @@ impl FitOracle {
         });
         // A complete curvature block is independent of the optimizer's subsequent
         // objective multiplier and retains the same immutable exact-point premises.
-        point.curvatures = self.point.as_mut().and_then(|previous| previous.curvatures.take());
+        point.curvatures = self
+            .point
+            .as_mut()
+            .and_then(|previous| previous.curvatures.take());
         self.point = Some(point);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("fit.trials_completed", "count", 1);
@@ -535,57 +561,58 @@ impl FitOracle {
     /// a free parameter.
     fn transient_curvatures(&mut self, x: &[f64]) -> Result<(), ProblemError> {
         crate::workflow::dynamics::analysis("fit.exact_transient_curvature", || {
-        self.execution.check()?;
-        let point = self
-            .point
-            .as_ref()
-            .ok_or_else(|| ProblemError::internal("fit curvature point"))?;
-        if point.curvatures.is_some() {
-            if let Some(context) = pse_diagnostics::observation::current() {
-                context.count("fit.transient_curvature_reuses", "count", 1);
-            }
-            return Ok(());
-        }
-        let _phase = pse_diagnostics::observation::phase("fit.transient_curvature");
-        if let Some(context) = pse_diagnostics::observation::current() {
-            context.text(
-                "integration.purpose",
-                crate::invocation::IntegrationPurpose::Curvature.as_str(),
-            );
-        }
-        let p = self.prepared.clone();
-        let mut curvatures = Vec::with_capacity(p.experiments.len());
-        for (ei, experiment) in p.experiments.iter().enumerate() {
-            let mapping = &p.layout.mappings[ei];
-            let curvature = match experiment {
-                Experiment::Transient(s)
-                    if !mapping.free_bindings.is_empty() && !mapping.observations.is_empty() =>
-                {
-                    Some(self.transient_curvature(&p, ei, s, x, &mapping.free_bindings)?)
+            self.execution.check()?;
+            let point = self
+                .point
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("fit curvature point"))?;
+            if point.curvatures.is_some() {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("fit.transient_curvature_reuses", "count", 1);
                 }
-                _ => None,
-            };
-            curvatures.push(curvature);
-        }
-        self.execution.check()?;
-        if curvatures
-            .iter()
-            .flatten()
-            .flatten()
-            .any(|v| !v.is_finite())
-        {
-            return Err(ProblemError::numerical("nonfinite fit transient curvature"));
-        }
-        // A failed/cancelled experiment drops all temporary blocks. Advertise a
-        // completed product only after every required experiment has succeeded.
-        self.point
-            .as_mut()
-            .ok_or_else(|| ProblemError::internal("fit curvature publication"))?
-            .curvatures = Some(curvatures);
-        if let Some(context) = pse_diagnostics::observation::current() {
-            context.count("fit.transient_curvature_completions", "count", 1);
-        }
-        Ok(())
+                return Ok(());
+            }
+            let _phase = pse_diagnostics::observation::phase("fit.transient_curvature");
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.text(
+                    "integration.purpose",
+                    crate::invocation::IntegrationPurpose::Curvature.as_str(),
+                );
+            }
+            let p = self.prepared.clone();
+            let mut curvatures = Vec::with_capacity(p.experiments.len());
+            for (ei, experiment) in p.experiments.iter().enumerate() {
+                let mapping = &p.layout.mappings[ei];
+                let curvature = match experiment {
+                    Experiment::Transient(s)
+                        if !mapping.free_bindings.is_empty()
+                            && !mapping.observations.is_empty() =>
+                    {
+                        Some(self.transient_curvature(&p, ei, s, x, &mapping.free_bindings)?)
+                    }
+                    _ => None,
+                };
+                curvatures.push(curvature);
+            }
+            self.execution.check()?;
+            if curvatures
+                .iter()
+                .flatten()
+                .flatten()
+                .any(|v| !v.is_finite())
+            {
+                return Err(ProblemError::numerical("nonfinite fit transient curvature"));
+            }
+            // A failed/cancelled experiment drops all temporary blocks. Advertise a
+            // completed product only after every required experiment has succeeded.
+            self.point
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("fit curvature publication"))?
+                .curvatures = Some(curvatures);
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("fit.transient_curvature_completions", "count", 1);
+            }
+            Ok(())
         })
     }
     #[cfg(feature = "solver-idas")]
@@ -962,8 +989,11 @@ impl FitProblem {
         progress: Arc<native::solve::Progress>,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     ) -> Result<(FitReport, Execution), crate::math::MathRuntimeError> {
-        let mut execution =
-            Execution::within(scope.cancellation_control().clone(), &solver.controls, scope)?;
+        let mut execution = Execution::within(
+            scope.cancellation_control().clone(),
+            &solver.controls,
+            scope,
+        )?;
         execution.progress = progress;
         execution.work_admission =
             admission.map(|admission| -> Arc<dyn native::solve::WorkAdmission> { admission });
@@ -1065,10 +1095,12 @@ impl FitProblem {
         report: &mut FitReport,
         execution: Execution,
     ) -> Result<(), crate::math::MathRuntimeError> {
-        let Some(x) = report.candidate.clone() else { return Ok(()); };
+        let Some(x) = report.candidate.clone() else {
+            return Ok(());
+        };
         let interval = crate::invocation::stage("fit.original_final_assessment");
         let result: Result<(), crate::math::MathRuntimeError> = (|| {
-        let _phase = pse_diagnostics::observation::phase("fit.original_final_assessment");
+            let _phase = pse_diagnostics::observation::phase("fit.original_final_assessment");
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("fit.original_final_assessments", "count", 1);
             }
@@ -1106,11 +1138,23 @@ impl FitProblem {
                     }
                 }
             }
-        Ok(())
+            Ok(())
         })();
-        interval.finish(if result.is_ok() && report.objective.is_some() && !report.diagnostic.as_ref().is_some_and(|diagnostic| matches!(diagnostic.rule, FitRule::FinalEvaluation | FitRule::ObjectiveOverflow)) {
-            crate::invocation::InvocationOutcome::Completed
-        } else { crate::invocation::InvocationOutcome::Failed });
+        interval.finish(
+            if result.is_ok()
+                && report.objective.is_some()
+                && !report.diagnostic.as_ref().is_some_and(|diagnostic| {
+                    matches!(
+                        diagnostic.rule,
+                        FitRule::FinalEvaluation | FitRule::ObjectiveOverflow
+                    )
+                })
+            {
+                crate::invocation::InvocationOutcome::Completed
+            } else {
+                crate::invocation::InvocationOutcome::Failed
+            },
+        );
         result
     }
     /// Values and derivative products refer to the same physically compared trial.
@@ -1219,352 +1263,357 @@ fn rank_scratch(rows: usize, cols: usize, vectors: bool) -> faer::dyn_stack::Sta
 impl FitOracle {
     fn response_rank(&mut self, x: &[f64]) -> Result<RankDiagnostic, ProblemError> {
         crate::workflow::dynamics::analysis("fit.forward_response_and_identifiability", || {
-        // Rank and responses need the response Jacobian: a gradient-only fit reruns the
-        // forward sensitivities once, at the candidate (PS-12).
-        if self.derivatives != FitDerivatives::Responses {
-            self.derivatives = FitDerivatives::Responses;
-        }
-        self.evaluate_demand(
-            x,
-            Demand {
-                purpose: crate::invocation::IntegrationPurpose::Identifiability,
-                ..Demand::responses()
-            },
-        )?;
-        let p = &self.prepared;
-        let point = self
-            .point
-            .as_ref()
-            .ok_or_else(|| ProblemError::internal("fit point"))?;
-        let np = p.parameter_columns.iter().filter(|v| v.is_some()).count();
-        let local_dense = p
-            .experiments
-            .iter()
-            .try_fold(0usize, |cells, experiment| {
-                let Experiment::Steady(s) = experiment else {
-                    return Some(cells);
-                };
-                cells.checked_add(s.local_states.checked_mul(s.local_states + np)?)
-            })
-            .and_then(|cells| cells.checked_add(p.measurements.len().checked_mul(np)?))
-            .ok_or_else(|| ProblemError::memory("local response diagnostic extent"))?;
-        if local_dense > p.profile.max_cells {
-            return Err(ProblemError::memory(
-                "local dense response diagnostic allowance; fit candidate remains available",
-            ));
-        }
-        // Dense diagnostics are optional: reserve independently from the sparse
-        // solve, before allocating any matrix. Failure does not lose the candidate.
-        let limit = p.runtime.shared.budget().math.worker_bytes;
-        if local_dense.checked_mul(8).is_none_or(|bytes| bytes > limit) {
-            return Err(ProblemError::memory(
-                "local dense response diagnostic memory allowance",
-            ));
-        }
-        use faer::linalg::temp_mat_scratch;
-        let rows = p.measurements.len();
-        // The response and its weighted copy, and the right singular basis.
-        let mut bytes = temp_mat_scratch::<f64>(rows, np)
-            .size_bytes()
-            .checked_mul(2)
-            .and_then(|b| b.checked_add(temp_mat_scratch::<f64>(np, np).size_bytes()));
-        let mut scratch = rank_scratch(rows, np, true).size_bytes();
-        for experiment in &p.experiments {
-            if let Experiment::Steady(s) = experiment {
-                let n = s.local_states;
-                // Shared response owns its peak matrix, rank, identities and scratch
-                // accounting. Matching's separate thread stack is reserved below;
-                // worker_bytes bounds numeric capacity, not structural recursion.
-                bytes = bytes
-                    .and_then(|b| b.checked_add(native::square_response::workspace_bytes(n, np)?))
-                    .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
-                    .and_then(|b| b.checked_add(n.checked_mul(n)?.checked_mul(128)?))
-                    .and_then(|b| b.checked_add(n.checked_mul(np)?.checked_mul(64)?));
-                scratch = scratch.max(rank_scratch(n, n, false).size_bytes());
+            // Rank and responses need the response Jacobian: a gradient-only fit reruns the
+            // forward sensitivities once, at the candidate (PS-12).
+            if self.derivatives != FitDerivatives::Responses {
+                self.derivatives = FitDerivatives::Responses;
             }
-        }
-        // Vector bookkeeping and opaque library metadata, separate from numeric
-        // matrices and library-declared scratch; this is not an RSS measurement.
-        let bytes = bytes
-            .and_then(|b| b.checked_add(scratch))
-            .and_then(|b| b.checked_add((rows + np).checked_mul(64)?))
-            .and_then(|b| b.checked_add(4 << 20))
-            .filter(|b| *b <= limit)
-            .ok_or_else(|| {
-                ProblemError::memory("local dense response diagnostic memory allowance")
-            })?;
-        let reservation =
-            datafusion::execution::memory_pool::MemoryConsumer::new("fit:response-diagnostic")
-                .register(&p.runtime.shared.pool());
-        // Structural analyses run sequentially, so one separately declared matching
-        // stack covers every steady closure without multiplying its peak by experiment.
-        let matching_stack = if p
-            .experiments
-            .iter()
-            .any(|e| matches!(e,Experiment::Steady(s) if s.local_states>0))
-        {
-            pse_structural::incidence::MATCHING_STACK
-        } else {
-            0
-        };
-        reservation
-            .try_grow(
-                bytes
-                    .checked_add(matching_stack)
-                    .ok_or_else(|| ProblemError::memory("response structural stack extent"))?,
-            )
-            .map_err(|e| ProblemError::memory(e.to_string()))?;
-        let mut response = Mat::zeros(p.measurements.len(), np);
-        let free = p
-            .parameter_columns
-            .iter()
-            .enumerate()
-            .filter_map(|(i, c)| c.map(|c| (i, c)))
-            .collect::<Vec<_>>();
-        for (i, _) in p.measurements.iter().enumerate() {
-            for (j, (_, col)) in free.iter().enumerate() {
-                response[(i, j)] = point
-                    .responses
-                    .matrix()
-                    .get(i, col.get())
-                    .copied()
-                    .unwrap_or(0.0);
+            self.evaluate_demand(
+                x,
+                Demand {
+                    purpose: crate::invocation::IntegrationPurpose::Identifiability,
+                    ..Demand::responses()
+                },
+            )?;
+            let p = &self.prepared;
+            let point = self
+                .point
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("fit point"))?;
+            let np = p.parameter_columns.iter().filter(|v| v.is_some()).count();
+            let local_dense = p
+                .experiments
+                .iter()
+                .try_fold(0usize, |cells, experiment| {
+                    let Experiment::Steady(s) = experiment else {
+                        return Some(cells);
+                    };
+                    cells.checked_add(s.local_states.checked_mul(s.local_states + np)?)
+                })
+                .and_then(|cells| cells.checked_add(p.measurements.len().checked_mul(np)?))
+                .ok_or_else(|| ProblemError::memory("local response diagnostic extent"))?;
+            if local_dense > p.profile.max_cells {
+                return Err(ProblemError::memory(
+                    "local dense response diagnostic allowance; fit candidate remains available",
+                ));
             }
-        }
-        for (ei, e) in p.experiments.iter().enumerate() {
-            if let Experiment::Steady(s) = e {
-                let nx = s.local_states;
-                if nx == 0 {
-                    continue;
-                }
-                // Original model support, projected only by fixed parameter roles. Keep
-                // every equality and free state, including isolates; observation rows are
-                // not closure equations. Matching is library-owned, not a count test.
-                let original = native::assembled::contract(&s.case.assembly);
-                let mut contract = original.clone();
-                contract.variables.truncate(nx);
-                contract.rows = s
-                    .constraints
-                    .iter()
-                    .map(|(r, _)| original.rows[r.get()])
-                    .collect();
-                let row_map: BTreeMap<_, _> = s
-                    .constraints
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (r, _))| (r.get(), i))
-                    .collect();
-                let source = s.case.assembly.jacobian_pattern();
-                let row_map = &row_map;
-                let pairs = (0..nx)
-                    .flat_map(|j| {
-                        source.row_idx_of_col(j).filter_map(move |r| {
-                            row_map.get(&r).map(|i| faer::sparse::Pair::new(*i, j))
+            // Dense diagnostics are optional: reserve independently from the sparse
+            // solve, before allocating any matrix. Failure does not lose the candidate.
+            let limit = p.runtime.shared.budget().math.worker_bytes;
+            if local_dense.checked_mul(8).is_none_or(|bytes| bytes > limit) {
+                return Err(ProblemError::memory(
+                    "local dense response diagnostic memory allowance",
+                ));
+            }
+            use faer::linalg::temp_mat_scratch;
+            let rows = p.measurements.len();
+            // The response and its weighted copy, and the right singular basis.
+            let mut bytes = temp_mat_scratch::<f64>(rows, np)
+                .size_bytes()
+                .checked_mul(2)
+                .and_then(|b| b.checked_add(temp_mat_scratch::<f64>(np, np).size_bytes()));
+            let mut scratch = rank_scratch(rows, np, true).size_bytes();
+            for experiment in &p.experiments {
+                if let Experiment::Steady(s) = experiment {
+                    let n = s.local_states;
+                    // Shared response owns its peak matrix, rank, identities and scratch
+                    // accounting. Matching's separate thread stack is reserved below;
+                    // worker_bytes bounds numeric capacity, not structural recursion.
+                    bytes = bytes
+                        .and_then(|b| {
+                            b.checked_add(native::square_response::workspace_bytes(n, np)?)
                         })
-                    })
-                    .collect::<Vec<_>>();
-                let (pattern, _) =
-                    faer::sparse::SymbolicSparseColMat::try_new_from_indices(nx, nx, &pairs)
-                        .map_err(|e| ProblemError::numerical(format!("{e:?}")))?;
-                let bounds = s
-                    .constraints
-                    .iter()
-                    .map(|(_, r)| p.bounds[r.get()])
-                    .collect::<Vec<_>>();
-                let scope = native::square_response::SquareScope::admit(
-                    &contract,
-                    pattern.as_ref(),
-                    &bounds,
-                    None,
+                        .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
+                        .and_then(|b| b.checked_add(n.checked_mul(n)?.checked_mul(128)?))
+                        .and_then(|b| b.checked_add(n.checked_mul(np)?.checked_mul(64)?));
+                    scratch = scratch.max(rank_scratch(n, n, false).size_bytes());
+                }
+            }
+            // Vector bookkeeping and opaque library metadata, separate from numeric
+            // matrices and library-declared scratch; this is not an RSS measurement.
+            let bytes = bytes
+                .and_then(|b| b.checked_add(scratch))
+                .and_then(|b| b.checked_add((rows + np).checked_mul(64)?))
+                .and_then(|b| b.checked_add(4 << 20))
+                .filter(|b| *b <= limit)
+                .ok_or_else(|| {
+                    ProblemError::memory("local dense response diagnostic memory allowance")
+                })?;
+            let reservation =
+                datafusion::execution::memory_pool::MemoryConsumer::new("fit:response-diagnostic")
+                    .register(&p.runtime.shared.pool());
+            // Structural analyses run sequentially, so one separately declared matching
+            // stack covers every steady closure without multiplying its peak by experiment.
+            let matching_stack = if p
+                .experiments
+                .iter()
+                .any(|e| matches!(e,Experiment::Steady(s) if s.local_states>0))
+            {
+                pse_structural::incidence::MATCHING_STACK
+            } else {
+                0
+            };
+            reservation
+                .try_grow(
+                    bytes
+                        .checked_add(matching_stack)
+                        .ok_or_else(|| ProblemError::memory("response structural stack extent"))?,
                 )
-                .map_err(|e| ProblemError::unsupported(e.to_string()))?;
-                let states = (0..nx)
-                    .map(|i| point.x[s.coordinates[GlobalCol::new(i)].1.get()])
-                    .collect::<Vec<_>>();
-                let row_values = s
-                    .constraints
-                    .iter()
-                    .map(|(_, r)| point.constraints[r.get()])
-                    .collect::<Vec<_>>();
-                let tolerances = native::quality::Tolerances {
-                    variables: (0..nx)
-                        .map(|i| p.tolerances.variables[s.coordinates[GlobalCol::new(i)].1.get()])
-                        .collect(),
-                    rows: s
+                .map_err(|e| ProblemError::memory(e.to_string()))?;
+            let mut response = Mat::zeros(p.measurements.len(), np);
+            let free = p
+                .parameter_columns
+                .iter()
+                .enumerate()
+                .filter_map(|(i, c)| c.map(|c| (i, c)))
+                .collect::<Vec<_>>();
+            for (i, _) in p.measurements.iter().enumerate() {
+                for (j, (_, col)) in free.iter().enumerate() {
+                    response[(i, j)] = point
+                        .responses
+                        .matrix()
+                        .get(i, col.get())
+                        .copied()
+                        .unwrap_or(0.0);
+                }
+            }
+            for (ei, e) in p.experiments.iter().enumerate() {
+                if let Experiment::Steady(s) = e {
+                    let nx = s.local_states;
+                    if nx == 0 {
+                        continue;
+                    }
+                    // Original model support, projected only by fixed parameter roles. Keep
+                    // every equality and free state, including isolates; observation rows are
+                    // not closure equations. Matching is library-owned, not a count test.
+                    let original = native::assembled::contract(&s.case.assembly);
+                    let mut contract = original.clone();
+                    contract.variables.truncate(nx);
+                    contract.rows = s
                         .constraints
                         .iter()
-                        .map(|(_, r)| p.tolerances.rows[r.get()])
-                        .collect(),
-                    integrality: p.tolerances.integrality,
-                };
-                let normalization = Normalization {
-                    variables: (0..nx)
-                        .map(|i| {
-                            p.normalization.variables[s.coordinates[GlobalCol::new(i)].1.get()]
+                        .map(|(r, _)| original.rows[r.get()])
+                        .collect();
+                    let row_map: BTreeMap<_, _> = s
+                        .constraints
+                        .iter()
+                        .enumerate()
+                        .map(|(i, (r, _))| (r.get(), i))
+                        .collect();
+                    let source = s.case.assembly.jacobian_pattern();
+                    let row_map = &row_map;
+                    let pairs = (0..nx)
+                        .flat_map(|j| {
+                            source.row_idx_of_col(j).filter_map(move |r| {
+                                row_map.get(&r).map(|i| faer::sparse::Pair::new(*i, j))
+                            })
                         })
-                        .collect(),
-                    rows: s
+                        .collect::<Vec<_>>();
+                    let (pattern, _) =
+                        faer::sparse::SymbolicSparseColMat::try_new_from_indices(nx, nx, &pairs)
+                            .map_err(|e| ProblemError::numerical(format!("{e:?}")))?;
+                    let bounds = s
                         .constraints
                         .iter()
-                        .map(|(_, r)| p.normalization.rows[r.get()])
-                        .collect(),
-                    objective: 1.,
-                };
-                let parameters = free
-                    .iter()
-                    .map(|(_, c)| p.contract.variables[c.get()].id)
-                    .collect::<Vec<_>>();
-                let parameter_scales = free
-                    .iter()
-                    .map(|(_, c)| p.normalization.variables[c.get()])
-                    .collect::<Vec<_>>();
-                let jac = point.blocks[ei]
-                    .as_ref()
-                    .ok_or_else(|| ProblemError::internal("steady response partials"))?;
-                let parameter_values = free
-                    .iter()
-                    .map(|(_, c)| point.x[c.get()])
-                    .collect::<Vec<_>>();
-                // This ephemeral key names this original experiment projection only.
-                // It does not authorize reuse at another fitting point or provider branch.
-                let mut context = FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
-                context
-                    .str("fresh-fit-steady-response")
-                    .hash(&p.key)
-                    .hash(&p.source_identity)
-                    .hash(&p.profile_key.as_id())
-                    .hash(&p.numerics.key)
-                    .u64(ei as u64)
-                    .f64(p.profile.rank_tolerance)
-                    .f64(tolerances.integrality);
-                for value in &point.x {
-                    context.f64(*value);
-                }
-                for (i, variable) in contract.variables.iter().enumerate() {
+                        .map(|(_, r)| p.bounds[r.get()])
+                        .collect::<Vec<_>>();
+                    let scope = native::square_response::SquareScope::admit(
+                        &contract,
+                        pattern.as_ref(),
+                        &bounds,
+                        None,
+                    )
+                    .map_err(|e| ProblemError::unsupported(e.to_string()))?;
+                    let states = (0..nx)
+                        .map(|i| point.x[s.coordinates[GlobalCol::new(i)].1.get()])
+                        .collect::<Vec<_>>();
+                    let row_values = s
+                        .constraints
+                        .iter()
+                        .map(|(_, r)| point.constraints[r.get()])
+                        .collect::<Vec<_>>();
+                    let tolerances = native::quality::Tolerances {
+                        variables: (0..nx)
+                            .map(|i| {
+                                p.tolerances.variables[s.coordinates[GlobalCol::new(i)].1.get()]
+                            })
+                            .collect(),
+                        rows: s
+                            .constraints
+                            .iter()
+                            .map(|(_, r)| p.tolerances.rows[r.get()])
+                            .collect(),
+                        integrality: p.tolerances.integrality,
+                    };
+                    let normalization = Normalization {
+                        variables: (0..nx)
+                            .map(|i| {
+                                p.normalization.variables[s.coordinates[GlobalCol::new(i)].1.get()]
+                            })
+                            .collect(),
+                        rows: s
+                            .constraints
+                            .iter()
+                            .map(|(_, r)| p.normalization.rows[r.get()])
+                            .collect(),
+                        objective: 1.,
+                    };
+                    let parameters = free
+                        .iter()
+                        .map(|(_, c)| p.contract.variables[c.get()].id)
+                        .collect::<Vec<_>>();
+                    let parameter_scales = free
+                        .iter()
+                        .map(|(_, c)| p.normalization.variables[c.get()])
+                        .collect::<Vec<_>>();
+                    let jac = point.blocks[ei]
+                        .as_ref()
+                        .ok_or_else(|| ProblemError::internal("steady response partials"))?;
+                    let parameter_values = free
+                        .iter()
+                        .map(|(_, c)| point.x[c.get()])
+                        .collect::<Vec<_>>();
+                    // This ephemeral key names this original experiment projection only.
+                    // It does not authorize reuse at another fitting point or provider branch.
+                    let mut context = FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
                     context
-                        .id(&variable.id)
-                        .f64(variable.lower)
-                        .f64(variable.upper)
-                        .f64(tolerances.variables[i]);
-                }
-                for (i, row) in contract.rows.iter().enumerate() {
-                    context
-                        .id(row)
-                        .f64(bounds[i].0)
-                        .f64(bounds[i].1)
-                        .f64(tolerances.rows[i])
-                        .f64(row_values[i]);
-                }
-                for scale in &parameter_scales {
-                    context.f64(*scale);
-                }
-                let context = context.finish_hash();
-                let mut parameter_key =
-                    FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
-                parameter_key.str("fresh-fit-free-parameters");
-                for (id, value) in parameters.iter().zip(&parameter_values) {
-                    parameter_key.id(id).f64(*value);
-                }
-                let key = pse_model::strategy::SemanticProductKey {
-                    structure: contract.identity,
-                    binding: p.key,
-                    numerical_policy: Some(p.numerics.key),
-                    normalization: Some(normalization.key()),
-                    point: Some(native::square_response::point_key(&states)),
-                    parameters: Some(parameter_key.finish_hash()),
-                    derivation: Some(context),
-                    branch: None,
-                    accuracy: Some(context),
-                };
-                let qualified_response = native::square_response::products(
-                    native::square_response::Request {
-                        scope: &scope,
-                        point: &states,
-                        residual_values: &row_values,
-                        tolerances: &tolerances,
-                        normalization: &normalization,
-                        parameters: &parameters,
-                        parameter_scales: &parameter_scales,
-                        rank_tolerance: p.profile.rank_tolerance,
-                        bytes,
-                    },
-                    key,
-                    &parameter_values,
-                    false,
-                    || {
-                        let mut state_values = Vec::with_capacity(pattern.as_ref().compute_nnz());
-                        for column in 0..nx {
-                            for row in pattern.as_ref().row_idx_of_col(column) {
-                                state_values.push(
-                                    jac.get(s.constraints[row].0.get(), column)
+                        .str("fresh-fit-steady-response")
+                        .hash(&p.key)
+                        .hash(&p.source_identity)
+                        .hash(&p.profile_key.as_id())
+                        .hash(&p.numerics.key)
+                        .u64(ei as u64)
+                        .f64(p.profile.rank_tolerance)
+                        .f64(tolerances.integrality);
+                    for value in &point.x {
+                        context.f64(*value);
+                    }
+                    for (i, variable) in contract.variables.iter().enumerate() {
+                        context
+                            .id(&variable.id)
+                            .f64(variable.lower)
+                            .f64(variable.upper)
+                            .f64(tolerances.variables[i]);
+                    }
+                    for (i, row) in contract.rows.iter().enumerate() {
+                        context
+                            .id(row)
+                            .f64(bounds[i].0)
+                            .f64(bounds[i].1)
+                            .f64(tolerances.rows[i])
+                            .f64(row_values[i]);
+                    }
+                    for scale in &parameter_scales {
+                        context.f64(*scale);
+                    }
+                    let context = context.finish_hash();
+                    let mut parameter_key =
+                        FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
+                    parameter_key.str("fresh-fit-free-parameters");
+                    for (id, value) in parameters.iter().zip(&parameter_values) {
+                        parameter_key.id(id).f64(*value);
+                    }
+                    let key = pse_model::strategy::SemanticProductKey {
+                        structure: contract.identity,
+                        binding: p.key,
+                        numerical_policy: Some(p.numerics.key),
+                        normalization: Some(normalization.key()),
+                        point: Some(native::square_response::point_key(&states)),
+                        parameters: Some(parameter_key.finish_hash()),
+                        derivation: Some(context),
+                        branch: None,
+                        accuracy: Some(context),
+                    };
+                    let qualified_response = native::square_response::products(
+                        native::square_response::Request {
+                            scope: &scope,
+                            point: &states,
+                            residual_values: &row_values,
+                            tolerances: &tolerances,
+                            normalization: &normalization,
+                            parameters: &parameters,
+                            parameter_scales: &parameter_scales,
+                            rank_tolerance: p.profile.rank_tolerance,
+                            bytes,
+                        },
+                        key,
+                        &parameter_values,
+                        false,
+                        || {
+                            let mut state_values =
+                                Vec::with_capacity(pattern.as_ref().compute_nnz());
+                            for column in 0..nx {
+                                for row in pattern.as_ref().row_idx_of_col(column) {
+                                    state_values.push(
+                                        jac.get(s.constraints[row].0.get(), column)
+                                            .copied()
+                                            .unwrap_or(0.),
+                                    );
+                                }
+                            }
+                            let mut parameter_entries = Vec::new();
+                            for (column, (_, source)) in free.iter().enumerate() {
+                                for (row, (_, target)) in s.constraints.iter().enumerate() {
+                                    let value = point
+                                        .jacobian
+                                        .matrix()
+                                        .get(target.get(), source.get())
                                         .copied()
-                                        .unwrap_or(0.),
-                                );
+                                        .unwrap_or(0.);
+                                    parameter_entries
+                                        .push(faer::sparse::Triplet::new(row, column, value));
+                                }
                             }
-                        }
-                        let mut parameter_entries = Vec::new();
-                        for (column, (_, source)) in free.iter().enumerate() {
-                            for (row, (_, target)) in s.constraints.iter().enumerate() {
-                                let value = point
-                                    .jacobian
-                                    .matrix()
-                                    .get(target.get(), source.get())
-                                    .copied()
-                                    .unwrap_or(0.);
-                                parameter_entries
-                                    .push(faer::sparse::Triplet::new(row, column, value));
+                            let parameter_partials =
+                                SparseColMat::try_new_from_triplets(nx, np, &parameter_entries)
+                                    .map_err(|error| {
+                                        ProblemError::numerical(format!(
+                                            "fresh fit parameter partials: {error:?}"
+                                        ))
+                                    })?;
+                            Ok((SparseColMat::new(pattern, state_values), parameter_partials))
+                        },
+                        &self.execution,
+                    )
+                    .response
+                    .map_err(|e| ProblemError::numerical(e.to_string()))?;
+                    let dx = qualified_response.values;
+                    for &i in &p.layout.mappings[ei].observations {
+                        let o = &p.measurements[i];
+                        for j in 0..np {
+                            for k in 0..nx {
+                                response[(i, j)] +=
+                                    jac.get(o.row, k).copied().unwrap_or(0.0) * dx[(k, j)];
                             }
-                        }
-                        let parameter_partials =
-                            SparseColMat::try_new_from_triplets(nx, np, &parameter_entries)
-                                .map_err(|error| {
-                                    ProblemError::numerical(format!(
-                                        "fresh fit parameter partials: {error:?}"
-                                    ))
-                                })?;
-                        Ok((SparseColMat::new(pattern, state_values), parameter_partials))
-                    },
-                    &self.execution,
-                )
-                .response
-                .map_err(|e| ProblemError::numerical(e.to_string()))?;
-                let dx = qualified_response.values;
-                for &i in &p.layout.mappings[ei].observations {
-                    let o = &p.measurements[i];
-                    for j in 0..np {
-                        for k in 0..nx {
-                            response[(i, j)] +=
-                                jac.get(o.row, k).copied().unwrap_or(0.0) * dx[(k, j)];
                         }
                     }
                 }
             }
-        }
-        let included = p
-            .measurements
-            .iter()
-            .enumerate()
-            .filter(|(_, o)| o.included)
-            .collect::<Vec<_>>();
-        let weighted = Mat::from_fn(included.len(), np, |i, j| {
-            let (row, o) = included[i];
-            let scale = p.declaration.parameters[free[j].0].scale;
-            response[(row, j)] * scale * o.importance.sqrt() / o.sigma.unwrap_or(1.0)
-        });
-        let (spectrum, directions) = decompose(&weighted, bytes, true)?;
-        let directions =
-            directions.ok_or_else(|| ProblemError::internal("right singular vectors"))?;
-        let cutoff = spectrum.first().copied().unwrap_or(0.0) * p.profile.rank_tolerance;
-        let rank = spectrum.iter().filter(|s| **s > cutoff).count();
-        let retained = temp_mat_scratch::<f64>(rows, np).size_bytes();
-        let owner = pse_columnar::AllocationLease::new(reservation.split(retained));
-        let response = pse_columnar::Leased::new(Arc::new(response), owner);
-        Ok(RankDiagnostic {
-            responses: response,
-            singular_values: spectrum,
-            directions,
-            rank,
-        })
+            let included = p
+                .measurements
+                .iter()
+                .enumerate()
+                .filter(|(_, o)| o.included)
+                .collect::<Vec<_>>();
+            let weighted = Mat::from_fn(included.len(), np, |i, j| {
+                let (row, o) = included[i];
+                let scale = p.declaration.parameters[free[j].0].scale;
+                response[(row, j)] * scale * o.importance.sqrt() / o.sigma.unwrap_or(1.0)
+            });
+            let (spectrum, directions) = decompose(&weighted, bytes, true)?;
+            let directions =
+                directions.ok_or_else(|| ProblemError::internal("right singular vectors"))?;
+            let cutoff = spectrum.first().copied().unwrap_or(0.0) * p.profile.rank_tolerance;
+            let rank = spectrum.iter().filter(|s| **s > cutoff).count();
+            let retained = temp_mat_scratch::<f64>(rows, np).size_bytes();
+            let owner = pse_columnar::AllocationLease::new(reservation.split(retained));
+            let response = pse_columnar::Leased::new(Arc::new(response), owner);
+            Ok(RankDiagnostic {
+                responses: response,
+                singular_values: spectrum,
+                directions,
+                rank,
+            })
         })
     }
 }
@@ -1762,12 +1811,22 @@ pub(super) fn evaluate_experiment(
                     if let Some(prior) = previous {
                         let missing = mapping.observations.iter().any(|&i| {
                             let observation = &p.measurements[i];
-                            observation.sample_index.and_then(|sample| prior.samples.get(sample))
-                                .and_then(|sample| sample.outputs.get(observation.row)).is_none()
+                            observation
+                                .sample_index
+                                .and_then(|sample| prior.samples.get(sample))
+                                .and_then(|sample| sample.outputs.get(observation.row))
+                                .is_none()
                         });
-                        if missing || prior.samples.iter().any(|sample| sample.outputs.iter().any(|v| !v.is_finite())) {
+                        if missing
+                            || prior
+                                .samples
+                                .iter()
+                                .any(|sample| sample.outputs.iter().any(|v| !v.is_finite()))
+                        {
                             validity.contradicts();
-                            return Err(ProblemError::numerical("nonfinite completed fit prediction"));
+                            return Err(ProblemError::numerical(
+                                "nonfinite completed fit prediction",
+                            ));
                         }
                         let _upgrade = pse_diagnostics::observation::phase(
                             "fit.derivative_upgrade_validation",
@@ -1988,8 +2047,10 @@ mod tests {
         // state must not embed all steady/transient preparation futures inline.
         assert!(size_of_val(&preparation) < 64 * 1024);
         let p = preparation.await.unwrap().0;
-        let execution =
-            Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &p.profile.solver.controls,
+        );
         let mut oracle = FitOracle::new(p, execution).unwrap();
         let hub = pse_diagnostics::observation::ObservationHub::new(
             pse_diagnostics::observation::Policy {
@@ -2137,7 +2198,10 @@ mod tests {
             .await
             .unwrap()
             .0;
-        let ex = Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
+        let ex = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &p.profile.solver.controls,
+        );
         let mut o = FitOracle::new(p, ex).unwrap();
         assert!((o.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
         let mut g = [0.0];
@@ -2214,7 +2278,10 @@ mod tests {
                 .await
                 .unwrap()
                 .0;
-            let ex = Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
+            let ex = Execution::new(
+                pse_diagnostics::Cancellation::new(false),
+                &p.profile.solver.controls,
+            );
             FitOracle::new(p, ex).unwrap()
         };
         let mut gn = oracle(HessianMode::GaussNewton).await;
@@ -2355,7 +2422,10 @@ mod tests {
             .unwrap()
             .0;
         p.profile.max_cells = 0;
-        let ex = Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
+        let ex = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &p.profile.solver.controls,
+        );
         let mut oracle = FitOracle::new(p, ex).unwrap();
         assert!(oracle.response_rank(&[2.0]).is_err());
         assert!((oracle.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
@@ -2451,7 +2521,10 @@ mod tests {
             let error = prepared
                 .execute(
                     id(99).into(),
-                    pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+                    pse_kernels::ExecutionScope::new(
+                        pse_diagnostics::Cancellation::default(),
+                        None,
+                    ),
                     Arc::new(native::solve::Progress::new(16)),
                     1,
                 )
@@ -2631,7 +2704,10 @@ mod tests {
             .await
             .unwrap()
             .0;
-        let ex = Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
+        let ex = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &p.profile.solver.controls,
+        );
         let mut o = FitOracle::new(p, ex).unwrap();
         let RankDiagnostic {
             responses: response,
@@ -2725,8 +2801,11 @@ mod tests {
     async fn original_fit_failure_withholds_completed_statistical_products_in_invocation() {
         use crate::invocation::ProductAvailability;
         use pse_model::scalars::Fraction;
-        let package = source_body(false,
-            "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);").await;
+        let package = source_body(
+            false,
+            "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);",
+        )
+        .await;
         let mut declarations = package.fit_declarations().await.unwrap();
         declarations.fits[0].observations[0].importance = 1.;
         let package = package.with_fit_declarations(declarations).await.unwrap();
@@ -2737,25 +2816,50 @@ mod tests {
             profile: None,
             predictions: false,
         });
-        let prepared = package.prepare_fit(id(32).into(), requested, compiler_profile(),
-            Default::default(), &crate::CancelSource::new()).await.unwrap();
+        let prepared = package
+            .prepare_fit(
+                id(32).into(),
+                requested,
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
         let operation = hub.start("fit original failure after statistical computation");
         let _entered = operation.context().enter();
         let result = prepared.start().unwrap().wait().await.unwrap();
-        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else { panic!() };
+        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+            panic!()
+        };
         assert!(report.quality.as_ref().unwrap().feasible());
         assert!(report.checks_complete && report.checks.iter().any(|check| !check.satisfied));
-        assert!(report.covariance.as_ref().unwrap().values.is_ok(), "retain completed computation evidence");
+        assert!(
+            report.covariance.as_ref().unwrap().values.is_ok(),
+            "retain completed computation evidence"
+        );
         assert!(report.wald.as_ref().unwrap().is_ok());
         assert!(!result.usable() && !report.estimate_qualified());
         let document = result.invocation_evidence().unwrap();
-        for role in ["original_scientific_result", "parameter_covariance", "wald_intervals"] {
-            assert!(document.products.iter().any(|product| product.role == role
-                && product.availability == ProductAvailability::Unavailable), "{role}");
+        for role in [
+            "original_scientific_result",
+            "parameter_covariance",
+            "wald_intervals",
+        ] {
+            assert!(
+                document.products.iter().any(|product| product.role == role
+                    && product.availability == ProductAvailability::Unavailable),
+                "{role}"
+            );
         }
-        assert!(document.products.iter().any(|product| product.role == "profile_intervals"
-            && product.availability == ProductAvailability::NotRequested));
+        assert!(
+            document
+                .products
+                .iter()
+                .any(|product| product.role == "profile_intervals"
+                    && product.availability == ProductAvailability::NotRequested)
+        );
         assert!(document.endpoints.qualification_seconds.is_none());
     }
     #[tokio::test]

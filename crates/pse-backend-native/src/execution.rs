@@ -142,9 +142,14 @@ pub fn try_resume_compute(execution: &Execution) -> Result<ComputeAvailability, 
 /// parking. Re-arm after each wake; registration does not inspect the predicate.
 pub fn watch_scheduler(waker: &std::task::Waker) -> pse_diagnostics::WakeWatch {
     #[cfg(feature = "uno")]
-    { crate::highs_lifecycle::watch(waker) }
+    {
+        crate::highs_lifecycle::watch(waker)
+    }
     #[cfg(not(feature = "uno"))]
-    { static CHANGED: pse_diagnostics::WakeSignal = pse_diagnostics::WakeSignal::new(); CHANGED.watch(waker) }
+    {
+        static CHANGED: pse_diagnostics::WakeSignal = pse_diagnostics::WakeSignal::new();
+        CHANGED.watch(waker)
+    }
 }
 
 /// Whether a waiting Uno owner requires idle retained HiGHS state to be relinquished.

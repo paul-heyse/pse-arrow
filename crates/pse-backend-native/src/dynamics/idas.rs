@@ -174,26 +174,53 @@ impl Context<'_> {
             .and_then(|e| e.jacobian)
     }
     fn rhs_action(&mut self, t: f64, x: &[f64], direction: &[f64], cj: f64) -> Option<()> {
-        let Self { oracle, parameters, mode, callback, contract, rhs_direction, rhs_product, .. } = self;
+        let Self {
+            oracle,
+            parameters,
+            mode,
+            callback,
+            contract,
+            rhs_direction,
+            rhs_product,
+            ..
+        } = self;
         let result = callback.evaluate("idas.residual_action", || {
-            if direction.len() != contract.states.len() || rhs_product.len() != direction.len()
-                || rhs_direction.len() != direction.len() + parameters.len() {
+            if direction.len() != contract.states.len()
+                || rhs_product.len() != direction.len()
+                || rhs_direction.len() != direction.len() + parameters.len()
+            {
                 return Err(ProblemError::internal("IDAS action workspace extent"));
             }
             rhs_direction[..direction.len()].copy_from_slice(direction);
             // Parameter seeds remain exactly zero from construction. Input
             // borrows cannot mutate them, and native reinit does not replace them.
             rhs_product.fill(f64::NAN);
-            oracle.jacobian_action(*mode, Function::Rhs, t, x, parameters, rhs_direction, rhs_product)?;
+            oracle.jacobian_action(
+                *mode,
+                Function::Rhs,
+                t,
+                x,
+                parameters,
+                rhs_direction,
+                rhs_product,
+            )?;
             for i in 0..direction.len() {
                 let mass = if contract.differential[i] { cj } else { 0. };
                 rhs_product[i] = mass * rhs_direction[i] - rhs_product[i];
             }
-            if rhs_product.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite IDAS Newton action")); }
+            if rhs_product.iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical("nonfinite IDAS Newton action"));
+            }
             Ok(())
         });
-        if result.is_none() && callback.terminal.is_none() && self.trial_policy == TrialPolicy::Terminal {
-            callback.terminal = Some((crate::solve::Termination::Evaluation, "trial failure under terminal policy".into()));
+        if result.is_none()
+            && callback.terminal.is_none()
+            && self.trial_policy == TrialPolicy::Terminal
+        {
+            callback.terminal = Some((
+                crate::solve::Termination::Evaluation,
+                "trial failure under terminal policy".into(),
+            ));
         }
         result
     }
@@ -218,9 +245,20 @@ impl Context<'_> {
         let width = c.states.len() + c.parameters.len();
         let value = callback.evaluate("idas.curvature", || {
             let mut product = vec![0.; width];
-            oracle.weighted_hessian_action(*mode, f, t, x, parameters, weights, direction, &mut product)?;
+            oracle.weighted_hessian_action(
+                *mode,
+                f,
+                t,
+                x,
+                parameters,
+                weights,
+                direction,
+                &mut product,
+            )?;
             if product.iter().any(|v| !v.is_finite()) {
-                return Err(ProblemError::numerical("IDAS weighted Hessian action is nonfinite"));
+                return Err(ProblemError::numerical(
+                    "IDAS weighted Hessian action is nonfinite",
+                ));
             }
             Ok(product)
         });
@@ -385,7 +423,16 @@ fn stopped(error: &ProblemError, execution: &Execution) -> Termination {
         crate::callback::Failure::Stopped(crate::solve::Termination::TimeLimit) => {
             Termination::TimeLimit
         }
-        _ if matches!(error, ProblemError::Limit { kind: crate::LimitKind::Work, .. }) => Termination::StepLimit,
+        _ if matches!(
+            error,
+            ProblemError::Limit {
+                kind: crate::LimitKind::Work,
+                ..
+            }
+        ) =>
+        {
+            Termination::StepLimit
+        }
         _ => match execution.stopped() {
             Some(crate::solve::Termination::Cancelled) => Termination::Cancelled,
             Some(crate::solve::Termination::TimeLimit) => Termination::TimeLimit,
@@ -630,11 +677,15 @@ unsafe extern "C" fn jtimes(
             let x = unsafe { std::slice::from_raw_parts(ffi::N_VGetArrayPointer(y), n) };
             // SAFETY: same native input extent and callback lifetime as above.
             let direction = unsafe { std::slice::from_raw_parts(ffi::N_VGetArrayPointer(v), n) };
-            if c.rhs_action(t, x, direction, cj).is_none() { return c.failure(); }
+            if c.rhs_action(t, x, direction, cj).is_none() {
+                return c.failure();
+            }
         }
         // SAFETY: jv is a live native output of n entries; the fully qualified
         // Rust-owned product cannot overlap it. No foreign input borrow survives.
-        unsafe { write(jv, &c.rhs_product); }
+        unsafe {
+            write(jv, &c.rhs_product);
+        }
         0
     }));
     finish_callback(c, result)
@@ -1356,7 +1407,12 @@ impl<'a> Session<'a> {
         let bytes = layout
             .scatter_bytes(DynamicDemand::Base)?
             .checked_add(layout.linear_bytes(config.linear)?)
-            .and_then(|bytes| layout.action_bytes(config.linear, c.parameters.len()).ok().and_then(|actions| bytes.checked_add(actions)))
+            .and_then(|bytes| {
+                layout
+                    .action_bytes(config.linear, c.parameters.len())
+                    .ok()
+                    .and_then(|actions| bytes.checked_add(actions))
+            })
             .ok_or_else(|| ProblemError::memory("IDAS selected workspace extent"))?;
         if bytes > allowance {
             return Err(ProblemError::memory(
@@ -1395,10 +1451,18 @@ impl<'a> Session<'a> {
             "bytes",
             i64::try_from(layout.linear_bytes(config.linear)? - opaque_fill).unwrap_or(i64::MAX),
         );
-        crate::observation::integer("idas.callback.action_workspace.bytes", "bytes",
-            i64::try_from(layout.action_bytes(config.linear, c.parameters.len())?).unwrap_or(i64::MAX));
+        crate::observation::integer(
+            "idas.callback.action_workspace.bytes",
+            "bytes",
+            i64::try_from(layout.action_bytes(config.linear, c.parameters.len())?)
+                .unwrap_or(i64::MAX),
+        );
         let action = config.linear != IdasLinear::Klu;
-        let rhs_direction = if action { vec![0.; n + c.parameters.len()] } else { Vec::new() };
+        let rhs_direction = if action {
+            vec![0.; n + c.parameters.len()]
+        } else {
+            Vec::new()
+        };
         let rhs_product = if action { vec![0.; n] } else { Vec::new() };
         let map = config.map;
         let newton_values = vec![0.0; layout.rows.len()];
@@ -2180,19 +2244,39 @@ impl<'a> Session<'a> {
     }
     /// Charge actual replay acceptance, including a later failed native return.
     fn charge_replay(&mut self, accepted: c_long) -> Result<(), ProblemError> {
-        let budget = self.replay_steps.as_mut().ok_or_else(|| ProblemError::internal("replay owner"))?;
-        let accepted = usize::try_from(accepted).map_err(|_| ProblemError::internal("negative replay steps"))?;
+        let budget = self
+            .replay_steps
+            .as_mut()
+            .ok_or_else(|| ProblemError::internal("replay owner"))?;
+        let accepted = usize::try_from(accepted)
+            .map_err(|_| ProblemError::internal("negative replay steps"))?;
         budget.charge(accepted, "adjoint forward replay")?;
         let execution = &self.callback.callback.execution;
         execution.progress.push(crate::solve::Event {
-            source: Some(crate::solve::EventSource::new("dynamic_replay_effort", Some("physical_model"), None)),
+            source: Some(crate::solve::EventSource::new(
+                "dynamic_replay_effort",
+                Some("physical_model"),
+                None,
+            )),
             phase: "idas.adjoint.replay.acceptance".into(),
             elapsed: execution.started.elapsed(),
             values: std::collections::BTreeMap::from([
-                ("accepted_steps_this_call".into(), crate::solve::Metric::Integer(i64::try_from(accepted).unwrap_or(i64::MAX))),
-                ("accepted_steps_cumulative".into(), crate::solve::Metric::Integer(i64::try_from(budget.used()).unwrap_or(i64::MAX))),
-                ("accepted_steps_remaining".into(), crate::solve::Metric::Integer(i64::try_from(budget.remaining()).unwrap_or(i64::MAX))),
-            ]), incumbent: None,
+                (
+                    "accepted_steps_this_call".into(),
+                    crate::solve::Metric::Integer(i64::try_from(accepted).unwrap_or(i64::MAX)),
+                ),
+                (
+                    "accepted_steps_cumulative".into(),
+                    crate::solve::Metric::Integer(i64::try_from(budget.used()).unwrap_or(i64::MAX)),
+                ),
+                (
+                    "accepted_steps_remaining".into(),
+                    crate::solve::Metric::Integer(
+                        i64::try_from(budget.remaining()).unwrap_or(i64::MAX),
+                    ),
+                ),
+            ]),
+            incumbent: None,
         });
         Ok(())
     }
@@ -2311,7 +2395,10 @@ impl<'a> Session<'a> {
         // preserves root ordering and sensitivity/quadrature output at each sample.
         native!(ffi::IDASetStopTime(self.mem, stop), "physical stop time")?;
         native!(ffi::IDASetMaxNumSteps(self.mem, -1), "owner-governed steps")?;
-        native!(ffi::IDASetAcceptedStepBudget(self.mem, budget), "trajectory steps")?;
+        native!(
+            ffi::IDASetAcceptedStepBudget(self.mem, budget),
+            "trajectory steps"
+        )?;
         r.statistics.push(self.statistics(0, p, None));
         loop {
             self.callback.callback.execution.check()?;
@@ -2646,8 +2733,13 @@ impl Session<'_> {
                 remaining_samples -= 1;
             }
             let outputs = self.callback.contract.outputs.len();
-            let mut observed = (remaining_samples..end).rev()
-                .filter(|i| weights[*i * outputs..(*i + 1) * outputs].iter().any(|w| *w != 0.))
+            let mut observed = (remaining_samples..end)
+                .rev()
+                .filter(|i| {
+                    weights[*i * outputs..(*i + 1) * outputs]
+                        .iter()
+                        .any(|w| *w != 0.)
+                })
                 .peekable();
             if end > remaining_samples && r.samples[end - 1].time > stop {
                 return Err(ProblemError::internal("adjoint sample outside its segment"));
@@ -2732,9 +2824,13 @@ impl Session<'_> {
     /// Rerun one segment's forward pass from its stored consistent start, with its state
     /// sensitivities when they are integrated, storing its checkpoints again.
     fn replay(&mut self, start: &Start, stop: f64, p: &Profile) -> Result<(), ProblemError> {
-        let budget = self.replay_steps.get_or_insert_with(|| StepBudget::new(p.max_steps));
+        let budget = self
+            .replay_steps
+            .get_or_insert_with(|| StepBudget::new(p.max_steps));
         budget.require_advance("adjoint forward replay")?;
-        let steps: c_long = budget.remaining().try_into()
+        let steps: c_long = budget
+            .remaining()
+            .try_into()
             .map_err(|_| ProblemError::unsupported("IDAS replay allowance extent"))?;
         // SAFETY: the session's state vector holds the `n` states the start was read from.
         unsafe { write(self.y, &start.y) };
@@ -2774,11 +2870,16 @@ impl Session<'_> {
         self.observation_counters.borrow_mut().clear();
         let result = self.solve(stop, &mut time);
         let mut accepted: c_long = 0;
-        native!(ffi::IDAGetAcceptedBudgetSteps(self.mem, &raw mut accepted), "replay accepted steps")?;
+        native!(
+            ffi::IDAGetAcceptedBudgetSteps(self.mem, &raw mut accepted),
+            "replay accepted steps"
+        )?;
         self.charge_replay(accepted)?;
         let flag = result?;
         self.statistics(flag, p, (flag >= 0).then_some(time));
-        if flag == ffi::IDA_TOO_MUCH_WORK { return Err(StepBudget::exhausted("adjoint forward replay")); }
+        if flag == ffi::IDA_TOO_MUCH_WORK {
+            return Err(StepBudget::exhausted("adjoint forward replay"));
+        }
         if flag < 0 {
             return Err(self.callback.native_failure(flag, "adjoint forward pass"));
         }
@@ -3091,19 +3192,41 @@ impl Session<'_> {
         let mem = self.mem;
         // Restored forward checkpoints never restore permission. Hidden replay
         // uses its own cumulative owner; each backward direction owns its cap.
-        native!(ffi::IDASetAcceptedStepBudget(mem, -1), "disable recording guard during replay")?;
-        let replay = self.replay_steps.as_ref().ok_or_else(|| ProblemError::internal("replay owner"))?;
-        let remaining: c_long = replay.remaining().try_into()
+        native!(
+            ffi::IDASetAcceptedStepBudget(mem, -1),
+            "disable recording guard during replay"
+        )?;
+        let replay = self
+            .replay_steps
+            .as_ref()
+            .ok_or_else(|| ProblemError::internal("replay owner"))?;
+        let remaining: c_long = replay
+            .remaining()
+            .try_into()
             .map_err(|_| ProblemError::unsupported("IDAS replay allowance extent"))?;
-        native!(ffi::IDASetReplayStepLimit(mem, remaining), "checkpoint replay steps")?;
+        native!(
+            ffi::IDASetReplayStepLimit(mem, remaining),
+            "checkpoint replay steps"
+        )?;
         for problem in &self.backward_mut()?.problems {
             // SAFETY: this session owns the exact backward memory returned here.
             let backward = unsafe { ffi::IDAGetAdjIDABmem(mem, problem.which) };
-            if backward.is_null() { return Err(ProblemError::internal("IDAS backward memory")); }
-            let remaining: c_long = problem.steps.remaining().try_into()
+            if backward.is_null() {
+                return Err(ProblemError::internal("IDAS backward memory"));
+            }
+            let remaining: c_long = problem
+                .steps
+                .remaining()
+                .try_into()
                 .map_err(|_| ProblemError::unsupported("IDAS backward allowance extent"))?;
-            native!(ffi::IDASetAcceptedStepBudget(backward, remaining), "backward trajectory steps")?;
-            native!(ffi::IDASetMaxNumSteps(backward, -1), "owner-governed backward steps")?;
+            native!(
+                ffi::IDASetAcceptedStepBudget(backward, remaining),
+                "backward trajectory steps"
+            )?;
+            native!(
+                ffi::IDASetMaxNumSteps(backward, -1),
+                "owner-governed backward steps"
+            )?;
         }
         // SAFETY: the session's live IDAS memory on its owning thread; the backward
         // callbacks reach the context only through their user data.
@@ -3111,19 +3234,34 @@ impl Session<'_> {
             ffi::IDASolveB(mem, t, ffi::IDA_NORMAL)
         });
         let mut replayed: c_long = 0;
-        native!(ffi::IDAGetReplayNumSteps(mem, &raw mut replayed), "checkpoint replay count")?;
+        native!(
+            ffi::IDAGetReplayNumSteps(mem, &raw mut replayed),
+            "checkpoint replay count"
+        )?;
         self.charge_replay(replayed)?;
         let mut exhausted = false;
         for problem in &mut self.backward_mut()?.problems {
             // SAFETY: this session owns the exact backward memory.
             let backward = unsafe { ffi::IDAGetAdjIDABmem(mem, problem.which) };
             let mut accepted: c_long = 0;
-            native!(ffi::IDAGetAcceptedBudgetSteps(backward, &raw mut accepted), "backward accepted count")?;
-            problem.steps.charge(usize::try_from(accepted)
-                .map_err(|_| ProblemError::internal("negative backward steps"))?, "adjoint backward trajectory")?;
+            native!(
+                ffi::IDAGetAcceptedBudgetSteps(backward, &raw mut accepted),
+                "backward accepted count"
+            )?;
+            problem.steps.charge(
+                usize::try_from(accepted)
+                    .map_err(|_| ProblemError::internal("negative backward steps"))?,
+                "adjoint backward trajectory",
+            )?;
             exhausted |= problem.steps.remaining() == 0;
         }
-        if flag == ffi::IDA_TOO_MUCH_WORK && (exhausted || self.replay_steps.as_ref().is_some_and(|b| b.remaining() == 0)) {
+        if flag == ffi::IDA_TOO_MUCH_WORK
+            && (exhausted
+                || self
+                    .replay_steps
+                    .as_ref()
+                    .is_some_and(|b| b.remaining() == 0))
+        {
             return Err(StepBudget::exhausted("adjoint trajectory"));
         }
         if flag < 0 {
@@ -3472,7 +3610,12 @@ pub(super) fn initialize_consistent(
     let bytes = layout
         .scatter_bytes(DynamicDemand::Base)?
         .checked_add(layout.linear_bytes(request.linear)?)
-        .and_then(|bytes| layout.action_bytes(request.linear, parameters.len()).ok().and_then(|actions| bytes.checked_add(actions)))
+        .and_then(|bytes| {
+            layout
+                .action_bytes(request.linear, parameters.len())
+                .ok()
+                .and_then(|actions| bytes.checked_add(actions))
+        })
         .ok_or_else(|| ProblemError::memory("consistent initialization workspace extent"))?;
     if bytes > allowance {
         return Err(ProblemError::memory(
@@ -3778,7 +3921,11 @@ fn backward_route(
                 return Err(contract("adjoint cotangent extent or value"));
             }
             let result = s.backward(p, r, &weights)?;
-            Ok((result, s.backward_statistics(), s.replay_steps.as_ref().map(StepBudget::used)))
+            Ok((
+                result,
+                s.backward_statistics(),
+                s.replay_steps.as_ref().map(StepBudget::used),
+            ))
         },
     );
     let completed = report.termination == Termination::Completed;
@@ -4188,32 +4335,80 @@ mod initialization_tests {
         for fail in [false, true] {
             let mut oracle = IcOracle::new();
             oracle.fail = fail;
-            let linear = IdasLinear::Spgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::None };
-            let (mut session, _) = Session::prepare(&mut oracle, &[], StatePreparation {
-                layout: None, time: 0., parameters: vec![], map: vec![], trial_failures: TrialPolicy::Terminal,
-                rtol: 1e-8, atol: &[1e-10; 2], initial_step: None, linear, forward: false,
-            }, execution()).unwrap();
+            let linear = IdasLinear::Spgmr {
+                dimension: PositiveCount::try_new(4).unwrap(),
+                preconditioner: Preconditioner::None,
+            };
+            let (mut session, _) = Session::prepare(
+                &mut oracle,
+                &[],
+                StatePreparation {
+                    layout: None,
+                    time: 0.,
+                    parameters: vec![],
+                    map: vec![],
+                    trial_failures: TrialPolicy::Terminal,
+                    rtol: 1e-8,
+                    atol: &[1e-10; 2],
+                    initial_step: None,
+                    linear,
+                    forward: false,
+                },
+                execution(),
+            )
+            .unwrap();
             let direction = session.vector(&[1., 3.]).unwrap();
-            let identity = (session.callback.rhs_direction.as_ptr(), session.callback.rhs_product.as_ptr());
+            let identity = (
+                session.callback.rhs_direction.as_ptr(),
+                session.callback.rhs_product.as_ptr(),
+            );
             for alias_state in [false, true] {
                 // SAFETY: both vectors belong to this live session, with two entries.
-                unsafe { write(direction, &[1., 3.]); write(session.y, &[2., 0.]); }
+                unsafe {
+                    write(direction, &[1., 3.]);
+                    write(session.y, &[2., 0.]);
+                }
                 let output = if alias_state { session.y } else { direction };
                 // SAFETY: the live callback context owns all borrowed data. This
                 // deliberate input/output alias exercises read-before-publish.
-                let status = unsafe { jtimes(0., session.y, session.dy, session.dy, direction, output,
-                    2., (&raw mut *session.callback).cast(), std::ptr::null_mut(), std::ptr::null_mut()) };
+                let status = unsafe {
+                    jtimes(
+                        0.,
+                        session.y,
+                        session.dy,
+                        session.dy,
+                        direction,
+                        output,
+                        2.,
+                        (&raw mut *session.callback).cast(),
+                        std::ptr::null_mut(),
+                        std::ptr::null_mut(),
+                    )
+                };
                 // SAFETY: the selected output is still a live two-entry native vector.
                 let actual = unsafe { read(output, 2) };
                 if fail {
                     assert_ne!(status, 0);
-                    assert_eq!(actual, if alias_state { vec![2., 0.] } else { vec![1., 3.] });
+                    assert_eq!(
+                        actual,
+                        if alias_state {
+                            vec![2., 0.]
+                        } else {
+                            vec![1., 3.]
+                        }
+                    );
                 } else {
                     assert_eq!(status, 0);
                     // Analytic residual Jacobian: diag(2,0) - [[-1,0],[2,-1]].
                     assert_eq!(actual, [3., 1.]);
                 }
-                assert_eq!(identity, (session.callback.rhs_direction.as_ptr(), session.callback.rhs_product.as_ptr()));
+                assert_eq!(
+                    identity,
+                    (
+                        session.callback.rhs_direction.as_ptr(),
+                        session.callback.rhs_product.as_ptr()
+                    )
+                );
             }
         }
     }
@@ -4236,7 +4431,8 @@ mod initialization_tests {
             let mut oracle = IcOracle::new();
             let layout = oracle.prepared_layout(1 << 20).unwrap();
             let bytes = layout.scatter_bytes(DynamicDemand::Base).unwrap()
-                + layout.linear_bytes(linear).unwrap() + layout.action_bytes(linear, 0).unwrap();
+                + layout.linear_bytes(linear).unwrap()
+                + layout.action_bytes(linear, 0).unwrap();
             let mut refused = execution();
             refused.memory = Some(bytes - 1);
             assert!(initialize_consistent(&mut oracle, &[], &request, refused).is_err());

@@ -22,8 +22,8 @@ from pse.contracts.documents import (
     CaptureDocument,
     CaptureRequest,
     CheckpointIdentity,
-    ComparisonPolicy,
     ClosedDuration,
+    ComparisonPolicy,
     DetailRequest,
     DiagnosticListRequest,
     DiagnosticProcessPage,
@@ -612,12 +612,15 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
         assert codec.decode_json(codec.encode_json(stopped), CaptureDocument) == stopped
         capture_view = diagnostics.capture_arrow(stopped)
         assert capture_view.num_rows == 1
-        assert capture_view.column("operation")[0].as_py() == diagnostics.operation_text(
-            reader.id
+        assert capture_view.column("operation")[
+            0
+        ].as_py() == diagnostics.operation_text(reader.id)
+        assert (
+            codec.decode_json(
+                capture_view.column("document_json")[0].as_py(), CaptureDocument
+            )
+            == stopped
         )
-        assert codec.decode_json(
-            capture_view.column("document_json")[0].as_py(), CaptureDocument
-        ) == stopped
         # The view retains the raw capture outcome/coverage, not scientific permission.
         assert capture_view.column("status")[0].as_py() == stopped.status.value
         assert reader.snapshot().outcome == before.outcome
@@ -723,9 +726,12 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             assert explanation.candidate is None
             assert comparison.candidate == comparison.baseline
             assert comparison.baseline.run_id == invocation.run_id
-            assert codec.decode_json(
-                codec.encode_json(comparison), InvocationComparisonDocument
-            ) == comparison
+            assert (
+                codec.decode_json(
+                    codec.encode_json(comparison), InvocationComparisonDocument
+                )
+                == comparison
+            )
             assert all(
                 evidence.invocation.run_id == invocation.run_id
                 and evidence.invocation.operation == invocation.operation
@@ -735,7 +741,8 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
                 for evidence in statement.evidence
             )
             unavailable = next(
-                statement for statement in comparison.statements
+                statement
+                for statement in comparison.statements
                 if statement.code == "comparison.unit_cost_unavailable"
             )
             assert unavailable.kind == StatementKind.LIMITATION
@@ -753,17 +760,26 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
                 result, policy=ComparisonPolicy(statements=1, source_items=0)
             )
             assert len(bounded.statements) <= 1
-            assert bounded.partial and bounded.omitted_source_items > 0
+            assert bounded.partial
+            assert bounded.omitted_source_items > 0
             invocation_view = result.invocation_arrow()
             assert invocation_view.num_rows == 1
             assert invocation_view.column("attempt")[0].as_py() is None
-            assert invocation_view.column("clock_scope")[0].as_py() == invocation.clock_scope
-            assert codec.decode_json(
-                invocation_view.column("document_json")[0].as_py(),
-                InvocationEvidenceDocument,
-            ) == invocation
+            assert (
+                invocation_view.column("clock_scope")[0].as_py()
+                == invocation.clock_scope
+            )
+            assert (
+                codec.decode_json(
+                    invocation_view.column("document_json")[0].as_py(),
+                    InvocationEvidenceDocument,
+                )
+                == invocation
+            )
             for field in (
-                "qualification_seconds", "terminal_seconds", "response_ready_seconds"
+                "qualification_seconds",
+                "terminal_seconds",
+                "response_ready_seconds",
             ):
                 assert invocation_view.column(field)[0].as_py() == getattr(
                     invocation.endpoints, field
@@ -813,16 +829,25 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
         row = 0
         for record in selected_page.records:
             for ordinal, field in enumerate(record.values, 1):
-                assert view.column("operation")[row].as_py() == diagnostics.operation_text(
-                    record.producer.operation
-                )
+                assert view.column("operation")[
+                    row
+                ].as_py() == diagnostics.operation_text(record.producer.operation)
                 assert view.column("producer")[row].as_py() == record.producer.sequence
                 assert view.column("event_sequence")[row].as_py() == record.sequence
-                assert view.column("family_sequence")[row].as_py() == record.family_sequence
+                assert (
+                    view.column("family_sequence")[row].as_py()
+                    == record.family_sequence
+                )
                 assert view.column("generation")[row].as_py() == record.generation
                 assert view.column("family")[row].as_py() == record.family
-                assert view.column("observed_seconds")[row].as_py() == record.observed_at.secs
-                assert view.column("observed_nanoseconds")[row].as_py() == record.observed_at.nanos
+                assert (
+                    view.column("observed_seconds")[row].as_py()
+                    == record.observed_at.secs
+                )
+                assert (
+                    view.column("observed_nanoseconds")[row].as_py()
+                    == record.observed_at.nanos
+                )
                 assert view.column("field_ordinal")[row].as_py() == ordinal
                 assert view.column("field_name")[row].as_py() == field.name
                 assert view.column("unit")[row].as_py() == field.unit
@@ -848,9 +873,13 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
                     assert all(
                         view.column(other)[row].as_py() is None
                         for other in (
-                            "count_value", "integer_value", "number_value",
-                            "boolean_value", "text_value"
-                        ) if other != populated
+                            "count_value",
+                            "integer_value",
+                            "number_value",
+                            "boolean_value",
+                            "text_value",
+                        )
+                        if other != populated
                     ), "unavailable and typed values cannot become numeric zero"
                 row += 1
             if not record.values:
@@ -860,9 +889,10 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
         assert row == view.num_rows
         with pytest.raises(pse.InspectionError):
             diagnostics.detail_arrow(Path(document.records), limit=4, memory_bytes=1)
-        assert codec.encode_json(
-            diagnostics.detail_records(document.records, limit=4)
-        ) == page_before, "projection/refusal does not rewrite retained producer evidence"
+        assert (
+            codec.encode_json(diagnostics.detail_records(document.records, limit=4))
+            == page_before
+        ), "projection/refusal does not rewrite retained producer evidence"
         assert codec.encode_json(result.invocation_evidence) == invocation_before
         assert codec.encode_json(result.attempt_summary) == summary_before
     finally:

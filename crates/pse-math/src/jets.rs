@@ -14,8 +14,20 @@ use symbolica::{
 };
 
 /// Mathematical output actually consumed by an admitted evaluator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
-#[serde(rename_all="snake_case")]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum ProductKind {
     /// Selected values and coordinate partials through the requested order.
     SelectedPartials,
@@ -34,17 +46,20 @@ pub enum ProductValues<'a> {
     /// Direction entries correspond to selected derivative coordinates.
     JacobianAction {
         /// Ordered derivative-coordinate seeds.
-        direction: &'a [f64] },
+        direction: &'a [f64],
+    },
     /// Weights correspond to selected output ordinals.
     WeightedHessian {
         /// Ordered selected-output coefficients.
-        weights: &'a [f64] },
+        weights: &'a [f64],
+    },
     /// Weights and direction are independent runtime bindings.
     WeightedHessianAction {
         /// Ordered selected-output coefficients.
         weights: &'a [f64],
         /// Ordered derivative-coordinate seeds.
-        direction: &'a [f64] },
+        direction: &'a [f64],
+    },
 }
 impl ProductValues<'_> {
     /// Product identity, independent of the numerical binding values.
@@ -136,8 +151,15 @@ impl JetLayout {
     ) -> Result<Self, MathError> {
         limits.check()?;
         let n = coordinates.len();
-        if coordinates.iter().collect::<std::collections::BTreeSet<_>>().len() != n {
-            return Err(MathError::Contract("duplicate derivative coordinates".into()));
+        if coordinates
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            != n
+        {
+            return Err(MathError::Contract(
+                "duplicate derivative coordinates".into(),
+            ));
         }
         if pairs.iter().any(|&(i, j)| i > j || j >= n)
             || pairs.windows(2).any(|pair| pair[0] >= pair[1])
@@ -145,14 +167,24 @@ impl JetLayout {
         {
             return Err(MathError::Contract("ordered Taylor subset pairs".into()));
         }
-        let first = if order >= DerivativeOrder::First { n } else { 0 };
-        let count = pairs.len().checked_add(first).and_then(|n| n.checked_add(1))
+        let first = if order >= DerivativeOrder::First {
+            n
+        } else {
+            0
+        };
+        let count = pairs
+            .len()
+            .checked_add(first)
+            .and_then(|n| n.checked_add(1))
             .ok_or(MathError::Limit("derivative components"))?;
         if count > limits.derivative_components {
             return Err(MathError::Limit("derivative components"));
         }
-        limits.allocation(count.checked_mul(n.max(1))
-            .ok_or(MathError::Limit("derivative shape"))?)?;
+        limits.allocation(
+            count
+                .checked_mul(n.max(1))
+                .ok_or(MathError::Limit("derivative shape"))?,
+        )?;
         let mut shape = vec![vec![0; n]];
         if order >= DerivativeOrder::First {
             for i in 0..n {
@@ -167,7 +199,12 @@ impl JetLayout {
             term[j] += 1;
             shape.push(term);
         }
-        Ok(Self { coordinates, shape, pairs: Arc::new(pairs), order })
+        Ok(Self {
+            coordinates,
+            shape,
+            pairs: Arc::new(pairs),
+            order,
+        })
     }
     /// Number of coefficients carried by each scalar.
     pub fn width(&self) -> usize {

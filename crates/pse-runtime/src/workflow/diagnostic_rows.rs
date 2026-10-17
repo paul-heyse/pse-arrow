@@ -285,7 +285,9 @@ mod tests {
         diagnostic.locations.push(SourceLocation {
             source,
             revision: Some(revision),
-            document: None, occurrence_role: None, occurrence_position: None,
+            document: None,
+            occurrence_role: None,
+            occurrence_position: None,
             path: "unit.pse".into(),
             name: Some("balance".into()),
             start: Some(5),

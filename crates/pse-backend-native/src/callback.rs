@@ -805,7 +805,10 @@ mod tests {
         let hub = ObservationHub::new(Policy::default());
         let operation = hub.start("native.callback-test");
         let _entered = operation.context().enter();
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        );
         let mut state = CallbackState::new(execution);
         state.evaluate::<()>("residual", || {
             let snapshot = operation.reader().snapshot(Duration::from_secs(60));
@@ -911,7 +914,10 @@ mod tests {
             admitted: 0.into(),
             observed: 0.into(),
         });
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        );
         execution.work_admission = Some(admission.clone());
         let mut original =
             CallbackState::new_with_role(execution.clone(), ProducerRole::OriginalOracle);
@@ -1084,7 +1090,10 @@ mod tests {
         let tap = std::sync::Arc::new(Tap::default());
         let context = operation.context().with_record_tap(tap.clone());
         let _entered = context.enter();
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        );
         execution.callback_work_owner = false;
         execution.callback_role = pse_diagnostics::observation::ProducerRole::CoordinateTransport;
         let mut state = CallbackState::new(execution);
@@ -1212,7 +1221,10 @@ mod tests {
     #[test]
     fn callback_transports_exact_original_execution_only_for_its_synchronous_work() {
         use std::sync::Arc;
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        );
         let mut callback = CallbackState::new(execution.clone());
         let result = callback.evaluate("original-control", || {
             let inherited = crate::execution::current_execution(&execution.cancel).unwrap();
@@ -1291,7 +1303,10 @@ mod tests {
                 admitted: 0.into(),
                 observed: 0.into(),
             });
-            let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+            let mut execution = Execution::new(
+                pse_diagnostics::Cancellation::default(),
+                &crate::solve::Controls::default(),
+            );
             execution.work_admission = Some(admission.clone());
             let mut original = CallbackState::new(execution.clone());
             if transported {

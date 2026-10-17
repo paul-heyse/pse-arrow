@@ -228,9 +228,12 @@ impl NleOracle for Oracle {
         self.pattern.as_ref()
     }
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let jet =
-            self.problem()?
-                .evaluate_unknown(&self.parameters, x, DerivativeOrder::Value, &self.cancel)?;
+        let jet = self.problem()?.evaluate_unknown(
+            &self.parameters,
+            x,
+            DerivativeOrder::Value,
+            &self.cancel,
+        )?;
         if jet.values.len() != out.len() {
             return Err(ProblemError::internal("implicit residual extent"));
         }
@@ -240,9 +243,12 @@ impl NleOracle for Oracle {
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         let n = self.contract.variables.len();
         let width = n;
-        let jet =
-            self.problem()?
-                .evaluate_unknown(&self.parameters, x, DerivativeOrder::First, &self.cancel)?;
+        let jet = self.problem()?.evaluate_unknown(
+            &self.parameters,
+            x,
+            DerivativeOrder::First,
+            &self.cancel,
+        )?;
         let pattern = self.pattern.as_ref();
         if jet.jacobian.len() != n * width || out.len() != pattern.compute_nnz() {
             return Err(ProblemError::internal("implicit Jacobian extent"));
@@ -265,8 +271,15 @@ impl NleOracle for Oracle {
         if direction.len() != n || out.len() != n {
             return Err(ProblemError::internal("implicit JVP extent"));
         }
-        let jet = self.problem()?.evaluate_unknown(&self.parameters, x, DerivativeOrder::First, &self.cancel)?;
-        if n.checked_mul(n) != Some(jet.jacobian.len()) { return Err(ProblemError::internal("implicit unknown JVP matrix extent")); }
+        let jet = self.problem()?.evaluate_unknown(
+            &self.parameters,
+            x,
+            DerivativeOrder::First,
+            &self.cancel,
+        )?;
+        if n.checked_mul(n) != Some(jet.jacobian.len()) {
+            return Err(ProblemError::internal("implicit unknown JVP matrix extent"));
+        }
         crate::tnlp::finite(&jet.jacobian)?;
         crate::tnlp::finite(direction)?;
         faer::linalg::matmul::matmul(
@@ -274,7 +287,8 @@ impl NleOracle for Oracle {
             faer::Accum::Replace,
             faer::MatRef::from_row_major_slice(&jet.jacobian, n, n),
             faer::MatRef::from_column_major_slice(direction, n, 1),
-            1., faer::Par::Seq,
+            1.,
+            faer::Par::Seq,
         );
         crate::tnlp::finite(&self.jvp_output)?;
         out.copy_from_slice(&self.jvp_output);
@@ -448,13 +462,28 @@ impl InnerWorker for Kinsol {
 }
 
 #[cfg(test)]
-pub(crate) fn test_residual_bodies(parameter: Arc<pse_math::guarded::CompiledBody>) -> pse_math::implicit::ResidualBodies {
+pub(crate) fn test_residual_bodies(
+    parameter: Arc<pse_math::guarded::CompiledBody>,
+) -> pse_math::implicit::ResidualBodies {
     let n = parameter.prepared_support().outputs().len();
     let order = parameter.compiled_order().min(DerivativeOrder::First);
-    let axes = if order >= DerivativeOrder::First { (0..n).collect::<Vec<_>>() } else { Vec::new() };
+    let axes = if order >= DerivativeOrder::First {
+        (0..n).collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     let cancel = Arc::new(AtomicBool::new(false));
-    let support = parameter.prepared_support().incidence(&axes, &cancel).unwrap().at_order(order).unwrap();
-    let unknown = Arc::new(support.compile(Default::default(), Default::default(), &cancel).unwrap());
+    let support = parameter
+        .prepared_support()
+        .incidence(&axes, &cancel)
+        .unwrap()
+        .at_order(order)
+        .unwrap();
+    let unknown = Arc::new(
+        support
+            .compile(Default::default(), Default::default(), &cancel)
+            .unwrap(),
+    );
     pse_math::implicit::ResidualBodies { unknown, parameter }
 }
 
@@ -705,7 +734,7 @@ mod tests {
                 original: Oracle {
                     problem: loan.0.clone(),
                     pattern: problem.pattern().to_owned().unwrap(),
-                        parameters: parameters.to_vec(),
+                    parameters: parameters.to_vec(),
                     jvp_output: vec![0.; contract.variables.len()],
                     contract,
                     cancel: cancel.flag(),

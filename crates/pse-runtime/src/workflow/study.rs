@@ -1295,7 +1295,10 @@ impl Runtime {
                     .checked_add(input.original.solve.time_limit())
                     .ok_or_else(|| contract("prediction deadline extent"))?;
                 let scope = input.original.solve.task_scope().unwrap_or_else(|| {
-                    pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline))
+                    pse_kernels::ExecutionScope::new(
+                        pse_diagnostics::Cancellation::default(),
+                        Some(deadline),
+                    )
                 });
                 let original = self
                     .native()

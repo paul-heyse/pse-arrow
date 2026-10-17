@@ -300,7 +300,12 @@ mod tests {
         }
     }
 
-    fn admitted() -> (CubicRoots, Arc<Problem>, Options, pse_diagnostics::Cancellation) {
+    fn admitted() -> (
+        CubicRoots,
+        Arc<Problem>,
+        Options,
+        pse_diagnostics::Cancellation,
+    ) {
         crate::initialize().unwrap();
         admitted_expression(
             crate::library::formal(0).unwrap().pow(Atom::num(2))
@@ -314,7 +319,12 @@ mod tests {
         expression: Atom,
         lower: f64,
         upper: f64,
-    ) -> (CubicRoots, Arc<Problem>, Options, pse_diagnostics::Cancellation) {
+    ) -> (
+        CubicRoots,
+        Arc<Problem>,
+        Options,
+        pse_diagnostics::Cancellation,
+    ) {
         use crate::guarded::{PreparedBody, Stage};
         let control = pse_diagnostics::Cancellation::default();
         let cancel = control.flag();
@@ -354,7 +364,7 @@ mod tests {
                 }],
                 vec![SemanticId::NIL],
                 1,
-            residual_bodies_for_test(Arc::new(compiled)),
+                residual_bodies_for_test(Arc::new(compiled)),
                 1024,
             )
             .unwrap(),
@@ -429,7 +439,13 @@ mod tests {
         assert_eq!(point, [1.0]);
         assert!(
             problem
-                .derivatives(&[1.0], &point, DerivativeOrder::First, &options, &cancel.flag())
+                .derivatives(
+                    &[1.0],
+                    &point,
+                    DerivativeOrder::First,
+                    &options,
+                    &cancel.flag()
+                )
                 .is_err()
         );
     }
@@ -472,7 +488,13 @@ mod tests {
         );
         assert!(
             problem
-                .derivatives(&[0.0], &[0.0], DerivativeOrder::First, &options, &cancel.flag())
+                .derivatives(
+                    &[0.0],
+                    &[0.0],
+                    DerivativeOrder::First,
+                    &options,
+                    &cancel.flag()
+                )
                 .is_err()
         );
         cancel.cancel();

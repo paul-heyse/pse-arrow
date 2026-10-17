@@ -116,7 +116,10 @@ pub(super) enum ActiveAttempt {
 impl ActiveAttempt {
     #[cfg(test)]
     pub(super) fn acquired(self) -> Option<ActivePermits> {
-        match self { Self::Ready(permit) => Some(permit), Self::JobsBusy | Self::CpuBusy => None }
+        match self {
+            Self::Ready(permit) => Some(permit),
+            Self::JobsBusy | Self::CpuBusy => None,
+        }
     }
 }
 impl MathService {
@@ -314,7 +317,7 @@ impl MathService {
                 match try_active(&self.active_jobs, &self.cpu, cores)? {
                     ActiveAttempt::Ready(active) => break active,
                     ActiveAttempt::CpuBusy => cpu_busy = true,
-                    ActiveAttempt::JobsBusy => {},
+                    ActiveAttempt::JobsBusy => {}
                 }
                 lease.shrink(bytes);
             }
@@ -347,8 +350,12 @@ pub(super) fn try_active(
 ) -> Result<ActiveAttempt, MathRuntimeError> {
     use tokio::sync::TryAcquireError;
     // Closure is terminal even when the other capacity owner is busy.
-    if jobs.is_closed() { return Err(MathRuntimeError::Limit("active jobs closed")); }
-    if cpu.is_closed() { return Err(MathRuntimeError::Limit("CPU admission closed")); }
+    if jobs.is_closed() {
+        return Err(MathRuntimeError::Limit("active jobs closed"));
+    }
+    if cpu.is_closed() {
+        return Err(MathRuntimeError::Limit("CPU admission closed"));
+    }
     let job = match jobs.clone().try_acquire_owned() {
         Ok(job) => job,
         Err(TryAcquireError::NoPermits) => return Ok(ActiveAttempt::JobsBusy),
@@ -808,22 +815,24 @@ impl MathService {
         let flag = cancel.clone();
         let events = progress.clone();
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(crate::invocation::inherit(crate::observation::inherit(crate::observation::child(
-            "math.submission",
-            pse_operations::canonical::inherit_activity(async move {
-                let result = service
-                    .admitted(
-                        cores,
-                        bytes,
-                        flag,
-                        (admitted, deadline, source_owns_deadline),
-                        Some(entry),
-                        move |flag| work(flag, events),
-                    )
-                    .await;
-                let _ = sender.send(result);
-            }),
-        ))));
+        tokio::spawn(crate::invocation::inherit(crate::observation::inherit(
+            crate::observation::child(
+                "math.submission",
+                pse_operations::canonical::inherit_activity(async move {
+                    let result = service
+                        .admitted(
+                            cores,
+                            bytes,
+                            flag,
+                            (admitted, deadline, source_owns_deadline),
+                            Some(entry),
+                            move |flag| work(flag, events),
+                        )
+                        .await;
+                    let _ = sender.send(result);
+                }),
+            ),
+        )));
         Ok(super::solves::SolveHandle {
             cancel,
             receiver: Some(receiver),
@@ -835,9 +844,7 @@ impl MathService {
         cores: usize,
         bytes: usize,
         cancel: Cancellation,
-        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
         self.job_retained(cores, bytes, cancel, move |flag| work(flag).map(|r| (r, 0)))
             .await
@@ -850,9 +857,7 @@ impl MathService {
         bytes: usize,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
         self.job_retained_scoped(cores, bytes, cancel, deadline, move |flag| {
             work(flag).map(|value| (value, 0))
@@ -868,9 +873,7 @@ impl MathService {
         cores: usize,
         bytes: usize,
         cancel: Cancellation,
-        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
         self.admitted(cores, bytes, cancel, (None, None, false), None, work)
             .await
@@ -883,9 +886,7 @@ impl MathService {
         bytes: usize,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
         self.admitted(cores, bytes, cancel, (None, deadline, false), None, work)
             .await
@@ -898,9 +899,7 @@ impl MathService {
         construction: ConstructionEstimate,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
         let bytes = construction.bytes();
         if bytes > self.policy.worker_bytes {
@@ -918,9 +917,7 @@ impl MathService {
         construction: ConstructionEstimate,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
         self.job_retained_construction(cores, construction, cancel, deadline, move |flag| {
             work(flag).map(|value| (value, 0))
@@ -992,10 +989,7 @@ impl MathService {
         construction: ConstructionEstimate,
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
-        work: impl FnOnce(
-            super::CompilerAuthority,
-            Cancellation,
-        ) -> Result<T, MathRuntimeError>
+        work: impl FnOnce(super::CompilerAuthority, Cancellation) -> Result<T, MathRuntimeError>
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
@@ -1046,9 +1040,7 @@ impl MathService {
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
         entry: AdmissionEntry,
-        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
         self.job_retained_on_entry(cores, bytes, cancel, deadline, entry, move |flag| {
             work(flag).map(|value| (value, 0))
@@ -1064,9 +1056,7 @@ impl MathService {
         cancel: Cancellation,
         deadline: Option<std::time::Instant>,
         entry: AdmissionEntry,
-        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
         self.admitted(
             cores,
@@ -1234,9 +1224,7 @@ impl MathService {
             bool,
         ),
         entry: Option<AdmissionEntry>,
-        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError>
-        + Send
-        + 'static,
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
         let entry = match entry {
             Some(entry) => entry,
@@ -1258,10 +1246,11 @@ impl MathService {
         let mut caller = Caller(Some(cancel.clone()));
         let service = self.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        tokio::spawn(crate::invocation::inherit(crate::observation::inherit(crate::observation::child(
-            "math.job",
-            pse_operations::canonical::inherit_activity(async move {
-                let result = async {
+        tokio::spawn(crate::invocation::inherit(crate::observation::inherit(
+            crate::observation::child(
+                "math.job",
+                pse_operations::canonical::inherit_activity(async move {
+                    let result = async {
                 let (lease, active) = {
                     let _waiting = pse_diagnostics::observation::phase("math.admission.wait");
                     service.reserve_active("math:native-job", cores as u32, bytes, &cancel, at).await?
@@ -1375,12 +1364,13 @@ impl MathService {
                 result
             }
             .await;
-                // Actual native/TLS join precedes release of compiler exclusion and storage.
-                drop(compiler);
-                drop(slot);
-                let _ = tx.send(result);
-            }),
-        ))));
+                    // Actual native/TLS join precedes release of compiler exclusion and storage.
+                    drop(compiler);
+                    drop(slot);
+                    let _ = tx.send(result);
+                }),
+            ),
+        )));
         let result = rx
             .await
             .map_err(|_| MathRuntimeError::Infrastructure("lost native supervisor".into()))?;
@@ -1400,7 +1390,10 @@ mod construction_tests {
         let cpu = Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(1));
         let held = jobs.clone().try_acquire_owned().unwrap();
         cpu.close();
-        assert!(matches!(try_active(&jobs, &cpu, 1), Err(MathRuntimeError::Limit("CPU admission closed"))));
+        assert!(matches!(
+            try_active(&jobs, &cpu, 1),
+            Err(MathRuntimeError::Limit("CPU admission closed"))
+        ));
         assert_eq!(jobs.available_permits(), 0);
         drop(held);
         assert_eq!(jobs.available_permits(), 1);
@@ -1410,8 +1403,8 @@ mod construction_tests {
         for close_cpu in [false, true] {
             let service = super::super::tests::service();
             let baseline = service.pool.reserved();
-            let held = MemoryConsumer::new("test:closed-admission-held-memory")
-                .register(&service.pool);
+            let held =
+                MemoryConsumer::new("test:closed-admission-held-memory").register(&service.pool);
             held.try_grow((512 << 20) - baseline).unwrap();
             let full = service.pool.reserved();
             let control = Cancellation::default();
@@ -1423,14 +1416,19 @@ mod construction_tests {
             let join = std::thread::spawn(move || {
                 use std::future::Future;
                 let pending = worker_service.reserve_active(
-                    "test:closed-admission", 1, 1024, &worker_control,
+                    "test:closed-admission",
+                    1,
+                    1024,
+                    &worker_control,
                     std::time::Instant::now() + std::time::Duration::from_secs(10),
                 );
                 let mut pending = std::pin::pin!(pending);
                 let mut registered = Some(registered);
                 let result = runtime.block_on(futures_util::future::poll_fn(|context| {
                     let result = pending.as_mut().poll(context);
-                    if result.is_pending() && let Some(registered) = registered.take() {
+                    if result.is_pending()
+                        && let Some(registered) = registered.take()
+                    {
                         registered.send(()).unwrap();
                     }
                     result
@@ -1438,13 +1436,24 @@ mod construction_tests {
                 send.send(result.map(|_| ())).unwrap();
             });
             let registered = registration.recv_timeout(std::time::Duration::from_secs(1));
-            if close_cpu { service.cpu.close(); } else { service.active_jobs.close(); }
+            if close_cpu {
+                service.cpu.close();
+            } else {
+                service.active_jobs.close();
+            }
             let result = receive.recv_timeout(std::time::Duration::from_secs(1));
-            if result.is_err() { control.cancel(); }
+            if result.is_err() {
+                control.cancel();
+            }
             join.join().unwrap();
-            assert!(registered.is_ok(), "memory wait must be registered before closure");
-            assert!(matches!(result.unwrap(), Err(MathRuntimeError::Limit(reason))
-                if reason == if close_cpu { "CPU admission closed" } else { "active jobs closed" }));
+            assert!(
+                registered.is_ok(),
+                "memory wait must be registered before closure"
+            );
+            assert!(
+                matches!(result.unwrap(), Err(MathRuntimeError::Limit(reason))
+                if reason == if close_cpu { "CPU admission closed" } else { "active jobs closed" })
+            );
             assert!(!control.is_cancelled());
             assert_eq!(service.pool.reserved(), full);
             assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
@@ -1458,11 +1467,15 @@ mod construction_tests {
         for close_cpu in [false, true] {
             let service = super::super::tests::service();
             let baseline = service.pool.reserved();
-            let held = MemoryConsumer::new("test:quiescent-closed-held-memory")
-                .register(&service.pool);
+            let held =
+                MemoryConsumer::new("test:quiescent-closed-held-memory").register(&service.pool);
             held.try_grow((512 << 20) - baseline).unwrap();
             let full = service.pool.reserved();
-            if close_cpu { service.cpu.close(); } else { service.active_jobs.close(); }
+            if close_cpu {
+                service.cpu.close();
+            } else {
+                service.active_jobs.close();
+            }
             let control = Cancellation::default();
             let worker_control = control.clone();
             let worker_service = service.clone();
@@ -1470,19 +1483,25 @@ mod construction_tests {
             let (send, receive) = std::sync::mpsc::sync_channel(1);
             let join = std::thread::spawn(move || {
                 let _entered = runtime.enter();
-                let execution = pse_backend_native::solve::Execution::new(
-                    worker_control, &Default::default(),
-                );
+                let execution =
+                    pse_backend_native::solve::Execution::new(worker_control, &Default::default());
                 send.send(worker_service.quiescent_phase_owned_construction(
-                    1, ConstructionEstimate::Known(1024), &execution,
+                    1,
+                    ConstructionEstimate::Known(1024),
+                    &execution,
                     |_| -> () { panic!("closed admission must not execute construction") },
-                )).unwrap();
+                ))
+                .unwrap();
             });
             let result = receive.recv_timeout(std::time::Duration::from_secs(1));
-            if result.is_err() { control.cancel(); }
+            if result.is_err() {
+                control.cancel();
+            }
             join.join().unwrap();
-            assert!(matches!(result.unwrap(), Err(MathRuntimeError::Limit(reason))
-                if reason == if close_cpu { "CPU admission closed" } else { "active jobs closed" }));
+            assert!(
+                matches!(result.unwrap(), Err(MathRuntimeError::Limit(reason))
+                if reason == if close_cpu { "CPU admission closed" } else { "active jobs closed" })
+            );
             assert!(!control.is_cancelled());
             assert_eq!(service.pool.reserved(), full);
             assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
@@ -1497,28 +1516,37 @@ mod construction_tests {
         let service = super::super::tests::service();
         let baseline = service.pool.reserved();
         let mut owner = super::super::staged::ComputeOwner::new(
-            service.active_jobs.clone(), service.cpu.clone(), 1,
-            service.try_active(1).unwrap().unwrap(), tokio::runtime::Handle::current(),
+            service.active_jobs.clone(),
+            service.cpu.clone(),
+            1,
+            service.try_active(1).unwrap().unwrap(),
+            tokio::runtime::Handle::current(),
         );
         owner.pause();
-        let held = service.active_jobs.clone()
-            .try_acquire_many_owned(service.policy.jobs as u32).unwrap();
+        let held = service
+            .active_jobs
+            .clone()
+            .try_acquire_many_owned(service.policy.jobs as u32)
+            .unwrap();
         service.cpu.close();
         let control = Cancellation::default();
         let worker_control = control.clone();
         let (send, receive) = std::sync::mpsc::sync_channel(1);
         let join = std::thread::spawn(move || {
-            let execution = pse_backend_native::solve::Execution::new(
-                worker_control, &Default::default(),
-            );
+            let execution =
+                pse_backend_native::solve::Execution::new(worker_control, &Default::default());
             send.send(owner.resume(&execution)).unwrap();
         });
         let result = receive.recv_timeout(std::time::Duration::from_secs(1));
-        if result.is_err() { control.cancel(); }
+        if result.is_err() {
+            control.cancel();
+        }
         join.join().unwrap();
-        assert!(matches!(result.unwrap(), Err(pse_backend_native::ProblemError::Limit {
+        assert!(
+            matches!(result.unwrap(), Err(pse_backend_native::ProblemError::Limit {
             kind: pse_backend_native::LimitKind::Memory, detail,
-        }) if detail == "CPU admission closed"));
+        }) if detail == "CPU admission closed")
+        );
         assert!(!control.is_cancelled());
         assert_eq!(service.active_jobs.available_permits(), 0);
         assert_eq!(service.cpu.available_permits(), service.cores);

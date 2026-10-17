@@ -8,8 +8,8 @@
 //! Krylov variants, forcing terms, preconditioning, Newton-step limits and Anderson
 //! settings are typed [`Method`] fields (Plan 22 Y6); one-sided bounds are shifted to
 //! native sign constraints.
-mod restarts;
 mod linear_work;
+mod restarts;
 use crate::{
     NleOracle, OracleContract, ProblemError,
     callback::CallbackState,
@@ -308,9 +308,17 @@ fn shifted(u: &[f64], offsets: &[f64], sign: f64) -> Vec<f64> {
     u.iter().zip(offsets).map(|(u, o)| u + sign * o).collect()
 }
 fn shifted_into(u: &[f64], offsets: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-    if u.len() != offsets.len() || out.len() != u.len() { return Err(ProblemError::internal("shifted root coordinates extent")); }
-    for ((out, value), offset) in out.iter_mut().zip(u).zip(offsets) { *out = value + offset; }
-    if out.iter().all(|value| value.is_finite()) { Ok(()) } else { Err(ProblemError::numerical("nonfinite shifted root coordinate")) }
+    if u.len() != offsets.len() || out.len() != u.len() {
+        return Err(ProblemError::internal("shifted root coordinates extent"));
+    }
+    for ((out, value), offset) in out.iter_mut().zip(u).zip(offsets) {
+        *out = value + offset;
+    }
+    if out.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err(ProblemError::numerical("nonfinite shifted root coordinate"))
+    }
 }
 impl Settings {
     /// The one policy-derived KINSOL configuration (F22). `tolerances` are the original
@@ -907,7 +915,10 @@ unsafe extern "C" fn jacobian(
             setup.point.clone_from(&c.point);
             setup.data = c.data;
         } else {
-            c.setup = Some(SetupStamp { point: c.point.clone(), data: c.data });
+            c.setup = Some(SetupStamp {
+                point: c.point.clone(),
+                data: c.data,
+            });
         }
         c.setup_calls = c.setup_calls.saturating_add(1);
         Ok(())
@@ -933,7 +944,10 @@ unsafe extern "C" fn jvp(
             Function::Equations(o) => o.jacobian_product(
                 // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
                 // checks it against the `n` coordinates.
-                { shifted_into(unsafe { values(x, c.n) }?, &c.offsets, &mut c.point)?; &c.point },
+                {
+                    shifted_into(unsafe { values(x, c.n) }?, &c.offsets, &mut c.point)?;
+                    &c.point
+                },
                 // SAFETY: as above.
                 unsafe { values(v, c.n) }?,
                 y,
@@ -943,9 +957,11 @@ unsafe extern "C" fn jvp(
                 let direction = unsafe { values(v, c.n) }?;
                 faer::sparse::linalg::matmul::sparse_dense_matmul(
                     faer::MatMut::from_column_major_slice_mut(y, c.n, 1),
-                    faer::Accum::Replace, linear.as_ref(),
+                    faer::Accum::Replace,
+                    linear.as_ref(),
                     faer::MatRef::from_column_major_slice(direction, c.n, 1),
-                    1., faer::Par::Seq,
+                    1.,
+                    faer::Par::Seq,
                 );
             }
             Function::FixedPoint(_) => {
@@ -991,7 +1007,9 @@ unsafe extern "C" fn precondition_setup(
             }
         }
         if v.iter().any(|value| !value.is_finite()) {
-            return Err(ProblemError::numerical("invalid root preconditioner Jacobian"));
+            return Err(ProblemError::numerical(
+                "invalid root preconditioner Jacobian",
+            ));
         }
         if let Some(blocks) = &mut c.blocks {
             blocks.setup(&v, &execution)?;
@@ -1014,7 +1032,10 @@ unsafe extern "C" fn precondition_setup(
             setup.point.clone_from(&c.point);
             setup.data = c.data;
         } else {
-            c.setup = Some(SetupStamp { point: c.point.clone(), data: c.data });
+            c.setup = Some(SetupStamp {
+                point: c.point.clone(),
+                data: c.data,
+            });
         }
         c.setup_calls = c.setup_calls.saturating_add(1);
         Ok(())
@@ -1362,7 +1383,9 @@ impl Session {
             setup_calls: 0,
             data: compatibility.data,
             raw_map: None,
-            klu: std::ptr::null_mut(), klu_baseline: None, klu_producer: None,
+            klu: std::ptr::null_mut(),
+            klu_baseline: None,
+            klu_producer: None,
             klu_phases: std::array::from_fn(|_| None),
             klu_observer_installed: false,
         });
@@ -1581,11 +1604,18 @@ impl Session {
             )?);
         }
         self.callback.state = CallbackState::new(execution.clone());
-        self.callback.klu = if self.settings.method.linear == Linear::Klu { self.linear } else { std::ptr::null_mut() };
+        self.callback.klu = if self.settings.method.linear == Linear::Klu {
+            self.linear
+        } else {
+            std::ptr::null_mut()
+        };
         // SAFETY: this live linear solver remains exclusively Session-owned until drain.
         self.callback.klu_baseline = unsafe { linear_work::snapshot(self.callback.klu) };
         self.callback.klu_producer = pse_diagnostics::observation::current().map(|context| {
-            context.producer(pse_diagnostics::observation::ProducerRole::NativeFactor, "kinsol.klu")
+            context.producer(
+                pse_diagnostics::observation::ProducerRole::NativeFactor,
+                "kinsol.klu",
+            )
         });
         self.callback.raw_map = match &self.callback.function {
             Function::FixedPoint(oracle) => Some(
@@ -2407,7 +2437,10 @@ mod tests {
                 stamp.clone(),
             )
             .unwrap();
-            let scratch_addresses = (session.callback.point.as_ptr(), session.callback.output.as_ptr());
+            let scratch_addresses = (
+                session.callback.point.as_ptr(),
+                session.callback.output.as_ptr(),
+            );
             let cold = setup_solve(&mut session, 0.0, ReusePolicy::AllowRebuild);
             assert_eq!(cold.termination.category, Termination::Success);
             assert!(metric(&cold, "setup.refreshes") > 0);
@@ -2425,8 +2458,14 @@ mod tests {
             assert_eq!(reused.termination.category, Termination::Success);
             assert_eq!(reused.candidate.as_ref().unwrap().primal, [2.0]);
             assert_eq!(session.linear, native_address);
-            assert_eq!((session.callback.point.as_ptr(), session.callback.output.as_ptr()), scratch_addresses,
-                "changed values reuse complete private callback storage");
+            assert_eq!(
+                (
+                    session.callback.point.as_ptr(),
+                    session.callback.output.as_ptr()
+                ),
+                scratch_addresses,
+                "changed values reuse complete private callback storage"
+            );
             assert!(setups.load(std::sync::atomic::Ordering::SeqCst) > before);
             assert!(metric(&reused, "setup.refreshes") > 0);
             assert_eq!(
@@ -2475,20 +2514,36 @@ mod tests {
     #[test]
     fn klu_work_getter_reports_failed_guard_singular_factor_and_fresh_application() {
         let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        let mut session = Session::new(affine_function(1., &setups), settings(), execution(), crate::solver_tests::stamp(Backend::Kinsol)).unwrap();
+        let mut session = Session::new(
+            affine_function(1., &setups),
+            settings(),
+            execution(),
+            crate::solver_tests::stamp(Backend::Kinsol),
+        )
+        .unwrap();
         // SAFETY: live exclusively owned KLU solver; null matrix is a checked refusal.
-        assert_ne!(unsafe { ffi::SUNLinSolSetup_KLU(session.linear, std::ptr::null_mut()) }, 0);
+        assert_ne!(
+            unsafe { ffi::SUNLinSolSetup_KLU(session.linear, std::ptr::null_mut()) },
+            0
+        );
         // SAFETY: getter reads only this session's live KLU counters.
         let failed = unsafe { linear_work::snapshot(session.linear) }.unwrap();
-        assert_eq!(failed.setup_issued, 1); assert_eq!(failed.setup_completed, 0);
+        assert_eq!(failed.setup_issued, 1);
+        assert_eq!(failed.setup_completed, 0);
         assert_eq!(failed.symbolic_issued, 0);
         for start in [0., 3.] {
             let report = setup_solve(&mut session, start, ReusePolicy::AllowRebuild);
             assert_eq!(report.termination.category, Termination::Success);
             assert_eq!(report.metrics["klu.symbolic.issued"], Metric::Integer(1));
             assert_eq!(report.metrics["klu.symbolic.completed"], Metric::Integer(1));
-            assert_eq!(report.metrics["klu.numeric_factor.issued"], Metric::Integer(1));
-            assert_eq!(report.metrics["klu.numeric_factor.completed"], Metric::Integer(1));
+            assert_eq!(
+                report.metrics["klu.numeric_factor.issued"],
+                Metric::Integer(1)
+            );
+            assert_eq!(
+                report.metrics["klu.numeric_factor.completed"],
+                Metric::Integer(1)
+            );
             assert!(metric(&report, "klu.solve.completed") > 0);
         }
         // SAFETY: the session's exact one-entry CSC storage is live and exclusively owned.
@@ -2502,11 +2557,20 @@ mod tests {
         // SAFETY: safe-return getter on the same live owner.
         let before = unsafe { linear_work::snapshot(session.linear) }.unwrap();
         // SAFETY: admitted canonical singular CSC on this owned solver.
-        assert_ne!(unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) }, 0);
+        assert_ne!(
+            unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) },
+            0
+        );
         // SAFETY: getter reports the failed actual factor prefix without initiating work.
         let after = unsafe { linear_work::snapshot(session.linear) }.unwrap();
-        assert_eq!(after.numeric_factor_issued - before.numeric_factor_issued, 1);
-        assert_eq!(after.numeric_factor_completed, before.numeric_factor_completed);
+        assert_eq!(
+            after.numeric_factor_issued - before.numeric_factor_issued,
+            1
+        );
+        assert_eq!(
+            after.numeric_factor_completed,
+            before.numeric_factor_completed
+        );
     }
     #[test]
     fn klu_optional_phase_hook_pairs_failed_and_successful_calls_and_clears() {
@@ -2518,11 +2582,24 @@ mod tests {
             counts[index] += 1;
         }
         let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        let session = Session::new(affine_function(1., &setups), settings(), execution(), crate::solver_tests::stamp(Backend::Kinsol)).unwrap();
+        let session = Session::new(
+            affine_function(1., &setups),
+            settings(),
+            execution(),
+            crate::solver_tests::stamp(Backend::Kinsol),
+        )
+        .unwrap();
         let mut counts = [0_u64; 12];
         // SAFETY: exact live owner; callback data remains in scope until cleared.
         unsafe {
-            assert_eq!(ffi::SUNLinSol_KLUSetObserver(session.linear, Some(capture), std::ptr::from_mut(&mut counts).cast()), 0);
+            assert_eq!(
+                ffi::SUNLinSol_KLUSetObserver(
+                    session.linear,
+                    Some(capture),
+                    std::ptr::from_mut(&mut counts).cast()
+                ),
+                0
+            );
             *ffi::SUNSparseMatrix_IndexPointers(session.matrix) = 0;
             *ffi::SUNSparseMatrix_IndexPointers(session.matrix).add(1) = 1;
             *ffi::SUNSparseMatrix_IndexValues(session.matrix) = 0;
@@ -2530,41 +2607,67 @@ mod tests {
             assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
             assert_ne!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
         }
-        assert_eq!(&counts[..4], &[1,1,1,1], "failed factor still ends its active phase");
+        assert_eq!(
+            &counts[..4],
+            &[1, 1, 1, 1],
+            "failed factor still ends its active phase"
+        );
         // SAFETY: same exact live owner and stable observer; one fresh successful call.
         unsafe {
             *ffi::SUNSparseMatrix_Data(session.matrix) = 1.;
             assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
             assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
-            assert_eq!(ffi::SUNLinSol_KLUSetObserver(session.linear, None, std::ptr::null_mut()), 0);
+            assert_eq!(
+                ffi::SUNLinSol_KLUSetObserver(session.linear, None, std::ptr::null_mut()),
+                0
+            );
         }
-        assert_eq!(&counts[..4], &[2,2,2,2]);
+        assert_eq!(&counts[..4], &[2, 2, 2, 2]);
         // SAFETY: after clear, native work cannot invoke the former userdata.
         unsafe {
             assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
             assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
         }
-        assert_eq!(&counts[..4], &[2,2,2,2]);
+        assert_eq!(&counts[..4], &[2, 2, 2, 2]);
     }
     #[test]
     fn setup_interval_profiles_preserve_original_acceptance_and_expose_actual_work() {
-        assert_eq!(Method::default().setup_interval, 10, "retained monitored global default");
+        assert_eq!(
+            Method::default().setup_interval,
+            10,
+            "retained monitored global default"
+        );
         for interval in [1, 2, 3, 10] {
             let mut config = settings();
             config.method.setup_interval = interval;
             let mut session = Session::new(
                 Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
-                config, execution(), crate::solver_tests::stamp(Backend::Kinsol),
-            ).unwrap();
+                config,
+                execution(),
+                crate::solver_tests::stamp(Backend::Kinsol),
+            )
+            .unwrap();
             let report = setup_solve(&mut session, 0.25, ReusePolicy::AllowRebuild);
-            assert_eq!(report.termination.category, Termination::Success, "interval{interval}");
+            assert_eq!(
+                report.termination.category,
+                Termination::Success,
+                "interval{interval}"
+            );
             assert!(report.quality.as_ref().unwrap().feasible());
-            assert_eq!(report.metrics["setup.initial_reuse_requested"], Metric::Bool(false));
+            assert_eq!(
+                report.metrics["setup.initial_reuse_requested"],
+                Metric::Bool(false)
+            );
             assert_eq!(report.metrics["klu.symbolic.completed"], Metric::Integer(1));
-            eprintln!("setup_interval={interval} iterations={:?} evaluations={:?} setup={:?} fresh_factor={:?} refactor={:?} solve={:?}",
-                report.metrics["KINGetNumNonlinSolvIters"], report.metrics["KINGetNumFuncEvals"],
-                report.metrics["klu.setup.completed"], report.metrics["klu.numeric_factor.completed"],
-                report.metrics["klu.refactor.completed"], report.metrics["klu.solve.completed"]);
+            eprintln!(
+                "setup_interval={interval} iterations={:?} evaluations={:?} setup={:?} fresh_factor={:?} refactor={:?} solve={:?}",
+                report.metrics["KINGetNumNonlinSolvIters"],
+                report.metrics["KINGetNumFuncEvals"],
+                report.metrics["klu.setup.completed"],
+                report.metrics["klu.numeric_factor.completed"],
+                report.metrics["klu.refactor.completed"],
+                report.metrics["klu.solve.completed"]
+            );
         }
     }
     #[test]

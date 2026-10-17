@@ -2541,13 +2541,22 @@ impl ModelingPackage {
                 .collect();
             let mut actions = Vec::new();
             if profile.method == native::Method::Idas {
-                if function == Function::Rhs && !matches!(profile.idas.linear, native::IdasLinear::Klu) {
+                if function == Function::Rhs
+                    && !matches!(profile.idas.linear, native::IdasLinear::Klu)
+                {
                     actions.push(pse_math::jets::ProductKind::JacobianAction);
                 }
                 // A second-order dynamic preparation explicitly admits later
                 // exact transient Hessians, including observed window fluxes.
-                if derivatives == DerivativeOrder::Second && matches!(function,
-                    Function::Rhs | Function::Initial | Function::Output | Function::QuadratureFlux) {
+                if derivatives == DerivativeOrder::Second
+                    && matches!(
+                        function,
+                        Function::Rhs
+                            | Function::Initial
+                            | Function::Output
+                            | Function::QuadratureFlux
+                    )
+                {
                     actions.push(pse_math::jets::ProductKind::WeightedHessianAction);
                 }
             }
@@ -6354,17 +6363,18 @@ mod tests {
         });
         let access = pse_math::numerics::TargetAccess::new(&policy).unwrap();
         assert!(frozen_allowances(&policy, &access, &prepared.coordinates, &outputs).is_err());
-        let scope = pse_kernels::ExecutionScope::new(
-            pse_diagnostics::Cancellation::new(false),
-            None,
-        );
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
         let mut first = prepared.worker(scope.clone()).unwrap();
         let mut second = prepared.worker(scope).unwrap();
         assert_eq!(Arc::strong_count(&prepared.state_allowances), 3);
         assert_eq!(Arc::strong_count(&prepared.output_allowances), 3);
         first.assert_independent_layout(&second);
-        assert_eq!(first.action_buffer_sizes(0, Function::Output), [0; 4],
-            "matrix-only function preparation allocates no action workspace");
+        assert_eq!(
+            first.action_buffer_sizes(0, Function::Output),
+            [0; 4],
+            "matrix-only function preparation allocates no action workspace"
+        );
         let a = first
             .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
             .unwrap();
@@ -6506,10 +6516,7 @@ mod tests {
         );
         let mut permuted = permuted
             .worker(
-                pse_kernels::ExecutionScope::new(
-                    pse_diagnostics::Cancellation::new(false),
-                    None,
-                ),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
                 prepared.snapshot_allocator(),
             )
             .unwrap();
@@ -6669,35 +6676,61 @@ mod tests {
     async fn kernel_integrated_actions_preserve_scaled_axes_and_complete_publication() {
         let runtime = super::super::super::tests::runtime();
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p*(x[i]/1{s})^2; eq initial:x[0{s}]==offset; annotation start x(1{s}); annotation nominal x(10{s}); } }";
-        let rows = pse_authoring::language::parse(source, SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
-        let root = rows.iter().find(|r| r.name == "Root").unwrap().declaration_id;
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
         let package = runtime.modeling_package(rows, physical()).await.unwrap();
         let cancel = crate::CancelSource::new();
-        let prepared = package.prepare_simulation(root, pse_modeling::specialize::root_instance(root),
-            Bindings::default(), Default::default(), Default::default(),
-            super::super::super::tests::compiler_profile(), native::Profile {
-                method: native::Method::Idas,
-                sensitivity: native::DynamicSensitivity::Adjoint,
-                // The native profile names every original parameter, including
-                // the Time-valued initial offset, independently of the state scale.
-                parameter_scales: vec![1.; 2],
-                idas: native::IdasSettings {
-                    linear: native::IdasLinear::Spgmr {
-                        dimension: pse_model::scalars::PositiveCount::try_new(8).unwrap(),
-                        preconditioner: pse_backend_native::solve::Preconditioner::None,
+        let prepared = package
+            .prepare_simulation(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Default::default(),
+                Default::default(),
+                super::super::super::tests::compiler_profile(),
+                native::Profile {
+                    method: native::Method::Idas,
+                    sensitivity: native::DynamicSensitivity::Adjoint,
+                    // The native profile names every original parameter, including
+                    // the Time-valued initial offset, independently of the state scale.
+                    parameter_scales: vec![1.; 2],
+                    idas: native::IdasSettings {
+                        linear: native::IdasLinear::Spgmr {
+                            dimension: pse_model::scalars::PositiveCount::try_new(8).unwrap(),
+                            preconditioner: pse_backend_native::solve::Preconditioner::None,
+                        },
+                        ..Default::default()
                     },
                     ..Default::default()
                 },
-                ..Default::default()
-            }, DerivativeOrder::Second, &cancel).await.unwrap();
-        let mut worker = prepared.worker(pse_kernels::ExecutionScope::new(
-            pse_diagnostics::Cancellation::default(), None)).unwrap();
+                DerivativeOrder::Second,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let mut worker = prepared
+            .worker(pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                None,
+            ))
+            .unwrap();
         let state = [0.1];
         let parameters = prepared.parameters();
         let axes = state.len() + parameters.len();
         let direction = (0..axes).map(|i| 0.3 + i as f64 * 0.2).collect::<Vec<_>>();
-        let original = worker.evaluate(0, Function::Rhs, 0., &state, parameters, true).unwrap();
+        let original = worker
+            .evaluate(0, Function::Rhs, 0., &state, parameters, true)
+            .unwrap();
         let jacobian = original.jacobian.as_ref().unwrap();
         let mut expected_jacobian = vec![0.; original.values.len()];
         for (column, &seed) in direction.iter().enumerate() {
@@ -6706,32 +6739,77 @@ mod tests {
             }
         }
         let weights = vec![2.; original.values.len()];
-        let hessian = worker.weighted_hessian(0, Function::Rhs, 0., &state, parameters, &weights).unwrap();
+        let hessian = worker
+            .weighted_hessian(0, Function::Rhs, 0., &state, parameters, &weights)
+            .unwrap();
         let mut expected_hessian = vec![0.; axes];
         for column in 0..axes {
             for index in hessian.col_range(column) {
                 let row = hessian.row_idx()[index];
                 expected_hessian[row] += hessian.val()[index] * direction[column];
-                if row != column { expected_hessian[column] += hessian.val()[index] * direction[row]; }
+                if row != column {
+                    expected_hessian[column] += hessian.val()[index] * direction[row];
+                }
             }
         }
         assert!(expected_hessian.iter().any(|v| v.abs() > 1.));
-        assert!(worker.action_buffer_sizes(0, Function::Rhs).into_iter().all(|size| size > 0));
+        assert!(
+            worker
+                .action_buffer_sizes(0, Function::Rhs)
+                .into_iter()
+                .all(|size| size > 0)
+        );
         let buffers = worker.action_buffer_identity(0, Function::Rhs);
         let mut actual_jacobian = vec![f64::NAN; original.values.len()];
         let mut actual_hessian = vec![f64::NAN; axes];
         for _ in 0..2 {
-            worker.jacobian_action(0, Function::Rhs, 0., &state, parameters, &direction, &mut actual_jacobian).unwrap();
-            worker.weighted_hessian_action(0, Function::Rhs, 0., &state, parameters, &weights, &direction, &mut actual_hessian).unwrap();
-            for (actual, expected) in actual_jacobian.iter().zip(&expected_jacobian)
-                .chain(actual_hessian.iter().zip(&expected_hessian)) {
+            worker
+                .jacobian_action(
+                    0,
+                    Function::Rhs,
+                    0.,
+                    &state,
+                    parameters,
+                    &direction,
+                    &mut actual_jacobian,
+                )
+                .unwrap();
+            worker
+                .weighted_hessian_action(
+                    0,
+                    Function::Rhs,
+                    0.,
+                    &state,
+                    parameters,
+                    &weights,
+                    &direction,
+                    &mut actual_hessian,
+                )
+                .unwrap();
+            for (actual, expected) in actual_jacobian
+                .iter()
+                .zip(&expected_jacobian)
+                .chain(actual_hessian.iter().zip(&expected_hessian))
+            {
                 assert!((actual - expected).abs() < 1e-10, "{actual} != {expected}");
             }
             assert_eq!(buffers, worker.action_buffer_identity(0, Function::Rhs));
         }
         let before = actual_hessian.clone();
-        assert!(worker.weighted_hessian_action(0, Function::Rhs, 0., &state, parameters,
-            &[f64::NAN], &direction, &mut actual_hessian).is_err());
+        assert!(
+            worker
+                .weighted_hessian_action(
+                    0,
+                    Function::Rhs,
+                    0.,
+                    &state,
+                    parameters,
+                    &[f64::NAN],
+                    &direction,
+                    &mut actual_hessian
+                )
+                .is_err()
+        );
         assert_eq!(actual_hessian, before);
     }
 

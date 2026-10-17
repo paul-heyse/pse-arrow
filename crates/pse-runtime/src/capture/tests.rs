@@ -156,7 +156,9 @@ fn capture_unknown_clock_keeps_unaligned_target_explicit() {
     assert!(captured.loss.unknown_clock);
     assert!(!captured.targets[0].clock_aligned);
     assert!(
-        events(&trace(&captured)).iter().all(|(_, event)| matches!(&event.name_field,
+        events(&trace(&captured))
+            .iter()
+            .all(|(_, event)| matches!(&event.name_field,
             Some(track_event::NameField::Name(name)) if name == "clock alignment")),
         "unknown source alignment must not invent timestamps for scientific owners"
     );
@@ -599,17 +601,34 @@ fn capture_numerical_history_loss_is_partial_without_metric_or_registry_loss() {
     use pse_diagnostics::observation::ProducerRole;
     for refused in [false, true] {
         let directory = tempfile::tempdir().unwrap();
-        let owner = Diagnostics::new(Policy { record_capacity: 0, ..Policy::default() }, directory.path().to_owned());
+        let owner = Diagnostics::new(
+            Policy {
+                record_capacity: 0,
+                ..Policy::default()
+            },
+            directory.path().to_owned(),
+        );
         let root = owner.hub().start("numerical history only");
-        let producer = root.context().producer(ProducerRole::NativeIteration, "numerical owner");
+        let producer = root
+            .context()
+            .producer(ProducerRole::NativeIteration, "numerical owner");
         for _ in 0..2 {
-            let record = producer.record("history_control.v1", "native progress", None, None, Vec::new());
+            let record = producer.record(
+                "history_control.v1",
+                "native progress",
+                None,
+                None,
+                Vec::new(),
+            );
             assert!(producer.publish(&record));
         }
         owner.publish().unwrap();
         let mut image = read_checkpoint(&owner.checkpoint_path()).unwrap();
         let selected = [root.context().id()];
-        assert!(!source_partial(&image, &selected), "CPU attachment coverage is independent from numerical history");
+        assert!(
+            !source_partial(&image, &selected),
+            "CPU attachment coverage is independent from numerical history"
+        );
         assert!(image.operations[0].metrics.is_empty());
         let coverage = &mut image.operations[0].producers[0].coverage;
         assert_eq!(coverage.history_dropped, 2);
@@ -619,7 +638,10 @@ fn capture_numerical_history_loss_is_partial_without_metric_or_registry_loss() {
             coverage.partial = false;
         }
         std::fs::write(owner.checkpoint_path(), serde_json::to_vec(&image).unwrap()).unwrap();
-        let captured = start_capture(request(directory.path(), &owner, root.context().id())).unwrap().wait().unwrap();
+        let captured = start_capture(request(directory.path(), &owner, root.context().id()))
+            .unwrap()
+            .wait()
+            .unwrap();
         assert_eq!(captured.status, CaptureStatus::Partial);
         assert!(captured.loss.source_partial);
         assert!(!captured.loss.output_exhausted);
@@ -825,7 +847,8 @@ fn capture_owned_rust_and_linked_native_profile_control() {
                 let mut solves = 0;
                 while started.elapsed() < Duration::from_secs(7) {
                     recognizable_rust_capture_control(solves);
-                    let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &controls);
+                    let execution =
+                        Execution::new(pse_diagnostics::Cancellation::new(false), &controls);
                     let mut session =
                         highs::Session::new(&problem, None, compatibility.clone(), &execution)
                             .unwrap();
@@ -915,48 +938,144 @@ fn capture_builtin_clock_relationship_precedes_typed_source_events() {
     let directory = tempfile::tempdir().unwrap();
     let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
     let operation = owner.hub().start("actual source clock control");
-    let producer = operation.context().producer(ProducerRole::NativeIteration, "actual numerical owner");
-    let field = |name: &str, value| RecordField { name: name.into(), unit: "source-unit".into(), value, availability: None };
-    let record = producer.record("clock_control.v1", "native checkpoint", Some("physical-original"), Some("original-infinity"), vec![
-        field("iteration", Value::Count(u64::MAX)), field("signed", Value::Integer(i64::MIN)),
-        field("zero", Value::Number(0.)), field("predicate", Value::Boolean(false)),
-        field("bad", Value::number(f64::NAN)),
-        RecordField { availability: Some(RecordAvailability::NotSupplied), ..field("absent", Value::Unavailable("not supplied by native owner".into())) },
-    ]);
+    let producer = operation
+        .context()
+        .producer(ProducerRole::NativeIteration, "actual numerical owner");
+    let field = |name: &str, value| RecordField {
+        name: name.into(),
+        unit: "source-unit".into(),
+        value,
+        availability: None,
+    };
+    let record = producer.record(
+        "clock_control.v1",
+        "native checkpoint",
+        Some("physical-original"),
+        Some("original-infinity"),
+        vec![
+            field("iteration", Value::Count(u64::MAX)),
+            field("signed", Value::Integer(i64::MIN)),
+            field("zero", Value::Number(0.)),
+            field("predicate", Value::Boolean(false)),
+            field("bad", Value::number(f64::NAN)),
+            RecordField {
+                availability: Some(RecordAvailability::NotSupplied),
+                ..field(
+                    "absent",
+                    Value::Unavailable("not supplied by native owner".into()),
+                )
+            },
+        ],
+    );
     assert!(producer.publish(&record));
     owner.publish().unwrap();
     let before_mono = nanos(rustix::time::ClockId::Monotonic);
     let before_boot = nanos(rustix::time::ClockId::Boottime);
-    let captured = start_capture(request(directory.path(), &owner, operation.context().id())).unwrap().wait().unwrap();
+    let captured = start_capture(request(directory.path(), &owner, operation.context().id()))
+        .unwrap()
+        .wait()
+        .unwrap();
     let after_mono = nanos(rustix::time::ClockId::Monotonic);
     let after_boot = nanos(rustix::time::ClockId::Boottime);
     let trace = trace(&captured);
-    let first_event = trace.packet.iter().position(|packet| matches!(&packet.data, Some(trace_packet::Data::TrackEvent(_)))).unwrap();
-    let snapshot_index = trace.packet.iter().position(|packet| matches!(&packet.data, Some(trace_packet::Data::ClockSnapshot(_)))).unwrap();
-    assert!(snapshot_index < first_event, "a standalone consumer sees clock relationships before timestamps");
-    let Some(trace_packet::Data::ClockSnapshot(snapshot)) = &trace.packet[snapshot_index].data else { unreachable!() };
+    let first_event = trace
+        .packet
+        .iter()
+        .position(|packet| matches!(&packet.data, Some(trace_packet::Data::TrackEvent(_))))
+        .unwrap();
+    let snapshot_index = trace
+        .packet
+        .iter()
+        .position(|packet| matches!(&packet.data, Some(trace_packet::Data::ClockSnapshot(_))))
+        .unwrap();
+    assert!(
+        snapshot_index < first_event,
+        "a standalone consumer sees clock relationships before timestamps"
+    );
+    let Some(trace_packet::Data::ClockSnapshot(snapshot)) = &trace.packet[snapshot_index].data
+    else {
+        unreachable!()
+    };
     assert_eq!(snapshot.primary_trace_clock, Some(6));
-    let clock = |id| snapshot.clocks.iter().find(|clock| clock.clock_id == Some(id)).unwrap().timestamp.unwrap();
-    assert!((before_mono..=after_mono).contains(&clock(3)), "MONOTONIC snapshot is an actual sampled reading");
-    assert!((before_boot..=after_boot).contains(&clock(6)), "BOOTTIME snapshot is an actual sampled reading");
-    let source = events(&trace).into_iter().find(|(_, event)| matches!(&event.name_field,
-        Some(track_event::NameField::Name(name)) if name == "native checkpoint")).unwrap();
+    let clock = |id| {
+        snapshot
+            .clocks
+            .iter()
+            .find(|clock| clock.clock_id == Some(id))
+            .unwrap()
+            .timestamp
+            .unwrap()
+    };
+    assert!(
+        (before_mono..=after_mono).contains(&clock(3)),
+        "MONOTONIC snapshot is an actual sampled reading"
+    );
+    assert!(
+        (before_boot..=after_boot).contains(&clock(6)),
+        "BOOTTIME snapshot is an actual sampled reading"
+    );
+    let source = events(&trace)
+        .into_iter()
+        .find(|(_, event)| {
+            matches!(&event.name_field,
+        Some(track_event::NameField::Name(name)) if name == "native checkpoint")
+        })
+        .unwrap();
     assert_eq!(source.0.timestamp_clock_id, Some(3));
     let annotations = &source.1.debug_annotations;
-    let annotation = |name: &str| annotations.iter().find(|annotation| matches!(&annotation.name_field,
-        Some(debug_annotation::NameField::Name(found)) if found == name)).unwrap().value.clone().unwrap();
-    assert_eq!(annotation("operation_id"), debug_annotation::Value::StringValue(record.producer.operation.to_string()));
-    for (name, expected) in [("producer_sequence", record.producer.sequence), ("source_sequence", record.sequence),
-        ("family_sequence", record.family_sequence.unwrap()), ("generation", record.generation), ("iteration", u64::MAX)] {
-        assert_eq!(annotation(name), debug_annotation::Value::UintValue(expected));
+    let annotation = |name: &str| {
+        annotations
+            .iter()
+            .find(|annotation| {
+                matches!(&annotation.name_field,
+        Some(debug_annotation::NameField::Name(found)) if found == name)
+            })
+            .unwrap()
+            .value
+            .clone()
+            .unwrap()
+    };
+    assert_eq!(
+        annotation("operation_id"),
+        debug_annotation::Value::StringValue(record.producer.operation.to_string())
+    );
+    for (name, expected) in [
+        ("producer_sequence", record.producer.sequence),
+        ("source_sequence", record.sequence),
+        ("family_sequence", record.family_sequence.unwrap()),
+        ("generation", record.generation),
+        ("iteration", u64::MAX),
+    ] {
+        assert_eq!(
+            annotation(name),
+            debug_annotation::Value::UintValue(expected)
+        );
     }
-    assert_eq!(annotation("family"), debug_annotation::Value::StringValue("clock_control.v1".into()));
-    assert_eq!(annotation("signed"), debug_annotation::Value::IntValue(i64::MIN));
+    assert_eq!(
+        annotation("family"),
+        debug_annotation::Value::StringValue("clock_control.v1".into())
+    );
+    assert_eq!(
+        annotation("signed"),
+        debug_annotation::Value::IntValue(i64::MIN)
+    );
     assert_eq!(annotation("zero"), debug_annotation::Value::DoubleValue(0.));
-    assert_eq!(annotation("predicate"), debug_annotation::Value::BoolValue(false));
-    assert_eq!(annotation("bad.nonfinite"), debug_annotation::Value::StringValue("Nan".into()));
-    assert_eq!(annotation("absent.availability"), debug_annotation::Value::StringValue("not_supplied".into()));
-    assert!(operation.context().is_active(), "capture has no scientific completion authority");
+    assert_eq!(
+        annotation("predicate"),
+        debug_annotation::Value::BoolValue(false)
+    );
+    assert_eq!(
+        annotation("bad.nonfinite"),
+        debug_annotation::Value::StringValue("Nan".into())
+    );
+    assert_eq!(
+        annotation("absent.availability"),
+        debug_annotation::Value::StringValue("not_supplied".into())
+    );
+    assert!(
+        operation.context().is_active(),
+        "capture has no scientific completion authority"
+    );
 }
 
 /// Explicitly selected consumer qualification; ordinary tests never install or require this tool.
@@ -964,27 +1083,80 @@ fn capture_builtin_clock_relationship_precedes_typed_source_events() {
 #[ignore = "requires explicit PSE_TRACE_PROCESSOR binary and pinned checkout Python"]
 fn capture_standalone_trace_processor_reads_numerical_events_with_clock_alignment() {
     use pse_diagnostics::observation::{ProducerRole, RecordField, Value};
-    let binary = std::env::var_os("PSE_TRACE_PROCESSOR").expect("select an existing Trace Processor binary explicitly");
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
+    let binary = std::env::var_os("PSE_TRACE_PROCESSOR")
+        .expect("select an existing Trace Processor binary explicitly");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
     let directory = tempfile::tempdir().unwrap();
     let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
     let operation = owner.hub().start("Trace Processor consumer control");
-    let producer = operation.context().producer(ProducerRole::NativeIteration, "consumer numerical owner");
-    let record = producer.record("trace_consumer_control.v1", "recognizable native checkpoint", None, None,
-        vec![RecordField { name: "iteration".into(), unit: "count".into(), value: Value::Count(7), availability: None }]);
-    assert!(producer.publish(&record)); owner.publish().unwrap();
-    let captured = start_capture(request(directory.path(), &owner, operation.context().id())).unwrap().wait().unwrap();
-    let output = captured.outputs.iter().find(|output| output.kind == CaptureOutputKind::Perfetto && output.readable).unwrap();
+    let producer = operation
+        .context()
+        .producer(ProducerRole::NativeIteration, "consumer numerical owner");
+    let record = producer.record(
+        "trace_consumer_control.v1",
+        "recognizable native checkpoint",
+        None,
+        None,
+        vec![RecordField {
+            name: "iteration".into(),
+            unit: "count".into(),
+            value: Value::Count(7),
+            availability: None,
+        }],
+    );
+    assert!(producer.publish(&record));
+    owner.publish().unwrap();
+    let captured = start_capture(request(directory.path(), &owner, operation.context().id()))
+        .unwrap()
+        .wait()
+        .unwrap();
+    let output = captured
+        .outputs
+        .iter()
+        .find(|output| output.kind == CaptureOutputKind::Perfetto && output.readable)
+        .unwrap();
     let results = directory.path().join("actual-consumer");
     // Existing adapter applies a finite child clock/file allowance and joins its exact child.
     let status = std::process::Command::new(root.join(".venv/bin/python"))
-        .arg(root.join("scripts/diagnostic_trace.py")).arg("query").arg(&output.path).arg("numerical")
-        .arg("--output").arg(&results).arg("--timeout").arg("10").arg("--output-bytes").arg("65536")
-        .arg("--binary").arg(binary).status().unwrap();
-    assert!(status.success(), "{}", std::fs::read_to_string(results.join("stderr.txt")).unwrap_or_default());
+        .arg(root.join("scripts/diagnostic_trace.py"))
+        .arg("query")
+        .arg(&output.path)
+        .arg("numerical")
+        .arg("--output")
+        .arg(&results)
+        .arg("--timeout")
+        .arg("10")
+        .arg("--output-bytes")
+        .arg("65536")
+        .arg("--binary")
+        .arg(binary)
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "{}",
+        std::fs::read_to_string(results.join("stderr.txt")).unwrap_or_default()
+    );
     let rows = std::fs::read_to_string(results.join("rows.csv")).unwrap();
-    assert!(rows.contains("trace_consumer_control.v1") && rows.contains("recognizable native checkpoint"), "actual consumer lost source event: {rows}");
-    assert!(std::fs::read_to_string(results.join("stderr.txt")).unwrap().to_ascii_lowercase().find("unknown clock").is_none());
-    assert!(output.path.is_file(), "query does not consume or replace raw source");
+    assert!(
+        rows.contains("trace_consumer_control.v1")
+            && rows.contains("recognizable native checkpoint"),
+        "actual consumer lost source event: {rows}"
+    );
+    assert!(
+        std::fs::read_to_string(results.join("stderr.txt"))
+            .unwrap()
+            .to_ascii_lowercase()
+            .find("unknown clock")
+            .is_none()
+    );
+    assert!(
+        output.path.is_file(),
+        "query does not consume or replace raw source"
+    );
     assert!(operation.context().is_active());
 }

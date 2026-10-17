@@ -234,8 +234,16 @@ impl CaseObservation {
             counts.hit(requested, achieved)
         });
     }
-    pub(super) fn projected(&mut self,instance:usize,demand:EvaluationDemand,requested:DerivativeOrder,achieved:DerivativeOrder) {
-        self.apply(instance,demand,requested,|counts|counts.projected(achieved));
+    pub(super) fn projected(
+        &mut self,
+        instance: usize,
+        demand: EvaluationDemand,
+        requested: DerivativeOrder,
+        achieved: DerivativeOrder,
+    ) {
+        self.apply(instance, demand, requested, |counts| {
+            counts.projected(achieved)
+        });
     }
     pub(super) fn miss(
         &mut self,
@@ -296,10 +304,26 @@ impl CaseObservation {
         for template in assembly.demand_census() {
             for census in template.program.census() {
                 let fields = vec![
-                    field("product","mathematical-product",Value::Text(format!("{:?}",census.product))),
-                    field("direct_weighted","predicate",Value::Boolean(census.direct_weighted)),
-                    field("derivative_components","components",Value::Count(census.derivative_components as u64)),
-                    field("second_pairs","symmetric-pairs",Value::Count(census.second_pairs as u64)),
+                    field(
+                        "product",
+                        "mathematical-product",
+                        Value::Text(format!("{:?}", census.product)),
+                    ),
+                    field(
+                        "direct_weighted",
+                        "predicate",
+                        Value::Boolean(census.direct_weighted),
+                    ),
+                    field(
+                        "derivative_components",
+                        "components",
+                        Value::Count(census.derivative_components as u64),
+                    ),
+                    field(
+                        "second_pairs",
+                        "symmetric-pairs",
+                        Value::Count(census.second_pairs as u64),
+                    ),
                     field(
                         "template",
                         "template-index",

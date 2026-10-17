@@ -238,15 +238,24 @@ fn stats(snes: Handle) -> (i32, i32, i32, i32, f64) {
 fn independent_selected_logging_controls() {
     let mut first = object(pse_petsc_log_create, pse_petsc_log_destroy);
     let second = object(pse_petsc_log_create, pse_petsc_log_destroy);
-    let mut context = RootContext { target: 1., ..RootContext::default() };
+    let mut context = RootContext {
+        target: 1.,
+        ..RootContext::default()
+    };
     let fixture = root(&mut context, 0.);
     // SAFETY: two independent handlers and all solver objects remain live under
     // this one serialized lifecycle test; getters copy separate caller storage.
     unsafe {
-        assert_eq!(pse_petsc_snes_solve(fixture.solver.handle, fixture.primal.handle), 0);
+        assert_eq!(
+            pse_petsc_snes_solve(fixture.solver.handle, fixture.primal.handle),
+            0
+        );
         for handler in [first.handle, second.handle] {
             let mut info = EventPerf::default();
-            assert_eq!(pse_petsc_log_event(handler, c"SNESSolve".as_ptr(), &mut info), 0);
+            assert_eq!(
+                pse_petsc_log_event(handler, c"SNESSolve".as_ptr(), &mut info),
+                0
+            );
             assert_eq!(info.available, 1);
             assert_eq!(info.entered_calls, 1);
             assert_eq!(info.active_depth, 0);
@@ -254,14 +263,41 @@ fn independent_selected_logging_controls() {
         }
         assert_eq!(pse_petsc_log_destroy(&mut first.handle), 0);
         assert!(first.handle.is_null());
-        let mut refused = EventPerf { registered: 73, activated: 91, ..EventPerf::default() };
-        assert_ne!(pse_petsc_log_event(first.handle, c"SNESSolve".as_ptr(), &mut refused), 0);
-        assert_eq!((refused.registered, refused.activated), (73,91), "refused getter does not publish registration facts");
-        assert_eq!(pse_petsc_snes_solve(fixture.solver.handle, fixture.primal.handle), 0);
+        let mut refused = EventPerf {
+            registered: 73,
+            activated: 91,
+            ..EventPerf::default()
+        };
+        assert_ne!(
+            pse_petsc_log_event(first.handle, c"SNESSolve".as_ptr(), &mut refused),
+            0
+        );
+        assert_eq!(
+            (refused.registered, refused.activated),
+            (73, 91),
+            "refused getter does not publish registration facts"
+        );
+        assert_eq!(
+            pse_petsc_snes_solve(fixture.solver.handle, fixture.primal.handle),
+            0
+        );
         let mut info = EventPerf::default();
-        assert_eq!(pse_petsc_log_event(second.handle, c"SNESSolve".as_ptr(), &mut info), 0);
-        assert_eq!(info.entered_calls, 2, "stopping one handler preserves the other");
-        assert_eq!(pse_petsc_log_event(second.handle, c"PSE nonexistent native event".as_ptr(), &mut info), 0);
+        assert_eq!(
+            pse_petsc_log_event(second.handle, c"SNESSolve".as_ptr(), &mut info),
+            0
+        );
+        assert_eq!(
+            info.entered_calls, 2,
+            "stopping one handler preserves the other"
+        );
+        assert_eq!(
+            pse_petsc_log_event(
+                second.handle,
+                c"PSE nonexistent native event".as_ptr(),
+                &mut info
+            ),
+            0
+        );
         assert_eq!(info.available, 0, "absent event is not a measured zero");
     }
     assert!((read::<1>(fixture.primal.handle)[0] - 1.).abs() < 1e-10);

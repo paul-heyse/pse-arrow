@@ -348,7 +348,8 @@ impl TNLP for Adapter {
     }
     fn eval_f(&mut self, x: &[f64], _: bool) -> Option<f64> {
         self.state.evaluate("objective", || {
-            self.normalization.physical_point_into(x, &mut self.scratch.point)?;
+            self.normalization
+                .physical_point_into(x, &mut self.scratch.point)?;
             let v = pse_math::normalization::checked_ratio(
                 self.oracle.objective(&self.scratch.point)?,
                 self.normalization.objective,
@@ -360,7 +361,8 @@ impl TNLP for Adapter {
     fn eval_grad_f(&mut self, x: &[f64], _: bool, out: &mut [f64]) -> bool {
         self.state
             .evaluate("gradient", || {
-                self.normalization.physical_point_into(x, &mut self.scratch.point)?;
+                self.normalization
+                    .physical_point_into(x, &mut self.scratch.point)?;
                 let v = &mut self.scratch.output[..self.normalization.variables.len()];
                 v.fill(f64::NAN);
                 self.oracle.gradient(&self.scratch.point, v)?;
@@ -381,7 +383,8 @@ impl TNLP for Adapter {
     fn eval_g(&mut self, x: &[f64], _: bool, out: &mut [f64]) -> bool {
         self.state
             .evaluate("constraints", || {
-                self.normalization.physical_point_into(x, &mut self.scratch.point)?;
+                self.normalization
+                    .physical_point_into(x, &mut self.scratch.point)?;
                 let v = &mut self.scratch.output[..self.normalization.rows.len()];
                 v.fill(f64::NAN);
                 self.oracle.constraints(&self.scratch.point, v)?;
@@ -416,7 +419,8 @@ impl TNLP for Adapter {
                     copy(&self.jac.columns, jcol)
                 }
                 SparsityRequest::Values { values } => {
-                    self.normalization.physical_point_into(point(x)?, &mut self.scratch.point)?;
+                    self.normalization
+                        .physical_point_into(point(x)?, &mut self.scratch.point)?;
                     let v = &mut self.scratch.output[..self.jac.rows.len()];
                     v.fill(f64::NAN);
                     self.oracle.jacobian(&self.scratch.point, v)?;
@@ -457,13 +461,17 @@ impl TNLP for Adapter {
                 }
                 SparsityRequest::Values { values } => {
                     if values.len() != self.hess.rows.len() {
-                        return Err(ProblemError::Internal("POUNCE Hessian value dimensions".into()));
+                        return Err(ProblemError::Internal(
+                            "POUNCE Hessian value dimensions".into(),
+                        ));
                     }
                     // SQP's terminal curvature check also queries quasi-Newton
                     // profiles. The declared empty triplet means no exact Hessian
                     // is supplied; it is not a request to evaluate the full oracle
                     // into empty storage or a certificate of zero curvature.
-                    if values.is_empty() { return Ok(()); }
+                    if values.is_empty() {
+                        return Ok(());
+                    }
                     let lambda = if self.oracle.contract().rows.is_empty() {
                         &[][..]
                     } else {
@@ -472,10 +480,17 @@ impl TNLP for Adapter {
                     if lambda.len() != self.normalization.rows.len() {
                         return Err(ProblemError::Internal("normalized multipliers".into()));
                     }
-                    for ((out, v), s) in self.scratch.multipliers.iter_mut().zip(lambda).zip(&self.normalization.rows) {
+                    for ((out, v), s) in self
+                        .scratch
+                        .multipliers
+                        .iter_mut()
+                        .zip(lambda)
+                        .zip(&self.normalization.rows)
+                    {
                         *out = pse_math::normalization::checked_ratio(*v, *s)?;
                     }
-                    self.normalization.physical_point_into(point(x)?, &mut self.scratch.point)?;
+                    self.normalization
+                        .physical_point_into(point(x)?, &mut self.scratch.point)?;
                     let v = &mut self.scratch.output[..self.hess.rows.len()];
                     v.fill(f64::NAN);
                     self.oracle.hessian(

@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact immutable preparation products; current protection and publication stay with callers.
-use pse_diagnostics::Cancellation;
 use super::{
     MathRuntimeError, MathService, Workspace,
     modeling::{ModelingPreparation, ModelingRevision},
 };
 use crate::workflow::modeling::LocalSourcePremises;
-use pse_columnar::{
-    AllocationLease,
-    flight::FlightError,
-};
+use pse_columnar::{AllocationLease, flight::FlightError};
 use pse_compiler::workspace::{ModelingPreparationFrontier, PreparedModeling};
+use pse_diagnostics::Cancellation;
 use pse_model::lineage::Solved;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
 use std::{
@@ -360,7 +357,11 @@ impl MathService {
                     let product =
                         service.with_modeling_compiler(authority, &revision, |compiler| {
                             Ok(compiler.plan_modeling_cancellable(
-                                root, instance, bindings, limits, flag.flag(),
+                                root,
+                                instance,
+                                bindings,
+                                limits,
+                                flag.flag(),
                             )?)
                         })?;
                     let bytes = size_of::<OwnedModelingFrontier>() + product.retained_bytes();
@@ -488,8 +489,8 @@ impl MathService {
                     effects
                         .completions
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    let product =
-                        compiler.complete_modeling_cancellable(frontier.product.clone(), flag.flag())?;
+                    let product = compiler
+                        .complete_modeling_cancellable(frontier.product.clone(), flag.flag())?;
                     let bytes = product.retained_bytes();
                     Ok((product, bytes))
                 },

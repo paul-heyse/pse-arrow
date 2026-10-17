@@ -3,9 +3,7 @@
 use super::*;
 #[cfg(feature = "solver-kinsol")]
 use std::sync::atomic::Ordering;
-use std::{
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 async fn original(text: &str, backend: Backend) -> (crate::workflow::Runtime, PreparedSolve) {
     let (runtime, _, prepared) = modeling_original(text, backend).await;

@@ -505,10 +505,12 @@ impl NleOracle for Roots {
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
         self.normalization.physical_point_into(z, &mut self.point)?;
-        self.normalization.physical_point_into(d, &mut self.direction)?;
+        self.normalization
+            .physical_point_into(d, &mut self.direction)?;
         let output = &mut self.output[..self.normalization.rows.len()];
         output.fill(f64::NAN);
-        self.original.jacobian_product(&self.point, &self.direction, output)?;
+        self.original
+            .jacobian_product(&self.point, &self.direction, output)?;
         values(output, &self.normalization.rows, true)?;
         crate::tnlp::copy(output, out)
     }

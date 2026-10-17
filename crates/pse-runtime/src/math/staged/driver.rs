@@ -113,9 +113,12 @@ impl<D: Dispatch> StepDriver<'_, D> {
         let deadline = std::time::Instant::now()
             .checked_add(step.time_limit())
             .ok_or_else(|| ProblemError::Contract("accuracy task deadline extent".into()))?;
-        let scope = step
-            .task_scope()
-            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline)));
+        let scope = step.task_scope().unwrap_or_else(|| {
+            pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                Some(deadline),
+            )
+        });
         let mut limits = request
             .limits
             .unwrap_or_else(|| step.numerical_strategy().limits);
@@ -440,9 +443,12 @@ impl<D: Dispatch> StepDriver<'_, D> {
         let deadline = std::time::Instant::now()
             .checked_add(step.time_limit())
             .ok_or_else(|| ProblemError::Contract("automatic task deadline extent".into()))?;
-        let scope = step
-            .task_scope()
-            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline)));
+        let scope = step.task_scope().unwrap_or_else(|| {
+            pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                Some(deadline),
+            )
+        });
         let step = step.within_task(scope.clone())?;
         let mut declaration = step.numerical_strategy();
         declaration.branch = request.branch;

@@ -299,7 +299,8 @@ fn exact_evaluator(
 mod admission;
 pub use admission::ScalarProducts;
 pub(crate) use admission::{
-    ScalarCache, bounded_evaluator, bounded_scalar_evaluator, evaluator_construction, evaluator_construction_shape,
+    ScalarCache, bounded_evaluator, bounded_scalar_evaluator, evaluator_construction,
+    evaluator_construction_shape,
 };
 
 /// Reusable function symbols for Symbolica-generated provider lifts, one per formal slot.

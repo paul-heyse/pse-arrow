@@ -20,8 +20,7 @@ use crate::{
     presolve::Policy,
     quality::Tolerances,
     settings::ipopt::{
-        Linear, PardisoMatching, PardisoOrdering, SpralOrdering, SpralPivot,
-        SpralScaling,
+        Linear, PardisoMatching, PardisoOrdering, SpralOrdering, SpralPivot, SpralScaling,
     },
     solve::*,
 };

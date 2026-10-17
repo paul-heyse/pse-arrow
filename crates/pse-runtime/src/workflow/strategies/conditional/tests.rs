@@ -1149,10 +1149,7 @@ async fn conditional_retention_control(ambiguous: bool) {
     );
     assert_eq!(program.program.assembly.order(), DerivativeOrder::Value);
     let controls = Controls::default();
-    let execution = Execution::new(
-        pse_diagnostics::Cancellation::new(false),
-        &controls,
-    );
+    let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &controls);
     let budget = crate::math::WorkerBudget::new(16 << 20);
     let live_budget = budget.clone();
     let mut unit = UnitWorker::new(
@@ -1466,10 +1463,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
     );
     assert_eq!(program.program.assembly.order(), DerivativeOrder::Value);
     let controls = Controls::default();
-    let execution = Execution::new(
-        pse_diagnostics::Cancellation::new(false),
-        &controls,
-    );
+    let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &controls);
     let budget = crate::math::WorkerBudget::new(16 << 20);
     let mut unit = UnitWorker::new(
         program,

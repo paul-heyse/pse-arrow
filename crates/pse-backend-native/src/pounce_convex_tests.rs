@@ -178,7 +178,10 @@ fn pounce_convex_batch_matches_single_solves() {
                         settings: &settings,
                         controls: &controls,
                         accuracy: &accuracy,
-                        execution: Execution::new(pse_diagnostics::Cancellation::new(false), &controls),
+                        execution: Execution::new(
+                            pse_diagnostics::Cancellation::new(false),
+                            &controls,
+                        ),
                         tolerances: t,
                         normalization: n,
                         compatibility: stamp(Backend::PounceConvex),

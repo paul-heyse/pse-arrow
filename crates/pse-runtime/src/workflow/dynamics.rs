@@ -3,11 +3,17 @@
 //! Dynamic roles project the shared typed compiler; only attempts own native state.
 /// Observe an actual synchronous workflow analysis under its transferred invocation.
 /// Its inclusive interval is not another work charge or scientific permission.
-pub(crate) fn analysis<T, E>(name: &'static str, work: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+pub(crate) fn analysis<T, E>(
+    name: &'static str,
+    work: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
     let stage = crate::invocation::stage(name);
     let result = work();
-    stage.finish(if result.is_ok() { crate::invocation::InvocationOutcome::Completed }
-        else { crate::invocation::InvocationOutcome::Failed });
+    stage.finish(if result.is_ok() {
+        crate::invocation::InvocationOutcome::Completed
+    } else {
+        crate::invocation::InvocationOutcome::Failed
+    });
     result
 }
 
@@ -108,7 +114,8 @@ impl GuardWorker {
                 RangeValue::Input(id) => values
                     .get(*id)
                     .ok_or_else(|| ProblemError::Internal("dynamic range input absent".into())),
-                RangeValue::Output(id) => program.rows
+                RangeValue::Output(id) => program
+                    .rows
                     .get(id)
                     .and_then(|i| rows.get(*i))
                     .copied()
@@ -554,13 +561,22 @@ impl DynamicWorker {
     #[cfg(test)]
     pub(crate) fn action_buffer_identity(&self, mode: usize, function: Function) -> [usize; 4] {
         let scratch = &self.functions[&(mode, function)].actions;
-        [scratch.seed.as_ptr() as usize, scratch.local.as_ptr() as usize,
-            scratch.multipliers.as_ptr() as usize, scratch.physical.as_ptr() as usize]
+        [
+            scratch.seed.as_ptr() as usize,
+            scratch.local.as_ptr() as usize,
+            scratch.multipliers.as_ptr() as usize,
+            scratch.physical.as_ptr() as usize,
+        ]
     }
     #[cfg(test)]
     pub(crate) fn action_buffer_sizes(&self, mode: usize, function: Function) -> [usize; 4] {
         let scratch = &self.functions[&(mode, function)].actions;
-        [scratch.seed.len(), scratch.local.len(), scratch.multipliers.len(), scratch.physical.len()]
+        [
+            scratch.seed.len(),
+            scratch.local.len(),
+            scratch.multipliers.len(),
+            scratch.physical.len(),
+        ]
     }
     fn new(
         contract: native::Contract,
@@ -676,7 +692,10 @@ impl ActionScratch {
         let hessian = program.case.assembly.has_hessian_actions();
         let columns = program.case.assembly.columns().len();
         let rows = program.case.assembly.structure().rows().len();
-        let physical = coordinates.state.len().checked_add(coordinates.parameters.len())?;
+        let physical = coordinates
+            .state
+            .len()
+            .checked_add(coordinates.parameters.len())?;
         Some([
             if jacobian || hessian { columns } else { 0 },
             (if jacobian { rows } else { 0 }).max(if hessian { columns } else { 0 }),
@@ -684,15 +703,28 @@ impl ActionScratch {
             (if jacobian { program.rows.len() } else { 0 }).max(if hessian { physical } else { 0 }),
         ])
     }
-    fn allocation_bound(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Option<usize> {
-        Self::extents(program, coordinates)?.into_iter().try_fold(0usize, |n, size| n.checked_add(size))?
-            .checked_mul(size_of::<f64>())?.checked_add(size_of::<Self>())
+    fn allocation_bound(
+        program: &FunctionProgram,
+        coordinates: &DynamicCoordinates,
+    ) -> Option<usize> {
+        Self::extents(program, coordinates)?
+            .into_iter()
+            .try_fold(0usize, |n, size| n.checked_add(size))?
+            .checked_mul(size_of::<f64>())?
+            .checked_add(size_of::<Self>())
     }
-    fn new(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Result<Self, ProblemError> {
+    fn new(
+        program: &FunctionProgram,
+        coordinates: &DynamicCoordinates,
+    ) -> Result<Self, ProblemError> {
         let [seed, local, multipliers, physical] = Self::extents(program, coordinates)
             .ok_or_else(|| ProblemError::memory("dynamic action workspace extent"))?;
-        Ok(Self { seed: vec![0.; seed], local: vec![0.; local],
-            multipliers: vec![0.; multipliers], physical: vec![0.; physical] })
+        Ok(Self {
+            seed: vec![0.; seed],
+            local: vec![0.; local],
+            multipliers: vec![0.; multipliers],
+            physical: vec![0.; physical],
+        })
     }
 }
 /// Attempt-owned dense physical values; the semantic index is compiled once.
@@ -1173,58 +1205,106 @@ impl Oracle for DynamicWorker {
         }
         result
     }
-    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings"
+    )]
     fn jacobian_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], direction: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
         self.bind(mode, function, time, state, parameters)?;
         let chain = &self.layout.chain;
-        let worker = self.functions.get_mut(&(mode, function))
+        let worker = self
+            .functions
+            .get_mut(&(mode, function))
             .ok_or_else(|| ProblemError::internal("missing compiled dynamic action function"))?;
         if !worker.worker.assembly().has_directional_actions() {
-            return Err(ProblemError::unsupported("the selected dynamic profile did not prepare Jacobian actions"));
+            return Err(ProblemError::unsupported(
+                "the selected dynamic profile did not prepare Jacobian actions",
+            ));
         }
         let p = &worker.program;
-        if direction.len() != chain.len() || output.len() != p.rows.len()
-            || direction.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("dynamic Jacobian action dimensions or direction".into()));
+        if direction.len() != chain.len()
+            || output.len() != p.rows.len()
+            || direction.iter().any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "dynamic Jacobian action dimensions or direction".into(),
+            ));
         }
         for (seed, &axis) in worker.actions.seed.iter_mut().zip(&worker.layout.columns) {
             *seed = direction[axis] * chain[axis];
         }
         worker.binding.refill(&self.modes[mode].frame)?;
         let rows = worker.worker.assembly().structure().rows().len();
-        worker.worker.jacobian_product(worker.binding.trial()?, &worker.actions.seed, &mut worker.actions.local[..rows])?;
+        worker.worker.jacobian_product(
+            worker.binding.trial()?,
+            &worker.actions.seed,
+            &mut worker.actions.local[..rows],
+        )?;
         for (i, &row) in p.rows.iter().enumerate() {
-            worker.actions.physical[i] = if p.constants.contains_key(&i) { 0. } else { worker.actions.local[row] * p.scales[i] };
+            worker.actions.physical[i] = if p.constants.contains_key(&i) {
+                0.
+            } else {
+                worker.actions.local[row] * p.scales[i]
+            };
         }
         let candidate = &worker.actions.physical[..output.len()];
-        if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite physical Jacobian action")); }
+        if candidate.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical(
+                "nonfinite physical Jacobian action",
+            ));
+        }
         self.scope.check().map_err(ProblemError::Provider)?;
         output.copy_from_slice(candidate);
         Ok(())
     }
-    #[allow(clippy::too_many_arguments, reason = "explicit physical point, output weights and direction are separate scientific product bindings")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit physical point, output weights and direction are separate scientific product bindings"
+    )]
     fn weighted_hessian_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], weights: &[f64],
-        direction: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
         if self.contract.derivatives < pse_kernels::DerivativeOrder::Second {
-            return Err(ProblemError::unsupported("the dynamic functions were prepared without second derivatives"));
+            return Err(ProblemError::unsupported(
+                "the dynamic functions were prepared without second derivatives",
+            ));
         }
         self.bind(mode, function, time, state, parameters)?;
         let chain = &self.layout.chain;
-        let worker = self.functions.get_mut(&(mode, function))
-            .ok_or_else(|| ProblemError::internal("missing compiled dynamic Hessian action function"))?;
+        let worker = self.functions.get_mut(&(mode, function)).ok_or_else(|| {
+            ProblemError::internal("missing compiled dynamic Hessian action function")
+        })?;
         if !worker.worker.assembly().has_hessian_actions() {
-            return Err(ProblemError::unsupported("the selected dynamic profile did not prepare Hessian actions"));
+            return Err(ProblemError::unsupported(
+                "the selected dynamic profile did not prepare Hessian actions",
+            ));
         }
         let p = &worker.program;
-        if weights.len() != p.rows.len() || direction.len() != chain.len() || output.len() != chain.len()
-            || weights.iter().chain(direction).any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("dynamic Hessian action dimensions or bindings".into()));
+        if weights.len() != p.rows.len()
+            || direction.len() != chain.len()
+            || output.len() != chain.len()
+            || weights.iter().chain(direction).any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "dynamic Hessian action dimensions or bindings".into(),
+            ));
         }
         worker.actions.multipliers.fill(0.);
         for (i, &row) in p.rows.iter().enumerate() {
@@ -1237,14 +1317,21 @@ impl Oracle for DynamicWorker {
         }
         worker.binding.refill(&self.modes[mode].frame)?;
         let columns = worker.actions.seed.len();
-        worker.worker.hessian_product(worker.binding.trial()?, 0., &worker.actions.multipliers,
-            &worker.actions.seed, &mut worker.actions.local[..columns])?;
+        worker.worker.hessian_product(
+            worker.binding.trial()?,
+            0.,
+            &worker.actions.multipliers,
+            &worker.actions.seed,
+            &mut worker.actions.local[..columns],
+        )?;
         worker.actions.physical[..chain.len()].fill(0.);
         for (local, &axis) in worker.layout.columns.iter().enumerate() {
             worker.actions.physical[axis] += worker.actions.local[local] * chain[axis];
         }
         let candidate = &worker.actions.physical[..output.len()];
-        if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite physical Hessian action")); }
+        if candidate.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite physical Hessian action"));
+        }
         self.scope.check().map_err(ProblemError::Provider)?;
         output.copy_from_slice(candidate);
         Ok(())
@@ -1350,19 +1437,40 @@ impl Oracle for &mut DynamicWorker {
     ) -> Result<native::Evaluation, ProblemError> {
         (**self).evaluate(mode, function, time, state, parameters, derivatives)
     }
-    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings"
+    )]
     fn jacobian_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], direction: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
         (**self).jacobian_action(mode, function, time, state, parameters, direction, output)
     }
-    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings"
+    )]
     fn weighted_hessian_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], weights: &[f64], direction: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
-        (**self).weighted_hessian_action(mode, function, time, state, parameters, weights, direction, output)
+        (**self).weighted_hessian_action(
+            mode, function, time, state, parameters, weights, direction, output,
+        )
     }
     fn weighted_hessian(
         &mut self,

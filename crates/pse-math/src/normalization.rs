@@ -119,7 +119,9 @@ impl Normalization {
     /// is incomplete and must not be published by the caller.
     pub fn physical_point_into(&self, z: &[f64], out: &mut [f64]) -> Result<(), MathError> {
         if z.len() != self.variables.len() || out.len() != z.len() {
-            return Err(MathError::Contract("coordinate transport dimensions".into()));
+            return Err(MathError::Contract(
+                "coordinate transport dimensions".into(),
+            ));
         }
         for ((value, factor), destination) in z.iter().zip(&self.variables).zip(out) {
             *destination = checked_product(*value, *factor)?;
@@ -271,17 +273,33 @@ mod tests {
 
     #[test]
     fn physical_point_fill_reuses_storage_and_keeps_transport_failures() {
-        let normalization = Normalization { variables: vec![2., 0.5], rows: vec![], objective: 1. };
+        let normalization = Normalization {
+            variables: vec![2., 0.5],
+            rows: vec![],
+            objective: 1.,
+        };
         let mut out = vec![f64::NAN; 2];
         let storage = out.as_ptr();
-        normalization.physical_point_into(&[3., -4.], &mut out).unwrap();
+        normalization
+            .physical_point_into(&[3., -4.], &mut out)
+            .unwrap();
         assert_eq!(out, vec![6., -2.]);
-        normalization.physical_point_into(&[-1., 6.], &mut out).unwrap();
+        normalization
+            .physical_point_into(&[-1., 6.], &mut out)
+            .unwrap();
         assert_eq!(out, normalization.physical_point(&[-1., 6.]).unwrap());
         assert_eq!(storage, out.as_ptr());
         assert!(normalization.physical_point_into(&[1.], &mut out).is_err());
-        assert!(normalization.physical_point_into(&[f64::MAX, 1.], &mut out).is_err());
-        assert!(normalization.physical_point_into(&[1., f64::from_bits(1)], &mut out).is_err());
+        assert!(
+            normalization
+                .physical_point_into(&[f64::MAX, 1.], &mut out)
+                .is_err()
+        );
+        assert!(
+            normalization
+                .physical_point_into(&[1., f64::from_bits(1)], &mut out)
+                .is_err()
+        );
     }
 
     #[test]

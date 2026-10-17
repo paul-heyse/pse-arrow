@@ -16,10 +16,7 @@ use pse_math::{
 use pse_modeling::{
     Bindings, Declaration, DeclarationId, Limits, PhysicalScope, specialize::root_instance,
 };
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 #[path = "../../../tests/fixtures/reference-source-fixture.rs"]
 mod reference_source_fixture;

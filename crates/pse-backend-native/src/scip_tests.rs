@@ -361,7 +361,10 @@ fn tolerances(n: usize, m: usize) -> Tolerances {
     }
 }
 fn execution(cancel: bool) -> Execution {
-    let mut execution = Execution::new(pse_diagnostics::Cancellation::new(cancel), &Controls::default());
+    let mut execution = Execution::new(
+        pse_diagnostics::Cancellation::new(cancel),
+        &Controls::default(),
+    );
     execution.memory = Some(256 << 20);
     execution
 }
@@ -2033,7 +2036,10 @@ fn exact_optimal_objective_transport_requires_original_affine_source() {
         .exact_objective_transport
         .as_ref()
         .unwrap();
-    let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default());
+    let execution = Execution::new(
+        pse_diagnostics::Cancellation::new(false),
+        &Controls::default(),
+    );
     let original = case
         .assembly
         .exact_value_factorable_program(&case.values, 256, &execution.cancel)

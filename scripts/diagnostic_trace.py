@@ -6,19 +6,22 @@
 Raw traces stay with the original capture owner. This adapter neither observes
 nor controls the target process and never installs tools during a query.
 """
+
 from __future__ import annotations
 
 import argparse
 import hashlib
 import os
-from pathlib import Path
 import resource
 import shutil
 import subprocess
+import sys
 import tempfile
 import tomllib
+import urllib.parse
 import urllib.request
 import zipfile
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,20 +48,36 @@ def install() -> Path:
         archive = Path(scratch) / "release.zip"
         digest = hashlib.sha256()
         size = 0
-        request = urllib.request.Request(spec["url"], headers={"User-Agent": "pse-arrow-diagnostics"})
-        with urllib.request.urlopen(request, timeout=60) as response, archive.open("xb") as output:
+        if urllib.parse.urlsplit(spec["url"]).scheme != "https":
+            raise ValueError("Trace Processor release URL must use HTTPS")
+        # The declaration selects HTTPS; the bounded archive digest authenticates bytes.
+        request = urllib.request.Request(  # noqa: S310
+            spec["url"], headers={"User-Agent": "pse-arrow-diagnostics"}
+        )
+        with (
+            urllib.request.urlopen(request, timeout=60) as response,  # noqa: S310
+            archive.open("xb") as output,
+        ):
             while chunk := response.read(1 << 20):
                 size += len(chunk)
                 if size > 256 << 20:
-                    raise ValueError("Trace Processor archive exceeds installation allowance")
+                    raise ValueError(
+                        "Trace Processor archive exceeds installation allowance"
+                    )
                 digest.update(chunk)
                 output.write(chunk)
         if digest.hexdigest() != spec["sha256"]:
             raise ValueError("Trace Processor release archive checksum differs")
         with zipfile.ZipFile(archive) as bundle:
-            members = [info for info in bundle.infolist() if Path(info.filename).name == spec["member"]]
+            members = [
+                info
+                for info in bundle.infolist()
+                if Path(info.filename).name == spec["member"]
+            ]
             if len(members) != 1 or members[0].file_size > 256 << 20:
-                raise ValueError("Trace Processor binary member missing, ambiguous or oversized")
+                raise ValueError(
+                    "Trace Processor binary member missing, ambiguous or oversized"
+                )
             staged = Path(scratch) / "tool"
             with bundle.open(members[0]) as source, staged.open("xb") as output:
                 shutil.copyfileobj(source, output, 1 << 20)
@@ -68,28 +87,60 @@ def install() -> Path:
                 os.link(staged, target)
             except FileExistsError:
                 if staged.read_bytes() != target.read_bytes():
-                    raise ValueError("An incompatible tool already occupies the selected installation path") from None
+                    raise ValueError(
+                        "An incompatible tool already occupies the selected installation path"
+                    ) from None
     return target
 
 
-def query(trace: Path, question: str, output: Path, timeout: float, output_bytes: int, binary: Path | None = None) -> int:
+def query(
+    trace: Path,
+    question: str,
+    output: Path,
+    timeout: float,
+    output_bytes: int,
+    binary: Path | None = None,
+) -> int:
     """Run one declared SQL question, retaining finite output/error prefixes on failure."""
     if not (0 < timeout < float("inf")) or output_bytes < 2:
-        raise ValueError("query needs a finite positive clock and output allowance >= 2")
+        raise ValueError(
+            "query needs a finite positive clock and output allowance >= 2"
+        )
     tool = binary or binary_path()
     if not tool.is_file():
-        raise ValueError("Trace Processor unavailable; run `just diagnostic-tools` explicitly")
+        raise ValueError(
+            "Trace Processor unavailable; run `just diagnostic-tools` explicitly"
+        )
     sql = ROOT / "scripts/diagnostic_sql" / f"{question}.sql"
     if question not in {"timeline", "numerical", "coverage"}:
         raise ValueError("unknown diagnostic SQL question")
     if not trace.is_file():
         raise ValueError("selected raw trace is unavailable")
     output.mkdir(parents=True, exist_ok=False)
-    # RLIMIT_FSIZE applies only to this owned child; each output gets half the allowance.
-    def limits() -> None:
-        resource.setrlimit(resource.RLIMIT_FSIZE, (output_bytes // 2, output_bytes // 2))
-    with (output / "rows.csv").open("xb") as rows, (output / "stderr.txt").open("xb") as errors:
-        child = subprocess.Popen([str(tool), "query", "-f", str(sql), str(trace)], stdin=subprocess.DEVNULL, stdout=rows, stderr=errors, preexec_fn=limits)
+
+    # A fresh interpreter sets the limit before exec, retaining the same owned PID.
+    # No Python runs between fork/exec in a potentially threaded caller.
+    with (
+        (output / "rows.csv").open("xb") as rows,
+        (output / "stderr.txt").open("xb") as errors,
+    ):
+        child = subprocess.Popen(
+            [
+                sys.executable,
+                "-I",
+                str(Path(__file__).resolve()),
+                "_bounded-query",
+                str(output_bytes // 2),
+                str(tool.resolve()),
+                "query",
+                "-f",
+                str(sql),
+                str(trace),
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=rows,
+            stderr=errors,
+        )
         try:
             return child.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -119,10 +170,22 @@ def main() -> int:
         if args.command == "install":
             print(install())
             return 0
-        return query(args.trace, args.question, args.output, args.timeout, args.output_bytes, args.binary)
+        return query(
+            args.trace,
+            args.question,
+            args.output,
+            args.timeout,
+            args.output_bytes,
+            args.binary,
+        )
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         parser.exit(1, f"diagnostic trace unavailable: {error}\n")
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["_bounded-query"]:
+        # Internal child entry: both regular output files share this per-file cap.
+        limit = int(sys.argv[2])
+        resource.setrlimit(resource.RLIMIT_FSIZE, (limit, limit))
+        os.execv(sys.argv[3], sys.argv[3:])
     raise SystemExit(main())

@@ -5,6 +5,7 @@ use futures_util::{
     FutureExt,
     future::{BoxFuture, Shared},
 };
+use pse_diagnostics::Cancellation;
 use std::{
     collections::HashMap,
     future::Future,
@@ -14,7 +15,6 @@ use std::{
         atomic::{AtomicUsize, Ordering},
     },
 };
-use pse_diagnostics::Cancellation;
 /// Coordination failures preserve the original typed loader failure.
 #[derive(Debug, thiserror::Error)]
 pub enum FlightError<E> {

@@ -1387,7 +1387,10 @@ pub(in crate::workflow) async fn continuation_start(
                 .checked_add(target.solve.time_limit())
                 .ok_or_else(|| super::contract("study target deadline extent"))?;
             let scope = target.solve.task_scope().unwrap_or_else(|| {
-                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline))
+                pse_kernels::ExecutionScope::new(
+                    pse_diagnostics::Cancellation::default(),
+                    Some(deadline),
+                )
             });
             let mut execution = pse_backend_native::solve::Execution::within(
                 scope.cancellation_control().clone(),

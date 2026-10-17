@@ -141,7 +141,8 @@ fn anchored_window_continues_the_horizon() {
         let mut profile = window.profile(&horizon(method).window(1.0, 2.0, vec![1.0, 2.0]));
         profile.sensitivity = DynamicSensitivity::Forward;
         let parameters = [PARAMETERS[0], PARAMETERS[1], middle.state[0]];
-        let continued = integrate(&mut window, &profile, &parameters, Cancellation::default()).unwrap();
+        let continued =
+            integrate(&mut window, &profile, &parameters, Cancellation::default()).unwrap();
         assert_eq!(
             continued.termination,
             Termination::Completed,
@@ -492,11 +493,19 @@ fn anchored_layout_is_source_bound_and_retains_its_allocation_without_support_re
 fn anchored_actions_match_exact_partials_without_materializing_wrapper_matrices() {
     for observed in [false, true] {
         let mut oracle = Anchored::new(Tank::new(), observed).unwrap();
-        let state = if observed { vec![1.2, 0.8, 0.3] } else { vec![1.2, 0.8] };
+        let state = if observed {
+            vec![1.2, 0.8, 0.3]
+        } else {
+            vec![1.2, 0.8]
+        };
         let parameters = [0.7, 1.1, 0.9];
-        let direction = (0..state.len() + parameters.len()).map(|i| 0.2 * (i + 1) as f64).collect::<Vec<_>>();
+        let direction = (0..state.len() + parameters.len())
+            .map(|i| 0.2 * (i + 1) as f64)
+            .collect::<Vec<_>>();
         for function in [Function::Rhs, Function::Initial, Function::Output] {
-            let reference = oracle.evaluate(0, function, 0.4, &state, &parameters, true).unwrap();
+            let reference = oracle
+                .evaluate(0, function, 0.4, &state, &parameters, true)
+                .unwrap();
             let matrix = reference.jacobian.unwrap();
             let mut expected = vec![0.; matrix.nrows()];
             for col in 0..matrix.ncols() {
@@ -505,10 +514,34 @@ fn anchored_actions_match_exact_partials_without_materializing_wrapper_matrices(
                 }
             }
             let mut actual = vec![f64::NAN; expected.len()];
-            oracle.jacobian_action(0, function, 0.4, &state, &parameters, &direction, &mut actual).unwrap();
-            for (actual, expected) in actual.iter().zip(&expected) { assert!((actual - expected).abs() < 1e-12); }
+            oracle
+                .jacobian_action(
+                    0,
+                    function,
+                    0.4,
+                    &state,
+                    &parameters,
+                    &direction,
+                    &mut actual,
+                )
+                .unwrap();
+            for (actual, expected) in actual.iter().zip(&expected) {
+                assert!((actual - expected).abs() < 1e-12);
+            }
             let old = actual.clone();
-            assert!(oracle.jacobian_action(0, function, 0.4, &state, &parameters, &direction[..1], &mut actual).is_err());
+            assert!(
+                oracle
+                    .jacobian_action(
+                        0,
+                        function,
+                        0.4,
+                        &state,
+                        &parameters,
+                        &direction[..1],
+                        &mut actual
+                    )
+                    .is_err()
+            );
             assert_eq!(actual, old, "failed action publishes no partial product");
         }
     }

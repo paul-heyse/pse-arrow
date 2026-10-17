@@ -242,7 +242,9 @@ impl ModelingSimulation {
         }
         interval.finish(if result.error.is_none() && result.complete {
             crate::invocation::InvocationOutcome::Completed
-        } else { crate::invocation::InvocationOutcome::Failed });
+        } else {
+            crate::invocation::InvocationOutcome::Failed
+        });
         result
     }
 }

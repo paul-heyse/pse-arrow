@@ -6,15 +6,11 @@ use crate::ProblemError;
 use pse_ids::{ContentHash, SemanticId};
 use pse_math::index::{OriginalCol, OriginalRow};
 use pse_model::{document::Version, scalars::PositiveCount};
-use std::{
-    collections::BTreeSet,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
-mod layout;
 #[cfg(any(feature = "diffsol", feature = "idas", test))]
 mod effort;
+mod layout;
 #[cfg(any(feature = "diffsol", feature = "idas"))]
 use effort::StepBudget;
 pub use layout::PreparedLayout;
@@ -1779,7 +1775,12 @@ impl Profile {
         layout
             .scatter_bytes(demand)?
             .checked_add(layout.linear_bytes(self.idas.linear)?)
-            .and_then(|bytes| layout.action_bytes(self.idas.linear, parameters).ok().and_then(|actions| bytes.checked_add(actions)))
+            .and_then(|bytes| {
+                layout
+                    .action_bytes(self.idas.linear, parameters)
+                    .ok()
+                    .and_then(|actions| bytes.checked_add(actions))
+            })
             .ok_or_else(|| ProblemError::memory("IDAS prepared workspace extent"))
     }
     /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
@@ -1817,7 +1818,11 @@ impl Profile {
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
         bytes
-            .checked_add(self.native_scatter_bytes(layout, DynamicDemand::Base, c.parameters.len())?)
+            .checked_add(self.native_scatter_bytes(
+                layout,
+                DynamicDemand::Base,
+                c.parameters.len(),
+            )?)
             .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
             .and_then(|bytes| {
                 if self.method == Method::Diffsol {
@@ -1945,7 +1950,11 @@ impl Profile {
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("second-order adjoint extent overflow"))?;
         bytes
-            .checked_add(self.native_scatter_bytes(layout, DynamicDemand::ExactHessian, c.parameters.len())?)
+            .checked_add(self.native_scatter_bytes(
+                layout,
+                DynamicDemand::ExactHessian,
+                c.parameters.len(),
+            )?)
             .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
             .and_then(|bytes| {
                 bytes.checked_add(
@@ -2355,41 +2364,77 @@ pub trait Oracle: std::fmt::Debug {
     /// Apply the exact raw Jacobian to one direction in state/parameter order.
     /// Compiled providers may supply action-shaped products; this reference uses
     /// their complete exact partials and publishes the caller buffer atomically.
-    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings"
+    )]
     fn jacobian_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], direction: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
         let evaluation = self.evaluate(mode, function, time, state, parameters, true)?;
-        let jacobian = evaluation.jacobian.ok_or_else(|| ProblemError::internal("dynamic Jacobian action partials absent"))?;
-        if jacobian.nrows() != output.len() || jacobian.ncols() != direction.len()
-            || direction.iter().chain(jacobian.val()).any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("dynamic Jacobian action extent or value".into()));
+        let jacobian = evaluation
+            .jacobian
+            .ok_or_else(|| ProblemError::internal("dynamic Jacobian action partials absent"))?;
+        if jacobian.nrows() != output.len()
+            || jacobian.ncols() != direction.len()
+            || direction
+                .iter()
+                .chain(jacobian.val())
+                .any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "dynamic Jacobian action extent or value".into(),
+            ));
         }
         let mut candidate = vec![0.; output.len()];
         faer::sparse::linalg::matmul::sparse_dense_matmul(
             faer::MatMut::from_column_major_slice_mut(&mut candidate, output.len(), 1),
-            faer::Accum::Replace, jacobian.as_ref().as_ref(),
+            faer::Accum::Replace,
+            jacobian.as_ref().as_ref(),
             faer::MatRef::from_column_major_slice(direction, direction.len(), 1),
-            1., faer::Par::Seq,
+            1.,
+            faer::Par::Seq,
         );
-        if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite dynamic Jacobian action")); }
+        if candidate.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite dynamic Jacobian action"));
+        }
         output.copy_from_slice(&candidate);
         Ok(())
     }
     /// Apply `∇²(Σ weights·f)·direction`, keeping weight and direction bindings
     /// distinct from the full Hessian product and its symbolic artifact identity.
-    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings"
+    )]
     fn weighted_hessian_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], weights: &[f64], direction: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
         if output.len() != direction.len() || direction.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("dynamic Hessian action extent or direction".into()));
+            return Err(ProblemError::Contract(
+                "dynamic Hessian action extent or direction".into(),
+            ));
         }
         let matrix = self.weighted_hessian(mode, function, time, state, parameters, weights)?;
         let candidate = symmetric_product(matrix.as_ref(), direction)?;
-        if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite dynamic Hessian action")); }
+        if candidate.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite dynamic Hessian action"));
+        }
         output.copy_from_slice(&candidate);
         Ok(())
     }

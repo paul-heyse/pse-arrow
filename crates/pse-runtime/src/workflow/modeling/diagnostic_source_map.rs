@@ -109,7 +109,7 @@ pub struct SourceSlotDocument {
     pub scale: f64,
     /// Canonical affine gather offset.
     pub offset: f64,
-    /// The source is absent from this selected assembly’s free columns.
+    /// The source is absent from this selected assembly's free columns.
     pub fixed: bool,
 }
 /// Actual selected destination of an original ordered output contribution.
@@ -220,31 +220,59 @@ impl serde::Serialize for ModelingSourceMap {
 }
 impl ModelingSourceMap {
     /// Borrow the static manifest while its complete construction lease remains alive.
-    pub fn document(&self) -> &ModelingSourceMapDocument { &self.document }
+    pub fn document(&self) -> &ModelingSourceMapDocument {
+        &self.document
+    }
 }
 
 fn cell_count(lengths: &[usize]) -> Result<usize, WorkflowError> {
-    lengths.iter().try_fold(0usize, |count, length| count.checked_add(*length))
+    lengths
+        .iter()
+        .try_fold(0usize, |count, length| count.checked_add(*length))
         .ok_or_else(|| contract("source map population extent"))
 }
-fn member_lineages(model: &pse_modeling::specialize::SpecializedModel)
-    -> impl Iterator<Item = (SemanticId, &pse_modeling::specialize::Lineage)> {
-    model.symbols.values().map(|symbol| (symbol.id, &symbol.lineage))
+fn member_lineages(
+    model: &pse_modeling::specialize::SpecializedModel,
+) -> impl Iterator<Item = (SemanticId, &pse_modeling::specialize::Lineage)> {
+    model
+        .symbols
+        .values()
+        .map(|symbol| (symbol.id, &symbol.lineage))
         .chain(model.equations.iter().map(|row| (row.id, &row.lineage)))
         .chain(model.ports.values().map(|port| (port.id, &port.lineage)))
-        .chain(model.material_ports.values().map(|port| (port.id, &port.lineage)))
-        .chain(model.inventory_balances.values().map(|balance| (balance.id, &balance.lineage)))
-        .chain(model.inventory_initial_conditions.values().map(|condition| (condition.row, &condition.lineage)))
+        .chain(
+            model
+                .material_ports
+                .values()
+                .map(|port| (port.id, &port.lineage)),
+        )
+        .chain(
+            model
+                .inventory_balances
+                .values()
+                .map(|balance| (balance.id, &balance.lineage)),
+        )
+        .chain(
+            model
+                .inventory_initial_conditions
+                .values()
+                .map(|condition| (condition.row, &condition.lineage)),
+        )
 }
 impl ModelingPackage {
     /// Inspect the retained package's prepared source/product map without running science.
     /// # Errors
     /// Invalid allowance/clock, cancellation or actual construction admission refuses.
     pub async fn modeling_diagnostic_source_map(
-        &self, prepared: &ModelingDiagnosticPreparation, maximum_bytes: usize,
-        time_limit: std::time::Duration, cancel: &crate::CancelSource,
+        &self,
+        prepared: &ModelingDiagnosticPreparation,
+        maximum_bytes: usize,
+        time_limit: std::time::Duration,
+        cancel: &crate::CancelSource,
     ) -> Result<ModelingSourceMap, WorkflowError> {
-        self.runtime.modeling_diagnostic_source_map(prepared, maximum_bytes, time_limit, cancel).await
+        self.runtime
+            .modeling_diagnostic_source_map(prepared, maximum_bytes, time_limit, cancel)
+            .await
     }
 }
 impl Runtime {
@@ -261,14 +289,29 @@ impl Runtime {
         time_limit: std::time::Duration,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSourceMap, WorkflowError> {
-        if maximum_bytes == 0 || time_limit.is_zero() { return Err(contract("source map requires a positive finite allocation and clock")); }
-        let local_deadline = std::time::Instant::now().checked_add(time_limit)
+        if maximum_bytes == 0 || time_limit.is_zero() {
+            return Err(contract(
+                "source map requires a positive finite allocation and clock",
+            ));
+        }
+        let local_deadline = std::time::Instant::now()
+            .checked_add(time_limit)
             .ok_or_else(|| contract("source map deadline extent"))?;
-        let deadline = cancel.deadline().map_or(local_deadline, |outer| outer.min(local_deadline));
-        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline));
+        let deadline = cancel
+            .deadline()
+            .map_or(local_deadline, |outer| outer.min(local_deadline));
+        let scope = pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            Some(deadline),
+        );
         let check = || -> Result<(), WorkflowError> {
-            scope.check().map_err(pse_backend_native::ProblemError::Provider).map_err(crate::math::MathRuntimeError::from)?;
-            if cancel.token().is_cancelled() { return Err(crate::math::MathRuntimeError::Cancelled.into()); }
+            scope
+                .check()
+                .map_err(pse_backend_native::ProblemError::Provider)
+                .map_err(crate::math::MathRuntimeError::from)?;
+            if cancel.token().is_cancelled() {
+                return Err(crate::math::MathRuntimeError::Cancelled.into());
+            }
             Ok(())
         };
         check()?;

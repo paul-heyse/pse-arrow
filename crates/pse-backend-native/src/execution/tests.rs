@@ -313,10 +313,7 @@ fn stub_backend_routes_through_adapter_table() {
                 settings: &BackendSettings::Default,
                 controls: &controls,
                 accuracy: &ResolvedAccuracy::verification(),
-                execution: Execution::new(
-                    pse_diagnostics::Cancellation::new(false),
-                    &controls,
-                ),
+                execution: Execution::new(pse_diagnostics::Cancellation::new(false), &controls),
                 tolerances: &tolerances,
                 normalization: &normalization,
                 compatibility: stamp(backend),

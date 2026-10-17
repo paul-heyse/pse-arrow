@@ -9,10 +9,7 @@ use pse_authoring::{
 use pse_ids::SemanticId;
 use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 fn control(potential: &str, response: &str, derivative: bool) -> Result<(), String> {
     let result = if derivative { "Scalar" } else { "Length" };

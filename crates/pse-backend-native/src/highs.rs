@@ -1995,7 +1995,7 @@ mod tests {
     }
     #[test]
     fn native_iis_discrete_scope_is_an_explicit_continuous_relaxation() {
-            let mut p = problem();
+        let mut p = problem();
         p.contract.variables[0].lower = -10.;
         p.contract.variables[0].upper = 10.;
         p.constraints = faer::sparse::SparseColMat::try_new_from_triplets(
@@ -2062,7 +2062,7 @@ mod tests {
     }
     #[test]
     fn native_relaxation_preserves_restored_status_and_physical_penalty() {
-            let mut p = problem();
+        let mut p = problem();
         p.domains[0] = ModelingVariableDomain::Continuous;
         p.contract.variables[0].lower = 0.;
         p.contract.variables[0].upper = 1.;

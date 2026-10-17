@@ -1108,7 +1108,10 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         .push(pse_model::strategy::StartOrigin::Predicted);
     let cancel = crate::CancelSource::new();
     let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-    let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+    let mut execution = Execution::new(
+        pse_diagnostics::Cancellation::default(),
+        &Controls::default(),
+    );
     let request = qp::Request {
         previous: &previous,
         source: &source,

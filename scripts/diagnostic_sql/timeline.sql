@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT OR Apache-2.0
+-- Copyright (c) 2026 Paul Heyse
 -- Inclusive intervals overlap. Grouping locates work; it does not sum exclusive CPU cost.
 SELECT t.id AS track_id, t.name AS owner, s.name AS activity,
        count(*) AS intervals, sum(s.dur) / 1e9 AS inclusive_seconds,

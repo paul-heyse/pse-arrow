@@ -208,9 +208,17 @@ impl PreparedLayout {
     /// unused declared parameters cannot be inferred from Jacobian sparsity.
     /// # Errors
     /// The selected finite state/parameter storage extent overflows.
-    pub fn action_bytes(&self, linear: IdasLinear, parameters: usize) -> Result<usize, ProblemError> {
-        if linear == IdasLinear::Klu { return Ok(0); }
-        self.states().checked_mul(2).and_then(|n| n.checked_add(parameters))
+    pub fn action_bytes(
+        &self,
+        linear: IdasLinear,
+        parameters: usize,
+    ) -> Result<usize, ProblemError> {
+        if linear == IdasLinear::Klu {
+            return Ok(0);
+        }
+        self.states()
+            .checked_mul(2)
+            .and_then(|n| n.checked_add(parameters))
             .and_then(|n| n.checked_mul(size_of::<f64>()))
             .and_then(|n| n.checked_add(2 * size_of::<Vec<f64>>()))
             .ok_or_else(|| ProblemError::memory("IDAS action callback workspace extent"))
@@ -350,8 +358,11 @@ mod tests {
             dimension: PositiveCount::try_new(12).unwrap(),
             preconditioner: Preconditioner::None,
         };
-        assert_eq!(layout.action_bytes(krylov.idas.linear, 100).unwrap()
-            - layout.action_bytes(krylov.idas.linear, 0).unwrap(), 100 * size_of::<f64>());
+        assert_eq!(
+            layout.action_bytes(krylov.idas.linear, 100).unwrap()
+                - layout.action_bytes(krylov.idas.linear, 0).unwrap(),
+            100 * size_of::<f64>()
+        );
         assert!(layout.action_bytes(krylov.idas.linear, usize::MAX).is_err());
         assert!(
             krylov

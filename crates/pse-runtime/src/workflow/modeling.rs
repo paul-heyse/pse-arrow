@@ -68,9 +68,8 @@ mod work_admission_tests;
 pub use diagnostics::{
     DiagnosticSampleStop, ElasticObservation, ModelingDiagnosticPolicy,
     ModelingDiagnosticPreparation, ModelingDiagnosticSamples, ModelingDiagnostics,
-    ModelingSourceMap, ModelingSourceMapDocument,
     ModelingElasticAttempt, ModelingInfeasibilityCertificate, ModelingNonlinearExplanation,
-    ModelingNonlinearPolicy,
+    ModelingNonlinearPolicy, ModelingSourceMap, ModelingSourceMapDocument,
 };
 #[cfg(feature = "solver-highs")]
 pub use diagnostics::{ModelingJacobianOptimization, ModelingLinearDiagnostics};

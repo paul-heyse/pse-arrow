@@ -19,8 +19,8 @@ use std::{
 };
 
 mod cpu;
-pub mod evidence;
 mod detail;
+pub mod evidence;
 pub use detail::{
     DetailDocument, DetailEnd, DetailFamilyCoverage, DetailOutcome, DetailRecordPage,
     DetailRequest, DetailRequirement, DetailSession, claim_managed_detail_budget,

@@ -5,8 +5,8 @@ use pse_authoring::{
     ParseBudget,
     language::{IdentityPolicy, parse},
 };
-use pse_modeling::specialize::root_instance;
 use pse_diagnostics::Cancellation;
+use pse_modeling::specialize::root_instance;
 use std::collections::BTreeSet;
 fn source(text: &str) -> Vec<Declaration> {
     parse(
@@ -1931,8 +1931,14 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
         let ImplicitFactory::Root(root_factory) = &factory else {
             panic!("single root factory");
         };
-        assert_eq!(root_factory.bodies.parameter.compiled_order(), DerivativeOrder::First);
-        assert_eq!(root_factory.bodies.unknown.compiled_order(), DerivativeOrder::First);
+        assert_eq!(
+            root_factory.bodies.parameter.compiled_order(),
+            DerivativeOrder::First
+        );
+        assert_eq!(
+            root_factory.bodies.unknown.compiled_order(),
+            DerivativeOrder::First
+        );
         assert_eq!(root_factory.bodies.unknown.coordinates(), [0]);
         let mut provider = factory.create().unwrap();
         let values = provider
@@ -2120,8 +2126,14 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
     let pse_math::implicit::ImplicitFactory::Root(factory) = factory else {
         panic!("single root");
     };
-    assert_eq!(factory.bodies.parameter.compiled_order(), DerivativeOrder::First);
-    assert_eq!(factory.bodies.unknown.compiled_order(), DerivativeOrder::First);
+    assert_eq!(
+        factory.bodies.parameter.compiled_order(),
+        DerivativeOrder::First
+    );
+    assert_eq!(
+        factory.bodies.unknown.compiled_order(),
+        DerivativeOrder::First
+    );
     assert_eq!(factory.bodies.unknown.coordinates(), [0]);
     let error = inner
         .factory(
@@ -2337,8 +2349,14 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
     let pse_math::implicit::ImplicitFactory::Root(parent_factory) = parent_factory else {
         panic!("single parent");
     };
-    assert_eq!(parent_factory.bodies.parameter.compiled_order(), DerivativeOrder::First);
-    assert_eq!(parent_factory.bodies.unknown.compiled_order(), DerivativeOrder::First);
+    assert_eq!(
+        parent_factory.bodies.parameter.compiled_order(),
+        DerivativeOrder::First
+    );
+    assert_eq!(
+        parent_factory.bodies.unknown.compiled_order(),
+        DerivativeOrder::First
+    );
     assert_eq!(parent_factory.bodies.unknown.coordinates(), [0]);
     let mut evaluator = parent_factory.bodies.parameter.worker();
     let child_value = child

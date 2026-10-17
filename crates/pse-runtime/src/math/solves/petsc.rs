@@ -1268,13 +1268,18 @@ impl native_petsc::BlockOracle for LocalBlock {
                 "PETSc compiler block residual extent".into(),
             ));
         }
-        if values.iter().zip(&self.prepared.offsets).any(|(value, offset)| !(value-offset).is_finite()) {
+        if values
+            .iter()
+            .zip(&self.prepared.offsets)
+            .any(|(value, offset)| !(value - offset).is_finite())
+        {
             return Err(ProblemError::numerical("nonfinite compiler block residual"));
         }
         self.scope.check().map_err(ProblemError::from)?;
         // Validate the whole transformed output before writing the caller's buffer.
-        for ((destination, value), offset) in out.iter_mut().zip(values).zip(&self.prepared.offsets) {
-            *destination = value-offset;
+        for ((destination, value), offset) in out.iter_mut().zip(values).zip(&self.prepared.offsets)
+        {
+            *destination = value - offset;
         }
         Ok(())
     }

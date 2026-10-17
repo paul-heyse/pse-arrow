@@ -810,7 +810,10 @@ mod output_accuracy {
     #[test]
     fn engineering_accuracy_kkt_analytic_output_shares_actual_rhs_action_and_stays_estimated() {
         let work = Arc::new(Work::default());
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         execution.work_admission = Some(work.clone());
         let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &[]);
         let (candidate, _) = at(&oracle, &[0.01], &[], (&[0.], &[0.]));
@@ -866,7 +869,10 @@ mod output_accuracy {
     }
     #[test]
     fn engineering_accuracy_kkt_active_rhs_preserves_nonzero_rows_and_bound_orientation() {
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         for side in 0..3 {
             let (bounds, rows, jacobian, x, lambda, lower, upper, expected) = match side {
                 0 => (
@@ -933,7 +939,10 @@ mod output_accuracy {
     fn engineering_accuracy_kkt_withholds_uncertainty_weak_activity_and_stale_branch_without_action()
      {
         let work = Arc::new(Work::default());
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         execution.work_admission = Some(work.clone());
         let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &[]);
         let (candidate, _) = at(&oracle, &[0.01], &[], (&[0.], &[0.]));
@@ -1028,7 +1037,10 @@ mod output_accuracy {
     fn engineering_accuracy_kkt_defers_action_until_original_admission_and_skips_unqualified_work()
     {
         let work = Arc::new(Work::default());
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         execution.work_admission = Some(work.clone());
         let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &[]);
         let (candidate, _) = at(&oracle, &[0.01], &[], (&[0.], &[0.]));
@@ -1102,7 +1114,10 @@ mod output_accuracy {
     #[test]
     fn engineering_accuracy_kkt_rejects_changed_original_multipliers_at_the_same_point() {
         let work = Arc::new(Work::default());
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        );
         execution.work_admission = Some(work.clone());
         let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &[]);
         let (candidate, _) = at(&oracle, &[0.01], &[], (&[0.], &[0.]));

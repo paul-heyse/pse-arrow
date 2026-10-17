@@ -14,7 +14,7 @@ use crate::{
 };
 #[path = "assembly_projection.rs"]
 mod projection;
-use projection::{ProjectionRelationship,project_compatible};
+use projection::{ProjectionRelationship, project_compatible};
 #[path = "assembly_observation.rs"]
 mod observation;
 use enum_map::EnumMap;
@@ -61,8 +61,18 @@ impl Default for AssemblyLimits {
     }
 }
 /// Which contributions one compiled local demand evaluates.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, enum_map::Enum,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
-#[serde(rename_all="snake_case")]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    enum_map::Enum,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum EvaluationDemand {
     /// Selected primary objective only.
     Objective,
@@ -98,13 +108,13 @@ struct Term {
     scale: f64,
     target: Target,
 }
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 struct HessianTerm {
-    instance:usize,
-    component:usize,
-    i:usize,
-    j:usize,
-    scale:f64,
+    instance: usize,
+    component: usize,
+    i: usize,
+    j: usize,
+    scale: f64,
 }
 /// Immutable selected model: full semantic inventory survives sparse projection.
 #[derive(Clone, Debug)]
@@ -116,7 +126,7 @@ pub struct CasePlan {
     rows: Arc<BTreeMap<SemanticId, GlobalRow>>,
     row_contributions: Arc<BTreeMap<SemanticId, Vec<(usize, usize)>>>,
     instances: Arc<Vec<Instance>>,
-    product_weights:Arc<Vec<EnumMap<EvaluationDemand,Vec<ProductWeight>>>>,
+    product_weights: Arc<Vec<EnumMap<EvaluationDemand, Vec<ProductWeight>>>>,
     jacobian: Arc<AssemblyMatrix>,
     hessian: Arc<AssemblyMatrix>,
     jacobian_terms: Arc<Vec<Term>>,
@@ -382,10 +392,17 @@ impl CasePlan {
                 instance_bytes,
             ),
             (
-                "product_weights",Arc::as_ptr(&self.product_weights) as usize,
-                size_of::<Vec<EnumMap<EvaluationDemand,Vec<ProductWeight>>>>()
-                    +self.product_weights.capacity()*size_of::<EnumMap<EvaluationDemand,Vec<ProductWeight>>>()
-                    +self.product_weights.iter().flat_map(|g|g.values()).map(|v|v.capacity()*size_of::<ProductWeight>()).sum::<usize>(),
+                "product_weights",
+                Arc::as_ptr(&self.product_weights) as usize,
+                size_of::<Vec<EnumMap<EvaluationDemand, Vec<ProductWeight>>>>()
+                    + self.product_weights.capacity()
+                        * size_of::<EnumMap<EvaluationDemand, Vec<ProductWeight>>>()
+                    + self
+                        .product_weights
+                        .iter()
+                        .flat_map(|g| g.values())
+                        .map(|v| v.capacity() * size_of::<ProductWeight>())
+                        .sum::<usize>(),
             ),
             (
                 "jacobian",
@@ -405,7 +422,8 @@ impl CasePlan {
             (
                 "hessian_terms",
                 Arc::as_ptr(&self.hessian_terms) as usize,
-                size_of::<Vec<HessianTerm>>() + self.hessian_terms.capacity() * size_of::<HessianTerm>(),
+                size_of::<Vec<HessianTerm>>()
+                    + self.hessian_terms.capacity() * size_of::<HessianTerm>(),
             ),
             (
                 "requests",
@@ -746,7 +764,11 @@ impl CasePlan {
                     outputs: outputs.clone(),
                     coordinates: formal.clone(),
                     order: ceiling,
-                    product:if ceiling==DerivativeOrder::Second {ProductKind::WeightedHessian}else{ProductKind::SelectedPartials},
+                    product: if ceiling == DerivativeOrder::Second {
+                        ProductKind::WeightedHessian
+                    } else {
+                        ProductKind::SelectedPartials
+                    },
                 };
                 let key = (
                     demand.body,
@@ -822,7 +844,7 @@ impl CasePlan {
                 row_contributions.values().map(Vec::len).sum::<usize>() as u64,
             );
         }
-        let product_weights=Arc::new(prepare_product_weights(&instances,&structure,&rows));
+        let product_weights = Arc::new(prepare_product_weights(&instances, &structure, &rows));
         Ok(Self {
             projection: Arc::new(crate::factorable::ProjectionTopology::new(
                 &structure, &columns,
@@ -1159,7 +1181,11 @@ impl CasePlan {
         let mut requests = self.requests.as_ref().clone();
         let mut supports = self.supports.as_ref().clone();
         let mut indices = BTreeMap::new();
-        for (index, request) in requests.iter().enumerate().filter(|(_, r)| r.product==ProductKind::JacobianAction) {
+        for (index, request) in requests
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| r.product == ProductKind::JacobianAction)
+        {
             indices.insert(
                 (
                     request.body,
@@ -1197,7 +1223,7 @@ impl CasePlan {
                     outputs: group.outputs.clone(),
                     coordinates: original.coordinates.clone(),
                     order: DerivativeOrder::First,
-                    product:ProductKind::JacobianAction,
+                    product: ProductKind::JacobianAction,
                 });
                 supports.push(Arc::new(support));
                 indices.insert(key, index);
@@ -1209,47 +1235,72 @@ impl CasePlan {
             });
         }
         let mut result = self.clone();
-        result.product_weights=Arc::new(prepare_product_weights(&instances,&self.structure,&self.rows));
+        result.product_weights = Arc::new(prepare_product_weights(
+            &instances,
+            &self.structure,
+            &self.rows,
+        ));
         result.instances = Arc::new(instances);
         result.requests = Arc::new(requests);
         result.supports = Arc::new(supports);
         Ok(result)
     }
     /// Admit actual Hessian actions only for consumers that request them.
-    pub fn with_hessian_actions(&self,cancel:&Arc<AtomicBool>) -> Result<Self,MathError> {
-        if self.order<DerivativeOrder::Second {return Err(MathError::Contract("Hessian actions require Second support".into()));}
-        if cancel.load(Ordering::Acquire) {return Err(MathError::Cancelled);}
-        let mut result=self.clone();
-        let mut instances=self.instances.as_ref().clone();
-        let mut requests=self.requests.as_ref().clone();
-        let mut supports=self.supports.as_ref().clone();
-        let mut prepared=BTreeMap::new();
+    pub fn with_hessian_actions(&self, cancel: &Arc<AtomicBool>) -> Result<Self, MathError> {
+        if self.order < DerivativeOrder::Second {
+            return Err(MathError::Contract(
+                "Hessian actions require Second support".into(),
+            ));
+        }
+        if cancel.load(Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
+        let mut result = self.clone();
+        let mut instances = self.instances.as_ref().clone();
+        let mut requests = self.requests.as_ref().clone();
+        let mut supports = self.supports.as_ref().clone();
+        let mut prepared = BTreeMap::new();
         for instance in &mut instances {
-            if instance.groups[EvaluationDemand::HessianAction].is_some() {continue;}
-            let Some(all)=instance.groups[EvaluationDemand::All].as_ref() else {continue;};
-            let request=*prepared.entry(all.request).or_insert_with(|| {
-                let index=requests.len();
-                let mut request=requests[all.request].clone();
-                request.product=ProductKind::WeightedHessianAction;
+            if instance.groups[EvaluationDemand::HessianAction].is_some() {
+                continue;
+            }
+            let Some(all) = instance.groups[EvaluationDemand::All].as_ref() else {
+                continue;
+            };
+            let request = *prepared.entry(all.request).or_insert_with(|| {
+                let index = requests.len();
+                let mut request = requests[all.request].clone();
+                request.product = ProductKind::WeightedHessianAction;
                 requests.push(request);
                 supports.push(supports[all.request].clone());
                 index
             });
-            instance.groups[EvaluationDemand::HessianAction]=Some(Group{outputs:all.outputs.clone(),request});
+            instance.groups[EvaluationDemand::HessianAction] = Some(Group {
+                outputs: all.outputs.clone(),
+                request,
+            });
         }
-        result.product_weights=Arc::new(prepare_product_weights(&instances,&self.structure,&self.rows));
-        result.instances=Arc::new(instances);
-        result.requests=Arc::new(requests);
-        result.supports=Arc::new(supports);
+        result.product_weights = Arc::new(prepare_product_weights(
+            &instances,
+            &self.structure,
+            &self.rows,
+        ));
+        result.instances = Arc::new(instances);
+        result.requests = Arc::new(requests);
+        result.supports = Arc::new(supports);
         Ok(result)
     }
     /// Whether a direct weighted action program was explicitly admitted.
     pub fn has_hessian_actions(&self) -> bool {
-        self.requests.iter().any(|request|request.product==ProductKind::WeightedHessianAction)
+        self.requests
+            .iter()
+            .any(|request| request.product == ProductKind::WeightedHessianAction)
     }
     /// Whether independently demanded directional constraint actions are prepared.
     pub fn has_directional_actions(&self) -> bool {
-        self.requests.iter().any(|r| r.product==ProductKind::JacobianAction)
+        self.requests
+            .iter()
+            .any(|r| r.product == ProductKind::JacobianAction)
     }
     /// Construction extent of immutable support/order or directional-demand
     /// upgrades. Numerical evaluators are deferred; this bounds selected support,
@@ -1267,7 +1318,7 @@ impl CasePlan {
         let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
         let mut support_bytes = 0;
         for (support, request) in self.supports.iter().zip(self.requests.iter()) {
-            let requested = if request.product==ProductKind::JacobianAction {
+            let requested = if request.product == ProductKind::JacobianAction {
                 DerivativeOrder::First
             } else {
                 order
@@ -1370,7 +1421,7 @@ impl CasePlan {
         }
         let mut supports = Vec::with_capacity(self.supports.len());
         for (request, previous) in self.supports.iter().enumerate() {
-            if self.requests[request].product==ProductKind::JacobianAction {
+            if self.requests[request].product == ProductKind::JacobianAction {
                 supports.push(previous.clone());
                 continue;
             }
@@ -1403,39 +1454,67 @@ impl CasePlan {
                     .at_order(order.min(DerivativeOrder::First))?,
             ));
         }
-        let mut requests=self.requests.as_ref().clone();
-        let mut instances=self.instances.as_ref().clone();
-        let all_requests=instances.iter().filter_map(|i|i.groups[EvaluationDemand::All].as_ref().map(|g|g.request)).collect::<BTreeSet<_>>();
+        let mut requests = self.requests.as_ref().clone();
+        let mut instances = self.instances.as_ref().clone();
+        let all_requests = instances
+            .iter()
+            .filter_map(|i| i.groups[EvaluationDemand::All].as_ref().map(|g| g.request))
+            .collect::<BTreeSet<_>>();
         for &original in &all_requests {
-            if order==DerivativeOrder::Second {
-                let shared=instances.iter().any(|i|i.groups.iter().any(|(d,g)|d!=EvaluationDemand::All && g.as_ref().is_some_and(|g|g.request==original)));
-                let target=if shared {
-                    let target=requests.len();
+            if order == DerivativeOrder::Second {
+                let shared = instances.iter().any(|i| {
+                    i.groups.iter().any(|(d, g)| {
+                        d != EvaluationDemand::All
+                            && g.as_ref().is_some_and(|g| g.request == original)
+                    })
+                });
+                let target = if shared {
+                    let target = requests.len();
                     requests.push(requests[original].clone());
                     supports.push(supports[original].clone());
-                    supports[original]=Arc::new(supports[original].at_order(DerivativeOrder::First)?);
-                    requests[original].order=DerivativeOrder::First;
+                    supports[original] =
+                        Arc::new(supports[original].at_order(DerivativeOrder::First)?);
+                    requests[original].order = DerivativeOrder::First;
                     target
-                } else { original };
-                requests[target].order=order;
-                requests[target].product=ProductKind::WeightedHessian;
+                } else {
+                    original
+                };
+                requests[target].order = order;
+                requests[target].product = ProductKind::WeightedHessian;
                 for instance in &mut instances {
-                    if let Some(group)=&mut instance.groups[EvaluationDemand::All]
-                        && group.request==original { group.request=target; }
+                    if let Some(group) = &mut instance.groups[EvaluationDemand::All]
+                        && group.request == original
+                    {
+                        group.request = target;
+                    }
                 }
-            } else {requests[original].order=order;}
-        }
-        for (index,request) in requests.iter_mut().enumerate() {
-            if !all_requests.contains(&index) && request.product==ProductKind::SelectedPartials {
-                request.order=order.min(DerivativeOrder::First);
+            } else {
+                requests[original].order = order;
             }
         }
-        let patterns=case_patterns(&self.structure,&self.rows,&instances,&supports,order,self.columns.len(),self.limits)?;
-        let mut result=self.clone();
-        result.order=order;
-        result.product_weights=Arc::new(prepare_product_weights(&instances,&self.structure,&self.rows));
-        result.instances=Arc::new(instances);
-        result.requests=Arc::new(requests);
+        for (index, request) in requests.iter_mut().enumerate() {
+            if !all_requests.contains(&index) && request.product == ProductKind::SelectedPartials {
+                request.order = order.min(DerivativeOrder::First);
+            }
+        }
+        let patterns = case_patterns(
+            &self.structure,
+            &self.rows,
+            &instances,
+            &supports,
+            order,
+            self.columns.len(),
+            self.limits,
+        )?;
+        let mut result = self.clone();
+        result.order = order;
+        result.product_weights = Arc::new(prepare_product_weights(
+            &instances,
+            &self.structure,
+            &self.rows,
+        ));
+        result.instances = Arc::new(instances);
+        result.requests = Arc::new(requests);
         result.supports = Arc::new(supports);
         result.jacobian = Arc::new(patterns.jacobian);
         result.hessian = Arc::new(patterns.hessian);
@@ -1457,7 +1536,10 @@ impl CasePlan {
         if self.structure != original.structure
             || self.columns != original.columns
             || self.bodies != original.bodies
-            || self.requests.iter().any(|d| d.product==ProductKind::JacobianAction)
+            || self
+                .requests
+                .iter()
+                .any(|d| d.product == ProductKind::JacobianAction)
         {
             return Ok(false);
         }
@@ -1487,9 +1569,18 @@ impl CasePlan {
             && self.requests == expected.requests
             && self.supports == expected.supports
             && same_terms(&self.jacobian_terms, &expected.jacobian_terms)
-            && self.hessian_terms.len()==expected.hessian_terms.len()
-            && self.hessian_terms.iter().zip(expected.hessian_terms.iter()).all(|(a,b)|
-                a.instance==b.instance && a.component==b.component && a.i==b.i && a.j==b.j && a.scale.to_bits()==b.scale.to_bits()))
+            && self.hessian_terms.len() == expected.hessian_terms.len()
+            && self
+                .hessian_terms
+                .iter()
+                .zip(expected.hessian_terms.iter())
+                .all(|(a, b)| {
+                    a.instance == b.instance
+                        && a.component == b.component
+                        && a.i == b.i
+                        && a.j == b.j
+                        && a.scale.to_bits() == b.scale.to_bits()
+                }))
     }
     /// Consumed immutable semantic bodies.
     pub fn bodies(&self) -> &BTreeMap<ContentHash, Arc<PreparedBody>> {
@@ -1771,7 +1862,7 @@ impl CasePlan {
             .iter()
             .try_fold(0usize, |n, p| n.checked_add(p.worker_bytes()))
             .ok_or(MathError::Limit("case worker bytes"))?;
-        let projection_bytes=projection::allocation_bound(self,&programs)?;
+        let projection_bytes = projection::allocation_bound(self, &programs)?;
         let bytes = self
             .instances
             .iter()
@@ -1779,13 +1870,20 @@ impl CasePlan {
             .try_fold(
                 scratch
                     .checked_add(input_bytes)
-                    .and_then(|n|n.checked_add(projection_bytes))
+                    .and_then(|n| n.checked_add(projection_bytes))
                     .ok_or(MathError::Limit("case worker bytes"))?,
                 |n, g| n.checked_add(programs[g.request].evaluation_cache_bytes()),
             )
             .and_then(|n| n.checked_add(self.jacobian.retained_bytes()))
             .and_then(|n| n.checked_add(self.hessian.retained_bytes()))
-            .and_then(|n| n.checked_add((self.rows.len() + self.columns.len()+self.rows.len().max(self.columns.len())).checked_mul(size_of::<f64>())?))
+            .and_then(|n| {
+                n.checked_add(
+                    (self.rows.len()
+                        + self.columns.len()
+                        + self.rows.len().max(self.columns.len()))
+                    .checked_mul(size_of::<f64>())?,
+                )
+            })
             .and_then(|n| {
                 n.checked_add(
                     self.instances
@@ -1818,7 +1916,9 @@ impl CasePlan {
             .iter()
             .zip(self.requests.iter())
             .map(|(support, request)| {
-                support.compile_product(request.product,optimization,limits,cancel).map(Arc::new)
+                support
+                    .compile_product(request.product, optimization, limits, cancel)
+                    .map(Arc::new)
             })
             .collect::<Result<_, _>>()?;
         self.assemble(programs)
@@ -1848,8 +1948,12 @@ fn case_patterns(
         let support = instance.groups[EvaluationDemand::All]
             .as_ref()
             .map(|g| &supports[g.request]);
-        let offsets = instance.coordinates.iter().enumerate()
-            .map(|(i, formal)| (formal.get(), i)).collect::<BTreeMap<_, _>>();
+        let offsets = instance
+            .coordinates
+            .iter()
+            .enumerate()
+            .map(|(i, formal)| (formal.get(), i))
+            .collect::<BTreeMap<_, _>>();
         for contribution in &binding.contributions {
             if order >= DerivativeOrder::First
                 && let Target::Row(row) = contribution.target
@@ -1859,46 +1963,81 @@ fn case_patterns(
                     .ok_or_else(|| {
                         MathError::Contract("missing selected First incidence".into())
                     })?;
-                let result_row = instance.groups[EvaluationDemand::Constraints].as_ref()
+                let result_row = instance.groups[EvaluationDemand::Constraints]
+                    .as_ref()
                     .and_then(|group| group.outputs.binary_search(&contribution.output).ok())
-                    .ok_or_else(|| MathError::Contract("missing prepared constraint output".into()))?;
+                    .ok_or_else(|| {
+                        MathError::Contract("missing prepared constraint output".into())
+                    })?;
                 for formal in first {
-                    support_visits = support_visits.checked_add(1).ok_or(MathError::Limit("support contribution count"))?;
-                    let Some(&i) = offsets.get(formal) else { continue; };
+                    support_visits = support_visits
+                        .checked_add(1)
+                        .ok_or(MathError::Limit("support contribution count"))?;
+                    let Some(&i) = offsets.get(formal) else {
+                        continue;
+                    };
                     contribution_allowance(jp.len(), hp.len(), limits)?;
                     jp.push(Entry::new(rows[&row], instance.columns[i]));
                     jt.push(Term {
-                        instance: index, output: contribution.output, result_row, i, j: 0,
+                        instance: index,
+                        output: contribution.output,
+                        result_row,
+                        i,
+                        j: 0,
                         scale: contribution.scale * binding.slots[*formal].scale(),
                         target: contribution.target,
                     });
                 }
             }
         }
-        if order>=DerivativeOrder::Second && let Some(support)=support {
-            let mut union=BTreeSet::new();
-            for &(a,b) in support.support().second.iter().flatten() {
-                support_visits=support_visits.checked_add(1).ok_or(MathError::Limit("support contribution count"))?;
-                let (Some(&i),Some(&j))=(offsets.get(&a),offsets.get(&b)) else {continue;};
-                union.insert((i.min(j),i.max(j)));
+        if order >= DerivativeOrder::Second
+            && let Some(support) = support
+        {
+            let mut union = BTreeSet::new();
+            for &(a, b) in support.support().second.iter().flatten() {
+                support_visits = support_visits
+                    .checked_add(1)
+                    .ok_or(MathError::Limit("support contribution count"))?;
+                let (Some(&i), Some(&j)) = (offsets.get(&a), offsets.get(&b)) else {
+                    continue;
+                };
+                union.insert((i.min(j), i.max(j)));
             }
-            let mut ordered=Vec::new();
-            for (component,&(i,j)) in union.iter().enumerate() {
-                if instance.columns[i]>=instance.columns[j] {ordered.push((i,j,component));}
-                if i!=j && instance.columns[j]>=instance.columns[i] {ordered.push((j,i,component));}
+            let mut ordered = Vec::new();
+            for (component, &(i, j)) in union.iter().enumerate() {
+                if instance.columns[i] >= instance.columns[j] {
+                    ordered.push((i, j, component));
+                }
+                if i != j && instance.columns[j] >= instance.columns[i] {
+                    ordered.push((j, i, component));
+                }
             }
             ordered.sort_unstable();
-            for (i,j,component) in ordered {
-                contribution_allowance(jp.len(),hp.len(),limits)?;
-                hp.push(Entry::new(instance.columns[i],instance.columns[j]));
-                ht.push(HessianTerm{instance:index,component,i,j,
-                    scale:binding.slots[instance.coordinates[i].get()].scale()*binding.slots[instance.coordinates[j].get()].scale()});
+            for (i, j, component) in ordered {
+                contribution_allowance(jp.len(), hp.len(), limits)?;
+                hp.push(Entry::new(instance.columns[i], instance.columns[j]));
+                ht.push(HessianTerm {
+                    instance: index,
+                    component,
+                    i,
+                    j,
+                    scale: binding.slots[instance.coordinates[i].get()].scale()
+                        * binding.slots[instance.coordinates[j].get()].scale(),
+                });
             }
         }
     }
     if let Some(context) = pse_diagnostics::observation::current() {
-        context.count("math.assembly.support_candidates", "support-entries", support_visits);
-        context.count("math.assembly.emitted_addends", "addends", (jp.len() + hp.len()) as u64);
+        context.count(
+            "math.assembly.support_candidates",
+            "support-entries",
+            support_visits,
+        );
+        context.count(
+            "math.assembly.emitted_addends",
+            "addends",
+            (jp.len() + hp.len()) as u64,
+        );
     }
     Ok(CasePatterns {
         jacobian: AssemblyMatrix::new(rows.len(), columns, &jp, limits.native_index)?,
@@ -1936,10 +2075,17 @@ pub struct LocalDemand {
     /// Mathematical product, excluding numerical runtime weight/direction bindings.
     pub product: ProductKind,
 }
-#[derive(Clone,Debug)]
-enum ProductTarget {Objective,Row(usize)}
-#[derive(Clone,Debug)]
-struct ProductWeight {output:usize,target:ProductTarget,scale:f64}
+#[derive(Clone, Debug)]
+enum ProductTarget {
+    Objective,
+    Row(usize),
+}
+#[derive(Clone, Debug)]
+struct ProductWeight {
+    output: usize,
+    target: ProductTarget,
+    scale: f64,
+}
 /// A structural plan bound to immutable numeric programs.
 #[derive(Clone, Debug)]
 pub struct CaseAssembly {
@@ -2090,28 +2236,39 @@ pub struct CaseCensus {
     pub numeric_worker_bytes: usize,
 }
 /// Borrowed original selectors of one physical occurrence's prepared demand.
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct OccurrenceDemand<'a> {
     /// Index into CaseStructure::instances, whose identity and checked members remain authoritative.
-    pub instance:usize,
+    pub instance: usize,
     /// Actual consumed operation category.
-    pub demand:EvaluationDemand,
+    pub demand: EvaluationDemand,
     /// Shared mathematical template index.
-    pub template:usize,
+    pub template: usize,
     /// Original output ordinals, in the prepared product's order.
-    pub outputs:&'a[usize],
+    pub outputs: &'a [usize],
     /// Original formal derivative axes, preserving local independence and aliases.
-    pub coordinates:&'a[usize],
+    pub coordinates: &'a [usize],
 }
 impl CaseAssembly {
     /// Borrow occurrence/template selectors without diagnostic admission or support copies.
-    pub fn occurrence_demands(&self) -> impl Iterator<Item=OccurrenceDemand<'_>> {
-        let requests=&self.requests;
-        self.instances.iter().enumerate().flat_map(move |(instance,local)|local.groups.iter().filter_map(move |(demand,group)| {
-            let group=group.as_ref()?;
-            let request=&requests[group.request];
-            Some(OccurrenceDemand{instance,demand,template:group.request,outputs:&request.outputs,coordinates:&request.coordinates})
-        }))
+    pub fn occurrence_demands(&self) -> impl Iterator<Item = OccurrenceDemand<'_>> {
+        let requests = &self.requests;
+        self.instances
+            .iter()
+            .enumerate()
+            .flat_map(move |(instance, local)| {
+                local.groups.iter().filter_map(move |(demand, group)| {
+                    let group = group.as_ref()?;
+                    let request = &requests[group.request];
+                    Some(OccurrenceDemand {
+                        instance,
+                        demand,
+                        template: group.request,
+                        outputs: &request.outputs,
+                        coordinates: &request.coordinates,
+                    })
+                })
+            })
     }
     /// Counts from actual immutable owners, with no support enumeration or copy.
     pub fn census(&self) -> CaseCensus {
@@ -2222,17 +2379,31 @@ impl CaseAssembly {
             .map(|(index, i)| {
                 EnumMap::from_fn(|demand| {
                     i.groups[demand].as_ref().map(|group| {
-                        let inputs=self.bindings[index][demand].as_ref().map_or(0,EvalBindings::len);
-                        let program=&self.programs[group.request];
-                        let weighted=matches!(program.product_kind(),ProductKind::WeightedHessian|ProductKind::WeightedHessianAction);
-                        let directed=matches!(program.product_kind(),ProductKind::JacobianAction|ProductKind::WeightedHessianAction);
-                        let weights=if weighted {group.outputs.len()}else{0};
-                        let directions=if directed {i.coordinates.len()}else{0};
-                        GroupCache{
-                            inputs:vec![f64::NAN;inputs],bits:vec![0;inputs+weights+directions],
-                            weights:vec![f64::NAN;weights],direction:vec![f64::NAN;directions],
-                            product:vec![f64::NAN;program.product_len()],spare_product:vec![f64::NAN;program.product_len()],
-                            cache:None,visible:false,result:TrialEvaluation::default(),spare:TrialEvaluation::default(),
+                        let inputs = self.bindings[index][demand]
+                            .as_ref()
+                            .map_or(0, EvalBindings::len);
+                        let program = &self.programs[group.request];
+                        let weighted = matches!(
+                            program.product_kind(),
+                            ProductKind::WeightedHessian | ProductKind::WeightedHessianAction
+                        );
+                        let directed = matches!(
+                            program.product_kind(),
+                            ProductKind::JacobianAction | ProductKind::WeightedHessianAction
+                        );
+                        let weights = if weighted { group.outputs.len() } else { 0 };
+                        let directions = if directed { i.coordinates.len() } else { 0 };
+                        GroupCache {
+                            inputs: vec![f64::NAN; inputs],
+                            bits: vec![0; inputs + weights + directions],
+                            weights: vec![f64::NAN; weights],
+                            direction: vec![f64::NAN; directions],
+                            product: vec![f64::NAN; program.product_len()],
+                            spare_product: vec![f64::NAN; program.product_len()],
+                            cache: None,
+                            visible: false,
+                            result: TrialEvaluation::default(),
+                            spare: TrialEvaluation::default(),
                         }
                     })
                 })
@@ -2241,7 +2412,7 @@ impl CaseAssembly {
         CaseWorker {
             assembly: Arc::clone(self),
             groups,
-            projections:Vec::new(),
+            projections: Vec::new(),
             workers: self
                 .programs
                 .iter()
@@ -2254,7 +2425,7 @@ impl CaseAssembly {
             hessian: Some(self.hessian.as_ref().clone()),
             constraint_values: vec![f64::NAN; self.rows.len()],
             gradient_values: vec![f64::NAN; self.columns.len()],
-            action_values:vec![f64::NAN;self.rows.len().max(self.columns.len())],
+            action_values: vec![f64::NAN; self.rows.len().max(self.columns.len())],
             recycler: None,
             observation: None,
             observation_operation: None,
@@ -2317,12 +2488,12 @@ struct GroupCache {
     bits: Vec<u64>,
     direction: Vec<f64>,
     cache: Option<DerivativeOrder>,
-    visible:bool,
-    weights:Vec<f64>,
-    product:Vec<f64>,
-    spare_product:Vec<f64>,
+    visible: bool,
+    weights: Vec<f64>,
+    product: Vec<f64>,
+    spare_product: Vec<f64>,
     result: TrialEvaluation,
-    spare:TrialEvaluation,
+    spare: TrialEvaluation,
 }
 /// Independent admission of optional owner-local demand evidence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2392,9 +2563,9 @@ impl DemandCounts {
         }
         self.completed(achieved);
     }
-    fn projected(&mut self,achieved:DerivativeOrder) {
-        Self::add(&mut self.cache_hits,&mut self.overflowed);
-        Self::add(&mut self.cache_projections,&mut self.overflowed);
+    fn projected(&mut self, achieved: DerivativeOrder) {
+        Self::add(&mut self.cache_hits, &mut self.overflowed);
+        Self::add(&mut self.cache_projections, &mut self.overflowed);
         self.completed(achieved);
     }
     fn miss(&mut self, previous: Option<DerivativeOrder>, same: bool, invalidated: Option<bool>) {
@@ -2441,14 +2612,14 @@ pub struct CaseWorker {
     groups: Vec<EnumMap<EvaluationDemand, Option<GroupCache>>>,
     // Evaluation is serial under &mut self; scratch is shared only inside this attempt.
     workers: Vec<Worker>,
-    projections:Vec<ProjectionRelationship>,
+    projections: Vec<ProjectionRelationship>,
     providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
     cancel: Arc<AtomicBool>,
     jacobian: Option<AssemblyMatrix>,
     hessian: Option<AssemblyMatrix>,
     constraint_values: Vec<f64>,
     gradient_values: Vec<f64>,
-    action_values:Vec<f64>,
+    action_values: Vec<f64>,
     recycler: Option<ScratchRecycler>,
     observation: Option<Box<CaseObservation>>,
     observation_operation: Option<pse_diagnostics::observation::OperationId>,
@@ -2466,12 +2637,12 @@ pub struct CaseScratch {
     assembly: Arc<CaseAssembly>,
     groups: Vec<EnumMap<EvaluationDemand, Option<GroupCache>>>,
     workers: Vec<Worker>,
-    projections:Vec<ProjectionRelationship>,
+    projections: Vec<ProjectionRelationship>,
     jacobian: Option<AssemblyMatrix>,
     hessian: Option<AssemblyMatrix>,
     constraint_values: Vec<f64>,
     gradient_values: Vec<f64>,
-    action_values:Vec<f64>,
+    action_values: Vec<f64>,
     reset: bool,
 }
 impl CaseScratch {
@@ -2491,7 +2662,7 @@ impl CaseScratch {
                 group.cache = None;
                 group.result.clear();
                 group.spare.clear();
-                group.visible=false;
+                group.visible = false;
                 group.weights.fill(f64::NAN);
                 group.product.fill(f64::NAN);
                 group.spare_product.fill(f64::NAN);
@@ -2532,12 +2703,12 @@ impl Drop for CaseWorker {
             assembly: self.assembly.clone(),
             groups: std::mem::take(&mut self.groups),
             workers: std::mem::take(&mut self.workers),
-            projections:std::mem::take(&mut self.projections),
+            projections: std::mem::take(&mut self.projections),
             jacobian: self.jacobian.take(),
             hessian: self.hessian.take(),
             constraint_values: std::mem::take(&mut self.constraint_values),
             gradient_values: std::mem::take(&mut self.gradient_values),
-            action_values:std::mem::take(&mut self.action_values),
+            action_values: std::mem::take(&mut self.action_values),
             reset: false,
         });
     }
@@ -2641,7 +2812,9 @@ impl CaseWorker {
         &self.cancel
     }
     /// Original admitted execution scope, including its notifying stop owner and clock.
-    pub fn execution_scope(&self) -> &pse_kernels::ExecutionScope { &self.scope }
+    pub fn execution_scope(&self) -> &pse_kernels::ExecutionScope {
+        &self.scope
+    }
     /// Immutable products shared by the attempt.
     pub fn assembly(&self) -> &Arc<CaseAssembly> {
         &self.assembly
@@ -2656,23 +2829,25 @@ impl CaseWorker {
                 group.cache = None;
                 group.result.clear();
                 group.spare.clear();
-                group.visible=false;
+                group.visible = false;
                 group.weights.fill(f64::NAN);
                 group.product.fill(f64::NAN);
                 group.spare_product.fill(f64::NAN);
             }
         }
     }
-    fn refuse_trial(&mut self,cause:&MathError) {
+    fn refuse_trial(&mut self, cause: &MathError) {
         if independent_completion_survives(cause) {
             for groups in &mut self.groups {
                 for group in groups.values_mut().flatten() {
-                    group.visible=false;
+                    group.visible = false;
                     group.spare.clear();
                     group.spare_product.fill(f64::NAN);
                 }
             }
-        } else {self.invalidate_trial();}
+        } else {
+            self.invalidate_trial();
+        }
     }
     fn evaluate(
         &mut self,
@@ -2690,7 +2865,9 @@ impl CaseWorker {
             .as_ref()
             .map(|observation| observation.phase(demand));
         let result = self.evaluate_inner(values, demand, order);
-        if let Err(cause)=&result { self.refuse_trial(cause); }
+        if let Err(cause) = &result {
+            self.refuse_trial(cause);
+        }
         if let Some(observation) = &mut self.observation {
             observation.publish(&self.assembly, demand, order);
         }
@@ -2727,7 +2904,7 @@ impl CaseWorker {
                 if let Some(observation) = &mut self.observation {
                     observation.failed(i, demand, order);
                 }
-                worker.visible=false;
+                worker.visible = false;
                 return Err(context(cause));
             }
             let same = worker
@@ -2736,28 +2913,41 @@ impl CaseWorker {
                 .zip(&worker.inputs)
                 .all(|(bits, value)| *bits == value.to_bits());
             if let Some(achieved) = worker.cache.filter(|achieved| *achieved >= order && same) {
-                worker.visible=true;
+                worker.visible = true;
                 if let Some(observation) = &mut self.observation {
                     observation.hit(i, demand, order, achieved);
                 }
                 continue;
             }
-            match project_compatible(&mut self.groups[i],demand,order,&self.assembly,i,&mut self.projections) {
-                Ok(Some(achieved))=> {
-                    if let Some(observation)=&mut self.observation {observation.projected(i,demand,order,achieved);}
+            match project_compatible(
+                &mut self.groups[i],
+                demand,
+                order,
+                &self.assembly,
+                i,
+                &mut self.projections,
+            ) {
+                Ok(Some(achieved)) => {
+                    if let Some(observation) = &mut self.observation {
+                        observation.projected(i, demand, order, achieved);
+                    }
                     continue;
                 }
-                Ok(None)=>{},
-                Err(cause)=> {
-                    if let Some(observation)=&mut self.observation {observation.failed(i,demand,order);}
+                Ok(None) => {}
+                Err(cause) => {
+                    if let Some(observation) = &mut self.observation {
+                        observation.failed(i, demand, order);
+                    }
                     return Err(context(cause));
                 }
             }
-            let worker=self.groups[i][demand].as_mut().ok_or_else(||MathError::Contract("missing projected group".into()))?;
+            let worker = self.groups[i][demand]
+                .as_mut()
+                .ok_or_else(|| MathError::Contract("missing projected group".into()))?;
             if let Some(observation) = &mut self.observation {
                 observation.miss(i, demand, order, worker.cache, same);
             }
-            worker.visible=false;
+            worker.visible = false;
             let evaluated = self.workers[group.request]
                 .evaluate_trial_into(
                     &worker.inputs,
@@ -2776,11 +2966,13 @@ impl CaseWorker {
             if let Some(observation) = &mut self.observation {
                 observation.completed(i, demand, order);
             }
-            std::mem::swap(&mut worker.result,&mut worker.spare);
+            std::mem::swap(&mut worker.result, &mut worker.spare);
             worker.spare.clear();
-            for (bits,value) in worker.bits.iter_mut().zip(&worker.inputs) {*bits=value.to_bits();}
-            worker.cache=Some(order);
-            worker.visible=true;
+            for (bits, value) in worker.bits.iter_mut().zip(&worker.inputs) {
+                *bits = value.to_bits();
+            }
+            worker.cache = Some(order);
+            worker.visible = true;
         }
         self.scope.check().map_err(crate::error::scope_error)?;
         Ok(())
@@ -2873,7 +3065,9 @@ impl CaseWorker {
                 }
             }
         }
-        for &value in &self.constraint_values { finite(value)?; }
+        for &value in &self.constraint_values {
+            finite(value)?;
+        }
         Ok(&self.constraint_values)
     }
     /// Retain independently visible source terms from the most recent constraint evaluation.
@@ -2898,10 +3092,7 @@ impl CaseWorker {
         Ok(out)
     }
     /// Objective gradient in free-variable order and minimization orientation.
-    pub fn gradient<'a>(
-        &mut self,
-        values: impl Into<EvalInputs<'a>>,
-    ) -> Result<&[f64], MathError> {
+    pub fn gradient<'a>(&mut self, values: impl Into<EvalInputs<'a>>) -> Result<&[f64], MathError> {
         self.evaluate(
             values.into(),
             EvaluationDemand::Objective,
@@ -2912,13 +3103,20 @@ impl CaseWorker {
             let local = &self.assembly.instances[i];
             for c in &b.contributions {
                 if c.target == Target::PRIMARY {
-                    let r = local.groups[EvaluationDemand::Objective].as_ref()
+                    let r = local.groups[EvaluationDemand::Objective]
+                        .as_ref()
                         .and_then(|group| group.outputs.binary_search(&c.output).ok())
                         .ok_or_else(|| MathError::Contract("missing objective output".into()))?;
-                    let v = &self.groups[i][EvaluationDemand::Objective].as_ref()
+                    let v = &self.groups[i][EvaluationDemand::Objective]
+                        .as_ref()
                         .filter(|group| group.cache.is_some())
-                        .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?.result;
-                    let sign = self.assembly.structure.objective().map_or(1.0, |o| o.sense.sign());
+                        .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?
+                        .result;
+                    let sign = self
+                        .assembly
+                        .structure
+                        .objective()
+                        .map_or(1.0, |o| o.sense.sign());
                     for (k, &formal) in local.coordinates.iter().enumerate() {
                         let addend = sign
                             * c.scale
@@ -2929,7 +3127,9 @@ impl CaseWorker {
                 }
             }
         }
-        for &value in &self.gradient_values { finite(value)?; }
+        for &value in &self.gradient_values {
+            finite(value)?;
+        }
         Ok(&self.gradient_values)
     }
     /// Refill the canonical constraint Jacobian without rebuilding structure.
@@ -2947,9 +3147,11 @@ impl CaseWorker {
             .ok_or_else(|| MathError::Contract("detached Jacobian".into()))?
             .clear();
         for (k, t) in self.assembly.jacobian_terms.iter().enumerate() {
-            let v = &self.groups[t.instance][EvaluationDemand::Constraints].as_ref()
+            let v = &self.groups[t.instance][EvaluationDemand::Constraints]
+                .as_ref()
                 .filter(|group| group.cache.is_some())
-                .ok_or_else(|| MathError::Contract("unevaluated Jacobian demand".into()))?.result;
+                .ok_or_else(|| MathError::Contract("unevaluated Jacobian demand".into()))?
+                .result;
             let r = t.result_row;
             let n = self.assembly.instances[t.instance].coordinates.len();
             let value = t.scale * v.jacobian[r * n + t.i];
@@ -2966,37 +3168,81 @@ impl CaseWorker {
     }
     /// Refill the lower Lagrangian Hessian from actual weighted local products.
     pub fn hessian<'a>(
-        &mut self,values:impl Into<EvalInputs<'a>>,objective_weight:f64,multipliers:&[f64],
-    ) -> Result<&faer::sparse::SparseColMat<usize,f64>,MathError> {
-        self.check_weights(objective_weight,multipliers)?;
-        self.evaluate_bound_product(values.into(),EvaluationDemand::All,objective_weight,multipliers,None)?;
-        let matrix=self.hessian.as_mut().ok_or_else(||MathError::Contract("detached Hessian".into()))?;
+        &mut self,
+        values: impl Into<EvalInputs<'a>>,
+        objective_weight: f64,
+        multipliers: &[f64],
+    ) -> Result<&faer::sparse::SparseColMat<usize, f64>, MathError> {
+        self.check_weights(objective_weight, multipliers)?;
+        self.evaluate_bound_product(
+            values.into(),
+            EvaluationDemand::All,
+            objective_weight,
+            multipliers,
+            None,
+        )?;
+        let matrix = self
+            .hessian
+            .as_mut()
+            .ok_or_else(|| MathError::Contract("detached Hessian".into()))?;
         matrix.clear();
-        for (index,term) in self.assembly.hessian_terms.iter().enumerate() {
-            let group=self.groups[term.instance][EvaluationDemand::All].as_ref()
-                .filter(|g|g.visible && g.cache.is_some()).ok_or_else(||MathError::Contract("unevaluated weighted Hessian".into()))?;
-            matrix.add(Addend::new(index),term.scale*group.product[term.component])?;
+        for (index, term) in self.assembly.hessian_terms.iter().enumerate() {
+            let group = self.groups[term.instance][EvaluationDemand::All]
+                .as_ref()
+                .filter(|g| g.visible && g.cache.is_some())
+                .ok_or_else(|| MathError::Contract("unevaluated weighted Hessian".into()))?;
+            matrix.add(
+                Addend::new(index),
+                term.scale * group.product[term.component],
+            )?;
         }
         self.scope.check().map_err(crate::error::scope_error)?;
         Ok(matrix.matrix())
     }
     /// Evaluate a weighted Hessian action directly; no full matrix is assembled.
     pub fn hessian_product<'a>(
-        &mut self,values:impl Into<EvalInputs<'a>>,objective_weight:f64,multipliers:&[f64],
-        direction:&[f64],output:&mut[f64],
-    ) -> Result<(),MathError> {
-        self.check_weights(objective_weight,multipliers)?;
-        if !self.assembly.has_hessian_actions() || direction.len()!=self.assembly.columns.len()
-            || output.len()!=self.assembly.columns.len() || direction.iter().any(|v|!v.is_finite()) {
-            return Err(MathError::Contract("prepared Hessian action and finite global dimensions required".into()));
+        &mut self,
+        values: impl Into<EvalInputs<'a>>,
+        objective_weight: f64,
+        multipliers: &[f64],
+        direction: &[f64],
+        output: &mut [f64],
+    ) -> Result<(), MathError> {
+        self.check_weights(objective_weight, multipliers)?;
+        if !self.assembly.has_hessian_actions()
+            || direction.len() != self.assembly.columns.len()
+            || output.len() != self.assembly.columns.len()
+            || direction.iter().any(|v| !v.is_finite())
+        {
+            return Err(MathError::Contract(
+                "prepared Hessian action and finite global dimensions required".into(),
+            ));
         }
-        self.evaluate_bound_product(values.into(),EvaluationDemand::HessianAction,objective_weight,multipliers,Some(direction))?;
+        self.evaluate_bound_product(
+            values.into(),
+            EvaluationDemand::HessianAction,
+            objective_weight,
+            multipliers,
+            Some(direction),
+        )?;
         self.action_values[..output.len()].fill(0.0);
-        for (index,(local,binding)) in self.assembly.instances.iter().zip(self.assembly.structure.instances()).enumerate() {
-            let Some(cache)=&self.groups[index][EvaluationDemand::HessianAction] else {continue;};
-            for (axis,(&formal,&column)) in local.coordinates.iter().zip(&local.columns).enumerate() {
-                let destination=&mut self.action_values[column.get()];
-                *destination=finite(*destination+binding.slots[formal.get()].scale()*cache.product[axis])?;
+        for (index, (local, binding)) in self
+            .assembly
+            .instances
+            .iter()
+            .zip(self.assembly.structure.instances())
+            .enumerate()
+        {
+            let Some(cache) = &self.groups[index][EvaluationDemand::HessianAction] else {
+                continue;
+            };
+            for (axis, (&formal, &column)) in
+                local.coordinates.iter().zip(&local.columns).enumerate()
+            {
+                let destination = &mut self.action_values[column.get()];
+                *destination = finite(
+                    *destination + binding.slots[formal.get()].scale() * cache.product[axis],
+                )?;
             }
         }
         self.scope.check().map_err(crate::error::scope_error)?;
@@ -3005,19 +3251,37 @@ impl CaseWorker {
     }
     /// Evaluate a first action from its admitted directional program.
     pub fn jacobian_product<'a>(
-        &mut self,values:impl Into<EvalInputs<'a>>,direction:&[f64],output:&mut[f64],
-    ) -> Result<(),MathError> {
-        if !self.assembly.has_directional_actions() || direction.len()!=self.assembly.columns.len()
-            || output.len()!=self.assembly.rows.len() || direction.iter().any(|v|!v.is_finite()) {
-            return Err(MathError::Contract("prepared Jacobian action and finite global dimensions required".into()));
+        &mut self,
+        values: impl Into<EvalInputs<'a>>,
+        direction: &[f64],
+        output: &mut [f64],
+    ) -> Result<(), MathError> {
+        if !self.assembly.has_directional_actions()
+            || direction.len() != self.assembly.columns.len()
+            || output.len() != self.assembly.rows.len()
+            || direction.iter().any(|v| !v.is_finite())
+        {
+            return Err(MathError::Contract(
+                "prepared Jacobian action and finite global dimensions required".into(),
+            ));
         }
-        self.evaluate_bound_product(values.into(),EvaluationDemand::Directional,0.0,&[],Some(direction))?;
+        self.evaluate_bound_product(
+            values.into(),
+            EvaluationDemand::Directional,
+            0.0,
+            &[],
+            Some(direction),
+        )?;
         self.action_values[..output.len()].fill(0.0);
-        for (index,weights) in self.assembly.product_weights.iter().enumerate() {
-            let Some(cache)=&self.groups[index][EvaluationDemand::Directional] else {continue;};
+        for (index, weights) in self.assembly.product_weights.iter().enumerate() {
+            let Some(cache) = &self.groups[index][EvaluationDemand::Directional] else {
+                continue;
+            };
             for weight in &weights[EvaluationDemand::Directional] {
-                if let ProductTarget::Row(row)=weight.target {
-                    self.action_values[row]=finite(self.action_values[row]+weight.scale*cache.product[weight.output])?;
+                if let ProductTarget::Row(row) = weight.target {
+                    self.action_values[row] = finite(
+                        self.action_values[row] + weight.scale * cache.product[weight.output],
+                    )?;
                 }
             }
         }
@@ -3025,105 +3289,233 @@ impl CaseWorker {
         output.copy_from_slice(&self.action_values[..output.len()]);
         Ok(())
     }
-    fn check_weights(&self,objective_weight:f64,multipliers:&[f64]) -> Result<(),MathError> {
-        if self.assembly.order<DerivativeOrder::Second || !objective_weight.is_finite()
-            || multipliers.len()!=self.assembly.rows.len() || multipliers.iter().any(|v|!v.is_finite()) {
-            return Err(MathError::Contract("finite Lagrangian coefficients and Second demand required".into()));
+    fn check_weights(&self, objective_weight: f64, multipliers: &[f64]) -> Result<(), MathError> {
+        if self.assembly.order < DerivativeOrder::Second
+            || !objective_weight.is_finite()
+            || multipliers.len() != self.assembly.rows.len()
+            || multipliers.iter().any(|v| !v.is_finite())
+        {
+            return Err(MathError::Contract(
+                "finite Lagrangian coefficients and Second demand required".into(),
+            ));
         }
         Ok(())
     }
     fn evaluate_bound_product(
-        &mut self,values:EvalInputs<'_>,demand:EvaluationDemand,objective_weight:f64,
-        multipliers:&[f64],direction:Option<&[f64]>,
-    ) -> Result<(),MathError> {
+        &mut self,
+        values: EvalInputs<'_>,
+        demand: EvaluationDemand,
+        objective_weight: f64,
+        multipliers: &[f64],
+        direction: Option<&[f64]>,
+    ) -> Result<(), MathError> {
         self.bind_observation();
-        let _entered=self.observation.as_ref().map(|o|o.producer.context().enter());
-        let _phase=self.observation.as_ref().map(|o|o.phase(demand));
-        let order=if demand==EvaluationDemand::Directional {DerivativeOrder::First}else{DerivativeOrder::Second};
-        let evaluated=self.evaluate_bound_product_inner(values,demand,order,objective_weight,multipliers,direction);
-        if let Err(cause)=&evaluated {self.refuse_trial(cause);}
-        if let Some(observation)=&mut self.observation {observation.publish(&self.assembly,demand,order);}
+        let _entered = self
+            .observation
+            .as_ref()
+            .map(|o| o.producer.context().enter());
+        let _phase = self.observation.as_ref().map(|o| o.phase(demand));
+        let order = if demand == EvaluationDemand::Directional {
+            DerivativeOrder::First
+        } else {
+            DerivativeOrder::Second
+        };
+        let evaluated = self.evaluate_bound_product_inner(
+            values,
+            demand,
+            order,
+            objective_weight,
+            multipliers,
+            direction,
+        );
+        if let Err(cause) = &evaluated {
+            self.refuse_trial(cause);
+        }
+        if let Some(observation) = &mut self.observation {
+            observation.publish(&self.assembly, demand, order);
+        }
         evaluated
     }
     fn evaluate_bound_product_inner(
-        &mut self,values:EvalInputs<'_>,demand:EvaluationDemand,order:DerivativeOrder,
-        objective_weight:f64,multipliers:&[f64],direction:Option<&[f64]>,
-    ) -> Result<(),MathError> {
+        &mut self,
+        values: EvalInputs<'_>,
+        demand: EvaluationDemand,
+        order: DerivativeOrder,
+        objective_weight: f64,
+        multipliers: &[f64],
+        direction: Option<&[f64]>,
+    ) -> Result<(), MathError> {
         self.scope.check().map_err(crate::error::scope_error)?;
         values.check(&self.assembly)?;
-        let objective_weight=finite(objective_weight*self.objective_sign())?;
-        for (index,(local,binding)) in self.assembly.instances.iter().zip(self.assembly.structure.instances()).enumerate() {
-            let Some(group)=&local.groups[demand] else {continue;};
-            let cache=self.groups[index][demand].as_mut().ok_or_else(||MathError::Contract("missing product cache".into()))?;
-            let inputs=self.assembly.bindings[index][demand].as_ref().ok_or_else(||MathError::Contract("missing product gather map".into()))?;
-            if let Some(observation)=&mut self.observation {observation.called(index,demand,order);}
-            let evaluated=(|| {
-                values.fill(inputs,&mut cache.inputs)?;
+        let objective_weight = finite(objective_weight * self.objective_sign())?;
+        for (index, (local, binding)) in self
+            .assembly
+            .instances
+            .iter()
+            .zip(self.assembly.structure.instances())
+            .enumerate()
+        {
+            let Some(group) = &local.groups[demand] else {
+                continue;
+            };
+            let cache = self.groups[index][demand]
+                .as_mut()
+                .ok_or_else(|| MathError::Contract("missing product cache".into()))?;
+            let inputs = self.assembly.bindings[index][demand]
+                .as_ref()
+                .ok_or_else(|| MathError::Contract("missing product gather map".into()))?;
+            if let Some(observation) = &mut self.observation {
+                observation.called(index, demand, order);
+            }
+            let evaluated = (|| {
+                values.fill(inputs, &mut cache.inputs)?;
                 if !cache.weights.is_empty() {
                     cache.weights.fill(0.0);
                     for weight in &self.assembly.product_weights[index][demand] {
-                        let coefficient=match weight.target {ProductTarget::Objective=>objective_weight,ProductTarget::Row(row)=>multipliers[row]};
-                        cache.weights[weight.output]=finite(cache.weights[weight.output]+weight.scale*coefficient)?;
+                        let coefficient = match weight.target {
+                            ProductTarget::Objective => objective_weight,
+                            ProductTarget::Row(row) => multipliers[row],
+                        };
+                        cache.weights[weight.output] =
+                            finite(cache.weights[weight.output] + weight.scale * coefficient)?;
                     }
                 }
-                if let Some(direction)=direction {
-                    for (axis,(&formal,&column)) in local.coordinates.iter().zip(&local.columns).enumerate() {
-                        cache.direction[axis]=finite(binding.slots[formal.get()].scale()*direction[column.get()])?;
+                if let Some(direction) = direction {
+                    for (axis, (&formal, &column)) in
+                        local.coordinates.iter().zip(&local.columns).enumerate()
+                    {
+                        cache.direction[axis] =
+                            finite(binding.slots[formal.get()].scale() * direction[column.get()])?;
                     }
                 }
-                let same=cache.bits.iter().zip(cache.inputs.iter().chain(&cache.weights).chain(&cache.direction))
-                    .all(|(bits,value)|*bits==value.to_bits());
+                let same = cache
+                    .bits
+                    .iter()
+                    .zip(
+                        cache
+                            .inputs
+                            .iter()
+                            .chain(&cache.weights)
+                            .chain(&cache.direction),
+                    )
+                    .all(|(bits, value)| *bits == value.to_bits());
                 if cache.cache.is_some() && same {
-                    cache.visible=true;
-                    if let Some(observation)=&mut self.observation {observation.hit(index,demand,order,order);}
+                    cache.visible = true;
+                    if let Some(observation) = &mut self.observation {
+                        observation.hit(index, demand, order, order);
+                    }
                     return Ok(());
                 }
-                if let Some(observation)=&mut self.observation {observation.miss(index,demand,order,cache.cache,same);}
-                cache.visible=false;
-                let product=match self.assembly.requests[group.request].product {
-                    ProductKind::JacobianAction=>ProductValues::JacobianAction{direction:&cache.direction},
-                    ProductKind::WeightedHessian=>ProductValues::WeightedHessian{weights:&cache.weights},
-                    ProductKind::WeightedHessianAction=>ProductValues::WeightedHessianAction{weights:&cache.weights,direction:&cache.direction},
-                    ProductKind::SelectedPartials=>return Err(MathError::Contract("non-product demand in product execution".into())),
+                if let Some(observation) = &mut self.observation {
+                    observation.miss(index, demand, order, cache.cache, same);
+                }
+                cache.visible = false;
+                let product = match self.assembly.requests[group.request].product {
+                    ProductKind::JacobianAction => ProductValues::JacobianAction {
+                        direction: &cache.direction,
+                    },
+                    ProductKind::WeightedHessian => ProductValues::WeightedHessian {
+                        weights: &cache.weights,
+                    },
+                    ProductKind::WeightedHessianAction => ProductValues::WeightedHessianAction {
+                        weights: &cache.weights,
+                        direction: &cache.direction,
+                    },
+                    ProductKind::SelectedPartials => {
+                        return Err(MathError::Contract(
+                            "non-product demand in product execution".into(),
+                        ));
+                    }
                 };
-                self.workers[group.request].evaluate_product_trial_into(&cache.inputs,product,&mut self.providers,
-                    &self.cancel,&mut cache.spare_product,&mut cache.spare)?;
+                self.workers[group.request].evaluate_product_trial_into(
+                    &cache.inputs,
+                    product,
+                    &mut self.providers,
+                    &self.cancel,
+                    &mut cache.spare_product,
+                    &mut cache.spare,
+                )?;
                 self.scope.check().map_err(crate::error::scope_error)?;
-                std::mem::swap(&mut cache.product,&mut cache.spare_product);
-                std::mem::swap(&mut cache.result,&mut cache.spare);
+                std::mem::swap(&mut cache.product, &mut cache.spare_product);
+                std::mem::swap(&mut cache.result, &mut cache.spare);
                 cache.spare.clear();
                 cache.spare_product.fill(f64::NAN);
-                for (bits,value) in cache.bits.iter_mut().zip(cache.inputs.iter().chain(&cache.weights).chain(&cache.direction)) {*bits=value.to_bits();}
-                cache.cache=Some(order);
-                cache.visible=true;
-                if let Some(observation)=&mut self.observation {observation.completed(index,demand,order);}
+                for (bits, value) in cache.bits.iter_mut().zip(
+                    cache
+                        .inputs
+                        .iter()
+                        .chain(&cache.weights)
+                        .chain(&cache.direction),
+                ) {
+                    *bits = value.to_bits();
+                }
+                cache.cache = Some(order);
+                cache.visible = true;
+                if let Some(observation) = &mut self.observation {
+                    observation.completed(index, demand, order);
+                }
                 Ok(())
             })();
-            if let Err(cause)=evaluated {
-                if let Some(observation)=&mut self.observation {observation.failed(index,demand,order);}
-                return Err(MathError::Instance{instance:binding.instance,checked_members:binding.checked_members.as_ref().clone(),cause:Box::new(cause)});
+            if let Err(cause) = evaluated {
+                if let Some(observation) = &mut self.observation {
+                    observation.failed(index, demand, order);
+                }
+                return Err(MathError::Instance {
+                    instance: binding.instance,
+                    checked_members: binding.checked_members.as_ref().clone(),
+                    cause: Box::new(cause),
+                });
             }
         }
         self.scope.check().map_err(crate::error::scope_error)
     }
-
 }
 fn prepare_product_weights(
-    instances:&[Instance],structure:&CaseStructure,rows:&BTreeMap<SemanticId,GlobalRow>,
-) -> Vec<EnumMap<EvaluationDemand,Vec<ProductWeight>>> {
-    instances.iter().zip(structure.instances()).map(|(instance,binding)|EnumMap::from_fn(|demand| {
-        let Some(group)=&instance.groups[demand] else {return Vec::new();};
-        if !matches!(demand,EvaluationDemand::All|EvaluationDemand::Directional|EvaluationDemand::HessianAction) {return Vec::new();}
-        binding.contributions.iter().filter_map(|contribution| {
-            let output=group.outputs.binary_search(&contribution.output).ok()?;
-            let target=match contribution.target {
-                Target::Objective(_) if contribution.target==Target::PRIMARY && demand!=EvaluationDemand::Directional=>ProductTarget::Objective,
-                Target::Row(row)=>ProductTarget::Row(rows[&row].get()),
-                _=>return None,
-            };
-            Some(ProductWeight{output,target,scale:contribution.scale})
-        }).collect()
-    })).collect()
+    instances: &[Instance],
+    structure: &CaseStructure,
+    rows: &BTreeMap<SemanticId, GlobalRow>,
+) -> Vec<EnumMap<EvaluationDemand, Vec<ProductWeight>>> {
+    instances
+        .iter()
+        .zip(structure.instances())
+        .map(|(instance, binding)| {
+            EnumMap::from_fn(|demand| {
+                let Some(group) = &instance.groups[demand] else {
+                    return Vec::new();
+                };
+                if !matches!(
+                    demand,
+                    EvaluationDemand::All
+                        | EvaluationDemand::Directional
+                        | EvaluationDemand::HessianAction
+                ) {
+                    return Vec::new();
+                }
+                binding
+                    .contributions
+                    .iter()
+                    .filter_map(|contribution| {
+                        let output = group.outputs.binary_search(&contribution.output).ok()?;
+                        let target = match contribution.target {
+                            Target::Objective(_)
+                                if contribution.target == Target::PRIMARY
+                                    && demand != EvaluationDemand::Directional =>
+                            {
+                                ProductTarget::Objective
+                            }
+                            Target::Row(row) => ProductTarget::Row(rows[&row].get()),
+                            _ => return None,
+                        };
+                        Some(ProductWeight {
+                            output,
+                            target,
+                            scale: contribution.scale,
+                        })
+                    })
+                    .collect()
+            })
+        })
+        .collect()
 }
 fn selected(target: Target, demand: EvaluationDemand) -> bool {
     match demand {
@@ -3136,15 +3528,23 @@ fn selected(target: Target, demand: EvaluationDemand) -> bool {
 }
 // Only typed refusals whose semantics do not contradict scientific premises retain
 // an independently complete old result. Unknown provider/library failures are conservative.
-fn independent_completion_survives(cause:&MathError) -> bool {
+fn independent_completion_survives(cause: &MathError) -> bool {
     match cause {
-        MathError::Instance{cause,..}=>independent_completion_survives(cause),
-        MathError::Cancelled|MathError::Limit(_)|MathError::ByteLimit{..}|MathError::WorkLimit{..}
-            |MathError::SlotLimit{..}|MathError::DerivativeDemand{..}=>true,
-        MathError::Provider{cause,..}|MathError::Scope(cause)=>matches!(cause,
-            pse_kernels::ProviderError::Cancelled|pse_kernels::ProviderError::Deadline
-            |pse_kernels::ProviderError::Limit(_)|pse_kernels::ProviderError::DerivativeUnavailable{..}),
-        _=>false,
+        MathError::Instance { cause, .. } => independent_completion_survives(cause),
+        MathError::Cancelled
+        | MathError::Limit(_)
+        | MathError::ByteLimit { .. }
+        | MathError::WorkLimit { .. }
+        | MathError::SlotLimit { .. }
+        | MathError::DerivativeDemand { .. } => true,
+        MathError::Provider { cause, .. } | MathError::Scope(cause) => matches!(
+            cause,
+            pse_kernels::ProviderError::Cancelled
+                | pse_kernels::ProviderError::Deadline
+                | pse_kernels::ProviderError::Limit(_)
+                | pse_kernels::ProviderError::DerivativeUnavailable { .. }
+        ),
+        _ => false,
     }
 }
 fn finite(value: f64) -> Result<f64, MathError> {

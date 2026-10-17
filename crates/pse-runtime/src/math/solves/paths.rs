@@ -2432,7 +2432,10 @@ pub(crate) fn run_path(
             .into_iter()
             .chain(path.scope.deadline())
             .min();
-        execution.enclosing_scope = Some(ExecutionScope::new(execution.cancellation.clone(), deadline));
+        execution.enclosing_scope = Some(ExecutionScope::new(
+            execution.cancellation.clone(),
+            deadline,
+        ));
         path.origin_connected(&start)?;
         let n = start.point.len();
         let mut point = augmented(&start.point, path.program.parameters[0].1);

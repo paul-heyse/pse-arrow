@@ -366,7 +366,12 @@ impl<'o> Passes<'_, 'o> {
         let mut total = vec![0.0; shared.width()];
         shared.check();
         let zero_cotangent = weights.iter().all(|weight| *weight == 0.);
-        for (k, (checkpointing, mut solver, seed)) in stored.into_iter().enumerate().rev().filter(|_| !zero_cotangent) {
+        for (k, (checkpointing, mut solver, seed)) in stored
+            .into_iter()
+            .enumerate()
+            .rev()
+            .filter(|_| !zero_cotangent)
+        {
             shared.check();
             let problem = &problems[k];
             let (start, stop) = (segments.starts[k], segments.stops[k]);
@@ -379,8 +384,12 @@ impl<'o> Passes<'_, 'o> {
                 .rev()
                 .filter(|i| {
                     let t = r.samples[*i].time;
-                    t >= start && (t < stop || (last && t <= stop))
-                        && weights[*i * shared.contract.outputs.len()..(*i + 1) * shared.contract.outputs.len()].iter().any(|w| *w != 0.)
+                    t >= start
+                        && (t < stop || (last && t <= stop))
+                        && weights[*i * shared.contract.outputs.len()
+                            ..(*i + 1) * shared.contract.outputs.len()]
+                            .iter()
+                            .any(|w| *w != 0.)
                 })
                 .peekable();
             // Forward recording and checkpoint replay consume different work.
@@ -571,8 +580,15 @@ impl<'o> Passes<'_, 'o> {
                 let before = solver.statistics().number_of_steps;
                 let result =
                     crate::observation::scoped("diffsol.adjoint.backward.step", || solver.step());
-                let accepted = solver.statistics().number_of_steps.checked_sub(before)
-                    .ok_or_else(|| ProblemError::internal("Diffsol backward step counter moved backwards within a call"))?;
+                let accepted = solver
+                    .statistics()
+                    .number_of_steps
+                    .checked_sub(before)
+                    .ok_or_else(|| {
+                        ProblemError::internal(
+                            "Diffsol backward step counter moved backwards within a call",
+                        )
+                    })?;
                 budget.charge(accepted, "adjoint backward")?;
                 observations.publish(solver.statistics());
                 publish_step(observations, solver, &result);
@@ -628,8 +644,15 @@ impl<'o> Passes<'_, 'o> {
             }
             let before = s.statistics().number_of_steps;
             let result = s.step();
-            let accepted = s.statistics().number_of_steps.checked_sub(before)
-                .ok_or_else(|| ProblemError::internal("Diffsol recording step counter moved backwards within a call"))?;
+            let accepted = s
+                .statistics()
+                .number_of_steps
+                .checked_sub(before)
+                .ok_or_else(|| {
+                    ProblemError::internal(
+                        "Diffsol recording step counter moved backwards within a call",
+                    )
+                })?;
             steps.charge(accepted, "forward recording")?;
             let returned_time = match &result {
                 Ok(OdeSolverStopReason::RootFound(time, _)) => Some(*time),
@@ -669,7 +692,12 @@ impl<'o> Passes<'_, 'o> {
                 elapsed: shared.started.elapsed(),
                 values: std::collections::BTreeMap::from([
                     ("time".into(), crate::solve::Metric::Real(time)),
-                    ("steps".into(), crate::solve::Metric::Integer(i64::try_from(steps.used()).unwrap_or(i64::MAX))),
+                    (
+                        "steps".into(),
+                        crate::solve::Metric::Integer(
+                            i64::try_from(steps.used()).unwrap_or(i64::MAX),
+                        ),
+                    ),
                 ]),
                 incumbent: None,
             });
@@ -865,7 +893,9 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> OdeSolverMethod
                 "checkpoint state restore",
             );
             producer.context().count(
-                &format!("{}.checkpoint_restores", self.observations.role), "count", 1,
+                &format!("{}.checkpoint_restores", self.observations.role),
+                "count",
+                1,
             );
         }
         self.dy = state.dy;
@@ -901,7 +931,11 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> OdeSolverMethod
         if self.observations.baseline_pending {
             self.observations.publish(self.inner.statistics());
         }
-        if self.replay_budget.as_ref().is_some_and(|budget| budget.borrow().remaining() == 0) {
+        if self
+            .replay_budget
+            .as_ref()
+            .is_some_and(|budget| budget.borrow().remaining() == 0)
+        {
             resume_unwind(Box::new(StepLimitAbort("adjoint forward replay")));
         }
         let before = self.inner.statistics().number_of_steps;
@@ -910,9 +944,19 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> OdeSolverMethod
                 self.inner.step()
             });
         if let Some(budget) = &self.replay_budget {
-            let accepted = self.inner.statistics().number_of_steps.checked_sub(before)
-                .ok_or_else(|| DiffsolError::Other("Diffsol replay step counter moved backwards within a call".into()))?;
-            budget.borrow_mut().charge(accepted, "adjoint forward replay")
+            let accepted = self
+                .inner
+                .statistics()
+                .number_of_steps
+                .checked_sub(before)
+                .ok_or_else(|| {
+                    DiffsolError::Other(
+                        "Diffsol replay step counter moved backwards within a call".into(),
+                    )
+                })?;
+            budget
+                .borrow_mut()
+                .charge(accepted, "adjoint forward replay")
                 .map_err(|error| DiffsolError::Other(error.to_string()))?;
         }
         self.observations.publish(self.inner.statistics());

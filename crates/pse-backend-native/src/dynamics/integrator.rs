@@ -840,7 +840,10 @@ impl<'o> Shared<'o> {
                             kind: crate::LimitKind::Time,
                             ..
                         } => Termination::TimeLimit,
-                        ProblemError::Limit { kind: crate::LimitKind::Work, .. } => Termination::StepLimit,
+                        ProblemError::Limit {
+                            kind: crate::LimitKind::Work,
+                            ..
+                        } => Termination::StepLimit,
                         _ => Termination::Failed,
                     };
                 }
@@ -1394,8 +1397,15 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>> + Counted>(
         }
         let before = s.statistics().number_of_steps;
         let result = crate::observation::scoped("diffsol.step", || s.step());
-        let accepted = s.statistics().number_of_steps.checked_sub(before)
-            .ok_or_else(|| ProblemError::internal("Diffsol accepted-step counter moved backwards within a call"))?;
+        let accepted = s
+            .statistics()
+            .number_of_steps
+            .checked_sub(before)
+            .ok_or_else(|| {
+                ProblemError::internal(
+                    "Diffsol accepted-step counter moved backwards within a call",
+                )
+            })?;
         steps.charge(accepted, "forward")?;
         // OdeSolverMethod does not expose statistics. The concrete scheme owner
         // supplies its existing getter without adding a new library trait/API.
@@ -1446,7 +1456,10 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>> + Counted>(
             elapsed: shared.started.elapsed(),
             values: std::collections::BTreeMap::from([
                 ("time".into(), crate::solve::Metric::Real(time)),
-                ("steps".into(), crate::solve::Metric::Integer(i64::try_from(steps.used()).unwrap_or(i64::MAX))),
+                (
+                    "steps".into(),
+                    crate::solve::Metric::Integer(i64::try_from(steps.used()).unwrap_or(i64::MAX)),
+                ),
             ]),
             incumbent: None,
         });
@@ -1748,8 +1761,13 @@ mod forward_initialization_tests {
                 parameter: 0,
                 times: vec![0.5],
             }];
-            let report =
-                integrate(&mut Affine::new(), &profile, &[3.0, 1.0], Cancellation::default()).unwrap();
+            let report = integrate(
+                &mut Affine::new(),
+                &profile,
+                &[3.0, 1.0],
+                Cancellation::default(),
+            )
+            .unwrap();
             assert_eq!(
                 report.termination,
                 Termination::Completed,

@@ -7,8 +7,8 @@ pub(crate) use super::preparation::{
 use super::{MathRuntimeError, MathService, Workspace};
 use pse_authoring::language::Declaration;
 use pse_columnar::AllocationLease;
-use pse_diagnostics::Cancellation;
 use pse_compiler::workspace::PreparedModeling;
+use pse_diagnostics::Cancellation;
 use pse_ids::SemanticId;
 use pse_model::HeapUsage;
 use pse_model::lineage::Solved;
@@ -632,7 +632,17 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
-        self.prepare_modeling_function_products(workspace, model, rows, coordinates, order, vec![], profile, driver).await
+        self.prepare_modeling_function_products(
+            workspace,
+            model,
+            rows,
+            coordinates,
+            order,
+            vec![],
+            profile,
+            driver,
+        )
+        .await
     }
     /// Explicit action products; ordinary matrix function preparation requests none.
     pub async fn prepare_modeling_function_products(
@@ -1035,7 +1045,11 @@ impl MathService {
             move |authority, flag| {
                 let product = service.with_modeling_compiler(authority, &revision, |compiler| {
                     Ok(compiler.prepare_semantic_modeling_cancellable(
-                        root, instance, bindings, limits, flag.flag(),
+                        root,
+                        instance,
+                        bindings,
+                        limits,
+                        flag.flag(),
                     )?)
                 })?;
                 let bytes = product.retained_bytes();

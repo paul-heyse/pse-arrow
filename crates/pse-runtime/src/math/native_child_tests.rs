@@ -562,25 +562,37 @@ async fn native_child_strict_complete_memory_selection_refuses_before_launch() {
 #[cfg(target_os = "linux")]
 fn private_native_readiness_wakes_on_data_hup_cancel_and_original_deadline() {
     use rustix::event::PollFlags;
-    for cancel_before in [false,true] {
-        let (reader,_writer)=UnixStream::pair().unwrap();
-        let stop=Cancellation::new(cancel_before);
-        let scope=ExecutionScope::new(stop.clone(),Some(Instant::now()+Duration::from_secs(5)));
-        let (started,entered)=std::sync::mpsc::sync_channel(1);
-        let join=std::thread::spawn(move|| { started.send(()).unwrap(); wait_ready(&scope,&reader,PollFlags::IN) });
-        entered.recv().unwrap();stop.cancel();
+    for cancel_before in [false, true] {
+        let (reader, _writer) = UnixStream::pair().unwrap();
+        let stop = Cancellation::new(cancel_before);
+        let scope =
+            ExecutionScope::new(stop.clone(), Some(Instant::now() + Duration::from_secs(5)));
+        let (started, entered) = std::sync::mpsc::sync_channel(1);
+        let join = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            wait_ready(&scope, &reader, PollFlags::IN)
+        });
+        entered.recv().unwrap();
+        stop.cancel();
         assert!(join.join().unwrap().is_err());
     }
-    for close in [false,true] {
-        let (reader,mut writer)=UnixStream::pair().unwrap();
-        let scope=ExecutionScope::new(Cancellation::default(),Some(Instant::now()+Duration::from_secs(5)));
-        let join=std::thread::spawn(move||wait_ready(&scope,&reader,PollFlags::IN));
-        if close {drop(writer)} else {writer.write_all(&[42]).unwrap()}
+    for close in [false, true] {
+        let (reader, mut writer) = UnixStream::pair().unwrap();
+        let scope = ExecutionScope::new(
+            Cancellation::default(),
+            Some(Instant::now() + Duration::from_secs(5)),
+        );
+        let join = std::thread::spawn(move || wait_ready(&scope, &reader, PollFlags::IN));
+        if close {
+            drop(writer)
+        } else {
+            writer.write_all(&[42]).unwrap()
+        }
         assert!(join.join().unwrap().is_ok());
     }
-    let (reader,_writer)=UnixStream::pair().unwrap();
-    let stop=Cancellation::default();
-    let scope=ExecutionScope::new(stop.clone(),Some(Instant::now()));
-    assert!(wait_ready(&scope,&reader,PollFlags::IN).is_err());
+    let (reader, _writer) = UnixStream::pair().unwrap();
+    let stop = Cancellation::default();
+    let scope = ExecutionScope::new(stop.clone(), Some(Instant::now()));
+    assert!(wait_ready(&scope, &reader, PollFlags::IN).is_err());
     assert!(!stop.is_cancelled());
 }

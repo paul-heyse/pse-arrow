@@ -865,7 +865,10 @@ mod tests {
         }
     }
     fn admitted(admission: Arc<Admission>) -> Execution {
-        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
         execution.work_admission = Some(admission);
         execution
     }
@@ -962,7 +965,10 @@ mod tests {
     }
     #[test]
     fn refinement_iterations_admit_before_work_and_preserve_failed_observations() {
-        let base = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let base = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
         let mut held = factor(1 << 20, &[2., 1.], &base).unwrap();
         // A deliberately inconsistent residual operator makes both corrections
         // unavoidable, independently of platform rounding or refinement heuristics.
@@ -1006,7 +1012,10 @@ mod tests {
     }
     #[test]
     fn fresh_sparse_actions_reuse_factor_and_match_independent_perturbed_roots() {
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
         let held = factor(1 << 20, &[2., 1.], &execution).unwrap();
         let shared = held.clone();
         assert!(Arc::ptr_eq(&held.held, &shared.held));
@@ -1054,7 +1063,10 @@ mod tests {
     }
     #[test]
     fn fresh_sparse_action_refuses_allowance_exterior_and_bad_directions() {
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
         assert!(matches!(
             factor(1, &[2., 1.], &execution),
             Err(Withheld::Memory)
@@ -1071,7 +1083,10 @@ mod tests {
     }
     #[test]
     fn parameter_actions_share_fresh_factor_without_dense_responses() {
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
         let parameter = SemanticId::from_bytes([8; 16]);
         let matrix = SparseColMat::try_new_from_triplets(
             2,
@@ -1107,7 +1122,10 @@ mod tests {
     }
     #[test]
     fn escaped_shared_factors_retain_original_and_combined_allocation_owners() {
-        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
         let matrix = || {
             SparseColMat::try_new_from_triplets(
                 2,

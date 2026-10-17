@@ -9,10 +9,7 @@ use pse_model::generated::enums::{
     ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
     ModelingProcedure as Procedure,
 };
-use std::{
-    collections::BTreeSet,
-    sync::Arc,
-};
+use std::{collections::BTreeSet, sync::Arc};
 
 /// Explicit ephemeral diagnostic: run exclusively pure authored tests without
 /// constructing a normal source package, canonical revision or native-solver services.
@@ -165,10 +162,7 @@ pub async fn conform_pure_documents(
                 let oracle = revision.oracle(fixture);
                 report.note_oracle(oracle, |oracle| revision.release_of(oracle));
                 let data = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
-                if index >= maximum_fixtures
-                    || worker_flag.is_cancelled()
-                    || !report.complete
-                {
+                if index >= maximum_fixtures || worker_flag.is_cancelled() || !report.complete {
                     report.complete = false;
                     report.record_fixture(
                         fixture,

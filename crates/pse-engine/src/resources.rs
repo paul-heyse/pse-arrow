@@ -25,33 +25,72 @@ pub struct ReleaseNotifyingSemaphore {
 impl ReleaseNotifyingSemaphore {
     /// Construct the sole semaphore for this capacity owner.
     pub fn new(permits: usize) -> Self {
-        Self { inner: Arc::new(tokio::sync::Semaphore::new(permits)), released: Arc::new(tokio::sync::Notify::new()), closed: pse_diagnostics::Cancellation::default() }
+        Self {
+            inner: Arc::new(tokio::sync::Semaphore::new(permits)),
+            released: Arc::new(tokio::sync::Notify::new()),
+            closed: pse_diagnostics::Cancellation::default(),
+        }
     }
     /// Register before attempting admission; notifications grant no capacity.
-    pub fn released(&self) -> Arc<tokio::sync::Notify> { self.released.clone() }
+    pub fn released(&self) -> Arc<tokio::sync::Notify> {
+        self.released.clone()
+    }
     /// Actual currently free permits, never an independently maintained estimate.
-    pub fn available_permits(&self) -> usize { self.inner.available_permits() }
+    pub fn available_permits(&self) -> usize {
+        self.inner.available_permits()
+    }
     /// Close the actual semaphore and wake retrying owners to observe closure.
-    pub fn close(&self) { self.inner.close(); self.closed.cancel(); self.released.notify_waiters(); }
+    pub fn close(&self) {
+        self.inner.close();
+        self.closed.cancel();
+        self.released.notify_waiters();
+    }
     /// Whether the sole underlying semaphore has closed.
-    pub fn is_closed(&self) -> bool { self.inner.is_closed() }
+    pub fn is_closed(&self) -> bool {
+        self.inner.is_closed()
+    }
     /// Sticky closure observation, independent of which capacity blocked a paired retry.
-    pub async fn closed(&self) { self.closed.cancelled().await; }
+    pub async fn closed(&self) {
+        self.closed.cancelled().await;
+    }
     /// Attempt complete ownership without retaining a queued partial acquisition.
-    pub fn try_acquire_many_owned(self: Arc<Self>, permits: u32) -> Result<ReleasedPermit, tokio::sync::TryAcquireError> {
-        self.inner.clone().try_acquire_many_owned(permits).map(|permit| ReleasedPermit { permit: Some(permit), released: Some(self.released.clone()) })
+    pub fn try_acquire_many_owned(
+        self: Arc<Self>,
+        permits: u32,
+    ) -> Result<ReleasedPermit, tokio::sync::TryAcquireError> {
+        self.inner
+            .clone()
+            .try_acquire_many_owned(permits)
+            .map(|permit| ReleasedPermit {
+                permit: Some(permit),
+                released: Some(self.released.clone()),
+            })
     }
     /// Attempt one complete permit.
-    pub fn try_acquire_owned(self: Arc<Self>) -> Result<ReleasedPermit, tokio::sync::TryAcquireError> {
+    pub fn try_acquire_owned(
+        self: Arc<Self>,
+    ) -> Result<ReleasedPermit, tokio::sync::TryAcquireError> {
         self.try_acquire_many_owned(1)
     }
     /// Await an already sanctioned queued acquisition at the existing semaphore.
-    pub async fn acquire_owned(self: Arc<Self>) -> Result<ReleasedPermit, tokio::sync::AcquireError> {
+    pub async fn acquire_owned(
+        self: Arc<Self>,
+    ) -> Result<ReleasedPermit, tokio::sync::AcquireError> {
         self.acquire_many_owned(1).await
     }
     /// Await an already sanctioned complete acquisition. Admission policy stays with callers.
-    pub async fn acquire_many_owned(self: Arc<Self>, permits: u32) -> Result<ReleasedPermit, tokio::sync::AcquireError> {
-        self.inner.clone().acquire_many_owned(permits).await.map(|permit| ReleasedPermit { permit: Some(permit), released: Some(self.released.clone()) })
+    pub async fn acquire_many_owned(
+        self: Arc<Self>,
+        permits: u32,
+    ) -> Result<ReleasedPermit, tokio::sync::AcquireError> {
+        self.inner
+            .clone()
+            .acquire_many_owned(permits)
+            .await
+            .map(|permit| ReleasedPermit {
+                permit: Some(permit),
+                released: Some(self.released.clone()),
+            })
     }
 }
 
@@ -64,15 +103,24 @@ pub struct ReleasedPermit {
 impl ReleasedPermit {
     /// Retain an existing non-CPU cache admission under the same query lifetime.
     pub(crate) fn unobserved(permit: tokio::sync::OwnedSemaphorePermit) -> Self {
-        Self { permit: Some(permit), released: None }
+        Self {
+            permit: Some(permit),
+            released: None,
+        }
     }
     /// Actual number of held permits.
-    pub fn num_permits(&self) -> usize { self.permit.as_ref().map_or(0, tokio::sync::OwnedSemaphorePermit::num_permits) }
+    pub fn num_permits(&self) -> usize {
+        self.permit
+            .as_ref()
+            .map_or(0, tokio::sync::OwnedSemaphorePermit::num_permits)
+    }
 }
 impl Drop for ReleasedPermit {
     fn drop(&mut self) {
         drop(self.permit.take());
-        if let Some(released) = &self.released { released.notify_waiters(); }
+        if let Some(released) = &self.released {
+            released.notify_waiters();
+        }
     }
 }
 
@@ -234,16 +282,22 @@ mod tests {
         let notification = released.notified();
         semaphore.close();
         notification.await;
-        assert!(matches!(semaphore.try_acquire_owned(), Err(tokio::sync::TryAcquireError::Closed)));
+        assert!(matches!(
+            semaphore.try_acquire_owned(),
+            Err(tokio::sync::TryAcquireError::Closed)
+        ));
     }
     #[tokio::test]
     async fn semaphore_closure_is_sticky_without_a_release_or_active_runtime_waiter() {
-        let semaphore=Arc::new(ReleaseNotifyingSemaphore::new(1));
-        let held=semaphore.clone().try_acquire_owned().unwrap();
+        let semaphore = Arc::new(ReleaseNotifyingSemaphore::new(1));
+        let held = semaphore.clone().try_acquire_owned().unwrap();
         semaphore.close();
         semaphore.closed().await;
-        assert_eq!(held.num_permits(),1);
-        assert!(matches!(semaphore.clone().try_acquire_owned(),Err(tokio::sync::TryAcquireError::Closed)));
+        assert_eq!(held.num_permits(), 1);
+        assert!(matches!(
+            semaphore.clone().try_acquire_owned(),
+            Err(tokio::sync::TryAcquireError::Closed)
+        ));
         drop(held);
     }
     #[tokio::test]

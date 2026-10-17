@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, PS-10]
 blueprint: [§23.1]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Interface-checked — existing source-record, Arrow ownership and DataFusion contracts; qualification remains with Plan43e/43g.
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A selected evidence query cannot preserve event membership, explicit unknowns or finite ownership under this declaration.
@@ -47,7 +47,7 @@ No new scheduler, store writes, SQL parser or charge ledger. Exact times remain 
 
 ### Confirmation
 
-**Interface-checked:** source/library inspection supports the composition. Implementation and targeted tests remain in the owning plan until executed.
+**Tested, 2026-10-17:** actual registry-derived Arrow/DataFusion views preserve source keys, nullable unavailable fields, exact unsigned sequences, leased lifetime, repeated-key refusal and memory/independent projection failure. Actual Python and Trace Processor consumers passed. Plan43e/43g Outcomes own selected/composite conditions; derived views remain observational and do not establish causal certainty or scientific validity.
 
 ## Pros and cons
 

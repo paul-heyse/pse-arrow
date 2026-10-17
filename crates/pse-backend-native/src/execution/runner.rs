@@ -844,7 +844,10 @@ mod validation_tests {
             structure: None,
             controls: &controls,
             accuracy: &accuracy,
-            execution: crate::solve::Execution::new(pse_diagnostics::Cancellation::default(), &controls),
+            execution: crate::solve::Execution::new(
+                pse_diagnostics::Cancellation::default(),
+                &controls,
+            ),
             tolerances: &tolerances,
             normalization: &normalization,
             compatibility: stamp(backend),

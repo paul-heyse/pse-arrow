@@ -1536,7 +1536,11 @@ async fn query_admission(
         Some(service) => service
             .admit_query(cancel)
             .await
-            .map(|permit| Some(Arc::new(crate::resources::ReleasedPermit::unobserved(permit))))
+            .map(|permit| {
+                Some(Arc::new(crate::resources::ReleasedPermit::unobserved(
+                    permit,
+                )))
+            })
             .map_err(engine),
         None => Ok(None),
     }

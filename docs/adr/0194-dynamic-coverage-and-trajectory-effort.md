@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, PS-06, PS-09, PS-10]
 blueprint: [§13.6]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Interface-checked — pinned source and Plan43 execution investigations; dependent implementation remains with its owning packets.
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: An admitted product cannot preserve source attribution, scientific validity or bounded execution under this contract.
@@ -47,7 +47,7 @@ Keep failed native calls, rejected trials, callbacks, IC work and factors separa
 
 ### Confirmation
 
-**Interface-checked:** Plan43 preparation inspected exact library and caller contracts. The owning companion records subsequent implemented/tested evidence and failures; this decision is not an acceptance claim.
+**Tested, 2026-10-17:** linked native controls exercise covered output, cumulative forward/replay/backward effort, event/reset/sample and restored-producer behavior. Independent runtime nonlinear DAE/sensitivity/quadrature, action, fitting/shooting/covariance and managed interruption journeys passed. Plan43d/43g Outcomes own selected/composite conditions; no default latency winner or whole-model qualification is claimed.
 
 ## Pros and cons
 

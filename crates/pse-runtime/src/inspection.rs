@@ -429,7 +429,9 @@ fn document(
         // Context explanations precede generic point listings so bounds cannot hide meaning.
         statements.extend(context_explanations(snapshot));
         if let Some(policy) = &request.numerical_history_policy {
-            statements.extend(pse_diagnostics::inspection::explain_numerical_history(snapshot, policy));
+            statements.extend(pse_diagnostics::inspection::explain_numerical_history(
+                snapshot, policy,
+            ));
         }
         statements.append(&mut common);
         for duration in snapshot

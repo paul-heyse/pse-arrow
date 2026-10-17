@@ -29,19 +29,39 @@ thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(f
 
 struct ReleasedWake;
 impl std::task::Wake for ReleasedWake {
-    fn wake(self: std::sync::Arc<Self>) { notify(); }
-    fn wake_by_ref(self: &std::sync::Arc<Self>) { notify(); }
+    fn wake(self: std::sync::Arc<Self>) {
+        notify();
+    }
+    fn wake_by_ref(self: &std::sync::Arc<Self>) {
+        notify();
+    }
 }
-fn stop_watches(execution: &Execution) -> (pse_diagnostics::CancellationWatch, pse_diagnostics::WakeWatch) {
+fn stop_watches(
+    execution: &Execution,
+) -> (
+    pse_diagnostics::CancellationWatch,
+    pse_diagnostics::WakeWatch,
+) {
     let wake = std::task::Waker::from(std::sync::Arc::new(ReleasedWake));
-    (execution.cancellation_control().watch(&wake), execution.abandonment.watch(&wake))
+    (
+        execution.cancellation_control().watch(&wake),
+        execution.abandonment.watch(&wake),
+    )
 }
 fn wait(changed: std::sync::MutexGuard<'_, ()>, execution: &Execution) -> Result<(), ProblemError> {
     if let Some(deadline) = execution.scope()?.deadline() {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-        drop(RELEASED.wait_timeout(changed, remaining).unwrap_or_else(std::sync::PoisonError::into_inner));
+        drop(
+            RELEASED
+                .wait_timeout(changed, remaining)
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
     } else {
-        drop(RELEASED.wait(changed).unwrap_or_else(std::sync::PoisonError::into_inner));
+        drop(
+            RELEASED
+                .wait(changed)
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
     }
     Ok(())
 }
@@ -222,8 +242,12 @@ mod tests {
     #[derive(Debug, Default)]
     struct WakeCount(AtomicUsize);
     impl std::task::Wake for WakeCount {
-        fn wake(self: Arc<Self>) { self.0.fetch_add(1, Ordering::AcqRel); }
-        fn wake_by_ref(self: &Arc<Self>) { self.0.fetch_add(1, Ordering::AcqRel); }
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::AcqRel);
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            self.0.fetch_add(1, Ordering::AcqRel);
+        }
     }
     #[test]
     fn scheduler_pressure_wakes_registered_idle_owner_without_native_polling() {
@@ -243,7 +267,11 @@ mod tests {
     #[test]
     fn scheduler_wait_releases_compute_then_resumes_after_actual_guard() {
         let controls = Controls::default();
-        let owner = exclusive(&Execution::new(pse_diagnostics::Cancellation::default(), &controls)).unwrap();
+        let owner = exclusive(&Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &controls,
+        ))
+        .unwrap();
         let (paused, observed) = mpsc::channel();
         let resumed = Arc::new(AtomicUsize::new(0));
         let seen = resumed.clone();
@@ -254,7 +282,11 @@ mod tests {
                     resumed: seen,
                 }),
                 || {
-                    let gate = read(&Execution::new(pse_diagnostics::Cancellation::default(), &controls)).unwrap();
+                    let gate = read(&Execution::new(
+                        pse_diagnostics::Cancellation::default(),
+                        &controls,
+                    ))
+                    .unwrap();
                     drop(gate);
                     released();
                 },
@@ -270,7 +302,11 @@ mod tests {
     }
     #[test]
     fn scheduler_wait_preserves_cancel_without_claiming_compute() {
-        let owner = exclusive(&Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default())).unwrap();
+        let owner = exclusive(&Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Controls::default(),
+        ))
+        .unwrap();
         let (paused, observed) = mpsc::channel();
         let resumed = Arc::new(AtomicUsize::new(0));
         let seen = resumed.clone();

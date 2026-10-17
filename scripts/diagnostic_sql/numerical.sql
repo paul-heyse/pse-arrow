@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT OR Apache-2.0
+-- Copyright (c) 2026 Paul Heyse
 -- Whole event rows only. Fields absent at this checkpoint stay NULL.
 SELECT s.track_id, s.ts, s.name AS phase,
        EXTRACT_ARG(s.arg_set_id, 'debug.operation_id') AS operation_id,

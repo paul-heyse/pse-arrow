@@ -167,7 +167,6 @@ pub mod uncertainty;
 pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
-    ModelingSourceMap, ModelingSourceMapDocument,
     DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
     ElasticObservation, InitializationOverrides, ModelingAnalysis, ModelingCheck,
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
@@ -177,8 +176,9 @@ pub use modeling::{
     ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
     ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
     ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
-    ModelingTrajectory, OwnedDeclarations, SimulationSampleAttempt, SimulationSampleObserver,
-    StartSource, conform_pure_documents, with_simulation_sample_wait,
+    ModelingSourceMap, ModelingSourceMapDocument, ModelingTrajectory, OwnedDeclarations,
+    SimulationSampleAttempt, SimulationSampleObserver, StartSource, conform_pure_documents,
+    with_simulation_sample_wait,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};

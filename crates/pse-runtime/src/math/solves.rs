@@ -647,9 +647,11 @@ impl PreparedSolve {
         if !matches!(self.profile.presolve, native::presolve::Policy::Off) {
             return false;
         }
-        let Ok(mut execution) =
-            Execution::within(scope.cancellation_control().clone(), self.controls(), scope.clone())
-        else {
+        let Ok(mut execution) = Execution::within(
+            scope.cancellation_control().clone(),
+            self.controls(),
+            scope.clone(),
+        ) else {
             return false;
         };
         execution.work_admission = Some(admission);
@@ -5874,7 +5876,12 @@ impl MathService {
                 })
             })
             .transpose()?;
-        let constraints = budget.evaluate(|| worker.constraints(&values).map(<[f64]>::to_vec).map_err(Into::into))?;
+        let constraints = budget.evaluate(|| {
+            worker
+                .constraints(&values)
+                .map(<[f64]>::to_vec)
+                .map_err(Into::into)
+        })?;
         let rows = structure
             .rows()
             .iter()

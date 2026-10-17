@@ -22,11 +22,11 @@ use std::{
     time::Duration,
 };
 mod blocks;
-mod logging;
 mod derived;
 #[cfg(test)]
 mod derived_tests;
 mod flow;
+mod logging;
 pub use blocks::{BlockComposition, BlockOracle, BlockSpec, GhostCoordinates, solve_blocks};
 pub use derived::{DomainOracle, DomainWitness};
 pub use flow::{ArtificialFlow, FlowLimits, FrozenMassRefresh, solve_flow};
@@ -493,7 +493,9 @@ unsafe extern "C" fn jacobian(
     let output = context.state.evaluate("jacobian", || {
         read_into(x, &mut context.point)?;
         context.jacobian.fill(f64::NAN);
-        context.oracle.jacobian(&context.point, &mut context.jacobian)?;
+        context
+            .oracle
+            .jacobian(&context.point, &mut context.jacobian)?;
         if context.jacobian.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("nonfinite PETSc Jacobian"));
         }
@@ -512,23 +514,13 @@ unsafe extern "C" fn jacobian(
     context.publish(|| {
         check(
             // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
-            unsafe {
-                ffi::pse_petsc_mat_write(a, index(count)?, rows, columns, output)
-            },
+            unsafe { ffi::pse_petsc_mat_write(a, index(count)?, rows, columns, output) },
             "Jacobian publication",
         )?;
         if a != p {
             check(
                 // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
-                unsafe {
-                    ffi::pse_petsc_mat_write(
-                        p,
-                        index(count)?,
-                        rows,
-                        columns,
-                        output,
-                    )
-                },
+                unsafe { ffi::pse_petsc_mat_write(p, index(count)?, rows, columns, output) },
                 "preconditioner publication",
             )?;
         }
@@ -848,7 +840,10 @@ pub fn solve(
     context.logging = logging.as_ref().map_or(ptr::null(), ptr::from_ref);
     let code = {
         if logging.is_none() {
-            crate::observation::unavailable("petsc.logging", "not selected or handler unavailable; zeroed counters are uncollected");
+            crate::observation::unavailable(
+                "petsc.logging",
+                "not selected or handler unavailable; zeroed counters are uncollected",
+            );
         }
         // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
         crate::observation::scoped("petsc.snes.solve", || unsafe {
@@ -856,7 +851,9 @@ pub fn solve(
         })
     };
     context.logging = ptr::null();
-    if let Some(logging) = &logging { logging.checkpoint("petsc.snes.return", true); }
+    if let Some(logging) = &logging {
+        logging.checkpoint("petsc.snes.return", true);
+    }
     drop(logging);
     let (mut reason, mut iterations, mut evaluations, mut linear_iterations, mut norm) =
         (0, 0, 0, 0, 0.0);
@@ -1122,10 +1119,7 @@ mod tests {
         drop(held);
         notify_release();
     }
-    use std::sync::{
-        atomic::Ordering,
-        mpsc,
-    };
+    use std::sync::{atomic::Ordering, mpsc};
     #[derive(Debug)]
     struct LogOracle {
         inner: crate::solver_tests::Polynomial,
@@ -1394,37 +1388,75 @@ mod tests {
     }
     #[test]
     fn selected_petsc_events_keep_active_and_completed_native_work_distinct() {
-        use pse_diagnostics::observation::{CoherentRecord, ObservationHub, Policy, RecordTap, Value};
+        use pse_diagnostics::observation::{
+            CoherentRecord, ObservationHub, Policy, RecordTap, Value,
+        };
         #[derive(Debug, Default)]
         struct Tap(Mutex<Vec<CoherentRecord>>);
         impl RecordTap for Tap {
-            fn selected(&self, family: &str) -> bool { family == "petsc_event.v1" }
+            fn selected(&self, family: &str) -> bool {
+                family == "petsc_event.v1"
+            }
             fn observe(&self, record: &CoherentRecord) {
-                if record.family == "petsc_event.v1" { self.0.lock().unwrap().push(record.clone()); }
+                if record.family == "petsc_event.v1" {
+                    self.0.lock().unwrap().push(record.clone());
+                }
             }
         }
-        let hub = ObservationHub::new(Policy { record_capacity: 0, ..Policy::default() });
+        let hub = ObservationHub::new(Policy {
+            record_capacity: 0,
+            ..Policy::default()
+        });
         let operation = hub.start("selected-petsc-events");
         let tap = std::sync::Arc::new(Tap::default());
         let context = operation.context().with_record_tap(tap.clone());
         let _entered = context.enter();
         let mut oracle = LogOracle::new();
-        let report = run(&mut oracle, 1., &Controls { history: 0, ..Controls::default() }, None).unwrap();
+        let report = run(
+            &mut oracle,
+            1.,
+            &Controls {
+                history: 0,
+                ..Controls::default()
+            },
+            None,
+        )
+        .unwrap();
         assert_eq!(report.termination.category, Termination::Success);
         assert!(report.quality.as_ref().unwrap().feasible());
         let records = tap.0.lock().unwrap();
-        let field = |record: &CoherentRecord, name: &str| record.values.iter()
-            .find(|field| field.name == name).unwrap().value.clone();
-        let snes: Vec<_> = records.iter().filter(|record| field(record, "native_event") == Value::Text("SNESSolve".into())).collect();
+        let field = |record: &CoherentRecord, name: &str| {
+            record
+                .values
+                .iter()
+                .find(|field| field.name == name)
+                .unwrap()
+                .value
+                .clone()
+        };
+        let snes: Vec<_> = records
+            .iter()
+            .filter(|record| field(record, "native_event") == Value::Text("SNESSolve".into()))
+            .collect();
         assert!(snes.iter().any(|record| matches!(field(record, "native_event_depth"), Value::Integer(value) if value > 0)), "safe callback reports active native solve");
-        let terminal = snes.iter().find(|record| record.phase == "petsc.snes.return").unwrap();
+        let terminal = snes
+            .iter()
+            .find(|record| record.phase == "petsc.snes.return")
+            .unwrap();
         assert_eq!(field(terminal, "native_event_depth"), Value::Integer(0));
         assert_eq!(field(terminal, "entered_calls"), Value::Integer(1));
         assert_eq!(field(terminal, "source_available"), Value::Boolean(true));
         let snapshot = operation.reader().snapshot(Duration::from_secs(60));
-        let channels: Vec<_> = snapshot.producers.iter().filter(|producer|
-            producer.descriptor.name.starts_with("petsc.events.")).collect();
-        assert_eq!(channels.len(), 13, "prepared event populations have distinct current records");
+        let channels: Vec<_> = snapshot
+            .producers
+            .iter()
+            .filter(|producer| producer.descriptor.name.starts_with("petsc.events."))
+            .collect();
+        assert_eq!(
+            channels.len(),
+            13,
+            "prepared event populations have distinct current records"
+        );
         for channel in channels {
             assert_eq!(channel.current.as_ref().unwrap().family, "petsc_event.v1");
         }

@@ -268,13 +268,26 @@ fn diffsol_adjoint_live_roles_preserve_counter_epochs_and_scientific_calls() {
     let snapshot = operation.reader().snapshot(Duration::from_secs(60));
     // Each actual solver owns its counters. A retained donor may publish only
     // its inherited baseline; source-role strings are not unique producer IDs.
-    let role_ids = |role: &str| snapshot.producers.iter()
-        .filter(|producer| producer.descriptor.name == role)
-        .map(|producer| producer.descriptor.id).collect::<std::collections::HashSet<_>>();
+    let role_ids = |role: &str| {
+        snapshot
+            .producers
+            .iter()
+            .filter(|producer| producer.descriptor.name == role)
+            .map(|producer| producer.descriptor.id)
+            .collect::<std::collections::HashSet<_>>()
+    };
     let role_metrics = |role: &str, suffix: &str| {
         let ids = role_ids(role);
-        snapshot.metrics.iter().filter(|metric| metric.name == format!("{role}.{suffix}")
-            && metric.producer.is_some_and(|producer| ids.contains(&producer))).collect::<Vec<_>>()
+        snapshot
+            .metrics
+            .iter()
+            .filter(|metric| {
+                metric.name == format!("{role}.{suffix}")
+                    && metric
+                        .producer
+                        .is_some_and(|producer| ids.contains(&producer))
+            })
+            .collect::<Vec<_>>()
     };
     for role in [
         "diffsol.adjoint.forward_record",
@@ -283,41 +296,95 @@ fn diffsol_adjoint_live_roles_preserve_counter_epochs_and_scientific_calls() {
     ] {
         let metrics = role_metrics(role, "number_of_steps");
         assert!(!metrics.is_empty(), "{role} counter owners unavailable");
-        let active = metrics.iter().filter(|metric| matches!(metric.cumulative, Value::Count(value) if value > 0))
-            .map(|metric| metric.producer.unwrap()).collect::<std::collections::HashSet<_>>();
-        assert!(!active.is_empty(), "{role} performed no observed accepted work");
+        let active = metrics
+            .iter()
+            .filter(|metric| matches!(metric.cumulative, Value::Count(value) if value > 0))
+            .map(|metric| metric.producer.unwrap())
+            .collect::<std::collections::HashSet<_>>();
+        assert!(
+            !active.is_empty(),
+            "{role} performed no observed accepted work"
+        );
         for id in active {
-            let producer = snapshot.producers.iter().find(|producer| producer.descriptor.id == id).unwrap();
+            let producer = snapshot
+                .producers
+                .iter()
+                .find(|producer| producer.descriptor.id == id)
+                .unwrap();
             let checkpoint = producer.current.as_ref().unwrap();
             assert_eq!(checkpoint.family, "dynamic_native_step.v1");
             assert_eq!(checkpoint.phase, format!("{role}.native_step"));
-            assert!(checkpoint.values.iter().any(|field| field.name == "physical_time"
-                && matches!(field.value, Value::Number(_))), "{role} {id:?}");
-            assert!(checkpoint.values.iter().any(|field| field.name == "last_step_returned_success"
-                && field.value == Value::Boolean(true)), "{role} {id:?}");
-            assert!(role_metrics(role, "number_of_linear_solver_setups_from_checkpoint").iter()
-                .any(|metric| metric.producer == Some(id)));
+            assert!(
+                checkpoint
+                    .values
+                    .iter()
+                    .any(|field| field.name == "physical_time"
+                        && matches!(field.value, Value::Number(_))),
+                "{role} {id:?}"
+            );
+            assert!(
+                checkpoint
+                    .values
+                    .iter()
+                    .any(|field| field.name == "last_step_returned_success"
+                        && field.value == Value::Boolean(true)),
+                "{role} {id:?}"
+            );
+            assert!(
+                role_metrics(role, "number_of_linear_solver_setups_from_checkpoint")
+                    .iter()
+                    .any(|metric| metric.producer == Some(id))
+            );
         }
     }
     let backward = role_metrics("diffsol.adjoint.backward", "number_of_steps");
-    assert!(backward.len() > 1, "sample jumps create distinct native backward solvers");
-    assert!(backward.iter().all(|metric| metric.resets == 0),
-        "new performing owners must not fabricate resets within another solver's counter epoch");
+    assert!(
+        backward.len() > 1,
+        "sample jumps create distinct native backward solvers"
+    );
+    assert!(
+        backward.iter().all(|metric| metric.resets == 0),
+        "new performing owners must not fabricate resets within another solver's counter epoch"
+    );
     let restored = role_metrics("diffsol.adjoint.replay", "checkpoint_restores");
-    let restore_count: u64 = restored.iter().map(|metric| match metric.cumulative {
-        Value::Count(value) => value, _ => panic!("restore count unavailable"),
-    }).sum();
-    assert!(restore_count > restored.len() as u64,
-        "control restores several checkpoints on at least one retained performing solver");
-    assert!(role_metrics("diffsol.adjoint.replay", "number_of_steps").iter().all(|metric| metric.resets == 0),
-        "state restore retains this native solver's cumulative counter epoch");
-    let forwarded: u64 = result.report.statistics.iter()
-        .filter_map(|value| value.get("number_of_steps").and_then(serde_json::Value::as_u64)).sum();
-    let observed_forwarded: u64 = role_metrics("diffsol.adjoint.forward_record", "number_of_steps").iter()
-        .map(|metric| match metric.cumulative { Value::Count(value) => value, _ => panic!("forward count unavailable") }).sum();
-    assert_eq!(observed_forwarded, forwarded,
-        "only disjoint actual forward segment owners are joined; replay donor snapshots are excluded");
-
+    let restore_count: u64 = restored
+        .iter()
+        .map(|metric| match metric.cumulative {
+            Value::Count(value) => value,
+            _ => panic!("restore count unavailable"),
+        })
+        .sum();
+    assert!(
+        restore_count > restored.len() as u64,
+        "control restores several checkpoints on at least one retained performing solver"
+    );
+    assert!(
+        role_metrics("diffsol.adjoint.replay", "number_of_steps")
+            .iter()
+            .all(|metric| metric.resets == 0),
+        "state restore retains this native solver's cumulative counter epoch"
+    );
+    let forwarded: u64 = result
+        .report
+        .statistics
+        .iter()
+        .filter_map(|value| {
+            value
+                .get("number_of_steps")
+                .and_then(serde_json::Value::as_u64)
+        })
+        .sum();
+    let observed_forwarded: u64 = role_metrics("diffsol.adjoint.forward_record", "number_of_steps")
+        .iter()
+        .map(|metric| match metric.cumulative {
+            Value::Count(value) => value,
+            _ => panic!("forward count unavailable"),
+        })
+        .sum();
+    assert_eq!(
+        observed_forwarded, forwarded,
+        "only disjoint actual forward segment owners are joined; replay donor snapshots are excluded"
+    );
 }
 
 /// The adjoint gradient of J = Σ wᵢₒ·yₒ(tᵢ) equals the forward sensitivities contracted
@@ -363,8 +430,13 @@ fn adjoint_equals_forward_and_differences(method: Method) {
             );
             // Forward sensitivities of the same samples.
             p.sensitivity = DynamicSensitivity::Forward;
-            let forward =
-                integrate(&mut Reactor::new(dae), &p, &parameters, Cancellation::default()).unwrap();
+            let forward = integrate(
+                &mut Reactor::new(dae),
+                &p,
+                &parameters,
+                Cancellation::default(),
+            )
+            .unwrap();
             assert_eq!(
                 forward.termination,
                 Termination::Completed,
@@ -392,7 +464,8 @@ fn adjoint_equals_forward_and_differences(method: Method) {
                     let at = |delta: f64| {
                         let mut q = parameters.clone();
                         q[j] += delta;
-                        let r = integrate(&mut Reactor::new(dae), &p, &q, Cancellation::default()).unwrap();
+                        let r = integrate(&mut Reactor::new(dae), &p, &q, Cancellation::default())
+                            .unwrap();
                         assert_eq!(r.termination, Termination::Completed, "{case}");
                         functional(&r)
                     };
@@ -545,7 +618,13 @@ fn diffsol_adjoint_starts_at_a_nearly_steady_stop() {
         );
         let adjoint = g.gradient.unwrap();
         p.sensitivity = DynamicSensitivity::Forward;
-        let forward = integrate(&mut Reactor::new(false), &p, &parameters, Cancellation::default()).unwrap();
+        let forward = integrate(
+            &mut Reactor::new(false),
+            &p,
+            &parameters,
+            Cancellation::default(),
+        )
+        .unwrap();
         let w = weights(forward.samples.len());
         let np = parameters.len();
         for (j, value) in adjoint.iter().enumerate() {
@@ -824,7 +903,10 @@ fn second_order_adjoint_matches_finite_difference() {
             let backward = statistics["backward"].as_array().unwrap();
             assert_eq!(backward.len(), np, "{case}");
             for direction in backward {
-                assert_eq!(direction["steps"], direction["accepted_steps_charged"], "accepted native work survives every sample/segment epoch");
+                assert_eq!(
+                    direction["steps"], direction["accepted_steps_charged"],
+                    "accepted native work survives every sample/segment epoch"
+                );
                 assert_eq!(direction["accepted_step_allowance"], p.max_steps);
                 assert!(direction["steps"].as_u64().unwrap() <= p.max_steps as u64);
             }
@@ -834,7 +916,13 @@ fn second_order_adjoint_matches_finite_difference() {
                 reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, dae, scheduled);
             reference.sensitivity = DynamicSensitivity::Forward;
             let contracted = |q: &[f64]| -> Vec<f64> {
-                let r = integrate(&mut Reactor::new(dae), &reference, q, Cancellation::default()).unwrap();
+                let r = integrate(
+                    &mut Reactor::new(dae),
+                    &reference,
+                    q,
+                    Cancellation::default(),
+                )
+                .unwrap();
                 assert_eq!(
                     r.termination,
                     Termination::Completed,
@@ -988,17 +1076,39 @@ fn second_order_route_limits_are_typed_refusals() {
 fn checkpoint_spacing_changes_storage_not_the_requested_adjoint_product() {
     for method in [Method::Diffsol, Method::Idas] {
         if method == Method::Diffsol && !cfg!(feature = "diffsol")
-            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+            || method == Method::Idas && !cfg!(feature = "idas")
+        {
+            continue;
+        }
         let mut p = reactor_profile(method, DiffsolMethod::Bdf, true, true);
         let parameters = reactor_parameters(true);
         p.adjoint.steps_between_checkpoints = PositiveCount::try_new(3).unwrap();
         let fine = adjoint(&mut Reactor::new(true), &p, &parameters);
         p.adjoint.steps_between_checkpoints = PositiveCount::try_new(25).unwrap();
         let coarse = adjoint(&mut Reactor::new(true), &p, &parameters);
-        assert_eq!(fine.report.termination, Termination::Completed, "{:?}", fine.report.error);
-        assert_eq!(coarse.report.termination, Termination::Completed, "{:?}", coarse.report.error);
-        for (a, b) in fine.gradient.as_ref().unwrap().iter().zip(coarse.gradient.as_ref().unwrap()) {
-            assert!((a - b).abs() <= 2e-6 * (1. + a.abs().max(b.abs())), "{method:?}: {a} vs {b}");
+        assert_eq!(
+            fine.report.termination,
+            Termination::Completed,
+            "{:?}",
+            fine.report.error
+        );
+        assert_eq!(
+            coarse.report.termination,
+            Termination::Completed,
+            "{:?}",
+            coarse.report.error
+        );
+        for (a, b) in fine
+            .gradient
+            .as_ref()
+            .unwrap()
+            .iter()
+            .zip(coarse.gradient.as_ref().unwrap())
+        {
+            assert!(
+                (a - b).abs() <= 2e-6 * (1. + a.abs().max(b.abs())),
+                "{method:?}: {a} vs {b}"
+            );
         }
         assert!(fine.checkpoints >= coarse.checkpoints);
         assert_eq!(fine.report.samples.len(), coarse.report.samples.len());
@@ -1009,55 +1119,138 @@ fn checkpoint_spacing_changes_storage_not_the_requested_adjoint_product() {
 #[test]
 fn idas_curvature_consumes_the_action_product_directly() {
     #[derive(Debug)]
-    struct ActionOnly { inner: Reactor, actions: usize }
+    struct ActionOnly {
+        inner: Reactor,
+        actions: usize,
+    }
     impl Oracle for ActionOnly {
-        fn contract(&self) -> &Contract { self.inner.contract() }
-        fn support(&self, mode: usize, f: Function) -> Vec<SupportEntry> { self.inner.support(mode, f) }
-        fn evaluate(&mut self, mode: usize, f: Function, t: f64, x: &[f64], p: &[f64], derivatives: bool) -> Result<Evaluation, ProblemError> {
+        fn contract(&self) -> &Contract {
+            self.inner.contract()
+        }
+        fn support(&self, mode: usize, f: Function) -> Vec<SupportEntry> {
+            self.inner.support(mode, f)
+        }
+        fn evaluate(
+            &mut self,
+            mode: usize,
+            f: Function,
+            t: f64,
+            x: &[f64],
+            p: &[f64],
+            derivatives: bool,
+        ) -> Result<Evaluation, ProblemError> {
             self.inner.evaluate(mode, f, t, x, p, derivatives)
         }
-        #[allow(clippy::too_many_arguments, reason = "test oracle implements the explicit dynamic action contract")]
-        fn weighted_hessian_action(&mut self, mode: usize, f: Function, t: f64, x: &[f64], p: &[f64], w: &[f64], d: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        #[allow(
+            clippy::too_many_arguments,
+            reason = "test oracle implements the explicit dynamic action contract"
+        )]
+        fn weighted_hessian_action(
+            &mut self,
+            mode: usize,
+            f: Function,
+            t: f64,
+            x: &[f64],
+            p: &[f64],
+            w: &[f64],
+            d: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), ProblemError> {
             self.actions += 1;
-            self.inner.weighted_hessian_action(mode, f, t, x, p, w, d, out)
+            self.inner
+                .weighted_hessian_action(mode, f, t, x, p, w, d, out)
         }
     }
-    let mut oracle = ActionOnly { inner: Reactor::new(false), actions: 0 };
+    let mut oracle = ActionOnly {
+        inner: Reactor::new(false),
+        actions: 0,
+    };
     let p = reactor_profile(Method::Idas, DiffsolMethod::Bdf, false, false);
     let parameters = reactor_parameters(false);
-    let result = hessian(&mut oracle, &p, &parameters, &[0, 1],
-        &mut |report: &Report| Ok(weights(report.samples.len())), Cancellation::default(), 256 << 20).unwrap();
-    assert_eq!(result.report.termination, Termination::Completed, "{:?}", result.report.error);
+    let result = hessian(
+        &mut oracle,
+        &p,
+        &parameters,
+        &[0, 1],
+        &mut |report: &Report| Ok(weights(report.samples.len())),
+        Cancellation::default(),
+        256 << 20,
+    )
+    .unwrap();
+    assert_eq!(
+        result.report.termination,
+        Termination::Completed,
+        "{:?}",
+        result.report.error
+    );
     assert!(result.hessian.is_some());
-    assert!(oracle.actions > 0, "native owner must request the product it consumes");
+    assert!(
+        oracle.actions > 0,
+        "native owner must request the product it consumes"
+    );
 }
 
 #[test]
 fn backward_sample_jumps_do_not_renew_the_complete_trajectory_cap() {
     for method in [Method::Diffsol, Method::Idas] {
         if method == Method::Diffsol && !cfg!(feature = "diffsol")
-            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+            || method == Method::Idas && !cfg!(feature = "idas")
+        {
+            continue;
+        }
         let mut p = reactor_profile(method, DiffsolMethod::Bdf, false, false);
         p.samples = vec![0., 0.3, 2.];
         p.sensitivity = DynamicSensitivity::None;
         let parameters = reactor_parameters(false);
-        let forward = integrate(&mut Reactor::new(false), &p, &parameters, Cancellation::default()).unwrap();
-        assert_eq!(forward.termination, Termination::Completed, "{:?}", forward.error);
-        let steps = forward.statistics[0]["steps"].as_u64()
-            .or_else(|| forward.statistics[0]["number_of_steps"].as_u64()).unwrap() as usize;
+        let forward = integrate(
+            &mut Reactor::new(false),
+            &p,
+            &parameters,
+            Cancellation::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            forward.termination,
+            Termination::Completed,
+            "{:?}",
+            forward.error
+        );
+        let steps = forward.statistics[0]["steps"]
+            .as_u64()
+            .or_else(|| forward.statistics[0]["number_of_steps"].as_u64())
+            .unwrap() as usize;
         p.max_steps = steps + 8;
         p.sensitivity = DynamicSensitivity::Adjoint;
         // The whole forward mesh is retained in one interpolation interval, so
         // this control isolates backward effort from checkpoint replay effort.
         p.adjoint.steps_between_checkpoints = PositiveCount::try_new(10_000).unwrap();
-        p.samples = std::iter::once(0.).chain(std::iter::once(0.3))
-            .chain((1..=600).map(|i| 0.3 + 1.7 * i as f64 / 600.)).collect();
+        p.samples = std::iter::once(0.)
+            .chain(std::iter::once(0.3))
+            .chain((1..=600).map(|i| 0.3 + 1.7 * i as f64 / 600.))
+            .collect();
         *p.samples.last_mut().unwrap() = 2.;
         let result = adjoint(&mut Reactor::new(false), &p, &parameters);
-        assert_eq!(result.report.completed_time, p.end, "forward coverage remains explicit");
-        assert_eq!(result.report.termination, Termination::StepLimit, "{method:?}: {:?}", result.report.error);
-        assert!(result.gradient.is_none(), "an incomplete reverse product cannot be published");
-        assert!(matches!(result.report.error, Some(ProblemError::Limit { kind: crate::LimitKind::Work, .. })));
+        assert_eq!(
+            result.report.completed_time, p.end,
+            "forward coverage remains explicit"
+        );
+        assert_eq!(
+            result.report.termination,
+            Termination::StepLimit,
+            "{method:?}: {:?}",
+            result.report.error
+        );
+        assert!(
+            result.gradient.is_none(),
+            "an incomplete reverse product cannot be published"
+        );
+        assert!(matches!(
+            result.report.error,
+            Some(ProblemError::Limit {
+                kind: crate::LimitKind::Work,
+                ..
+            })
+        ));
     }
 }
 
@@ -1065,32 +1258,86 @@ fn backward_sample_jumps_do_not_renew_the_complete_trajectory_cap() {
 fn zero_functional_preserves_forward_coverage_without_a_reverse_trajectory() {
     for method in [Method::Diffsol, Method::Idas] {
         if method == Method::Diffsol && !cfg!(feature = "diffsol")
-            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+            || method == Method::Idas && !cfg!(feature = "idas")
+        {
+            continue;
+        }
         let p = reactor_profile(method, DiffsolMethod::Bdf, false, true);
         let parameters = reactor_parameters(true);
-        let result = gradient(&mut Reactor::new(false), &p, &parameters,
+        let result = gradient(
+            &mut Reactor::new(false),
+            &p,
+            &parameters,
             &mut |report: &Report| Ok(vec![0.; report.samples.len() * 2]),
-            Cancellation::default(), 256 << 20).unwrap();
-        assert_eq!(result.report.termination, Termination::Completed, "{:?}", result.report.error);
+            Cancellation::default(),
+            256 << 20,
+        )
+        .unwrap();
+        assert_eq!(
+            result.report.termination,
+            Termination::Completed,
+            "{:?}",
+            result.report.error
+        );
         assert_eq!(result.report.coverage.produced(), p.samples.len());
         assert_eq!(result.gradient, Some(vec![0.; parameters.len()]));
-        let statistics = result.report.statistics.iter().find_map(|v| v.get("adjoint")).unwrap();
+        let statistics = result
+            .report
+            .statistics
+            .iter()
+            .find_map(|v| v.get("adjoint"))
+            .unwrap();
         assert_eq!(statistics["forward_replay_accepted_steps"], 0);
         if method == Method::Diffsol {
             assert_eq!(statistics["backward_accepted_steps"], 0);
-        } else { assert!(statistics["backward"].as_array().unwrap().is_empty()); }
+        } else {
+            assert!(statistics["backward"].as_array().unwrap().is_empty());
+        }
         // The first component remains zero, but a second terminal component
         // requires its actual reverse product. Inspect the complete cotangent.
-        let mixed = gradient(&mut Reactor::new(false), &p, &parameters,
+        let mixed = gradient(
+            &mut Reactor::new(false),
+            &p,
+            &parameters,
             &mut |report: &Report| {
                 let mut weights = vec![0.; report.samples.len() * 2];
                 *weights.last_mut().unwrap() = 1.;
                 Ok(weights)
-            }, Cancellation::default(), 256 << 20).unwrap();
-        assert_eq!(mixed.report.termination, Termination::Completed, "{:?}", mixed.report.error);
-        assert!(mixed.gradient.as_ref().unwrap().iter().any(|value| value.abs() > 1e-4));
-        let work = mixed.report.statistics.iter().find_map(|v| v.get("adjoint")).unwrap();
-        if method == Method::Diffsol { assert!(work["backward_accepted_steps"].as_u64().unwrap() > 0); }
-        else { assert!(work["backward"].as_array().unwrap().iter().any(|direction| direction["steps"].as_u64().unwrap() > 0)); }
+            },
+            Cancellation::default(),
+            256 << 20,
+        )
+        .unwrap();
+        assert_eq!(
+            mixed.report.termination,
+            Termination::Completed,
+            "{:?}",
+            mixed.report.error
+        );
+        assert!(
+            mixed
+                .gradient
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|value| value.abs() > 1e-4)
+        );
+        let work = mixed
+            .report
+            .statistics
+            .iter()
+            .find_map(|v| v.get("adjoint"))
+            .unwrap();
+        if method == Method::Diffsol {
+            assert!(work["backward_accepted_steps"].as_u64().unwrap() > 0);
+        } else {
+            assert!(
+                work["backward"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|direction| direction["steps"].as_u64().unwrap() > 0)
+            );
+        }
     }
 }

@@ -20,8 +20,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing_perfetto_sdk_schema::{
-    ClockSnapshot, DebugAnnotation, Trace, TracePacket, TrackDescriptor, TrackEvent, clock_snapshot, debug_annotation,
-    trace_packet, track_descriptor, track_event,
+    ClockSnapshot, DebugAnnotation, Trace, TracePacket, TrackDescriptor, TrackEvent,
+    clock_snapshot, debug_annotation, trace_packet, track_descriptor, track_event,
 };
 
 /// Writes a concatenation of ordinary one-packet Trace encodings: standard repeated field 1.
@@ -135,37 +135,65 @@ impl<W: Write> Projection<W> {
     fn synchronize_clocks(&mut self) -> std::io::Result<()> {
         fn nanos(clock: rustix::time::ClockId) -> std::io::Result<u64> {
             let value = rustix::time::clock_gettime(clock);
-            u64::try_from(value.tv_sec).ok().and_then(|seconds| seconds.checked_mul(1_000_000_000))
-                .and_then(|seconds| u64::try_from(value.tv_nsec).ok().and_then(|nanos| seconds.checked_add(nanos)))
+            u64::try_from(value.tv_sec)
+                .ok()
+                .and_then(|seconds| seconds.checked_mul(1_000_000_000))
+                .and_then(|seconds| {
+                    u64::try_from(value.tv_nsec)
+                        .ok()
+                        .and_then(|nanos| seconds.checked_add(nanos))
+                })
                 .ok_or_else(|| std::io::Error::other("capture clock extent"))
         }
         let before = nanos(rustix::time::ClockId::Monotonic)?;
         let boot = nanos(rustix::time::ClockId::Boottime)?;
         let after = nanos(rustix::time::ClockId::Monotonic)?;
-        let width = after.checked_sub(before).ok_or_else(|| std::io::Error::other("capture clock reversal"))?;
+        let width = after
+            .checked_sub(before)
+            .ok_or_else(|| std::io::Error::other("capture clock reversal"))?;
         let mono = before + width / 2;
         self.packet(TracePacket {
             data: Some(trace_packet::Data::ClockSnapshot(ClockSnapshot {
                 clocks: vec![
-                    clock_snapshot::Clock { clock_id: Some(3), timestamp: Some(mono), ..Default::default() },
-                    clock_snapshot::Clock { clock_id: Some(6), timestamp: Some(boot), ..Default::default() },
+                    clock_snapshot::Clock {
+                        clock_id: Some(3),
+                        timestamp: Some(mono),
+                        ..Default::default()
+                    },
+                    clock_snapshot::Clock {
+                        clock_id: Some(6),
+                        timestamp: Some(boot),
+                        ..Default::default()
+                    },
                 ],
                 primary_trace_clock: Some(6),
             })),
             ..Default::default()
         })?;
         if let Some(uuid) = self.track(Key::Events, "Capture clock alignment", None, false)? {
-            self.event(uuid, mono, track_event::Type::Instant, "clock alignment", vec![
-                count_annotation("sampling_width_ns", width),
-                annotation("meaning", "MONOTONIC bracket around BOOTTIME reading; midpoint alignment"),
-            ])?;
+            self.event(
+                uuid,
+                mono,
+                track_event::Type::Instant,
+                "clock alignment",
+                vec![
+                    count_annotation("sampling_width_ns", width),
+                    annotation(
+                        "meaning",
+                        "MONOTONIC bracket around BOOTTIME reading; midpoint alignment",
+                    ),
+                ],
+            )?;
         }
         Ok(())
     }
     #[cfg(not(target_os = "linux"))]
     fn synchronize_clocks(&mut self) -> std::io::Result<()> {
         document(&self.state).loss.unknown_clock = true;
-        Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "capture clock alignment requires Linux builtin clocks"))
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "capture clock alignment requires Linux builtin clocks",
+        ))
     }
     fn track(
         &mut self,
@@ -467,7 +495,12 @@ impl<W: Write> Projection<W> {
             bool_annotation("history_partial", partial),
         ];
         fields.push(record.family_sequence.map_or_else(
-            || annotation("family_sequence.unavailable", "source did not publish family order"),
+            || {
+                annotation(
+                    "family_sequence.unavailable",
+                    "source did not publish family order",
+                )
+            },
             |sequence| count_annotation("family_sequence", sequence),
         ));
         if let Some(coordinates) = &record.coordinates {
@@ -477,22 +510,32 @@ impl<W: Write> Projection<W> {
             fields.push(annotation("norm", norm));
         }
         for field in &record.values {
-            let name=&field.name;
+            let name = &field.name;
             fields.push(match &field.value {
-                Value::Count(value) => count_annotation(name,*value),
-                Value::Integer(value) => typed_annotation(name,debug_annotation::Value::IntValue(*value)),
-                Value::Number(value) if value.is_finite() => typed_annotation(name,debug_annotation::Value::DoubleValue(*value)),
-                Value::Boolean(value) => bool_annotation(name,*value),
-                Value::Text(value) => annotation(name,value),
-                Value::Unavailable(reason) => annotation(&format!("{name}.unavailable"),reason),
-                Value::NonFinite(value) => annotation(&format!("{name}.nonfinite"),value.as_str()),
-                Value::Overflow => annotation(&format!("{name}.overflow"),"true"),
-                Value::Number(_) => annotation(&format!("{name}.unavailable"),"invalid unclassified nonfinite source number"),
+                Value::Count(value) => count_annotation(name, *value),
+                Value::Integer(value) => {
+                    typed_annotation(name, debug_annotation::Value::IntValue(*value))
+                }
+                Value::Number(value) if value.is_finite() => {
+                    typed_annotation(name, debug_annotation::Value::DoubleValue(*value))
+                }
+                Value::Boolean(value) => bool_annotation(name, *value),
+                Value::Text(value) => annotation(name, value),
+                Value::Unavailable(reason) => annotation(&format!("{name}.unavailable"), reason),
+                Value::NonFinite(value) => annotation(&format!("{name}.nonfinite"), value.as_str()),
+                Value::Overflow => annotation(&format!("{name}.overflow"), "true"),
+                Value::Number(_) => annotation(
+                    &format!("{name}.unavailable"),
+                    "invalid unclassified nonfinite source number",
+                ),
             });
-            fields.push(annotation(&format!("{name}.unit"),&field.unit));
-            if let Some(availability)=field.availability {
-                let label=serde_json::to_string(&availability).map_err(std::io::Error::other)?;
-                fields.push(annotation(&format!("{name}.availability"),label.trim_matches('"')));
+            fields.push(annotation(&format!("{name}.unit"), &field.unit));
+            if let Some(availability) = field.availability {
+                let label = serde_json::to_string(&availability).map_err(std::io::Error::other)?;
+                fields.push(annotation(
+                    &format!("{name}.availability"),
+                    label.trim_matches('"'),
+                ));
             }
         }
         self.event(uuid, at, track_event::Type::Instant, &record.phase, fields)?;
@@ -727,8 +770,12 @@ impl<W: Write> Projection<W> {
         flushed
     }
 }
-fn typed_annotation(name:&str,value:debug_annotation::Value)->DebugAnnotation {
-    DebugAnnotation { name_field:Some(debug_annotation::NameField::Name(name.into())),value:Some(value),..Default::default() }
+fn typed_annotation(name: &str, value: debug_annotation::Value) -> DebugAnnotation {
+    DebugAnnotation {
+        name_field: Some(debug_annotation::NameField::Name(name.into())),
+        value: Some(value),
+        ..Default::default()
+    }
 }
 fn annotation(name: &str, value: impl ToString) -> DebugAnnotation {
     DebugAnnotation {

@@ -376,9 +376,7 @@ mod tests {
             Constraint, Coordinate, DerivativeSupport, OriginalContract, OriginalObligations,
         },
     };
-    use std::{
-        time::{Duration, Instant},
-    };
+    use std::time::{Duration, Instant};
     fn hash(n: u8) -> ContentHash {
         ContentHash::from_bytes([n; 32])
     }

@@ -781,108 +781,108 @@ impl FitProblem {
         execution: &Execution,
     ) -> Result<Vec<ProfileChain>, FitWithheld> {
         crate::workflow::dynamics::analysis("fit.profile_likelihood_analysis", || {
-        self.estimate_valid(report)?;
-        let (Some(estimate), Some(optimum)) = (report.candidate.as_deref(), report.objective)
-        else {
-            return Err(FitWithheld::Local(Withheld::NoCandidate));
-        };
-        let native::routing::Route::Native(backend) = route else {
-            return Err(FitWithheld::Local(Withheld::NoCandidate));
-        };
-        let threshold = ChiSquared::new(1.0)
-            .map(|c| c.inverse_cdf(level).sqrt())
-            .ok()
-            .filter(|r| r.is_finite() && *r > 0.0)
-            .ok_or(FitWithheld::Local(Withheld::Backsolve))?;
-        // A certified covariance sizes the first step at half the Wald half-width; without
-        // one, a tenth of the parameter's declared scale.
-        let errors = report
-            .covariance
-            .as_ref()
-            .and_then(Covariance::standard_errors);
-        let tasks: Vec<Task> = self
-            .free()
-            .enumerate()
-            .flat_map(|(j, (parameter, column))| {
-                let scale = self.declaration.parameters[parameter].scale;
-                let step = errors
-                    .as_ref()
-                    .map(|e| 0.5 * threshold * e[j])
-                    .filter(|s| s.is_finite() && *s > 0.0)
-                    .unwrap_or(0.1 * scale);
-                [IntervalEnd::Lower, IntervalEnd::Upper].map(|end| Task {
-                    parameter,
-                    column,
-                    end,
-                    step,
+            self.estimate_valid(report)?;
+            let (Some(estimate), Some(optimum)) = (report.candidate.as_deref(), report.objective)
+            else {
+                return Err(FitWithheld::Local(Withheld::NoCandidate));
+            };
+            let native::routing::Route::Native(backend) = route else {
+                return Err(FitWithheld::Local(Withheld::NoCandidate));
+            };
+            let threshold = ChiSquared::new(1.0)
+                .map(|c| c.inverse_cdf(level).sqrt())
+                .ok()
+                .filter(|r| r.is_finite() && *r > 0.0)
+                .ok_or(FitWithheld::Local(Withheld::Backsolve))?;
+            // A certified covariance sizes the first step at half the Wald half-width; without
+            // one, a tenth of the parameter's declared scale.
+            let errors = report
+                .covariance
+                .as_ref()
+                .and_then(Covariance::standard_errors);
+            let tasks: Vec<Task> = self
+                .free()
+                .enumerate()
+                .flat_map(|(j, (parameter, column))| {
+                    let scale = self.declaration.parameters[parameter].scale;
+                    let step = errors
+                        .as_ref()
+                        .map(|e| 0.5 * threshold * e[j])
+                        .filter(|s| s.is_finite() && *s > 0.0)
+                        .unwrap_or(0.1 * scale);
+                    [IntervalEnd::Lower, IntervalEnd::Upper].map(|end| Task {
+                        parameter,
+                        column,
+                        end,
+                        step,
+                    })
                 })
-            })
-            .collect();
-        let threads = self.profile.solver.controls.threads;
-        let experiment_cores = self
-            .profile
-            .experiment_workers
-            .into_inner()
-            .min(self.experiments.len())
-            .min(self.runtime.native().cores());
-        // Native fitting and its mutable callback execute in phases. A chain's
-        // admitted envelope covers either its NLP team or its experiment lanes.
-        let chain_cores = threads.max(experiment_cores);
-        let workers = workers
-            .min(tasks.len())
-            .min(self.runtime.native().cores() / chain_cores)
-            .max(1);
-        let chains = Chains {
-            problem: self,
-            backend,
-            execution,
-            estimate,
-            optimum,
-            threshold,
-            tolerance: controls.tolerance.into_inner(),
-            points: controls.points.into_inner(),
-        };
-        let stack = self.runtime.native().stack_bytes();
-        let cores = chain_cores.checked_mul(workers).ok_or_else(|| {
-            FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
-                ProblemError::memory("profile team cores"),
-            )))
-        })?;
-        // Parent estimation storage stays resident. Guard each chain's additional
-        // scratch and native thread/team stacks before the team is created.
-        let adapter_stacks = native::execution::scope_stack_bytes(
-            &[native::execution::adapter(backend)],
-            threads,
-            stack,
-        )
-        .map_err(|error| {
-            FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(error)))
-        })?;
-        let bytes = self
-            .bytes
-            .checked_mul(workers.saturating_sub(1))
-            .and_then(|bytes| {
-                stack
-                    .checked_add(adapter_stacks)
-                    .and_then(|per_worker| workers.checked_mul(per_worker))
-                    .and_then(|stacks| bytes.checked_add(stacks))
-            })
-            .ok_or_else(|| {
+                .collect();
+            let threads = self.profile.solver.controls.threads;
+            let experiment_cores = self
+                .profile
+                .experiment_workers
+                .into_inner()
+                .min(self.experiments.len())
+                .min(self.runtime.native().cores());
+            // Native fitting and its mutable callback execute in phases. A chain's
+            // admitted envelope covers either its NLP team or its experiment lanes.
+            let chain_cores = threads.max(experiment_cores);
+            let workers = workers
+                .min(tasks.len())
+                .min(self.runtime.native().cores() / chain_cores)
+                .max(1);
+            let chains = Chains {
+                problem: self,
+                backend,
+                execution,
+                estimate,
+                optimum,
+                threshold,
+                tolerance: controls.tolerance.into_inner(),
+                points: controls.points.into_inner(),
+            };
+            let stack = self.runtime.native().stack_bytes();
+            let cores = chain_cores.checked_mul(workers).ok_or_else(|| {
                 FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
-                    ProblemError::memory("profile team extent"),
+                    ProblemError::memory("profile team cores"),
                 )))
             })?;
-        let constructor = pse_math::construction::current();
-        // Profile chains run on owner-affine standard threads. Nested experiment
-        // teams must inherit this actual executor, just as they inherit the native
-        // environment, construction owner and already admitted capacity envelope.
-        let runtime = tokio::runtime::Handle::try_current().map_err(|error| {
-            FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
-                ProblemError::internal(format!("fit profile runtime: {error}")),
-            )))
-        })?;
-        let (mut result, started, scheduling) =
-            self.runtime
+            // Parent estimation storage stays resident. Guard each chain's additional
+            // scratch and native thread/team stacks before the team is created.
+            let adapter_stacks = native::execution::scope_stack_bytes(
+                &[native::execution::adapter(backend)],
+                threads,
+                stack,
+            )
+            .map_err(|error| {
+                FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(error)))
+            })?;
+            let bytes = self
+                .bytes
+                .checked_mul(workers.saturating_sub(1))
+                .and_then(|bytes| {
+                    stack
+                        .checked_add(adapter_stacks)
+                        .and_then(|per_worker| workers.checked_mul(per_worker))
+                        .and_then(|stacks| bytes.checked_add(stacks))
+                })
+                .ok_or_else(|| {
+                    FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                        ProblemError::memory("profile team extent"),
+                    )))
+                })?;
+            let constructor = pse_math::construction::current();
+            // Profile chains run on owner-affine standard threads. Nested experiment
+            // teams must inherit this actual executor, just as they inherit the native
+            // environment, construction owner and already admitted capacity envelope.
+            let runtime = tokio::runtime::Handle::try_current().map_err(|error| {
+                FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                    ProblemError::internal(format!("fit profile runtime: {error}")),
+                )))
+            })?;
+            let (mut result, started, scheduling) = self
+                .runtime
                 .native()
                 .quiescent_phase(cores, bytes, execution, || {
                     dispatch(
@@ -921,11 +921,11 @@ impl FitProblem {
                         error.into_problem(),
                     )))
                 })?;
-        for chain in &mut result {
-            chain.actual_parallelism = started;
-            chain.scheduling_failures = scheduling.clone();
-        }
-        Ok(result)
+            for chain in &mut result {
+                chain.actual_parallelism = started;
+                chain.scheduling_failures = scheduling.clone();
+            }
+            Ok(result)
         })
     }
 }

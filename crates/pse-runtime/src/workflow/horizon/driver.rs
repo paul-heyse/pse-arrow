@@ -1323,12 +1323,13 @@ impl Loop {
             .iter()
             .flat_map(|e| e.arrival.iter().map(|(_, _, initial)| *initial))
             .collect();
-        let plant_scope =
-            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), cancel.deadline())
-                .with_admitted_threads(
-                    std::num::NonZeroUsize::new(admitted.threads)
-                        .unwrap_or(std::num::NonZeroUsize::MIN),
-                );
+        let plant_scope = pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::new(false),
+            cancel.deadline(),
+        )
+        .with_admitted_threads(
+            std::num::NonZeroUsize::new(admitted.threads).unwrap_or(std::num::NonZeroUsize::MIN),
+        );
         Self {
             plant_scope,
             applied: admitted.initial.clone(),
@@ -2053,10 +2054,12 @@ impl Loop {
         let deadline = Instant::now()
             .checked_add(prepared.solve.time_limit())
             .ok_or_else(|| contract("advanced controller task deadline extent"))?;
-        let proposal_scope = prepared
-            .solve
-            .task_scope()
-            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline)));
+        let proposal_scope = prepared.solve.task_scope().unwrap_or_else(|| {
+            pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                Some(deadline),
+            )
+        });
         prepared.solve = c
             .stage
             .package

@@ -30,7 +30,12 @@ fn typed_sqrt_weighted_products(options: Optimization) {
     )
     .unwrap();
     let x = builder
-        .input(0, ids::quantity("neutral"), IndexSet::new(), SemanticId::NIL)
+        .input(
+            0,
+            ids::quantity("neutral"),
+            IndexSet::new(),
+            SemanticId::NIL,
+        )
         .unwrap();
     let u = builder.unary(Function::Sqrt, x.clone(), source).unwrap();
     // An authored shared binding keeps sqrt as an actual intermediate block.
@@ -74,9 +79,7 @@ fn typed_sqrt_weighted_products(options: Optimization) {
 
         for expected_unchanged in [93., 2.] {
             let error = worker
-                .evaluate_product_into(
-                    &[0.], values, &mut providers, &cancel, &mut result,
-                )
+                .evaluate_product_into(&[0.], values, &mut providers, &cancel, &mut result)
                 .unwrap_err();
             assert!(matches!(
                 error,
@@ -87,9 +90,7 @@ fn typed_sqrt_weighted_products(options: Optimization) {
             // sqrt's intermediate second derivative overflows here. The requested
             // curvature of u²+x² is nevertheless finite, and its original guards hold.
             worker
-                .evaluate_product_into(
-                    &[1e-300], values, &mut providers, &cancel, &mut result,
-                )
+                .evaluate_product_into(&[1e-300], values, &mut providers, &cancel, &mut result)
                 .unwrap();
             assert_eq!(result, [2.]);
         }
@@ -105,7 +106,9 @@ fn typed_sqrt_guard_survives_interpreted_weighted_product_lowering() {
 #[test]
 fn typed_sqrt_guard_survives_compiled_weighted_product_lowering() {
     typed_sqrt_weighted_products(Optimization {
-        evaluator: crate::library::Evaluator::CompiledScalar { module_bytes: 1 << 20 },
+        evaluator: crate::library::Evaluator::CompiledScalar {
+            module_bytes: 1 << 20,
+        },
         ..Default::default()
     });
 }

@@ -913,7 +913,9 @@ pub fn solve_blocks(
         unsafe { ffi::pse_petsc_snes_solve(snes, x) }
     };
     shared.logging = ptr::null();
-    if let Some(logging) = &logging { logging.checkpoint("petsc.nasm.return", true); }
+    if let Some(logging) = &logging {
+        logging.checkpoint("petsc.nasm.return", true);
+    }
     drop(logging);
     let (mut reason, mut iterations, mut evaluations, mut linear, mut norm) = (0, 0, 0, 0, 0.0);
     {
