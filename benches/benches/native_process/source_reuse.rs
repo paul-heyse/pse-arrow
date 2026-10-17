@@ -75,7 +75,7 @@ pub(super) fn measure(
                 let edited = executor.block_on(package.with_declarations(rows)).unwrap();
                 let seconds = started.elapsed();
                 elapsed += seconds;
-                records.push(json!({"seconds":seconds.as_secs_f64(),"kind":"unchanged_source_admission","canonical_revision":edited.canonical_revision(),"clock_scope":"authored copy, parse and canonical edit; no scientific solve requested"}));
+                records.push(json!({"seconds":seconds.as_secs_f64(),"kind":"unchanged_source_admission","canonical_revision":edited.canonical_revision().map(|revision| revision.key.as_str()),"clock_scope":"authored copy, parse and canonical edit; no scientific solve requested"}));
                 assert_eq!(copied, authored);
                 assert_eq!(edited.canonical_revision(), Some(&revision));
                 let actual = executor.block_on(edited.declarations()).unwrap();

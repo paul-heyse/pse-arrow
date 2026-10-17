@@ -486,7 +486,7 @@ fn process(c: &mut Criterion) {
                     let _assessment_stage = audit::stage("original_assessment_and_results");
                     let begin = Instant::now();
                     let report = authored_success(&result);
-                    let RunReport::Modeling(reports) = result.report().unwrap() else {
+                    let RunReport::Modeling(_) = result.report().unwrap() else {
                         panic!("wrong report")
                     };
                     observations.run(&result, owner.runtime.math());
