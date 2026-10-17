@@ -2692,6 +2692,43 @@ mod tests {
         assert_eq!(report.predictions, vec![Some(2.)]);
         assert!(result.usable());
     }
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn original_fit_failure_withholds_completed_statistical_products_in_invocation() {
+        use crate::invocation::ProductAvailability;
+        let package = source_body(false,
+            "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);").await;
+        let mut declarations = package.fit_declarations().await.unwrap();
+        declarations.fits[0].observations[0].importance = 1.;
+        let package = package.with_fit_declarations(declarations).await.unwrap();
+        let mut requested = profile(false);
+        requested.solver.controls.hessian = HessianMode::GaussNewton;
+        requested.uncertainty = Some(FitUncertainty {
+            level: pse_model::scalar!(pse_model::scalars::Fraction(0.95)),
+            profile: None,
+            predictions: false,
+        });
+        let prepared = package.prepare_fit(id(32).into(), requested, compiler_profile(),
+            Default::default(), &crate::CancelSource::new()).await.unwrap();
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("fit original failure after statistical computation");
+        let _entered = operation.context().enter();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else { panic!() };
+        assert!(report.quality.as_ref().unwrap().feasible());
+        assert!(report.checks_complete && report.checks.iter().any(|check| !check.satisfied));
+        assert!(report.covariance.as_ref().unwrap().values.is_ok(), "retain completed computation evidence");
+        assert!(report.wald.as_ref().unwrap().is_ok());
+        assert!(!result.usable() && !report.estimate_qualified());
+        let document = result.invocation_evidence().unwrap();
+        for role in ["original_scientific_result", "parameter_covariance", "wald_intervals"] {
+            assert!(document.products.iter().any(|product| product.role == role
+                && product.availability == ProductAvailability::Unavailable), "{role}");
+        }
+        assert!(document.products.iter().any(|product| product.role == "profile_intervals"
+            && product.availability == ProductAvailability::NotRequested));
+        assert!(document.endpoints.qualification_seconds.is_none());
+    }
     #[tokio::test]
     async fn authored_fit_checks_can_reject_a_numerically_feasible_candidate() {
         let package = source_body(
