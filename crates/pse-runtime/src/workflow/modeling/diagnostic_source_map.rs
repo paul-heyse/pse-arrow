@@ -15,30 +15,45 @@ pub enum SourceMapScope {
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceFieldDocument {
+    /// Original authored declaration owning this field.
     pub declaration: SemanticId,
+    /// Compiler-supplied declaration-local field role.
     pub role: String,
+    /// Original position of this repeated field.
     pub position: usize,
+    /// Actual authoring document identity; absent when unavailable.
     pub document: Option<SemanticId>,
+    /// UTF-8 starting byte offset in the supplied document.
     pub start: Option<u32>,
+    /// UTF-8 exclusive ending byte offset in the supplied document.
     pub end: Option<u32>,
 }
 /// Original instantiated member ownership; a display path never becomes executable identity.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceMemberDocument {
+    /// Actual instantiated semantic member or alias.
     pub member: SemanticId,
+    /// Original authored declaration.
     pub declaration: SemanticId,
+    /// Actual owning instance, preserving repeated definition uses.
     pub instance: SemanticId,
+    /// Current compiler-supplied display path, independent of identity.
     pub path: String,
 }
 /// One source check's original range within a potentially shared arithmetic region.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArithmeticSourceDocument {
+    /// Physical arithmetic-region ordinal within the stated check program.
     pub region: usize,
+    /// Original body-local source token, joined through checked_members.
     pub source: SemanticId,
+    /// First original check-output ordinal within the shared region.
     pub start_output: usize,
+    /// Exclusive original check-output endpoint.
     pub end_output: usize,
+    /// Actual program order owning these check ranges.
     pub check_order: DerivativeOrder,
 }
 /// Which actual program owns the exposed source-check ranges.
@@ -51,86 +66,136 @@ pub enum ArithmeticMappingScope {
     /// do not identify derivative-kernel instructions or assign shared runtime cost.
     OriginalValueChecksForWeightedProduct,
     /// Arithmetic exists but no original check ranges were supplied by its owner.
-    Unavailable { reason: String },
+    Unavailable {
+        /// Actual missing owner mapping, never a guessed source.
+        reason: String,
+    },
 }
 /// One compiler-issued selected product template. Numerical weights/directions are not static identities.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceTemplateDocument {
+    /// Compiler-issued template ordinal within this assembly.
     pub template: usize,
+    /// Admitted reusable semantic body identity.
     pub body: ContentHash,
+    /// Requested derivative ceiling.
     pub order: DerivativeOrder,
+    /// Canonical mathematical product actually prepared.
     pub product: ProductKind,
+    /// Ordered original body output selectors.
     pub outputs: Vec<usize>,
+    /// Ordered original formal derivative selectors; aliases remain distinct.
     pub coordinates: Vec<usize>,
+    /// Limits of the available arithmetic-origin projection.
     pub arithmetic_mapping: ArithmeticMappingScope,
+    /// All original check ranges in the stated program, including static branches.
     pub arithmetic: Vec<ArithmeticSourceDocument>,
 }
 /// An ordered input gather: aliases deliberately retain separate formal positions.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceSlotDocument {
+    /// Original formal input ordinal.
     pub formal: usize,
+    /// Actual source coordinate identity.
     pub member: SemanticId,
+    /// Canonical linear gather coefficient.
     pub scale: f64,
+    /// Canonical affine gather offset.
     pub offset: f64,
+    /// The source is absent from this selected assembly’s free columns.
     pub fixed: bool,
 }
 /// Actual selected destination of an original ordered output contribution.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SourceContributionTarget {
-    Row { row: SemanticId },
-    Objective { ordinal: usize },
+    /// Original selected constraint row.
+    Row {
+        /// Original semantic row identity.
+        row: SemanticId,
+    },
+    /// Original selected objective.
+    Objective {
+        /// Objective ordinal, interpreted with objective_signs.
+        ordinal: usize,
+    },
 }
 /// One ordered addend before duplicate accumulation, including orientation/weight.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceContributionDocument {
+    /// Original body output ordinal.
     pub output: usize,
+    /// Selected original row or objective destination.
     pub target: SourceContributionTarget,
+    /// Actual signed contribution weight before duplicate accumulation.
     pub scale: f64,
 }
 /// The original occurrence's actual selected template and selectors.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceDemandDocument {
+    /// Canonical callback demand, distinct from the product kind.
     pub demand: EvaluationDemand,
+    /// Actual selected compiled template ordinal.
     pub template: usize,
+    /// Original output selectors for this occurrence and demand.
     pub outputs: Vec<usize>,
+    /// Original formal coordinate selectors for this occurrence and demand.
     pub coordinates: Vec<usize>,
 }
 /// Original semantic occurrence and its concrete coordinate/output gathers.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceInstanceDocument {
+    /// Original instance-binding ordinal in the assembly.
     pub ordinal: usize,
+    /// Actual semantic occurrence identity.
     pub instance: SemanticId,
+    /// Reusable semantic body identity; never an occurrence substitute.
     pub body: ContentHash,
+    /// Complete body-local source-token to original-member map.
     pub checked_members: Vec<(SemanticId, SemanticId)>,
+    /// Original formal gathers, preserving aliases and affine scales.
     pub slots: Vec<SourceSlotDocument>,
+    /// Original ordered output addends, preserving repeated destinations.
     pub contributions: Vec<SourceContributionDocument>,
+    /// Actual demand-to-template selectors for this occurrence.
     pub demands: Vec<SourceDemandDocument>,
 }
 /// Explicit bounded static source map. It supplies no native dual or stationarity pullback.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingSourceMapDocument {
+    /// Static source-map interpretation version.
     pub version: pse_model::document::Version<1>,
+    /// Actual admitted original case structure identity.
     pub source_identity: ContentHash,
+    /// Actual frozen numerical-policy identity.
     pub numerical_identity: ContentHash,
+    /// Static source eligibility; it does not establish execution.
     pub scope: SourceMapScope,
+    /// Selected original rows in assembly order.
     pub rows: Vec<SemanticId>,
+    /// Selected original free coordinates in assembly order.
     pub columns: Vec<SemanticId>,
+    /// Actually consumed fixed or parameter input identities.
     pub fixed_inputs: Vec<SemanticId>,
     /// Frozen physical scales of the selected original rows and coordinates.
     pub row_nominals: Vec<(SemanticId, f64)>,
+    /// Frozen physical coordinate magnitudes in selected column order.
     pub variable_nominals: Vec<(SemanticId, f64)>,
     /// Objective signs in original objective order; never a native stationarity norm.
     pub objective_signs: Vec<f64>,
+    /// Exact current authored field/document occurrences.
     pub fields: Vec<SourceFieldDocument>,
+    /// Original instantiated member lineages and supplied aliases.
     pub members: Vec<SourceMemberDocument>,
+    /// Deduplicated selected mathematical products and their source origins.
     pub templates: Vec<SourceTemplateDocument>,
+    /// Original occurrence bindings into those shared templates.
     pub instances: Vec<SourceInstanceDocument>,
     /// Absent mappings are explicit; this source view is not a transformed native attempt.
     pub native_pullback_unavailable: String,
@@ -138,6 +203,7 @@ pub struct ModelingSourceMapDocument {
 /// The requested static document retains its existing runtime allocation owner.
 #[derive(Debug)]
 pub struct ModelingSourceMap {
+    /// Complete selected static source document under the retained lease.
     pub document: ModelingSourceMapDocument,
     _lease: Arc<pse_columnar::AllocationLease>,
 }
@@ -158,6 +224,10 @@ fn member_lineages(model: &pse_modeling::specialize::SpecializedModel)
 impl Runtime {
     /// Inspect already admitted compiled artifacts under a separate explicit finite
     /// clock/allocation. This never evaluates equations or initiates a native solve.
+    ///
+    /// # Errors
+    /// Invalid finite bounds, original cancellation/deadline, unavailable compiled
+    /// artifacts or insufficient construction/retention admission refuse the operation.
     pub async fn modeling_diagnostic_source_map(
         &self,
         prepared: &ModelingDiagnosticPreparation,
