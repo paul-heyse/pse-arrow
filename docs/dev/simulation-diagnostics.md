@@ -178,14 +178,18 @@ The explicit compiled scalar evaluator adds the `math.native_scalar_compilation`
 `math.native_scalar_executable_bytes`. Compilation counts successful loaded modules;
 evaluation counts native arithmetic calls, not independently accepted outputs. Executable
 bytes describe the generated file, not mapped-memory residency. Compare compilation work
-with actual repeated value demand rather than assuming amortization.
+with actual eligible value or derivative demand rather than assuming amortization.
 
 This opt-in `compiled-evaluator` feature uses the fixed Linux x86-64 scalar C++ profile
-for Value arithmetic blocks, with independent worker scratch and owned executable lifetime.
-Derivatives and provider calls remain interpreted. It selects neither a SIMD/batched route nor a host-native CPU
-target, enables neither fast math nor FP contraction, and does not interrupt an
+for eligible Value, selected First/Second partials, weighted Hessian and directional/action
+arithmetic, with independent worker scratch and owned executable lifetime. Providers,
+branch selection and ordered source/domain/derivative-eligibility guards remain with their
+host owners. Unsupported regions retain their explicit supported route; First-only demands
+keep unused Second products cold. It selects neither a SIMD/batched route nor a host-native
+CPU target, enables neither fast math nor FP contraction, and does not interrupt an
 individual compiled call; cancellation is checked at its surrounding boundaries. These
-producer facts do not establish all-context evaluator or assembled workflow qualification.
+producer facts do not establish universal evaluator benefit or whole-model qualification.
+The selected analytic/interpreted/compiled and assembled acceptance is recorded in Plan43b/43g.
 
 ## Artifact publication work
 

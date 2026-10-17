@@ -653,6 +653,7 @@ mod tests {
             assert!(blocks.len() > 1);
             for block in blocks.iter() {
                 assert_eq!(block.plan.order(), order);
+                assert!(block.plan.supports().iter().any(|support| support.order() == order));
                 for projected in block.plan.supports() {
                     let original = source
                         .plan
@@ -689,7 +690,7 @@ mod tests {
                             .collect()
                     );
                     for output in projected.outputs() {
-                        if order == DerivativeOrder::Second {
+                        if projected.order() == DerivativeOrder::Second {
                             assert_eq!(
                                 projected.second_for_output(*output).unwrap(),
                                 &original
@@ -701,6 +702,8 @@ mod tests {
                                     .copied()
                                     .collect()
                             );
+                        } else {
+                            assert!(projected.second_for_output(*output).is_none());
                         }
                         assert_eq!(
                             projected.first_for_output(*output).unwrap(),
