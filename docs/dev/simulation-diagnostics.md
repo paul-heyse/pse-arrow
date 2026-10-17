@@ -191,6 +191,20 @@ individual compiled call; cancellation is checked at its surrounding boundaries.
 producer facts do not establish universal evaluator benefit or whole-model qualification.
 The selected analytic/interpreted/compiled and assembled acceptance is recorded in Plan43b/43g.
 
+For an explicitly selected Python/native compiled-evaluator build, use the repository
+checkout environment and the mathematical owner's feature:
+
+```bash
+scripts/pse-env --native=compiler,solver,klu,isolation,uno,petsc -- \
+  .venv/bin/maturin develop --uv --profile dev --locked \
+  --features force-validate,native-solvers,pse-math/compiled-evaluator
+```
+
+Ordinary `py-sync` builds do not select this optional mathematical feature. Select
+`EvaluatorCompiledScalar(module_bytes=...)` in the preparation compiler's optimization
+settings with a finite prepaid module allowance. A successful build only makes the route
+available: actual compilation/evaluation counters identify its use by an eligible request.
+
 ## Artifact publication work
 
 `artifact.metadata.attach` measures each bounded transaction attaching already sealed artifact file metadata. `canonical.artifact.metadata.groups_acknowledged` and `canonical.artifact.metadata.rows_acknowledged` count only groups and rows whose exact ordered key inventory was received and validated. File seals remain independent and differently shaped IPC data stays in separate files. A lost ACK remains unsettled and cannot authorize activation; these counters are neither a complete query count nor evidence of elapsed improvement.

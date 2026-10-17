@@ -343,7 +343,7 @@ pub struct RawMapHistory {
 // allowance already reserves 8 KiB/history item and a fixed 4 MiB envelope. The
 // native producer never allocates n*history diagnostic vectors. Actual solver
 // vectors and complete candidate ownership remain with their existing owners.
-#[cfg(feature = "ipopt")]
+#[cfg(any(feature = "ipopt", feature = "uno"))]
 pub(crate) const SNAPSHOT_COORDINATES: usize = 64;
 const SAMPLE_COORDINATES: usize = 24;
 const SAMPLE_BYTES: usize = 4096;
