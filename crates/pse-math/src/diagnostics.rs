@@ -62,11 +62,11 @@ pub struct SingularMode {
     /// Right singular vector over the columns.
     pub right: Vec<f64>,
     /// Euclidean norm of `A v - sigma u` in the declared scaled operator.
-    /// A left-only rectangular mode has no right equation and reports zero here.
-    pub left_residual: f64,
+    /// A left-only rectangular mode has no right vector and this equation is absent.
+    pub left_residual: Option<f64>,
     /// Euclidean norm of `A^T u - sigma v` in the declared scaled operator.
-    /// A right-only rectangular mode has no left equation and reports zero here.
-    pub right_residual: f64,
+    /// A right-only rectangular mode has no left vector and this equation is absent.
+    pub right_residual: Option<f64>,
     /// Largest absolute deviation of a present singular vector's norm from one.
     pub normalization_error: f64,
     /// Accepted residual bound: `64 epsilon max(m,n,1) max(||A||_F,sigma)`.
@@ -299,15 +299,14 @@ pub fn analyze_matrix<R: From<usize>, C: From<usize>>(
             value,
             left: if i < m { (0..m).map(|j| left[(j, i)]).collect() } else { vec![] },
             right: if i < n { (0..n).map(|j| right[(j, i)]).collect() } else { vec![] },
-            left_residual: left_residual.norm_l2(),
-            right_residual: right_residual.norm_l2(),
+            left_residual: (i < n).then(|| left_residual.norm_l2()),
+            right_residual: (i < m).then(|| right_residual.norm_l2()),
             normalization_error,
             residual_bound,
         };
         if !mode.value.is_finite() || mode.value < 0.
-            || !mode.left_residual.is_finite() || !mode.right_residual.is_finite()
+            || mode.left_residual.into_iter().chain(mode.right_residual).any(|residual| !residual.is_finite() || residual > mode.residual_bound)
             || !mode.normalization_error.is_finite() || !mode.residual_bound.is_finite()
-            || mode.left_residual > mode.residual_bound || mode.right_residual > mode.residual_bound
             || mode.normalization_error > roundoff {
             return Err(MathError::Library(format!("diagnostic SVD mode {i} failed residual/normalization qualification")));
         }
@@ -417,8 +416,8 @@ mod tests {
         assert_eq!(report.modes.len(), 3);
         assert!((report.operator_frobenius - (1e12_f64 + 1e6 + 1.).sqrt()).abs() < 1e-8);
         for mode in &report.modes {
-            assert!(mode.left_residual <= mode.residual_bound);
-            assert!(mode.right_residual <= mode.residual_bound);
+            assert!(mode.left_residual.is_none_or(|value| value <= mode.residual_bound));
+            assert!(mode.right_residual.is_none_or(|value| value <= mode.residual_bound));
             assert!(mode.normalization_error < 1e-12);
             // Independent original-coordinate lifting. A normalized direction is
             // not a physical coordinate vector until its column scales are applied.
@@ -436,8 +435,10 @@ mod tests {
         assert_eq!(report.rank, 0);
         assert_eq!(report.operator_frobenius, 0.);
         for mode in report.modes {
-            assert_eq!(mode.left_residual, 0.);
-            assert_eq!(mode.right_residual, 0.);
+            assert!(mode.left_residual.is_none_or(|value| value == 0.));
+            assert!(mode.right_residual.is_none_or(|value| value == 0.));
+            assert_eq!(mode.left_residual.is_some(), !mode.right.is_empty());
+            assert_eq!(mode.right_residual.is_some(), !mode.left.is_empty());
             assert_eq!(mode.residual_bound, 0.);
         }
     }

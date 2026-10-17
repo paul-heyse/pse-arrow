@@ -1493,8 +1493,8 @@ mod tests {
             .unwrap();
         assert_eq!(report.matrix.as_ref().unwrap().rank, 1);
         for mode in &report.matrix.as_ref().unwrap().modes {
-            assert!(mode.left_residual <= mode.residual_bound);
-            assert!(mode.right_residual <= mode.residual_bound);
+            assert!(mode.left_residual.is_none_or(|value| value <= mode.residual_bound));
+            assert!(mode.right_residual.is_none_or(|value| value <= mode.residual_bound));
             assert!(mode.normalization_error < 1e-12);
         }
         assert!(report.complete);
