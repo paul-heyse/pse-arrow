@@ -545,6 +545,7 @@ pub(super) fn measure(
         .build()
         .unwrap();
     let mut records = Vec::new();
+    let mut invocation_records = observations::InvocationRecords::new(output, name);
     let mut group = c.benchmark_group("process");
     group
         .sample_size(10)
@@ -555,7 +556,8 @@ pub(super) fn measure(
         b.iter_custom(|iterations| {
             let mut timed = Duration::ZERO;
             for _ in 0..iterations {
-                let (elapsed, record) = executor.block_on(iteration(phases, build));
+                let (elapsed, record) = invocation_records.catch(|| executor.block_on(iteration(phases, build)));
+                invocation_records.push(record.clone());
                 timed += elapsed;
                 records.push(record);
             }
@@ -563,6 +565,7 @@ pub(super) fn measure(
         })
     });
     group.finish();
+    invocation_records.flush();
     let maximum = |field: &str| {
         records
             .iter()
@@ -581,6 +584,6 @@ pub(super) fn measure(
         "phase_scope":"complete calling-process operations; inclusive production spans are separate observations", "memory_scope":"calling-process pools for seed/replay; native warmup and fresh control excluded from pool peak; process VmHWM includes native warmup and all controls; external canonical server unobserved",
         "limitations":"same executable process and quiet warmed loader context after an untimed original Root native solve; no first native initialization, managed worker/process/Python startup, crash/interruption, server restart, strict producer qualification, deployment portability or replay-only numerical execution claim; weak-runtime release does not establish database-client/task quiescence and asynchronous protection release can continue into untimed cleanup; fresh-control timing has a different operation boundary and is not a speedup comparison",
         "acceptance":"actual semantic body reuse with zero fresh admissions after weak-owner and zero-pool release proof; cold/fresh successful admissions; exact source/run/attempt historical rows and floating-point bits; original root x=2,y=3 within production physical allowances and authored checks",
-        "sampling":"10 flat Criterion samples; setup/control/removal excluded via iter_custom; smoke executes the same acceptance without timing receipt","records":records
+        "sampling":"10 flat Criterion samples; setup/control/removal excluded via iter_custom; smoke executes the same acceptance without timing receipt","observations_file":format!("{name}-observations.jsonl")
     })).unwrap()).unwrap();
 }

@@ -1397,7 +1397,7 @@ async fn execute(
     attempt: u32,
     cancel: &crate::CancelSource,
 ) -> Result<Arc<RunResult>, WorkflowError> {
-    match operation {
+    crate::invocation::scope(async { match operation {
         PreparedStudyOperation::DeclaredCase(case) => {
             let run_id = pse_operations::mint_id();
             let request = RunRequest::Modeling(vec![case.as_ref().clone()]);
@@ -1425,7 +1425,7 @@ async fn execute(
                 .wait()
                 .await
         }
-    }
+    }}).await
 }
 fn scoped_action(
     admitted: &pse_model::study_policy::AdmittedStudy,

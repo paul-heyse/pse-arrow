@@ -7,7 +7,7 @@ use pse_kernels::DerivativeOrder;
 use pse_relations::{columnar::RelationRow, generated::runtime::accuracy_goal_assessments};
 use pse_runtime::{math::solves::NumericalInputs, workflow::ModelingAnalysis};
 use serde_json::{Value, json};
-use std::{collections::BTreeMap, io::Write};
+use std::collections::BTreeMap;
 
 pub(super) fn measure(
     c: &mut Criterion,
@@ -36,8 +36,7 @@ pub(super) fn measure(
         .build()
         .unwrap();
     let records_name = format!("{name}-observations.jsonl");
-    let mut records =
-        std::io::BufWriter::new(std::fs::File::create(output.join(&records_name)).unwrap());
+    let mut records = observations::InvocationRecords::new(output, name);
     let mut maxima = BTreeMap::<&str, u64>::new();
     let mut observations = 0_u64;
     let mut group = c.benchmark_group("process");
@@ -49,7 +48,7 @@ pub(super) fn measure(
     group.bench_function(name, |b| b.iter_custom(|iterations| {
         let mut elapsed_total = Duration::ZERO;
         for _ in 0..iterations {
-            let (elapsed, record) = executor.block_on(async {
+            let (elapsed, record) = records.catch(|| executor.block_on(async {
                 let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(1).unwrap()).unwrap();
                 let runtime = runtime(&owner);
                 let begin = Instant::now();
@@ -118,7 +117,7 @@ pub(super) fn measure(
                 record["after_runtime_teardown_bytes"] = pool.reserved().into();
                 assert_eq!(pool.reserved(), 0, "accuracy workload escaped runtime ownership");
                 (elapsed, record)
-            });
+            }));
             elapsed_total += elapsed;
             for field in ["pool_peak_bytes", "process_peak_rss_bytes", "retained_runtime_bytes", "after_runtime_teardown_bytes"] {
                 if let Some(value) = record[field].as_u64() {
@@ -128,14 +127,13 @@ pub(super) fn measure(
             let mut record = record;
             record["invocation_sequence"] = observations.into();
             record["criterion_membership"] = json!({"status":"unavailable","reason":"Criterion callback does not expose measured-sample membership"});
-            serde_json::to_writer(&mut records, &record).unwrap();
-            records.write_all(b"\n").unwrap();
+            records.push(record);
             observations = observations.checked_add(1).unwrap();
         }
         elapsed_total
     }));
     group.finish();
-    records.flush().unwrap();
+    records.flush();
     let maximum = |field: &str| maxima.get(field).copied();
     let record = json!({"id":name,"workload":spec,"source":source,"iterations":observations,
         "threads":1,"native_threads":1,"pool_limit_bytes":64_u64<<30,

@@ -152,7 +152,7 @@ impl Runtime {
                     .as_ref()
                     .map(|attempt| attempt.canonical_keys(run_id));
                 let stream = progress.clone();
-                tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
+                tokio::spawn(crate::workflow::inherit_runtime_activity(crate::invocation::scope(async move {
                     use futures_util::FutureExt;
                     let source_owner = admitted.clone();
                     let scopes = admitted
@@ -248,8 +248,9 @@ impl Runtime {
                     if let Err(error) = source_owner.close_sources().await {
                         result.report = Err(Arc::new(error));
                     }
+                    if let Some(recorder) = &result.invocation { recorder.ready(); }
                     sender.send_replace(Some(Arc::new(result)));
-                }));
+                })));
                 Ok(RunHandle::staged(
                     checks,
                     receiver,
@@ -1441,6 +1442,7 @@ impl Loop {
             Some(error) => Err(error),
             None => Ok(completion),
         };
+        if let Some(recorder) = &result.invocation { recorder.qualified(usable && result.completion.is_ok()); }
         result.original_completion_captured = result.completion.is_ok();
         result.horizon_unmerged = unmerged;
         result.horizon_owners = owners;

@@ -298,4 +298,17 @@ impl InvocationRecords {
         self.sequence = self.sequence.checked_add(1).unwrap();
     }
     pub(super) fn flush(&mut self) { use std::io::Write; self.writer.flush().unwrap(); }
+    /// Retain a failed current invocation prefix before propagating the original panic.
+    pub(super) fn catch<T>(&mut self, work: impl FnOnce() -> T) -> T {
+        let started = std::time::Instant::now();
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)) {
+            Ok(value) => value,
+            Err(panic) => {
+                self.push(json!({"seconds":started.elapsed().as_secs_f64(),"outcome":"panicked_incomplete",
+                    "work":null,"scope":"current harness invocation failed; unreturned scientific products and counters unavailable"}));
+                self.flush();
+                std::panic::resume_unwind(panic)
+            }
+        }
+    }
 }

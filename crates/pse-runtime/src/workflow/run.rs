@@ -387,6 +387,7 @@ impl RunResult {
     }
     /// A durable run that failed before it ran: record why, and publish the failure.
     pub(super) async fn refused(mut self, durable: Option<DurableAttempt>) -> Self {
+        self.invocation_cancelled = self.report.as_ref().err().is_some_and(|error| pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()) == Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled));
         if let Some(recorder) = &self.invocation { recorder.terminal(); }
         self = self.completed();
         if let (Some(attempt), Err(error)) = (durable, &self.report) {
