@@ -39,7 +39,7 @@ Prepared demand identifies SelectedPartials, JacobianAction, WeightedHessian or 
 
 ### Consequences
 
-Use support-driven assembly and prepared offsets. Joint arithmetic optimization is bounded to adjacent independent siblings within one semantic scope; every original requested materialized output and ordered finite/source check survives. Provider/guard/branch/domain/applicability boundaries remain barriers. Native NLP matrix consumers retain their matrix contract; action consumers request actions. Unknown-only Newton and final parameter derivatives are separate demands. Eligible derivative arithmetic can use the existing optional Symbolica C++ compile/load owner with complete artifact admission and identity.
+Use support-driven assembly and prepared offsets. Joint arithmetic optimization is bounded to adjacent independent siblings within one semantic scope; every original materialized value and ordered domain/derivative-eligibility check survives, alongside finite checks on the complete requested product. Direct weighted/action completion does not certify unrequested intermediate partial jets. Provider/guard/branch/domain/applicability boundaries remain barriers. Native NLP matrix consumers retain their matrix contract; action consumers request actions. Unknown-only Newton and final parameter derivatives are separate demands. Eligible derivative arithmetic can use the existing optional Symbolica C++ compile/load owner with complete artifact admission and identity.
 
 ### Compensating controls
 

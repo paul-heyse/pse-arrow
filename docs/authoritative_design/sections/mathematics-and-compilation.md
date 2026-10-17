@@ -556,7 +556,10 @@ Hessians and weighted Hessian actions from derivative ceiling. Product/layout/po
 to prepared identity; consumed weights and directions belong to completed-product identity.
 Support-driven maps and lazy compatible projections preserve all original validity premises.
 Bounded joint library optimization retains each original materialized output and ordered
-finite/source check within one semantic scope. Providers, guards, branches, domains and
+value/domain/derivative-eligibility check within one semantic scope. Product-specific
+weighted/action lowering qualifies the requested product and does not certify separate
+unrequested intermediate partial jets; original typed smoothness guards survive even
+when symbolic cancellation makes the output expression simpler. Providers, guards, branches, domains and
 applicability remain barriers. Optional compiled derivative arithmetic uses the existing
 compiler-child/module/scratch owners and conservative execution profile. Plan43b owns
 implementation and acceptance; this target statement does not assert their completion.
