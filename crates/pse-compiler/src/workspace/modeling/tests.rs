@@ -7521,4 +7521,30 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
     let factory = inner.factory_reusing(configs, capabilities, DerivativeOrder::First, cancel, limits, &programs).unwrap();
     assert_eq!(count.load(Ordering::Relaxed), 1, "factory assembly retains its request-local capability rather than repeating admission");
     assert!(factory.retained_bytes().unwrap() > 0);
+    let barrier = Arc::new(std::sync::Barrier::new(2));
+    let tasks = [4., 6.].into_iter().enumerate().map(|(lane, input)| {
+        let factory = factory.clone();
+        let barrier = barrier.clone();
+        std::thread::spawn(move || {
+            use pse_kernels::ProviderFactory;
+            let stop = Cancellation::default();
+            let scope = pse_kernels::ExecutionScope::new(stop.clone(), None);
+            let mut worker = factory.create_scoped(scope).unwrap();
+            let request = pse_kernels::ProviderRequest::all(worker.spec(), DerivativeOrder::First);
+            barrier.wait();
+            let result = worker.evaluate(&[input], &request, &pse_kernels::EvaluationContext {
+                cancelled: &stop, max_result_bytes: 1 << 20,
+            }).unwrap();
+            assert_eq!(result.values, [input / 2.]);
+            assert_eq!(result.jacobian, [0.5]);
+            if lane == 0 {
+                stop.cancel();
+                assert!(worker.evaluate(&[input], &request, &pse_kernels::EvaluationContext {
+                    cancelled: &stop, max_result_bytes: 1 << 20,
+                }).is_err());
+            }
+        })
+    }).collect::<Vec<_>>();
+    for task in tasks { task.join().unwrap(); }
+
 }
