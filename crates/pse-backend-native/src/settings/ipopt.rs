@@ -18,7 +18,7 @@ use pse_model::scalars::{Fraction, Tolerance};
 
 /// Process state that linear-solver admission depends on, observed on the calling thread.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
@@ -71,7 +71,7 @@ impl Default for Settings {
 /// the runtime-loaded Pardiso are not representable (ADR-0108 item 9). Each kind is spelled
 /// as its [`IpoptLinearSolver`], Ipopt's native `linear_solver` name.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
 #[schemars(rename = "IpoptLinear")]
@@ -80,6 +80,18 @@ pub enum Linear {
     Mumps {
         /// Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7)).
         ordering: MumpsOrdering,
+        /// Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive [0,1].
+        #[schemars(extend("minimum" = 0.0, "maximum" = 1.0))]
+        pivot_tolerance: f64,
+        /// Maximum refinement-requested pivot tolerance (`mumps_pivtolmax`).
+        #[schemars(extend("minimum" = 0.0, "maximum" = 1.0))]
+        maximum_pivot_tolerance: f64,
+        /// Extra estimated workspace percentage (`mumps_mem_percent`), zero allowed.
+        #[schemars(extend("minimum" = 0))]
+        memory_percent: i32,
+        /// Native ICNTL(6) permuting/scaling strategy, inclusive [0,7].
+        #[schemars(extend("maximum" = 7))]
+        permuting_scaling: u8,
     },
     /// SPRAL SSIDS on OpenMP threads (`linear_solver = spral`).
     Spral {
@@ -103,6 +115,10 @@ impl Default for Linear {
     fn default() -> Self {
         Self::Mumps {
             ordering: MumpsOrdering::Metis,
+            pivot_tolerance: 1e-6,
+            maximum_pivot_tolerance: 0.1,
+            memory_percent: 1000,
+            permuting_scaling: 7,
         }
     }
 }
@@ -128,6 +144,37 @@ impl Settings {
                 "Ipopt bound_frac must be at most 0.5".into(),
             ));
         }
+        if let Linear::Mumps { pivot_tolerance, maximum_pivot_tolerance, memory_percent, permuting_scaling, .. } = self.linear {
+            if !pivot_tolerance.is_finite() || !(0. ..=1.).contains(&pivot_tolerance)
+                || !maximum_pivot_tolerance.is_finite() || !(pivot_tolerance..=1.).contains(&maximum_pivot_tolerance)
+                || memory_percent < 0 || permuting_scaling > 7 {
+                return Err(ProblemError::Contract("MUMPS controls outside registered native ranges".into()));
+            }
+        }
         self.restart.validate()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn settings(pivot: f64, maximum: f64, memory: i32, scaling: u8) -> Settings {
+        Settings { linear: Linear::Mumps { ordering: MumpsOrdering::Metis, pivot_tolerance: pivot,
+            maximum_pivot_tolerance: maximum, memory_percent: memory, permuting_scaling: scaling }, ..Default::default() }
+    }
+    #[test]
+    fn mumps_controls_match_registered_ranges_including_zero() {
+        assert!(Settings::default().validate().is_ok());
+        for valid in [settings(0.,0.,0,0),settings(1.,1.,i32::MAX,7),settings(1e-6,0.1,1000,7)] {
+            assert!(valid.validate().is_ok());
+            let encoded = serde_json::to_vec(&valid).unwrap();
+            let decoded: Settings = serde_json::from_slice(&encoded).unwrap();
+            assert_eq!(decoded, valid);
+        }
+        for invalid in [settings(-1.,0.1,1000,7),settings(f64::NAN,0.1,1000,7),
+            settings(0.2,0.1,1000,7),settings(0.,f64::INFINITY,1000,7),settings(0.,1.1,1000,7),
+            settings(0.,0.1,-1,7),settings(0.,0.1,1000,8)] {
+            assert!(invalid.validate().is_err());
+        }
     }
 }

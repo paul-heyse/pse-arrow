@@ -69,11 +69,17 @@ fn linear_options(linear: &Linear) -> Vec<(&'static str, OptionValue)> {
     let text = |v: &str| OptionValue::Text(v.into());
     let mut out = vec![("linear_solver", text(linear.solver().as_str()))];
     match *linear {
-        Linear::Mumps { ordering } => {
+        Linear::Mumps { ordering, pivot_tolerance, maximum_pivot_tolerance, memory_percent, permuting_scaling } => {
             out.push((
                 "mumps_pivot_order",
                 OptionValue::Integer(mumps_pivot_order(ordering)),
             ));
+            out.extend([
+                ("mumps_pivtol", OptionValue::Real(pivot_tolerance)),
+                ("mumps_pivtolmax", OptionValue::Real(maximum_pivot_tolerance)),
+                ("mumps_mem_percent", OptionValue::Integer(memory_percent)),
+                ("mumps_permuting_scaling", OptionValue::Integer(i32::from(permuting_scaling))),
+            ]);
         }
         Linear::Spral {
             ordering,
@@ -99,11 +105,15 @@ fn linear_options(linear: &Linear) -> Vec<(&'static str, OptionValue)> {
 /// `pardisolib` load excluded libraries (HSL, runtime Pardiso) and stay reserved.
 /// `warm_start_same_structure` is set only by the retained C++ application/TNLP
 /// lifecycle; a raw caller option cannot establish its same-structure contract.
-pub(crate) const RESERVED: [&str; 13] = [
+pub(crate) const RESERVED: [&str; 17] = [
     "linear_solver",
     "hsllib",
     "pardisolib",
     "mumps_pivot_order",
+    "mumps_pivtol",
+    "mumps_pivtolmax",
+    "mumps_mem_percent",
+    "mumps_permuting_scaling",
     "spral_order",
     "spral_scaling",
     "spral_pivot_method",

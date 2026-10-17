@@ -20,7 +20,7 @@ use crate::{
     presolve::Policy,
     quality::Tolerances,
     settings::ipopt::{
-        Linear, MumpsOrdering, PardisoMatching, PardisoOrdering, SpralOrdering, SpralPivot,
+        Linear, PardisoMatching, PardisoOrdering, SpralOrdering, SpralPivot,
         SpralScaling,
     },
     solve::*,
@@ -278,9 +278,7 @@ fn measure_large_kkt_linear_solvers() {
         (
             "ipopt mumps metis",
             Backend::Ipopt,
-            ipopt(Linear::Mumps {
-                ordering: MumpsOrdering::Metis,
-            }),
+            ipopt(Linear::default()),
             1,
         ),
         (
