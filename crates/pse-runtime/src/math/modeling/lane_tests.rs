@@ -63,7 +63,7 @@ fn admit(
                             sequence,
                             revision: key,
                         },
-                        flag,
+                        flag.flag().clone(),
                         &BTreeMap::new(),
                     )
                 },

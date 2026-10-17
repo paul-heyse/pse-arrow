@@ -1112,13 +1112,13 @@ fn scope_math(error: pse_kernels::ProviderError) -> MathError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicUsize, Ordering};
     #[derive(Debug)]
     struct Evaluator {
         correspondence: FidelityCorrespondence,
         calls: Arc<AtomicUsize>,
         fail: bool,
-        cancel: Option<Arc<AtomicBool>>,
+        cancel: Option<pse_diagnostics::Cancellation>,
         threads: usize,
         expected_observation: Option<pse_diagnostics::observation::OperationId>,
     }
@@ -1144,7 +1144,7 @@ mod tests {
             }
             out[0] = (x[0] - 0.37).powi(2);
             if let Some(cancel) = &self.cancel {
-                cancel.store(true, Ordering::Release);
+                cancel.cancel();
             }
             Ok(())
         }
@@ -1211,7 +1211,7 @@ mod tests {
         let pool: Arc<dyn pse_columnar::MemoryPool> =
             Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
         let calls = Arc::new(AtomicUsize::new(0));
-        let cancellation = Arc::new(AtomicBool::new(false));
+        let cancellation = pse_diagnostics::Cancellation::default();
         let mut task = RetainedSurrogate::new(
             evaluator(calls.clone()),
             options(),
@@ -1278,7 +1278,7 @@ mod tests {
             next.state.iteration, 1,
             "snapshot cancellation never cancels the task"
         );
-        cancellation.store(true, Ordering::Release);
+        cancellation.cancel();
         assert!(matches!(
             task.snapshot(reserve(extent), &pse_columnar::CancellationToken::new()),
             Err(SurrogateFailure::Math(MathError::Cancelled))
@@ -1429,7 +1429,7 @@ mod tests {
     }
     #[test]
     fn cancellation_and_point_limit_latch_before_additional_callback_work() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let calls = Arc::new(AtomicUsize::new(0));
         let mut e = evaluator(calls.clone());
         e.cancel = Some(cancel.clone());
@@ -1595,7 +1595,7 @@ mod tests {
                 self.0.evaluate(x, out)
             }
         }
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let calls = Arc::new(AtomicUsize::new(0));
         let outer = ExecutionScope::new(
             cancel.clone(),
@@ -1622,7 +1622,7 @@ mod tests {
                 pse_kernels::ProviderError::Deadline
             )))
         ));
-        assert!(!cancel.load(Ordering::SeqCst));
+        assert!(!cancel.is_cancelled());
         assert_eq!(task.work().unwrap().evaluations, 1);
         assert_eq!(task.work().unwrap().initializations, 1);
         assert!(task.is_finished());

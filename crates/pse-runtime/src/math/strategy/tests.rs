@@ -6,7 +6,6 @@ use pse_model::{
     generated::enums::{CandidateRefusal, CandidateUse},
     strategy::{MechanismKind, Scope},
 };
-use std::sync::atomic::AtomicBool;
 
 fn export_service(pool: Arc<dyn pse_columnar::MemoryPool>) -> Arc<crate::math::MathService> {
     let native = pse_engine::cache_service::NativeCacheService::new(
@@ -895,7 +894,7 @@ async fn optional_slice_refusal_keeps_base_admitted_and_charges_only_actual_work
 }
 #[tokio::test]
 async fn late_indivisible_result_does_not_poison_user_cancel_or_grant_permission() {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let enclosing =
         pse_kernels::ExecutionScope::new(cancel.clone(), Some(std::time::Instant::now()));
     let result = run(
@@ -906,7 +905,7 @@ async fn late_indivisible_result_does_not_poison_user_cancel_or_grant_permission
         |_: &usize, _| panic!("expired"),
     );
     assert!(result.terminal.is_some());
-    assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+    assert!(!cancel.is_cancelled());
 }
 #[tokio::test]
 async fn late_native_batch_member_keeps_actual_work_and_cannot_grant_original_permission() {
@@ -942,7 +941,7 @@ async fn late_native_batch_member_keeps_actual_work_and_cannot_grant_original_pe
 #[tokio::test]
 async fn indivisible_assessment_cannot_authorize_a_result_after_the_original_deadline() {
     for auxiliary in [false, true] {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let enclosing = pse_kernels::ExecutionScope::new(
             cancel.clone(),
             std::time::Instant::now().checked_add(std::time::Duration::from_millis(100)),
@@ -980,7 +979,7 @@ async fn indivisible_assessment_cannot_authorize_a_result_after_the_original_dea
         assert!(result.value.is_none());
         assert!(result.terminal.is_some());
         assert_eq!(result.work.attempts, 1);
-        assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+        assert!(!cancel.is_cancelled());
         assert!(result.events.iter().all(|event| event.permission.is_none()));
     }
 }

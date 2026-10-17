@@ -138,7 +138,7 @@ async fn task_preparation_waiter_expires_without_renewing_or_cancelling_parent()
     let service = service();
     let permit = service.cpu.clone().acquire_many_owned(2).await.unwrap();
     let driver = crate::CancelSource::new();
-    let parent = Arc::new(AtomicBool::new(false));
+    let parent = Cancellation::default();
     let scope = pse_kernels::ExecutionScope::new(
         parent.clone(),
         Some(std::time::Instant::now() + std::time::Duration::from_millis(25)),
@@ -158,7 +158,7 @@ async fn task_preparation_waiter_expires_without_renewing_or_cancelling_parent()
             pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
         ))
     ));
-    assert!(!parent.load(Ordering::Acquire));
+    assert!(!parent.is_cancelled());
     assert!(!driver.token().is_cancelled());
     assert!(!called.load(Ordering::Acquire));
     // The detached owner releases admission after observing waiter departure.

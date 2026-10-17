@@ -667,7 +667,7 @@ mod tests {
     fn optional_retained_storage_grant_owns_only_allocation_and_falls_back_under_pressure() {
         use datafusion::execution::memory_pool::GreedyMemoryPool;
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64));
-        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let task = TaskAdmission::new(
             limits(),
             pse_kernels::ExecutionScope::new(cancel.clone(), None),
@@ -685,7 +685,7 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
-        cancel.store(true, std::sync::atomic::Ordering::Release);
+        cancel.cancel();
         assert!(matches!(
             task.reserve_retained_storage("cancelled", 1),
             Err(ProblemError::Provider(_))

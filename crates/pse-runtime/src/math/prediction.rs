@@ -992,7 +992,7 @@ mod tests {
             bound: None,
         };
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &pse_backend_native::solve::Controls::default(),
         );
         let target = ContentHash::from_bytes([9; 32]);
@@ -1053,7 +1053,7 @@ mod tests {
         let target = ContentHash::from_bytes([9; 32]);
         let branch = BranchPolicy::any_qualified();
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &pse_backend_native::solve::Controls::default(),
         );
         let permission = CandidateDecision {
@@ -1093,7 +1093,7 @@ mod tests {
             smoothness: pse_kernels::DerivativeOrder::Value,
         };
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &pse_backend_native::solve::Controls::default(),
         );
         let mut calls = 0;
@@ -1141,7 +1141,7 @@ mod tests {
         )
         .unwrap();
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &pse_backend_native::solve::Controls::default(),
         );
         let permission = CandidateDecision {
@@ -1257,7 +1257,7 @@ mod tests {
             rows: vec![],
         };
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &pse_backend_native::solve::Controls::default(),
         );
         let producers = [

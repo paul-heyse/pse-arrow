@@ -654,7 +654,7 @@ mod tests {
         };
         let service = crate::math::tests::service();
         let solver = super::super::super::solves::SolverProfile::default();
-        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(flag.clone(), None);
         let source = Source {
             original: hash(1),
@@ -697,7 +697,7 @@ mod tests {
                     "actual_fixture_option".into(),
                     pse_backend_native::solve::OptionValue::Integer(7),
                 );
-                flag.store(true, std::sync::atomic::Ordering::Release);
+                flag.cancel();
                 Ok(report)
             },
             |report| Some(report),
