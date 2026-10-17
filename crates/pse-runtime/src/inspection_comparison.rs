@@ -140,32 +140,32 @@ impl Builder {
         self.document.partial|=omitted>0;
     }
 }
-// Only the small source-owned enums below enter this helper. Their serde declaration,
-// rather than another spelling table, owns their exported names.
-fn enum_text(value:impl Serialize)->Value {
+// Only small source-owned scalar identities and enums enter this helper. Their serde
+// declaration owns the exact text referenced in the original source document.
+fn source_text(value:impl Serialize)->Value {
     match serde_json::to_value(value) {
         Ok(serde_json::Value::String(value))=>text(&value),
-        _=>Value::Unavailable("source enum spelling unavailable".into()),
+        _=>Value::Unavailable("source scalar spelling unavailable".into()),
     }
 }
-fn outcome(value:InvocationOutcome)->Value {enum_text(value)}
-fn availability(value:ProductAvailability)->Value {enum_text(value)}
+fn outcome(value:InvocationOutcome)->Value {source_text(value)}
+fn availability(value:ProductAvailability)->Value {source_text(value)}
 fn source_partial(doc:&InvocationEvidenceDocument)->bool {
     doc.omitted_intervals>0 || doc.omitted_product_steps>0 || doc.attempts.omitted_steps>0 || doc.attempts.omitted_native_attempts>0
 }
 fn source_valid(builder:&mut Builder,doc:&InvocationEvidenceDocument)->bool {
     if doc.version==1 && doc.run_id==doc.attempts.run_id {return true;}
     builder.add(StatementKind::Limitation,"invocation.source_identity_unavailable","The joined document version or its retained attempt run identity is incompatible. No joined work or elapsed interpretation is established from this source.",
-        vec![counted(doc,"/version",Value::Count(u64::from(doc.version)),true),counted(doc,"/run_id",text(&doc.run_id.to_string()),true),
-            counted(doc,"/attempts/run_id",text(&doc.attempts.run_id.to_string()),true)],vec![NextObservation::InspectRelated]);
+        vec![counted(doc,"/version",Value::Count(u64::from(doc.version)),true),counted(doc,"/run_id",source_text(doc.run_id),true),
+            counted(doc,"/attempts/run_id",source_text(doc.attempts.run_id),true)],vec![NextObservation::InspectRelated]);
     false
 }
 fn retained_failure(builder:&mut Builder,doc:&InvocationEvidenceDocument) {
     if let Some(failure)=&doc.attempts.failure {
         builder.add(StatementKind::Established,"invocation.retained_failure","The original attempt owner retained this typed failure. It describes supplied failure evidence, not a new assessment or proof that every strategy operation failed.",vec![
-            counted(doc,"/attempts/failure/observation",enum_text(failure.observation),false),
-            counted(doc,"/attempts/failure/code",enum_text(failure.code),false),
-            counted(doc,"/attempts/failure/class",enum_text(failure.class),false),
+            counted(doc,"/attempts/failure/observation",source_text(failure.observation),false),
+            counted(doc,"/attempts/failure/code",source_text(failure.code),false),
+            counted(doc,"/attempts/failure/class",source_text(failure.class),false),
             counted(doc,"/attempts/failure/retained_only",Value::Boolean(failure.retained_only),false)],vec![NextObservation::InspectRelated]);
     }
 }
@@ -178,8 +178,8 @@ fn step_context(builder:&mut Builder,doc:&InvocationEvidenceDocument,index:usize
     if let Some(start)=&step.start {
         builder.add(StatementKind::Established,"invocation.start_metadata","The start owner retained these seed facts. The data identity describes the seed, not all scientific parameters, fixed values, coefficients or bounds.",vec![
             counted(doc,format!("{prefix}/start/previous_attempt"),optional_count(start.previous_attempt.map(|v|v as u64)),false),
-            counted(doc,format!("{prefix}/start/layout"),start.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|text(&v.to_string())),false),
-            counted(doc,format!("{prefix}/start/data"),start.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|text(&v.to_string())),false),
+            counted(doc,format!("{prefix}/start/layout"),start.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|source_text(v)),false),
+            counted(doc,format!("{prefix}/start/data"),start.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|source_text(v)),false),
             counted(doc,format!("{prefix}/start/sparse_variables"),Value::Count(start.sparse_variables as u64),false),
             counted(doc,format!("{prefix}/start/submitted"),Value::Boolean(start.submitted),false)],vec![]);
         builder.omitted(start.transformations.len());
@@ -229,10 +229,10 @@ fn context_comparison(builder:&mut Builder,a:&InvocationEvidenceDocument,ai:usiz
     if let Some((l,r))=left.start.as_ref().zip(right.start.as_ref()) {
         if l.data!=r.data || l.layout!=r.layout || l.previous_attempt!=r.previous_attempt || l.sparse_variables!=r.sparse_variables || l.submitted!=r.submitted || l.transformations.len()!=r.transformations.len() {
             builder.add(StatementKind::Limitation,"comparison.seed_context_changed","Actual retained seed metadata differs. Different starts or coordinate transformations can change the trajectory; they do not establish an intrinsic solver or callback cost difference.",vec![
-                counted(a,format!("/attempts/steps/{ai}/start/data"),l.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|text(&v.to_string())),false),
-                counted(b,format!("/attempts/steps/{bi}/start/data"),r.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|text(&v.to_string())),false),
-                counted(a,format!("/attempts/steps/{ai}/start/layout"),l.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|text(&v.to_string())),false),
-                counted(b,format!("/attempts/steps/{bi}/start/layout"),r.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|text(&v.to_string())),false),
+                counted(a,format!("/attempts/steps/{ai}/start/data"),l.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|source_text(v)),false),
+                counted(b,format!("/attempts/steps/{bi}/start/data"),r.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|source_text(v)),false),
+                counted(a,format!("/attempts/steps/{ai}/start/layout"),l.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|source_text(v)),false),
+                counted(b,format!("/attempts/steps/{bi}/start/layout"),r.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|source_text(v)),false),
                 counted(a,format!("/attempts/steps/{ai}/start/submitted"),Value::Boolean(l.submitted),false),
                 counted(b,format!("/attempts/steps/{bi}/start/submitted"),Value::Boolean(r.submitted),false),
                 counted(a,format!("/attempts/steps/{ai}/start/sparse_variables"),Value::Count(l.sparse_variables as u64),false),
@@ -289,7 +289,7 @@ fn explain(builder:&mut Builder,doc:&InvocationEvidenceDocument) {
     }
     if let Some(unavailable)=doc.timing_unavailable {
         builder.add(StatementKind::Limitation,"invocation.timing_unavailable","Performing clocks were not established. Missing intervals/endpoints are unavailable, not zero elapsed work.",
-            vec![inv(doc,"/timing_unavailable",enum_text(unavailable))],vec![NextObservation::TimelineCapture]);
+            vec![inv(doc,"/timing_unavailable",source_text(unavailable))],vec![NextObservation::TimelineCapture]);
     }
     if source_partial(doc) {
         builder.add(StatementKind::Limitation,"invocation.coverage_partial","The retained document omits intervals, product steps or attempts. Prefixes do not establish complete history, total retries or continuous convergence.",vec![
@@ -452,8 +452,8 @@ pub fn compare_invocations(a:&InvocationEvidenceDocument,b:&InvocationEvidenceDo
                 counted(b,format!("/attempts/steps/{bi}/native_observations/counters/iterations"),Value::Count(ri),false)];
             if let Some((left,right))=matching {
                 for (doc,index,native) in [(a,ai,left),(b,bi,right)] {
-                    fields.push(counted(doc,format!("/attempts/steps/{index}/native_observations/problem"),text(&native.problem.to_string()),false));
-                    fields.push(counted(doc,format!("/attempts/steps/{index}/native_observations/profile"),text(&native.profile.to_string()),false));
+                    fields.push(counted(doc,format!("/attempts/steps/{index}/native_observations/problem"),source_text(native.problem),false));
+                    fields.push(counted(doc,format!("/attempts/steps/{index}/native_observations/profile"),source_text(native.profile),false));
                 }
             }
             builder.add(StatementKind::Established,"comparison.native_inclusive_seconds_per_iteration",format!("For each retained native report with matching recorded structural problem/profile/backend/options, inclusive wall per reported iteration was {:.6} versus {:.6} seconds. This describes whole-loop averages; changed callback/factor work mix prevents a causal unit-cost or exclusive CPU conclusion.",lt/li as f64,rt/ri as f64),
@@ -494,7 +494,7 @@ pub fn compare_invocations(a:&InvocationEvidenceDocument,b:&InvocationEvidenceDo
     }
     strategy_comparison(&mut builder,a);strategy_comparison(&mut builder,b);
     builder.add(StatementKind::Limitation,"comparison.scientific_input_context_unknown","Matching recorded structural problem/profile/options does not establish equal parameters, fixed values, coefficients or bounds. Seed data identifies the start only. Literal counts and inclusive means remain descriptive; causal cost attribution requires the relevant supplied numerical context.",vec![
-        counted(a,"/attempts/run_id",text(&a.attempts.run_id.to_string()),false),counted(b,"/attempts/run_id",text(&b.attempts.run_id.to_string()),false)],vec![NextObservation::InspectRelated]);
+        counted(a,"/attempts/run_id",source_text(a.attempts.run_id),false),counted(b,"/attempts/run_id",source_text(b.attempts.run_id),false)],vec![NextObservation::InspectRelated]);
     builder.add(StatementKind::Limitation,"comparison.causal_cost_unavailable","A larger wall endpoint or unchanged checkpoint alone cannot distinguish computation, contention, opaque native work or continuous stagnation. Selected same-product owner counts, CPU stacks and scheduler evidence can discriminate the remaining cause.",
         vec![inv(a,"/endpoints/terminal_seconds",seconds(a.endpoints.terminal_seconds)),inv(b,"/endpoints/terminal_seconds",seconds(b.endpoints.terminal_seconds))],vec![NextObservation::InspectRelated,NextObservation::CpuProfile,NextObservation::OptionalWaitProbe]);
     builder.document

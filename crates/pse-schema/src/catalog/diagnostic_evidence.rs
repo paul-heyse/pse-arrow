@@ -10,18 +10,18 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     relation(b,N::Runtime,"diagnostic_evidence_fields",S::Derived,
         &["operation","producer","generation","event_sequence","field_ordinal"],vec![
             column("operation",text()), column("producer",count()), column("generation",count()),
-            column("event_sequence",count()), column("family_sequence",count().optional()),
+            column("event_sequence",count()), column("family_sequence",count()).optional(),
             column("observed_seconds",count()), column("observed_nanoseconds",T::native(D::UInt32)),
-            column("family",text()), column("phase",text()), column("coordinates",text().optional()),
-            column("norm",text().optional()), column("field_ordinal",count()),
-            column("field_name",text().optional()), column("unit",text().optional()),
-            column("value_kind",text().optional()), column("count_value",count().optional()),
-            column("integer_value",T::native(D::Int64).optional()), column("number_value",T::native(D::Float64).optional()),
-            column("boolean_value",T::native(D::Boolean).optional()), column("text_value",text().optional()),
-            column("availability",text().optional()), column("partial",T::native(D::Boolean)),
+            column("family",text()), column("phase",text()), column("coordinates",text()).optional(),
+            column("norm",text()).optional(), column("field_ordinal",count()),
+            column("field_name",text()).optional(), column("unit",text()).optional(),
+            column("value_kind",text()).optional(), column("count_value",count()).optional(),
+            column("integer_value",T::native(D::Int64)).optional(), column("number_value",T::native(D::Float64)).optional(),
+            column("boolean_value",T::native(D::Boolean)).optional(), column("text_value",text()).optional(),
+            column("availability",text()).optional(), column("partial",T::native(D::Boolean)),
         ],"Immutable diagnostic field projection. Operation/producer/generation/event identifies one source event; field ordinal is one-based, zero preserves an empty event. Typed values, units, availability and exact monotonic time retain source meaning. Partial never implies complete history; raw source pages remain authority.");
     for (name,key,columns,doc) in [
-        ("diagnostic_invocations","run",vec![column("run",text()),column("attempt",text().optional()),column("operation",text().optional()),column("family",text()),column("outcome",text()),column("clock_scope",text()),column("qualification_seconds",T::native(D::Float64).optional()),column("terminal_seconds",T::native(D::Float64).optional()),column("response_ready_seconds",T::native(D::Float64).optional()),column("partial",T::native(D::Boolean)),column("document_json",text())],"Immutable joined invocation evidence. Endpoints are independently observed supervisor-clock seconds; missing is not zero. The original typed document retains attempts, requested products, coverage, starts and settings; intervals overlap and must not be summed."),
+        ("diagnostic_invocations","run",vec![column("run",text()),column("attempt",text()).optional(),column("operation",text()).optional(),column("family",text()),column("outcome",text()),column("clock_scope",text()),column("qualification_seconds",T::native(D::Float64)).optional(),column("terminal_seconds",T::native(D::Float64)).optional(),column("response_ready_seconds",T::native(D::Float64)).optional(),column("partial",T::native(D::Boolean)),column("document_json",text())],"Immutable joined invocation evidence. Endpoints are independently observed supervisor-clock seconds; missing is not zero. The original typed document retains attempts, requested products, coverage, starts and settings; intervals overlap and must not be summed."),
         ("diagnostic_captures","operation",vec![column("operation",text()),column("capture_kind",text()),column("status",text()),column("document_json",text())],"Immutable optional capture link and its original typed document. Capture failure, output prefixes, loss, symbols and process/thread scope remain independent from scientific result permission."),
     ] { relation(b,N::Runtime,name,S::Derived,&[key],columns,doc); }
 }
