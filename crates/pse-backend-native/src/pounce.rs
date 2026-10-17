@@ -1221,6 +1221,40 @@ mod tests {
         assert_eq!(out, [44.0]);
     }
     #[test]
+    fn prepared_tnlp_transport_reuses_current_point_and_changed_multiplier_scales() {
+        let mut a = adapter();
+        a.normalization = pse_math::normalization::Normalization {
+            variables: vec![2.], rows: vec![4.], objective: 8.,
+        };
+        let mut out = [0.];
+        assert!(a.eval_grad_f(&[3.], true, &mut out));
+        assert_eq!(out, [3.]);
+        assert!(a.eval_jac_g(Some(&[3.]), true, SparsityRequest::Values { values: &mut out }));
+        assert_eq!(out, [54.]);
+        assert!(a.eval_h(Some(&[3.]), true, 4., Some(&[3.]), true, SparsityRequest::Values { values: &mut out }));
+        assert_eq!(out, [112.]);
+        assert!(a.eval_h(Some(&[2.]), true, 4., Some(&[-8.]), true, SparsityRequest::Values { values: &mut out }));
+        assert_eq!(out, [-188.], "new multipliers and point replace previous scratch values");
+    }
+    #[test]
+    fn prepared_tnlp_failure_never_publishes_partial_or_nonfinite_output() {
+        let mut a = adapter();
+        let mut failing = crate::solver_tests::Polynomial::new();
+        failing.fail = true;
+        a.oracle = Box::new(failing);
+        let mut out = [73.];
+        assert!(!a.eval_grad_f(&[2.], true, &mut out));
+        assert_eq!(out, [73.], "oracle wrote private scratch before refusal");
+        let mut a = adapter();
+        a.normalization.variables[0] = 2.;
+        assert!(!a.eval_grad_f(&[f64::MAX], true, &mut out));
+        assert_eq!(out, [73.], "coordinate overflow publishes no native values");
+        let mut a = adapter();
+        let mut wrong_size = [73., 91.];
+        assert!(!a.eval_grad_f(&[2.], true, &mut wrong_size));
+        assert_eq!(wrong_size, [73., 91.], "malformed output stays completely unchanged");
+    }
+    #[test]
     fn objective_support_remains_conservative_at_stationary_start() {
         let mut a = adapter();
         let mut gradient = [1.0];
