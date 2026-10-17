@@ -234,6 +234,9 @@ impl CaseObservation {
             counts.hit(requested, achieved)
         });
     }
+    pub(super) fn projected(&mut self,instance:usize,demand:EvaluationDemand,requested:DerivativeOrder,achieved:DerivativeOrder) {
+        self.apply(instance,demand,requested,|counts|counts.projected(achieved));
+    }
     pub(super) fn miss(
         &mut self,
         instance: usize,

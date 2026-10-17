@@ -2544,6 +2544,20 @@ impl StageCensus {
         }
     }
 }
+/// One original materialized arithmetic source represented by a compiled region.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct ArithmeticOrigin {
+    /// Region ordinal in deterministic selected-program traversal, including both branch alternatives.
+    pub region:usize,
+    /// Original authored occurrence, never an optimizer-generated node.
+    pub source:SemanticId,
+    /// First original materialized output within this shared region.
+    pub start_output:usize,
+    /// Exclusive end of this occurrence's original materialized outputs.
+    pub end_output:usize,
+    /// Actual order of the retained materialized check. Direct weighted products retain Value checks.
+    pub check_order:DerivativeOrder,
+}
 /// Immutable library artifact. Clone workers to obtain independent evaluator scratch.
 #[derive(Clone)]
 pub struct CompiledBody {
@@ -2585,6 +2599,36 @@ impl CompiledBody {
     pub fn census(&self) -> impl Iterator<Item = &CompiledOrderCensus> {
         self.census.values().flatten()
     }
+    /// Count original arithmetic source checks without allocating diagnostic storage.
+    pub fn arithmetic_origin_count(&self,order:DerivativeOrder) -> usize {
+        let mut count=0;
+        self.visit_arithmetic_origins(order,|_|count+=1);
+        count
+    }
+    /// Visit compact source ranges from existing selected program checks without allocation.
+    /// A direct weighted derivative product names its original Value-check program;
+    /// its shared weighted realization is in census. Both static branch arms are visited.
+    pub fn visit_arithmetic_origins(&self,order:DerivativeOrder,mut visitor:impl FnMut(ArithmeticOrigin)) {
+        fn collect(stages:&[CompiledStage],order:DerivativeOrder,region:&mut usize,visitor:&mut impl FnMut(ArithmeticOrigin)) {
+            for stage in stages {
+                match stage {
+                    CompiledStage::Block{checks,..}=> {
+                        let mut start=0;
+                        for check in checks {
+                            visitor(ArithmeticOrigin{region:*region,source:check.source,start_output:start,end_output:check.end_output,check_order:order});
+                            start=check.end_output;
+                        }
+                        *region+=1;
+                    }
+                    CompiledStage::Applicability{stages,..}|CompiledStage::Domain{stages,..}=>collect(stages,DerivativeOrder::Value,region,visitor),
+                    CompiledStage::Branch{then,otherwise,..}=>{collect(then,order,region,visitor);collect(otherwise,order,region,visitor);}
+                    _=>{}
+                }
+            }
+        }
+        let check_order=if self.direct_product.is_some() {DerivativeOrder::Value}else{order};
+        if let Some(stages)=&self.programs[check_order] {collect(stages,check_order,&mut 0,&mut visitor);}
+    }
     /// Exact immutable scalar preparations borrowed by this artifact.
     pub fn scalar_products(&self) -> &library::ScalarProducts {
         &self.scalar_products
@@ -2612,7 +2656,7 @@ impl CompiledBody {
                         + layout.pairs.capacity() * size_of::<(usize, usize)>()
                 })
                 .sum::<usize>();
-        vec![
+        let mut components=vec![
             (
                 "input_formals",
                 Arc::as_ptr(&self.input_formals) as usize,
@@ -2633,9 +2677,14 @@ impl CompiledBody {
                 "programs",
                 Arc::as_ptr(&self.programs) as usize,
                 self.retained_bytes
-                    .saturating_sub(self.support.retained_bytes()),
+                    .saturating_sub(self.support.retained_bytes())
+                    .saturating_sub(self.direct_product.as_ref().map_or(0,|product|product.retained_bytes)),
             ),
-        ]
+        ];
+        if let Some(product)=&self.direct_product {
+            components.push(("direct_product",Arc::as_ptr(product) as usize,product.retained_bytes));
+        }
+        components
     }
     /// Whether this product carries one directional Taylor axis instead of a full Jacobian.
     pub fn is_directional(&self) -> bool {
@@ -2715,6 +2764,24 @@ impl CompiledBody {
     pub fn prepared_support(&self) -> &PreparedSupport {
         &self.support
     }
+    pub(crate) fn projection_second_pairs(&self) -> Arc<Vec<(usize,usize)>> {
+        self.layouts[DerivativeOrder::Second].as_ref().map_or_else(||Arc::new(Vec::new()),|layout|layout.pairs.clone())
+    }
+    pub(crate) fn projection_witnesses(&self,order:DerivativeOrder) -> Vec<Arc<pse_model::applicability::Node>> {
+        fn collect(stages:&[CompiledStage],out:&mut Vec<Arc<pse_model::applicability::Node>>) {
+            for stage in stages {
+                match stage {
+                    CompiledStage::Applicability{plan,stages,..}=> {out.push(plan.clone());collect(stages,out);}
+                    CompiledStage::Domain{stages,..}=>collect(stages,out),
+                    CompiledStage::Branch{then,otherwise,..}=>{collect(then,out);collect(otherwise,out);}
+                    _=>{}
+                }
+            }
+        }
+        let mut out=Vec::new();
+        if let Some(stages)=&self.programs[order] {collect(stages,&mut out);}
+        out
+    }
     /// Structural support survives trials and numerical zeros.
     pub fn support(&self) -> &Support {
         self.support.support()
@@ -2790,6 +2857,58 @@ impl TrialEvaluation {
         let (i, j) = (i.min(j), i.max(j));
         self.second_pairs.binary_search(&(i, j)).ok()
             .map_or(0.0, |offset| self.second[row * self.second_pairs.len() + offset])
+    }
+    pub(crate) fn project_into(
+        &self,rows:&[usize],axes:&[usize],order:DerivativeOrder,
+        witnesses:&[Arc<pse_model::applicability::Node>],pairs:&Arc<Vec<(usize,usize)>>,target:&mut Self,
+    ) -> Result<(),MathError> {
+        target.clear();
+        target.values.try_reserve_exact(rows.len()).map_err(|_|MathError::Limit("projected value cache"))?;
+        if order>=DerivativeOrder::First {
+            target.jacobian.try_reserve_exact(rows.len().checked_mul(axes.len()).ok_or(MathError::Limit("projected first cache"))?)
+                .map_err(|_|MathError::Limit("projected first cache"))?;
+        }
+        if order>=DerivativeOrder::Second {
+            target.second.try_reserve_exact(rows.len().checked_mul(pairs.len()).ok_or(MathError::Limit("projected second cache"))?)
+                .map_err(|_|MathError::Limit("projected second cache"))?;
+        }
+        for &row in rows {
+            target.values.push(*self.values.get(row).ok_or_else(||MathError::Contract("projected output ordinal".into()))?);
+            if order>=DerivativeOrder::First {
+                for &axis in axes {
+                    target.jacobian.push(*self.jacobian.get(row*self.coordinates+axis)
+                        .ok_or_else(||MathError::Contract("projected coordinate ordinal".into()))?);
+                }
+            }
+            if order>=DerivativeOrder::Second {
+                for &(i,j) in pairs.iter() {target.second.push(self.second(row,axes[i],axes[j]));}
+            }
+        }
+        target.second_pairs=pairs.clone();
+        target.second_requested=order>=DerivativeOrder::Second;
+        for witness in &self.applicability {
+            if witnesses.iter().any(|plan|Arc::ptr_eq(plan,&witness.plan) || plan==&witness.plan) {
+                let mut projected=target.spare_witnesses.iter()
+                    .position(|candidate|Arc::ptr_eq(&candidate.plan,&witness.plan) || candidate.plan==witness.plan)
+                    .map(|index|target.spare_witnesses.swap_remove(index))
+                    .unwrap_or_else(||ApplicabilityWitness {
+                        plan:witness.plan.clone(),predicates:Vec::new(),inputs:Vec::new(),
+                    });
+                projected.predicates.clear();
+                projected.inputs.clear();
+                projected.predicates.try_reserve_exact(witness.predicates.len())
+                    .map_err(|_|MathError::Limit("projected applicability predicates"))?;
+                projected.inputs.try_reserve_exact(witness.inputs.len())
+                    .map_err(|_|MathError::Limit("projected applicability inputs"))?;
+                projected.predicates.extend_from_slice(&witness.predicates);
+                projected.inputs.extend_from_slice(&witness.inputs);
+                target.applicability.try_reserve(1)
+                    .map_err(|_|MathError::Limit("projected applicability witnesses"))?;
+                target.applicability.push(projected);
+            }
+        }
+        target.coordinates=axes.len();
+        Ok(())
     }
     pub(crate) fn second_entries(&self,row:usize) -> impl Iterator<Item=(usize,usize,f64)> + '_ {
         self.second_pairs.iter().enumerate().map(move |(offset,&(i,j))|
@@ -6778,6 +6897,17 @@ mod compact_tests {
                 trial.applicability[0].inputs.as_ptr()
             )
         );
+        let mut projected=TrialEvaluation::default();
+        let plans=worker.body.projection_witnesses(DerivativeOrder::Value);
+        let pairs=worker.body.projection_second_pairs();
+        trial.project_into(&[0],&[],DerivativeOrder::Value,&plans,&pairs,&mut projected).unwrap();
+        let projected_capture=(projected.applicability[0].predicates.as_ptr(),projected.applicability[0].inputs.as_ptr());
+        for _ in 0..8 {
+            trial.project_into(&[0],&[],DerivativeOrder::Value,&plans,&pairs,&mut projected).unwrap();
+            assert_eq!(projected.applicability,trial.applicability);
+            assert!(projected.spare_witnesses.is_empty(),"projection reuses witnesses instead of accumulating spare copies");
+            assert_eq!(projected_capture,(projected.applicability[0].predicates.as_ptr(),projected.applicability[0].inputs.as_ptr()));
+        }
         let slots = worker.body.slots;
         for stage in worker.programs[DerivativeOrder::Value].as_ref().unwrap() {
             if let CompiledStage::Domain { frame, .. }
@@ -7131,10 +7261,17 @@ mod compact_tests {
         let compiled = body.compile(&[0,1], &[0,1],DerivativeOrder::Second,
             Optimization::default(),EvaluationLimits::default(),&cancel).unwrap();
         assert_eq!(compiled.census[DerivativeOrder::Second].unwrap().arithmetic_blocks,2);
+        let mut origins=Vec::new();
+        compiled.visit_arithmetic_origins(DerivativeOrder::Second,|origin|origins.push(origin));
+        assert_eq!(origins.len(),compiled.arithmetic_origin_count(DerivativeOrder::Second));
+        assert_eq!(origins.iter().map(|origin|(origin.region,origin.source,origin.start_output,origin.end_output)).collect::<Vec<_>>(),
+            [(0,first_source,0,1),(0,second_source,1,2),(1,SemanticId::NIL,0,1)]);
         let result = eval(&mut compiled.worker(), &[1.,2.], DerivativeOrder::Second).unwrap();
         assert_eq!(result.values,[27.,81.]);
         assert_eq!(result.jacobian,[27.,27.,108.,108.]);
         assert_eq!(result.hessians,[18.,18.,18.,18.,108.,108.,108.,108.]);
+        assert_eq!(eval(&mut compiled.worker(), &[1.5,1.5],DerivativeOrder::Second).unwrap(),result,
+            "equal-valued formals remain independent derivative coordinates");
         assert!(matches!(eval(&mut compiled.worker(), &[1e200,1e200],DerivativeOrder::Value),
             Err(MathError::Domain { source_id, .. }) if source_id == first_source));
     }
@@ -7273,11 +7410,11 @@ mod compact_tests {
         };
         assert_eq!(
             count("math.native_scalar_compilations"),
-            Some(Value::Count(1))
+            Some(Value::Count(3))
         );
         assert_eq!(
             count("math.native_scalar_evaluations"),
-            Some(Value::Count(8))
+            Some(Value::Count(10))
         );
     }
 

@@ -12,6 +12,7 @@ pub(super) struct DirectProduct {
     outputs: usize,
     coordinates: usize,
     scratch_bytes: usize,
+    pub(super) retained_bytes: usize,
 }
 pub(super) struct DirectWorker {
     evaluator: BlockEvaluator,
@@ -183,8 +184,12 @@ impl PreparedSupport {
         let scratch_bytes = numeric.checked_mul(size_of::<f64>())
             .and_then(|n| n.checked_add(storage.instruction_bytes))
             .ok_or(MathError::Limit("weighted product scratch"))?;
+        let retained_bytes=scratch_bytes.checked_add(modules)
+            .and_then(|bytes|bytes.checked_add(size_of::<DirectProduct>()+size_of::<Vec<(usize,usize)>>()))
+            .and_then(|bytes|pairs.capacity().checked_mul(size_of::<(usize,usize)>()).and_then(|pairs|bytes.checked_add(pairs)))
+            .ok_or(MathError::Limit("weighted product retained storage"))?;
         let direct = DirectProduct { evaluator,pairs:Arc::new(pairs),kind,inputs:body.inputs,
-            outputs:body.outputs.len(),coordinates:n,scratch_bytes };
+            outputs:body.outputs.len(),coordinates:n,scratch_bytes,retained_bytes };
         let direct_scalars = scalars.freeze();
         let mut compiled = body.compile_scope(&selected,&coordinates,DerivativeOrder::Value,
             options,limits,cancel,false,ProductKind::SelectedPartials,self,Some(&direct_scalars))?;
@@ -213,8 +218,8 @@ impl PreparedSupport {
         compiled.scratch_bytes = compiled.scratch_bytes.checked_add(numeric * size_of::<f64>())
             .ok_or(MathError::Limit("weighted product numeric storage"))?;
         if compiled.scratch_bytes > limits.scratch_bytes { return Err(MathError::Limit("weighted product numeric storage")); }
-        compiled.retained_bytes = compiled.retained_bytes.checked_add(scratch_bytes)
-            .and_then(|n| n.checked_add(modules)).ok_or(MathError::Limit("weighted product retained storage"))?;
+        compiled.retained_bytes = compiled.retained_bytes.checked_add(retained_bytes)
+            .ok_or(MathError::Limit("weighted product retained storage"))?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.weighted_direct_constructions", "count", 1);
             context.integer("math.weighted_direct_outputs", "components",product_len as i64);
@@ -355,6 +360,8 @@ mod tests {
         output=[99.;3];
         assert!(worker.evaluate_product_into(&[1e200,3.],ProductValues::WeightedHessian{weights:&[0.,0.]},&mut providers,&cancel,&mut output).is_err());
         assert_eq!(output,[99.;3],"invalid original values cannot publish a valid weighted cancellation");
+        assert!(worker.evaluate_product_into(&[1e200,1e200],ProductValues::WeightedHessian{weights:&[1.,-2.]},&mut providers,&cancel,&mut output).is_err());
+        assert_eq!(output,[99.;3],"finite Hessian of (x-y)^2 does not erase overflowing original values");
         let action=support.compile_product(ProductKind::WeightedHessianAction,Optimization::default(),EvaluationLimits::default(),&cancel).unwrap();
         assert_eq!(action.product_len(),2);
         assert_eq!(action.census[DerivativeOrder::Second].unwrap().result_entries,2);
@@ -365,6 +372,60 @@ mod tests {
         worker.evaluate_product_into(&[2.,3.],ProductValues::WeightedHessianAction{weights:&[-1.,0.5],direction:&[7.,5.]},&mut providers,&cancel,&mut action_output).unwrap();
         assert_eq!(action_output,[-11.5,-6.5]);
         assert!(worker.evaluate_product_into(&[2.,3.],ProductValues::WeightedHessian{weights:&[2.,3.]},&mut providers,&cancel,&mut action_output).is_err());
+    }
+    #[cfg(feature="compiled-evaluator")]
+    #[test]
+    fn compiled_weighted_products_execute_derivatives_and_retain_private_workers() {
+        crate::initialize().unwrap();
+        let x=library::formal(0).unwrap();
+        let y=library::formal(1).unwrap();
+        let body=PreparedBody::new(2,4,vec![2,3],vec![Stage::Block {
+            expressions:vec![x.pow(2)+Atom::num(3)*y.pow(2),&x*&y],outputs:vec![2,3],source:SemanticId::NIL,
+        }],DerivativeOrder::Second).unwrap();
+        let cancel=Arc::new(AtomicBool::new(false));
+        let support=body.prepare_support(&[0,1],&[1,0],DerivativeOrder::Second,&cancel).unwrap();
+        let options=Optimization {evaluator:library::Evaluator::CompiledScalar {module_bytes:1<<20},..Default::default()};
+        for kind in [ProductKind::WeightedHessian,ProductKind::WeightedHessianAction] {
+            let compiled=support.compile_product(kind,options,EvaluationLimits::default(),&cancel).unwrap();
+            let census=compiled.census().find(|entry|entry.order==DerivativeOrder::Second).unwrap();
+            assert!(census.direct_weighted);
+            assert_eq!(census.native_arithmetic_blocks,1);
+            assert!(matches!(compiled.direct_product.as_ref().unwrap().evaluator,BlockEvaluator::Native(_)));
+            assert!(compiled.programs[DerivativeOrder::Second].is_none());
+            let mut first=compiled.worker();
+            let weights=[2.,3.];
+            let direction=[5.,7.];
+            let binding=match kind {
+                ProductKind::WeightedHessian=>ProductValues::WeightedHessian{weights:&weights},
+                ProductKind::WeightedHessianAction=>ProductValues::WeightedHessianAction{weights:&weights,direction:&direction},
+                _=>unreachable!(),
+            };
+            let expected=if kind==ProductKind::WeightedHessian {vec![12.,3.,4.]}else{vec![81.,43.]};
+            let mut output=vec![f64::NAN;compiled.product_len()];
+            first.evaluate_product_into(&[2.,3.],binding,&mut BTreeMap::new(),&cancel,&mut output).unwrap();
+            assert_eq!(output,expected);
+            let mut independent=first.clone();
+            first.detach_controls();
+            first.reset_scratch().unwrap();
+            drop(first);
+            drop(compiled);
+            let changed_weights=[-1.,0.5];
+            let changed_direction=[7.,5.];
+            let changed=match kind {
+                ProductKind::WeightedHessian=>ProductValues::WeightedHessian{weights:&changed_weights},
+                ProductKind::WeightedHessianAction=>ProductValues::WeightedHessianAction{weights:&changed_weights,direction:&changed_direction},
+                _=>unreachable!(),
+            };
+            independent.evaluate_product_into(&[4.,2.],changed,&mut BTreeMap::new(),&cancel,&mut output).unwrap();
+            assert_eq!(output,if kind==ProductKind::WeightedHessian {vec![-6.,0.5,-2.]}else{vec![-39.5,-6.5]});
+            let completed=output.clone();
+            assert!(independent.evaluate_product_into(&[1e200,1e200],binding,&mut BTreeMap::new(),&cancel,&mut output).is_err());
+            assert_eq!(output,completed);
+            cancel.store(true,Ordering::Release);
+            assert!(matches!(independent.evaluate_product_into(&[2.,3.],binding,&mut BTreeMap::new(),&cancel,&mut output),Err(MathError::Cancelled)));
+            assert_eq!(output,completed);
+            cancel.store(false,Ordering::Release);
+        }
     }
     #[test]
     fn weighted_products_retain_derivative_only_original_guard_and_cancel() {

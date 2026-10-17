@@ -12,6 +12,9 @@ use crate::{
     library::Optimization,
     sparse::AssemblyMatrix,
 };
+#[path = "assembly_projection.rs"]
+mod projection;
+use projection::{ProjectionRelationship,project_compatible};
 #[path = "assembly_observation.rs"]
 mod observation;
 use enum_map::EnumMap;
@@ -58,7 +61,8 @@ impl Default for AssemblyLimits {
     }
 }
 /// Which contributions one compiled local demand evaluates.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, enum_map::Enum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, enum_map::Enum,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(rename_all="snake_case")]
 pub enum EvaluationDemand {
     /// Selected primary objective only.
     Objective,
@@ -1767,6 +1771,7 @@ impl CasePlan {
             .iter()
             .try_fold(0usize, |n, p| n.checked_add(p.worker_bytes()))
             .ok_or(MathError::Limit("case worker bytes"))?;
+        let projection_bytes=projection::allocation_bound(self,&programs)?;
         let bytes = self
             .instances
             .iter()
@@ -1774,6 +1779,7 @@ impl CasePlan {
             .try_fold(
                 scratch
                     .checked_add(input_bytes)
+                    .and_then(|n|n.checked_add(projection_bytes))
                     .ok_or(MathError::Limit("case worker bytes"))?,
                 |n, g| n.checked_add(programs[g.request].evaluation_cache_bytes()),
             )
@@ -2083,7 +2089,30 @@ pub struct CaseCensus {
     /// Admitted complete attempt storage, distinct from current instantiated bytes.
     pub numeric_worker_bytes: usize,
 }
+/// Borrowed original selectors of one physical occurrence's prepared demand.
+#[derive(Clone,Copy,Debug)]
+pub struct OccurrenceDemand<'a> {
+    /// Index into CaseStructure::instances, whose identity and checked members remain authoritative.
+    pub instance:usize,
+    /// Actual consumed operation category.
+    pub demand:EvaluationDemand,
+    /// Shared mathematical template index.
+    pub template:usize,
+    /// Original output ordinals, in the prepared product's order.
+    pub outputs:&'a[usize],
+    /// Original formal derivative axes, preserving local independence and aliases.
+    pub coordinates:&'a[usize],
+}
 impl CaseAssembly {
+    /// Borrow occurrence/template selectors without diagnostic admission or support copies.
+    pub fn occurrence_demands(&self) -> impl Iterator<Item=OccurrenceDemand<'_>> {
+        let requests=&self.requests;
+        self.instances.iter().enumerate().flat_map(move |(instance,local)|local.groups.iter().filter_map(move |(demand,group)| {
+            let group=group.as_ref()?;
+            let request=&requests[group.request];
+            Some(OccurrenceDemand{instance,demand,template:group.request,outputs:&request.outputs,coordinates:&request.coordinates})
+        }))
+    }
     /// Counts from actual immutable owners, with no support enumeration or copy.
     pub fn census(&self) -> CaseCensus {
         CaseCensus {
@@ -2212,6 +2241,7 @@ impl CaseAssembly {
         CaseWorker {
             assembly: Arc::clone(self),
             groups,
+            projections:Vec::new(),
             workers: self
                 .programs
                 .iter()
@@ -2251,6 +2281,7 @@ impl CaseAssembly {
             assembly,
             groups,
             mut workers,
+            projections,
             jacobian,
             hessian,
             constraint_values,
@@ -2266,6 +2297,7 @@ impl CaseAssembly {
             assembly,
             groups,
             workers,
+            projections,
             providers,
             cancel: scope.cancellation().clone(),
             jacobian,
@@ -2318,7 +2350,7 @@ pub struct DemandCounts {
     pub evaluations: u64,
     /// Successful reuse under exact consumed input bits and sufficient order.
     pub cache_hits: u64,
-    /// Hits served by a strictly richer derivative order in this same group.
+    /// Hits served by a richer order or an explicitly mapped compatible demand.
     pub cache_projections: u64,
     /// No earlier result existed for this group.
     pub empty_misses: u64,
@@ -2360,6 +2392,11 @@ impl DemandCounts {
         }
         self.completed(achieved);
     }
+    fn projected(&mut self,achieved:DerivativeOrder) {
+        Self::add(&mut self.cache_hits,&mut self.overflowed);
+        Self::add(&mut self.cache_projections,&mut self.overflowed);
+        self.completed(achieved);
+    }
     fn miss(&mut self, previous: Option<DerivativeOrder>, same: bool, invalidated: Option<bool>) {
         let field = if previous.is_some() {
             if same {
@@ -2389,7 +2426,7 @@ pub struct DemandStatistics<'a> {
     pub instance: SemanticId,
     /// Index in the assembly's immutable template order.
     pub template: usize,
-    /// Selected local demand; no cross-demand cache projection is implied.
+    /// Selected local demand; compatible cross-demand projections are counted explicitly.
     pub demand: EvaluationDemand,
     /// Order actually requested by the caller.
     pub requested: DerivativeOrder,
@@ -2404,6 +2441,7 @@ pub struct CaseWorker {
     groups: Vec<EnumMap<EvaluationDemand, Option<GroupCache>>>,
     // Evaluation is serial under &mut self; scratch is shared only inside this attempt.
     workers: Vec<Worker>,
+    projections:Vec<ProjectionRelationship>,
     providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
     cancel: Arc<AtomicBool>,
     jacobian: Option<AssemblyMatrix>,
@@ -2428,6 +2466,7 @@ pub struct CaseScratch {
     assembly: Arc<CaseAssembly>,
     groups: Vec<EnumMap<EvaluationDemand, Option<GroupCache>>>,
     workers: Vec<Worker>,
+    projections:Vec<ProjectionRelationship>,
     jacobian: Option<AssemblyMatrix>,
     hessian: Option<AssemblyMatrix>,
     constraint_values: Vec<f64>,
@@ -2493,6 +2532,7 @@ impl Drop for CaseWorker {
             assembly: self.assembly.clone(),
             groups: std::mem::take(&mut self.groups),
             workers: std::mem::take(&mut self.workers),
+            projections:std::mem::take(&mut self.projections),
             jacobian: self.jacobian.take(),
             hessian: self.hessian.take(),
             constraint_values: std::mem::take(&mut self.constraint_values),
@@ -2700,6 +2740,18 @@ impl CaseWorker {
                 }
                 continue;
             }
+            match project_compatible(&mut self.groups[i],demand,order,&self.assembly,i,&mut self.projections) {
+                Ok(Some(achieved))=> {
+                    if let Some(observation)=&mut self.observation {observation.projected(i,demand,order,achieved);}
+                    continue;
+                }
+                Ok(None)=>{},
+                Err(cause)=> {
+                    if let Some(observation)=&mut self.observation {observation.failed(i,demand,order);}
+                    return Err(context(cause));
+                }
+            }
+            let worker=self.groups[i][demand].as_mut().ok_or_else(||MathError::Contract("missing projected group".into()))?;
             if let Some(observation) = &mut self.observation {
                 observation.miss(i, demand, order, worker.cache, same);
             }

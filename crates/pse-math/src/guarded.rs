@@ -8,7 +8,7 @@
 use crate::MathError;
 pub use crate::jets::{ProductKind, ProductValues};
 pub use crate::execution::{
-    CompiledBody, CompiledOrderCensus, Evaluation, PreparedBody, PreparedSupport, Support, Worker,
+    ArithmeticOrigin, CompiledBody, CompiledOrderCensus, Evaluation, PreparedBody, PreparedSupport, Support, Worker,
     WorkerCensus,
 };
 use pse_ids::SemanticId;

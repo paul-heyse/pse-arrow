@@ -14,7 +14,8 @@ use symbolica::{
 };
 
 /// Mathematical output actually consumed by an admitted evaluator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(rename_all="snake_case")]
 pub enum ProductKind {
     /// Selected values and coordinate partials through the requested order.
     SelectedPartials,
