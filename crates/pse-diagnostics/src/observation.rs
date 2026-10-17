@@ -703,6 +703,7 @@ impl ObservationHub {
             node: None,
             absent_enabled: self.policy.enabled,
             record_tap: None,
+            clock: Some(Arc::clone(&self.clock)),
             producer: None,
         };
         if !self.policy.enabled {
@@ -817,6 +818,7 @@ impl ObservationHub {
                     node: Some(node),
                     absent_enabled: true,
             record_tap: None,
+            clock: Some(Arc::clone(&self.clock)),
                     producer: None,
                 },
                 compact: None,
@@ -834,6 +836,7 @@ impl ObservationHub {
                     node: None,
                     absent_enabled: true,
             record_tap: None,
+            clock: Some(Arc::clone(&self.clock)),
                     producer: None,
                 },
                 compact: Some(Arc::clone(summary)),
@@ -952,6 +955,7 @@ impl ObservationHub {
                 node: Some(Arc::clone(node)),
                 absent_enabled: true,
             record_tap: None,
+            clock: Some(Arc::clone(&self.clock)),
                 producer: None,
             },
             compact: None,
@@ -1532,6 +1536,7 @@ pub struct ObservationContext {
     absent_enabled: bool,
     producer: Option<ProducerId>,
     record_tap: Option<Arc<dyn RecordTap>>,
+    clock: Option<Arc<dyn Clock>>,
 }
 impl ObservationContext {
     /// Return the operation diagnostic identity.
@@ -1604,6 +1609,7 @@ impl ObservationContext {
                     node: None,
                     absent_enabled: self.absent_enabled,
             record_tap: self.record_tap.clone(),
+                    clock: self.clock.clone(),
                     producer: None,
                 },
             }

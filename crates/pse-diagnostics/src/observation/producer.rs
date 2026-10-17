@@ -86,6 +86,8 @@ pub struct CoherentRecord {
     pub generation: u64,
     /// Source sequence assigned before lossy fan-out.
     pub sequence: u64,
+    /// Sequence within this exact source family; absent after counter/admission failure.
+    pub family_sequence: Option<u64>,
     /// Actual producer event time on this operation's process clock.
     #[schemars(with = "crate::ClosedDuration")]
     pub observed_at: Duration,
@@ -189,10 +191,12 @@ pub struct Producer {
     id: ProducerId,
     index: Option<usize>,
     sequence: Arc<AtomicU64>,
+    descriptor: ProducerDescriptor,
+    families: Arc<Mutex<FamilySequences>>,
 }
 /// Explicit selected record sink, independent from the ordinary bounded hub.
 /// Implementations must not block numerical callbacks or change scientific permission.
-pub trait RecordTap: Send + Sync + std::fmt::Debug {
+pub trait RecordTap: std::any::Any + Send + Sync + std::fmt::Debug {
     /// Whether this family belongs to the active selected interval.
     fn selected(&self, family: &str) -> bool;
     /// Explicit synchronous boundary thread-CPU selection; never enabled by default.
@@ -201,8 +205,13 @@ pub trait RecordTap: Send + Sync + std::fmt::Debug {
     fn observe(&self, record: &CoherentRecord);
     /// Offer bounded producer metadata before its first source record.
     fn describe(&self, _producer: &ProducerDescriptor) {}
+    /// Offer metadata and record as one collector admission interval.
+    fn offer(&self, record:&CoherentRecord, producer:&ProducerDescriptor) { self.describe(producer); self.observe(record); }
 }
 impl ObservationContext {
+    /// Actual selected sink for typed owner composition; this grants no scientific authority.
+    #[must_use]
+    pub fn record_tap(&self) -> Option<&dyn RecordTap> { self.record_tap.as_deref() }
     /// Propagate an explicitly selected finite collector to future performing children.
     /// This never attaches to already-running work or grants scientific cancellation.
     #[must_use]
@@ -228,12 +237,8 @@ impl ObservationContext {
                 });
             });
         }
-        if let Some(tap) = &self.record_tap {
-            let descriptor = ProducerDescriptor { id, role, name: name.to_owned() };
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tap.describe(&descriptor)));
-        }
         let mut context = self.clone(); context.producer = Some(id);
-        Producer { context, id, index, sequence: Arc::new(AtomicU64::new(1)) }
+        Producer { context, id, index, sequence: Arc::new(AtomicU64::new(1)), descriptor: ProducerDescriptor {id,role,name:bounded(name,128)}, families:Arc::new(Mutex::new(FamilySequences::default())) }
     }
 }
 impl Producer {
@@ -260,12 +265,12 @@ impl Producer {
     /// Whether explicitly selected detail consumes this source family now.
     #[must_use]
     pub fn detail_selected(&self, family: &str) -> bool {
-        self.context.record_tap.as_ref().is_some_and(|tap| tap.selected(family))
+        self.context.record_tap.as_ref().is_some_and(|tap| std::panic::catch_unwind(std::panic::AssertUnwindSafe(||tap.selected(family))).unwrap_or(false))
     }
     /// Explicit selected synchronous thread-CPU mode, independent from ordinary wall facts.
     #[must_use]
     pub fn thread_cpu_requested(&self) -> bool {
-        self.context.record_tap.as_ref().is_some_and(|tap| tap.thread_cpu())
+        self.context.record_tap.as_ref().is_some_and(|tap| std::panic::catch_unwind(std::panic::AssertUnwindSafe(||tap.thread_cpu())).unwrap_or(false))
     }
     /// Prepare a population and unit once; updates use its admitted slot directly.
     #[must_use]
@@ -275,6 +280,9 @@ impl Producer {
             node.update(|state, at| {
                 index = state.producer_metric_index(&node.policy, Some(self.id), name, unit, at);
                 if let Some(i) = index {
+                    let metric=&state.metrics[i];
+                    let incompatible=(kind==FactKind::Duration && unit!="nanoseconds") || (metric.counter && !matches!(kind,FactKind::Counter|FactKind::AbsoluteCounter|FactKind::Duration)) || (metric.duration && kind!=FactKind::Duration) || (metric.absolute.is_some() && kind!=FactKind::AbsoluteCounter) || (!metric.counter && !matches!(metric.latest,Value::Unavailable(_)) && kind!=FactKind::Gauge);
+                    if incompatible {state.refused=state.refused.saturating_add(1);index=None;return;}
                     if state.metrics[i].prepared_kind.is_some_and(|prior| prior != kind) {
                         state.refused = state.refused.saturating_add(1); index = None; return;
                     }
@@ -291,18 +299,32 @@ impl Producer {
     /// Issue a source event before any queue, hub or transport loss.
     #[must_use]
     pub fn record(&self, family: &str, phase: &str, coordinates: Option<&str>, norm: Option<&str>, values: Vec<RecordField>) -> CoherentRecord {
+        let family_sequence=self.next_family_sequence(family);
         CoherentRecord {
             producer: self.id, generation: self.id.sequence,
-            sequence: self.sequence.fetch_add(1, Ordering::Relaxed),
-            observed_at: self.context.node.as_ref().map_or(Duration::ZERO, |node| node.clock.now()),
+            sequence: self.sequence.try_update(Ordering::Relaxed,Ordering::Relaxed,|v|Some(v.saturating_add(1))).unwrap_or(u64::MAX),
+            family_sequence,
+            observed_at: self.context.clock.as_ref().map_or(Duration::ZERO, |clock| clock.now()),
             family: family.into(), phase: phase.into(), coordinates: coordinates.map(str::to_owned), norm: norm.map(str::to_owned), values,
         }
+    }
+    fn next_family_sequence(&self,family:&str)->Option<u64> {
+        let mut families=self.families.try_lock().ok()?;
+        if let Some((_,sequence))=families.values.iter_mut().find(|(name,_)|name==family) {
+            let issued=*sequence;*sequence=sequence.checked_add(1)?;return Some(issued);
+        }
+        if families.values.len()>=32 || family.len()>128 {return None;}
+        // Family metadata is diagnostic storage, not scientific worker admission.
+        let reservation=self.reserve_owner_bytes(2*family.len()+256)?;
+        families.reservations.push(reservation);families.values.push((family.into(),2));Some(1)
     }
     /// Atomically retain a whole compact checkpoint; rejection never changes science.
     pub fn publish(&self, record: &CoherentRecord) -> bool {
         if let Some(tap) = &self.context.record_tap {
             // A user-supplied optional collector must not unwind into native/scientific work.
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tap.observe(record)));
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if tap.selected(&record.family) {tap.offer(record,&self.descriptor);}
+            })).is_err() && let Some(node)=&self.context.node { bump(&node.lost); }
         }
         let (Some(index), Some(node)) = (self.index, &self.context.node) else { return false; };
         let mut accepted = false;
@@ -320,7 +342,7 @@ impl Producer {
             if prior.is_some_and(|old| old.generation == record.generation && record.sequence <= old.sequence) {
                 state.producers[index].coverage.refused = state.producers[index].coverage.refused.saturating_add(1); state.producers[index].coverage.partial = true; return;
             }
-            if prior.is_some_and(|old| old.generation != record.generation || old.sequence.checked_add(1) != Some(record.sequence)) { state.producers[index].coverage.partial = true; }
+            if prior.map_or(record.sequence!=1,|old| old.generation != record.generation || old.sequence.checked_add(1) != Some(record.sequence)) || record.family_sequence.is_none() { state.producers[index].coverage.partial = true; }
             state.producers[index].current = Some(record.clone());
             state.producers[index].coverage.accepted = state.producers[index].coverage.accepted.saturating_add(1);
             accepted = true;
@@ -356,9 +378,11 @@ impl PreparedFact {
         let (Some(index), Some(node)) = (self.index, &self.context.node) else { return; };
         node.update(|state, at| {
             if self.kind != kind { state.refused = state.refused.saturating_add(1); return; }
+            let resets=state.metrics[index].resets;
             f(&mut state.metrics[index], at);
+            let reset=state.metrics[index].resets!=resets;
             state.overflow |= matches!(state.metrics[index].cumulative, Value::Overflow);
-            if kind != FactKind::Counter && kind != FactKind::Duration { state.point(&node.policy, index, at, false); }
+            if kind != FactKind::Counter && kind != FactKind::Duration { state.point(&node.policy, index, at, reset); }
         });
     }
     /// Add actual performed work.
@@ -368,7 +392,7 @@ impl PreparedFact {
         self.update(FactKind::AbsoluteCounter, |m, at| {
             let reset = m.absolute.is_some() && (m.generation != generation || m.absolute.is_some_and(|(old, _)| value < old));
             if let Some((old, from)) = m.absolute.filter(|_| !reset) { m.delta(at, value - old, from); }
-            if reset { m.resets = m.resets.saturating_add(1); let second=at.as_secs(); let slot=&mut m.buckets[(second % BUCKETS as u64) as usize]; if slot.second != Some(second) { *slot=Bucket { second:Some(second),first:at,last:at,delta:Some(0),reset:true }; } slot.reset=true; }
+            if reset { m.resets = m.resets.saturating_add(1); let second=at.as_secs(); let slot=&mut m.buckets[(second % BUCKETS as u64) as usize]; if slot.second != Some(second) { *slot=Bucket { second:Some(second),first:at,last:at,delta:Some(0),reset:true }; } slot.reset=true; slot.last=at; }
             m.counter = true; m.absolute = Some((value, at)); m.generation = generation; m.latest=Value::Count(value); m.observed_at=at;
         });
     }
@@ -492,3 +516,7 @@ pub struct OwnerReservation { _reservation: Reservation }
 impl std::fmt::Debug for OwnerReservation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.debug_struct("OwnerReservation").finish_non_exhaustive() }
 }
+
+#[derive(Default)]
+struct FamilySequences { values: Vec<(String,u64)>, reservations:Vec<OwnerReservation> }
+impl std::fmt::Debug for FamilySequences {fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result {f.debug_struct("FamilySequences").field("families",&self.values.len()).finish_non_exhaustive()}}

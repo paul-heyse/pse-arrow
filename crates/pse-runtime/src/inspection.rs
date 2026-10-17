@@ -77,8 +77,8 @@ pub struct InspectionTransport {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InspectionDocument {
-    /// Standalone diagnostic response encoding.
-    pub version: Version<1>,
+    /// Standalone diagnostic response encoding with explicit producer/record references.
+    pub version: Version<2>,
     /// Original bounded read request.
     pub request: InspectionRequest,
     /// Exact selected operation, absent when unavailable/evicted rather than invented complete.
@@ -441,7 +441,7 @@ fn document(
                 && let Some(calls) = snapshot
                     .metrics
                     .iter()
-                    .find(|metric| metric.name == format!("{stem}.calls"))
+                    .find(|metric| metric.producer == duration.producer && (metric.name == format!("{stem}.calls") || metric.name == format!("{stem}.completed_calls")))
                 && let Some(statement) =
                     pse_diagnostics::inspection::seconds_per_call(snapshot, duration, calls)
             {

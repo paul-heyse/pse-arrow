@@ -13,6 +13,10 @@ use std::time::Duration;
 pub struct EvidenceRef {
     /// Actual diagnostic operation, including its process instance.
     pub operation: OperationId,
+    /// Exact performing producer, when the fact is producer-scoped.
+    pub producer: Option<crate::observation::ProducerId>,
+    /// Source record sequence, independent of a durable append ordinal.
+    pub record_sequence: Option<u64>,
     /// Producer metric name, or absent for an operation/phase fact.
     pub metric: Option<String>,
     /// Actual checkpoint time; absence never means now.
@@ -55,6 +59,8 @@ impl Statement {
             message: message.into(),
             evidence: vec![EvidenceRef {
                 operation: snapshot.id,
+                producer: None,
+                record_sequence: None,
                 metric: None,
                 observed_at: snapshot.observed_at,
                 generation: None,
@@ -81,6 +87,8 @@ impl Statement {
             message: message.into(),
             evidence: vec![EvidenceRef {
                 operation: snapshot.id,
+                producer: metric.producer,
+                record_sequence: None,
                 metric: Some(metric.name.clone()),
                 observed_at: Some(metric.observed_at),
                 generation: Some(metric.generation),
@@ -125,6 +133,19 @@ pub fn explain(snapshot: &OperationSnapshot) -> Vec<Statement> {
     }
     if !snapshot.children.is_empty() {
         statements.push(Statement::operation(snapshot, StatementKind::Established, "relationships.known", "Known children, dependencies and shared producers can be inspected independently. Their inclusive work must not be summed as exclusive time.", vec![NextObservation::InspectRelated]));
+    }
+    for producer in &snapshot.producers {
+        if let Some(record) = &producer.current {
+            statements.push(Statement {
+                kind: StatementKind::Established, code: "record.current".into(),
+                message: format!("{} ({:?}) last published {} / {}. This coherent source checkpoint is not original scientific qualification.", producer.descriptor.name, producer.descriptor.role, record.family, record.phase),
+                evidence: vec![EvidenceRef { operation: snapshot.id, producer: Some(record.producer), record_sequence: Some(record.sequence), metric: None, observed_at: Some(record.observed_at), generation: Some(record.generation), value: None, partial: producer.coverage.partial || snapshot.coverage.curtailed }],
+                next: vec![],
+            });
+        }
+        if producer.coverage.partial || producer.coverage.history_dropped != 0 {
+            statements.push(Statement::operation(snapshot, StatementKind::Limitation, "record.history_partial", "Coherent source records have loss or bounded retention. Missing iterations and continuous convergence cannot be reconstructed.", vec![NextObservation::TimelineCapture]));
+        }
     }
     for metric in &snapshot.metrics {
         if metric.resets > 0 {
@@ -308,6 +329,10 @@ pub fn select_window(
     snapshot
         .detail
         .retain(|event| !empty && event.at >= start && event.at <= end);
+    for producer in &mut snapshot.producers {
+        producer.recent.retain(|record| !empty && record.observed_at >= start && record.observed_at <= end);
+        producer.coverage.partial |= uncovered_suffix || start < retained_start;
+    }
     for metric in &mut snapshot.metrics {
         let predecessor = metric
             .history

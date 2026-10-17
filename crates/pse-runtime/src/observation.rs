@@ -433,7 +433,7 @@ impl Diagnostics {
         });
         let mut image = ProcessCheckpoint {
             summaries: page.summaries,
-            version: 3,
+            version: 4,
             process: self.process.clone(),
             sequence: self.sequence.fetch_add(1, Ordering::Relaxed),
             published_unix_micros: unix_micros(),
@@ -694,14 +694,14 @@ pub fn read_checkpoint(path: &Path) -> Result<ProcessCheckpoint, ObservationErro
     }
     let header: Header = serde_json::from_slice(&bytes)
         .map_err(|error| ObservationError::Format(error.to_string()))?;
-    if header.version != 3 {
+    if header.version != 4 {
         return Err(ObservationError::Format(
             "unsupported diagnostic checkpoint version".into(),
         ));
     }
     let image: ProcessCheckpoint = serde_json::from_slice(&bytes)
         .map_err(|error| ObservationError::Format(error.to_string()))?;
-    if image.version != 3 {
+    if image.version != 4 {
         return Err(ObservationError::Format(
             "unsupported diagnostic checkpoint version".into(),
         ));
@@ -722,6 +722,8 @@ pub fn read_checkpoint(path: &Path) -> Result<ProcessCheckpoint, ObservationErro
 fn essential_active(sample: &mut OperationSnapshot) {
     sample.compact();
     sample.coverage.curtailed = true;
+    sample.coverage.refused_items = sample.coverage.refused_items.saturating_add(sample.producers.iter().filter(|p| p.current.is_some()).count() as u64);
+    sample.producers.clear();
     sample.metrics.clear();
     sample.sources.clear();
     sample.children.clear();
