@@ -380,3 +380,7 @@ impl Runtime {
         }).await
     }
 }
+
+#[cfg(test)]
+#[path = "diagnostic_source_map_tests.rs"]
+mod tests;
