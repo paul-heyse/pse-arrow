@@ -349,3 +349,81 @@ fn launch_capture_owned_group_waits_exact_member_notifications_without_stopping_
     }
     capture.wait().unwrap();
 }
+
+#[test]
+fn launch_capture_drains_live_thread_group_after_its_main_thread_exits() {
+    let directory = tempfile::tempdir().unwrap();
+    let source = directory.path().join("threaded-descendant.c");
+    let executable = directory.path().join("threaded-descendant");
+    let marker = directory.path().join("main-thread-exited");
+    // The worker writes readiness only after /proc reports its TGID leader as Z.
+    // Its still-running thread keeps the process pidfd unready: state Z alone is
+    // therefore not sufficient authority to exclude this owned descendant.
+    std::fs::write(&source, r#"
+#include <pthread.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+static void *live_worker(void *marker) {
+    struct timespec delay = {0, 1000000};
+    for (int attempt = 0; attempt < 2000; ++attempt) {
+        char text[2048];
+        FILE *stat = fopen("/proc/self/stat", "r");
+        if (!stat) _exit(2);
+        char *line = fgets(text, sizeof text, stat);
+        fclose(stat);
+        char *end = line ? strrchr(text, ')') : NULL;
+        if (end && end[1] == ' ' && end[2] == 'Z') {
+            FILE *ready = fopen((const char *)marker, "w");
+            if (!ready) _exit(3);
+            fprintf(ready, "%ld", (long)getpid());
+            fclose(ready);
+            for (;;) pause();
+        }
+        nanosleep(&delay, NULL);
+    }
+    _exit(4);
+}
+int main(int argc, char **argv) {
+    if (argc != 2) return 5;
+    pthread_t worker;
+    if (pthread_create(&worker, NULL, live_worker, argv[1])) return 6;
+    pthread_exit(NULL);
+}
+"#).unwrap();
+    // A tiny Linux pthread fixture uses the workstation's existing C compiler;
+    // missing compiler support is a test prerequisite failure, never a skip.
+    let compiled = Command::new("/usr/bin/cc").arg("-O0").arg("-pthread")
+        .arg(&source).arg("-o").arg(&executable).output().unwrap();
+    assert!(compiled.status.success(), "C fixture compilation failed: {}",
+        String::from_utf8_lossy(&compiled.stderr));
+    let mut request = request(directory.path(), &["/bin/sh", "-c", "\"$1\" \"$2\" & wait", "science"]);
+    request.argv.extend([executable.display().to_string(), marker.display().to_string()]);
+    let (mut command, capture) = launch_with(request,
+        |_, _, _, _, ready| { ready.send(Ok(())).unwrap(); Ok(()) }).unwrap();
+    let started = Instant::now();
+    let descendant = loop {
+        if let Some(pid) = std::fs::read_to_string(&marker).ok().and_then(|text| text.parse::<u32>().ok()) { break pid; }
+        assert!(started.elapsed() < Duration::from_secs(3), "threaded descendant did not establish readiness");
+        std::thread::sleep(Duration::from_millis(1));
+    };
+    let stat = std::fs::read_to_string(format!("/proc/{descendant}/stat")).unwrap();
+    assert_eq!(stat.rsplit_once(')').unwrap().1.split_whitespace().next(), Some("Z"));
+    let members = group_members(command.locator().pid).unwrap();
+    assert_eq!(members.len(), 1, "a Z TGID leader with a live thread must remain in owned inventory");
+    let zero = rustix::event::Timespec { tv_sec: 0, tv_nsec: 0 };
+    let mut live = [rustix::event::PollFd::new(&members[0], rustix::event::PollFlags::IN)];
+    assert_eq!(rustix::event::poll(&mut live, Some(&zero)).unwrap(), 0);
+    let mut foreign = Command::new("/bin/sleep").arg("60").spawn().unwrap();
+    let cancelled = command.cancel();
+    let foreign_status = foreign.try_wait();
+    let _ = foreign.kill();
+    foreign.wait().unwrap();
+    assert_eq!(cancelled.unwrap(), 137);
+    assert!(foreign_status.unwrap().is_none(), "thread-group drain must preserve the unrelated child");
+    let mut drained = [rustix::event::PollFd::new(&members[0], rustix::event::PollFlags::IN)];
+    assert!(rustix::event::poll(&mut drained, Some(&zero)).unwrap() > 0,
+        "the complete descendant thread group must exit before command ownership settles");
+    capture.wait().unwrap();
+}
