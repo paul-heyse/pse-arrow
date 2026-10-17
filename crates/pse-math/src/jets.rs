@@ -14,7 +14,7 @@ use symbolica::{
 };
 
 /// Mathematical output actually consumed by an admitted evaluator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ProductKind {
     /// Selected values and coordinate partials through the requested order.
     SelectedPartials,

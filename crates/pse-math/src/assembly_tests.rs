@@ -135,6 +135,16 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
         },
     )
 }
+fn assembled_jacobian_action(worker:&mut CaseWorker,values:&CaseValues,direction:&[f64],output:&mut[f64]) {
+    let matrix=worker.jacobian(values).unwrap();
+    output.fill(0.0);
+    for (column,&seed) in direction.iter().enumerate() {
+        for entry in matrix.symbolic().col_ptr()[column]..matrix.symbolic().col_ptr()[column+1] {
+            output[matrix.row_idx()[entry]]+=matrix.val()[entry]*seed;
+        }
+    }
+}
+
 #[test]
 fn aliases_repeated_rows_isolates_and_stable_refill() {
     crate::initialize().unwrap();
@@ -159,7 +169,7 @@ fn aliases_repeated_rows_isolates_and_stable_refill() {
     assert_eq!(w.jacobian(&x).unwrap().val().as_ptr(), ptr);
     assert_eq!(w.hessian(&x, 1.0, &[0.0, 0.0]).unwrap().val(), &[2.0]);
     let mut out = vec![0.0; 2];
-    w.jacobian_product(&x, &[4.0, 9.0], &mut out).unwrap();
+    assembled_jacobian_action(&mut w,&x,&[4.0,9.0],&mut out);
     assert_eq!(out, vec![40.0, 0.0]);
 }
 #[test]
@@ -1973,7 +1983,7 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
         assert!(
             requested.demands()[old.len()..]
                 .iter()
-                .all(|d| d.directional && d.order == DerivativeOrder::First)
+                .all(|d| d.product==crate::guarded::ProductKind::JacobianAction && d.order == DerivativeOrder::First)
         );
         assert_eq!(
             requested
@@ -1995,9 +2005,7 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
         let mut assembled = reference.worker(BTreeMap::new(), control.clone());
         for direction in [[2.0, -3.0], [-5.0, 7.0], [0.0, 0.0]] {
             let mut expected = [0.0; 2];
-            assembled
-                .jacobian_product(&values, &direction, &mut expected)
-                .unwrap();
+            assembled_jacobian_action(&mut assembled,&values,&direction,&mut expected);
             let mut output = [123.0; 2];
             actual
                 .jacobian_product(&values, &direction, &mut output)
@@ -2045,14 +2053,14 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
             .prepare_order(DerivativeOrder::Second, &cancel)
             .unwrap();
         assert_eq!(
-            upgraded.demands().iter().filter(|d| d.directional).count(),
+            upgraded.demands().iter().filter(|d| d.product==crate::guarded::ProductKind::JacobianAction).count(),
             1
         );
         assert!(
             upgraded
                 .demands()
                 .iter()
-                .filter(|d| d.directional)
+                .filter(|d| d.product==crate::guarded::ProductKind::JacobianAction)
                 .all(|d| d.order == DerivativeOrder::First)
         );
     }
@@ -2181,10 +2189,7 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
             .unwrap(),
     );
     let mut expected = [0.0];
-    reference
-        .worker(BTreeMap::new(), control.clone())
-        .jacobian_product(&values, &[9.0, 4.0], &mut expected)
-        .unwrap();
+    assembled_jacobian_action(&mut reference.worker(BTreeMap::new(),control.clone()),&values,&[9.0,4.0],&mut expected);
     let mut output = [0.0];
     direct
         .worker(BTreeMap::new(), control.clone())
@@ -2632,8 +2637,7 @@ fn operation_demands_use_consumed_ceilings_and_upgrade_all_products() {
     for (demand, support) in upgraded.demands().iter().zip(upgraded.supports()) {
         assert_eq!(demand.order, support.order());
     }
-    // Selecting only constraints makes Constraints and All the same actual demand.
-    // Their single product must retain the maximum Second ceiling.
+    // Equal output selections retain distinct actual first-partial and weighted-matrix products.
     let rows = assembly.structure().rows().to_vec();
     let mut bindings = assembly.structure().instances().to_vec();
     for binding in &mut bindings {
@@ -2659,8 +2663,10 @@ fn operation_demands_use_consumed_ceilings_and_upgrade_all_products() {
         &cancel,
     )
     .unwrap();
-    assert_eq!(only_constraints.demands().len(), 1);
-    assert_eq!(only_constraints.demands()[0].order, DerivativeOrder::Second);
+    assert_eq!(only_constraints.demands().len(), 2);
+    assert_eq!(only_constraints.demands()[0].order, DerivativeOrder::First);
+    assert_eq!(only_constraints.demands()[1].order, DerivativeOrder::Second);
+    assert_eq!(only_constraints.demands()[1].product,crate::guarded::ProductKind::WeightedHessian);
 }
 
 #[test]
@@ -4193,4 +4199,32 @@ fn complete_constraint_and_gradient_results_reuse_owned_storage_after_failed_tri
     assert_eq!(worker.constraints(&values).unwrap().as_ptr(), constraints);
     assert_eq!(worker.gradient(&values).unwrap().as_ptr(), gradient);
     assert_eq!(worker.gradient(&values).unwrap(), &[3., 2.]);
+}
+
+#[test]
+fn weighted_case_hessian_actions_preserve_aliases_scales_and_runtime_bindings() {
+    let control=pse_diagnostics::Cancellation::default();
+    let cancel=control.flag();
+    for alias in [false,true] {
+        let (original,values)=fixture(alias,false);
+        let plan=original.with_hessian_actions(&cancel).unwrap();
+        assert!(plan.has_hessian_actions());
+        assert_eq!(plan.with_hessian_actions(&cancel).unwrap().demands(),plan.demands());
+        let assembly=Arc::new(Arc::new(plan).compile(Optimization::default(),EvaluationLimits::default(),&cancel).unwrap());
+        let mut worker=assembly.worker(BTreeMap::new(),control.clone());
+        let mut action=[91.;2];
+        worker.hessian_product(&values,3.,&[5.,7.],&[5.,7.],&mut action).unwrap();
+        assert_eq!(action,if alias {[30.,0.]}else{[21.,15.]});
+        worker.hessian_product(&values,2.,&[7.,5.],&[7.,5.],&mut action).unwrap();
+        assert_eq!(action,if alias {[28.,0.]}else{[10.,14.]});
+        worker.hessian_product(&values,3.,&[5.,7.],&[5.,7.],&mut action).unwrap();
+        assert_eq!(action,if alias {[30.,0.]}else{[21.,15.]});
+        let matrix=worker.hessian(&values,3.,&[5.,7.]).unwrap().to_dense();
+        if alias {assert_eq!(matrix[(0,0)],6.);} else {assert_eq!(matrix[(1,0)],3.);}
+        action=[91.;2];
+        assert!(worker.hessian_product(&values,3.,&[5.,7.],&[f64::NAN,7.],&mut action).is_err());
+        assert_eq!(action,[91.;2]);
+        assert!(assembly.demands().iter().all(|request|request.order<DerivativeOrder::Second || request.product!=crate::guarded::ProductKind::SelectedPartials),
+            "no unused per-output Second partial program is admitted for native weighted consumers");
+    }
 }

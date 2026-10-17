@@ -202,6 +202,10 @@ impl PreparedSupport {
             frame_entries:0,derivative_components:1,second_pairs:direct.pairs.len(),
             result_entries:product_len,worker_bytes:scratch_bytes,
         });
+        compiled.evaluation_cache_bytes=compiled.evaluation_cache_bytes.checked_add(
+            (product_len+body.outputs.len()+if kind==ProductKind::WeightedHessianAction {n}else{0})
+                .checked_mul(2*size_of::<f64>()).ok_or(MathError::Limit("weighted point cache"))?
+        ).ok_or(MathError::Limit("weighted point cache"))?;
         compiled.product = kind;
         compiled.direct_product = Some(Arc::new(direct));
         compiled.worker_bytes = compiled.worker_bytes.checked_add(scratch_bytes)
@@ -244,6 +248,14 @@ impl Worker {
         providers:&mut BTreeMap<ProviderKey,Box<dyn Provider>>, cancel:&Arc<AtomicBool>,
         output:&mut[f64],
     ) -> Result<(),MathError> {
+        let mut trial=TrialEvaluation::default();
+        self.evaluate_product_trial_into(inputs,bindings,providers,cancel,output,&mut trial)
+    }
+    pub(crate) fn evaluate_product_trial_into(
+        &mut self,inputs:&[f64],bindings:ProductValues<'_>,providers:&mut BTreeMap<ProviderKey,Box<dyn Provider>>,
+        cancel:&Arc<AtomicBool>,output:&mut[f64],trial:&mut TrialEvaluation,
+    ) -> Result<(),MathError> {
+        trial.clear();
         self.check_scope()?;
         let (weights,direction) = match bindings {
             ProductValues::SelectedPartials => return Err(MathError::Contract("selected partials use ordered evaluation".into())),
@@ -260,8 +272,7 @@ impl Worker {
         scratch.fill(f64::NAN);
         let evaluated = (|| {
             if let Some(template) = self.body.direct_product.clone() {
-                let mut value_trial = TrialEvaluation::default();
-                self.evaluate_seeded(inputs,DerivativeOrder::Value,None,providers,cancel,&mut value_trial)?;
+                self.evaluate_seeded(inputs,DerivativeOrder::Value,None,providers,cancel,trial)?;
                 if self.direct_product.is_none() {
                     let used = self.used_bytes.checked_add(template.scratch_bytes)
                         .ok_or(MathError::Limit("weighted product worker charge"))?;
@@ -283,12 +294,11 @@ impl Worker {
                 let count = scratch.len();
                 scratch.copy_from_slice(&worker.values[..count]);
             } else {
-                let mut trial=TrialEvaluation::default();
                 if self.body.product == ProductKind::JacobianAction {
-                    self.evaluate_directional_trial_into(inputs,direction.ok_or_else(||MathError::Contract("direction missing".into()))?,providers,cancel,&mut trial)?;
+                    self.evaluate_directional_trial_into(inputs,direction.ok_or_else(||MathError::Contract("direction missing".into()))?,providers,cancel,trial)?;
                     scratch.copy_from_slice(&trial.jacobian);
                 } else {
-                    self.evaluate_seeded(inputs,DerivativeOrder::Second,direction,providers,cancel,&mut trial)?;
+                    self.evaluate_seeded(inputs,DerivativeOrder::Second,direction,providers,cancel,trial)?;
                     scratch.fill(0.0);
                     let weights=weights.ok_or_else(||MathError::Contract("weights missing".into()))?;
                     for (row,&weight) in weights.iter().enumerate() {
@@ -307,7 +317,7 @@ impl Worker {
             output.copy_from_slice(&scratch);
             Ok(())
         })();
-        if evaluated.is_err() { scratch.fill(f64::NAN); }
+        if evaluated.is_err() { scratch.fill(f64::NAN); trial.clear(); }
         self.product_scratch=scratch;
         evaluated
     }

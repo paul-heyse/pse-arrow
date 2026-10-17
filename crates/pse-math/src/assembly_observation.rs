@@ -157,6 +157,7 @@ impl CaseObservation {
             EvaluationDemand::Constraints => "math.demand.constraints",
             EvaluationDemand::All => "math.demand.all",
             EvaluationDemand::Directional => "math.demand.directional",
+            EvaluationDemand::HessianAction => "math.demand.hessian_action",
         };
         self.producer.context().phase(name)
     }
@@ -292,6 +293,10 @@ impl CaseObservation {
         for template in assembly.demand_census() {
             for census in template.program.census() {
                 let fields = vec![
+                    field("product","mathematical-product",Value::Text(format!("{:?}",census.product))),
+                    field("direct_weighted","predicate",Value::Boolean(census.direct_weighted)),
+                    field("derivative_components","components",Value::Count(census.derivative_components as u64)),
+                    field("second_pairs","symmetric-pairs",Value::Count(census.second_pairs as u64)),
                     field(
                         "template",
                         "template-index",
@@ -497,5 +502,6 @@ fn demand_name(demand: EvaluationDemand) -> &'static str {
         EvaluationDemand::Constraints => "constraints",
         EvaluationDemand::All => "all",
         EvaluationDemand::Directional => "directional",
+        EvaluationDemand::HessianAction => "hessian_action",
     }
 }

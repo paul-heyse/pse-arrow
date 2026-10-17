@@ -2234,7 +2234,7 @@ impl PreparedBody {
             1usize.checked_add(coordinates.len()).and_then(|n| coordinates.len().checked_mul(coordinates.len()).and_then(|v|n.checked_add(v)))
                 .ok_or(MathError::Limit("owning evaluation extent"))?
         } else { output_width };
-        let evaluation_cache_bytes = selected
+        let mut evaluation_cache_bytes = selected
             .len()
             .checked_mul(output_width)
             .and_then(|n| n.checked_add(self.inputs))
@@ -2242,6 +2242,16 @@ impl PreparedBody {
             .and_then(|n| n.checked_add(evidence_bytes))
             .and_then(|n| n.checked_add(size_of::<Evaluation>() + size_of::<Vec<u64>>() + 64))
             .ok_or(MathError::Limit("evaluation cache storage"))?;
+        if product!=ProductKind::SelectedPartials {
+            let entries=match product {
+                ProductKind::SelectedPartials=>0,
+                ProductKind::JacobianAction=>selected.len()+coordinates.len(),
+                ProductKind::WeightedHessian=>layouts[order].as_ref().map_or(0,|layout|layout.pairs.len())+selected.len(),
+                ProductKind::WeightedHessianAction=>2*coordinates.len()+selected.len(),
+            };
+            evaluation_cache_bytes=evaluation_cache_bytes.checked_add(entries.checked_mul(2*size_of::<f64>())
+                .ok_or(MathError::Limit("product point cache"))?).ok_or(MathError::Limit("product point cache"))?;
+        }
         let descriptor_bytes = programs
             .values()
             .flatten()
@@ -2868,10 +2878,8 @@ impl Worker {
     }
     #[cfg(test)]
     pub(crate) fn instantiated_orders(&self) -> Vec<DerivativeOrder> {
-        self.programs
-            .iter()
-            .filter_map(|(order, program)| program.as_ref().map(|_| order))
-            .collect()
+        [DerivativeOrder::Value,DerivativeOrder::First,DerivativeOrder::Second].into_iter()
+            .filter(|order|self.census().instantiated_orders[*order as usize]).collect()
     }
     /// Required authored input IDs, ordered by their compact numerical offsets.
     pub fn input_formals(&self) -> &[usize] {
@@ -3354,29 +3362,6 @@ fn coordinate_reachability(
     Ok(())
 }
 
-fn construction_taylor_width(n: usize, order: DerivativeOrder) -> Result<usize, MathError> {
-    let first = if order >= DerivativeOrder::First {
-        n
-    } else {
-        0
-    };
-    let second = if order >= DerivativeOrder::Second {
-        n.checked_add(1)
-            .and_then(|next| n.checked_mul(next))
-            .map(|pairs| pairs / 2)
-    } else {
-        Some(0)
-    };
-    second
-        .and_then(|pairs| pairs.checked_add(first))
-        .and_then(|width| width.checked_add(1))
-        .ok_or(MathError::Limit("selected Taylor construction extent"))
-}
-
-fn construction_layout_bytes(n: usize, order: DerivativeOrder) -> Result<usize, MathError> {
-    let width = construction_taylor_width(n, order)?;
-    construction_layout_shape_bytes(n,width)
-}
 fn construction_layout_shape_bytes(n:usize,width:usize) -> Result<usize,MathError> {
     let shape = n
         .checked_mul(size_of::<usize>())
