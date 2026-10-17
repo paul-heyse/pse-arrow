@@ -1164,6 +1164,7 @@ impl ShootingOracle {
         };
         let integration = p.integration(x);
         self.prepare_worker()?;
+        let purpose = if same { self.derivative_purpose() } else { self.purpose };
         let worker = &mut self
             .worker
             .as_mut()
@@ -1195,7 +1196,6 @@ impl ShootingOracle {
                     context.boolean("shooting.forward_sensitivities", forward);
                     context.phase("shooting.window")
                 });
-                let purpose = if same { self.derivative_purpose() } else { self.purpose };
                 let observation = crate::invocation::IntegrationObservation::begin(
                     self.observation.clone(),
                     purpose,

@@ -1663,7 +1663,6 @@ impl RegimeSelection {
         direction: &[f64],
         control: &pse_diagnostics::Cancellation,
     ) -> Result<super::RootActionEvidence, MathError> {
-        let cancel = &control.flag();
         let started = Instant::now();
         let selected = self.evaluate(parameters, DerivativeOrder::First, control)?;
         let chart = self.chart.as_ref().ok_or_else(|| {
