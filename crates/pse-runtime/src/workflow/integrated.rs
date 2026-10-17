@@ -490,6 +490,38 @@ impl IntegratedExperiment {
         )?;
         completed(report)
     }
+    /// A combined shooting request reuses its already-needed forward state directions
+    /// for exact endpoint integral derivatives, without a checkpointed adjoint pass.
+    #[cfg(feature = "solver-idas")]
+    pub(crate) fn window_forward_quadratures(
+        &self,
+        worker: &mut super::dynamics::DynamicWorker,
+        window: &Window,
+        integration: &[f64],
+        anchors: &[f64],
+        execution: &Execution,
+    ) -> Result<native::dynamics::ForwardQuadratures, ProblemError> {
+        execution.check()?;
+        let memory = execution.memory.ok_or_else(|| ProblemError::Contract(
+            "forward quadratures need the worker's admitted foreign allowance".into()))?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("dynamics.window_ivp_initializations", "count", 1);
+            context.count("dynamics.window_forward_quadrature_initializations", "count", 1);
+        }
+        let mut oracle = worker.window(false)?;
+        let profile = oracle.profile(&attempt(&window.profile, execution, DynamicSensitivity::Forward));
+        let mut product = native::dynamics::forward_quadratures_observed(
+            &mut oracle, &profile, &Self::window_parameters(window, integration, anchors)?,
+            execution.cancellation_control().clone(),
+            std::sync::Arc::new(native::solve::Progress::new(256)), &self.snapshot, memory,
+        )?;
+        product.report = completed(product.report)?;
+        if product.derivatives.as_ref().is_none_or(|values| values.len() !=
+            product.report.forward_axes.len().saturating_mul(self.program.contract.quadratures.len())) {
+            return Err(ProblemError::internal("completed forward quadrature product extent"));
+        }
+        Ok(product)
+    }
     /// One forward and one backward pass over a shooting window whose quadratures are
     /// observed as outputs after the model's own: the forward report and the gradient of
     /// the cotangent's functional over the window's integration columns. The checkpoints

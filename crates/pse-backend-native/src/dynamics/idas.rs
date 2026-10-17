@@ -866,6 +866,44 @@ unsafe extern "C" fn quadrature(
     }));
     finish_callback(c, result)
 }
+/// Exact d(flux)/dp = flux_y * state_sensitivity + direct flux_p. Parameter
+/// mapping changes with each scheduled segment; selected physical axes stay fixed.
+unsafe extern "C" fn quadrature_sensitivities(
+    ns: i32, t: f64, y: ffi::N_Vector, _dy: ffi::N_Vector,
+    ys: *mut ffi::N_Vector, _yps: *mut ffi::N_Vector, _q: ffi::N_Vector,
+    out: *mut ffi::N_Vector, data: *mut c_void,
+    _tmp_y: ffi::N_Vector, _tmp_dy: ffi::N_Vector, _tmp_q: ffi::N_Vector,
+) -> i32 {
+    // SAFETY: IDAS invokes this on the owning thread with the registered live context.
+    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if usize::try_from(ns).ok() != Some(c.axes.len()) {
+            c.callback.last_failure = Some(ProblemError::internal("IDAS quadrature sensitivity extent"));
+            return -1;
+        }
+        let n = c.contract.states.len();
+        // SAFETY: IDAS supplies n state values and ns live sensitivity/output vectors.
+        let x = unsafe { read(y, n) };
+        let Some(e) = c.evaluate(Function::QuadratureFlux, t, &x, true) else { return c.failure(); };
+        let Some(j) = e.jacobian else { return -1; };
+        let columns = (0..c.axes.len()).map(|k| {
+            // SAFETY: each state sensitivity has n entries.
+            unsafe { read(*ys.add(k), n) }
+        }).collect::<Vec<_>>();
+        let product = chained(&j, &columns, n, &c.map, &c.axes);
+        for k in 0..c.axes.len() {
+            let values = (0..e.values.len()).map(|q| product[(q, k)]).collect::<Vec<_>>();
+            if values.iter().any(|v| !v.is_finite()) {
+                c.callback.last_failure = Some(ProblemError::numerical("nonfinite quadrature sensitivity flux"));
+                return -1;
+            }
+            // SAFETY: IDAS supplies one nq-entry output vector for each selected axis.
+            unsafe { write(*out.add(k), &values) };
+        }
+        0
+    }));
+    finish_callback(c, result)
+}
 unsafe extern "C" fn roots(
     t: f64,
     y: ffi::N_Vector,
@@ -1321,6 +1359,9 @@ struct Session<'a> {
     /// Output quadratures of finished segments; IDAS restarts its quadrature at each
     /// reinitialization.
     totals: Vec<f64>,
+    /// Selected quadrature-sensitivity vectors and completed-segment offsets.
+    quad_sens: Vec<ffi::N_Vector>,
+    quad_sens_totals: Vec<f64>,
     transition: Option<Transition>,
     /// The adjoint route's checkpoints and backward problems.
     adjoint: Option<Backward>,
@@ -1496,6 +1537,8 @@ impl<'a> Session<'a> {
             sens: vec![],
             dsens: vec![],
             totals: vec![0.0; c.quadratures.len()],
+            quad_sens: Vec::new(),
+            quad_sens_totals: Vec::new(),
             transition: None,
             adjoint: None,
             callback: Box::new(Context {
@@ -2034,6 +2077,9 @@ impl<'a> Session<'a> {
                 "segment sensitivity rates",
             )?;
         }
+        if !self.quad_sens.is_empty() {
+            self.quad_sens_totals = self.forward_quadrature_product(t)?;
+        }
         if !self.quad.is_null() {
             native!(
                 ffi::IDAGetQuadDky(self.mem, t, 0, self.quad),
@@ -2076,6 +2122,13 @@ impl<'a> Session<'a> {
                 ffi::IDAQuadReInit(self.mem, self.quad),
                 "quadrature reinitialization",
             )?;
+        }
+        if !self.quad_sens.is_empty() {
+            for vector in &self.quad_sens {
+                // SAFETY: each owned serial vector has one entry per quadrature.
+                unsafe { write(*vector, &vec![0.; self.totals.len()]) };
+            }
+            native!(ffi::IDAQuadSensReInit(self.mem, self.quad_sens.as_mut_ptr()), "quadrature sensitivity reinitialization")?;
         }
         if mode_changed {
             self.initialize_roots()?;
@@ -2146,6 +2199,41 @@ impl<'a> Session<'a> {
             inputs: self.callback.parameters.clone(),
         });
         Ok(())
+    }
+    fn enable_forward_quadratures(&mut self, p: &Profile) -> Result<(), ProblemError> {
+        let k = self.callback.axes.len();
+        let nq = self.callback.contract.quadratures.len();
+        self.quad_sens_totals = vec![0.; k * nq];
+        if k == 0 || nq == 0 { return Ok(()); }
+        let scales = p.integration_parameters(&p.parameter_scales);
+        let mut tolerances = Vec::with_capacity(k);
+        for axis in self.callback.axes.clone() {
+            let vector = self.vector(&vec![0.; nq])?;
+            self.quad_sens.push(vector);
+            let values = p.out_atol.iter().map(|v| v / scales[axis]).collect::<Vec<_>>();
+            tolerances.push(self.vector(&values)?);
+        }
+        native!(ffi::IDAQuadSensInit(self.mem, Some(quadrature_sensitivities), self.quad_sens.as_mut_ptr()), "forward quadrature sensitivities")?;
+        native!(ffi::IDAQuadSensSVtolerances(self.mem, p.out_rtol.ok_or_else(|| contract("quadrature relative tolerance"))?, tolerances.as_mut_ptr()), "quadrature sensitivity tolerances")?;
+        native!(ffi::IDASetQuadSensErrCon(self.mem, 1), "quadrature sensitivity error control")
+    }
+    fn forward_quadrature_product(&mut self, time: f64) -> Result<Vec<f64>, ProblemError> {
+        let k = self.quad_sens.len();
+        if k == 0 { return Ok(Vec::new()); }
+        native!(ffi::IDAGetQuadSensDky(self.mem, time, 0, self.quad_sens.as_mut_ptr()), "quadrature sensitivity output")?;
+        let nq = self.callback.contract.quadratures.len();
+        let mut product = self.quad_sens_totals.clone();
+        for (axis, vector) in self.quad_sens.iter().enumerate() {
+            // SAFETY: this session owns each nq-entry serial vector.
+            let values = unsafe { read(*vector, nq) };
+            for (q, value) in values.into_iter().enumerate() {
+                product[q * k + axis] += value;
+            }
+        }
+        if product.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite forward quadrature product"));
+        }
+        Ok(product)
     }
     fn integrals(&mut self, t: f64, stepped: bool) -> Result<Vec<f64>, ProblemError> {
         let integrals = if self.quad.is_null() {
@@ -2357,6 +2445,9 @@ impl<'a> Session<'a> {
                 IDAGetSensNumNonlinSolvIters => "sensitivity_nonlinear_iterations",
                 IDAGetSensNumNonlinSolvConvFails => "sensitivity_nonlinear_failures",
             );
+        }
+        if !self.quad_sens.is_empty() {
+            count!(IDAGetQuadSensNumRhsEvals => "quadrature_sensitivity_rhs_evaluations", IDAGetQuadSensNumErrTestFails => "quadrature_sensitivity_error_test_failures");
         }
         if !self.callback.contract.quadratures.is_empty() {
             count!(IDAGetQuadNumRhsEvals => "quadrature_rhs_evaluations", IDAGetQuadNumErrTestFails => "quadrature_error_test_failures");
@@ -3573,6 +3664,7 @@ pub(super) fn integrate_with_samples(
             profile: p,
             integration,
             directions: &[],
+            forward_quadratures: false,
             admission: None,
         },
         cancel,
@@ -3581,6 +3673,38 @@ pub(super) fn integrate_with_samples(
         |_, _| Ok(()),
     );
     Ok(report)
+}
+/// Additional bound from pinned IDAS 7.1.1: 10 history/work vectors per
+/// selected direction, one copied tolerance plus session tolerance/output vectors;
+/// the shared saved RHS; host offsets/result/chain/product scratch and pointer arrays.
+/// This is accounting for selected storage, not a measured RSS claim.
+pub(super) fn forward_quadrature_workspace(c: &Contract, k: usize) -> Result<usize, ProblemError> {
+    if k == 0 || c.quadratures.is_empty() { return Ok(0); }
+    let nq = c.quadratures.len();
+    let header = size_of::<ffi::_generic_N_Vector>() + size_of::<ffi::_generic_N_Vector_Ops>()
+        + size_of::<ffi::_N_VectorContent_Serial>();
+    let bytes = nq.checked_mul(k).and_then(|v| v.checked_mul(16))
+        .and_then(|v| v.checked_add(c.states.len().checked_mul(2)?.checked_add(c.parameters.len())?.checked_mul(k)?))
+        .and_then(|v| v.checked_add(nq.checked_mul(2)?))
+        .and_then(|v| v.checked_add(c.parameters.len().checked_mul(2)?))
+        .and_then(|v| v.checked_mul(size_of::<f64>()))
+        .and_then(|v| v.checked_add(k.checked_mul(13)?.checked_add(1)?.checked_mul(header)?))
+        .and_then(|v| v.checked_add(k.checked_mul(24)?.checked_mul(size_of::<usize>())?))
+        .ok_or_else(|| ProblemError::memory("forward quadrature native workspace extent"))?;
+    Ok(bytes)
+}
+#[allow(clippy::too_many_arguments, reason = "the admitted workspace and scientific execution have separate owners")]
+pub(super) fn forward_quadratures(
+    oracle: &mut dyn Oracle, p: &Profile, integration: &[f64], cancel: Cancellation,
+    progress: Arc<Progress>, admission: (Arc<PreparedLayout>, usize), reserved_bytes: usize,
+) -> Result<ForwardQuadratures, ProblemError> {
+    let mut observer = IgnoreSamples;
+    let mut output = SampleOutput { retention: SampleRetention::Full, observer: &mut observer };
+    let (report, derivatives, _) = attempt(NumericalRequest {
+        oracle, profile: p, integration, directions: &[], forward_quadratures: true,
+        admission: Some(admission),
+    }, cancel, progress, &mut output, |session, report| session.forward_quadrature_product(report.completed_time));
+    Ok(ForwardQuadratures { report, derivatives, reserved_bytes })
 }
 /// One IDACalcIC call, with no physical step, sensitivity, quadrature or event setup.
 pub(super) fn initialize_consistent(
@@ -3930,6 +4054,7 @@ fn backward_route(
             profile: p,
             integration,
             directions,
+            forward_quadratures: false,
             admission: Some(admission),
         },
         cancel,
@@ -3986,6 +4111,7 @@ struct NumericalRequest<'a> {
     profile: &'a Profile,
     integration: &'a [f64],
     directions: &'a [usize],
+    forward_quadratures: bool,
     admission: Option<(Arc<PreparedLayout>, usize)>,
 }
 /// One IDAS attempt: the forward pass, then `after` once it completed, with every failure
@@ -4002,6 +4128,7 @@ fn attempt<T>(
         profile: p,
         integration,
         directions,
+        forward_quadratures,
         admission,
     } = request;
     let execution = Execution {
@@ -4054,6 +4181,9 @@ fn attempt<T>(
         Ok(session) => session,
         Err(error) => return (failure(r, error), None, 0),
     };
+    if forward_quadratures && let Err(error) = s.enable_forward_quadratures(p) {
+        return (failure(r, error), None, 0);
+    }
     // SAFETY: the new session's state vector holds the `n` states.
     r.consistent_initial = unsafe { read(s.y, n) };
     let mut outcome = None;

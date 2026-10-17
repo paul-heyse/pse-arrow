@@ -3161,3 +3161,35 @@ async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
         report.objective
     );
 }
+
+/// Rejected value trials cannot justify eager work: both response and gradient-only
+/// fits keep their current native product demand, and upgrade only the accepted point.
+#[tokio::test]
+async fn transient_fit_trial_scheduling_keeps_rejected_values_lazy_for_both_derivative_routes() {
+    for derivatives in [FitDerivatives::Responses, FitDerivatives::Gradient] {
+        let (package, mut selected) = source_case_on_with_fixed_parameter(
+            crate::workflow::tests::runtime_with_workspace(32 << 20), true, 73., "Dynamic", true,
+        ).await;
+        selected.derivatives = derivatives;
+        let (problem, _) = package.prepare_fit_problem(FitId::from(id(73)), selected,
+            compiler_profile(), Default::default(), &crate::CancelSource::new()).await.unwrap();
+        with_admitted_fit_oracle(problem.into(), move |oracle| {
+            for x in [0.7, 1.1, 2.5] {
+                oracle.objective(&[x]).unwrap();
+                let point = oracle.point.as_ref().unwrap();
+                assert!(point.adjoint.is_none());
+                assert!(point.trajectories.values().flat_map(|r| &r.samples)
+                    .all(|sample| sample.state_sensitivities.is_empty() && sample.output_sensitivities.is_empty()));
+            }
+            assert_eq!(oracle.transient_passes, (3, 0));
+            let mut gradient = [0.];
+            oracle.gradient(&[2.5], &mut gradient).unwrap();
+            let expected = (4, usize::from(derivatives == FitDerivatives::Gradient));
+            assert_eq!(oracle.transient_passes, expected);
+            let before = gradient;
+            oracle.gradient(&[2.5], &mut gradient).unwrap();
+            assert_eq!(gradient, before);
+            assert_eq!(oracle.transient_passes, expected);
+        });
+    }
+}

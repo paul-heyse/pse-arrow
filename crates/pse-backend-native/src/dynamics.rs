@@ -519,6 +519,42 @@ pub fn integrate_with_samples_observed(
     }
 }
 
+/// The bounded shooting product of one IDAS forward integration (ADR-0198).
+/// This is separate from ordinary simulation sample/integral publication.
+#[derive(Debug)]
+pub struct ForwardQuadratures {
+    /// The original trajectory, including its independent completion/failure status.
+    pub report: Report,
+    /// Endpoint quadrature-major derivatives over `report.forward_axes`. Present only
+    /// when the complete fixed-horizon product succeeded; an empty selection is empty.
+    pub derivatives: Option<Vec<f64>>,
+    /// Admitted native sparse and additional quadrature-sensitivity workspace.
+    pub reserved_bytes: usize,
+}
+/// Integrate selected forward quadrature derivatives for a shooting window. The caller
+/// supplies its existing admitted foreign allowance; this does not widen that allowance.
+#[cfg(feature = "idas")]
+#[allow(clippy::too_many_arguments, reason = "scientific input, original execution, observation and foreign allowance have distinct owners")]
+pub fn forward_quadratures_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cancel: Cancellation,
+    progress: Arc<crate::solve::Progress>,
+    snapshot: &crate::execution::Snapshot,
+    memory: usize,
+) -> Result<ForwardQuadratures, ProblemError> {
+    let profile = profile.resolve_for(oracle.contract(), parameters, snapshot, DynamicDemand::Base,
+        oracle.contract().derivatives, &[])?;
+    snapshot.validate_for(crate::execution::adapter(crate::solve::Backend::Idas))?;
+    let layout = oracle.prepared_layout(memory)?;
+    let bytes = profile.forward_quadrature_bytes(oracle.contract(), parameters, &layout)?;
+    if bytes > memory {
+        return Err(ProblemError::memory("forward quadrature workspace exceeds foreign allowance"));
+    }
+    idas::forward_quadratures(oracle, &profile, parameters, cancel, progress, (layout, memory), bytes)
+}
+
 /// A functional's gradient and the forward trajectory it was taken on (ADR-0110 item 3).
 #[derive(Debug)]
 pub struct Gradient {
@@ -1812,6 +1848,37 @@ impl Profile {
                     .and_then(|actions| bytes.checked_add(actions))
             })
             .ok_or_else(|| ProblemError::memory("IDAS prepared workspace extent"))
+    }
+    /// Before-effect admission of the narrow IDAS forward-quadrature binding. The
+    /// ordinary trajectory stays in its existing allowance; the added endpoint product
+    /// and native history/tolerance/callback storage are checked here (ADR-0198).
+    #[cfg(feature = "idas")]
+    pub fn forward_quadrature_bytes(
+        &self, c: &Contract, parameters: &[f64], layout: &PreparedLayout,
+    ) -> Result<usize, ProblemError> {
+        if self.resolved_method()? != Method::Idas || self.sensitivity != DynamicSensitivity::Forward {
+            return Err(ProblemError::unsupported("forward quadratures require selected IDAS Forward"));
+        }
+        self.validate(c, parameters)?;
+        let k = self.forward_width(c.parameters.len());
+        let cells = k.checked_mul(c.quadratures.len())
+            .ok_or_else(|| ProblemError::memory("forward quadrature product extent"))?;
+        if self.validate_retention(c, parameters, SampleRetention::Full, 0)?
+            .checked_add(cells).is_none_or(|total| total > self.max_cells) {
+            return Err(ProblemError::memory("forward quadrature result cell allowance"));
+        }
+        let scales = self.integration_parameters(&self.parameter_scales);
+        for axis in self.forward_axes(c.parameters.len()) {
+            for tolerance in &self.out_atol {
+                let value = tolerance / scales[axis];
+                if !value.is_finite() || value <= 0. {
+                    return Err(contract("forward quadrature derivative tolerance must be finite and positive"));
+                }
+            }
+        }
+        self.native_scatter_bytes(layout, DynamicDemand::Base, c.parameters.len())?
+            .checked_add(idas::forward_quadrature_workspace(c, k)?)
+            .ok_or_else(|| ProblemError::memory("forward quadrature workspace extent"))
     }
     /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
     /// charged against the caller's allowance before native work. The count is the smaller

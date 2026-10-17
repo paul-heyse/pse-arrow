@@ -200,7 +200,7 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
             let point = oracle.point.as_ref().unwrap();
             assert_eq!(point.achieved, DerivativeOrder::Value);
             assert!(
-                point.jacobian.is_empty() && point.gradient.is_empty() && point.adjoint.is_none()
+                point.jacobian.is_empty() && point.gradient.is_empty() && point.integral_gradient.is_none()
             );
             assert!(
                 point
@@ -236,10 +236,8 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
             oracle.jacobian(&x, &mut jacobian).unwrap();
             let point = oracle.point.as_ref().unwrap();
             assert_eq!(point.achieved, DerivativeOrder::First);
-            assert!(
-                point.adjoint.is_none(),
-                "a Jacobian never demands an integral adjoint"
-            );
+            assert_eq!(point.integral_gradient.is_some(), method == Method::Idas,
+                "combined IDAS products already contain exact forward integral derivatives");
             assert!(
                 point
                     .reports
@@ -336,11 +334,11 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
                     "{method:?} {shooting:?}: {actual} vs {expected}"
                 );
             }
-            assert!(oracle.point.as_ref().unwrap().adjoint.is_some());
+            assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
             assert_eq!(oracle.execution.progress.snapshot().0.len(), 4);
-            let cached = oracle.point.as_ref().unwrap().adjoint.clone();
+            let cached = oracle.point.as_ref().unwrap().integral_gradient.clone();
             oracle.gradient(&x, &mut gradient).unwrap();
-            assert_eq!(oracle.point.as_ref().unwrap().adjoint, cached);
+            assert_eq!(oracle.point.as_ref().unwrap().integral_gradient, cached);
             assert_eq!(oracle.execution.started, started);
             assert!(Arc::ptr_eq(&oracle.execution.abandonment, &abandonment));
         }
@@ -390,7 +388,7 @@ async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
         oracle.point.as_ref().unwrap().achieved,
         DerivativeOrder::First
     );
-    assert!(oracle.point.as_ref().unwrap().adjoint.is_none());
+    assert!(oracle.point.as_ref().unwrap().integral_gradient.is_none());
     let count = oracle.execution.progress.snapshot().0.len();
     oracle.objective(&[-0., 1.]).unwrap();
     assert_eq!(oracle.execution.progress.snapshot().0.len(), count);
@@ -417,7 +415,7 @@ async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
     ));
     assert_eq!(oracle.execution.progress.snapshot().0.len(), count);
     // Adjoint access itself checks x and the original scope, independently of callbacks.
-    assert!(oracle.adjoint(&[0.3, 1.]).is_err());
+    assert!(oracle.integral_gradient(&[0.3, 1.]).is_err());
     oracle.execution.enclosing_scope = None;
     oracle.problem = demanded;
     oracle.objective(&[0.3, 1.]).unwrap();
@@ -1624,7 +1622,8 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
                         .any(|field| field.name == "adjoint" && field.value == Value::Boolean(true))
             })
             .collect::<Vec<_>>();
-        assert_eq!(adjoints.len(), 2, "one actual adjoint per window");
+        assert_eq!(adjoints.len(), if method == Method::Idas { 0 } else { 2 },
+            "combined IDAS avoids both checkpointed integral adjoints");
         for record in adjoints {
             assert!(
                 record.values.iter().any(|field| field.name == "purpose"
@@ -1658,7 +1657,7 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         for (name, expected) in [
             ("dynamics.workflow_worker_constructions", 1),
             ("dynamics.window_ivp_initializations", 6),
-            ("dynamics.window_adjoint_initializations", 2),
+            ("dynamics.window_adjoint_initializations", if method == Method::Idas { 0 } else { 2 }),
             ("dynamics.window_layout_constructions", 1),
             ("dynamics.window_layout_reuses", 1),
         ] {
@@ -1704,4 +1703,86 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
             Err(ProblemError::Cancelled)
         ));
     }
+}
+
+/// B04: accepted/rejected callback demand explains the bounded tradeoff. Existing eager
+/// selection saves the accepted-point upgrade and computes unused rejected derivatives;
+/// neither result licenses a blanket policy change for fitting or shooting.
+#[tokio::test]
+async fn shooting_trial_product_scheduling_preserves_lazy_default_and_explicit_eager_tradeoff() {
+    for method in methods() {
+        let simulation = tracking(method).await;
+        for nodes in [vec![], vec![0.5, 1., 1.5]] {
+            let shooting = if nodes.is_empty() { ShootingMethod::Single } else { ShootingMethod::Multiple };
+            let mut results = vec![];
+            for policy in [ShootingEvaluationPolicy::Demanded, ShootingEvaluationPolicy::EagerFirst] {
+                let mut profile = request(&simulation, shooting, nodes.clone(), true);
+                profile.evaluation = policy;
+                let problem = Arc::new(simulation.shooting(profile).unwrap());
+                let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+                execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
+                let mut x = vec![0.4, 1.2];
+                x.extend(std::iter::repeat_n(0.3, nodes.len()));
+                let mut oracle = ShootingOracle { observation: None,
+                    purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
+                    problem: problem.clone(), execution, point: None, worker: None };
+                let mut first_order_trials = 0;
+                for offset in [0., 0.1, -0.1, 0.] {
+                    let mut trial = x.clone();
+                    trial[0] += offset;
+                    oracle.objective(&trial).unwrap();
+                    first_order_trials += usize::from(oracle.point.as_ref().unwrap().achieved == DerivativeOrder::First);
+                }
+                assert_eq!(first_order_trials, if policy == ShootingEvaluationPolicy::EagerFirst { 4 } else { 0 });
+                let before = oracle.execution.progress.snapshot().0.len();
+                let mut gradient = vec![0.; x.len()];
+                oracle.gradient(&x, &mut gradient).unwrap();
+                assert_eq!(oracle.execution.progress.snapshot().0.len() - before,
+                    usize::from(policy == ShootingEvaluationPolicy::Demanded), "accepted-point forward upgrade");
+                assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
+                results.push((oracle.objective(&x).unwrap(), gradient));
+            }
+            let tolerance = 64. * simulation.profile().rtol;
+            assert!((results[0].0 - results[1].0).abs() <= tolerance * results[0].0.abs().max(1.));
+            for (lazy, eager) in results[0].1.iter().zip(&results[1].1) {
+                assert!((lazy - eager).abs() <= tolerance * lazy.abs().max(1.));
+            }
+        }
+    }
+}
+
+/// The integral-only counterexample deliberately keeps checkpointed adjoints, including
+/// scheduled controls. More controls alone do not trigger a forward route.
+#[cfg(feature = "solver-idas")]
+#[tokio::test]
+async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_directions() {
+    let simulation = tracking(Method::Idas).await;
+    let mut profile = request(&simulation, ShootingMethod::Single, vec![], true);
+    profile.objective.terminal.clear();
+    let problem = Arc::new(simulation.shooting(profile).unwrap());
+    assert!(!problem.forward_quadratures());
+    let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+    execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
+    let mut oracle = ShootingOracle { observation: None,
+        purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
+        problem, execution, point: None, worker: None };
+    let x = [0.4, 1.2];
+    oracle.evaluate(&x, DerivativeOrder::First).unwrap();
+    let point = oracle.point.as_ref().unwrap();
+    assert!(point.integral_gradient.is_none());
+    assert!(point.reports.iter().all(|report| report.forward_axes.is_empty()));
+    let mut gradient = vec![0.; 2];
+    oracle.gradient(&x, &mut gradient).unwrap();
+    let e = (-1f64).exp();
+    let c = 1. - e;
+    let d = (1. - e * e) / 2.;
+    let expected = [
+        2. * (x[0] - 1.) - 2. * (2. * x[0] - 1.) * c + 2. * x[0] * d
+            + 2. * (x[1] - 1.) * c * c + 2. * (x[0] * c - x[1]) * c * d,
+        2. * (x[1] - 1.) + 2. * (x[0] * c - 2. * x[1] + 1.) * c - 2. * (x[0] * c - x[1]) * d,
+    ];
+    for (actual, expected) in gradient.iter().zip(expected) {
+        assert!((actual - expected).abs() <= 64. * simulation.profile().rtol * expected.abs().max(1.));
+    }
+    assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
 }
