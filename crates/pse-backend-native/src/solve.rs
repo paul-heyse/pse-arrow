@@ -2836,6 +2836,29 @@ mod numerical_tests {
         assert_eq!(report.qualification, Qualification::Unqualified);
     }
     #[test]
+    fn attempt_abandonment_wakes_registered_waiters_once() {
+        use pse_model::generated::enums::NumericalAttemptObservation as O;
+        struct Wake(std::sync::atomic::AtomicBool);
+        impl std::task::Wake for Wake {
+            fn wake(self: Arc<Self>) { self.0.store(true, Ordering::Release); }
+            fn wake_by_ref(self: &Arc<Self>) { self.0.store(true, Ordering::Release); }
+        }
+        let source = AttemptAbandonment::default();
+        let wake = Arc::new(Wake(std::sync::atomic::AtomicBool::new(false)));
+        let waker = std::task::Waker::from(wake.clone());
+        let watch = source.watch(&waker);
+        let future = source.notified();
+        assert!(source.abandon(O::Stalled).unwrap());
+        assert!(wake.0.load(Ordering::Acquire));
+        let mut future = std::pin::pin!(future);
+        assert!(std::future::Future::poll(future.as_mut(), &mut std::task::Context::from_waker(&waker)).is_ready());
+        drop(watch);
+        wake.0.store(false, Ordering::Release);
+        let _watch = source.watch(&waker);
+        assert!(!source.abandon(O::NumericalFailure).unwrap());
+        assert!(!wake.0.load(Ordering::Acquire), "repeated stop is not a new owner transition");
+    }
+    #[test]
     fn attempt_abandonment_is_local_typed_and_first_write() {
         use pse_model::generated::enums::NumericalAttemptObservation as O;
         let cancel = pse_diagnostics::Cancellation::default();
