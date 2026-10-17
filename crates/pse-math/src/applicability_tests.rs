@@ -14,7 +14,7 @@ use pse_model::{
 };
 use std::{
     collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
 };
 use symbolica::atom::Atom;
 fn id(n: u8) -> SemanticId {

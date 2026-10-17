@@ -19,8 +19,9 @@ use std::{
     panic::{AssertUnwindSafe, catch_unwind},
     ptr,
     sync::{Mutex, MutexGuard, TryLockError},
-    time::Duration,
 };
+#[cfg(test)]
+use std::time::Duration;
 mod blocks;
 mod derived;
 #[cfg(test)]

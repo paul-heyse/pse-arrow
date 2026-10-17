@@ -13,10 +13,7 @@ use pse_quantity::{
     IndexSet,
     standard::{StandardInvariantChecker, ids, standard_registry},
 };
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::collections::BTreeMap;
 
 fn typed_sqrt_weighted_products(options: Optimization) {
     let registry = standard_registry().unwrap();

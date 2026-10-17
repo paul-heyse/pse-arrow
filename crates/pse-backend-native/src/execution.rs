@@ -22,7 +22,7 @@ use pse_math::{
     normalization::Normalization, presolve::GuardSign,
 };
 use pse_model::generated::enums::{ModelingStructuralRequirement, NativeConstraintForm};
-#[cfg(any(test, feature = "root-isolation"))]
+#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc"))]
 use std::sync::Arc;
 use std::{any::Any, collections::BTreeMap};
 
@@ -181,10 +181,10 @@ impl NativeWait {
     ) -> Self {
         struct WakeThread(std::thread::Thread);
         impl std::task::Wake for WakeThread {
-            fn wake(self: std::sync::Arc<Self>) { self.0.unpark(); }
-            fn wake_by_ref(self: &std::sync::Arc<Self>) { self.0.unpark(); }
+            fn wake(self: Arc<Self>) { self.0.unpark(); }
+            fn wake_by_ref(self: &Arc<Self>) { self.0.unpark(); }
         }
-        let wake = std::task::Waker::from(std::sync::Arc::new(WakeThread(std::thread::current())));
+        let wake = std::task::Waker::from(Arc::new(WakeThread(std::thread::current())));
         Self {
             _release: released.watch(&wake),
             _stop: control.watch(&wake),

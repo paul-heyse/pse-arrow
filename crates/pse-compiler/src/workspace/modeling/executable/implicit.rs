@@ -404,7 +404,7 @@ impl AdmittedImplicit {
         native_minimum: DerivativeOrder,
         verifier: Option<&dyn pse_math::implicit::SelectionVerifier>,
         accelerators: &pse_math::implicit::accelerators::Accelerators,
-        cancel: &pse_diagnostics::Cancellation,
+        cancel: &Arc<AtomicBool>,
         limits: EvaluationLimits,
     ) -> Result<pse_kernels::DerivativeRequirements> {
         let mut available = None;

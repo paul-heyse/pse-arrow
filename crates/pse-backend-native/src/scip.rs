@@ -44,8 +44,11 @@ use std::{
         Arc, Mutex, MutexGuard, TryLockError,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
-    time::{Duration, Instant},
+    time::Instant,
 };
+
+#[cfg(test)]
+use std::time::Duration;
 
 // SCIP 10.0.2 TPI=tny owns one process-static thread pool. Independent serial
 // instances need no gate; concurrent owners retain it until SCIPfree joins TPI.
