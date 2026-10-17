@@ -124,3 +124,7 @@ pub fn capture_arrow(document:&CaptureDocument,pool:&Arc<dyn MemoryPool>,cancel:
     let raw=json(document)?;let operation=document.operation.to_string();let kind=json(&document.kind)?;let status=json(&document.status)?;
     publish("runtime.diagnostic_captures",vec![strings([Some(operation.as_str())]),strings([Some(kind.trim_matches('"'))]),strings([Some(status.trim_matches('"'))]),strings([Some(raw.as_str())])],owner,cancel)
 }
+
+#[cfg(test)]
+#[path = "evidence_tests.rs"]
+mod evidence_tests;
