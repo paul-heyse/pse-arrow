@@ -5,7 +5,7 @@
 use crate::{
     MathError,
     guarded::{Comparison, Condition, Stage, validate_dependencies},
-    jets::{EvaluationLimits, JetLayout, LiftInput, ProviderLift},
+    jets::{EvaluationLimits, JetLayout, LiftInput, ProviderLift, ProductKind, ProductValues},
     library::{self, Optimization},
 };
 use enum_map::EnumMap;
@@ -24,6 +24,9 @@ use symbolica::{
     atom::{Atom, AtomCore, Indeterminate, Symbol},
     evaluate::ExpressionEvaluator,
 };
+
+#[path = "products.rs"]
+mod products;
 
 fn order_name(order: DerivativeOrder) -> &'static str {
     match order {
@@ -512,11 +515,8 @@ impl PreparedSupport {
                     .iter()
                     .filter(|stage| matches!(stage, Stage::Block { .. }))
                     .count()
-                    .checked_mul(if directional {
-                        0
-                    } else {
-                        options.evaluator.module_bytes()
-                    })
+                    .checked_mul(options.evaluator.module_bytes())
+                    .and_then(|bytes| bytes.checked_mul(if directional { 1 } else { self.order() as usize + 1 }))
                     .and_then(|modules| bytes.checked_add(modules))
                     .ok_or(MathError::Limit("compiled module construction storage"))
             })
@@ -700,7 +700,12 @@ impl PreparedSupport {
             cancel: &Arc<AtomicBool>,
             cache: &mut library::ScalarCache,
         ) -> Result<(), MathError> {
-            for stage in stages {
+            let mut cursor=0;
+            while cursor<stages.len() {
+                let initial=cursor;
+                let (next,combined,_)=arithmetic_region(stages,initial,symbols,cancel)?;
+                cursor=next;
+                let stage=combined.as_ref().unwrap_or(&stages[initial]);
                 match stage {
                     Stage::Block { expressions, .. } => {
                         let params = reads(expressions, symbols)?
@@ -792,7 +797,7 @@ impl PreparedSupport {
             limits,
             cancel,
             false,
-            false,
+            ProductKind::SelectedPartials,
             self,
             Some(scalars),
         )
@@ -818,7 +823,7 @@ impl PreparedSupport {
             limits,
             cancel,
             false,
-            true,
+            ProductKind::JacobianAction,
             self,
             Some(scalars),
         )
@@ -838,7 +843,7 @@ impl PreparedSupport {
             limits,
             cancel,
             false,
-            false,
+            ProductKind::SelectedPartials,
             self,
             None,
         )
@@ -864,7 +869,7 @@ impl PreparedSupport {
             limits,
             cancel,
             false,
-            true,
+            ProductKind::JacobianAction,
             self,
             None,
         )
@@ -884,7 +889,7 @@ impl PreparedSupport {
             limits,
             cancel,
             true,
-            false,
+            ProductKind::SelectedPartials,
             self,
             None,
         )
@@ -1966,10 +1971,12 @@ impl PreparedBody {
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
         local_branches: bool,
-        directional: bool,
+        product: ProductKind,
         prepared_support: &PreparedSupport,
         retained_scalars: Option<&library::ScalarProducts>,
     ) -> Result<CompiledBody, MathError> {
+        let directional = product == ProductKind::JacobianAction;
+        let hessian_action = product == ProductKind::WeightedHessianAction;
         let _phase = pse_diagnostics::observation::current().map(|context| {
             context.count("math.compiled_body_constructions", "count", 1);
             context.gauge(
@@ -2015,7 +2022,7 @@ impl PreparedBody {
         // Conservative coordinate reachability includes every branch alternative. It
         // selects Taylor coefficients; Symbolica still owns every derivative operation.
         let reachability_coordinates = if order > DerivativeOrder::Value {
-            if directional { 1 } else { coordinates.len() }
+            if directional { 1 } else { coordinates.len() + usize::from(hessian_action) }
         } else {
             0
         };
@@ -2028,6 +2035,7 @@ impl PreparedBody {
         if order > DerivativeOrder::Value {
             for (coordinate, &slot) in coordinates.iter().enumerate() {
                 coordinate_support[slot][if directional { 0 } else { coordinate }] = true;
+                if hessian_action { coordinate_support[slot][coordinates.len()] = true; }
             }
             coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
         }
@@ -2053,7 +2061,11 @@ impl PreparedBody {
         ]
         .into_iter()
         .filter(|requested| {
-            *requested <= order && (!directional || *requested == DerivativeOrder::First)
+            *requested <= order && match product {
+                ProductKind::SelectedPartials => true,
+                ProductKind::JacobianAction => *requested == DerivativeOrder::First,
+                ProductKind::WeightedHessian | ProductKind::WeightedHessianAction => *requested == DerivativeOrder::Second,
+            }
         }) {
             let _order_phase = pse_diagnostics::observation::current().map(|context| {
                 context.count("math.compiled_order_constructions", "count", 1);
@@ -2071,14 +2083,23 @@ impl PreparedBody {
                 success = false
             );
             let _order_construction = order_construction.enter();
-            let layout = JetLayout::new(
-                if directional {
-                    vec![0]
-                } else {
-                    coordinates.to_vec()
+            let required_pairs = if hessian_action {
+                (0..coordinates.len()).map(|axis| (axis, coordinates.len())).collect()
+            } else if requested >= DerivativeOrder::Second {
+                let axes = prepared_support.coordinates().iter().enumerate()
+                    .map(|(axis, &formal)| (formal, axis)).collect::<BTreeMap<_, _>>();
+                prepared_support.support().second.iter().flatten()
+                    .filter_map(|&(i, j)| Some((*axes.get(&i)?, *axes.get(&j)?)))
+                    .map(|(i,j)| (i.min(j), i.max(j))).collect::<BTreeSet<_>>()
+                    .into_iter().collect()
+            } else { Vec::new() };
+            let layout = JetLayout::with_pairs(
+                if directional { vec![0] } else {
+                    let mut axes = coordinates.to_vec();
+                    if hessian_action { axes.push(usize::MAX); }
+                    axes
                 },
-                requested,
-                limits,
+                requested, required_pairs, limits,
             )?;
             let frame = self
                 .slots
@@ -2128,21 +2149,7 @@ impl PreparedBody {
             used = used
                 .checked_add(allowance.entries)
                 .ok_or(MathError::Limit("compiled demand scratch"))?;
-            let n = if directional { 1 } else { coordinates.len() };
-            let output_width = 1usize
-                .checked_add(if requested >= DerivativeOrder::First {
-                    n
-                } else {
-                    0
-                })
-                .and_then(|k| {
-                    k.checked_add(if requested >= DerivativeOrder::Second {
-                        n * n
-                    } else {
-                        0
-                    })
-                })
-                .ok_or(MathError::Limit("output derivative buffers"))?;
+            let output_width = layout.width();
             used = selected
                 .len()
                 .checked_mul(output_width)
@@ -2159,6 +2166,8 @@ impl PreparedBody {
             census[requested] = Some(CompiledOrderCensus {
                 order: requested,
                 directional,
+                product,
+                direct_weighted: false,
                 stages: counts.stages,
                 arithmetic_blocks: counts.arithmetic_blocks,
                 native_arithmetic_blocks: counts.native_arithmetic_blocks,
@@ -2168,6 +2177,8 @@ impl PreparedBody {
                 library_instructions: allowance.instruction_count,
                 instruction_storage_bytes: allowance.instructions,
                 frame_entries: frame,
+                derivative_components: layout.width(),
+                second_pairs: layout.pairs.len(),
                 result_entries: selected.len() * output_width,
                 worker_bytes: order_worker_bytes[requested],
             });
@@ -2192,21 +2203,12 @@ impl PreparedBody {
         if scratch_bytes > limits.scratch_bytes {
             return Err(MathError::Limit("applicability observation storage"));
         }
-        let n = if directional { 1 } else { coordinates.len() };
-        let output_width = 1usize
-            .checked_add(if order >= DerivativeOrder::First {
-                n
-            } else {
-                0
-            })
-            .and_then(|v| {
-                if order >= DerivativeOrder::Second {
-                    n.checked_mul(n).and_then(|h| v.checked_add(h))
-                } else {
-                    Some(v)
-                }
-            })
-            .ok_or(MathError::Limit("evaluation cache storage"))?;
+        let output_width = layouts[order].as_ref()
+            .ok_or_else(|| MathError::Contract("compiled ceiling layout".into()))?.width();
+        let output_width = if order>=DerivativeOrder::Second && product==ProductKind::SelectedPartials {
+            1usize.checked_add(coordinates.len()).and_then(|n| coordinates.len().checked_mul(coordinates.len()).and_then(|v|n.checked_add(v)))
+                .ok_or(MathError::Limit("owning evaluation extent"))?
+        } else { output_width };
         let evaluation_cache_bytes = selected
             .len()
             .checked_mul(output_width)
@@ -2234,6 +2236,8 @@ impl PreparedBody {
             owner: None,
             scalar_products: scalars.clone(),
             directional,
+            product,
+            direct_product: None,
             inputs: self.inputs,
             input_formals: Arc::new(self.formal_slots[..self.inputs].to_vec()),
             coordinate_offsets: Arc::new(coordinates.to_vec()),
@@ -2353,6 +2357,12 @@ fn instantiate_stages(stages: &mut [CompiledStage]) -> Result<(), MathError> {
 }
 
 #[derive(Clone)]
+struct SourceCheck {
+    end_output: usize,
+    source: SemanticId,
+}
+
+#[derive(Clone)]
 #[allow(
     clippy::large_enum_variant,
     reason = "Evaluator stages stay inline to avoid an allocation for each compiled stage"
@@ -2386,6 +2396,7 @@ enum CompiledStage {
         arguments: Vec<f64>,
         values: Vec<f64>,
         source: SemanticId,
+        checks: Vec<SourceCheck>,
     },
     Require {
         argument: usize,
@@ -2421,6 +2432,10 @@ pub struct CompiledOrderCensus {
     pub order: DerivativeOrder,
     /// Whether the product carries one runtime directional axis.
     pub directional: bool,
+    /// Mathematical product whose actual execution work is counted.
+    pub product: ProductKind,
+    /// The library emits the weighted product directly rather than per-output jets.
+    pub direct_weighted: bool,
     /// All compiled host stages, including every branch alternative.
     pub stages: usize,
     /// Library arithmetic blocks, including nested control scopes.
@@ -2439,6 +2454,10 @@ pub struct CompiledOrderCensus {
     pub instruction_storage_bytes: usize,
     /// Admitted main numeric frame capacity in scalar entries.
     pub frame_entries: usize,
+    /// Actual ancestor-closed Taylor shape width sent to the library.
+    pub derivative_components: usize,
+    /// Actual symmetric second components, excluding absent mathematical support.
+    pub second_pairs: usize,
     /// Admitted result capacity in scalar entries, including dense returned partials.
     pub result_entries: usize,
     /// Admitted per-order cloned stages and numeric scratch, excluding shared templates.
@@ -2488,6 +2507,8 @@ impl StageCensus {
 pub struct CompiledBody {
     scalar_products: library::ScalarProducts,
     directional: bool,
+    product: ProductKind,
+    direct_product: Option<Arc<products::DirectProduct>>,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
     evaluation_cache_bytes: usize,
@@ -2580,7 +2601,7 @@ impl CompiledBody {
     }
     /// Highest residual order actually compiled, distinct from symbolic availability.
     pub fn compiled_order(&self) -> DerivativeOrder {
-        if self.layouts[DerivativeOrder::Second].is_some() {
+        if self.direct_product.is_some() || self.layouts[DerivativeOrder::Second].is_some() {
             DerivativeOrder::Second
         } else if self.layouts[DerivativeOrder::First].is_some() {
             DerivativeOrder::First
@@ -2641,6 +2662,8 @@ impl CompiledBody {
             body: self.clone(),
             programs: EnumMap::default(),
             frame: Vec::new(),
+            direct_product: None,
+            product_scratch: Vec::new(),
             prepaid_bytes: self.worker_bytes,
             used_bytes: 0,
             scope: Some(scope),
@@ -2701,6 +2724,8 @@ pub(crate) struct TrialEvaluation {
     pub jacobian: Vec<f64>,
     second: Vec<f64>,
     coordinates: usize,
+    second_pairs: Arc<Vec<(usize, usize)>>,
+    second_requested: bool,
 }
 impl TrialEvaluation {
     pub(crate) fn clear(&mut self) {
@@ -2717,16 +2742,16 @@ impl TrialEvaluation {
         self.second.fill(f64::NAN);
         self.second.clear();
         self.coordinates = 0;
+        self.second_requested = false;
     }
     pub(crate) fn second(&self, row: usize, i: usize, j: usize) -> f64 {
         let (i, j) = (i.min(j), i.max(j));
-        let n = self.coordinates;
-        let width = n * (n + 1) / 2;
-        self.second[row * width + i * n - i * i.saturating_sub(1) / 2 + j - i]
+        self.second_pairs.binary_search(&(i, j)).ok()
+            .map_or(0.0, |offset| self.second[row * self.second_pairs.len() + offset])
     }
     fn into_evaluation(self) -> Evaluation {
         let n = self.coordinates;
-        let hessians = if self.second.is_empty() {
+        let hessians = if !self.second_requested {
             Vec::new()
         } else {
             let mut dense = vec![0.0; self.values.len() * n * n];
@@ -2774,6 +2799,8 @@ pub struct Worker {
     frame: Vec<f64>,
     body: CompiledBody,
     scope: Option<pse_kernels::ExecutionScope>,
+    direct_product: Option<products::DirectWorker>,
+    product_scratch: Vec<f64>,
     prepaid_bytes: usize,
     used_bytes: usize,
 }
@@ -2804,7 +2831,7 @@ impl Worker {
             instantiated_orders: [
                 self.programs[DerivativeOrder::Value].is_some(),
                 self.programs[DerivativeOrder::First].is_some(),
-                self.programs[DerivativeOrder::Second].is_some(),
+                self.programs[DerivativeOrder::Second].is_some() || self.direct_product.is_some(),
             ],
             admitted_bytes: self.prepaid_bytes,
             used_allowance_bytes: self.used_bytes,
@@ -2843,6 +2870,10 @@ impl Worker {
             ));
         }
         self.frame.fill(f64::NAN);
+        self.product_scratch.fill(f64::NAN);
+        if let Some(direct) = self.direct_product.take() {
+            self.direct_product = Some(direct.reset()?);
+        }
         for program in self.programs.values_mut().flatten() {
             *program = reset_stages(std::mem::take(program))?;
         }
@@ -2879,9 +2910,9 @@ impl Worker {
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
         result.clear();
-        if self.body.directional {
+        if self.body.product != ProductKind::SelectedPartials {
             return Err(MathError::Contract(
-                "directional artifact requires a runtime direction".into(),
+                "product artifact requires its runtime bindings".into(),
             ));
         }
         let evaluated = self.evaluate_seeded(inputs, order, None, providers, cancelled, result);
@@ -2981,7 +3012,12 @@ impl Worker {
         if order >= DerivativeOrder::First {
             if let Some(direction) = direction {
                 for (axis, &slot) in self.body.coordinate_offsets.iter().enumerate() {
-                    frame[slot * width + 1] = direction[axis];
+                    if self.body.product == ProductKind::WeightedHessianAction {
+                        frame[slot * width + 1 + axis] = 1.0;
+                        frame[slot * width + n] = direction[axis];
+                    } else {
+                        frame[slot * width + 1] = direction[axis];
+                    }
                 }
             } else {
                 for (i, &slot) in layout.coordinates.iter().enumerate() {
@@ -3008,6 +3044,8 @@ impl Worker {
             cause,
         })?;
         result.coordinates = n;
+        result.second_pairs = layout.pairs.clone();
+        result.second_requested = order >= DerivativeOrder::Second;
         // Complete result extent belongs to the admitted operation cache; grow only
         // the actually demanded order, and retain it for the next trial.
         result
@@ -3127,6 +3165,7 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                     mut arguments,
                     mut values,
                     source,
+                    checks,
                 } => {
                     if !resettable {
                         return Err(MathError::Contract(
@@ -3145,6 +3184,7 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                         arguments,
                         values,
                         source,
+                        checks,
                     }
                 }
                 CompiledStage::Applicability {
@@ -3489,8 +3529,7 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
             .try_fold(indices(&layout.shape)?, |n, shape| {
                 n.checked_add(indices(shape)?)
             })?
-            .checked_add(indices(&layout.coordinates)?)?
-            .checked_add(indices(&layout.pairs)?)
+            .checked_add(indices(&layout.coordinates)?)
     }
     stages.iter().try_fold(indices(stages)?, |n, stage| {
         let bytes = match stage {
@@ -3518,10 +3557,12 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
                 components,
                 inputs,
                 outputs,
+                checks,
                 ..
             } => indices(components)?
                 .checked_add(indices(inputs)?)?
-                .checked_add(indices(outputs)?)?,
+                .checked_add(indices(outputs)?)?
+                .checked_add(indices(checks)?)?,
             CompiledStage::Require { .. } => 0,
             CompiledStage::Branch {
                 then, otherwise, ..
@@ -3639,6 +3680,43 @@ fn provider_request_order(
         )),
     }
 }
+fn arithmetic_region(
+    stages:&[Stage], initial:usize, symbols:&HashMap<Symbol,usize>, cancel:&Arc<AtomicBool>,
+) -> Result<(usize,Option<Stage>,Vec<SourceCheck>),MathError> {
+        let mut cursor = initial + 1;
+        let mut checks = Vec::new();
+        let combined = if let Stage::Block { expressions, outputs, source } = &stages[initial] {
+            let mut produced = outputs.iter().copied().collect::<BTreeSet<_>>();
+            let mut end = outputs.len();
+            checks.push(SourceCheck { end_output: end, source: *source });
+            while let Some(Stage::Block { expressions: next, outputs: slots, source }) = stages.get(cursor) {
+                if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+                if reads(next, symbols)?.iter().any(|slot| produced.contains(slot)) { break; }
+                end = end.checked_add(slots.len()).ok_or(MathError::Limit("joint arithmetic outputs"))?;
+                produced.extend(slots);
+                checks.push(SourceCheck { end_output: end, source: *source });
+                cursor += 1;
+            }
+            if cursor > initial + 1 {
+                let bytes = stages[initial..cursor].iter().try_fold(0usize, |bytes, stage| {
+                    let Stage::Block { expressions, outputs, .. } = stage else { return None; };
+                    expressions.iter().try_fold(bytes, |n, expr| n.checked_add(expr.as_view().get_byte_size()))?
+                        .checked_add(outputs.len().checked_mul(size_of::<usize>())?)
+                }).ok_or(MathError::Limit("joint arithmetic construction"))?;
+                crate::construction::additional(bytes.checked_mul(2).ok_or(MathError::Limit("joint arithmetic construction"))?)?;
+                let mut joined = expressions.clone();
+                let mut slots = outputs.clone();
+                for sibling in &stages[initial + 1..cursor] {
+                    let Stage::Block { expressions, outputs, .. } = sibling else { break; };
+                    joined.extend(expressions.iter().cloned());
+                    slots.extend(outputs);
+                }
+                Some(Stage::Block { expressions: joined, outputs: slots, source: *source })
+            } else { None }
+        } else { None };
+        Ok((cursor,combined,checks))
+}
+
 #[allow(
     clippy::too_many_arguments,
     reason = "Compilation receives distinct symbol, budget, and cancellation contexts"
@@ -3657,7 +3735,12 @@ fn compile_stages(
     scalars: &mut library::ScalarCache,
 ) -> Result<Vec<CompiledStage>, MathError> {
     let mut result = vec![];
-    for stage in stages {
+    let mut cursor = 0;
+    while cursor < stages.len() {
+        let initial = cursor;
+        let (next,combined,checks)=arithmetic_region(stages,initial,symbols,cancelled)?;
+        cursor=next;
+        let stage = combined.as_ref().unwrap_or(&stages[initial]);
         if cancelled.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
         }
@@ -3756,17 +3839,20 @@ fn compile_stages(
                 .into_iter()
                 .map(|axis| (axis, layout.coordinates[axis]))
                 .collect::<Vec<_>>();
-                let local = JetLayout::new(
+                let pairs = layout.pairs.iter().filter_map(|&(i,j)| {
+                    Some((active.iter().position(|&(axis,_)| axis == i)?,
+                          active.iter().position(|&(axis,_)| axis == j)?))
+                }).collect();
+                let local = JetLayout::with_pairs(
                     active.iter().map(|&(_, slot)| slot).collect(),
-                    layout.order,
-                    limits,
+                    layout.order, pairs, limits,
                 )?;
                 let mut components = vec![0];
                 if layout.order >= DerivativeOrder::First {
                     components.extend(active.iter().map(|&(i, _)| 1 + i));
                 }
                 if layout.order >= DerivativeOrder::Second {
-                    for &(i, j) in &local.pairs {
+                    for &(i, j) in local.pairs.iter() {
                         let pair = (active[i].0, active[j].0);
                         let position = layout
                             .pairs
@@ -3850,7 +3936,7 @@ fn compile_stages(
                     && !export.instructions.iter().any(|instruction| {
                         matches!(instruction, symbolica::evaluate::Instruction::Fun(..))
                     });
-                let evaluator = if layout.order == DerivativeOrder::Value {
+                let evaluator = {
                     match options.evaluator {
                         library::Evaluator::Interpreted => BlockEvaluator::Interpreted(evaluator),
                         library::Evaluator::CompiledScalar { module_bytes } => {
@@ -3884,8 +3970,6 @@ fn compile_stages(
                             }
                         }
                     }
-                } else {
-                    BlockEvaluator::Interpreted(evaluator)
                 };
                 CompiledStage::Block {
                     evaluator,
@@ -3896,6 +3980,7 @@ fn compile_stages(
                     arguments: vec![0.0; input_len],
                     values: vec![0.0; output_len],
                     source: *source,
+                    checks,
                 }
             }
             Stage::Require {
@@ -4184,6 +4269,7 @@ fn evaluate_stages(
                 arguments,
                 values,
                 source,
+                checks,
                 ..
             } => {
                 let local_width = components.len();
@@ -4199,11 +4285,16 @@ fn evaluate_stages(
                         order: layout.order,
                         detail: e.to_string(),
                     })?;
-                if values.iter().any(|v| !v.is_finite()) {
-                    return Err(MathError::Domain {
-                        source_id: *source,
-                        requirement: "finite arithmetic jet",
-                    });
+                let mut first = 0;
+                for check in checks.iter() {
+                    let end = check.end_output * local_width;
+                    if values[first..end].iter().any(|v| !v.is_finite()) {
+                        return Err(MathError::Domain {
+                            source_id: check.source,
+                            requirement: "finite arithmetic jet",
+                        });
+                    }
+                    first = end;
                 }
                 for (k, &slot) in outputs.iter().enumerate() {
                     frame[slot * width..(slot + 1) * width].fill(0.0);
@@ -6967,6 +7058,63 @@ mod compact_tests {
         );
     }
 
+    #[test]
+    fn sparse_library_shape_omits_unconsumed_convolutions_and_retains_lower_orders() {
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let y = library::formal(1).unwrap();
+        let z = library::formal(2).unwrap();
+        let body = PreparedBody::new(3, 4, vec![3], vec![Stage::Block {
+            expressions: vec![&x * &y + z.pow(2)], outputs: vec![3], source: SemanticId::NIL,
+        }], DerivativeOrder::Second).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let limits = EvaluationLimits { derivative_components: 6, ..Default::default() };
+        let compiled = body.compile(&[0], &[0,1,2], DerivativeOrder::Second,
+            Optimization::default(), limits, &cancel).unwrap();
+        let second = compiled.layouts[DerivativeOrder::Second].as_ref().unwrap();
+        assert_eq!(second.pairs.as_slice(), &[(0,1),(2,2)]);
+        assert_eq!(second.width(), 6, "dense shape would need ten components");
+        assert_eq!(compiled.census[DerivativeOrder::Second].unwrap().second_pairs, 2);
+        let mut worker = compiled.worker();
+        let first = eval(&mut worker, &[2.,3.,4.], DerivativeOrder::First).unwrap();
+        assert_eq!(first.values, [22.]);
+        assert_eq!(first.jacobian, [3.,2.,8.]);
+        assert!(!worker.census().instantiated_orders[2]);
+        let result = eval(&mut worker, &[2.,3.,4.], DerivativeOrder::Second).unwrap();
+        assert_eq!(result.hessians, [0.,1.,0.,1.,0.,0.,0.,0.,2.]);
+        let linear = PreparedBody::new(1,2,vec![1],vec![Stage::Block {
+            expressions:vec![x],outputs:vec![1],source:SemanticId::NIL,
+        }],DerivativeOrder::Second).unwrap();
+        let compiled = linear.compile(&[0], &[0], DerivativeOrder::Second,
+            Optimization::default(), limits, &cancel).unwrap();
+        assert_eq!(eval(&mut compiled.worker(), &[2.], DerivativeOrder::Second).unwrap().hessians, [0.]);
+    }
+
+    #[test]
+    fn joint_sibling_regions_preserve_sources_and_dependent_materialization() {
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let y = library::formal(1).unwrap();
+        let a = library::formal(2).unwrap();
+        let first_source = pse_ids::named_id(SemanticId::NIL, "first sibling");
+        let second_source = pse_ids::named_id(SemanticId::NIL, "second sibling");
+        let body = PreparedBody::new(2,5,vec![3,4],vec![
+            Stage::Block { expressions:vec![(&x + &y).pow(2)],outputs:vec![2],source:first_source },
+            Stage::Block { expressions:vec![(&x + &y).pow(3)],outputs:vec![3],source:second_source },
+            Stage::Block { expressions:vec![a.pow(2)],outputs:vec![4],source:SemanticId::NIL },
+        ],DerivativeOrder::Second).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let compiled = body.compile(&[0,1], &[0,1],DerivativeOrder::Second,
+            Optimization::default(),EvaluationLimits::default(),&cancel).unwrap();
+        assert_eq!(compiled.census[DerivativeOrder::Second].unwrap().arithmetic_blocks,2);
+        let result = eval(&mut compiled.worker(), &[1.,2.], DerivativeOrder::Second).unwrap();
+        assert_eq!(result.values,[27.,81.]);
+        assert_eq!(result.jacobian,[27.,27.,108.,108.]);
+        assert_eq!(result.hessians,[18.,18.,18.,18.,108.,108.,108.,108.]);
+        assert!(matches!(eval(&mut compiled.worker(), &[1e200,1e200],DerivativeOrder::Value),
+            Err(MathError::Domain { source_id, .. }) if source_id == first_source));
+    }
+
     #[cfg(feature = "compiled-evaluator")]
     #[test]
     fn native_scalar_production_blocks_preserve_coordinates_fp_and_worker_ownership() {
@@ -6984,7 +7132,7 @@ mod compact_tests {
                 outputs: vec![3, 4],
                 source: SemanticId::NIL,
             }],
-            DerivativeOrder::First,
+            DerivativeOrder::Second,
         )
         .unwrap();
         let control = pse_diagnostics::Cancellation::new(false);
@@ -6997,7 +7145,7 @@ mod compact_tests {
         };
         let limits = EvaluationLimits::default();
         let support = body
-            .prepare_support(&[0, 1], &[2, 0], DerivativeOrder::First, &cancel)
+            .prepare_support(&[0, 1], &[2, 0], DerivativeOrder::Second, &cancel)
             .unwrap();
         let bound = support
             .compilation_allocation_bound(limits, false, options)
@@ -7028,7 +7176,7 @@ mod compact_tests {
         assert!(matches!(
             &program.programs[DerivativeOrder::First].as_ref().unwrap()[0],
             CompiledStage::Block {
-                evaluator: BlockEvaluator::Interpreted(_),
+                evaluator: BlockEvaluator::Native(_),
                 ..
             }
         ));
@@ -7065,6 +7213,13 @@ mod compact_tests {
             eval(&mut first, &[2., 3., 5.], DerivativeOrder::First).unwrap(),
             eval(&mut expected, &[2., 3., 5.], DerivativeOrder::First).unwrap()
         );
+        assert!(!second.census().instantiated_orders[2]);
+        assert_eq!(
+            eval(&mut first, &[2.,3.,5.], DerivativeOrder::Second).unwrap(),
+            eval(&mut expected, &[2.,3.,5.], DerivativeOrder::Second).unwrap()
+        );
+        assert!(matches!(&program.programs[DerivativeOrder::Second].as_ref().unwrap()[0],
+            CompiledStage::Block { evaluator: BlockEvaluator::Native(_), .. }));
         // Both live worker and a late worker retain the executable after the
         // original immutable artifact and another worker have been released.
         let mut late = second.clone();

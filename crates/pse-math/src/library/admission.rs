@@ -39,7 +39,13 @@ fn products_for(n: usize, order: pse_kernels::DerivativeOrder) -> Result<usize, 
 /// Taylor loop has depth <=2 and one convolution, rescale and addition per step.
 /// Setup/final scaling costs <=2W+2. Powf is log, multiplication, then exp.
 fn expansion(c: OperationCount, layout: &JetLayout) -> Result<usize, MathError> {
-    expansion_for(c, layout.coordinates.len(), layout.order, layout.width())
+    let first = if layout.order >= pse_kernels::DerivativeOrder::First {
+        mul(2, layout.coordinates.len())?
+    } else { 0 };
+    let products = layout.pairs.iter().try_fold(add(1, first)?, |n, &(i,j)| {
+        add(n, if i == j { 3 } else { 4 })
+    })?;
+    expansion_with_products(c, layout.order, layout.width(), products)
 }
 fn expansion_for(
     c: OperationCount,
@@ -47,7 +53,15 @@ fn expansion_for(
     order: pse_kernels::DerivativeOrder,
     w: usize,
 ) -> Result<usize, MathError> {
-    let convolution = products_for(n, order)?
+    expansion_with_products(c, order, w, products_for(n, order)?)
+}
+fn expansion_with_products(
+    c: OperationCount,
+    order: pse_kernels::DerivativeOrder,
+    w: usize,
+    products: usize,
+) -> Result<usize, MathError> {
+    let convolution = products
         .checked_mul(2)
         .and_then(|v| v.checked_sub(w))
         .ok_or(MathError::Limit("Taylor convolution"))?;

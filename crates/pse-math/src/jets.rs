@@ -106,7 +106,7 @@ impl EvaluationLimits {
 pub struct JetLayout {
     pub(crate) coordinates: Vec<usize>,
     pub(crate) shape: Vec<Vec<usize>>,
-    pub(crate) pairs: Vec<(usize, usize)>,
+    pub(crate) pairs: Arc<Vec<(usize, usize)>>,
     pub(crate) order: DerivativeOrder,
 }
 impl JetLayout {
@@ -116,43 +116,43 @@ impl JetLayout {
         order: DerivativeOrder,
         limits: EvaluationLimits,
     ) -> Result<Self, MathError> {
+        let pairs = if order >= DerivativeOrder::Second {
+            (0..coordinates.len())
+                .flat_map(|i| (i..coordinates.len()).map(move |j| (i, j)))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        Self::with_pairs(coordinates, order, pairs, limits)
+    }
+    /// Construct an ancestor-closed shape containing only consumed symmetric pairs.
+    /// All first ancestors are retained, including axes whose second support is empty.
+    pub(crate) fn with_pairs(
+        coordinates: Vec<usize>,
+        order: DerivativeOrder,
+        pairs: Vec<(usize, usize)>,
+        limits: EvaluationLimits,
+    ) -> Result<Self, MathError> {
         limits.check()?;
         let n = coordinates.len();
-        if coordinates
-            .iter()
-            .collect::<std::collections::BTreeSet<_>>()
-            .len()
-            != n
-        {
-            return Err(MathError::Contract(
-                "duplicate derivative coordinates".into(),
-            ));
+        if coordinates.iter().collect::<std::collections::BTreeSet<_>>().len() != n {
+            return Err(MathError::Contract("duplicate derivative coordinates".into()));
         }
-        let first = if order >= DerivativeOrder::First {
-            n
-        } else {
-            0
-        };
-        let second = if order >= DerivativeOrder::Second {
-            n.checked_mul(n + 1).map(|k| k / 2)
-        } else {
-            Some(0)
-        };
-        let count = second
-            .and_then(|s| s.checked_add(first))
-            .and_then(|s| s.checked_add(1))
+        if pairs.iter().any(|&(i, j)| i > j || j >= n)
+            || pairs.windows(2).any(|pair| pair[0] >= pair[1])
+            || (order < DerivativeOrder::Second && !pairs.is_empty())
+        {
+            return Err(MathError::Contract("ordered Taylor subset pairs".into()));
+        }
+        let first = if order >= DerivativeOrder::First { n } else { 0 };
+        let count = pairs.len().checked_add(first).and_then(|n| n.checked_add(1))
             .ok_or(MathError::Limit("derivative components"))?;
         if count > limits.derivative_components {
             return Err(MathError::Limit("derivative components"));
         }
-        // Shape metadata is bounded as well as the numeric frame.
-        limits.allocation(
-            count
-                .checked_mul(n.max(1))
-                .ok_or(MathError::Limit("derivative shape"))?,
-        )?;
+        limits.allocation(count.checked_mul(n.max(1))
+            .ok_or(MathError::Limit("derivative shape"))?)?;
         let mut shape = vec![vec![0; n]];
-        let mut pairs = vec![];
         if order >= DerivativeOrder::First {
             for i in 0..n {
                 let mut term = vec![0; n];
@@ -160,23 +160,13 @@ impl JetLayout {
                 shape.push(term);
             }
         }
-        if order >= DerivativeOrder::Second {
-            for i in 0..n {
-                for j in i..n {
-                    let mut term = vec![0; n];
-                    term[i] += 1;
-                    term[j] += 1;
-                    shape.push(term);
-                    pairs.push((i, j));
-                }
-            }
+        for &(i, j) in &pairs {
+            let mut term = vec![0; n];
+            term[i] += 1;
+            term[j] += 1;
+            shape.push(term);
         }
-        Ok(Self {
-            coordinates,
-            shape,
-            pairs,
-            order,
-        })
+        Ok(Self { coordinates, shape, pairs: Arc::new(pairs), order })
     }
     /// Number of coefficients carried by each scalar.
     pub fn width(&self) -> usize {
