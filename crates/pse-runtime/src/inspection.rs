@@ -436,12 +436,14 @@ fn document(
                 .unwrap_or(&duration.name);
             let stem = name
                 .strip_suffix(".wall")
-                .or_else(|| name.strip_suffix(".nanoseconds"));
+                .or_else(|| name.strip_suffix(".nanoseconds"))
+                .or_else(|| name.strip_suffix(".elapsed_nanoseconds"));
             if let Some(stem) = stem
                 && let Some(calls) = snapshot
                     .metrics
                     .iter()
-                    .find(|metric| metric.producer == duration.producer && (metric.name == format!("{stem}.calls") || metric.name == format!("{stem}.completed_calls")))
+                    .find(|metric| metric.producer == duration.producer && metric.name == format!("{stem}.completed_calls"))
+                    .or_else(|| snapshot.metrics.iter().find(|metric| metric.producer == duration.producer && metric.name == format!("{stem}.calls")))
                 && let Some(statement) =
                     pse_diagnostics::inspection::seconds_per_call(snapshot, duration, calls)
             {

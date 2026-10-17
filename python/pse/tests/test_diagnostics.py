@@ -20,6 +20,8 @@ from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
+    DetailRequest,
+    SolveControls,
     CheckpointIdentity,
     ClosedDuration,
     DiagnosticListRequest,
@@ -111,7 +113,7 @@ def observed_runtime(
     return runtime, observations, reader
 
 
-def diagnostic_native_solve(runtime: pse.Runtime) -> pse.RunHandle:
+def diagnostic_native_solve(runtime: pse.Runtime, *, history: int = 256) -> pse.RunHandle:
     physical = runtime.physical_from_documents(physical_documents())
     package = runtime.modeling_from_documents(
         [
@@ -131,6 +133,7 @@ def diagnostic_native_solve(runtime: pse.Runtime) -> pse.RunHandle:
             intent=NativeSolveIntent.ROOT,
             backend=NativeBackend.KINSOL,
             presolve=PresolvePolicyKind.OFF,
+            controls=SolveControls(history=history),
         ),
     ).start()
 
@@ -388,7 +391,7 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
     assert document.operation is not None
     locator = ProcessLocator(pid=(1 << 32) - 1, start_ticks=77, executable=None)
     image = ProcessCheckpoint(
-        version=3,
+        version=4,
         process="0000000000000001-0000000000000002",
         sequence=1,
         published_unix_micros=1,
@@ -650,3 +653,46 @@ def test_diagnostic_cli_refuses_unbounded_requests(arguments: list[str]) -> None
     with pytest.raises(SystemExit) as error:
         diagnostics.main(arguments)
     assert error.value.code == 2
+
+
+@pytest.mark.unit
+def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
+    inspection_settings: pse.EngineSettings, tmp_path: Path,
+) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        request = DetailRequest(
+            families=["root_evaluation.v1", "native_owner_return.v1"],
+            requirement="complete", sample_every=1, boundary_thread_cpu=True,
+            duration=ClosedDuration(secs=30, nanos=0), output=str(tmp_path / "selected"),
+            budget=CaptureBudget(memory_bytes=16 << 20, output_bytes=16 << 20),
+        )
+        with runtime.observations().collect(request) as selected:
+            handle = diagnostic_native_solve(runtime, history=0)
+            result = handle.wait()
+            assert result.usable
+            assert not handle.progress()[0]
+            checkpoint = handle.current_progress()
+            assert checkpoint.current is not None
+            assert checkpoint.current_is_latest
+            assert checkpoint.current.source is not None
+            assert checkpoint.current.source.sequence == checkpoint.highest_issued_sequence
+            assert checkpoint.current.sequence is None
+            invocation = result.invocation_evidence
+            assert invocation.timing_unavailable is None
+            endpoints = invocation.endpoints
+            assert endpoints.qualification_seconds is not None
+            assert endpoints.terminal_seconds is not None
+            assert endpoints.response_ready_seconds is not None
+            assert endpoints.qualification_seconds <= endpoints.terminal_seconds <= endpoints.response_ready_seconds
+        document = selected.snapshot()
+        assert document.outcome == "complete"
+        assert not document.source_partial
+        assert all(family.acknowledged == family.observed > 0 for family in document.families)
+        assert diagnostics.read_detail(document.records).readable_prefix_bytes == document.readable_prefix_bytes
+        page = diagnostics.detail_records(document.records)
+        assert {record.family for record in page.records} == set(request.families)
+        assert all(record.family_sequence is not None for record in page.records)
+        assert all(record.observed_at is not None for record in page.records)
+    finally:
+        runtime.close()

@@ -173,15 +173,15 @@ fn poisoned_optional_tap_cannot_unwind_into_scientific_work() {
         let operation = hub.start("optional_tap_failure.control");
         let context = operation.context().with_record_tap(Arc::new(PoisonedTap::new(fail_selection, fail_description)));
         let producer = context.producer(ProducerRole::NativeIteration, "native iteration");
-        let science = (|| -> Result<i64, &'static str> {
+        let scientific_work = || -> Result<i64, &'static str> {
             assert!(!producer.thread_cpu_requested());
             assert!(producer.reserve_owner_bytes(usize::MAX).is_none());
             if fail_selection { assert!(!producer.detail_selected("native_iteration.v1")); }
             let event = record(&producer, "native_iteration.v1", 3);
             assert!(producer.publish(&event), "ordinary record retention remains independent");
             Ok(42)
-        })();
-        assert_eq!(science, Ok(42));
+        };
+        assert_eq!(scientific_work(), Ok(42));
         let snapshot = operation.reader().snapshot(WINDOW);
         assert_eq!(snapshot.producers[0].current.as_ref().unwrap().values[0].value, Value::Integer(3));
         assert!(snapshot.coverage.dropped_updates >= 1);
@@ -257,4 +257,28 @@ fn refused_or_detached_ordinary_child_keeps_real_clock_and_separate_selected_adm
         else { assert!(detach_hub); }
         drop(reservation);
     }
+}
+
+#[test]
+fn temporary_gauge_unavailability_does_not_erase_its_population_kind() {
+    let (hub, _) = setup(Policy::default());
+    let operation = hub.start("temporary_absence.control");
+    let producer = operation.context().producer(ProducerRole::OriginalOracle, "oracle");
+    let context = producer.context();
+    context.gauge("retained_gauge", "calls", 1.5);
+    context.unavailable("retained_gauge", "trial did not supply this checkpoint");
+    context.count("retained_gauge", "calls", 9);
+    producer.fact("retained_gauge", "calls", FactKind::Counter).count(10);
+    let absent = operation.reader().snapshot(WINDOW);
+    let unchanged = metric(&absent, "retained_gauge");
+    assert!(matches!(unchanged.latest, Value::Unavailable(_)));
+    assert!(matches!(unchanged.cumulative, Value::Unavailable(_)));
+    assert!(unchanged.counter_window.is_none());
+    context.gauge("retained_gauge", "calls", 2.5);
+    context.unavailable("initial_unknown", "not activated yet");
+    producer.fact("initial_unknown", "calls", FactKind::Counter).count(1);
+    let restored = operation.reader().snapshot(WINDOW);
+    assert_eq!(metric(&restored, "retained_gauge").latest, Value::Number(2.5));
+    assert_eq!(metric(&restored, "initial_unknown").cumulative, Value::Count(1),
+        "initial absence never invents a population kind");
 }

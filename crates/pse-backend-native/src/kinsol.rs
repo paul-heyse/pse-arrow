@@ -3208,7 +3208,7 @@ mod tests {
             let report = solve_fault(&mut session, 1.0);
             assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
             assert_eq!(report.evidence.work.evaluations, Some(2));
-            let checkpoint = report.events.iter().find(|event| event.source.as_ref().is_some_and(|source| source.family == "root_evaluation")).unwrap();
+            let checkpoint = report.events.iter().find(|event| event.source.as_ref().is_some_and(|source| source.family == "root_evaluation.v1")).unwrap();
             assert_eq!(checkpoint.values["output_role"], Metric::Text("equation_residual".into()));
             assert!(checkpoint.values.contains_key("scalar.0.residual"));
             assert!(!checkpoint.values.contains_key("iteration"));

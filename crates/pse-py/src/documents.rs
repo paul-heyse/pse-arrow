@@ -131,6 +131,12 @@ impl DocumentType for pse_runtime::capture::CaptureRequest {
 impl DocumentType for pse_runtime::capture::CaptureDocument {
     const NAME: &'static str = "CaptureDocument";
 }
+impl DocumentType for pse_runtime::capture::DetailRequest { const NAME: &'static str = "DetailRequest"; }
+impl DocumentType for pse_runtime::capture::DetailDocument { const NAME: &'static str = "DetailDocument"; }
+impl DocumentType for pse_runtime::capture::DetailRecordPage { const NAME: &'static str = "DetailRecordPage"; }
+impl DocumentType for pse_runtime::invocation::InvocationEvidenceDocument { const NAME: &'static str = "InvocationEvidenceDocument"; }
+impl DocumentType for pse_runtime::workflow::ProgressCheckpointDocument { const NAME: &'static str = "ProgressCheckpointDocument"; }
+impl DocumentType for pse_runtime::workflow::ManagedStudyDiagnosticsDocument { const NAME: &'static str = "ManagedStudyDiagnosticsDocument"; }
 impl<T: DocumentType> DocumentType for std::sync::Arc<T> {
     const NAME: &'static str = T::NAME;
 }

@@ -384,6 +384,7 @@ impl NativeAttempt {
     fn metrics(&self) -> ProgressEvent {
         documents::DocumentValue(native::ProgressEventDocument::from(
             pse_backend_native::solve::Event {
+                source: None,
                 phase: "final".into(),
                 elapsed: Duration::ZERO,
                 values: self.inner.metrics.clone(),

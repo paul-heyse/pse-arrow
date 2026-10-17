@@ -55,7 +55,7 @@ pub use durable::{
 };
 mod progress_documents;
 pub use progress_documents::{
-    IncumbentDocument, ProgressCoverage, ProgressEventDocument, ProgressMetricDocument,
+    IncumbentDocument, ProgressCheckpointDocument, ProgressCoverage, ProgressEventDocument, ProgressMetricDocument,
     ProgressWriteStage, ProgressWriterFailure, ProgressWriterOutcome,
 };
 mod progress;

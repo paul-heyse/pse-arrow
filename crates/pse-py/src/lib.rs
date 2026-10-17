@@ -66,9 +66,9 @@ mod _native {
     use super::{
         build_info, compiled_features,
         diagnostics::{
-            NativeCaptureSession, NativeDiagnostics, NativeOperationObservations,
+            NativeCaptureSession, NativeDetailSession, NativeDiagnostics, NativeOperationObservations,
             diagnostic_capture, diagnostic_inspect, diagnostic_inspect_image, diagnostic_list,
-            diagnostic_operation_id, diagnostic_operation_text, diagnostic_read_checkpoint,
+            diagnostic_operation_id, diagnostic_operation_text, diagnostic_read_checkpoint, diagnostic_read_detail, diagnostic_detail_records,
         },
         identities::{
             content_hash_from_prefixed, content_hash_to_prefixed, semantic_id_from_hex,

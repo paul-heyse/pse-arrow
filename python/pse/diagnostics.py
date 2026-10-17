@@ -28,6 +28,9 @@ from pse._build import (
     _diagnostic_operation_text,
     _diagnostic_read_checkpoint,
     _NativeCaptureSession,
+    _NativeDetailSession,
+    _diagnostic_read_detail,
+    _diagnostic_detail_records,
     _NativeDiagnostics,
     _NativeOperationObservations,
 )
@@ -35,6 +38,9 @@ from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
+    DetailRequest,
+    DetailDocument,
+    DetailRecordPage,
     CheckpointIdentity,
     ClosedDuration,
     DiagnosticListRequest,
@@ -97,6 +103,11 @@ class Diagnostics:
         """Read the Rust-owned interpretation without invoking occupied owners."""
         return self._handle.inspect(request)
 
+    def collect(self, request: DetailRequest) -> DetailedCollection:
+        """Select finite detail before constructing work inside the returned context."""
+        return DetailedCollection(self._handle.collect(request))
+
+
 
 @attrs.frozen
 class CaptureSession:
@@ -132,6 +143,58 @@ class CaptureSession:
     ) -> None:
         """Stop and join this capture when its context exits."""
         self.stop()
+
+
+@attrs.frozen
+class DetailedCollection:
+    """Own a finite source collector; scientific work and cancellation stay separate.
+
+    The entered construction scope is synchronous. Call ``leave()`` after starting
+    work and before yielding or awaiting; constructed native/async owners retain
+    their selected context until this collection finishes.
+    """
+
+    _handle: _NativeDetailSession
+
+    def snapshot(self) -> DetailDocument:
+        """Read coverage independently from scientific completion."""
+        return self._handle.snapshot()
+
+    def finish(self) -> DetailDocument:
+        """End the caller-owned interval and join only its writer."""
+        return self._handle.finish()
+
+    def stop(self) -> DetailDocument:
+        """Stop without asserting complete interval coverage."""
+        return self._handle.stop()
+
+    def leave(self) -> None:
+        """Restore caller scope before an await, retaining this writer and started work."""
+        self._handle.leave()
+
+    def __enter__(self) -> Self:
+        """Propagate the selected context while constructing the actual invocation."""
+        self._handle.enter()
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None,
+                 traceback: TracebackType | None) -> None:
+        """Finish the selected block interval; failures retain incomplete coverage."""
+        if exc_type is None:
+            self.finish()
+        else:
+            self.stop()
+
+
+def read_detail(path: str | Path, *, maximum_bytes: int = 256 << 20) -> DetailDocument:
+    """Read a finite versioned manifest; an unterminated prefix stays incomplete."""
+    return _diagnostic_read_detail(Path(path), maximum_bytes)
+
+
+def detail_records(path: str | Path, *, offset: int = 0, limit: int = 128,
+                   maximum_bytes: int = 16 << 20) -> DetailRecordPage:
+    """Read original coherent records using the returned byte cursor."""
+    return _diagnostic_detail_records(Path(path), offset, limit, maximum_bytes)
 
 
 def operation_id(text: str) -> OperationId:
@@ -260,6 +323,12 @@ def _render_inspection(document: InspectionDocument) -> None:
                 f"history_partial={metric.history_partial} "
                 f"history_dropped={metric.history_dropped}"
             )
+    if document.operation is not None:
+        for producer in document.operation.producers:
+            print(f"producer {producer.descriptor.id.sequence} role={producer.descriptor.role} "
+                  f"coverage={codec.encode_json(producer.coverage).decode()}")
+            if producer.current is not None:
+                print(f"  current={codec.encode_json(producer.current).decode()}")
     for related in document.related:
         print(
             f"related {operation_text(related.id)} kind={related.kind} "
@@ -302,8 +371,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     capturing.add_argument("--memory-bytes", type=_positive, default=16 << 20)
     capturing.add_argument("--output-bytes", type=_positive, default=256 << 20)
     capturing.add_argument("--json", action="store_true")
+    detail = commands.add_parser("read-detail", help="read selected source coverage and original records")
+    detail.add_argument("records", type=Path)
+    detail.add_argument("--offset", type=int, default=0)
+    detail.add_argument("--limit", type=_bounded_count, default=16)
+    detail.add_argument("--maximum-bytes", type=_positive, default=16 << 20)
+    detail.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
+        if args.command == "read-detail":
+            page = detail_records(args.records, offset=args.offset, limit=args.limit,
+                                  maximum_bytes=args.maximum_bytes)
+            print(codec.encode_json(page).decode())
+            return 0
         if args.command == "list":
             page = list_processes(
                 DiagnosticListRequest(after=args.after, limit=args.limit),

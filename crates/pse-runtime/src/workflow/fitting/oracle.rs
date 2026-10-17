@@ -363,6 +363,7 @@ impl FitOracle {
             return Err(ProblemError::numerical("nonfinite fit output or response"));
         }
         self.execution.progress.push(native::solve::Event {
+            source: Some(native::solve::EventSource::new("fitting_trial", None, None).with_role(pse_diagnostics::observation::ProducerRole::Workflow)),
             phase: "fit.evaluation".into(),
             elapsed: self.execution.started.elapsed(),
             values: BTreeMap::from([(

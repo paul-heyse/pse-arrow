@@ -271,3 +271,22 @@ fn a_lost_final_issued_event_prevents_complete_even_without_a_later_gap() {
     assert_eq!(readback.outcome, DetailOutcome::Incomplete);
     assert!(readback.source_partial);
 }
+
+#[test]
+fn selected_mapping_refusal_and_tiny_header_allowance_stay_explicit() {
+    let directory=tempfile::tempdir().unwrap();
+    let hub=ObservationHub::new(Policy::default());
+    let operation=hub.start("science");
+    let session=start_detailed_collection(operation.context(),selection(directory.path().join("mapping"))).unwrap();
+    let producer=session.context().producer(ProducerRole::NativeIteration,"native");
+    producer.publish(&iteration(&producer,1));
+    session.context().record_source_unavailable("iteration.v1");
+    let document=session.finish().unwrap();
+    assert_eq!(document.outcome,DetailOutcome::Incomplete);
+    assert!(document.source_partial);
+    let header_only=directory.path().join("header.jsonl");
+    let mut header=serde_json::to_vec(&Frame::Header(document.request)).unwrap();
+    header.push(b'\n');std::fs::write(&header_only,header).unwrap();
+    assert!(read_detail_records(&header_only,0,1,1).is_err());
+    assert!(read_detail_records(&header_only,0,1,1<<20).unwrap().records.is_empty());
+}

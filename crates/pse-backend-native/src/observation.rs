@@ -110,6 +110,7 @@ pub(crate) fn metrics(phase: &str, values: &std::collections::BTreeMap<String, M
 pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observation::Producer>) {
     use pse_diagnostics::observation::{RecordAvailability, RecordField, Value};
     let (Some(producer), Some(source)) = (producer, event.source.as_mut()) else { return; };
+    if !producer.enabled() { return; }
     fn number(value: f64) -> Value {
         if value.is_nan() { Value::NonFinite(pse_diagnostics::NonFinite::Nan) }
         else if value == f64::INFINITY { Value::NonFinite(pse_diagnostics::NonFinite::PositiveInfinity) }
@@ -153,7 +154,7 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
                 _ => RecordAvailability::Unavailable,
             })),
         };
-        RecordField { name: name.clone(), unit: unit(&source.family, name).into(), value, availability }
+        RecordField { name: name.clone(), unit: unit(source.family.strip_suffix(".v1").unwrap_or(&source.family), name).into(), value, availability }
     }).collect();
     if let Some(incumbent) = &event.incumbent {
         for (name, value, unit) in [

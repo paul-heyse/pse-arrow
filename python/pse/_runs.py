@@ -30,6 +30,9 @@ from pse.contracts.documents import (
     AdviceObservation,
     AnalysisControls,
     AttemptSummary,
+    InvocationEvidenceDocument,
+    ManagedStudyDiagnosticsDocument,
+    ProgressCheckpointDocument,
     Completion,
     CompositionRequest,
     EligibilityDocument,
@@ -369,6 +372,11 @@ class RunResult:
         return self._handle.attempt_summary()
 
     @property
+    def invocation_evidence(self) -> InvocationEvidenceDocument:
+        """Read actual qualification/readiness endpoints and retained attempt evidence."""
+        return self._handle.invocation_evidence()
+
+    @property
     def accuracy_goals(
         self,
     ) -> tuple[RuntimeAccuracyGoalAssessmentsRow, ...]:
@@ -463,6 +471,10 @@ class RunHandle:
         """Retained native events and dropped-event count."""
         return self._handle.progress_count
 
+    def current_progress(self) -> ProgressCheckpointDocument:
+        """Whole current event and independent source coverage, including history zero."""
+        return self._handle.current_progress()
+
 
 @attrs.frozen
 class ProgressStream:
@@ -519,6 +531,10 @@ class StudyHandle:
     """A canonical study: occurrence status and exact retained result handles."""
 
     _handle: _NativeStudyHandle
+
+    def diagnostic_selection(self) -> ManagedStudyDiagnosticsDocument:
+        """Read bounded actual worker references for explicitly selected detail."""
+        return self._handle.diagnostic_selection()
 
     @property
     def study_id(self) -> StudyId:

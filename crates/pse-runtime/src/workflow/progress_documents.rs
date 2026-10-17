@@ -92,9 +92,10 @@ pub(crate) fn bounded_event(event: &Event, maximum: usize) -> bool {
     let Some(mut extent) = 1024usize.checked_add(event.phase.len().saturating_mul(6)) else {
         return false;
     };
-    if extent > maximum {
-        return false;
+    if let Some(source)=&event.source {
+        let Some(next)=source.retained_bytes().checked_mul(6).and_then(|bytes|extent.checked_add(bytes))else{return false;};extent=next;
     }
+    if extent > maximum {return false;}
     for (key, value) in &event.values {
         let text = match value {
             Metric::Text(value) => value.len(),
@@ -192,6 +193,10 @@ impl From<&IncumbentEvent> for IncumbentDocument {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProgressEventDocument {
+    /// Versioned source-coherent progress encoding.
+    pub version: pse_model::document::Version<2>,
+    /// Source-issued identity/family, separate from durable append identity below.
+    pub source: Option<pse_backend_native::solve::EventSource>,
     /// Original native phase or callback name.
     pub phase: String,
     /// Seconds since admitted step execution began.
@@ -215,6 +220,8 @@ impl From<Event> for ProgressEventDocument {
 impl From<&Event> for ProgressEventDocument {
     fn from(event: &Event) -> Self {
         Self {
+            version: pse_model::document::Version,
+            source: event.source.as_ref().filter(|s|s.generation>0 && s.sequence>0).cloned(),
             phase: event.phase.clone(),
             elapsed_seconds: event.elapsed.as_secs_f64(),
             values: event
@@ -228,6 +235,25 @@ impl From<&Event> for ProgressEventDocument {
             at: None,
         }
     }
+}
+
+/// Current source checkpoint and independent issued-event coverage. Reading it never
+/// retains a run's cancellation lease or reconstructs a numerical event from metrics.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressCheckpointDocument {
+    /// Current checkpoint encoding.
+    pub version: pse_model::document::Version<1>,
+    /// Latest whole retained event; absent on no events or read contention.
+    pub current: Option<ProgressEventDocument>,
+    /// Source stream generation, independent from durable append sequence.
+    pub generation: u64,
+    /// Highest sequence issued before the coverage read, including rejected events.
+    pub highest_issued_sequence: u64,
+    /// Actual retention/publication losses known at the coverage read.
+    pub dropped: u64,
+    /// Whether the copied current event matches the independently observed source head.
+    pub current_is_latest: bool,
 }
 
 #[cfg(test)]
@@ -320,6 +346,7 @@ mod boundary_unit {
     #[test]
     fn progress_preserves_exact_counters_and_nonfinite_evidence() {
         let event = Event {
+            source: None,
             phase: "native callback".into(),
             elapsed: std::time::Duration::from_millis(5),
             values: [

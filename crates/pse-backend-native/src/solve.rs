@@ -531,7 +531,7 @@ impl EventSource {
     pub fn new(family: &str, coordinates: Option<&str>, norm: Option<&str>) -> Self {
         Self {
             role: pse_diagnostics::observation::ProducerRole::NativeIteration,
-            family: family.into(), generation: 0, sequence: 0,
+            family: format!("{family}.v1"), generation: 0, sequence: 0,
             coordinates: coordinates.map(str::to_owned), norm: norm.map(str::to_owned),
             producer: None, producer_generation: None, producer_sequence: None, producer_family_sequence:None, observed_at: None,
         }
@@ -655,6 +655,7 @@ pub struct Progress {
     generation: u64,
     sequence: AtomicU64,
     observers: Mutex<ProgressObservers>,
+    context: std::sync::OnceLock<pse_diagnostics::observation::ObservationContext>,
     limit: usize,
     events: Mutex<ProgressState>,
     dropped: AtomicU64,
@@ -662,7 +663,6 @@ pub struct Progress {
 }
 #[derive(Debug)]
 struct ProgressObservers {
-    context: Option<pse_diagnostics::observation::ObservationContext>,
     producers: Vec<(pse_diagnostics::observation::ProducerRole, String, pse_diagnostics::observation::Producer)>,
 }
 #[derive(Debug, Default)]
@@ -704,13 +704,15 @@ impl Metric {
 impl Progress {
     /// Retain a rolling admitted history and the latest bounded checkpoint.
     pub fn new(limit: usize) -> Self {
+        let context=std::sync::OnceLock::new();
+        if let Some(owner)=pse_diagnostics::observation::current(){let _=context.set(owner);}
         Self {
             generation: crate::observation::generation(),
             sequence: AtomicU64::new(0),
             observers: Mutex::new(ProgressObservers {
-                context: pse_diagnostics::observation::current(),
                 producers: Vec::new(),
             }),
+            context,
             limit,
             events: Mutex::new(ProgressState::default()),
             dropped: AtomicU64::new(0),
@@ -739,11 +741,10 @@ impl Progress {
         source.generation = self.generation;
         source.sequence = self.sequence.try_update(Ordering::Relaxed, Ordering::Relaxed,
             |old| Some(old.saturating_add(1))).unwrap_or(u64::MAX).saturating_add(1);
+        let context=self.context.get().cloned().or_else(pse_diagnostics::observation::current);
+        if self.context.get().is_none() && let Some(context)=&context {let _=self.context.set(context.clone());}
         let producer = owner.cloned().or_else(|| self.observers.try_lock().ok().and_then(|mut observers| {
-            if observers.context.is_none() {
-                observers.context = pse_diagnostics::observation::current();
-            }
-            let context = observers.context.clone()?;
+            let context = context.as_ref()?;
             if let Some((_, _, producer)) = observers.producers.iter()
                 .find(|(role, family, _)| *role == source.role && *family == source.family) {
                 return Some(producer.clone());
@@ -753,6 +754,7 @@ impl Progress {
             observers.producers.push((source.role, source.family.clone(), producer.clone()));
             Some(producer)
         }));
+        if producer.is_none() && let Some(context)=context {context.record_source_unavailable(&source.family);}
         crate::observation::event(&mut event, producer.as_ref());
         if let Some(tap) = &self.tap {
             tap.observe(&event);
@@ -814,6 +816,28 @@ impl Progress {
 #[cfg(test)]
 mod progress_contention_tests {
     use super::*;
+    #[derive(Debug,Default)]
+    struct RefusalTap(AtomicU64);
+    impl pse_diagnostics::observation::RecordTap for RefusalTap {
+        fn selected(&self,family:&str)->bool{family=="test_checkpoint.v1"}
+        fn observe(&self,_record:&pse_diagnostics::observation::CoherentRecord){}
+        fn source_unavailable(&self,_family:&str){self.0.fetch_add(1,Ordering::Relaxed);}
+    }
+    #[test]
+    fn source_registration_contention_reports_selected_loss_before_mapping() {
+        let hub=pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation=hub.start("science");
+        let tap=Arc::new(RefusalTap::default());
+        let context=operation.context().with_record_tap(tap.clone());
+        let _entered=context.enter();
+        let progress=Progress::new(0);
+        let held=progress.observers.lock().unwrap();
+        progress.push(Event{source:Some(EventSource::new("test_checkpoint",None,None)),phase:"return".into(),elapsed:Duration::ZERO,values:BTreeMap::new(),incumbent:None});
+        assert_eq!(tap.0.load(Ordering::Relaxed),1);
+        assert_eq!(progress.source_identity().1,1);
+        assert!(progress.current().is_some(),"ordinary current progress survives optional mapping refusal");
+        drop(held);
+    }
     #[test]
     fn history_zero_retains_current_with_independent_issued_and_loss_counts() {
         let progress = Progress::new(0);

@@ -2089,6 +2089,7 @@ impl ModelingSimulation {
                              ratio: f64|
          -> Result<ChargedDynamicAttempt, ProblemError> {
             progress.push(pse_backend_native::solve::Event {
+                source: None,
                 phase: "accuracy.dynamic.comparator".into(),
                 elapsed: started.elapsed(),
                 values: BTreeMap::from([

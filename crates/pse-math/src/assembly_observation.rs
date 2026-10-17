@@ -38,7 +38,12 @@ pub(super) struct CaseObservation {
 impl CaseObservation {
     pub(super) fn new(context: &ObservationContext, assembly: &CaseAssembly) -> Option<Box<Self>> {
         let producer = context.producer(ProducerRole::Evaluator, "case evaluator");
-        let reservation = producer.reserve_owner_bytes(size_of::<Self>())?;
+        let Some(reservation) = producer.reserve_owner_bytes(size_of::<Self>() + 8192) else {
+            for family in ["evaluator_demand_batch.v1","evaluator_demand.v1","evaluator_census.v1"] {
+                context.record_source_unavailable(family);
+            }
+            return None;
+        };
         let facts = std::array::from_fn(|index| producer.fact(COUNTERS[index], "calls", FactKind::Counter));
         let overflow = producer.fact("math.demand.overflowed", "predicate", FactKind::Gauge);
         let census = assembly.census();

@@ -2534,6 +2534,8 @@ mod canonical_connected_results_server_unit {
             .await
             .unwrap();
         let progress = super::super::ProgressEventDocument {
+            version:pse_model::document::Version,
+            source:None,
             phase: "fixture".into(),
             elapsed_seconds: 0.25,
             values: [(

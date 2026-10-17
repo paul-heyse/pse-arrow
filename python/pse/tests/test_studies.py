@@ -17,6 +17,9 @@ import pse
 from pse import codec
 from pse.contracts.documents import (
     BoundaryDiagnostic,
+    CaptureBudget,
+    ClosedDuration,
+    DetailRequest,
     ControllerOperation,
     EvaluatorCompiledScalar,
     EvaluatorInterpreted,
@@ -1385,3 +1388,42 @@ def test_local_study_runs_without_store_and_retains_source_after_package_release
         result = report.result(index)
         assert isinstance(result, pse.RunResult)
         _assert_scalar_root(pa.table(result.table("runtime.solve_variables")), 2.0)
+
+
+@pytest.mark.integration
+@pytest.mark.managed_primary
+def test_managed_selected_detail_retains_actual_worker_owners_and_complete_prefixes(
+    managed_observer_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture, tmp_path: Path,
+) -> None:
+    runtime = canonical_substrate.runtime(managed_observer_settings)
+    package, case = _package(runtime)
+    settings = pse.SolveSettings(backend=NativeBackend.IPOPT,
+        intent=NativeSolveIntent.FEASIBLE_POINT, presolve=PresolvePolicyKind.OFF)
+    local = package.admit_study(study_request(point(case, settings, 7), point(case, settings, 11)))
+    slots = sum(item.policy.attempt_limit for item in local.points)
+    request = DetailRequest(families=["native_owner_return.v1"], requirement="complete",
+        sample_every=1, duration=ClosedDuration(secs=120, nanos=0),
+        output=str(tmp_path / "managed-detail"),
+        budget=CaptureBudget(memory_bytes=16 << 20, output_bytes=16 << 20),
+        managed_budget=CaptureBudget(memory_bytes=slots * (4 << 20), output_bytes=slots * (8 << 20)))
+    with runtime.observations().collect(request) as capture:
+        recorded = runtime.record_study(local)
+        report = runtime.execute_study(recorded)
+        assert report.conclusion.availability == "complete"
+        document = runtime.study(recorded.study_id).diagnostic_selection()
+        assert document.selection is not None
+        assert document.selection.refusal is None
+        assert document.omitted_points == 0
+        assert len(document.references) == 2
+        for reference in document.references:
+            assert reference.state == "captured"
+            assert reference.owner is not None
+            assert reference.owner.pid != os.getpid()
+            assert reference.owner.run == reference.run
+            assert reference.owner.attempt == reference.attempt
+            assert reference.detail is not None
+            assert reference.detail.outcome == "complete"
+            assert not reference.detail.source_partial
+            assert reference.detail.families[0].observed == reference.detail.families[0].acknowledged > 0
+    assert capture.snapshot().outcome == "incomplete", "local absent family cannot establish managed graph completeness"

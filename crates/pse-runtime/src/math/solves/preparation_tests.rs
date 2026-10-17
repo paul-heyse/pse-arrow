@@ -1320,7 +1320,7 @@ fn observation_history_changes_execution_exposure_but_not_native_session_compati
         hash.finish_hash()
     };
     assert_eq!(session(&absent), session(&retained), "passive history is already outside native session compatibility");
-    retained.controls.hessian = native::solve::HessianMode::LimitedMemory;
-    absent.controls.hessian = native::solve::HessianMode::Exact;
+    retained.controls.hessian = HessianMode::LimitedMemory;
+    absent.controls.hessian = HessianMode::Exact;
     assert_ne!(session(&absent), session(&retained), "an actual mathematical method change must remain in compatibility");
 }

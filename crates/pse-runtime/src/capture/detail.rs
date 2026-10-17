@@ -162,20 +162,22 @@ struct Tap {
     source_partial: AtomicBool,
     metadata_dropped: AtomicU64,
     sequences: Mutex<HashMap<(ProducerId,usize),(u64,u64)>>,
+    issued: Mutex<HashMap<(ProducerId,usize),(u64,u64)>>,
     described: Mutex<std::collections::HashSet<ProducerId>>,
     in_flight: AtomicUsize,
     managed_claimed: AtomicBool,
     scope_unavailable: Mutex<Vec<String>>,
     record_bytes: usize,
+    owner_budget: pse_diagnostics::observation::OwnerBudget,
 }
 struct Offer<'a>(&'a Tap);
-impl Drop for Offer<'_> {fn drop(&mut self){self.0.in_flight.fetch_sub(1,Ordering::Release);}}
+impl Drop for Offer<'_> {fn drop(&mut self){self.0.in_flight.fetch_sub(1,Ordering::SeqCst);}}
 impl Tap {
     fn enter(&self)->Option<Offer<'_>> {
-        if self.closed.load(Ordering::Acquire) || Instant::now()>=self.deadline{return None;}
-        self.in_flight.fetch_add(1,Ordering::AcqRel);
+        if self.closed.load(Ordering::SeqCst) || Instant::now()>=self.deadline{return None;}
+        self.in_flight.fetch_add(1,Ordering::SeqCst);
         let guard=Offer(self);
-        if self.closed.load(Ordering::Acquire) || Instant::now()>=self.deadline{drop(guard);return None;}
+        if self.closed.load(Ordering::SeqCst) || Instant::now()>=self.deadline{drop(guard);return None;}
         Some(guard)
     }
     fn describe_selected(&self,producer:&ProducerDescriptor) {
@@ -210,8 +212,24 @@ impl Tap {
     }
 }
 impl RecordTap for Tap {
-    fn thread_cpu(&self)->bool{self.thread_cpu && !self.closed.load(Ordering::Acquire) && Instant::now()<self.deadline}
-    fn selected(&self,family:&str)->bool{!self.closed.load(Ordering::Acquire) && Instant::now()<self.deadline && self.families.iter().any(|f|f.name==family)}
+    fn source_unavailable(&self,_family:&str) {
+        if let Some(_guard)=self.enter(){self.source_partial.store(true,Ordering::Release);}
+    }
+    fn issued(&self,record:&CoherentRecord) {
+        let Some(index)=self.families.iter().position(|f|f.name==record.family)else{return;};
+        let Some(_guard)=self.enter()else{return;};
+        let Some(sequence)=record.family_sequence else{self.source_partial.store(true,Ordering::Release);return;};
+        let Ok(mut issued)=self.issued.try_lock()else{self.source_partial.store(true,Ordering::Release);return;};
+        let key=(record.producer,index);
+        if issued.len()>=256 && !issued.contains_key(&key){self.source_partial.store(true,Ordering::Release);return;}
+        let head=issued.entry(key).or_insert((record.generation,sequence));
+        if head.0!=record.generation{self.source_partial.store(true,Ordering::Release);}
+        head.1=head.1.max(sequence);
+    }
+    fn is_active(&self)->bool{!self.closed.load(Ordering::SeqCst) && Instant::now()<self.deadline}
+    fn reserve_owner_bytes(&self,bytes:usize)->Option<pse_diagnostics::observation::OwnerReservation>{if self.is_active(){self.owner_budget.reserve(bytes)}else{None}}
+    fn thread_cpu(&self)->bool{self.thread_cpu && !self.closed.load(Ordering::SeqCst) && Instant::now()<self.deadline}
+    fn selected(&self,family:&str)->bool{!self.closed.load(Ordering::SeqCst) && Instant::now()<self.deadline && self.families.iter().any(|f|f.name==family)}
     fn describe(&self,producer:&ProducerDescriptor){if let Some(_guard)=self.enter(){self.describe_selected(producer);}}
     fn observe(&self,record:&CoherentRecord){
         let Some(index)=self.families.iter().position(|f|f.name==record.family)else{return;};
@@ -230,7 +248,7 @@ fn monotonic_ns()->Option<u64>{
 /// A second group cannot multiply the original capture allowance.
 pub fn claim_managed_detail_budget()->Option<CaptureBudget>{
     let context=pse_diagnostics::observation::current()?;let tap=(context.record_tap()? as &dyn std::any::Any).downcast_ref::<Tap>()?;
-    if tap.closed.load(Ordering::Acquire){return None;}
+    if tap.closed.load(Ordering::SeqCst){return None;}
     let budget=tap.request.managed_budget.clone()?;
     tap.managed_claimed.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire).ok()?;Some(budget)
 }
@@ -247,7 +265,7 @@ pub fn current_detail_request() -> Option<DetailRequest> {
     let context=pse_diagnostics::observation::current()?;
     let tap=context.record_tap()?;
     let tap=(tap as &dyn std::any::Any).downcast_ref::<Tap>()?;
-    if tap.closed.load(Ordering::Acquire) {return None;}
+    if tap.closed.load(Ordering::SeqCst) {return None;}
     let remaining=tap.deadline.saturating_duration_since(Instant::now());
     if remaining.is_zero() {return None;}
     let mut request=tap.request.clone();request.duration=remaining;Some(request)
@@ -273,7 +291,7 @@ impl DetailSession {
         d.scope_unavailable=self.tap.scope_unavailable.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone(); d
     }
     /// Stop the collector only; this does not cancel science.
-    pub fn request_stop(&self) { self.tap.closed.store(true,Ordering::Release); }
+    pub fn request_stop(&self) { self.tap.closed.store(true,Ordering::SeqCst); }
     /// End an owner-completed interval and join only this writer.
     pub fn finish(mut self) -> Result<DetailDocument,CaptureError> {
         self.finish.store(true,Ordering::Release); self.request_stop(); self.join()?; Ok(self.snapshot())
@@ -306,9 +324,9 @@ pub fn start_detailed_collection(context: ObservationContext, mut request: Detai
     let records=request.output.join("records.jsonl");
     let mut output=OpenOptions::new().write(true).create_new(true).open(&records)?;
     let record_bytes=(request.budget.memory_bytes/32).clamp(4096,65536);
-    let capacity=request.budget.memory_bytes.saturating_sub(8*record_bytes+65536).checked_div(3*record_bytes).unwrap_or(0).clamp(1,512);
+    let capacity=request.budget.memory_bytes.saturating_sub(request.budget.memory_bytes/4+8*record_bytes+65536).checked_div(3*record_bytes).unwrap_or(0).clamp(1,512);
     let (sender,mut receiver)=tokio::sync::mpsc::channel(capacity);
-    let tap=Arc::new(Tap { request:request.clone(), sender, families:request.families.iter().map(|name|Family{name:name.clone(),observed:AtomicU64::new(0),queued:AtomicU64::new(0),acknowledged:AtomicU64::new(0),sampled_out:AtomicU64::new(0),dropped:AtomicU64::new(0)}).collect(), every:request.sample_every,thread_cpu:request.boundary_thread_cpu,deadline:now+request.duration,closed:AtomicBool::new(false),source_partial:AtomicBool::new(false),metadata_dropped:AtomicU64::new(0),sequences:Mutex::new(HashMap::new()),described:Mutex::new(std::collections::HashSet::new()),in_flight:AtomicUsize::new(0),managed_claimed:AtomicBool::new(false),scope_unavailable:Mutex::new(vec![]),record_bytes });
+    let tap=Arc::new(Tap { request:request.clone(), sender, families:request.families.iter().map(|name|Family{name:name.clone(),observed:AtomicU64::new(0),queued:AtomicU64::new(0),acknowledged:AtomicU64::new(0),sampled_out:AtomicU64::new(0),dropped:AtomicU64::new(0)}).collect(), every:request.sample_every,thread_cpu:request.boundary_thread_cpu,deadline:now+request.duration,closed:AtomicBool::new(false),source_partial:AtomicBool::new(false),metadata_dropped:AtomicU64::new(0),sequences:Mutex::new(HashMap::new()),issued:Mutex::new(HashMap::new()),described:Mutex::new(std::collections::HashSet::new()),in_flight:AtomicUsize::new(0),managed_claimed:AtomicBool::new(false),scope_unavailable:Mutex::new(vec![]),owner_budget:pse_diagnostics::observation::OwnerBudget::new(request.budget.memory_bytes/4),record_bytes });
     let state=Arc::new(Mutex::new(DetailDocument { version:pse_model::document::Version,request:request.clone(),outcome:DetailOutcome::Active,end:None,clock_scope:"source operation process clocks; selected offer interval begins at acknowledged construction".into(),records,readable_prefix_bytes:0,families:vec![],source_partial:false,metadata_dropped:0,scope_unavailable:vec![],error:None }));
     let finish=Arc::new(AtomicBool::new(false));
     let writer_tap=Arc::clone(&tap); let writer_state=Arc::clone(&state); let writer_finish=Arc::clone(&finish);
@@ -321,8 +339,8 @@ pub fn start_detailed_collection(context: ObservationContext, mut request: Detai
         };
         let mut error=write_frame(&Frame::Header(request.clone()),&mut output,&mut prefix).err();
         loop {
-            if error.is_some() {writer_tap.closed.store(true,Ordering::Release);while writer_tap.in_flight.load(Ordering::Acquire)!=0{std::thread::sleep(Duration::from_millis(1));}break;}
-            if Instant::now()>=writer_tap.deadline { writer_tap.closed.store(true,Ordering::Release); }
+            if error.is_some() {writer_tap.closed.store(true,Ordering::SeqCst);while writer_tap.in_flight.load(Ordering::SeqCst)!=0{std::thread::sleep(Duration::from_millis(1));}break;}
+            if Instant::now()>=writer_tap.deadline { writer_tap.closed.store(true,Ordering::SeqCst); }
             match receiver.try_recv() {
                 Ok(frame)=>{
                     error=write_frame(&frame,&mut output,&mut prefix).err();
@@ -330,13 +348,21 @@ pub fn start_detailed_collection(context: ObservationContext, mut request: Detai
                     writer_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).readable_prefix_bytes=prefix;
                 },
                 Err(tokio::sync::mpsc::error::TryRecvError::Empty)=>{
-                    if writer_tap.closed.load(Ordering::Acquire) && writer_tap.in_flight.load(Ordering::Acquire)==0 {receiver.close();if receiver.is_empty(){break;}continue;}
+                    if writer_tap.closed.load(Ordering::SeqCst) && writer_tap.in_flight.load(Ordering::SeqCst)==0 {receiver.close();if receiver.is_empty(){break;}continue;}
                     std::thread::sleep(Duration::from_millis(5));
                 },
                 Err(tokio::sync::mpsc::error::TryRecvError::Disconnected)=>break,
             }
         }
-        writer_tap.closed.store(true,Ordering::Release); receiver.close();
+        writer_tap.closed.store(true,Ordering::SeqCst); receiver.close();
+        // Admission and active-offer counting use one sequentially consistent order:
+        // no entrant can pass its second closed check after this drain has observed zero.
+        let issued=writer_tap.issued.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let observed=writer_tap.sequences.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if issued.len()!=observed.len() || issued.iter().any(|(key,head)|observed.get(key)!=Some(head)) {
+            writer_tap.source_partial.store(true,Ordering::Release);
+        }
+        drop(observed);drop(issued);
         let mut d=writer_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         d.readable_prefix_bytes=prefix; d.families=writer_tap.families.iter().map(Family::snapshot).collect(); d.source_partial=writer_tap.source_partial.load(Ordering::Acquire); d.metadata_dropped=writer_tap.metadata_dropped.load(Ordering::Acquire);d.scope_unavailable=writer_tap.scope_unavailable.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
         d.end=Some(if error.is_some(){DetailEnd::WriterFailed}else if writer_finish.load(Ordering::Acquire){DetailEnd::OwnerFinished}else if Instant::now()>=writer_tap.deadline{DetailEnd::WindowElapsed}else{DetailEnd::Stopped});
@@ -379,6 +405,7 @@ pub fn read_detail_records(path:&Path,offset:u64,limit:usize,maximum_bytes:u64)-
     if limit==0 || limit>512 || maximum_bytes==0 {return Err(CaptureError::Invalid("detail page needs limit 1..512 and positive read allowance".into()));}
     let mut input=BufReader::new(std::fs::File::open(path)?);
     let mut first=Vec::new(); input.by_ref().take(512*1024+1).read_until(b'\n',&mut first)?;
+    if first.len() as u64>maximum_bytes {return Err(CaptureError::Invalid("detail header exceeds declared read allowance".into()));}
     if first.len()>512*1024 || !first.ends_with(b"\n") || !matches!(serde_json::from_slice::<Frame>(&first).map_err(|e|CaptureError::Invalid(e.to_string()))?,Frame::Header(_)) {return Err(CaptureError::Invalid("detail page has no complete versioned header".into()));}
     if offset!=0 {
         if offset<first.len() as u64 {return Err(CaptureError::Invalid("detail cursor precedes header boundary".into()));}
@@ -399,6 +426,9 @@ pub fn read_detail_records(path:&Path,offset:u64,limit:usize,maximum_bytes:u64)-
     Ok(page)
 }
 
+#[cfg(test)]
+#[path = "detail_acceptance_tests.rs"]
+mod acceptance_tests;
 #[cfg(test)]
 mod tests {
     use super::*;

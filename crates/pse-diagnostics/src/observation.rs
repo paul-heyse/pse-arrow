@@ -1708,6 +1708,7 @@ impl ObservationContext {
                     state.refused = state.refused.saturating_add(1);
                     return;
                 }
+                if !matches!(value,Value::Unavailable(_)) {metric.prepared_kind=Some(FactKind::Gauge);}
                 copy_value(&mut metric.latest, &value);
                 metric.observed_at = at;
                 state.point(&node.policy, index, at, false);

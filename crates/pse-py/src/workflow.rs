@@ -1693,6 +1693,9 @@ impl NativeRunHandle {
             dropped,
         )
     }
+    fn current_progress(&self) -> documents::DocumentValue<native::ProgressCheckpointDocument> {
+        documents::DocumentValue(self.inner.current_progress())
+    }
     #[getter]
     fn progress_count(&self) -> (usize, u64) {
         let (events, dropped) = self.inner.progress();
@@ -1754,6 +1757,10 @@ impl NativeRunResult {
             .attempt_summary()
             .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
+    }
+    /// Joined actual invocation endpoints and existing attempt/work evidence.
+    fn invocation_evidence(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<pse_runtime::invocation::InvocationEvidenceDocument>> {
+        self.inner.invocation_evidence().map(documents::DocumentValue).map_err(|error| errors::diagnostic(py, &error))
     }
     fn fit_profiles(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         let report = self
@@ -1867,6 +1874,10 @@ pub(crate) struct NativeStudyHandle {
 }
 #[pymethods]
 impl NativeStudyHandle {
+    /// Explicit bounded inspection of selected managed diagnostics; no scientific effects.
+    fn diagnostic_selection(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<native::ManagedStudyDiagnosticsDocument>> {
+        blocking(py, &self.owner, self.inner.diagnostic_selection(), || {}).map(documents::DocumentValue)
+    }
     /// The study identity.
     #[getter]
     fn study_id(&self) -> String {

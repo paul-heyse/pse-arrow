@@ -116,3 +116,7 @@ def _check_native_compatibility(package_version: str) -> None:
             "regenerate and run just py-sync"
         )
         raise ImportError(message)
+
+_NativeDetailSession = _native.NativeDetailSession
+_diagnostic_read_detail = _native.diagnostic_read_detail
+_diagnostic_detail_records = _native.diagnostic_detail_records

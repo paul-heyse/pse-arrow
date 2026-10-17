@@ -1300,6 +1300,7 @@ impl ShootingOracle {
         }
         self.execution.check()?;
         self.execution.progress.push(native::solve::Event {
+            source: None,
             phase: "shooting.evaluation".into(),
             elapsed: self.execution.started.elapsed(),
             values: BTreeMap::from([(

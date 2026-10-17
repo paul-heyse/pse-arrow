@@ -3924,6 +3924,7 @@ mod canonical_durable_codec {
         .unwrap();
         attempt.stream.finish().await;
         let event = Event {
+            source: None,
             phase: "uncertain".into(),
             elapsed: Duration::ZERO,
             values: Default::default(),
@@ -4188,6 +4189,7 @@ mod canonical_durable_codec {
                 attempt.start(Arc::new(|| {})).await.unwrap();
             }
             attempt.stream.tap.observe(&Event {
+                source: None,
                 phase: "joined-export".into(),
                 elapsed: Duration::ZERO,
                 values: BTreeMap::from([("counter".into(), Metric::Integer(1))]),
@@ -5383,6 +5385,7 @@ mod canonical_durable_codec {
         // An actual immutable original request already exists. Reusing its
         // operation with different bytes must refuse the optional append.
         let old = super::super::ProgressEventDocument::from(&Event {
+            source: None,
             phase: "prior-original".into(),
             elapsed: Duration::ZERO,
             values: BTreeMap::new(),
@@ -5412,6 +5415,7 @@ mod canonical_durable_codec {
         .unwrap();
         attempt.start(Arc::new(|| {})).await.unwrap();
         attempt.stream.tap.observe(&Event {
+            source: None,
             phase: "counter".into(),
             elapsed: Duration::ZERO,
             values: BTreeMap::from([("counter".into(), Metric::Integer((1_i64 << 53) + 1))]),
@@ -5474,6 +5478,7 @@ mod canonical_durable_codec {
         );
         for index in 0..3 {
             stream.tap.observe(&Event {
+                source: None,
                 phase: "counter".into(),
                 elapsed: Duration::from_millis(index as u64),
                 values: BTreeMap::from([(
@@ -5532,6 +5537,7 @@ mod canonical_durable_codec {
         let producer = std::thread::spawn(move || {
             for index in 0..12 {
                 tap.observe(&Event {
+                    source: None,
                     phase: "counter".into(),
                     elapsed: Duration::from_millis(index),
                     values: BTreeMap::from([(
@@ -5597,6 +5603,7 @@ mod canonical_durable_codec {
             PublicationAcks::new(&operations.pool),
         );
         let event = Event {
+            source: None,
             phase: "counter".into(),
             elapsed: Duration::from_millis(1),
             values: BTreeMap::from([("counter".into(), Metric::Integer((1_i64 << 53) + 17))]),
@@ -5755,6 +5762,7 @@ mod ordinary_progress_tests {
     }
     fn event() -> Event {
         Event {
+            source: None,
             phase: "counter".into(),
             elapsed: Duration::ZERO,
             values: [("counter".into(), Metric::Integer((1_i64 << 53) + 7))].into(),

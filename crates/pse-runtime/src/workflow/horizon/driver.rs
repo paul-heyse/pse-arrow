@@ -2419,6 +2419,7 @@ fn event(k: usize, step: &HorizonStep, elapsed: Duration) -> Event {
         values.insert(format!("output.{o}"), Metric::Real(*value));
     }
     Event {
+        source: None,
         phase: "horizon.step".to_owned(),
         elapsed,
         values,

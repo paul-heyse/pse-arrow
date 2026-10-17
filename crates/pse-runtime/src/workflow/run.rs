@@ -109,6 +109,18 @@ impl RunHandle {
     pub fn progress(&self) -> (Vec<Event>, u64) {
         self.progress.snapshot()
     }
+    /// Copy the whole current native event even with history zero. The subsequent
+    /// source head/loss read is independent; a racing publication can make it stale.
+    pub fn current_progress(&self) -> super::ProgressCheckpointDocument {
+        let current = self.progress.current().map(super::ProgressEventDocument::from);
+        let (generation, highest_issued_sequence) = self.progress.source_identity();
+        let current_is_latest = current.as_ref().and_then(|event| event.source.as_ref())
+            .is_some_and(|source| source.generation == generation && source.sequence == highest_issued_sequence);
+        super::ProgressCheckpointDocument {
+            version: pse_model::document::Version, current, generation,
+            highest_issued_sequence, dropped: self.progress.dropped_count(), current_is_latest,
+        }
+    }
     /// The run identity, known before any effect: minted when the run starts, or the run
     /// a claimed job's attempts share.
     pub const fn run_id(&self) -> RunId {
@@ -360,8 +372,8 @@ impl RunResult {
     /// Capture completion, then record the attempt's end durably when the run is durable.
     pub(super) async fn finished(self, durable: Option<DurableAttempt>, cancelled: bool) -> Self {
         let _phase = pse_diagnostics::observation::phase("run.completion.and.publication");
-        if let Some(recorder) = &self.invocation { recorder.terminal(); }
         let mut result = self.completed();
+        if let Some(recorder) = &result.invocation { recorder.terminal(); }
         result.invocation_cancelled = cancelled;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.boolean("run.cancel_requested", cancelled);
@@ -388,8 +400,8 @@ impl RunResult {
     /// A durable run that failed before it ran: record why, and publish the failure.
     pub(super) async fn refused(mut self, durable: Option<DurableAttempt>) -> Self {
         self.invocation_cancelled = self.report.as_ref().err().is_some_and(|error| pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()) == Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled));
-        if let Some(recorder) = &self.invocation { recorder.terminal(); }
         self = self.completed();
+        if let Some(recorder) = &self.invocation { recorder.terminal(); }
         if let (Some(attempt), Err(error)) = (durable, &self.report) {
             let error = error.clone();
             let record = attempt.abandon(&error).await;
@@ -1755,6 +1767,23 @@ mod modeling_failure_tests {
 
 #[cfg(test)]
 mod cancellation_tests {
+    #[test]
+    fn current_progress_remains_whole_without_retained_history() {
+        use pse_backend_native::solve::{Event, Metric, Progress};
+        let progress = std::sync::Arc::new(Progress::new(0));
+        progress.push(Event { source:None,phase:"ordinary".into(),elapsed:std::time::Duration::from_secs(3),values:std::collections::BTreeMap::from([("iteration".into(),Metric::Integer(7))]),incumbent:None });
+        let (_sender,receiver) = tokio::sync::watch::channel(None);
+        let handle = super::RunHandle::staged(crate::CancelSource::new(),receiver,progress,pse_model::generated::identities::RunId::from_bytes([1;16]),None,None);
+        assert!(handle.progress().0.is_empty());
+        let checkpoint = handle.current_progress();
+        assert_eq!(checkpoint.highest_issued_sequence,1);
+        assert!(checkpoint.current_is_latest);
+        let current=checkpoint.current.unwrap();
+        assert_eq!(current.phase,"ordinary");
+        assert_eq!(current.elapsed_seconds,3.0);
+        assert!(matches!(current.values["iteration"],super::super::ProgressMetricDocument::Integer(7)));
+        assert!(current.sequence.is_none(),"native source sequence is not a durable append sequence");
+    }
     #[test]
     fn completed_handle_drop_does_not_fabricate_diagnostic_loss() {
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());

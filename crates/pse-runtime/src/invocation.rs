@@ -292,6 +292,7 @@ pub(crate) struct IntegrationObservation {
     producer: Option<pse_diagnostics::observation::Producer>,
     fields: Vec<pse_diagnostics::observation::RecordField>,
     finished: bool,
+    _reservation: Option<pse_diagnostics::observation::OwnerReservation>,
 }
 impl IntegrationObservation {
     pub(crate) fn begin(
@@ -303,6 +304,12 @@ impl IntegrationObservation {
         member: u64,
     ) -> Self {
         use pse_diagnostics::observation::{RecordField, Value};
+        let producer = producer.filter(pse_diagnostics::observation::Producer::enabled);
+        let reservation = producer.as_ref().and_then(|producer|producer.reserve_owner_bytes(4096));
+        if reservation.is_none() {
+            if let Some(producer)=&producer {producer.context().record_source_unavailable("workflow.integration.v1");}
+            return Self { producer:None,fields:Vec::new(),finished:false,_reservation:None };
+        }
         let fields = vec![
             RecordField { name: "purpose".into(), unit: "workflow reason".into(), value: Value::Text(purpose.as_str().into()), availability: None },
             RecordField { name: "member".into(), unit: "experiment or window index".into(), value: Value::Count(member), availability: None },
@@ -310,7 +317,7 @@ impl IntegrationObservation {
             RecordField { name: "adjoint".into(), unit: "requested product".into(), value: Value::Boolean(adjoint), availability: None },
             RecordField { name: "curvature".into(), unit: "requested product".into(), value: Value::Boolean(curvature), availability: None },
         ];
-        let mut observation = Self { producer, fields, finished: false };
+        let mut observation = Self { producer, fields, finished: false, _reservation:reservation };
         observation.publish("started");
         observation
     }

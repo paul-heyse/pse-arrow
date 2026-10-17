@@ -207,6 +207,8 @@ pub trait RecordTap: std::any::Any + Send + Sync + std::fmt::Debug {
     fn reserve_owner_bytes(&self, _bytes:usize)->Option<OwnerReservation>{None}
     /// Observe a source-issued head before lossy publication, including a lost final event.
     fn issued(&self, _record: &CoherentRecord) {}
+    /// A selected source issued work that could not obtain a producer/record mapping.
+    fn source_unavailable(&self, _family: &str) {}
     /// Offer an already-issued source record; losses remain with the selected collector.
     fn observe(&self, record: &CoherentRecord);
     /// Offer bounded producer metadata before its first source record.
@@ -215,6 +217,14 @@ pub trait RecordTap: std::any::Any + Send + Sync + std::fmt::Debug {
     fn offer(&self, record:&CoherentRecord, producer:&ProducerDescriptor) { self.describe(producer); self.observe(record); }
 }
 impl ObservationContext {
+    /// Report source-registration loss before optional producer mapping can fail.
+    pub fn record_source_unavailable(&self, family: &str) {
+        if let Some(tap)=&self.record_tap {
+            let _=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if tap.selected(family) {tap.source_unavailable(family);}
+            }));
+        }
+    }
     /// Actual selected sink for typed owner composition; this grants no scientific authority.
     #[must_use]
     pub fn record_tap(&self) -> Option<&dyn RecordTap> { self.record_tap.as_deref() }
