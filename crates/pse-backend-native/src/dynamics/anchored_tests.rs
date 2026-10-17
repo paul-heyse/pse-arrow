@@ -126,7 +126,7 @@ fn anchored_window_continues_the_horizon() {
             &mut Tank::new(),
             &horizon(method),
             &PARAMETERS,
-            Arc::default(),
+            Cancellation::default(),
         )
         .unwrap();
         assert_eq!(
@@ -141,7 +141,7 @@ fn anchored_window_continues_the_horizon() {
         let mut profile = window.profile(&horizon(method).window(1.0, 2.0, vec![1.0, 2.0]));
         profile.sensitivity = DynamicSensitivity::Forward;
         let parameters = [PARAMETERS[0], PARAMETERS[1], middle.state[0]];
-        let continued = integrate(&mut window, &profile, &parameters, Arc::default()).unwrap();
+        let continued = integrate(&mut window, &profile, &parameters, Cancellation::default()).unwrap();
         assert_eq!(
             continued.termination,
             Termination::Completed,
@@ -172,7 +172,7 @@ fn anchored_window_continues_the_horizon() {
                 &mut Anchored::new(Tank::new(), false).unwrap(),
                 &p,
                 &q,
-                Arc::default(),
+                Cancellation::default(),
             )
             .unwrap();
             r.samples.last().unwrap().outputs.clone()
@@ -199,7 +199,7 @@ fn observed_quadrature_adjoint_matches_differences() {
             &mut Tank::new(),
             &horizon(method),
             &PARAMETERS,
-            Arc::default(),
+            Cancellation::default(),
         )
         .unwrap();
         let mut window = Anchored::new(Tank::new(), true).unwrap();
@@ -218,7 +218,7 @@ fn observed_quadrature_adjoint_matches_differences() {
                 w[(r.samples.len() - 1) * 3 + 2] = 1.0;
                 Ok(w)
             },
-            Arc::default(),
+            Cancellation::default(),
             256 << 20,
         )
         .unwrap();
@@ -245,7 +245,7 @@ fn observed_quadrature_adjoint_matches_differences() {
                     &mut Anchored::new(Tank::new(), true).unwrap(),
                     &profile,
                     &q,
-                    Arc::default(),
+                    Cancellation::default(),
                 )
                 .unwrap();
                 r.samples.last().unwrap().outputs[2]
@@ -486,4 +486,30 @@ fn anchored_layout_is_source_bound_and_retains_its_allocation_without_support_re
     assert_eq!(live.load(Ordering::Acquire), 1);
     drop(reused);
     assert_eq!(live.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn anchored_actions_match_exact_partials_without_materializing_wrapper_matrices() {
+    for observed in [false, true] {
+        let mut oracle = Anchored::new(Tank::new(), observed).unwrap();
+        let state = if observed { vec![1.2, 0.8, 0.3] } else { vec![1.2, 0.8] };
+        let parameters = [0.7, 1.1, 0.9];
+        let direction = (0..state.len() + parameters.len()).map(|i| 0.2 * (i + 1) as f64).collect::<Vec<_>>();
+        for function in [Function::Rhs, Function::Initial, Function::Output] {
+            let reference = oracle.evaluate(0, function, 0.4, &state, &parameters, true).unwrap();
+            let matrix = reference.jacobian.unwrap();
+            let mut expected = vec![0.; matrix.nrows()];
+            for col in 0..matrix.ncols() {
+                for entry in matrix.col_range(col) {
+                    expected[matrix.row_idx()[entry]] += matrix.val()[entry] * direction[col];
+                }
+            }
+            let mut actual = vec![f64::NAN; expected.len()];
+            oracle.jacobian_action(0, function, 0.4, &state, &parameters, &direction, &mut actual).unwrap();
+            for (actual, expected) in actual.iter().zip(&expected) { assert!((actual - expected).abs() < 1e-12); }
+            let old = actual.clone();
+            assert!(oracle.jacobian_action(0, function, 0.4, &state, &parameters, &direction[..1], &mut actual).is_err());
+            assert_eq!(actual, old, "failed action publishes no partial product");
+        }
+    }
 }

@@ -1125,6 +1125,31 @@ impl Oracle for DynamicWorker {
         }
         result
     }
+    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    fn jacobian_action(
+        &mut self, mode: usize, function: Function, time: f64,
+        state: &[f64], parameters: &[f64], direction: &[f64], output: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        self.bind(mode, function, time, state, parameters)?;
+        let chain = &self.layout.chain;
+        let worker = self.functions.get_mut(&(mode, function))
+            .ok_or_else(|| ProblemError::internal("missing compiled dynamic action function"))?;
+        let p = &worker.program;
+        if direction.len() != chain.len() || output.len() != p.rows.len()
+            || direction.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::Contract("dynamic Jacobian action dimensions or direction".into()));
+        }
+        let seed = worker.layout.columns.iter().map(|&axis| direction[axis] * chain[axis]).collect::<Vec<_>>();
+        let mut local = vec![0.; worker.worker.assembly().structure().rows().len()];
+        worker.binding.refill(&self.modes[mode].frame)?;
+        worker.worker.jacobian_product(worker.binding.trial()?, &seed, &mut local)?;
+        let candidate = p.rows.iter().enumerate().map(|(i, &row)| {
+            if p.constants.contains_key(&i) { 0. } else { local[row] * p.scales[i] }
+        }).collect::<Vec<_>>();
+        if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite physical Jacobian action")); }
+        output.copy_from_slice(&candidate);
+        Ok(())
+    }
     /// The compiled case's exact Lagrangian Hessian with the function rows' weights as
     /// multipliers (ADR-0110 item 4): a row's weight carries its value scale, constant
     /// rows carry no curvature, and each entry takes both coordinates' scales, as the
@@ -1225,6 +1250,20 @@ impl Oracle for &mut DynamicWorker {
         derivatives: bool,
     ) -> Result<native::Evaluation, ProblemError> {
         (**self).evaluate(mode, function, time, state, parameters, derivatives)
+    }
+    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    fn jacobian_action(
+        &mut self, mode: usize, function: Function, time: f64,
+        state: &[f64], parameters: &[f64], direction: &[f64], output: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        (**self).jacobian_action(mode, function, time, state, parameters, direction, output)
+    }
+    #[allow(clippy::too_many_arguments, reason = "explicit function, physical point and runtime product bindings have distinct scientific meanings")]
+    fn weighted_hessian_action(
+        &mut self, mode: usize, function: Function, time: f64,
+        state: &[f64], parameters: &[f64], weights: &[f64], direction: &[f64], output: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        (**self).weighted_hessian_action(mode, function, time, state, parameters, weights, direction, output)
     }
     fn weighted_hessian(
         &mut self,

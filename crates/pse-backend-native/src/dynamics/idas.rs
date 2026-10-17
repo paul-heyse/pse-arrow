@@ -170,6 +170,19 @@ impl Context<'_> {
         self.evaluate(Function::Rhs, t, x, true)
             .and_then(|e| e.jacobian)
     }
+    fn rhs_action(&mut self, t: f64, x: &[f64], direction: &[f64]) -> Option<Vec<f64>> {
+        let Self { oracle, parameters, mode, callback, contract, .. } = self;
+        let result = callback.evaluate("idas.residual_action", || {
+            let mut product = vec![0.; contract.states.len()];
+            oracle.jacobian_action(*mode, Function::Rhs, t, x, parameters, direction, &mut product)?;
+            if product.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite IDAS residual action")); }
+            Ok(product)
+        });
+        if result.is_none() && callback.terminal.is_none() && self.trial_policy == TrialPolicy::Terminal {
+            callback.terminal = Some((crate::solve::Termination::Evaluation, "trial failure under terminal policy".into()));
+        }
+        result
+    }
     /// `∇²(Σ weights·f)·d` over the state followed by the contract parameters, from the
     /// oracle's exact weighted Hessian of function `f` (ADR-0110 item 4).
     fn curvature(
@@ -190,16 +203,12 @@ impl Context<'_> {
         } = self;
         let width = c.states.len() + c.parameters.len();
         let value = callback.evaluate("idas.curvature", || {
-            let h = oracle.weighted_hessian(*mode, f, t, x, parameters, weights)?;
-            if h.nrows() != width || h.ncols() != width {
-                return Err(ProblemError::internal("IDAS weighted Hessian dimensions"));
+            let mut product = vec![0.; width];
+            oracle.weighted_hessian_action(*mode, f, t, x, parameters, weights, direction, &mut product)?;
+            if product.iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical("IDAS weighted Hessian action is nonfinite"));
             }
-            if h.val().iter().any(|v| !v.is_finite()) {
-                return Err(ProblemError::numerical(
-                    "IDAS weighted Hessian is nonfinite",
-                ));
-            }
-            symmetric_product(h.as_ref(), direction)
+            Ok(product)
         });
         if value.is_none()
             && callback.terminal.is_none()
@@ -602,22 +611,11 @@ unsafe extern "C" fn jtimes(
         let n = c.contract.states.len();
         // SAFETY: IDAS passes live serial vectors of the `n` states for the callback.
         let x = unsafe { read(y, n) };
-        let Some(j) = c.partials(t, &x) else {
-            return c.failure();
-        };
         // SAFETY: as above.
         let direction = unsafe { read(v, n) };
-        let mut extended = vec![0.0; j.ncols()];
+        let mut extended = vec![0.0; n + c.contract.parameters.len()];
         extended[..n].copy_from_slice(&direction);
-        let mut product = vec![0.0; n];
-        faer::sparse::linalg::matmul::sparse_dense_matmul(
-            faer::MatMut::from_column_major_slice_mut(&mut product, n, 1),
-            faer::Accum::Replace,
-            j.as_ref().as_ref(),
-            faer::MatRef::from_column_major_slice(&extended, extended.len(), 1),
-            1.0,
-            faer::Par::Seq,
-        );
+        let Some(product) = c.rhs_action(t, &x, &extended) else { return c.failure(); };
         let out: Vec<_> = (0..n)
             .map(|i| {
                 let mass = if c.contract.differential[i] { cj } else { 0.0 };

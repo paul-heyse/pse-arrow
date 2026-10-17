@@ -999,3 +999,59 @@ fn checkpoint_spacing_changes_storage_not_the_requested_adjoint_product() {
         assert_eq!(fine.report.samples.len(), coarse.report.samples.len());
     }
 }
+
+#[cfg(feature = "idas")]
+#[test]
+fn idas_curvature_consumes_the_action_product_directly() {
+    #[derive(Debug)]
+    struct ActionOnly { inner: Reactor, actions: usize }
+    impl Oracle for ActionOnly {
+        fn contract(&self) -> &Contract { self.inner.contract() }
+        fn support(&self, mode: usize, f: Function) -> Vec<SupportEntry> { self.inner.support(mode, f) }
+        fn evaluate(&mut self, mode: usize, f: Function, t: f64, x: &[f64], p: &[f64], derivatives: bool) -> Result<Evaluation, ProblemError> {
+            self.inner.evaluate(mode, f, t, x, p, derivatives)
+        }
+        #[allow(clippy::too_many_arguments, reason = "test oracle implements the explicit dynamic action contract")]
+        fn weighted_hessian_action(&mut self, mode: usize, f: Function, t: f64, x: &[f64], p: &[f64], w: &[f64], d: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.actions += 1;
+            self.inner.weighted_hessian_action(mode, f, t, x, p, w, d, out)
+        }
+    }
+    let mut oracle = ActionOnly { inner: Reactor::new(false), actions: 0 };
+    let p = reactor_profile(Method::Idas, DiffsolMethod::Bdf, false, false);
+    let parameters = reactor_parameters(false);
+    let result = hessian(&mut oracle, &p, &parameters, &[0, 1],
+        &mut |report: &Report| Ok(weights(report.samples.len())), Cancellation::default(), 256 << 20).unwrap();
+    assert_eq!(result.report.termination, Termination::Completed, "{:?}", result.report.error);
+    assert!(result.hessian.is_some());
+    assert!(oracle.actions > 0, "native owner must request the product it consumes");
+}
+
+#[test]
+fn backward_sample_jumps_do_not_renew_the_complete_trajectory_cap() {
+    for method in [Method::Diffsol, Method::Idas] {
+        if method == Method::Diffsol && !cfg!(feature = "diffsol")
+            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+        let mut p = reactor_profile(method, DiffsolMethod::Bdf, false, false);
+        p.samples = vec![0., 0.3, 2.];
+        p.sensitivity = DynamicSensitivity::None;
+        let parameters = reactor_parameters(false);
+        let forward = integrate(&mut Reactor::new(false), &p, &parameters, Cancellation::default()).unwrap();
+        assert_eq!(forward.termination, Termination::Completed, "{:?}", forward.error);
+        let steps = forward.statistics[0]["steps"].as_u64()
+            .or_else(|| forward.statistics[0]["number_of_steps"].as_u64()).unwrap() as usize;
+        p.max_steps = steps + 8;
+        p.sensitivity = DynamicSensitivity::Adjoint;
+        // The whole forward mesh is retained in one interpolation interval, so
+        // this control isolates backward effort from checkpoint replay effort.
+        p.adjoint.steps_between_checkpoints = PositiveCount::try_new(10_000).unwrap();
+        p.samples = std::iter::once(0.).chain(std::iter::once(0.3))
+            .chain((1..=600).map(|i| 0.3 + 1.7 * i as f64 / 600.)).collect();
+        *p.samples.last_mut().unwrap() = 2.;
+        let result = adjoint(&mut Reactor::new(false), &p, &parameters);
+        assert_eq!(result.report.completed_time, p.end, "forward coverage remains explicit");
+        assert_eq!(result.report.termination, Termination::StepLimit, "{method:?}: {:?}", result.report.error);
+        assert!(result.gradient.is_none(), "an incomplete reverse product cannot be published");
+        assert!(matches!(result.report.error, Some(ProblemError::Limit { kind: crate::LimitKind::Work, .. })));
+    }
+}

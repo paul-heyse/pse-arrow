@@ -484,6 +484,10 @@ fn dynamics_identity_covers_every_option_field() {
     let mut unsupported = encoded.clone();
     unsupported["version"] = serde_json::json!(encoded["version"].as_u64().unwrap() + 1);
     assert!(serde_json::from_value::<Profile>(unsupported).is_err());
+    assert_eq!(encoded["version"], 2);
+    let mut legacy = encoded.clone();
+    legacy["version"] = serde_json::json!(1);
+    assert!(serde_json::from_value::<Profile>(legacy).is_err(), "per-call legacy effort meaning must be readmitted");
     let mut leaves = Vec::new();
     perturbations(&encoded, &mut vec![], &mut leaves);
     let json = profile_json(&base);
