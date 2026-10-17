@@ -2562,11 +2562,12 @@ mod tests {
             let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
             let operation = hub.start("implicit.ift.singular_stage");
             let _entered = operation.context().enter();
-            assert!(
-                problem
-                    .derivatives(&[0.0], &[0.0], DerivativeOrder::Second, &options, &cancel)
-                    .is_err()
-            );
+            assert!(matches!(
+                problem.derivatives(&[0.0], &[0.0], DerivativeOrder::Second, &options, &cancel),
+                Err(MathError::Domain {
+                    requirement: "implicit derivative residual verification failed", ..
+                })
+            ));
             let snapshot = operation.reader().snapshot(Duration::from_secs(60));
             let count = |name: &str| {
                 snapshot
@@ -2580,12 +2581,17 @@ mod tests {
                 count("implicit.derivatives.extraction.completed"),
                 Some(Value::Count(1))
             );
-            assert_eq!(
-                count("implicit.factor.numeric.failures"),
-                Some(Value::Count(1))
-            );
-            assert_eq!(count("implicit.factor.numeric.completed"), None);
-            assert_eq!(count("implicit.factor.solve.calls"), None);
+            // faer's sparse numeric LU accepts this structurally present zero pivot.
+            // Its factor and backsolve calls return; the authoritative derivative residual
+            // verification then refuses the nonfinite solve. Report those actual stages,
+            // rather than inventing a library factorization error for numerical singularity.
+            assert_eq!(count("implicit.factor.numeric.failures"), None);
+            assert_eq!(count("implicit.factor.numeric.completed"), Some(Value::Count(1)));
+            assert_eq!(count("implicit.derivatives.first_rhs.completed"), Some(Value::Count(1)));
+            assert_eq!(count("implicit.factor.solve.completed"), Some(Value::Count(1)));
+            assert_eq!(count("implicit.derivatives.verification.failures"), Some(Value::Count(1)));
+            assert_eq!(count("implicit.derivatives.verification.completed"), None);
+            assert_eq!(count("implicit.derivatives.second_rhs.calls"), None);
             assert_eq!(count("implicit.derivatives.expansion.calls"), None);
         }
         problem.unknowns[0].lower = 0.;
