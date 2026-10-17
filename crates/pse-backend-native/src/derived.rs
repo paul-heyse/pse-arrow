@@ -1387,7 +1387,7 @@ mod tests {
             )
             .unwrap(),
             spec: spec.clone(),
-            body,
+            bodies: crate::implicit::test_residual_bodies(body),
             unknowns: unknowns.clone(),
             rows: vec![id(21)],
             configuration: Configuration::Fixed(
@@ -1787,7 +1787,7 @@ mod tests {
             )
             .unwrap(),
             spec: spec.clone(),
-            body,
+            bodies: crate::implicit::test_residual_bodies(body),
             unknowns: unknowns.clone(),
             rows: vec![id(21)],
             configuration: Configuration::Fixed(

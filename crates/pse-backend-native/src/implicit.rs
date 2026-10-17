@@ -207,8 +207,8 @@ struct Oracle {
     /// The problem's structural Jacobian support, owned so the session keeps its layout
     /// after the problem is returned.
     pattern: faer::sparse::SymbolicSparseColMat<usize>,
-    inputs: usize,
     parameters: Vec<f64>,
+    jvp_output: Vec<f64>,
     contract: OracleContract,
     cancel: Arc<AtomicBool>,
 }
@@ -230,7 +230,7 @@ impl NleOracle for Oracle {
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         let jet =
             self.problem()?
-                .evaluate(&self.parameters, x, DerivativeOrder::Value, &self.cancel)?;
+                .evaluate_unknown(&self.parameters, x, DerivativeOrder::Value, &self.cancel)?;
         if jet.values.len() != out.len() {
             return Err(ProblemError::internal("implicit residual extent"));
         }
@@ -239,10 +239,10 @@ impl NleOracle for Oracle {
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         let n = self.contract.variables.len();
-        let width = n + self.inputs;
+        let width = n;
         let jet =
             self.problem()?
-                .evaluate(&self.parameters, x, DerivativeOrder::First, &self.cancel)?;
+                .evaluate_unknown(&self.parameters, x, DerivativeOrder::First, &self.cancel)?;
         let pattern = self.pattern.as_ref();
         if jet.jacobian.len() != n * width || out.len() != pattern.compute_nnz() {
             return Err(ProblemError::internal("implicit Jacobian extent"));
@@ -265,16 +265,19 @@ impl NleOracle for Oracle {
         if direction.len() != n || out.len() != n {
             return Err(ProblemError::internal("implicit JVP extent"));
         }
-        let mut values = vec![0.0; self.pattern.compute_nnz()];
-        self.jacobian(x, &mut values)?;
-        out.fill(0.);
-        let pattern = self.pattern.as_ref();
-        for (slot, (i, j)) in (0..n)
-            .flat_map(|j| pattern.row_idx_of_col(j).map(move |i| (i, j)))
-            .enumerate()
-        {
-            out[i] += values[slot] * direction[j];
-        }
+        let jet = self.problem()?.evaluate_unknown(&self.parameters, x, DerivativeOrder::First, &self.cancel)?;
+        if n.checked_mul(n) != Some(jet.jacobian.len()) { return Err(ProblemError::internal("implicit unknown JVP matrix extent")); }
+        crate::tnlp::finite(&jet.jacobian)?;
+        crate::tnlp::finite(direction)?;
+        faer::linalg::matmul::matmul(
+            faer::MatMut::from_column_major_slice_mut(&mut self.jvp_output, n, 1),
+            faer::Accum::Replace,
+            faer::MatRef::from_row_major_slice(&jet.jacobian, n, n),
+            faer::MatRef::from_column_major_slice(direction, n, 1),
+            1., faer::Par::Seq,
+        );
+        crate::tnlp::finite(&self.jvp_output)?;
+        out.copy_from_slice(&self.jvp_output);
         Ok(())
     }
 }
@@ -376,8 +379,8 @@ impl InnerWorker for Kinsol {
             let oracle = Oracle {
                 problem: loan.0.clone(),
                 pattern,
-                inputs: problem.inputs,
                 parameters: parameters.to_vec(),
+                jvp_output: vec![0.; contract.variables.len()],
                 contract,
                 cancel: cancel.flag(),
             };
@@ -442,6 +445,17 @@ impl InnerWorker for Kinsol {
             Ok(point)
         })
     }
+}
+
+#[cfg(test)]
+pub(crate) fn test_residual_bodies(parameter: Arc<pse_math::guarded::CompiledBody>) -> pse_math::implicit::ResidualBodies {
+    let n = parameter.prepared_support().outputs().len();
+    let order = parameter.compiled_order().min(DerivativeOrder::First);
+    let axes = if order >= DerivativeOrder::First { (0..n).collect::<Vec<_>>() } else { Vec::new() };
+    let cancel = Arc::new(AtomicBool::new(false));
+    let support = parameter.prepared_support().incidence(&axes, &cancel).unwrap().at_order(order).unwrap();
+    let unknown = Arc::new(support.compile(Default::default(), Default::default(), &cancel).unwrap());
+    pse_math::implicit::ResidualBodies { unknown, parameter }
 }
 
 #[cfg(test)]
@@ -691,8 +705,8 @@ mod tests {
                 original: Oracle {
                     problem: loan.0.clone(),
                     pattern: problem.pattern().to_owned().unwrap(),
-                    inputs: problem.inputs,
-                    parameters: parameters.to_vec(),
+                        parameters: parameters.to_vec(),
+                    jvp_output: vec![0.; contract.variables.len()],
                     contract,
                     cancel: cancel.flag(),
                 },
@@ -851,7 +865,7 @@ mod tests {
                 shapes: Default::default(),
                 derivative_source: pse_kernels::DerivativeSource::Analytic,
             },
-            body,
+            bodies: test_residual_bodies(body),
             unknowns: unknowns.clone(),
             rows: vec![pse_ids::named_id(id, "residual")],
             configuration,
@@ -1099,7 +1113,7 @@ mod tests {
                 ],
                 vec![pse_ids::named_id(id, "a"), pse_ids::named_id(id, "b")],
                 1,
-                body,
+                test_residual_bodies(body),
                 100,
             )
         }
@@ -1331,7 +1345,7 @@ mod tests {
                 }],
                 vec![pse_ids::named_id(id, "row")],
                 1,
-                body,
+                test_residual_bodies(body),
                 100,
             )
             .unwrap(),
@@ -1405,7 +1419,7 @@ mod tests {
                 }],
                 vec![pse_ids::named_id(id, "row")],
                 1,
-                body,
+                test_residual_bodies(body),
                 100,
             )
             .unwrap(),
