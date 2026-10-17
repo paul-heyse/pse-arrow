@@ -557,6 +557,11 @@ impl DynamicWorker {
         [scratch.seed.as_ptr() as usize, scratch.local.as_ptr() as usize,
             scratch.multipliers.as_ptr() as usize, scratch.physical.as_ptr() as usize]
     }
+    #[cfg(test)]
+    pub(crate) fn action_buffer_sizes(&self, mode: usize, function: Function) -> [usize; 4] {
+        let scratch = &self.functions[&(mode, function)].actions;
+        [scratch.seed.len(), scratch.local.len(), scratch.multipliers.len(), scratch.physical.len()]
+    }
     fn new(
         contract: native::Contract,
         programs: &[FunctionProgram],
@@ -600,7 +605,7 @@ impl DynamicWorker {
                         1 + coordinates.state.len() + coordinates.parameters.len(),
                     ),
                     cache: None,
-                    actions: ActionScratch::new(program, &coordinates),
+                    actions: ActionScratch::new(program, &coordinates)?,
                     #[cfg(test)]
                     evaluations: 0,
                 },
@@ -666,23 +671,28 @@ struct ActionScratch {
     physical: Vec<f64>,
 }
 impl ActionScratch {
-    fn allocation_bound(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Option<usize> {
+    fn extents(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Option<[usize; 4]> {
+        let jacobian = program.case.assembly.has_directional_actions();
+        let hessian = program.case.assembly.has_hessian_actions();
         let columns = program.case.assembly.columns().len();
         let rows = program.case.assembly.structure().rows().len();
         let physical = coordinates.state.len().checked_add(coordinates.parameters.len())?;
-        columns.checked_add(rows.max(columns))?.checked_add(rows)?
-            .checked_add(program.rows.len().max(physical))?
+        Some([
+            if jacobian || hessian { columns } else { 0 },
+            (if jacobian { rows } else { 0 }).max(if hessian { columns } else { 0 }),
+            if hessian { rows } else { 0 },
+            (if jacobian { program.rows.len() } else { 0 }).max(if hessian { physical } else { 0 }),
+        ])
+    }
+    fn allocation_bound(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Option<usize> {
+        Self::extents(program, coordinates)?.into_iter().try_fold(0usize, |n, size| n.checked_add(size))?
             .checked_mul(size_of::<f64>())?.checked_add(size_of::<Self>())
     }
-    fn new(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Self {
-        let columns = program.case.assembly.columns().len();
-        let rows = program.case.assembly.structure().rows().len();
-        Self {
-            seed: vec![0.; columns],
-            local: vec![0.; rows.max(columns)],
-            multipliers: vec![0.; rows],
-            physical: vec![0.; program.rows.len().max(coordinates.state.len() + coordinates.parameters.len())],
-        }
+    fn new(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Result<Self, ProblemError> {
+        let [seed, local, multipliers, physical] = Self::extents(program, coordinates)
+            .ok_or_else(|| ProblemError::memory("dynamic action workspace extent"))?;
+        Ok(Self { seed: vec![0.; seed], local: vec![0.; local],
+            multipliers: vec![0.; multipliers], physical: vec![0.; physical] })
     }
 }
 /// Attempt-owned dense physical values; the semantic index is compiled once.
@@ -1172,6 +1182,9 @@ impl Oracle for DynamicWorker {
         let chain = &self.layout.chain;
         let worker = self.functions.get_mut(&(mode, function))
             .ok_or_else(|| ProblemError::internal("missing compiled dynamic action function"))?;
+        if !worker.worker.assembly().has_directional_actions() {
+            return Err(ProblemError::unsupported("the selected dynamic profile did not prepare Jacobian actions"));
+        }
         let p = &worker.program;
         if direction.len() != chain.len() || output.len() != p.rows.len()
             || direction.iter().any(|v| !v.is_finite()) {
@@ -1205,6 +1218,9 @@ impl Oracle for DynamicWorker {
         let chain = &self.layout.chain;
         let worker = self.functions.get_mut(&(mode, function))
             .ok_or_else(|| ProblemError::internal("missing compiled dynamic Hessian action function"))?;
+        if !worker.worker.assembly().has_hessian_actions() {
+            return Err(ProblemError::unsupported("the selected dynamic profile did not prepare Hessian actions"));
+        }
         let p = &worker.program;
         if weights.len() != p.rows.len() || direction.len() != chain.len() || output.len() != chain.len()
             || weights.iter().chain(direction).any(|v| !v.is_finite()) {

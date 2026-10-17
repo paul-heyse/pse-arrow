@@ -6363,6 +6363,8 @@ mod tests {
         assert_eq!(Arc::strong_count(&prepared.state_allowances), 3);
         assert_eq!(Arc::strong_count(&prepared.output_allowances), 3);
         first.assert_independent_layout(&second);
+        assert_eq!(first.action_buffer_sizes(0, Function::Output), [0; 4],
+            "matrix-only function preparation allocates no action workspace");
         let a = first
             .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
             .unwrap();
@@ -6711,6 +6713,7 @@ mod tests {
             }
         }
         assert!(expected_hessian.iter().any(|v| v.abs() > 1.));
+        assert!(worker.action_buffer_sizes(0, Function::Rhs).into_iter().all(|size| size > 0));
         let buffers = worker.action_buffer_identity(0, Function::Rhs);
         let mut actual_jacobian = vec![f64::NAN; original.values.len()];
         let mut actual_hessian = vec![f64::NAN; axes];
