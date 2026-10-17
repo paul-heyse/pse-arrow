@@ -18,6 +18,7 @@ async fn stage(
     name: &str,
     phases: &phases::Phases,
 ) -> (Duration, Value, ModelingDiagnosticPreparation) {
+    let ((elapsed, mut record, prepared), preparation_counts) = pse_runtime::invocation::counted(async {
     let _audit_stage = audit::stage(name);
     audit::checkpoint();
     let root = package
@@ -28,7 +29,6 @@ async fn stage(
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let before = owner.runtime.math().preparations();
     owner.runtime.reset_observation_peak();
     phases.reset();
     let started = Instant::now();
@@ -84,9 +84,12 @@ async fn stage(
             "retained unchanged arithmetic must not be readmitted"
         );
     }
-    let record = json!({"body_admission_attempts":body_admissions,"stage":name,"outcome":"prepared","seconds":{"analysis":analysis_seconds,"case_resolution":resolution_seconds,"derivative_programs":derivative_seconds,"total":elapsed.as_secs_f64()},"preparations":support::counts(before,owner.runtime.math().preparations()),"compiler_phases":observations,"bodies":product.admitted.bodies.len(),"allocations":{"model":product.model.allocation_identity(),"admitted":product.admitted.allocation_identity(),"math_bodies":body_ids,"plan":case.plan.allocation_identity(),"bindings":case.coefficient_values.allocation_identity(),"attribution":case.occurrences.allocation_identity()},"pool_reserved_bytes":owner.runtime.pool().reserved(),"pool_peak_bytes":owner.runtime.observation_peak_bytes(),"process_peak_rss_bytes":owner.runtime.report().unwrap().process_peak_rss_bytes});
+    let record = json!({"body_admission_attempts":body_admissions,"stage":name,"outcome":"prepared","seconds":{"analysis":analysis_seconds,"case_resolution":resolution_seconds,"derivative_programs":derivative_seconds,"total":elapsed.as_secs_f64()},"compiler_phases":observations,"bodies":product.admitted.bodies.len(),"allocations":{"model":product.model.allocation_identity(),"admitted":product.admitted.allocation_identity(),"math_bodies":body_ids,"plan":case.plan.allocation_identity(),"bindings":case.coefficient_values.allocation_identity(),"attribution":case.occurrences.allocation_identity()},"pool_reserved_bytes":owner.runtime.pool().reserved(),"pool_peak_bytes":owner.runtime.observation_peak_bytes(),"process_peak_rss_bytes":owner.runtime.report().unwrap().process_peak_rss_bytes});
     let mut record = record;
     record["constructions"] = phases.constructions();
+    (elapsed, record, prepared)
+    }).await;
+    record["preparations"] = serde_json::to_value(preparation_counts).unwrap();
     (elapsed, record, prepared)
 }
 async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Duration, Value) {

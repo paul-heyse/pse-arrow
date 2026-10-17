@@ -214,6 +214,7 @@ pub struct RunResult {
     /// Supervisor-owned joined evidence clock; absent when constructed outside a supervised invocation.
     pub(super) invocation: Option<Arc<crate::invocation::Recorder>>,
     pub(super) invocation_cancelled: bool,
+    pub(super) invocation_timing_unavailable: Option<pse_diagnostics::observation::RecordAvailability>,
     pub(super) modeling_continue_independent: bool,
     pub(super) attempt_summary: std::sync::OnceLock<Arc<super::AttemptSummary>>,
     pub(super) modeling_origin: usize,
@@ -264,6 +265,7 @@ impl RunResult {
         Self {
             invocation: crate::invocation::current(),
             invocation_cancelled: false,
+            invocation_timing_unavailable: crate::invocation::current_unavailability(),
             modeling_continue_independent: false,
             attempt_summary: Default::default(),
             result_validation,
@@ -426,6 +428,7 @@ impl RunResult {
             RunDurability::Durable(record) => Some(record.attempt_id) };
         Ok(InvocationEvidenceDocument { version: 1, run_id: self.run_id, attempt_id, operation, family: family.into(),
             clock_scope: "wall seconds from first supervisor poll; pre-dispatch preparation and earlier native execution excluded".into(),
+            timing_unavailable: self.invocation_timing_unavailable,
             canonical_run: self.canonical_run_key().map(str::to_owned), canonical_attempt: self.canonical_attempt_key().map(str::to_owned),
             outcome: if self.invocation_cancelled { InvocationOutcome::Cancelled } else if self.report.is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
             endpoints, intervals, omitted_intervals, preparations,

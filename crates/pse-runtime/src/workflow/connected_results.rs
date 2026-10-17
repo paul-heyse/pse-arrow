@@ -201,6 +201,8 @@ enum TerminalResultSelection<'a> {
 /// A protected terminal attempt, exact relation and requested row coordinates.
 #[derive(Debug)]
 pub struct CanonicalResultReader {
+    /// Related lazy access; it owns no scientific execution or cancellation authority.
+    observation: Option<pse_diagnostics::observation::OperationGuard>,
     runtime: Runtime,
     read: Arc<ResultRead>,
     snapshot: super::ResultSnapshot,
@@ -241,6 +243,7 @@ impl CanonicalResultReader {
     }
     /// Stop unread database work; returned arrays own their decoded buffers.
     pub fn close(&mut self) {
+        if let Some(operation) = self.observation.take() { operation.finish(pse_diagnostics::observation::Outcome::Interrupted); }
         self.cancel.cancel();
         self.pending.clear();
         self.indexes.clear();
@@ -372,6 +375,7 @@ impl CanonicalResultReader {
         }
         self.consumed = true;
         if self.pending.is_empty() && self.exhausted {
+            if let Some(operation) = self.observation.take() { operation.finish(pse_diagnostics::observation::Outcome::Completed); }
             self.metadata_owner = None;
             return Ok(None);
         }
@@ -390,6 +394,7 @@ impl CanonicalResultReader {
             Err(error) => Err(error),
         };
         if outcome.is_err() {
+            if let Some(operation) = self.observation.take() { operation.finish(pse_diagnostics::observation::Outcome::Failed); }
             self.close();
         }
         outcome
@@ -851,9 +856,12 @@ impl Runtime {
         end: u64,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
+        let access = pse_diagnostics::observation::current().map(|parent| parent.child("result.reopen_and_access", pse_diagnostics::observation::Relationship::Continuation));
+        let context = access.as_ref().map(|operation| operation.context());
+        if let Some(context) = &context { context.source_ref("canonical.run", run); context.source_ref("canonical.attempt", attempt); context.text("result.relation", relation); }
         let activity = self.admit_activity()?;
-        activity
-            .scope(async {
+        let result = activity
+            .scope(pse_diagnostics::observation::scope(context, async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 if start > end {
@@ -873,8 +881,12 @@ impl Runtime {
                     extent,
                 )?
                 .await
-            })
-            .await
+            }))
+            .await;
+        match result {
+            Ok(mut reader) => { reader.observation = access; Ok(reader) }
+            Err(error) => { if let Some(access) = access { access.finish(pse_diagnostics::observation::Outcome::Failed); } Err(error) }
+        }
     }
 
     /// Construct the large native selection state before its caller polls it.
@@ -973,6 +985,7 @@ impl Runtime {
         )
         .await?;
         Ok(CanonicalResultReader {
+            observation: None,
             runtime: self.clone(),
             snapshot,
             read,

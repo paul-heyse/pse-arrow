@@ -474,52 +474,55 @@ pub(super) fn measure(
                 let database_setup=started.elapsed();
                 let sources=support::sources(support::SOURCE);
                 phases.reset();
-                let before=owner.runtime.math().preparations();
                 let started=Instant::now();
+                let ((physical,package,definition,recorded_definition),admission_counts)=pse_runtime::invocation::counted(async {
                 let physical=support::physical(&runtime,&owner,&sources).await;
                 let package=runtime.modeling_from_documents(&support::admitted_documents(&owner,&sources.modeling),physical.clone(),&cancel).await.unwrap();
                 let definition=definition(&package,&physical,&values,independent).await;
                 assert!(definition.points.iter().all(|point| point.operation.preparation.compiler.optimization.cores == 1),
                     "reference comparison retains one construction core per occurrence");
                 let recorded_definition = if durable_mode || managed { Some(runtime.record_study(&definition, &cancel).await.unwrap()) } else { None };
+                (physical,package,definition,recorded_definition)
+                }).await;
                 let admission=started.elapsed();
                 drop(setup_stage);
                 let _execution_stage=audit::stage("study_dispatch_execution_and_results");
-                let admission_counts=support::counts(before,owner.runtime.math().preparations());
                 let admission_phases=phases.report(occurrences as u64);
                 let admission_constructions=phases.constructions();
                 // Each adapter begins with source/definition admission complete;
                 // the reference parallel selector has its own declared shared profile.
-                let before=owner.runtime.math().preparations();
                 phases.reset();
                 let started=Instant::now();
                 let mut worker_passes=Vec::new();
-                let (elapsed,submission,submission_counts,worker_counts,result_read_seconds,outcomes,metrics) = if durable_mode {
+                let ((elapsed,submission,submission_counts,worker_counts,result_read_seconds,outcomes,metrics),execution_counts) = pse_runtime::invocation::counted(async { if durable_mode {
                     let start=Instant::now();
-                    let handle=runtime.start_recorded_study(recorded_definition.clone().unwrap(),&cancel).await.unwrap();
+                    let (handle,submission_counts)=pse_runtime::invocation::counted(runtime.start_recorded_study(recorded_definition.clone().unwrap(),&cancel)).await;
+                    let handle=handle.unwrap();
                     let submission=start.elapsed();
-                    let submission_counts=support::counts(before,owner.runtime.math().preparations());
-                    let worker_before=owner.runtime.math().preparations();
+                    let submission_counts=serde_json::to_value(submission_counts).unwrap();
+                    let mut worker_counts=pse_runtime::math::PreparationCounts::default();
                     let mut terminal=false;
                     for _ in 0..256 {
-                        let pass_before=owner.runtime.math().preparations();
                         let start=Instant::now();
-                        let processed=runtime.work_once().await.unwrap();
+                        let (processed,pass_counts)=pse_runtime::invocation::counted(runtime.work_once()).await;
+                        let processed=processed.unwrap();
+                        worker_counts.views+=pass_counts.views; worker_counts.observations+=pass_counts.observations;
+                        worker_counts.rebuilt+=pass_counts.rebuilt; worker_counts.shared+=pass_counts.shared;
                         let seconds=start.elapsed().as_secs_f64();
                         match processed {
                             workflow::Processed::Idle=> {
                                 if handle.status().await.unwrap().state==StudyState::Concluded { terminal=true; break; }
                                 tokio::time::sleep(Duration::from_millis(10)).await;
                             },
-                            workflow::Processed::Ran {record,..}=>worker_passes.push(json!({"seconds":seconds,"outcome":record.attempt.as_ref().unwrap().outcome,"solutions":record.solutions.len(),"preparations":support::counts(pass_before,owner.runtime.math().preparations())})),
-                            workflow::Processed::Maintenance{..}|workflow::Processed::Settled{..}|workflow::Processed::Finalized{..}=>worker_passes.push(json!({"seconds":seconds,"preparations":support::counts(pass_before,owner.runtime.math().preparations())})),
+                            workflow::Processed::Ran {record,..}=>worker_passes.push(json!({"seconds":seconds,"outcome":record.attempt.as_ref().unwrap().outcome,"solutions":record.solutions.len(),"preparations":pass_counts})),
+                            workflow::Processed::Maintenance{..}|workflow::Processed::Settled{..}|workflow::Processed::Finalized{..}=>worker_passes.push(json!({"seconds":seconds,"preparations":pass_counts})),
                         }
                         assert!(worker_passes.len()<=32,"unexpected study retry");
                         if handle.status().await.unwrap().state==StudyState::Concluded { terminal=true; break; }
                     }
                     let elapsed=started.elapsed();
                     assert!(terminal,"study did not conclude during the bounded serial drain");
-                    let worker_counts=support::counts(worker_before,owner.runtime.math().preparations());
+                    let worker_counts=serde_json::to_value(worker_counts).unwrap();
                     let read=Instant::now();
                     let status=handle.status().await.unwrap();
                     assert_eq!(status.state,StudyState::Concluded,"{status:?}");
@@ -559,9 +562,8 @@ pub(super) fn measure(
                     let read=Instant::now();
                     let metrics=ephemeral(&report,&values,&mut numerical,independent,owner.runtime.math());
                     (elapsed,Duration::ZERO,json!({"views":0,"observations":0,"rebuilt":0,"shared":0}),serde_json::to_value(report.preparations).unwrap(),read.elapsed().as_secs_f64(),report.outcomes,metrics)
-                };
-                numerical.preparations(before,owner.runtime.math().preparations());
-                let execution_counts=support::counts(before,owner.runtime.math().preparations());
+                }}).await;
+                numerical.counted_preparations(execution_counts);
                 let execution_phases=phases.report(occurrences as u64);
                 let peak=owner.runtime.observation_peak_bytes();
                 let rss=owner.runtime.report().unwrap().process_peak_rss_bytes;
@@ -597,13 +599,16 @@ pub(super) fn measure(
                 assert_eq!(pool.reserved(), 0, "study allocations survive all runtime owners");
                 (elapsed,record)
             }));
+            let mut record=record;
+            record["invocation_sequence"] = (records.len() as u64).into();
+            record["criterion_membership"] = json!({"status":"unavailable","reason":"Criterion callback does not expose measured-sample membership"});
             timed+=elapsed; records.push(record);
         }
         timed
     }));
     group.finish();
     let maximum = |field: &str| records.iter().filter_map(|r| r[field].as_u64()).max();
-    let record = json!({"id":name,"workload":spec,"iterations":records.len(),"occurrences":occurrences,"threads":threads,"native_threads":1,"runtime_profile":records.first().map(|r|&r["runtime_profile"]),"math_policy":records.first().map(|r|&r["runtime_profile"]["math_policy"]),"pool_limit_bytes":records.first().map(|r|&r["runtime_profile"]["pool_limit_bytes"]),"pool_peak_bytes":maximum("pool_peak_bytes"),"process_peak_rss_bytes":maximum("process_peak_rss_bytes"),"retained_runtime_bytes":maximum("retained_runtime_bytes"),"pool_metric_scope":if managed {"observer pool only; primary pool unobserved"} else {"shared calling-process pool"},"retained_runtime_scope":if managed {"observer pool after connected readers release; external primary and canonical server are unobserved"} else {"shared pool after occurrence reports or connected readers release; excludes external canonical server storage"},"after_case_teardown_bytes":maximum("after_runtime_teardown_bytes"),"after_retained_runtime_teardown_bytes":maximum("after_runtime_teardown_bytes"),"observer_threads":observer_threads,"receiving_profile":records.first().map(|r|&r["receiving_profile"]),"primary_process_peak_rss_bytes":null,"primary_pool_peak_bytes":null,"adapter":if managed {"public managed durable sixteen independent Ipopt occurrences"} else if durable_mode {"standalone durable serial work_once"} else if independent {"explicit ephemeral sixteen independent Ipopt occurrences; dispatch width is the declared threads; admitted automatic blocks retain their component-native reports"} else {"explicit ephemeral eight-point KINSOL continuation"},"cache_state":if managed {"fresh observer runtime and isolated canonical database per iteration; production primary launched and drained per iteration; source/definition admission precedes execution"} else {"fresh shared runtime per iteration; source/definition admission precedes execution"},"timed_scope":if managed {"public package.study production primary admission, canonical submission, external native execution/persistence and complete retained occurrence report; connected result reopening outside timer"} else if durable_mode {"canonical submission, serial work_once passes including per-point persistence and finalization"} else {"local admitted ephemeral study dispatch including preparation, native attempts and original joined reports; Arrow result projection outside timer"},"persistence_scope":if managed {"external primary canonical scientific retention; exact producing run/attempt reopened metrics and variables outside timer"} else if durable_mode {"canonical scientific retention in standalone worker clocks; exact reopened per-point metrics outside timer"} else {"ephemeral original reports and checked owned result tables; no canonical result retention"},"preparation_counter_scope":if managed {"observer process only; external primary preparation counters and native work are unobserved"} else {"calling process shared math owner; durable work_once runs in that same process"}, "phase_scope":if managed {"observer admission, public dispatch and canonical reopening only; external primary phases unobserved"} else {"execution dispatch and post-dispatch table projection or canonical reopening; result reads are separately clocked"}, "rss_scope":if managed {"whole observer process lifetime high-water mark; includes admission and connected reads; excludes primary native work and canonical server"} else {"whole benchmark process lifetime high-water mark; includes setup, tables and native work, excludes canonical server"}, "acceptance":{"distinct_occurrence_results":occurrences,"original_root_checks":"x equals assignment and y equals3, absolute tolerance1e-7", "ordering":if independent {"independent fresh points, exact definition order in outcomes"} else {"original eight-point continuation chain"}},"sampling":"10 flat Criterion samples; smoke runs the same acceptance once without measurement; setup/admission and result projection or reopening outside timer","records":records});
+    let record = json!({"id":name,"workload":spec,"iterations":records.len(),"occurrences":occurrences,"threads":threads,"native_threads":1,"runtime_profile":records.first().map(|r|&r["runtime_profile"]),"math_policy":records.first().map(|r|&r["runtime_profile"]["math_policy"]),"pool_limit_bytes":records.first().map(|r|&r["runtime_profile"]["pool_limit_bytes"]),"pool_peak_bytes":maximum("pool_peak_bytes"),"process_peak_rss_bytes":maximum("process_peak_rss_bytes"),"retained_runtime_bytes":maximum("retained_runtime_bytes"),"pool_metric_scope":if managed {"observer pool only; primary pool unobserved"} else {"shared calling-process pool"},"retained_runtime_scope":if managed {"observer pool after connected readers release; external primary and canonical server are unobserved"} else {"shared pool after occurrence reports or connected readers release; excludes external canonical server storage"},"after_case_teardown_bytes":maximum("after_runtime_teardown_bytes"),"after_retained_runtime_teardown_bytes":maximum("after_runtime_teardown_bytes"),"observer_threads":observer_threads,"receiving_profile":records.first().map(|r|&r["receiving_profile"]),"primary_process_peak_rss_bytes":null,"primary_pool_peak_bytes":null,"adapter":if managed {"public managed durable sixteen independent Ipopt occurrences"} else if durable_mode {"standalone durable serial work_once"} else if independent {"explicit ephemeral sixteen independent Ipopt occurrences; dispatch width is the declared threads; admitted automatic blocks retain their component-native reports"} else {"explicit ephemeral eight-point KINSOL continuation"},"cache_state":if managed {"fresh observer runtime and isolated canonical database per iteration; production primary launched and drained per iteration; source/definition admission precedes execution"} else {"fresh shared runtime per iteration; source/definition admission precedes execution"},"timed_scope":if managed {"public package.study production primary admission, canonical submission, external native execution/persistence and complete retained occurrence report; connected result reopening outside timer"} else if durable_mode {"canonical submission, serial work_once passes including per-point persistence and finalization"} else {"local admitted ephemeral study dispatch including preparation, native attempts and original joined reports; Arrow result projection outside timer"},"persistence_scope":if managed {"external primary canonical scientific retention; exact producing run/attempt reopened metrics and variables outside timer"} else if durable_mode {"canonical scientific retention in standalone worker clocks; exact reopened per-point metrics outside timer"} else {"ephemeral original reports and checked owned result tables; no canonical result retention"},"preparation_counter_scope":if managed {"observer process only; external primary preparation counters and native work are unobserved"} else {"actual task-local calling-operation scope; durable work_once runs in that same process; external worker scopes unobserved"}, "phase_scope":if managed {"observer admission, public dispatch and canonical reopening only; external primary phases unobserved"} else {"execution dispatch and post-dispatch table projection or canonical reopening; result reads are separately clocked"}, "rss_scope":if managed {"whole observer process lifetime high-water mark; includes admission and connected reads; excludes primary native work and canonical server"} else {"whole benchmark process lifetime high-water mark; includes setup, tables and native work, excludes canonical server"}, "acceptance":{"distinct_occurrence_results":occurrences,"original_root_checks":"x equals assignment and y equals3, absolute tolerance1e-7", "ordering":if independent {"independent fresh points, exact definition order in outcomes"} else {"original eight-point continuation chain"}},"sampling":"10 flat Criterion samples; smoke runs the same acceptance once without measurement; setup/admission and result projection or reopening outside timer","records":records});
     std::fs::write(
         output.join(format!("{name}-memory.json")),
         serde_json::to_vec_pretty(&record).unwrap(),

@@ -352,11 +352,10 @@ async fn prepare(
     };
     let cancel = CancelSource::new();
     owner.runtime.reset_observation_peak();
-    let before = owner.runtime.math().preparations();
     phases.reset();
     let mut seconds = serde_json::Map::new();
     let started = Instant::now();
-    let outcome: Result<Value, (&str, WorkflowError)> = async {
+    let (outcome, preparation_counts): (Result<Value, (&str, WorkflowError)>, _) = pse_runtime::invocation::counted(async {
         let mut analysis = package
             .declared_execution(
                 case,
@@ -439,22 +438,16 @@ async fn prepare(
             "columns": plan.columns().len(),
             "rows": plan.structure().rows().len(),
         }))
-    }
+    })
     .await;
     let elapsed = started.elapsed();
-    let after = owner.runtime.math().preparations();
     seconds.insert("total".into(), elapsed.as_secs_f64().into());
     let mut record = json!({
         "experiment": "modeling_preparation",
         "id": workload["id"],
         "stage": stage,
         "compiler_phases": phases.report(1),
-        "preparations": {
-            "views": after.views - before.views,
-            "observations": after.observations - before.observations,
-            "rebuilt": after.rebuilt - before.rebuilt,
-            "shared": after.shared - before.shared,
-        },
+        "preparations": preparation_counts,
         "workload": workload,
         "seconds": seconds,
         "derivative_order": "first",

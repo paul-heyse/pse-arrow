@@ -77,6 +77,8 @@ pub struct InvocationEvidenceDocument {
     pub family: String,
     /// Performing clock boundary; no inferred preparation or native start is included.
     pub clock_scope: String,
+    /// Why performing-clock collection is unavailable; absent means the owner was admitted.
+    pub timing_unavailable: Option<pse_diagnostics::observation::RecordAvailability>,
     /// Exact canonical locators when registration/publication acknowledged them.
     pub canonical_run: Option<String>,
     /// Exact canonical native attempt locator.
@@ -110,12 +112,18 @@ pub(crate) struct Recorder {
     started: Instant,
     operation: Option<OperationId>,
     state: Mutex<State>,
+    _reservation: pse_diagnostics::observation::OwnerReservation,
 }
-tokio::task_local! { static CURRENT: Arc<Recorder>; }
+tokio::task_local! { static CURRENT: (Option<Arc<Recorder>>, Option<pse_diagnostics::observation::RecordAvailability>); }
 impl Recorder {
-    pub(crate) fn new() -> Arc<Self> {
-        Arc::new(Self { started: Instant::now(), operation: pse_diagnostics::observation::current().map(|v| v.id()), state: Mutex::new(State::default()) })
+    pub(crate) fn new() -> Option<Arc<Self>> {
+        let context = pse_diagnostics::observation::current()?;
+        let producer = context.producer(pse_diagnostics::observation::ProducerRole::Workflow, "workflow.invocation");
+        // Live state plus bounded document/serialization copies; literal stage names are bounded below.
+        let reservation = producer.reserve_owner_bytes(size_of::<Self>() + 64 * (3 * size_of::<InvocationInterval>() + 384))?;
+        Some(Arc::new(Self { started: Instant::now(), operation: Some(context.id()), state: Mutex::new(State { intervals: Vec::with_capacity(64), ..State::default() }), _reservation: reservation }))
     }
+    pub(crate) fn operation(&self) -> Option<OperationId> { self.operation }
     fn elapsed(&self) -> f64 { self.started.elapsed().as_secs_f64() }
     fn state(&self) -> std::sync::MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -134,9 +142,16 @@ impl Recorder {
         (self.operation, state.endpoints.clone(), state.intervals.clone(), state.omitted, state.preparations)
     }
 }
-pub(crate) fn current() -> Option<Arc<Recorder>> { CURRENT.try_with(Arc::clone).ok() }
+pub(crate) fn current() -> Option<Arc<Recorder>> { CURRENT.try_with(|scope| scope.0.clone()).ok().flatten() }
+pub(crate) fn current_unavailability() -> Option<pse_diagnostics::observation::RecordAvailability> {
+    CURRENT.try_with(|scope| scope.1).unwrap_or(Some(pse_diagnostics::observation::RecordAvailability::Unavailable))
+}
 pub(crate) async fn scope<T>(work: impl Future<Output = T>) -> T {
-    CURRENT.scope(Recorder::new(), async { crate::math::counted(work).await.0 }).await
+    let recorder = Recorder::new();
+    let unavailable = if recorder.is_some() { None } else { Some(if pse_diagnostics::observation::current().is_some() {
+        pse_diagnostics::observation::RecordAvailability::Refused
+    } else { pse_diagnostics::observation::RecordAvailability::NotRequested }) };
+    CURRENT.scope((recorder, unavailable), async { crate::math::counted(work).await.0 }).await
 }
 /// Count preparation only within the actual operation's task, including nested flights.
 pub async fn counted<T>(work: impl Future<Output = T>) -> (T, PreparationCounts) {
@@ -165,7 +180,7 @@ pub(crate) fn stage(name: &'static str) -> Stage {
     let recorder = current();
     let index = recorder.as_ref().and_then(|recorder| {
         let mut state = recorder.state();
-        if state.intervals.len() == 64 { state.omitted = state.omitted.saturating_add(1); return None; }
+        if name.len() > 128 || state.intervals.len() == 64 { state.omitted = state.omitted.saturating_add(1); return None; }
         let index = state.intervals.len();
         state.intervals.push(InvocationInterval { stage: name.into(), started_seconds: recorder.elapsed(), ended_seconds: None, outcome: None });
         Some(index)
@@ -178,6 +193,10 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn invocation_endpoints_keep_failed_qualification_absent_and_clocks_separate() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("invocation.control");
+        let context = operation.context();
+        let _entered = context.enter();
         scope(async {
             let recorder = current().unwrap();
             let failed = stage("original_qualification");
@@ -200,7 +219,38 @@ mod tests {
         }).await;
     }
     #[tokio::test]
+    async fn unavailable_invocation_timing_does_not_fabricate_zero_endpoints() {
+        scope(async {
+            assert!(current().is_none());
+            assert_eq!(current_unavailability(), Some(pse_diagnostics::observation::RecordAvailability::NotRequested));
+            stage("unobserved").finish(InvocationOutcome::Completed);
+        }).await;
+    }
+    #[test]
+    fn integration_reason_and_products_remain_coherent_across_failed_upgrade() {
+        use pse_diagnostics::observation::{ObservationHub, ProducerRole, Value};
+        let hub = ObservationHub::new(Default::default());
+        let operation = hub.start("integration.control");
+        let context = operation.context();
+        let producer = context.producer(ProducerRole::Workflow, "window.products");
+        IntegrationObservation::begin(Some(producer.clone()), IntegrationPurpose::PrimalTrial, false, false, false, 0).finish(true);
+        IntegrationObservation::begin(Some(producer), IntegrationPurpose::DerivativeUpgrade, true, false, false, 0).finish(false);
+        let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+        let records = &snapshot.producers[0].recent;
+        assert_eq!(records.len(), 4);
+        assert_eq!(records[1].phase, "completed");
+        assert_eq!(records[3].phase, "failed");
+        assert_eq!(records[1].values[0].value, Value::Text("primal_trial".into()));
+        assert_eq!(records[3].values[0].value, Value::Text("derivative_upgrade".into()));
+        assert_eq!(records[3].values[2].value, Value::Boolean(true));
+        assert!(records.windows(2).all(|pair| pair[0].sequence < pair[1].sequence));
+    }
+    #[tokio::test]
     async fn invocation_stage_capacity_and_unfinished_intervals_are_explicit() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("invocation.capacity");
+        let context = operation.context();
+        let _entered = context.enter();
         scope(async {
             for _ in 0..65 { let _unfinished = stage("boundary"); }
             let (_, _, intervals, omitted, _) = current().unwrap().projection();

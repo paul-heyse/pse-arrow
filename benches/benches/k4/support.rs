@@ -100,9 +100,3 @@ pub(super) async fn package(
         .await
         .unwrap()
 }
-pub(super) fn counts(
-    before: pse_runtime::math::PreparationCounts,
-    after: pse_runtime::math::PreparationCounts,
-) -> serde_json::Value {
-    serde_json::json!({"views":after.views-before.views,"observations":after.observations-before.observations,"rebuilt":after.rebuilt-before.rebuilt,"shared":after.shared-before.shared})
-}

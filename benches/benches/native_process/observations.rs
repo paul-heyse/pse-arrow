@@ -95,7 +95,10 @@ impl Observations {
         self.invocations.push(serde_json::to_value(result.invocation_evidence().unwrap()).unwrap());
     }
     pub(super) fn counted_preparations(&mut self, counts: pse_runtime::math::PreparationCounts) {
-        self.preparations(Default::default(), counts);
+        for (name, value) in [("views", counts.views), ("observations", counts.observations), ("rebuilt", counts.rebuilt), ("shared", counts.shared)] {
+            let total = self.preparations.entry(name).or_default();
+            *total = total.checked_add(u64::try_from(value).unwrap()).unwrap();
+        }
     }
 
     pub(super) fn modeling(
@@ -261,27 +264,6 @@ impl Observations {
                 });
         }
     }
-    pub(super) fn preparations(
-        &mut self,
-        before: pse_runtime::math::PreparationCounts,
-        after: pse_runtime::math::PreparationCounts,
-    ) {
-        for (name, before, after) in [
-            ("views", before.views, after.views),
-            ("observations", before.observations, after.observations),
-            ("rebuilt", before.rebuilt, after.rebuilt),
-            ("shared", before.shared, after.shared),
-        ] {
-            let value = u64::try_from(
-                after
-                    .checked_sub(before)
-                    .expect("preparation counters cannot reset within an observed operation"),
-            )
-            .unwrap();
-            let total = self.preparations.entry(name).or_default();
-            *total = total.checked_add(value).unwrap();
-        }
-    }
     pub(super) fn json(&self) -> Value {
         json!({
             "workflow_invocations":self.invocations,
@@ -292,7 +274,7 @@ impl Observations {
             "returned_native_reports":{"scope":"inclusive work of returned native reports only; excludes earlier reports visible only in the strategy; do not add to strategy totals","reports":self.native_reports,"work":self.native.json(),"reused_native_state_reports":self.reused_native_reports,"kinsol_setup_refreshes":self.kinsol_refreshes.json(),"kinsol_initial_setup_reused":self.kinsol_initial_reused.json(),"setup_scope":"actual KINSOL setup metrics; refreshes are not factorization counts"},
             "effective_profiles":{"scope":"identities/backend from actual Started strategy rows","observed":self.profiles.values().collect::<Vec<_>>(),"unknown_observations":self.unknown_profiles},
             "path_probe_breakdown":{"scope":"inclusive successful localized probe observations already included in strategy work; do not add to ledger totals; failed or unexported probe breakdowns are unavailable","probes":self.path_probes,"counts":self.path_work},
-            "preparations":{"scope":"actual operation-local task scope; uninstrumented legacy subsection deltas are explicitly scoped by their record","counts":self.preparations},
+            "preparations":{"scope":"actual operation-local task scope; nested scopes overlap and are not independent work totals","counts":self.preparations},
             "aggregation":"totals span only this record collected result observations; null total means no observations or at least one unknown; known subtotals do not qualify unknown work; scientific attempt evidence overlaps native summaries"
         })
     }

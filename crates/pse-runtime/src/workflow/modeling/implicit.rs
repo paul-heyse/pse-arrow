@@ -1500,7 +1500,7 @@ mod tests {
         assert!(callback.trial_rejections >= callback.regime_crossings);
         use pse_backend_native::solve::Metric;
         assert_eq!(
-            report.metrics["callback.regime_crossings"],
+            report.metrics["callback.native_callback.regime_crossings"],
             Metric::Integer(i64::try_from(callback.regime_crossings).unwrap())
         );
         // Every outer iteration's progress event carries its own crossings.
