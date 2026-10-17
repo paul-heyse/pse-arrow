@@ -19,8 +19,8 @@ from pse.contracts.documents import (
     BoundaryDiagnostic,
     CaptureBudget,
     ClosedDuration,
-    DetailRequest,
     ControllerOperation,
+    DetailRequest,
     EvaluatorCompiledScalar,
     EvaluatorInterpreted,
     ObservationContracts,
@@ -1382,6 +1382,7 @@ def test_local_study_runs_without_store_and_retains_source_after_package_release
     report = local.execute()
     del local
     assert report.count == 2
+    assert report.diagnostic_selection() is None
     assert tuple(report.outcome(index).key for index in range(2)) == (7, 11)
     for index in range(2):
         assert report.outcome(index).scientific.usable
@@ -1394,24 +1395,40 @@ def test_local_study_runs_without_store_and_retains_source_after_package_release
 @pytest.mark.managed_primary
 def test_managed_selected_detail_retains_actual_worker_owners_and_complete_prefixes(
     managed_observer_settings: pse.EngineSettings,
-    canonical_substrate: CanonicalFixture, tmp_path: Path,
+    canonical_substrate: CanonicalFixture,
+    tmp_path: Path,
 ) -> None:
     runtime = canonical_substrate.runtime(managed_observer_settings)
     package, case = _package(runtime)
-    settings = pse.SolveSettings(backend=NativeBackend.IPOPT,
-        intent=NativeSolveIntent.FEASIBLE_POINT, presolve=PresolvePolicyKind.OFF)
-    local = package.admit_study(study_request(point(case, settings, 7), point(case, settings, 11)))
+    settings = pse.SolveSettings(
+        backend=NativeBackend.IPOPT,
+        intent=NativeSolveIntent.FEASIBLE_POINT,
+        presolve=PresolvePolicyKind.OFF,
+    )
+    local = package.admit_study(
+        study_request(point(case, settings, 7), point(case, settings, 11))
+    )
     slots = sum(item.policy.attempt_limit for item in local.points)
-    request = DetailRequest(families=["native_owner_return.v1"], requirement="complete",
-        sample_every=1, duration=ClosedDuration(secs=120, nanos=0),
+    request = DetailRequest(
+        families=("native_owner_return.v1",),
+        requirement="complete",
+        sample_every=1,
+        duration=ClosedDuration(secs=120, nanos=0),
         output=str(tmp_path / "managed-detail"),
         budget=CaptureBudget(memory_bytes=16 << 20, output_bytes=16 << 20),
-        managed_budget=CaptureBudget(memory_bytes=slots * (4 << 20), output_bytes=slots * (8 << 20)))
+        managed_budget=CaptureBudget(
+            memory_bytes=slots * (4 << 20), output_bytes=slots * (8 << 20)
+        ),
+    )
     with runtime.observations().collect(request) as capture:
         recorded = runtime.record_study(local)
         report = runtime.execute_study(recorded)
         assert report.conclusion.availability == "complete"
-        document = runtime.study(recorded.study_id).diagnostic_selection()
+        assert report.count == 2
+        for index in range(report.count):
+            assert report.outcome(index).scientific.usable
+        document = report.diagnostic_selection()
+        assert document is not None
         assert document.selection is not None
         assert document.selection.refusal is None
         assert document.omitted_points == 0
@@ -1425,5 +1442,11 @@ def test_managed_selected_detail_retains_actual_worker_owners_and_complete_prefi
             assert reference.detail is not None
             assert reference.detail.outcome == "complete"
             assert not reference.detail.source_partial
-            assert reference.detail.families[0].observed == reference.detail.families[0].acknowledged > 0
-    assert capture.snapshot().outcome == "incomplete", "local absent family cannot establish managed graph completeness"
+            assert (
+                reference.detail.families[0].observed
+                == reference.detail.families[0].acknowledged
+                > 0
+            )
+    assert capture.snapshot().outcome == "incomplete", (
+        "local absent family cannot establish managed graph completeness"
+    )

@@ -336,7 +336,9 @@ pub fn select_window(
         .detail
         .retain(|event| !empty && event.at >= start && event.at <= end);
     for producer in &mut snapshot.producers {
-        producer.recent.retain(|record| !empty && record.observed_at >= start && record.observed_at <= end);
+        producer
+            .recent
+            .retain(|record| !empty && record.observed_at >= start && record.observed_at <= end);
         producer.coverage.partial |= uncovered_suffix || start < retained_start;
     }
     for metric in &mut snapshot.metrics {

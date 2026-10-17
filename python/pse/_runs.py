@@ -30,16 +30,16 @@ from pse.contracts.documents import (
     AdviceObservation,
     AnalysisControls,
     AttemptSummary,
-    InvocationEvidenceDocument,
-    ManagedStudyDiagnosticsDocument,
-    ProgressCheckpointDocument,
     Completion,
     CompositionRequest,
     EligibilityDocument,
     FitProfileDocument,
     FrozenAdvice,
+    InvocationEvidenceDocument,
+    ManagedStudyDiagnosticsDocument,
     NumericalStrategyDocument,
     PointStatus,
+    ProgressCheckpointDocument,
     ProgressCoverage,
     ProgressEventDocument,
     ReplayDocument,
@@ -373,7 +373,7 @@ class RunResult:
 
     @property
     def invocation_evidence(self) -> InvocationEvidenceDocument:
-        """Read actual qualification/readiness endpoints and retained attempt evidence."""
+        """Read qualification/readiness endpoints and retained attempt evidence."""
         return self._handle.invocation_evidence()
 
     @property
@@ -472,7 +472,7 @@ class RunHandle:
         return self._handle.progress_count
 
     def current_progress(self) -> ProgressCheckpointDocument:
-        """Whole current event and independent source coverage, including history zero."""
+        """Read whole current progress and coverage, including history zero."""
         return self._handle.current_progress()
 
 

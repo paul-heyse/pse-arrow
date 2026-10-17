@@ -12,7 +12,7 @@ use pse_diagnostics::{DiagnosticRule, DiagnosticStage};
 use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
 use pse_model::generated::{
     enums::StudyPointState,
-    identities::{RunId, SolutionId},
+    identities::{RunId, SolutionId, StudyId},
 };
 use pse_model::study::*;
 use std::{
@@ -31,7 +31,7 @@ async fn wait_study_inventory<
     Observe,
     ObserveFuture,
 >(
-    study: pse_model::generated::identities::StudyId,
+    study: StudyId,
     cancel: &crate::CancelSource,
     observation_interval: std::time::Duration,
     mut inventory: Inventory,
@@ -164,6 +164,7 @@ pub struct StudyReport {
     /// count work performed by the managed primary. These are observations, not
     /// cross-process execution or reuse evidence.
     pub preparations: crate::math::PreparationCounts,
+    canonical_study: Option<StudyId>,
     pub(in crate::workflow) admitted_points: BTreeMap<usize, super::StudyPointDefinition>,
     pub(in crate::workflow) runtime: super::Runtime,
     pub(in crate::workflow) _source: ModelingPackage,
@@ -173,6 +174,21 @@ impl StudyReport {
     /// Original application store and shared pool for exact connected results.
     pub fn runtime(&self) -> &super::Runtime {
         &self.runtime
+    }
+    /// Read selected evidence for the actual recorded study, without inferring its
+    /// identity from the parent run. In-process studies have no canonical selection.
+    pub async fn diagnostic_selection(
+        &self,
+    ) -> Result<Option<super::ManagedStudyDiagnosticsDocument>, WorkflowError> {
+        match self.canonical_study {
+            Some(study) => self
+                .runtime
+                .study(study)
+                .diagnostic_selection()
+                .await
+                .map(Some),
+            None => Ok(None),
+        }
     }
 }
 
@@ -343,6 +359,7 @@ impl ModelingPackage {
         }
         Ok(StudyReport {
             run_id,
+            canonical_study: Some(handle.study_id()),
             definition: definition.science(),
             outcomes,
             results,
@@ -792,6 +809,7 @@ impl ModelingPackage {
         }
         Ok(StudyReport {
             run_id,
+            canonical_study: None,
             definition: definition.clone(),
             outcomes,
             results,
@@ -914,7 +932,26 @@ async fn execute_lane(
         .filter_map(|lane| lane.scope())
         .collect::<Vec<_>>();
     let mut operation = async {
-        let mut completion = execute_lane_inner(package, members, cancel).await;
+        // Keep the large child state out of this poll frame. The non-inlined
+        // factory returns before any child poll, without moving the work to a
+        // different task or changing the held-preparation scope.
+        let completion = match prepaid_lane_future(package, &mut members, cancel) {
+            Ok(future) => Ok(future.await),
+            Err(error) => Err(error),
+        };
+        let mut completion = match completion {
+            Ok(completion) => completion,
+            Err(error) => {
+                // Refused allocation has never polled the borrowed child. Keep
+                // its owners here so every already-open preparation still joins.
+                for member in &mut members {
+                    if let Some(staged) = member.preparation.staged.take() {
+                        staged.close().await;
+                    }
+                }
+                return Err(error);
+            }
+        };
         if cancel.token().is_cancelled() {
             let staged = match &mut completion {
                 LaneCompletion::Prepared { staged, .. }
@@ -957,9 +994,46 @@ async fn execute_lane(
     completion
 }
 
+// Field order keeps the exact state grant alive until the boxed child itself
+// drops, including an unpolled child, cancellation, and after Poll::Ready.
+struct PrepaidLaneFuture<'a> {
+    future: futures_util::future::BoxFuture<'a, LaneCompletion>,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+impl Future for PrepaidLaneFuture<'_> {
+    type Output = LaneCompletion;
+
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        self.get_mut().future.as_mut().poll(cx)
+    }
+}
+
+#[inline(never)]
+fn prepaid_lane_future<'a>(
+    package: &'a ModelingPackage,
+    members: &'a mut Vec<LaneMember>,
+    cancel: &'a crate::CancelSource,
+) -> Result<PrepaidLaneFuture<'a>, WorkflowError> {
+    // Borrowing preserves the caller's owners when admission refuses. Future
+    // construction is inert; the mathematical pool pays before heap allocation.
+    let future = execute_lane_inner(package, members, cancel);
+    let owner = package
+        .runtime
+        .shared
+        .math()
+        .reserve("study:execution-lane-future", size_of_val(&future))?;
+    Ok(PrepaidLaneFuture {
+        future: Box::pin(future),
+        _owner: owner,
+    })
+}
+
 async fn execute_lane_inner(
     package: &ModelingPackage,
-    mut members: Vec<LaneMember>,
+    members: &mut Vec<LaneMember>,
     cancel: &crate::CancelSource,
 ) -> LaneCompletion {
     if members.len() == 1 {
@@ -1052,8 +1126,7 @@ async fn execute_lane_inner(
             let solved = staged
                 .batch(&preparations, Obligations::Final, cancel)
                 .await;
-            for ((member, preparation), result) in members.into_iter().zip(preparations).zip(solved)
-            {
+            for ((member, preparation), result) in members.drain(..).zip(preparations).zip(solved) {
                 let request = RunRequest::Modeling(vec![preparation]);
                 let report = result.map(|result| RunReport::Modeling(vec![result]));
                 let result = RunResult::joined(
@@ -1079,7 +1152,7 @@ async fn execute_lane_inner(
         }
         Err(error) => {
             let error = Arc::new(error);
-            for member in members {
+            for member in members.drain(..) {
                 points.push(ExecutedPoint {
                     index: member.index,
                     start: member.start,
@@ -1397,35 +1470,38 @@ async fn execute(
     attempt: u32,
     cancel: &crate::CancelSource,
 ) -> Result<Arc<RunResult>, WorkflowError> {
-    crate::invocation::scope(async { match operation {
-        PreparedStudyOperation::DeclaredCase(case) => {
-            let run_id = pse_operations::mint_id();
-            let request = RunRequest::Modeling(vec![case.as_ref().clone()]);
-            let report = staged
-                .run(
-                    *case,
-                    Obligations::Final,
-                    run_id,
-                    attempt as usize,
-                    None,
-                    cancel,
-                )
-                .await
-                .map(|result| RunReport::Modeling(vec![result]));
-            Ok(Arc::new(
-                RunResult::joined(run_id, package.runtime.clone(), request, None, report)
-                    .finished(None, cancel.token().is_cancelled())
-                    .await,
-            ))
+    crate::invocation::scope(async {
+        match operation {
+            PreparedStudyOperation::DeclaredCase(case) => {
+                let run_id = pse_operations::mint_id();
+                let request = RunRequest::Modeling(vec![case.as_ref().clone()]);
+                let report = staged
+                    .run(
+                        *case,
+                        Obligations::Final,
+                        run_id,
+                        attempt as usize,
+                        None,
+                        cancel,
+                    )
+                    .await
+                    .map(|result| RunReport::Modeling(vec![result]));
+                Ok(Arc::new(
+                    RunResult::joined(run_id, package.runtime.clone(), request, None, report)
+                        .finished(None, cancel.token().is_cancelled())
+                        .await,
+                ))
+            }
+            operation => {
+                operation
+                    .start(&package.runtime, cancel)
+                    .await?
+                    .wait()
+                    .await
+            }
         }
-        operation => {
-            operation
-                .start(&package.runtime, cancel)
-                .await?
-                .wait()
-                .await
-        }
-    }}).await
+    })
+    .await
 }
 fn scoped_action(
     admitted: &pse_model::study_policy::AdmittedStudy,
@@ -1944,6 +2020,89 @@ mod occurrence_execution_tests {
         (package, definition)
     }
     #[tokio::test]
+    async fn prepaid_lane_preserves_real_member_on_unpolled_drop_and_refusal() {
+        let (package, local) = fixture(&[1.]).await;
+        let cancel = crate::CancelSource::new();
+        let point = &local.points[0];
+        let operation = package
+            .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+            .await
+            .unwrap();
+        let mut members = vec![LaneMember {
+            index: 7,
+            start: StartProvenance::Fresh,
+            attempt: 3,
+            preparation: ReadyOperation {
+                source: package.clone(),
+                lane: super::super::study_operations::StudyPreparationLane::new(),
+                operation,
+                staged: None,
+            },
+            previous: None,
+            older: None,
+        }];
+        let PreparedStudyOperation::DeclaredCase(case) = &members[0].preparation.operation else {
+            panic!("declared fixture expected");
+        };
+        let prepared = std::ptr::from_ref(case.as_ref());
+        let pool = package.runtime.shared.pool();
+        let baseline = pool.reserved();
+        let future = prepaid_lane_future(&package, &mut members, &cancel).unwrap();
+        let charged = future._owner.size();
+        assert!(charged > size_of::<PrepaidLaneFuture<'_>>());
+        assert_eq!(pool.reserved() - baseline, charged);
+        drop(future);
+        assert_eq!(pool.reserved(), baseline);
+        assert_eq!(members.len(), 1, "unpolled child cannot consume its member");
+
+        // Reservations account capacity without allocating this many bytes.
+        // Allow the math owner's ordinary idle-cache trim once, then consume
+        // that released capacity as well so refusal is deterministic.
+        let pressure =
+            pse_columnar::MemoryConsumer::new("test:study-child-refusal").register(&pool);
+        let limit = package.runtime.shared.budget().memory_limit_bytes.get();
+        pressure.try_grow(limit - pool.reserved()).unwrap();
+        if let Ok(future) = prepaid_lane_future(&package, &mut members, &cancel) {
+            drop(future);
+        }
+        pressure.try_grow(limit - pool.reserved()).unwrap();
+        assert!(prepaid_lane_future(&package, &mut members, &cancel).is_err());
+        assert_eq!(members.len(), 1, "refused child cannot consume its member");
+        assert_eq!((members[0].index, members[0].attempt), (7, 3));
+        assert_eq!(
+            super::super::OperationSource::of(&members[0].preparation.source),
+            super::super::OperationSource::of(&package)
+        );
+        let PreparedStudyOperation::DeclaredCase(case) = &members[0].preparation.operation else {
+            panic!("refused child must retain the prepared operation");
+        };
+        assert_eq!(std::ptr::from_ref(case.as_ref()), prepared);
+        assert!(!cancel.token().is_cancelled());
+        drop(pressure);
+    }
+
+    #[test]
+    fn local_study_retains_actual_source_on_ordinary_caller_stack() {
+        // Python drives this future on its ordinary caller stack. Nextest's
+        // enlarged worker stack must not hide oversized nested poll frames.
+        std::thread::Builder::new()
+            .name("local-study-caller".into())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(
+                        local_study_retains_actual_source_through_escaped_report_without_recording(
+                        ),
+                    );
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
     async fn local_study_retains_actual_source_through_escaped_report_without_recording() {
         let (package, local) = fixture(&[1., 1.]).await;
         assert!(package.runtime.canonical_store().is_err());

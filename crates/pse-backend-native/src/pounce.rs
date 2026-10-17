@@ -83,22 +83,37 @@ const RESERVED_METHODS: [&str; 2] = [
 ];
 /// Project only completed native timer accumulators. A disabled timer's zero is
 /// not a measurement; a running timer excludes its active interval.
-fn timer_metric(task: &pounce_common::timing::TimedTask, owner_returned: bool) -> (Metric, &'static str) {
+fn timer_metric(
+    task: &pounce_common::timing::TimedTask,
+    owner_returned: bool,
+) -> (Metric, &'static str) {
     if !task.is_enabled() {
-        return (Metric::Unavailable(UnavailableReason::NotRequested), "disabled");
+        return (
+            Metric::Unavailable(UnavailableReason::NotRequested),
+            "disabled",
+        );
     }
     if task.is_started() {
         return if owner_returned {
-            (Metric::Unavailable(UnavailableReason::Failed), "interrupted")
+            (
+                Metric::Unavailable(UnavailableReason::Failed),
+                "interrupted",
+            )
         } else {
-            (Metric::Unavailable(UnavailableReason::NotComputed), "running")
+            (
+                Metric::Unavailable(UnavailableReason::NotComputed),
+                "running",
+            )
         };
     }
     let seconds = task.total_wallclock_time();
     if seconds.is_finite() && seconds >= 0.0 {
         (Metric::Real(seconds), "completed")
     } else {
-        (Metric::Unavailable(UnavailableReason::Nonfinite), "nonfinite")
+        (
+            Metric::Unavailable(UnavailableReason::Nonfinite),
+            "nonfinite",
+        )
     }
 }
 
@@ -867,7 +882,7 @@ impl Session {
                     fields.remove("iterations");
                 }
                 insert_native_metrics(&mut report.metrics, "statistics", value);
-            },
+            }
             Err(error) => {
                 report.metrics.insert(
                     "statistics.encoding_error".into(),
@@ -1139,17 +1154,43 @@ mod tests {
     fn native_timer_activation_is_not_reported_as_measured_zero() {
         let task = pounce_common::timing::TimedTask::new();
         task.disable();
-        assert_eq!(timer_metric(&task, false), (Metric::Unavailable(UnavailableReason::NotRequested), "disabled"));
+        assert_eq!(
+            timer_metric(&task, false),
+            (
+                Metric::Unavailable(UnavailableReason::NotRequested),
+                "disabled"
+            )
+        );
         task.enable();
         task.start();
-        assert_eq!(timer_metric(&task, false), (Metric::Unavailable(UnavailableReason::NotComputed), "running"));
-        assert_eq!(timer_metric(&task, true), (Metric::Unavailable(UnavailableReason::Failed), "interrupted"));
+        assert_eq!(
+            timer_metric(&task, false),
+            (
+                Metric::Unavailable(UnavailableReason::NotComputed),
+                "running"
+            )
+        );
+        assert_eq!(
+            timer_metric(&task, true),
+            (
+                Metric::Unavailable(UnavailableReason::Failed),
+                "interrupted"
+            )
+        );
         task.end();
-        assert!(matches!(timer_metric(&task, false), (Metric::Real(value), "completed") if value >= 0.0));
+        assert!(
+            matches!(timer_metric(&task, false), (Metric::Real(value), "completed") if value >= 0.0)
+        );
         let timing = pounce_common::timing::TimingStatistics::new();
         timing.set_detailed_enabled(false);
-        assert!(matches!(timer_metric(&timing.overall_alg, true).0, Metric::Real(_)));
-        assert_eq!(timer_metric(&timing.eval_obj, true).0, Metric::Unavailable(UnavailableReason::NotRequested));
+        assert!(matches!(
+            timer_metric(&timing.overall_alg, true).0,
+            Metric::Real(_)
+        ));
+        assert_eq!(
+            timer_metric(&timing.eval_obj, true).0,
+            Metric::Unavailable(UnavailableReason::NotRequested)
+        );
     }
     #[test]
     fn native_tnlp_sparse_and_weighted_hessian_contract() {

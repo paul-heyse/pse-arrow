@@ -95,7 +95,12 @@ impl Observations {
         self.invocations.push(invocation_document(result));
     }
     pub(super) fn counted_preparations(&mut self, counts: pse_runtime::math::PreparationCounts) {
-        for (name, value) in [("views", counts.views), ("observations", counts.observations), ("rebuilt", counts.rebuilt), ("shared", counts.shared)] {
+        for (name, value) in [
+            ("views", counts.views),
+            ("observations", counts.observations),
+            ("rebuilt", counts.rebuilt),
+            ("shared", counts.shared),
+        ] {
             let total = self.preparations.entry(name).or_default();
             *total = total.checked_add(u64::try_from(value).unwrap()).unwrap();
         }
@@ -284,7 +289,9 @@ impl Observations {
 pub(super) fn invocation_document(result: &pse_runtime::workflow::RunResult) -> Value {
     match result.invocation_evidence() {
         Ok(document) => serde_json::to_value(document).unwrap(),
-        Err(error) => json!({"run_id":result.run_id,"status":"unavailable","reason":error.to_string()}),
+        Err(error) => {
+            json!({"run_id":result.run_id,"status":"unavailable","reason":error.to_string()})
+        }
     }
 }
 
@@ -295,7 +302,12 @@ pub(super) struct InvocationRecords {
 }
 impl InvocationRecords {
     pub(super) fn new(output: &std::path::Path, name: &str) -> Self {
-        Self { writer: std::io::BufWriter::new(std::fs::File::create(output.join(format!("{name}-observations.jsonl"))).unwrap()), sequence: 0 }
+        Self {
+            writer: std::io::BufWriter::new(
+                std::fs::File::create(output.join(format!("{name}-observations.jsonl"))).unwrap(),
+            ),
+            sequence: 0,
+        }
     }
     pub(super) fn push(&mut self, mut record: Value) {
         use std::io::Write;
@@ -305,7 +317,10 @@ impl InvocationRecords {
         self.writer.write_all(b"\n").unwrap();
         self.sequence = self.sequence.checked_add(1).unwrap();
     }
-    pub(super) fn flush(&mut self) { use std::io::Write; self.writer.flush().unwrap(); }
+    pub(super) fn flush(&mut self) {
+        use std::io::Write;
+        self.writer.flush().unwrap();
+    }
     /// Retain a failed current invocation prefix before propagating the original panic.
     pub(super) fn catch<T>(&mut self, work: impl FnOnce() -> T) -> T {
         let started = std::time::Instant::now();

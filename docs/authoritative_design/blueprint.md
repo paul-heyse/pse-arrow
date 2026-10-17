@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 184
+revision: 185
 date: 2026-10-17
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 185 | 2026-10-17 | Proposed ADR-0193/0194 (§14.3/§13.6): explicit demanded mathematical products and qualified compiled derivatives; output coverage separated from cumulative trajectory advancement. | Maintainer delegates concrete remaining Plan43 choices; visible `PSE_DESIGN_EDIT=1`; implementation and acceptance remain with 43b/43d. |
 | 184 | 2026-10-17 | Proposed ADR-0192 / Plan43a accepted target (§23.1/§21.1): producer-scoped prepared facts, coherent current/recent records, finite selected source coverage and joined invocation endpoints; complete generated boundary migration. | Maintainer-authorized RC01/RC02/RC10 execution; visible `.design-edit`; implementation and scoped acceptance remain Plan43a, formal ADR acceptance separate. |
 | 183 | 2026-10-17 | Plan39/38 selected final qualification and retirement (§20.5/§24.2): composed native/managed/Python/scientific/interruption/case acceptance and exact exclusions; completed-owner navigation. | Maintainer-authorized D5 closeout; PSE_DESIGN_EDIT=1; formal ADR statuses and independent Plan28/32/40 campaigns unchanged. |
 | 182 | 2026-10-17 | Plan39 final recovery correction (§20.5): bounded startup configuration references immutable operation/source-bound payload retirement evidence; exact pointer succession and final retirement preserve drain, unknown-content and crash boundaries. | Maintainer-authorized final qualification; PSE_DESIGN_EDIT=1; within-contract lifecycle correction and focused controls, assembled acceptance remains Plan39d. |

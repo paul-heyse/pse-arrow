@@ -887,7 +887,14 @@ fn segment_statistics(
                 .map_err(|e| ProblemError::internal(format!("Diffsol settings: {e}")))?,
         );
     }
-    crate::observation::structured(&shared.progress, shared.started, None, "dynamic_segment_summary", "diffsol.segment", &value);
+    crate::observation::structured(
+        &shared.progress,
+        shared.started,
+        None,
+        "dynamic_segment_summary",
+        "diffsol.segment",
+        &value,
+    );
     Ok(value)
 }
 /// Capture before event rewind: method order/h can already describe the next attempt.
@@ -1371,7 +1378,14 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
         if pse_diagnostics::observation::current().is_some()
             && let Ok(value) = serde_json::to_value(&*observation)
         {
-            crate::observation::structured(&shared.progress, shared.started, None, "dynamic_native_step", "diffsol.current.native_step", &value);
+            crate::observation::structured(
+                &shared.progress,
+                shared.started,
+                None,
+                "dynamic_native_step",
+                "diffsol.current.native_step",
+                &value,
+            );
         }
         let reason = result.map_err(native)?;
         let (time, root) = match reason {
@@ -1389,7 +1403,12 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
         }
         r.completed_time = time;
         shared.progress.push(crate::solve::Event {
-            source: Some(crate::solve::EventSource::new("dynamic_native_return", Some("physical_model"), None)), phase: "simulation.step".into(),
+            source: Some(crate::solve::EventSource::new(
+                "dynamic_native_return",
+                Some("physical_model"),
+                None,
+            )),
+            phase: "simulation.step".into(),
             elapsed: shared.started.elapsed(),
             values: std::collections::BTreeMap::from([
                 ("time".into(), crate::solve::Metric::Real(time)),

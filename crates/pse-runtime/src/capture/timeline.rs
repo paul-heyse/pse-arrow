@@ -9,7 +9,9 @@ use super::{
 };
 use crate::observation::{ClockMapping, ProcessCheckpoint, read_checkpoint};
 use prost::Message;
-use pse_diagnostics::observation::{OperationId, OperationSnapshot, ProducerId, CoherentRecord, Value};
+use pse_diagnostics::observation::{
+    CoherentRecord, OperationId, OperationSnapshot, ProducerId, Value,
+};
 use std::{
     collections::HashMap,
     io::Write,
@@ -264,17 +266,39 @@ impl<W: Write> Projection<W> {
             }
         }
         for producer in &operation.producers {
-            let record_key=Key::Record(producer.descriptor.id);
-            let Some(track)=self.track(record_key.clone(), &format!("{} ({:?}) coherent records", producer.descriptor.name, producer.descriptor.role), Some(uuid), false)? else { continue; };
+            let record_key = Key::Record(producer.descriptor.id);
+            let Some(track) = self.track(
+                record_key.clone(),
+                &format!(
+                    "{} ({:?}) coherent records",
+                    producer.descriptor.name, producer.descriptor.role
+                ),
+                Some(uuid),
+                false,
+            )?
+            else {
+                continue;
+            };
             for record in producer.recent.iter().chain(producer.current.iter()) {
-                self.record(&record_key,track,record,clock,producer.coverage.partial || producer.coverage.history_dropped!=0)?;
+                self.record(
+                    &record_key,
+                    track,
+                    record,
+                    clock,
+                    producer.coverage.partial || producer.coverage.history_dropped != 0,
+                )?;
             }
         }
         for metric in &operation.metrics {
             let metric_key = Key::Metric(operation.id, metric.producer, metric.name.clone());
             let Some(track) = self.track(
                 metric_key.clone(),
-                &format!("{} [{}; producer {:?}]", metric.name, metric.unit, metric.producer.map(|p| p.sequence)),
+                &format!(
+                    "{} [{}; producer {:?}]",
+                    metric.name,
+                    metric.unit,
+                    metric.producer.map(|p| p.sequence)
+                ),
                 Some(uuid),
                 true,
             )?
@@ -374,17 +398,53 @@ impl<W: Write> Projection<W> {
         }
         Ok(())
     }
-    fn record(&mut self,key:&Key,uuid:u64,record:&CoherentRecord,clock:&ClockMapping,partial:bool)->std::io::Result<()> {
-        if self.tracks.get(key).and_then(|t|t.record_checkpoint).is_some_and(|(generation,sequence)|generation==record.generation && sequence>=record.sequence) {return Ok(());}
-        let Some(at)=clock.monotonic_timestamp(record.observed_at) else {document(&self.state).loss.unknown_clock=true;return Ok(());};
-        let mut fields=vec![annotation("family",&record.family),count_annotation("source_sequence",record.sequence),count_annotation("generation",record.generation),bool_annotation("history_partial",partial)];
-        if let Some(coordinates)=&record.coordinates {fields.push(annotation("coordinates",coordinates));}
-        if let Some(norm)=&record.norm {fields.push(annotation("norm",norm));}
-        for field in &record.values {
-            fields.push(annotation(&field.name,format!("{:?} [{}; {:?}]",field.value,field.unit,field.availability)));
+    fn record(
+        &mut self,
+        key: &Key,
+        uuid: u64,
+        record: &CoherentRecord,
+        clock: &ClockMapping,
+        partial: bool,
+    ) -> std::io::Result<()> {
+        if self
+            .tracks
+            .get(key)
+            .and_then(|t| t.record_checkpoint)
+            .is_some_and(|(generation, sequence)| {
+                generation == record.generation && sequence >= record.sequence
+            })
+        {
+            return Ok(());
         }
-        self.event(uuid,at,track_event::Type::Instant,&record.phase,fields)?;
-        if let Some(track)=self.tracks.get_mut(key) {track.record_checkpoint=Some((record.generation,record.sequence));}
+        let Some(at) = clock.monotonic_timestamp(record.observed_at) else {
+            document(&self.state).loss.unknown_clock = true;
+            return Ok(());
+        };
+        let mut fields = vec![
+            annotation("family", &record.family),
+            count_annotation("source_sequence", record.sequence),
+            count_annotation("generation", record.generation),
+            bool_annotation("history_partial", partial),
+        ];
+        if let Some(coordinates) = &record.coordinates {
+            fields.push(annotation("coordinates", coordinates));
+        }
+        if let Some(norm) = &record.norm {
+            fields.push(annotation("norm", norm));
+        }
+        for field in &record.values {
+            fields.push(annotation(
+                &field.name,
+                format!(
+                    "{:?} [{}; {:?}]",
+                    field.value, field.unit, field.availability
+                ),
+            ));
+        }
+        self.event(uuid, at, track_event::Type::Instant, &record.phase, fields)?;
+        if let Some(track) = self.tracks.get_mut(key) {
+            track.record_checkpoint = Some((record.generation, record.sequence));
+        }
         Ok(())
     }
     fn value(

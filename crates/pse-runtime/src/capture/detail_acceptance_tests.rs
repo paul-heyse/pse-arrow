@@ -57,7 +57,9 @@ fn finish_waits_for_admitted_offer_and_drains_before_terminal_counts() {
         selection(directory.path().join("drain")),
     )
     .unwrap();
-    let producer = session.context().producer(ProducerRole::NativeIteration, "native");
+    let producer = session
+        .context()
+        .producer(ProducerRole::NativeIteration, "native");
     let record = iteration(&producer, 7);
     let descriptor = ProducerDescriptor {
         id: producer.id(),
@@ -71,11 +73,14 @@ fn finish_waits_for_admitted_offer_and_drains_before_terminal_counts() {
         finished_tx.send(session.finish()).unwrap();
     });
     let watchdog = Instant::now() + Duration::from_secs(5);
-    while !tap.closed.load(Ordering::Acquire) {
+    while !tap.is_closed() {
         assert!(Instant::now() < watchdog, "finish did not request close");
         std::thread::yield_now();
     }
-    assert!(matches!(finished_rx.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)));
+    assert!(matches!(
+        finished_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
     assert_eq!(tap.in_flight.load(Ordering::Acquire), 1);
 
     // This offer entered before close. Its descriptor and row must still drain;
@@ -83,15 +88,91 @@ fn finish_waits_for_admitted_offer_and_drains_before_terminal_counts() {
     tap.describe_selected(&descriptor);
     tap.observe_selected(&record, 0);
     drop(offered);
-    let document = finished_rx.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
+    let document = finished_rx
+        .recv_timeout(Duration::from_secs(5))
+        .unwrap()
+        .unwrap();
     finishing.join().unwrap();
     assert_eq!(document.outcome, DetailOutcome::Complete);
     assert_eq!(document.end, Some(DetailEnd::OwnerFinished));
     let coverage = &document.families[0];
-    assert_eq!((coverage.observed, coverage.queued, coverage.acknowledged), (1, 1, 1));
+    assert_eq!(
+        (coverage.observed, coverage.queued, coverage.acknowledged),
+        (1, 1, 1)
+    );
     assert_eq!((coverage.unacknowledged, coverage.dropped), (0, 0));
     let page = read_detail_records(&document.records, 0, 8, 1 << 20).unwrap();
     assert_eq!(iteration_values(&page), [7]);
+}
+
+fn stopped_prefix(finish_after_stop: bool, drain_after_deadline: bool) {
+    let directory = tempfile::tempdir().unwrap();
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("science");
+    let mut request = selection(directory.path().join("stopped"));
+    if drain_after_deadline {
+        request.duration = Duration::from_secs(1);
+    }
+    let session = start_detailed_collection(operation.context(), request).unwrap();
+    let producer = session
+        .context()
+        .producer(ProducerRole::NativeIteration, "native");
+    let record = iteration(&producer, 7);
+    let descriptor = ProducerDescriptor {
+        id: producer.id(),
+        role: ProducerRole::NativeIteration,
+        name: "native".into(),
+    };
+    let tap = Arc::clone(&session.tap);
+    let offered = tap.enter().unwrap();
+    session.request_stop();
+    assert_eq!(tap.end(), DetailEnd::Stopped);
+    // Work continues independently after collection stopped; this row is outside its prefix.
+    producer.publish(&iteration(&producer, 8));
+    let (tx, rx) = std::sync::mpsc::channel();
+    let joining = std::thread::spawn(move || {
+        tx.send(if finish_after_stop {
+            session.finish()
+        } else {
+            session.stop()
+        })
+        .unwrap();
+    });
+    assert!(matches!(
+        rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
+    if drain_after_deadline {
+        std::thread::sleep(
+            tap.deadline.saturating_duration_since(Instant::now()) + Duration::from_millis(1),
+        );
+    }
+    tap.describe_selected(&descriptor);
+    tap.observe_selected(&record, 0);
+    drop(offered);
+    let document = rx.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
+    joining.join().unwrap();
+    assert_eq!(document.end, Some(DetailEnd::Stopped));
+    assert_eq!(document.outcome, DetailOutcome::Incomplete);
+    assert_eq!(document.families[0].acknowledged, 1);
+    let page = read_detail_records(&document.records, 0, 8, 1 << 20).unwrap();
+    assert_eq!(iteration_values(&page), [7]);
+    assert_eq!(
+        read_detailed_collection(&document.records, 1 << 20)
+            .unwrap()
+            .end,
+        Some(DetailEnd::Stopped)
+    );
+}
+
+#[test]
+fn later_finish_cannot_promote_a_requested_stop() {
+    stopped_prefix(true, false);
+}
+
+#[test]
+fn draining_past_the_deadline_cannot_promote_an_early_stop() {
+    stopped_prefix(false, true);
 }
 
 #[test]
@@ -124,7 +205,10 @@ fn unselected_producers_do_not_consume_selected_metadata_capacity() {
 #[test]
 fn selected_child_has_real_clock_and_owner_budget_after_ordinary_refusal() {
     let directory = tempfile::tempdir().unwrap();
-    let hub = ObservationHub::new(Policy { max_operations: 1, ..Policy::default() });
+    let hub = ObservationHub::new(Policy {
+        max_operations: 1,
+        ..Policy::default()
+    });
     let operation = hub.start("science");
     assert!(operation.context().is_active());
     let session = start_detailed_collection(
@@ -132,15 +216,33 @@ fn selected_child_has_real_clock_and_owner_budget_after_ordinary_refusal() {
         selection(directory.path().join("refused-child")),
     )
     .unwrap();
-    let child = session.context().child("native", pse_diagnostics::Relationship::Nested);
-    assert!(!child.context().is_active(), "ordinary operation admission must refuse this child");
-    let producer = child.context().producer(ProducerRole::Evaluator, "evaluator");
-    assert!(producer.enabled(), "selected detail remains independently admitted");
-    let owner_rows = producer.reserve_owner_bytes(4096).expect("selected owner storage remains available");
+    let child = session
+        .context()
+        .child("native", pse_diagnostics::Relationship::Nested);
+    assert!(
+        !child.context().is_active(),
+        "ordinary operation admission must refuse this child"
+    );
+    let producer = child
+        .context()
+        .producer(ProducerRole::Evaluator, "evaluator");
+    assert!(
+        producer.enabled(),
+        "selected detail remains independently admitted"
+    );
+    let owner_rows = producer
+        .reserve_owner_bytes(4096)
+        .expect("selected owner storage remains available");
     let first = iteration(&producer, 1);
     assert_eq!(first.family_sequence, Some(1));
-    assert!(!first.observed_at.is_zero(), "a refused ordinary child still has a real source clock");
-    assert!(!producer.publish(&first), "ordinary publication must remain refused");
+    assert!(
+        !first.observed_at.is_zero(),
+        "a refused ordinary child still has a real source clock"
+    );
+    assert!(
+        !producer.publish(&first),
+        "ordinary publication must remain refused"
+    );
     let clock_interval = Instant::now();
     while clock_interval.elapsed() < Duration::from_millis(1) {
         std::thread::yield_now();
@@ -169,7 +271,9 @@ fn terminal_readback_and_finish_agree_on_complete_prefix_extent() {
         selection(directory.path().join("prefix")),
     )
     .unwrap();
-    let producer = session.context().producer(ProducerRole::NativeIteration, "native");
+    let producer = session
+        .context()
+        .producer(ProducerRole::NativeIteration, "native");
     producer.publish(&iteration(&producer, 1));
     let finished = session.finish().unwrap();
     let read = read_detailed_collection(&finished.records, 1 << 20).unwrap();
@@ -177,8 +281,14 @@ fn terminal_readback_and_finish_agree_on_complete_prefix_extent() {
     assert_eq!(read.outcome, finished.outcome);
     assert_eq!(read.end, finished.end);
     assert_eq!(read.readable_prefix_bytes, finished.readable_prefix_bytes);
-    assert_eq!(read.readable_prefix_bytes, std::fs::metadata(&finished.records).unwrap().len());
-    assert_eq!(read.families[0].acknowledged, finished.families[0].acknowledged);
+    assert_eq!(
+        read.readable_prefix_bytes,
+        std::fs::metadata(&finished.records).unwrap().len()
+    );
+    assert_eq!(
+        read.families[0].acknowledged,
+        finished.families[0].acknowledged
+    );
 }
 
 #[cfg(target_os = "linux")]
@@ -209,14 +319,20 @@ fn record_pages_are_exact_and_bad_cursors_and_partial_tails_are_explicit() {
         selection(directory.path().join("pages")),
     )
     .unwrap();
-    let producer = session.context().producer(ProducerRole::NativeIteration, "native");
-    for value in 1..=3 { producer.publish(&iteration(&producer, value)); }
+    let producer = session
+        .context()
+        .producer(ProducerRole::NativeIteration, "native");
+    for value in 1..=3 {
+        producer.publish(&iteration(&producer, value));
+    }
     let document = session.finish().unwrap();
     assert_eq!(document.outcome, DetailOutcome::Complete);
     let first = read_detail_records(&document.records, 0, 2, 1 << 20).unwrap();
     assert_eq!(iteration_values(&first), [1, 2]);
     assert!(!first.partial);
-    let cursor = first.next_offset.expect("first page is bounded at its second record");
+    let cursor = first
+        .next_offset
+        .expect("first page is bounded at its second record");
     let second = read_detail_records(&document.records, cursor, 2, 1 << 20).unwrap();
     assert_eq!(iteration_values(&second), [3]);
     assert!(!second.partial);
@@ -229,7 +345,12 @@ fn record_pages_are_exact_and_bad_cursors_and_partial_tails_are_explicit() {
     let retained = std::fs::read(&document.records).unwrap();
     let mut prefix = Vec::new();
     for line in retained.split_inclusive(|byte| *byte == b'\n') {
-        if matches!(serde_json::from_slice::<Frame>(line).unwrap(), Frame::End(_)) { break; }
+        if matches!(
+            serde_json::from_slice::<Frame>(line).unwrap(),
+            Frame::End(_)
+        ) {
+            break;
+        }
         prefix.extend_from_slice(line);
     }
     let complete_extent = prefix.len() as u64;
@@ -256,14 +377,19 @@ fn a_lost_final_issued_event_prevents_complete_even_without_a_later_gap() {
         selection(directory.path().join("lost-final")),
     )
     .unwrap();
-    let producer = session.context().producer(ProducerRole::NativeIteration, "native");
+    let producer = session
+        .context()
+        .producer(ProducerRole::NativeIteration, "native");
     producer.publish(&iteration(&producer, 1));
     let unpublished_final = iteration(&producer, 2);
     assert_eq!(unpublished_final.family_sequence, Some(2));
     let document = session.finish().unwrap();
     assert_eq!(document.outcome, DetailOutcome::Incomplete);
     assert_eq!(document.end, Some(DetailEnd::OwnerFinished));
-    assert!(document.source_partial, "issued final head differs from retained observation head");
+    assert!(
+        document.source_partial,
+        "issued final head differs from retained observation head"
+    );
     assert_eq!(document.families[0].acknowledged, 1);
     let page = read_detail_records(&document.records, 0, 8, 1 << 20).unwrap();
     assert_eq!(iteration_values(&page), [1]);
@@ -274,19 +400,31 @@ fn a_lost_final_issued_event_prevents_complete_even_without_a_later_gap() {
 
 #[test]
 fn selected_mapping_refusal_and_tiny_header_allowance_stay_explicit() {
-    let directory=tempfile::tempdir().unwrap();
-    let hub=ObservationHub::new(Policy::default());
-    let operation=hub.start("science");
-    let session=start_detailed_collection(operation.context(),selection(directory.path().join("mapping"))).unwrap();
-    let producer=session.context().producer(ProducerRole::NativeIteration,"native");
-    producer.publish(&iteration(&producer,1));
+    let directory = tempfile::tempdir().unwrap();
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("science");
+    let session = start_detailed_collection(
+        operation.context(),
+        selection(directory.path().join("mapping")),
+    )
+    .unwrap();
+    let producer = session
+        .context()
+        .producer(ProducerRole::NativeIteration, "native");
+    producer.publish(&iteration(&producer, 1));
     session.context().record_source_unavailable("iteration.v1");
-    let document=session.finish().unwrap();
-    assert_eq!(document.outcome,DetailOutcome::Incomplete);
+    let document = session.finish().unwrap();
+    assert_eq!(document.outcome, DetailOutcome::Incomplete);
     assert!(document.source_partial);
-    let header_only=directory.path().join("header.jsonl");
-    let mut header=serde_json::to_vec(&Frame::Header(document.request)).unwrap();
-    header.push(b'\n');std::fs::write(&header_only,header).unwrap();
-    assert!(read_detail_records(&header_only,0,1,1).is_err());
-    assert!(read_detail_records(&header_only,0,1,1<<20).unwrap().records.is_empty());
+    let header_only = directory.path().join("header.jsonl");
+    let mut header = serde_json::to_vec(&Frame::Header(document.request)).unwrap();
+    header.push(b'\n');
+    std::fs::write(&header_only, header).unwrap();
+    assert!(read_detail_records(&header_only, 0, 1, 1).is_err());
+    assert!(
+        read_detail_records(&header_only, 0, 1, 1 << 20)
+            .unwrap()
+            .records
+            .is_empty()
+    );
 }

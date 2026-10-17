@@ -1310,17 +1310,37 @@ fn observation_history_changes_execution_exposure_but_not_native_session_compati
     absent.controls.history = 0;
     let mut retained = absent.clone();
     retained.controls.history = 17;
-    assert_ne!(absent.controls.identity().unwrap(), retained.controls.identity().unwrap());
-    assert_ne!(profile_key(&absent).unwrap(), profile_key(&retained).unwrap());
-    assert_ne!(comparison_profile_key(&absent).unwrap(), comparison_profile_key(&retained).unwrap());
-    assert_eq!(retained.controls.report_allowance().unwrap() - absent.controls.report_allowance().unwrap(), 17 * 8192);
+    assert_ne!(
+        absent.controls.identity().unwrap(),
+        retained.controls.identity().unwrap()
+    );
+    assert_ne!(
+        profile_key(&absent).unwrap(),
+        profile_key(&retained).unwrap()
+    );
+    assert_ne!(
+        comparison_profile_key(&absent).unwrap(),
+        comparison_profile_key(&retained).unwrap()
+    );
+    assert_eq!(
+        retained.controls.report_allowance().unwrap() - absent.controls.report_allowance().unwrap(),
+        17 * 8192
+    );
     let session = |profile: &SolverProfile| {
         let mut hash = FramedHasher::new(pse_ids::Frame::SolverProfileV5);
         hash_session(&mut hash, profile).unwrap();
         hash.finish_hash()
     };
-    assert_eq!(session(&absent), session(&retained), "passive history is already outside native session compatibility");
+    assert_eq!(
+        session(&absent),
+        session(&retained),
+        "passive history is already outside native session compatibility"
+    );
     retained.controls.hessian = HessianMode::LimitedMemory;
     absent.controls.hessian = HessianMode::Exact;
-    assert_ne!(session(&absent), session(&retained), "an actual mathematical method change must remain in compatibility");
+    assert_ne!(
+        session(&absent),
+        session(&retained),
+        "an actual mathematical method change must remain in compatibility"
+    );
 }

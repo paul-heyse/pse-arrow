@@ -1187,8 +1187,23 @@ impl ShootingOracle {
                     context.boolean("shooting.forward_sensitivities", forward);
                     context.phase("shooting.window")
                 });
-                let purpose = if same && matches!(self.purpose, crate::invocation::IntegrationPurpose::PrimalTrial) { crate::invocation::IntegrationPurpose::DerivativeUpgrade } else { self.purpose };
-                let observation = crate::invocation::IntegrationObservation::begin(self.observation.clone(), purpose, forward, false, false, k as u64);
+                let purpose = if same
+                    && matches!(
+                        self.purpose,
+                        crate::invocation::IntegrationPurpose::PrimalTrial
+                    ) {
+                    crate::invocation::IntegrationPurpose::DerivativeUpgrade
+                } else {
+                    self.purpose
+                };
+                let observation = crate::invocation::IntegrationObservation::begin(
+                    self.observation.clone(),
+                    purpose,
+                    forward,
+                    false,
+                    false,
+                    k as u64,
+                );
                 let result = p.experiment.integrate_window(
                     worker,
                     window,
@@ -1359,7 +1374,14 @@ impl ShootingOracle {
                     }
                     Ok(w)
                 };
-                let observation = crate::invocation::IntegrationObservation::begin(self.observation.clone(), self.purpose, false, true, false, k as u64);
+                let observation = crate::invocation::IntegrationObservation::begin(
+                    self.observation.clone(),
+                    self.purpose,
+                    false,
+                    true,
+                    false,
+                    k as u64,
+                );
                 let product = p.experiment.window_gradient(
                     worker,
                     window,
@@ -1591,7 +1613,12 @@ impl ShootingProblem {
                 &mut native::execution::Retained::default(),
                 native::execution::Nlp {
                     oracle: Box::new(ShootingOracle {
-                        observation: pse_diagnostics::observation::current().map(|context| context.producer(pse_diagnostics::observation::ProducerRole::Workflow, "shooting.products")),
+                        observation: pse_diagnostics::observation::current().map(|context| {
+                            context.producer(
+                                pse_diagnostics::observation::ProducerRole::Workflow,
+                                "shooting.products",
+                            )
+                        }),
                         purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
                         problem: self.clone(),
                         execution: execution.clone(),
@@ -1642,7 +1669,12 @@ impl ShootingProblem {
         if let Some(x) = report.candidate.clone() {
             // A fresh evaluation, independent of the native callbacks' cache.
             let mut oracle = ShootingOracle {
-                observation: pse_diagnostics::observation::current().map(|context| context.producer(pse_diagnostics::observation::ProducerRole::Workflow, "shooting.original.products")),
+                observation: pse_diagnostics::observation::current().map(|context| {
+                    context.producer(
+                        pse_diagnostics::observation::ProducerRole::Workflow,
+                        "shooting.original.products",
+                    )
+                }),
                 purpose: crate::invocation::IntegrationPurpose::OriginalAssessment,
                 problem: self.clone(),
                 execution: execution.clone(),

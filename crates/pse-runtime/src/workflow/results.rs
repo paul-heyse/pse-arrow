@@ -177,21 +177,42 @@ impl RunResult {
     }
     /// A retained checked table can outlive the result, run handle and model revision.
     pub fn table(&self, name: &str) -> Result<FieldCheckedBatch, Arc<WorkflowError>> {
-        let access = pse_diagnostics::observation::current().map(|parent| parent.child("result.materialization", pse_diagnostics::observation::Relationship::Continuation));
+        let access = pse_diagnostics::observation::current().map(|parent| {
+            parent.child(
+                "result.materialization",
+                pse_diagnostics::observation::Relationship::Continuation,
+            )
+        });
         let context = access.as_ref().map(|access| access.context());
         if let Some(context) = &context {
             context.source_ref("run.identity", self.run_id.as_id().to_string());
             context.text("result.relation", name);
-            if let Some(original) = self.invocation.as_ref().and_then(|r| r.operation()) { context.link_id(original, pse_diagnostics::observation::Relationship::Continuation); }
+            if let Some(original) = self.invocation.as_ref().and_then(|r| r.operation()) {
+                context.link_id(
+                    original,
+                    pse_diagnostics::observation::Relationship::Continuation,
+                );
+            }
         }
         let result = {
             let _entered = context.as_ref().map(|context| context.enter());
             (|| {
-                let id = self.runtime.registry().relation(name).ok_or_else(|| Arc::new(contract("unknown result relation")))?.id;
+                let id = self
+                    .runtime
+                    .registry()
+                    .relation(name)
+                    .ok_or_else(|| Arc::new(contract("unknown result relation")))?
+                    .id;
                 self.table_by_id(id)
             })()
         };
-        if let Some(access) = access { access.finish(if result.is_ok() { pse_diagnostics::observation::Outcome::Completed } else { pse_diagnostics::observation::Outcome::Failed }); }
+        if let Some(access) = access {
+            access.finish(if result.is_ok() {
+                pse_diagnostics::observation::Outcome::Completed
+            } else {
+                pse_diagnostics::observation::Outcome::Failed
+            });
+        }
         result
     }
     fn table_by_id(&self, id: SemanticId) -> Result<FieldCheckedBatch, Arc<WorkflowError>> {

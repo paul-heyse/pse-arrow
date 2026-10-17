@@ -680,7 +680,15 @@ impl Runtime {
                     source_selection: source_selection.clone(),
                     attestation: attestation.clone(),
                 };
-                let diagnostics = super::study_diagnostics::ManagedDetailSelection::selected(definition.graph().points.iter().try_fold(0_u64, |total, point| total.checked_add(u64::from(point.attempt_limit))));
+                let diagnostics = super::study_diagnostics::ManagedDetailSelection::selected(
+                    definition
+                        .graph()
+                        .points
+                        .iter()
+                        .try_fold(0_u64, |total, point| {
+                            total.checked_add(u64::from(point.attempt_limit))
+                        }),
+                );
                 let metadata = document(&StudyMetadata {
                     version: Version::<3>,
                     physical: physical.clone(),
@@ -1059,9 +1067,12 @@ impl Runtime {
                     .canonical_study(&point.study)
                     .await?
                     .ok_or_else(|| contract("study header absent"))?;
-                let StudyMetadata { physical, diagnostics, .. } =
-                    serde_json::from_slice(study.metadata.as_slice())
-                        .map_err(|error| contract(format!("study interpretation: {error}")))?;
+                let StudyMetadata {
+                    physical,
+                    diagnostics,
+                    ..
+                } = serde_json::from_slice(study.metadata.as_slice())
+                    .map_err(|error| contract(format!("study interpretation: {error}")))?;
                 let actual_revision = selected_revision.as_deref().unwrap_or(&study.revision);
                 let same_source = lane.source.as_ref().is_some_and(|(revision, receipt, _)| {
                     revision == actual_revision && receipt == &physical

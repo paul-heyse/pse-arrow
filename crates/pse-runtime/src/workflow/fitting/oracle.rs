@@ -155,7 +155,12 @@ impl FitOracle {
             .map(|g| sparse::GramWorker::new(g.clone(), &p.layout.responses, p.bytes))
             .transpose()?;
         Ok(Self {
-            observation: pse_diagnostics::observation::current().map(|context| context.producer(pse_diagnostics::observation::ProducerRole::Workflow, "fit.demand.products")),
+            observation: pse_diagnostics::observation::current().map(|context| {
+                context.producer(
+                    pse_diagnostics::observation::ProducerRole::Workflow,
+                    "fit.demand.products",
+                )
+            }),
             point_generation: 0,
             derivatives: p.profile.derivatives,
             prepared: p,
@@ -206,17 +211,58 @@ impl FitOracle {
             .point
             .as_ref()
             .is_some_and(|v| v.x.iter().zip(x).all(|(a, b)| a.to_bits() == b.to_bits()));
-        if !same { self.point_generation = self.point_generation.saturating_add(1); }
+        if !same {
+            self.point_generation = self.point_generation.saturating_add(1);
+        }
         if let Some(producer) = &self.observation {
             use pse_diagnostics::observation::{RecordField, Value};
-            let cached = same && self.point.as_ref().is_some_and(|p| p.achieved.includes(demand));
-            let record = producer.record("workflow.fit_demand.v1", if cached { "cache_reuse" } else { "requested" }, Some("exact original parameter vector"), None, vec![
-                RecordField { name: "point_generation".into(), unit: "oracle-local point".into(), value: if self.point_generation == u64::MAX { Value::Overflow } else { Value::Count(self.point_generation) }, availability: None },
-                RecordField { name: "purpose".into(), unit: "workflow reason".into(), value: Value::Text(demand.purpose.as_str().into()), availability: None },
-                RecordField { name: "same_point".into(), unit: "exact coordinate bits".into(), value: Value::Boolean(same), availability: None },
-                RecordField { name: "response_jacobian".into(), unit: "requested product".into(), value: Value::Boolean(demand.responses), availability: None },
-                RecordField { name: "adjoint_gradient".into(), unit: "requested product".into(), value: Value::Boolean(demand.adjoint), availability: None },
-            ]);
+            let cached = same
+                && self
+                    .point
+                    .as_ref()
+                    .is_some_and(|p| p.achieved.includes(demand));
+            let record = producer.record(
+                "workflow.fit_demand.v1",
+                if cached { "cache_reuse" } else { "requested" },
+                Some("exact original parameter vector"),
+                None,
+                vec![
+                    RecordField {
+                        name: "point_generation".into(),
+                        unit: "oracle-local point".into(),
+                        value: if self.point_generation == u64::MAX {
+                            Value::Overflow
+                        } else {
+                            Value::Count(self.point_generation)
+                        },
+                        availability: None,
+                    },
+                    RecordField {
+                        name: "purpose".into(),
+                        unit: "workflow reason".into(),
+                        value: Value::Text(demand.purpose.as_str().into()),
+                        availability: None,
+                    },
+                    RecordField {
+                        name: "same_point".into(),
+                        unit: "exact coordinate bits".into(),
+                        value: Value::Boolean(same),
+                        availability: None,
+                    },
+                    RecordField {
+                        name: "response_jacobian".into(),
+                        unit: "requested product".into(),
+                        value: Value::Boolean(demand.responses),
+                        availability: None,
+                    },
+                    RecordField {
+                        name: "adjoint_gradient".into(),
+                        unit: "requested product".into(),
+                        value: Value::Boolean(demand.adjoint),
+                        availability: None,
+                    },
+                ],
+            );
             producer.publish(&record);
         }
         if same
@@ -244,7 +290,12 @@ impl FitOracle {
                 1,
             );
         }
-        if same && matches!(demand.purpose, crate::invocation::IntegrationPurpose::PrimalTrial) {
+        if same
+            && matches!(
+                demand.purpose,
+                crate::invocation::IntegrationPurpose::PrimalTrial
+            )
+        {
             demand.purpose = crate::invocation::IntegrationPurpose::DerivativeUpgrade;
         }
         if same && let Some(point) = &self.point {
@@ -363,7 +414,10 @@ impl FitOracle {
             return Err(ProblemError::numerical("nonfinite fit output or response"));
         }
         self.execution.progress.push(native::solve::Event {
-            source: Some(native::solve::EventSource::new("fitting_trial", None, None).with_role(pse_diagnostics::observation::ProducerRole::Workflow)),
+            source: Some(
+                native::solve::EventSource::new("fitting_trial", None, None)
+                    .with_role(pse_diagnostics::observation::ProducerRole::Workflow),
+            ),
             phase: "fit.evaluation".into(),
             elapsed: self.execution.started.elapsed(),
             values: BTreeMap::from([(
@@ -460,7 +514,10 @@ impl FitOracle {
         }
         let _phase = pse_diagnostics::observation::phase("fit.transient_curvature");
         if let Some(context) = pse_diagnostics::observation::current() {
-            context.text("integration.purpose", crate::invocation::IntegrationPurpose::Curvature.as_str());
+            context.text(
+                "integration.purpose",
+                crate::invocation::IntegrationPurpose::Curvature.as_str(),
+            );
         }
         let p = self.prepared.clone();
         let mut curvatures = Vec::with_capacity(p.experiments.len());
@@ -519,17 +576,25 @@ impl FitOracle {
         let mut cotangent =
             |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
         let producer = self.observation.clone();
-        let observation = crate::invocation::IntegrationObservation::begin(producer, crate::invocation::IntegrationPurpose::Curvature, false, true, true, ei as u64);
-        let result = s.hessian(
-            self.transient_workers[ei]
-                .as_mut()
-                .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
-            &|k| Self::value(p, x, k),
-            &self.execution,
-            free,
-            &mut cotangent,
-        )
-        .map(|(_, _, curvature)| curvature);
+        let observation = crate::invocation::IntegrationObservation::begin(
+            producer,
+            crate::invocation::IntegrationPurpose::Curvature,
+            false,
+            true,
+            true,
+            ei as u64,
+        );
+        let result = s
+            .hessian(
+                self.transient_workers[ei]
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
+                &|k| Self::value(p, x, k),
+                &self.execution,
+                free,
+                &mut cotangent,
+            )
+            .map(|(_, _, curvature)| curvature);
         observation.finish(result.is_ok());
         result
     }
@@ -973,7 +1038,13 @@ impl FitProblem {
             let x = x.as_slice();
             // Fresh final evaluation is independent of native callback cache and candidate status.
             let mut final_oracle = FitOracle::new(self.clone(), execution)?;
-            match final_oracle.evaluate_demand(x, Demand { purpose: crate::invocation::IntegrationPurpose::OriginalAssessment, ..Demand::default() }) {
+            match final_oracle.evaluate_demand(
+                x,
+                Demand {
+                    purpose: crate::invocation::IntegrationPurpose::OriginalAssessment,
+                    ..Demand::default()
+                },
+            ) {
                 Err(e) => report.diagnostic = Some(FitDiagnostic::new(FitRule::FinalEvaluation, e)),
                 Ok(point) => {
                     if !self.install_final_point(report, x, point)? {
@@ -1111,7 +1182,13 @@ impl FitOracle {
         if self.derivatives != FitDerivatives::Responses {
             self.derivatives = FitDerivatives::Responses;
         }
-        self.evaluate_demand(x, Demand { purpose: crate::invocation::IntegrationPurpose::Identifiability, ..Demand::responses() })?;
+        self.evaluate_demand(
+            x,
+            Demand {
+                purpose: crate::invocation::IntegrationPurpose::Identifiability,
+                ..Demand::responses()
+            },
+        )?;
         let p = &self.prepared;
         let point = self
             .point
@@ -1473,8 +1550,24 @@ pub(super) fn evaluate_experiment(
     });
     let context = operation.as_ref().map(|operation| operation.context());
     let _entered = context.as_ref().map(|context| context.enter());
-    let producer = context.as_ref().map(|context| context.producer(pse_diagnostics::observation::ProducerRole::Workflow, "fit.experiment.products"));
-    let integration = (matches!(p.experiments[ei], Experiment::Transient(_)) && !p.layout.mappings[ei].observations.is_empty()).then(|| crate::invocation::IntegrationObservation::begin(producer, demand.purpose, demand.responses, demand.adjoint, false, ei as u64));
+    let producer = context.as_ref().map(|context| {
+        context.producer(
+            pse_diagnostics::observation::ProducerRole::Workflow,
+            "fit.experiment.products",
+        )
+    });
+    let integration = (matches!(p.experiments[ei], Experiment::Transient(_))
+        && !p.layout.mappings[ei].observations.is_empty())
+    .then(|| {
+        crate::invocation::IntegrationObservation::begin(
+            producer,
+            demand.purpose,
+            demand.responses,
+            demand.adjoint,
+            false,
+            ei as u64,
+        )
+    });
     let result = (|| {
         let _phase = pse_diagnostics::observation::phase("fit.experiment");
         if let Some(context) = pse_diagnostics::observation::current() {
@@ -1732,7 +1825,9 @@ pub(super) fn evaluate_experiment(
             Err(_) => pse_diagnostics::observation::Outcome::Failed,
         });
     }
-    if let Some(integration) = integration { integration.finish(result.is_ok()); }
+    if let Some(integration) = integration {
+        integration.finish(result.is_ok());
+    }
     result
 }
 

@@ -1648,6 +1648,14 @@ pub(crate) struct NativeStudyReport {
 }
 #[pymethods]
 impl NativeStudyReport {
+    /// Explicit selected diagnostics at the actual recorded study's locator.
+    fn diagnostic_selection(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<Option<documents::DocumentValue<native::ManagedStudyDiagnosticsDocument>>> {
+        blocking(py, &self.owner, self.inner.diagnostic_selection(), || {})
+            .map(|document| document.map(documents::DocumentValue))
+    }
     fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)

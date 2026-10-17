@@ -20,7 +20,12 @@ use std::{
 
 mod cpu;
 mod detail;
-pub use detail::{DetailDocument, DetailRecordPage, DetailEnd, DetailFamilyCoverage, DetailOutcome, DetailRequest, DetailRequirement, DetailSession, read_detailed_collection, read_detail_records, start_detailed_collection, current_detail_request, claim_managed_detail_budget, mark_detail_scope_unavailable};
+pub use detail::{
+    DetailDocument, DetailEnd, DetailFamilyCoverage, DetailOutcome, DetailRecordPage,
+    DetailRequest, DetailRequirement, DetailSession, claim_managed_detail_budget,
+    current_detail_request, mark_detail_scope_unavailable, read_detail_records,
+    read_detailed_collection, start_detailed_collection,
+};
 mod layer;
 mod timeline;
 pub use layer::CaptureLayer;

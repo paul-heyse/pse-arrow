@@ -218,7 +218,10 @@ impl Pipeline {
             normalization,
             certification_budget: None,
             oracle,
-            state: CallbackState::new_with_role(execution, pse_diagnostics::observation::ProducerRole::OriginalOracle),
+            state: CallbackState::new_with_role(
+                execution,
+                pse_diagnostics::observation::ProducerRole::OriginalOracle,
+            ),
             jac,
             hess,
             initial: start,

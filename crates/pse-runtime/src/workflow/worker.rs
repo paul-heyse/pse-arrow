@@ -1673,7 +1673,14 @@ impl Runtime {
                 return Err(error.into());
             }
         };
-        let detail = prepared.diagnostics.as_ref().and_then(|selection| super::study_diagnostics::begin_child(selection, &claim.point.study, claim.fence.run(), claim.fence.attempt()));
+        let detail = prepared.diagnostics.as_ref().and_then(|selection| {
+            super::study_diagnostics::begin_child(
+                selection,
+                &claim.point.study,
+                claim.fence.run(),
+                claim.fence.attempt(),
+            )
+        });
         let detail_context = detail.as_ref().map(crate::capture::DetailSession::context);
         let original_context = pse_diagnostics::observation::current();
         let outcome = pse_diagnostics::observation::scope(detail_context.or_else(|| original_context.clone()), async {

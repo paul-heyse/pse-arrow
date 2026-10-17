@@ -21,16 +21,16 @@ from pse import codec
 from pse._build import (
     InspectionError,
     _diagnostic_capture,
+    _diagnostic_detail_records,
     _diagnostic_inspect,
     _diagnostic_inspect_image,
     _diagnostic_list,
     _diagnostic_operation_id,
     _diagnostic_operation_text,
     _diagnostic_read_checkpoint,
+    _diagnostic_read_detail,
     _NativeCaptureSession,
     _NativeDetailSession,
-    _diagnostic_read_detail,
-    _diagnostic_detail_records,
     _NativeDiagnostics,
     _NativeOperationObservations,
 )
@@ -38,11 +38,11 @@ from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
-    DetailRequest,
-    DetailDocument,
-    DetailRecordPage,
     CheckpointIdentity,
     ClosedDuration,
+    DetailDocument,
+    DetailRecordPage,
+    DetailRequest,
     DiagnosticListRequest,
     DiagnosticProcessPage,
     InspectionDocument,
@@ -108,7 +108,6 @@ class Diagnostics:
         return DetailedCollection(self._handle.collect(request))
 
 
-
 @attrs.frozen
 class CaptureSession:
     """Own only optional capture workers; stopping leaves target science running."""
@@ -169,7 +168,7 @@ class DetailedCollection:
         return self._handle.stop()
 
     def leave(self) -> None:
-        """Restore caller scope before an await, retaining this writer and started work."""
+        """Leave before an await; retain this writer and already started work."""
         self._handle.leave()
 
     def __enter__(self) -> Self:
@@ -177,8 +176,12 @@ class DetailedCollection:
         self._handle.enter()
         return self
 
-    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None,
-                 traceback: TracebackType | None) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         """Finish the selected block interval; failures retain incomplete coverage."""
         if exc_type is None:
             self.finish()
@@ -191,8 +194,13 @@ def read_detail(path: str | Path, *, maximum_bytes: int = 256 << 20) -> DetailDo
     return _diagnostic_read_detail(Path(path), maximum_bytes)
 
 
-def detail_records(path: str | Path, *, offset: int = 0, limit: int = 128,
-                   maximum_bytes: int = 16 << 20) -> DetailRecordPage:
+def detail_records(
+    path: str | Path,
+    *,
+    offset: int = 0,
+    limit: int = 128,
+    maximum_bytes: int = 16 << 20,
+) -> DetailRecordPage:
     """Read original coherent records using the returned byte cursor."""
     return _diagnostic_detail_records(Path(path), offset, limit, maximum_bytes)
 
@@ -325,8 +333,11 @@ def _render_inspection(document: InspectionDocument) -> None:
             )
     if document.operation is not None:
         for producer in document.operation.producers:
-            print(f"producer {producer.descriptor.id.sequence} role={producer.descriptor.role} "
-                  f"coverage={codec.encode_json(producer.coverage).decode()}")
+            print(
+                f"producer {producer.descriptor.id.sequence} "
+                f"role={producer.descriptor.role} "
+                f"coverage={codec.encode_json(producer.coverage).decode()}"
+            )
             if producer.current is not None:
                 print(f"  current={codec.encode_json(producer.current).decode()}")
     for related in document.related:
@@ -371,7 +382,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     capturing.add_argument("--memory-bytes", type=_positive, default=16 << 20)
     capturing.add_argument("--output-bytes", type=_positive, default=256 << 20)
     capturing.add_argument("--json", action="store_true")
-    detail = commands.add_parser("read-detail", help="read selected source coverage and original records")
+    detail = commands.add_parser(
+        "read-detail", help="read selected source coverage and original records"
+    )
     detail.add_argument("records", type=Path)
     detail.add_argument("--offset", type=int, default=0)
     detail.add_argument("--limit", type=_bounded_count, default=16)
@@ -380,8 +393,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "read-detail":
-            page = detail_records(args.records, offset=args.offset, limit=args.limit,
-                                  maximum_bytes=args.maximum_bytes)
+            page = detail_records(
+                args.records,
+                offset=args.offset,
+                limit=args.limit,
+                maximum_bytes=args.maximum_bytes,
+            )
             print(codec.encode_json(page).decode())
             return 0
         if args.command == "list":

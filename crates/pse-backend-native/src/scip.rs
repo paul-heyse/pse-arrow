@@ -652,7 +652,12 @@ impl Objective {
             concurrent.reported(objective);
         }
         watch.progress.push(Event {
-            source: Some(crate::solve::EventSource::new("branch_and_bound", Some("original_source"), None)), phase: "scip.incumbent".into(),
+            source: Some(crate::solve::EventSource::new(
+                "branch_and_bound",
+                Some("original_source"),
+                None,
+            )),
+            phase: "scip.incumbent".into(),
             elapsed: watch.started.elapsed(),
             values: BTreeMap::new(),
             incumbent: Some(IncumbentEvent {
@@ -717,7 +722,12 @@ impl Objective {
         concurrent.improving(objective, || {
             let primal = self.throttle.admit().then(|| point.to_vec());
             watch.progress.push(Event {
-                source: Some(crate::solve::EventSource::new("branch_and_bound", Some("original_source"), None)), phase: "scip.incumbent".into(),
+                source: Some(crate::solve::EventSource::new(
+                    "branch_and_bound",
+                    Some("original_source"),
+                    None,
+                )),
+                phase: "scip.incumbent".into(),
                 elapsed: watch.started.elapsed(),
                 values: BTreeMap::new(),
                 incumbent: Some(IncumbentEvent {
@@ -749,7 +759,12 @@ impl Objective {
             )
         };
         watch.progress.push(Event {
-            source: Some(crate::solve::EventSource::new("branch_and_bound", Some("original_source"), None)), phase: "scip.bound".into(),
+            source: Some(crate::solve::EventSource::new(
+                "branch_and_bound",
+                Some("original_source"),
+                None,
+            )),
+            phase: "scip.bound".into(),
             elapsed: watch.started.elapsed(),
             values: [
                 ("primal_bound".into(), metric(self.original(primal))),

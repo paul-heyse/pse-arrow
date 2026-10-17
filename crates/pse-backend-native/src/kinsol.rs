@@ -700,7 +700,13 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
     let n = c.n;
     let execution = c.state.execution.clone();
     let producer = c.state.progress_producer().cloned();
-    let ordinal = c.state.counts.get(&crate::callback::CallbackKey::Named("residual")).copied().unwrap_or(0).saturating_add(1);
+    let ordinal = c
+        .state
+        .counts
+        .get(&crate::callback::CallbackKey::Named("residual"))
+        .copied()
+        .unwrap_or(0)
+        .saturating_add(1);
     let value = c.state.evaluate("residual", || {
         // SAFETY: KINSOL passes null or live serial vectors for the callback, and
         // `values` and `publish` check them against the `n` coordinates.
@@ -739,21 +745,49 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
             let contract = c.function.contract();
             let mut values = std::collections::BTreeMap::from([
                 ("evaluation_ordinal".into(), Metric::Integer(ordinal)),
-                ("output_role".into(), Metric::Text(if matches!(c.function, Function::Picard { .. }) { "picard_residual" } else { "equation_residual" }.into())),
+                (
+                    "output_role".into(),
+                    Metric::Text(
+                        if matches!(c.function, Function::Picard { .. }) {
+                            "picard_residual"
+                        } else {
+                            "equation_residual"
+                        }
+                        .into(),
+                    ),
+                ),
                 ("coordinate_prefix_partial".into(), Metric::Bool(n > 2)),
-                ("captured_coordinates".into(), Metric::Integer(i64::try_from(n.min(2)).unwrap_or(i64::MAX))),
+                (
+                    "captured_coordinates".into(),
+                    Metric::Integer(i64::try_from(n.min(2)).unwrap_or(i64::MAX)),
+                ),
             ]);
             for (index, value) in v.iter().take(2).enumerate() {
-                values.insert(format!("scalar.{index}.variable"), Metric::Text(contract.variables[index].id.to_string()));
-                values.insert(format!("scalar.{index}.row"), Metric::Text(contract.rows[index].to_string()));
+                values.insert(
+                    format!("scalar.{index}.variable"),
+                    Metric::Text(contract.variables[index].id.to_string()),
+                );
+                values.insert(
+                    format!("scalar.{index}.row"),
+                    Metric::Text(contract.rows[index].to_string()),
+                );
                 values.insert(format!("scalar.{index}.residual"), Metric::Real(*value));
             }
             let event = Event {
-                source: Some(EventSource::new("root_evaluation", Some("submitted_oracle"), None).with_role(execution.callback_role)),
-                phase: "kinsol.function_evaluation".into(), elapsed: execution.started.elapsed(), values, incumbent: None,
+                source: Some(
+                    EventSource::new("root_evaluation", Some("submitted_oracle"), None)
+                        .with_role(execution.callback_role),
+                ),
+                phase: "kinsol.function_evaluation".into(),
+                elapsed: execution.started.elapsed(),
+                values,
+                incumbent: None,
             };
-            if let Some(producer) = &producer { execution.progress.push_from(event, producer); }
-            else { execution.progress.push(event); }
+            if let Some(producer) = &producer {
+                execution.progress.push_from(event, producer);
+            } else {
+                execution.progress.push(event);
+            }
         }
         Ok(())
     });
@@ -3208,8 +3242,20 @@ mod tests {
             let report = solve_fault(&mut session, 1.0);
             assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
             assert_eq!(report.evidence.work.evaluations, Some(2));
-            let checkpoint = report.events.iter().find(|event| event.source.as_ref().is_some_and(|source| source.family == "root_evaluation.v1")).unwrap();
-            assert_eq!(checkpoint.values["output_role"], Metric::Text("equation_residual".into()));
+            let checkpoint = report
+                .events
+                .iter()
+                .find(|event| {
+                    event
+                        .source
+                        .as_ref()
+                        .is_some_and(|source| source.family == "root_evaluation.v1")
+                })
+                .unwrap();
+            assert_eq!(
+                checkpoint.values["output_role"],
+                Metric::Text("equation_residual".into())
+            );
             assert!(checkpoint.values.contains_key("scalar.0.residual"));
             assert!(!checkpoint.values.contains_key("iteration"));
             assert_eq!(

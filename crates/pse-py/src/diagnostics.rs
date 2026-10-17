@@ -69,47 +69,95 @@ impl NativeDiagnostics {
             .map(NativeOperationObservations::new)
     }
     /// Select finite source detail before constructing work under its entered context.
-    fn collect(&self, py: Python<'_>, request: DocumentInput<capture::DetailRequest>) -> PyResult<NativeDetailSession> {
-        let operation=pse_diagnostics::observation::current().map_or_else(
-            ||self.inner.hub().start("selected.detail"),
-            |parent|parent.child("selected.detail",pse_diagnostics::Relationship::Nested),
+    fn collect(
+        &self,
+        py: Python<'_>,
+        request: DocumentInput<capture::DetailRequest>,
+    ) -> PyResult<NativeDetailSession> {
+        let operation = pse_diagnostics::observation::current().map_or_else(
+            || self.inner.hub().start("selected.detail"),
+            |parent| parent.child("selected.detail", pse_diagnostics::Relationship::Nested),
         );
-        let session=capture::start_detailed_collection(operation.context(),request.0).map_err(|error|errors::diagnostic(py,&error))?;
-        Ok(NativeDetailSession { session:Some(session), completed:None, entered:None, operation:Some(operation) })
+        let session = capture::start_detailed_collection(operation.context(), request.0)
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        Ok(NativeDetailSession {
+            session: Some(session),
+            completed: None,
+            entered: None,
+            operation: Some(operation),
+        })
     }
 }
 
 /// Caller-scoped selected collection; its thread-local guard never crosses an await.
-#[pyclass(unsendable, skip_from_py_object, module="pse._native")]
+#[pyclass(unsendable, skip_from_py_object, module = "pse._native")]
 pub(crate) struct NativeDetailSession {
-    session:Option<capture::DetailSession>,
-    completed:Option<capture::DetailDocument>,
-    entered:Option<pse_diagnostics::observation::EnterGuard>,
-    operation:Option<pse_diagnostics::observation::OperationGuard>,
+    session: Option<capture::DetailSession>,
+    completed: Option<capture::DetailDocument>,
+    entered: Option<pse_diagnostics::observation::EnterGuard>,
+    operation: Option<pse_diagnostics::observation::OperationGuard>,
 }
 #[pymethods]
 impl NativeDetailSession {
     fn enter(&mut self) -> PyResult<()> {
-        if self.entered.is_some() {return Err(pyo3::exceptions::PyValueError::new_err("selected collection is already entered"));}
-        let session=self.session.as_ref().ok_or_else(||pyo3::exceptions::PyValueError::new_err("selected collection has ended"))?;
-        self.entered=Some(session.context().enter()); Ok(())
+        if self.entered.is_some() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "selected collection is already entered",
+            ));
+        }
+        let session = self.session.as_ref().ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err("selected collection has ended")
+        })?;
+        self.entered = Some(session.context().enter());
+        Ok(())
     }
     fn snapshot(&self) -> PyResult<DocumentValue<capture::DetailDocument>> {
-        self.session.as_ref().map(capture::DetailSession::snapshot).or_else(||self.completed.clone()).map(DocumentValue).ok_or_else(||pyo3::exceptions::PyRuntimeError::new_err("selected collection unavailable"))
+        self.session
+            .as_ref()
+            .map(capture::DetailSession::snapshot)
+            .or_else(|| self.completed.clone())
+            .map(DocumentValue)
+            .ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err("selected collection unavailable")
+            })
     }
     /// Restore caller-local scope while already constructed work retains its selection.
-    fn leave(&mut self) {self.entered.take();}
-    fn request_stop(&self) {if let Some(session)=&self.session {session.request_stop();}}
-    fn finish(&mut self,py:Python<'_>) -> PyResult<DocumentValue<capture::DetailDocument>> {self.join(py,true)}
-    fn stop(&mut self,py:Python<'_>) -> PyResult<DocumentValue<capture::DetailDocument>> {self.join(py,false)}
+    fn leave(&mut self) {
+        self.entered.take();
+    }
+    fn request_stop(&self) {
+        if let Some(session) = &self.session {
+            session.request_stop();
+        }
+    }
+    fn finish(&mut self, py: Python<'_>) -> PyResult<DocumentValue<capture::DetailDocument>> {
+        self.join(py, true)
+    }
+    fn stop(&mut self, py: Python<'_>) -> PyResult<DocumentValue<capture::DetailDocument>> {
+        self.join(py, false)
+    }
 }
 impl NativeDetailSession {
-    fn join(&mut self,py:Python<'_>,finished:bool)->PyResult<DocumentValue<capture::DetailDocument>> {
+    fn join(
+        &mut self,
+        py: Python<'_>,
+        finished: bool,
+    ) -> PyResult<DocumentValue<capture::DetailDocument>> {
         self.entered.take();
-        if let Some(session)=self.session.take() {
-            let result=py.detach(move|| if finished {session.finish()}else{session.stop()}).map_err(|error|errors::diagnostic(py,&error));
-            if let Some(operation)=self.operation.take() {operation.finish(pse_diagnostics::OperationOutcome::Completed);}
-            self.completed=Some(result?);
+        if let Some(session) = self.session.take() {
+            let result = py
+                .detach(move || {
+                    if finished {
+                        session.finish()
+                    } else {
+                        session.stop()
+                    }
+                })
+                .map_err(|error| errors::diagnostic(py, &error));
+            if let Some(operation) = self.operation.take() {
+                operation.finish(pse_diagnostics::OperationOutcome::Completed);
+            }
+            self.completed = Some(result?);
         }
         self.snapshot()
     }
@@ -117,21 +165,35 @@ impl NativeDetailSession {
 impl Drop for NativeDetailSession {
     fn drop(&mut self) {
         self.entered.take();
-        if let Some(session)=self.session.take(){
-            let mut pending=Some(session);
-            let _=Python::try_attach(|py|py.detach(||drop(pending.take())));
+        if let Some(session) = self.session.take() {
+            let mut pending = Some(session);
+            let _ = Python::try_attach(|py| py.detach(|| drop(pending.take())));
             drop(pending);
         }
     }
 }
 
 #[pyfunction]
-pub(crate) fn diagnostic_read_detail(py:Python<'_>,path:PathBuf,maximum_bytes:u64)->PyResult<DocumentValue<capture::DetailDocument>> {
-    py.detach(||capture::read_detailed_collection(&path,maximum_bytes)).map(DocumentValue).map_err(|error|errors::diagnostic(py,&error))
+pub(crate) fn diagnostic_read_detail(
+    py: Python<'_>,
+    path: PathBuf,
+    maximum_bytes: u64,
+) -> PyResult<DocumentValue<capture::DetailDocument>> {
+    py.detach(|| capture::read_detailed_collection(&path, maximum_bytes))
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
 }
 #[pyfunction]
-pub(crate) fn diagnostic_detail_records(py:Python<'_>,path:PathBuf,offset:u64,limit:usize,maximum_bytes:u64)->PyResult<DocumentValue<capture::DetailRecordPage>> {
-    py.detach(||capture::read_detail_records(&path,offset,limit,maximum_bytes)).map(DocumentValue).map_err(|error|errors::diagnostic(py,&error))
+pub(crate) fn diagnostic_detail_records(
+    py: Python<'_>,
+    path: PathBuf,
+    offset: u64,
+    limit: usize,
+    maximum_bytes: u64,
+) -> PyResult<DocumentValue<capture::DetailRecordPage>> {
+    py.detach(|| capture::read_detail_records(&path, offset, limit, maximum_bytes))
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
 }
 
 /// An exact operation read lease, independent from RunHandle's cancellation owner.

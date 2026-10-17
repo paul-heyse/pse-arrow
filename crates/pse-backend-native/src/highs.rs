@@ -1613,7 +1613,12 @@ impl Callback {
     }
     fn report(&self, incumbent: IncumbentEvent) {
         self.execution.progress.push(Event {
-            source: Some(EventSource::new("linear_search", Some("original_source"), None)), phase: "highs.incumbent".into(),
+            source: Some(EventSource::new(
+                "linear_search",
+                Some("original_source"),
+                None,
+            )),
+            phase: "highs.incumbent".into(),
             elapsed: self.execution.started.elapsed(),
             values: BTreeMap::new(),
             incumbent: Some(incumbent),
@@ -1690,7 +1695,12 @@ unsafe extern "C" fn callback(
                 );
             }
             c.execution.progress.push(Event {
-                source: Some(EventSource::new("linear_search", Some("native_model"), None)), phase: "highs.callback".into(),
+                source: Some(EventSource::new(
+                    "linear_search",
+                    Some("native_model"),
+                    None,
+                )),
+                phase: "highs.callback".into(),
                 elapsed: c.execution.started.elapsed(),
                 values,
                 incumbent: None,

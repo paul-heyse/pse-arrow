@@ -313,14 +313,23 @@ def invocation_population(directory: Path, memory: dict) -> dict:
         records = memory["records"]
         location = "memory.json:records"
     else:
-        return {"status": "unavailable", "reason": "case supplied no per-invocation artifact"}
-    if not isinstance(records, list) or not all(isinstance(record, dict) for record in records):
+        return {
+            "status": "unavailable",
+            "reason": "case supplied no per-invocation artifact",
+        }
+    if not isinstance(records, list) or not all(
+        isinstance(record, dict) for record in records
+    ):
         raise ValueError("invocation artifact must contain object records")
     expected = memory.get("iterations")
     if expected is not None and (
-        isinstance(expected, bool) or not isinstance(expected, int) or expected != len(records)
+        isinstance(expected, bool)
+        or not isinstance(expected, int)
+        or expected != len(records)
     ):
-        raise ValueError("invocation record count does not match actual executed iterations")
+        raise ValueError(
+            "invocation record count does not match actual executed iterations"
+        )
     return {
         "status": "available",
         "source": location,
@@ -468,11 +477,11 @@ def smoke_campaign(
     ]
     for target in sorted(targets):
         command.extend(("--bench", target))
-    if audit_order is not None:
-        # Ordinary statistical collection does not load correctness closure logic.
-        from scripts import arrow_validation  # noqa: PLC0415
+    # Every smoke executes correctness assertions. Statistical collection remains
+    # separate, while all smoke routes validate their actual Arrow closure.
+    from scripts import arrow_validation  # noqa: PLC0415
 
-        command = arrow_validation.compose(command)
+    command = arrow_validation.compose(command)
     build = build_benchmark(command, output, "smoke")
     binaries = {
         row["target"]["name"]: row["executable"]

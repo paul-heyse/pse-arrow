@@ -34,8 +34,9 @@ metric publication alone does not imply a complete event history.
 
 Each process publishes one atomic JSON checkpoint under `PSE_DIAGNOSTICS_DIR`, or
 `$XDG_STATE_HOME/pse/diagnostics`, or `$HOME/.local/state/pse/diagnostics`. The process locator
-contains its instance identity rather than PID alone. Version **3** adds producer summary
-purpose, eligibility deadlines and explicit admission/expiry/pressure losses. It retains the actual
+contains its instance identity rather than PID alone. Version **4** includes coherent
+producer records alongside summary purpose, eligibility deadlines and explicit
+admission/expiry/pressure losses. It retains the actual
 OS PID, optional Linux process start ticks and executable path, a same-host `CLOCK_MONOTONIC`
 mapping with explicit uncertainty, and bounded actual native-thread scopes. A thread scope
 contains its operation, OS TID, optional thread start ticks and observed entry/return times;
@@ -431,3 +432,55 @@ Neither a completed capture nor a readable file establishes numerical correctnes
 cause. Tokio Console, allocation/native-heap and off-CPU/wait integrations are not supported
 by this capture surface; their suggested next observations remain optional and unavailable,
 not zero work. Current acceptance and remaining qualification belong to Plan 40c/40e.
+
+
+## Coherent source records and selected detail
+
+Performing owners have independent producer IDs and prepared metric populations. Read a
+producer's whole `current` record and bounded `recent` records rather than joining independent
+field histories into iterations. Records retain source generation/sequence, family-sequence
+availability, timestamp, phase, coordinates/norm and typed fields/availability. Current
+native progress is also available from `RunHandle.current_progress()` with history zero;
+its separately read issued head/loss makes stale or refused current retention visible.
+Durable append sequence is a different identity.
+
+`runtime.observations().collect(DetailRequest(...))` explicitly selects finite families,
+window, stride and memory/output allowances before constructing work in its synchronous
+context. Native families include `nonlinear_iteration.v1`, `root_evaluation.v1`,
+`root_raw_map.v1`, `conic_iteration.v1`, `linear_search.v1`, `branch_and_bound.v1`,
+`dynamic_output.v1`, `dynamic_adjoint.v1`, `dynamic_native_return.v1` and
+`native_owner_return.v1`; only supported actual owners emit them. Workflow integration and
+evaluator census/demand families retain their own semantics. Missing families stay incomplete.
+`boundary_thread_cpu=True` selects actual synchronous callback-thread CPU, never async,
+child-thread or exclusive CPU. No thread clock is enabled by ordinary collection.
+
+The entered Python construction scope must not cross an await. After starting work, call
+`collection.leave()` before yielding; constructed native/async owners retain the selection.
+Keep the collection alive until work joins, then `finish()` (or normal context exit) joins
+only its writer. `stop()`/exception exit retains incomplete coverage. Dropping a collection
+never cancels science and releases Python execution while joining its writer.
+The first closing reason is retained: later `finish()` or deadline expiry during drain
+cannot relabel an earlier stop as a complete interval.
+
+`read_detail` returns the versioned coverage/prefix; `detail_records` pages original whole
+records with a byte cursor. Complete requires every requested family to be observed and
+source-issued heads, offered records, queue/output acknowledgments and final drain to agree.
+Loss, refusal, interruption, an unknown family or hard-death prefix is incomplete. Selected
+sampling is labelled sampled, even when all chosen samples were flushed.
+
+For managed studies, supply a separate `managed_budget` before starting the recorded study.
+It is granted once and divided across declared attempts including retries; the local
+allowance is not duplicated. Queued children retain the original same-host deadline.
+`StudyHandle.diagnostic_selection()` reads bounded current assigned attempt references,
+actual receiving PID/operation and each child's independent coverage. A local capture
+never proves whole-study completeness; historical retry files are retained without being
+substituted for current attempts.
+`StudyReport.diagnostic_selection()` uses the report's retained canonical study locator
+for the same readback; an ephemeral in-process report returns no managed selection.
+
+`RunResult.invocation_evidence` references existing attempt/work/settings evidence and
+separates qualification completion, scientific terminal completion, response readiness,
+requested-product availability and later related access. Inclusive intervals overlap.
+The native-process harness retains every invocation, including warmups/failures, separately
+from Criterion statistics; measurement membership is unavailable when the harness does not
+establish it. These records do not introduce performance thresholds or provenance proof.

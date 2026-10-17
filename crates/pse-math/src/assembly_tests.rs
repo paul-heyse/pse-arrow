@@ -2002,10 +2002,18 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
                 .unwrap();
             assert_eq!(same, expected);
         }
-        let counts = actual.demand_statistics().find(|row| {
-            row.demand == EvaluationDemand::Directional && row.requested == DerivativeOrder::First
-        }).unwrap().counts;
-        assert_eq!((counts.calls, counts.completed, counts.evaluations), (6, 6, 3));
+        let counts = actual
+            .demand_statistics()
+            .find(|row| {
+                row.demand == EvaluationDemand::Directional
+                    && row.requested == DerivativeOrder::First
+            })
+            .unwrap()
+            .counts;
+        assert_eq!(
+            (counts.calls, counts.completed, counts.evaluations),
+            (6, 6, 3)
+        );
         assert_eq!((counts.cache_hits, counts.changed_input_misses), (3, 2));
         assert_eq!(counts.achieved(DerivativeOrder::First), 6);
         // The ordinary Value programs cannot evaluate First: the action has not used them.
@@ -2891,7 +2899,10 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
         )
         .unwrap();
     assert_eq!(next.instantiated_orders(), warmed);
-    assert_eq!(next.demand_observation_status(), DemandObservationStatus::NotRequested);
+    assert_eq!(
+        next.demand_observation_status(),
+        DemandObservationStatus::NotRequested
+    );
     assert_eq!(next.demand_statistics().count(), 0);
     values.scalars.insert(id(1), 4.0);
     assert_eq!(next.objective(&values).unwrap(), 12.0);
@@ -3806,10 +3817,15 @@ fn demand_observations_distinguish_order_projection_inputs_and_failed_trials() {
     let cancel = Arc::new(AtomicBool::new(false));
     let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
     let counts = |worker: &CaseWorker, requested| {
-        *worker.demand_statistics().find(|row| {
-            row.instance == id(9) && row.demand == EvaluationDemand::Objective
-                && row.requested == requested
-        }).unwrap().counts
+        *worker
+            .demand_statistics()
+            .find(|row| {
+                row.instance == id(9)
+                    && row.demand == EvaluationDemand::Objective
+                    && row.requested == requested
+            })
+            .unwrap()
+            .counts
     };
     assert_eq!(worker.objective(&values).unwrap(), 6.0);
     assert_eq!(worker.objective(&values).unwrap(), 6.0);
@@ -3833,12 +3849,18 @@ fn demand_observations_distinguish_order_projection_inputs_and_failed_trials() {
     let value = counts(&worker, DerivativeOrder::Value);
     assert_eq!((value.calls, value.completed, value.failed), (7, 6, 1));
     assert_eq!((value.evaluations, value.empty_misses), (4, 1));
-    assert_eq!((value.changed_input_misses, value.invalidated_misses), (1, 2));
+    assert_eq!(
+        (value.changed_input_misses, value.invalidated_misses),
+        (1, 2)
+    );
     assert!(!value.overflowed);
     cancel.store(true, std::sync::atomic::Ordering::Relaxed);
     assert!(worker.objective(&values).is_err());
-    assert_eq!(counts(&worker, DerivativeOrder::Value), value,
-        "pre-cancellation does not invent an occurrence invocation");
+    assert_eq!(
+        counts(&worker, DerivativeOrder::Value),
+        value,
+        "pre-cancellation does not invent an occurrence invocation"
+    );
 }
 
 #[test]
@@ -3847,14 +3869,25 @@ fn compact_census_borrows_actual_products_and_separates_addends_from_nnz() {
     let census = assembly.census();
     assert_eq!(census.occurrences, 1);
     assert_eq!(census.templates, assembly.programs().len());
-    assert_eq!(census.jacobian_addends, 4,
-        "two independent axes in each of two authored row contributions");
+    assert_eq!(
+        census.jacobian_addends, 4,
+        "two independent axes in each of two authored row contributions"
+    );
     assert_eq!(census.jacobian_nnz, 1);
     assert_eq!(census.numeric_worker_bytes, assembly.numeric_worker_bytes());
     for demand in assembly.demand_census() {
-        assert!(std::ptr::eq(demand.demand, &assembly.demands()[demand.template]));
-        assert!(std::ptr::eq(demand.support, assembly.supports()[demand.template].as_ref()));
-        assert!(std::ptr::eq(demand.program, assembly.programs()[demand.template].as_ref()));
+        assert!(std::ptr::eq(
+            demand.demand,
+            &assembly.demands()[demand.template]
+        ));
+        assert!(std::ptr::eq(
+            demand.support,
+            assembly.supports()[demand.template].as_ref()
+        ));
+        assert!(std::ptr::eq(
+            demand.program,
+            assembly.programs()[demand.template].as_ref()
+        ));
         let orders = demand.program.census().collect::<Vec<_>>();
         assert_eq!(orders.len(), demand.demand.order as usize + 1);
         assert_eq!(orders[0].order, DerivativeOrder::Value);
@@ -3875,7 +3908,8 @@ fn evaluator_census_leaves_unused_derivative_realizations_cold() {
     let (assembly, values) = fixture(false, false);
     let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
     assert!(worker.evaluator_census().all(|(_, census)| {
-        census.frame_entries == 0 && census.instantiated_orders == [false; 3]
+        census.frame_entries == 0
+            && census.instantiated_orders == [false; 3]
             && census.used_allowance_bytes == 0
     }));
     worker.objective(&values).unwrap();
@@ -3886,12 +3920,16 @@ fn evaluator_census_leaves_unused_derivative_realizations_cold() {
             && census.used_allowance_bytes <= census.admitted_bytes
     }));
     worker.gradient(&values).unwrap();
-    assert!(worker.evaluator_census().any(|(_, census)| {
-        census.instantiated_orders[DerivativeOrder::First as usize]
-    }));
-    assert!(worker.evaluator_census().all(|(_, census)| {
-        !census.instantiated_orders[DerivativeOrder::Second as usize]
-    }));
+    assert!(
+        worker
+            .evaluator_census()
+            .any(|(_, census)| { census.instantiated_orders[DerivativeOrder::First as usize] })
+    );
+    assert!(
+        worker
+            .evaluator_census()
+            .all(|(_, census)| { !census.instantiated_orders[DerivativeOrder::Second as usize] })
+    );
 }
 
 #[test]
@@ -3899,37 +3937,79 @@ fn demand_collection_refusal_and_operation_rebind_preserve_scientific_reuse() {
     use pse_diagnostics::observation::{ObservationHub, Policy};
     let (assembly, values) = fixture(false, false);
     let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
-    assert_eq!(worker.demand_observation_status(), DemandObservationStatus::NotRequested);
+    assert_eq!(
+        worker.demand_observation_status(),
+        DemandObservationStatus::NotRequested
+    );
     assert_eq!(worker.objective(&values).unwrap(), 6.0);
     assert_eq!(worker.demand_statistics().count(), 0);
-    for policy in [Policy { enabled: false, ..Policy::default() },
-        Policy { budget_bytes: 1, ..Policy::default() }] {
+    for policy in [
+        Policy {
+            enabled: false,
+            ..Policy::default()
+        },
+        Policy {
+            budget_bytes: 1,
+            ..Policy::default()
+        },
+    ] {
         let hub = ObservationHub::new(policy);
         let operation = hub.start("math.collection.refused");
         let _entered = operation.context().enter();
         assert_eq!(worker.objective(&values).unwrap(), 6.0);
-        assert_eq!(worker.demand_observation_status(), DemandObservationStatus::Unavailable);
+        assert_eq!(
+            worker.demand_observation_status(),
+            DemandObservationStatus::Unavailable
+        );
         assert_eq!(worker.demand_statistics().count(), 0);
-        assert_eq!(assembly.numeric_worker_bytes(), assembly.census().numeric_worker_bytes);
+        assert_eq!(
+            assembly.numeric_worker_bytes(),
+            assembly.census().numeric_worker_bytes
+        );
     }
     let hub = ObservationHub::new(Policy::default());
     for _ in 0..2 {
         let operation = hub.start("math.collection.new_operation");
         let _entered = operation.context().enter();
         assert_eq!(worker.objective(&values).unwrap(), 6.0);
-        assert_eq!(worker.demand_observation_status(), DemandObservationStatus::Collected);
-        let counts = worker.demand_statistics().find(|row| {
-            row.demand == EvaluationDemand::Objective && row.requested == DerivativeOrder::Value
-        }).unwrap().counts;
-        assert_eq!((counts.calls, counts.completed, counts.cache_hits, counts.evaluations), (1, 1, 1, 0));
-        let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            worker.demand_observation_status(),
+            DemandObservationStatus::Collected
+        );
+        let counts = worker
+            .demand_statistics()
+            .find(|row| {
+                row.demand == EvaluationDemand::Objective && row.requested == DerivativeOrder::Value
+            })
+            .unwrap()
+            .counts;
+        assert_eq!(
+            (
+                counts.calls,
+                counts.completed,
+                counts.cache_hits,
+                counts.evaluations
+            ),
+            (1, 1, 1, 0)
+        );
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
         assert!(snapshot.producers.iter().any(|producer| {
             producer.descriptor.role == pse_diagnostics::observation::ProducerRole::Evaluator
-                && producer.current.as_ref().is_some_and(|record| record.family == "evaluator_demand_batch.v1")
+                && producer
+                    .current
+                    .as_ref()
+                    .is_some_and(|record| record.family == "evaluator_demand_batch.v1")
         }));
-        assert!(snapshot.producers.iter().flat_map(|producer| &producer.recent)
-            .all(|record| record.family != "evaluator_demand.v1"),
-            "ordinary bounded observation does not emit one record per occurrence");
+        assert!(
+            snapshot
+                .producers
+                .iter()
+                .flat_map(|producer| &producer.recent)
+                .all(|record| record.family != "evaluator_demand.v1"),
+            "ordinary bounded observation does not emit one record per occurrence"
+        );
     }
 }
 
@@ -3956,15 +4036,34 @@ fn selected_demand_rows_preserve_occurrences_and_actual_order_without_eager_work
     second.instance = id(8);
     instances.push(second);
     let structure = CaseStructure::new(
-        original.structure().variables().to_vec(), original.structure().parameters().to_vec(),
-        instances, original.structure().rows().to_vec(), original.structure().objective().cloned(),
+        original.structure().variables().to_vec(),
+        original.structure().parameters().to_vec(),
+        instances,
+        original.structure().rows().to_vec(),
+        original.structure().objective().cloned(),
         CaseLimits::default(),
-    ).unwrap();
+    )
+    .unwrap();
     let cancel = Arc::new(AtomicBool::new(false));
-    let assembly = Arc::new(Arc::new(CasePlan::prepare(
-        Arc::new(structure), original.bodies().clone(), &standard_registry().unwrap(),
-        DerivativeOrder::Second, AssemblyLimits::default(), &cancel,
-    ).unwrap()).compile(Optimization::default(), EvaluationLimits::default(), &cancel).unwrap());
+    let assembly = Arc::new(
+        Arc::new(
+            CasePlan::prepare(
+                Arc::new(structure),
+                original.bodies().clone(),
+                &standard_registry().unwrap(),
+                DerivativeOrder::Second,
+                AssemblyLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+        )
+        .compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap(),
+    );
     assert_eq!(assembly.census().occurrences, 2);
     assert_eq!(assembly.census().templates, original.census().templates);
     let hub = ObservationHub::new(Default::default());
@@ -3974,23 +4073,52 @@ fn selected_demand_rows_preserve_occurrences_and_actual_order_without_eager_work
     let mut worker = assembly.worker(BTreeMap::new(), cancel);
     assert_eq!(worker.gradient(&values).unwrap(), vec![6.0, 4.0]);
     assert_eq!(worker.objective(&values).unwrap(), 12.0);
-    assert!(worker.evaluator_census().all(|(_, census)| !census.instantiated_orders[2]));
+    assert!(
+        worker
+            .evaluator_census()
+            .all(|(_, census)| !census.instantiated_orders[2])
+    );
     let records = tap.0.lock().unwrap();
-    let rows = records.iter().filter(|record| record.family == "evaluator_demand.v1").collect::<Vec<_>>();
+    let rows = records
+        .iter()
+        .filter(|record| record.family == "evaluator_demand.v1")
+        .collect::<Vec<_>>();
     assert_eq!(rows.len(), 4);
     let read = |record: &CoherentRecord, name: &str| {
-        record.values.iter().find(|field| field.name == name).unwrap().value.clone()
+        record
+            .values
+            .iter()
+            .find(|field| field.name == name)
+            .unwrap()
+            .value
+            .clone()
     };
     for instance in [id(8), id(9)] {
-        let value = rows.iter().find(|record| read(record, "instance") == Value::Text(instance.to_string())
-            && read(record, "requested_order") == Value::Integer(0)).unwrap();
+        let value = rows
+            .iter()
+            .find(|record| {
+                read(record, "instance") == Value::Text(instance.to_string())
+                    && read(record, "requested_order") == Value::Integer(0)
+            })
+            .unwrap();
         assert_eq!(read(value, "math.demand.evaluations"), Value::Count(0));
         assert_eq!(read(value, "math.demand.cache_hits"), Value::Count(1));
-        assert_eq!(read(value, "math.demand.cache_projections"), Value::Count(1));
+        assert_eq!(
+            read(value, "math.demand.cache_projections"),
+            Value::Count(1)
+        );
         assert_eq!(read(value, "math.demand.achieved_first"), Value::Count(1));
     }
-    assert!(records.iter().any(|record| record.family == "evaluator_census.v1"));
-    assert!(records.iter().all(|record| record.producer.operation == operation.context().id()));
+    assert!(
+        records
+            .iter()
+            .any(|record| record.family == "evaluator_census.v1")
+    );
+    assert!(
+        records
+            .iter()
+            .all(|record| record.producer.operation == operation.context().id())
+    );
 }
 
 #[test]
@@ -3999,7 +4127,10 @@ fn indexed_row_pressure_keeps_admitted_aggregate_work_and_science_independent() 
     let (assembly, values) = fixture(false, false);
     let mut observed_aggregate_only = false;
     for kib in (32..=128).step_by(8) {
-        let hub = ObservationHub::new(Policy { budget_bytes: kib * 1024, ..Policy::default() });
+        let hub = ObservationHub::new(Policy {
+            budget_bytes: kib * 1024,
+            ..Policy::default()
+        });
         let operation = hub.start("math.indexed_pressure.control");
         let _entered = operation.context().enter();
         let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
@@ -4007,15 +4138,24 @@ fn indexed_row_pressure_keeps_admitted_aggregate_work_and_science_independent() 
         if worker.demand_observation_status() == DemandObservationStatus::AggregateOnly {
             observed_aggregate_only = true;
             assert_eq!(worker.demand_statistics().count(), 0);
-            let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+            let snapshot = operation
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60));
             assert!(snapshot.metrics.iter().any(|metric| {
                 metric.name == "math.demand.calls" && metric.cumulative == Value::Count(1)
             }));
-            assert!(!snapshot.metrics.iter().any(|metric| {
-                metric.name == "math.demand.empty_misses" && metric.cumulative == Value::Count(1)
-            }), "missing indexed history cannot establish a cold miss");
+            assert!(
+                !snapshot.metrics.iter().any(|metric| {
+                    metric.name == "math.demand.empty_misses"
+                        && metric.cumulative == Value::Count(1)
+                }),
+                "missing indexed history cannot establish a cold miss"
+            );
         }
         assert!(hub.retained_bytes() <= kib * 1024);
     }
-    assert!(observed_aggregate_only, "bounded pressure must exercise the aggregate-only branch");
+    assert!(
+        observed_aggregate_only,
+        "bounded pressure must exercise the aggregate-only branch"
+    );
 }

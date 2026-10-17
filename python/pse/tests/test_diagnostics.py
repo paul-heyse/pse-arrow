@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Diagnostic boundaries use copied facts and never require a scientific store."""
 
+import asyncio
 import gc
 import os
 import subprocess
@@ -20,10 +21,9 @@ from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
-    DetailRequest,
-    SolveControls,
     CheckpointIdentity,
     ClosedDuration,
+    DetailRequest,
     DiagnosticListRequest,
     DiagnosticProcessPage,
     InspectionDocument,
@@ -33,6 +33,7 @@ from pse.contracts.documents import (
     ProcessCheckpoint,
     ProcessLocator,
     ProcessResources,
+    SolveControls,
     SummaryCoverage,
     WorkObservation,
 )
@@ -113,7 +114,9 @@ def observed_runtime(
     return runtime, observations, reader
 
 
-def diagnostic_native_solve(runtime: pse.Runtime, *, history: int = 256) -> pse.RunHandle:
+def diagnostic_native_solve(
+    runtime: pse.Runtime, *, history: int = 256
+) -> pse.RunHandle:
     physical = runtime.physical_from_documents(physical_documents())
     package = runtime.modeling_from_documents(
         [
@@ -656,27 +659,40 @@ def test_diagnostic_cli_refuses_unbounded_requests(arguments: list[str]) -> None
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("output_bytes", [16 << 20, 1])
 def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
-    inspection_settings: pse.EngineSettings, tmp_path: Path,
+    inspection_settings: pse.EngineSettings,
+    tmp_path: Path,
+    output_bytes: int,
 ) -> None:
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     try:
         request = DetailRequest(
-            families=["root_evaluation.v1", "native_owner_return.v1"],
-            requirement="complete", sample_every=1, boundary_thread_cpu=True,
-            duration=ClosedDuration(secs=30, nanos=0), output=str(tmp_path / "selected"),
-            budget=CaptureBudget(memory_bytes=16 << 20, output_bytes=16 << 20),
+            families=("root_evaluation.v1", "native_owner_return.v1"),
+            requirement="complete",
+            sample_every=1,
+            boundary_thread_cpu=True,
+            duration=ClosedDuration(secs=30, nanos=0),
+            output=str(tmp_path / "selected"),
+            budget=CaptureBudget(memory_bytes=16 << 20, output_bytes=output_bytes),
         )
         with runtime.observations().collect(request) as selected:
             handle = diagnostic_native_solve(runtime, history=0)
-            result = handle.wait()
+            selected.leave()
+
+            async def join() -> pse.RunResult:
+                return await handle.wait_async()
+
+            result = asyncio.run(join())
             assert result.usable
             assert not handle.progress()[0]
             checkpoint = handle.current_progress()
             assert checkpoint.current is not None
             assert checkpoint.current_is_latest
             assert checkpoint.current.source is not None
-            assert checkpoint.current.source.sequence == checkpoint.highest_issued_sequence
+            assert (
+                checkpoint.current.source.sequence == checkpoint.highest_issued_sequence
+            )
             assert checkpoint.current.sequence is None
             invocation = result.invocation_evidence
             assert invocation.timing_unavailable is None
@@ -684,12 +700,25 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             assert endpoints.qualification_seconds is not None
             assert endpoints.terminal_seconds is not None
             assert endpoints.response_ready_seconds is not None
-            assert endpoints.qualification_seconds <= endpoints.terminal_seconds <= endpoints.response_ready_seconds
+            assert (
+                endpoints.qualification_seconds
+                <= endpoints.terminal_seconds
+                <= endpoints.response_ready_seconds
+            )
         document = selected.snapshot()
+        if output_bytes == 1:
+            assert document.outcome == "incomplete"
+            assert document.error is not None
+            return
         assert document.outcome == "complete"
         assert not document.source_partial
-        assert all(family.acknowledged == family.observed > 0 for family in document.families)
-        assert diagnostics.read_detail(document.records).readable_prefix_bytes == document.readable_prefix_bytes
+        assert all(
+            family.acknowledged == family.observed > 0 for family in document.families
+        )
+        assert (
+            diagnostics.read_detail(document.records).readable_prefix_bytes
+            == document.readable_prefix_bytes
+        )
         page = diagnostics.detail_records(document.records)
         assert {record.family for record in page.records} == set(request.families)
         assert all(record.family_sequence is not None for record in page.records)

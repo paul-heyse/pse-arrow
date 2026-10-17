@@ -55,8 +55,8 @@ pub use durable::{
 };
 mod progress_documents;
 pub use progress_documents::{
-    IncumbentDocument, ProgressCheckpointDocument, ProgressCoverage, ProgressEventDocument, ProgressMetricDocument,
-    ProgressWriteStage, ProgressWriterFailure, ProgressWriterOutcome,
+    IncumbentDocument, ProgressCheckpointDocument, ProgressCoverage, ProgressEventDocument,
+    ProgressMetricDocument, ProgressWriteStage, ProgressWriterFailure, ProgressWriterOutcome,
 };
 mod progress;
 pub use progress::ProgressStream;
@@ -82,7 +82,10 @@ pub use study_variants::{
 };
 mod study;
 mod study_diagnostics;
-pub use study_diagnostics::{ManagedDetailOwner, ManagedDetailReference, ManagedDetailReferenceState, ManagedDetailRefusal, ManagedDetailSelection, ManagedStudyDiagnosticsDocument};
+pub use study_diagnostics::{
+    ManagedDetailOwner, ManagedDetailReference, ManagedDetailReferenceState, ManagedDetailRefusal,
+    ManagedDetailSelection, ManagedStudyDiagnosticsDocument,
+};
 mod study_execution;
 mod study_tables;
 pub use pse_model::diagnostic::BoundaryDiagnostic;

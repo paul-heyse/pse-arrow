@@ -661,7 +661,12 @@ impl Session {
         self.solver
             .set_termination_callback(move |info: &DefaultInfo<f64>| {
                 callback.progress.push(Event {
-                    source: Some(crate::solve::EventSource::new("conic_iteration", Some("native_conic"), None)), phase: "clarabel.iteration".into(),
+                    source: Some(crate::solve::EventSource::new(
+                        "conic_iteration",
+                        Some("native_conic"),
+                        None,
+                    )),
+                    phase: "clarabel.iteration".into(),
                     elapsed: callback.started.elapsed(),
                     values: metrics(info),
                     incumbent: None,
@@ -1482,9 +1487,11 @@ mod tests {
         );
         assert!(
             snapshot
-                .metrics
+                .producers
                 .iter()
-                .any(|m| m.name == "clarabel.iteration.res_primal")
+                .filter_map(|producer| producer.current.as_ref())
+                .any(|record| record.family == "conic_iteration.v1"
+                    && record.values.iter().any(|field| field.name == "res_primal"))
         );
         assert!(matches!(
             snapshot

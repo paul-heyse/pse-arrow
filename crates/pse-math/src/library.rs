@@ -338,9 +338,12 @@ pub(crate) fn storage(evaluator: &ExpressionEvaluator<f64>) -> Result<Storage, M
     })
 }
 fn instruction_count<T>(export: &ExportedInstructions<T>) -> Option<usize> {
-    export.sub_evaluators.iter().try_fold(export.instructions.len(), |count, sub| {
-        count.checked_add(instruction_count(&sub.instructions)?)
-    })
+    export
+        .sub_evaluators
+        .iter()
+        .try_fold(export.instructions.len(), |count, sub| {
+            count.checked_add(instruction_count(&sub.instructions)?)
+        })
 }
 fn instruction_bytes<T>(export: &ExportedInstructions<T>) -> Option<usize> {
     let listed = size_of_val(export.instructions.as_slice())

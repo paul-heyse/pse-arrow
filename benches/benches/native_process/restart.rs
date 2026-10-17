@@ -561,7 +561,8 @@ pub(super) fn measure(
         b.iter_custom(|iterations| {
             let mut timed = Duration::ZERO;
             for _ in 0..iterations {
-                let (elapsed, record) = invocation_records.catch(|| executor.block_on(iteration(phases, build)));
+                let (elapsed, record) =
+                    invocation_records.catch(|| executor.block_on(iteration(phases, build)));
                 invocation_records.push(record.clone());
                 timed += elapsed;
                 records.push(record);

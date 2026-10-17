@@ -386,7 +386,11 @@ impl RawMapCapture {
                 .collect(),
         })
     }
-    pub(crate) fn with_progress(mut self, progress: Arc<super::Progress>, started: std::time::Instant) -> Self {
+    pub(crate) fn with_progress(
+        mut self,
+        progress: Arc<super::Progress>,
+        started: std::time::Instant,
+    ) -> Self {
         self.progress = progress;
         self.started = started;
         self
@@ -463,36 +467,102 @@ impl RawMapCapture {
         // checkpoint carries two associated scalars; full scientific prefix ownership
         // and latest-successful preservation remain in RawMapHistory.
         let mut values = std::collections::BTreeMap::from([
-            ("ordinal".into(), super::Metric::Integer(i64::try_from(sample.ordinal).unwrap_or(i64::MAX))),
-            ("role".into(), super::Metric::Text(format!("{:?}", sample.role))),
-            ("failure".into(), super::Metric::Text(format!("{:?}", sample.failure))),
-            ("inner_context".into(), super::Metric::Text(format!("{:?}", sample.inner_context))),
+            (
+                "ordinal".into(),
+                super::Metric::Integer(i64::try_from(sample.ordinal).unwrap_or(i64::MAX)),
+            ),
+            (
+                "role".into(),
+                super::Metric::Text(format!("{:?}", sample.role)),
+            ),
+            (
+                "failure".into(),
+                super::Metric::Text(format!("{:?}", sample.failure)),
+            ),
+            (
+                "inner_context".into(),
+                super::Metric::Text(format!("{:?}", sample.inner_context)),
+            ),
             ("successful_map".into(), super::Metric::Bool(successful_map)),
-            ("coordinate_prefix_partial".into(), super::Metric::Bool(sample.partial)),
-            ("scalar_prefix_partial".into(), super::Metric::Bool(sample.total_coordinates > 2)),
-            ("captured_prefix.coordinates".into(), super::Metric::Integer(i64::try_from(sample.values.len()).unwrap_or(i64::MAX))),
+            (
+                "coordinate_prefix_partial".into(),
+                super::Metric::Bool(sample.partial),
+            ),
+            (
+                "scalar_prefix_partial".into(),
+                super::Metric::Bool(sample.total_coordinates > 2),
+            ),
+            (
+                "captured_prefix.coordinates".into(),
+                super::Metric::Integer(i64::try_from(sample.values.len()).unwrap_or(i64::MAX)),
+            ),
         ]);
-        let optional = |value: Option<f64>| value.map_or(super::Metric::Unavailable(super::UnavailableReason::NotComputed), super::Metric::Real);
+        let optional = |value: Option<f64>| {
+            value.map_or(
+                super::Metric::Unavailable(super::UnavailableReason::NotComputed),
+                super::Metric::Real,
+            )
+        };
         for (index, coordinate) in sample.values.iter().take(2).enumerate() {
             let prefix = format!("scalar.{index}");
-            values.insert(format!("{prefix}.variable"), super::Metric::Text(coordinate.variable.to_string()));
-            values.insert(format!("{prefix}.row"), super::Metric::Text(coordinate.row.to_string()));
+            values.insert(
+                format!("{prefix}.variable"),
+                super::Metric::Text(coordinate.variable.to_string()),
+            );
+            values.insert(
+                format!("{prefix}.row"),
+                super::Metric::Text(coordinate.row.to_string()),
+            );
             values.insert(format!("{prefix}.residual"), optional(coordinate.residual));
-            values.insert(format!("{prefix}.physical_error_ratio"), optional(coordinate.physical_error_ratio));
+            values.insert(
+                format!("{prefix}.physical_error_ratio"),
+                optional(coordinate.physical_error_ratio),
+            );
         }
-        let ratio = sample.values.iter().filter_map(|coordinate| coordinate.physical_error_ratio)
-            .reduce(|a, b| if a.is_nan() || b.is_nan() { f64::NAN } else { a.max(b) });
-        values.insert("captured_prefix.max_physical_error_ratio".into(), optional(ratio));
+        let ratio = sample
+            .values
+            .iter()
+            .filter_map(|coordinate| coordinate.physical_error_ratio)
+            .reduce(|a, b| {
+                if a.is_nan() || b.is_nan() {
+                    f64::NAN
+                } else {
+                    a.max(b)
+                }
+            });
+        values.insert(
+            "captured_prefix.max_physical_error_ratio".into(),
+            optional(ratio),
+        );
         values.insert("inner_tolerance".into(), optional(sample.inner_tolerance));
-        for (name, reference) in [("start", sample.inner_start), ("branch", sample.inner_branch), ("accuracy", sample.inner_accuracy)] {
-            if let Some(reference) = reference { values.insert(format!("inner_{name}"), super::Metric::Text(reference.to_string())); }
+        for (name, reference) in [
+            ("start", sample.inner_start),
+            ("branch", sample.inner_branch),
+            ("accuracy", sample.inner_accuracy),
+        ] {
+            if let Some(reference) = reference {
+                values.insert(
+                    format!("inner_{name}"),
+                    super::Metric::Text(reference.to_string()),
+                );
+            }
         }
         self.progress.push(super::Event {
-            source: Some(super::EventSource::new("root_raw_map", Some(match sample.coordinates {
-                ObservationCoordinates::PhysicalTears => "physical_tears",
-                ObservationCoordinates::SubmittedOracle => "submitted_oracle",
-            }), None).with_role(pse_diagnostics::observation::ProducerRole::NativeCallback)),
-            phase: "kinsol.raw_map".into(), elapsed: self.started.elapsed(), values, incumbent: None,
+            source: Some(
+                super::EventSource::new(
+                    "root_raw_map",
+                    Some(match sample.coordinates {
+                        ObservationCoordinates::PhysicalTears => "physical_tears",
+                        ObservationCoordinates::SubmittedOracle => "submitted_oracle",
+                    }),
+                    None,
+                )
+                .with_role(pse_diagnostics::observation::ProducerRole::NativeCallback),
+            ),
+            phase: "kinsol.raw_map".into(),
+            elapsed: self.started.elapsed(),
+            values,
+            incumbent: None,
         });
         if successful_map {
             self.history.last_successful = Some(sample.clone());
@@ -509,11 +579,23 @@ impl RawMapCapture {
 
 #[cfg(test)]
 mod tests {
-    fn live_value(snapshot: &pse_diagnostics::observation::OperationSnapshot, name: &str) -> pse_diagnostics::observation::Value {
+    fn live_value(
+        snapshot: &pse_diagnostics::observation::OperationSnapshot,
+        name: &str,
+    ) -> pse_diagnostics::observation::Value {
         let field = name.strip_prefix("kinsol.raw_map.").unwrap_or(name);
-        snapshot.producers.iter().filter_map(|p| p.current.as_ref())
-            .find(|record| record.family == "root_raw_map").unwrap().values.iter()
-            .find(|value| value.name == field).unwrap().value.clone()
+        snapshot
+            .producers
+            .iter()
+            .filter_map(|p| p.current.as_ref())
+            .find(|record| record.family == "root_raw_map.v1")
+            .unwrap()
+            .values
+            .iter()
+            .find(|value| value.name == field)
+            .unwrap()
+            .value
+            .clone()
     }
 
     use super::*;
@@ -534,7 +616,10 @@ mod tests {
         let mut capture = RawMapCapture::new(&contract, contract.identity, 0, true, &[0.25])
             .unwrap()
             .with_inner_context(context)
-            .with_progress(Arc::new(crate::solve::Progress::new(0)), std::time::Instant::now());
+            .with_progress(
+                Arc::new(crate::solve::Progress::new(0)),
+                std::time::Instant::now(),
+            );
         capture.record(
             &contract,
             &[1.0],
@@ -565,11 +650,21 @@ mod tests {
             Value::Unavailable(_)
         ));
         assert!(matches!(
-            live_value(&snapshot, "kinsol.raw_map.captured_prefix.max_physical_error_ratio"),
+            live_value(
+                &snapshot,
+                "kinsol.raw_map.captured_prefix.max_physical_error_ratio"
+            ),
             Value::Unavailable(_)
         ));
         assert!(
-            snapshot.producers.iter().filter_map(|p| p.current.as_ref()).any(|record| record.values.iter().any(|field| field.name == "inner_branch"))
+            snapshot
+                .producers
+                .iter()
+                .filter_map(|p| p.current.as_ref())
+                .any(|record| record
+                    .values
+                    .iter()
+                    .any(|field| field.name == "inner_branch"))
         );
         assert!(capture.progress.current().is_some());
         let history = capture.finish();
@@ -678,7 +773,10 @@ mod tests {
             Value::Boolean(true)
         );
         assert!(matches!(
-            live_value(&snapshot, "kinsol.raw_map.captured_prefix.max_physical_error_ratio"),
+            live_value(
+                &snapshot,
+                "kinsol.raw_map.captured_prefix.max_physical_error_ratio"
+            ),
             Value::Unavailable(_)
         ));
     }
@@ -768,7 +866,10 @@ mod tests {
             Value::NonFinite(NonFinite::NegativeInfinity)
         );
         assert_eq!(
-            live_value(&snapshot, "kinsol.raw_map.captured_prefix.max_physical_error_ratio"),
+            live_value(
+                &snapshot,
+                "kinsol.raw_map.captured_prefix.max_physical_error_ratio"
+            ),
             Value::NonFinite(NonFinite::PositiveInfinity)
         );
     }

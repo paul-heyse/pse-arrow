@@ -442,8 +442,16 @@ fn document(
                 && let Some(calls) = snapshot
                     .metrics
                     .iter()
-                    .find(|metric| metric.producer == duration.producer && metric.name == format!("{stem}.completed_calls"))
-                    .or_else(|| snapshot.metrics.iter().find(|metric| metric.producer == duration.producer && metric.name == format!("{stem}.calls")))
+                    .find(|metric| {
+                        metric.producer == duration.producer
+                            && metric.name == format!("{stem}.completed_calls")
+                    })
+                    .or_else(|| {
+                        snapshot.metrics.iter().find(|metric| {
+                            metric.producer == duration.producer
+                                && metric.name == format!("{stem}.calls")
+                        })
+                    })
                 && let Some(statement) =
                     pse_diagnostics::inspection::seconds_per_call(snapshot, duration, calls)
             {

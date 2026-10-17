@@ -523,7 +523,7 @@ pub struct EventSource {
     /// Sequence within this exact versioned source family.
     pub producer_family_sequence: Option<u64>,
     /// Actual event time on the associated operation's process clock.
-    #[schemars(with="Option<pse_diagnostics::ClosedDuration>")]
+    #[schemars(with = "Option<pse_diagnostics::ClosedDuration>")]
     pub observed_at: Option<Duration>,
 }
 impl EventSource {
@@ -531,17 +531,24 @@ impl EventSource {
     pub fn new(family: &str, coordinates: Option<&str>, norm: Option<&str>) -> Self {
         Self {
             role: pse_diagnostics::observation::ProducerRole::NativeIteration,
-            family: format!("{family}.v1"), generation: 0, sequence: 0,
-            coordinates: coordinates.map(str::to_owned), norm: norm.map(str::to_owned),
-            producer: None, producer_generation: None, producer_sequence: None, producer_family_sequence:None, observed_at: None,
+            family: format!("{family}.v1"),
+            generation: 0,
+            sequence: 0,
+            coordinates: coordinates.map(str::to_owned),
+            norm: norm.map(str::to_owned),
+            producer: None,
+            producer_generation: None,
+            producer_sequence: None,
+            producer_family_sequence: None,
+            observed_at: None,
         }
     }
     /// Copied descriptor extent retained by a native event.
     pub fn retained_bytes(&self) -> usize {
-        size_of::<Self>().saturating_add(self.family.capacity())
+        size_of::<Self>()
+            .saturating_add(self.family.capacity())
             .saturating_add(self.coordinates.as_ref().map_or(0, String::capacity))
             .saturating_add(self.norm.as_ref().map_or(0, String::capacity))
-
     }
     /// Set the actual callback/checkpoint role at the performing owner.
     pub fn with_role(mut self, role: pse_diagnostics::observation::ProducerRole) -> Self {
@@ -663,7 +670,11 @@ pub struct Progress {
 }
 #[derive(Debug)]
 struct ProgressObservers {
-    producers: Vec<(pse_diagnostics::observation::ProducerRole, String, pse_diagnostics::observation::Producer)>,
+    producers: Vec<(
+        pse_diagnostics::observation::ProducerRole,
+        String,
+        pse_diagnostics::observation::Producer,
+    )>,
 }
 #[derive(Debug, Default)]
 struct ProgressState {
@@ -704,8 +715,10 @@ impl Metric {
 impl Progress {
     /// Retain a rolling admitted history and the latest bounded checkpoint.
     pub fn new(limit: usize) -> Self {
-        let context=std::sync::OnceLock::new();
-        if let Some(owner)=pse_diagnostics::observation::current(){let _=context.set(owner);}
+        let context = std::sync::OnceLock::new();
+        if let Some(owner) = pse_diagnostics::observation::current() {
+            let _ = context.set(owner);
+        }
         Self {
             generation: crate::observation::generation(),
             sequence: AtomicU64::new(0),
@@ -733,28 +746,65 @@ impl Progress {
         self.push_observed(event, None);
     }
     /// Publish from an explicit native owner, including distinct replay instances.
-    pub(crate) fn push_from(&self, event: Event, producer: &pse_diagnostics::observation::Producer) {
+    pub(crate) fn push_from(
+        &self,
+        event: Event,
+        producer: &pse_diagnostics::observation::Producer,
+    ) {
         self.push_observed(event, Some(producer));
     }
-    fn push_observed(&self, mut event: Event, owner: Option<&pse_diagnostics::observation::Producer>) {
-        let source = event.source.get_or_insert_with(|| EventSource::new("unspecified", None, None));
+    fn push_observed(
+        &self,
+        mut event: Event,
+        owner: Option<&pse_diagnostics::observation::Producer>,
+    ) {
+        let source = event
+            .source
+            .get_or_insert_with(|| EventSource::new("unspecified", None, None));
         source.generation = self.generation;
-        source.sequence = self.sequence.try_update(Ordering::Relaxed, Ordering::Relaxed,
-            |old| Some(old.saturating_add(1))).unwrap_or(u64::MAX).saturating_add(1);
-        let context=self.context.get().cloned().or_else(pse_diagnostics::observation::current);
-        if self.context.get().is_none() && let Some(context)=&context {let _=self.context.set(context.clone());}
-        let producer = owner.cloned().or_else(|| self.observers.try_lock().ok().and_then(|mut observers| {
-            let context = context.as_ref()?;
-            if let Some((_, _, producer)) = observers.producers.iter()
-                .find(|(role, family, _)| *role == source.role && *family == source.family) {
-                return Some(producer.clone());
-            }
-            if observers.producers.len() >= 32 || source.family.len() > 128 { return None; }
-            let producer = context.producer(source.role, &source.family);
-            observers.producers.push((source.role, source.family.clone(), producer.clone()));
-            Some(producer)
-        }));
-        if producer.is_none() && let Some(context)=context {context.record_source_unavailable(&source.family);}
+        source.sequence = self
+            .sequence
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |old| {
+                Some(old.saturating_add(1))
+            })
+            .unwrap_or(u64::MAX)
+            .saturating_add(1);
+        let context = self
+            .context
+            .get()
+            .cloned()
+            .or_else(pse_diagnostics::observation::current)
+            .filter(|context| context.is_active() || context.record_tap().is_some());
+        if self.context.get().is_none()
+            && let Some(context) = &context
+        {
+            let _ = self.context.set(context.clone());
+        }
+        let producer = owner.cloned().or_else(|| {
+            self.observers.try_lock().ok().and_then(|mut observers| {
+                let context = context.as_ref()?;
+                if let Some((_, _, producer)) = observers
+                    .producers
+                    .iter()
+                    .find(|(role, family, _)| *role == source.role && *family == source.family)
+                {
+                    return Some(producer.clone());
+                }
+                if observers.producers.len() >= 32 || source.family.len() > 128 {
+                    return None;
+                }
+                let producer = context.producer(source.role, &source.family);
+                observers
+                    .producers
+                    .push((source.role, source.family.clone(), producer.clone()));
+                Some(producer)
+            })
+        });
+        if producer.is_none()
+            && let Some(context) = context
+        {
+            context.record_source_unavailable(&source.family);
+        }
         crate::observation::event(&mut event, producer.as_ref());
         if let Some(tap) = &self.tap {
             tap.observe(&event);
@@ -816,35 +866,76 @@ impl Progress {
 #[cfg(test)]
 mod progress_contention_tests {
     use super::*;
-    #[derive(Debug,Default)]
+    #[derive(Debug, Default)]
     struct RefusalTap(AtomicU64);
     impl pse_diagnostics::observation::RecordTap for RefusalTap {
-        fn selected(&self,family:&str)->bool{family=="test_checkpoint.v1"}
-        fn observe(&self,_record:&pse_diagnostics::observation::CoherentRecord){}
-        fn source_unavailable(&self,_family:&str){self.0.fetch_add(1,Ordering::Relaxed);}
+        fn selected(&self, family: &str) -> bool {
+            family == "test_checkpoint.v1"
+        }
+        fn observe(&self, _record: &pse_diagnostics::observation::CoherentRecord) {}
+        fn source_unavailable(&self, _family: &str) {
+            self.0.fetch_add(1, Ordering::Relaxed);
+        }
     }
     #[test]
     fn source_registration_contention_reports_selected_loss_before_mapping() {
-        let hub=pse_diagnostics::observation::ObservationHub::new(Default::default());
-        let operation=hub.start("science");
-        let tap=Arc::new(RefusalTap::default());
-        let context=operation.context().with_record_tap(tap.clone());
-        let _entered=context.enter();
-        let progress=Progress::new(0);
-        let held=progress.observers.lock().unwrap();
-        progress.push(Event{source:Some(EventSource::new("test_checkpoint",None,None)),phase:"return".into(),elapsed:Duration::ZERO,values:BTreeMap::new(),incumbent:None});
-        assert_eq!(tap.0.load(Ordering::Relaxed),1);
-        assert_eq!(progress.source_identity().1,1);
-        assert!(progress.current().is_some(),"ordinary current progress survives optional mapping refusal");
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("science");
+        let tap = Arc::new(RefusalTap::default());
+        let context = operation.context().with_record_tap(tap.clone());
+        let _entered = context.enter();
+        let progress = Progress::new(0);
+        let held = progress.observers.lock().unwrap();
+        progress.push(Event {
+            source: Some(EventSource::new("test_checkpoint", None, None)),
+            phase: "return".into(),
+            elapsed: Duration::ZERO,
+            values: BTreeMap::new(),
+            incumbent: None,
+        });
+        assert_eq!(tap.0.load(Ordering::Relaxed), 1);
+        assert_eq!(progress.source_identity().1, 1);
+        assert!(
+            progress.current().is_some(),
+            "ordinary current progress survives optional mapping refusal"
+        );
         drop(held);
+    }
+    #[test]
+    fn off_collection_keeps_current_without_allocating_optional_producer_catalogue() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(
+            pse_diagnostics::observation::Policy {
+                enabled: false,
+                ..Default::default()
+            },
+        );
+        let operation = hub.start("off");
+        let _entered = operation.context().enter();
+        let progress = Progress::new(0);
+        progress.push(Event {
+            source: Some(EventSource::new("test_checkpoint", None, None)),
+            phase: "return".into(),
+            elapsed: Duration::ZERO,
+            values: BTreeMap::new(),
+            incumbent: None,
+        });
+        assert!(progress.observers.lock().unwrap().producers.is_empty());
+        let source = progress.current().unwrap().source.unwrap();
+        assert_eq!(source.sequence, 1);
+        assert!(source.producer.is_none());
     }
     #[test]
     fn history_zero_retains_current_with_independent_issued_and_loss_counts() {
         let progress = Progress::new(0);
-        let push = |phase: &str| progress.push(Event {
-            source: Some(EventSource::new("test_checkpoint", None, None)),
-            phase: phase.into(), elapsed: Duration::ZERO, values: BTreeMap::new(), incumbent: None,
-        });
+        let push = |phase: &str| {
+            progress.push(Event {
+                source: Some(EventSource::new("test_checkpoint", None, None)),
+                phase: phase.into(),
+                elapsed: Duration::ZERO,
+                values: BTreeMap::new(),
+                incumbent: None,
+            })
+        };
         assert_eq!(progress.source_identity().1, 0);
         assert_eq!(progress.dropped_count(), 0);
         push("first");
@@ -864,7 +955,8 @@ mod progress_contention_tests {
         let progress = Progress::new(2);
         let held = progress.events.lock().unwrap();
         progress.push(Event {
-            source: Some(EventSource::new("test_checkpoint", None, None)), phase: "contended".into(),
+            source: Some(EventSource::new("test_checkpoint", None, None)),
+            phase: "contended".into(),
             elapsed: Duration::ZERO,
             values: BTreeMap::new(),
             incumbent: None,

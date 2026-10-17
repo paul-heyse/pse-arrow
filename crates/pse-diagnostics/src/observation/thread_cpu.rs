@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit synchronous, actual-thread CPU intervals; never wall-minus-CPU wait.
-use std::{
-    marker::PhantomData,
-    rc::Rc,
-    thread::ThreadId,
-    time::Duration,
-};
+use std::{marker::PhantomData, rc::Rc, thread::ThreadId, time::Duration};
 
 /// An explicitly selected synchronous interval on the calling thread.
 ///
@@ -40,10 +35,20 @@ impl ThreadCpuSample {
         self.elapsed_with(std::thread::current().id(), read_thread_cpu)
     }
     fn start_with(owner: ThreadId, read: impl FnOnce() -> Option<Duration>) -> Option<Self> {
-        Some(Self { owner, started: read()?, _synchronous: PhantomData })
+        Some(Self {
+            owner,
+            started: read()?,
+            _synchronous: PhantomData,
+        })
     }
-    fn elapsed_with(&self, current: ThreadId, read: impl FnOnce() -> Option<Duration>) -> Option<Duration> {
-        if self.owner != current { return None; }
+    fn elapsed_with(
+        &self,
+        current: ThreadId,
+        read: impl FnOnce() -> Option<Duration>,
+    ) -> Option<Duration> {
+        if self.owner != current {
+            return None;
+        }
         read()?.checked_sub(self.started)
     }
 }
@@ -54,12 +59,19 @@ fn read_thread_cpu() -> Option<Duration> {
     duration_from_parts(timestamp.tv_sec, timestamp.tv_nsec)
 }
 #[cfg(not(target_os = "linux"))]
-fn read_thread_cpu() -> Option<Duration> { None }
+fn read_thread_cpu() -> Option<Duration> {
+    None
+}
 #[cfg(any(target_os = "linux", test))]
-fn duration_from_parts(seconds: impl TryInto<u64>, nanoseconds: impl TryInto<u32>) -> Option<Duration> {
+fn duration_from_parts(
+    seconds: impl TryInto<u64>,
+    nanoseconds: impl TryInto<u32>,
+) -> Option<Duration> {
     let seconds = seconds.try_into().ok()?;
     let nanoseconds = nanoseconds.try_into().ok()?;
-    if nanoseconds >= 1_000_000_000 { return None; }
+    if nanoseconds >= 1_000_000_000 {
+        return None;
+    }
     Some(Duration::new(seconds, nanoseconds))
 }
 
@@ -72,27 +84,48 @@ mod tests {
         let owner = std::thread::current().id();
         assert!(ThreadCpuSample::start_with(owner, || None).is_none());
         let sample = ThreadCpuSample::start_with(owner, || Some(Duration::from_nanos(20))).unwrap();
-        assert_eq!(sample.elapsed_with(owner, || Some(Duration::from_nanos(27))), Some(Duration::from_nanos(7)));
-        assert_eq!(sample.elapsed_with(owner, || Some(Duration::from_nanos(20))), Some(Duration::ZERO));
-        assert_eq!(sample.elapsed_with(owner, || Some(Duration::from_nanos(19))), None);
+        assert_eq!(
+            sample.elapsed_with(owner, || Some(Duration::from_nanos(27))),
+            Some(Duration::from_nanos(7))
+        );
+        assert_eq!(
+            sample.elapsed_with(owner, || Some(Duration::from_nanos(20))),
+            Some(Duration::ZERO)
+        );
+        assert_eq!(
+            sample.elapsed_with(owner, || Some(Duration::from_nanos(19))),
+            None
+        );
         assert_eq!(sample.elapsed_with(owner, || None), None);
     }
     #[test]
     fn thread_cpu_refuses_other_thread_before_reading_its_clock() {
         let owner = std::thread::current().id();
-        let other = std::thread::spawn(|| std::thread::current().id()).join().unwrap();
+        let other = std::thread::spawn(|| std::thread::current().id())
+            .join()
+            .unwrap();
         let reads = Cell::new(0);
         let sample = ThreadCpuSample::start_with(owner, || {
-            reads.set(reads.get() + 1); Some(Duration::from_nanos(1))
-        }).unwrap();
+            reads.set(reads.get() + 1);
+            Some(Duration::from_nanos(1))
+        })
+        .unwrap();
         assert_eq!(reads.get(), 1);
-        assert_eq!(sample.elapsed_with(other, || {
-            reads.set(reads.get() + 1); Some(Duration::from_nanos(99))
-        }), None);
+        assert_eq!(
+            sample.elapsed_with(other, || {
+                reads.set(reads.get() + 1);
+                Some(Duration::from_nanos(99))
+            }),
+            None
+        );
         assert_eq!(reads.get(), 1);
-        assert_eq!(sample.elapsed_with(owner, || {
-            reads.set(reads.get() + 1); Some(Duration::from_nanos(2))
-        }), Some(Duration::from_nanos(1)));
+        assert_eq!(
+            sample.elapsed_with(owner, || {
+                reads.set(reads.get() + 1);
+                Some(Duration::from_nanos(2))
+            }),
+            Some(Duration::from_nanos(1))
+        );
         assert_eq!(reads.get(), 2);
     }
     #[test]
@@ -100,7 +133,10 @@ mod tests {
         assert_eq!(duration_from_parts(-1, 0), None);
         assert_eq!(duration_from_parts(0, -1), None);
         assert_eq!(duration_from_parts(0, 1_000_000_000), None);
-        assert_eq!(duration_from_parts(2, 999_999_999), Some(Duration::new(2, 999_999_999)));
+        assert_eq!(
+            duration_from_parts(2, 999_999_999),
+            Some(Duration::new(2, 999_999_999))
+        );
     }
     #[cfg(target_os = "linux")]
     #[test]

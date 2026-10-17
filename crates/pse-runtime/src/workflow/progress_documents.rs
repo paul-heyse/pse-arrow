@@ -92,10 +92,19 @@ pub(crate) fn bounded_event(event: &Event, maximum: usize) -> bool {
     let Some(mut extent) = 1024usize.checked_add(event.phase.len().saturating_mul(6)) else {
         return false;
     };
-    if let Some(source)=&event.source {
-        let Some(next)=source.retained_bytes().checked_mul(6).and_then(|bytes|extent.checked_add(bytes))else{return false;};extent=next;
+    if let Some(source) = &event.source {
+        let Some(next) = source
+            .retained_bytes()
+            .checked_mul(6)
+            .and_then(|bytes| extent.checked_add(bytes))
+        else {
+            return false;
+        };
+        extent = next;
     }
-    if extent > maximum {return false;}
+    if extent > maximum {
+        return false;
+    }
     for (key, value) in &event.values {
         let text = match value {
             Metric::Text(value) => value.len(),
@@ -221,7 +230,11 @@ impl From<&Event> for ProgressEventDocument {
     fn from(event: &Event) -> Self {
         Self {
             version: pse_model::document::Version,
-            source: event.source.as_ref().filter(|s|s.generation>0 && s.sequence>0).cloned(),
+            source: event
+                .source
+                .as_ref()
+                .filter(|s| s.generation > 0 && s.sequence > 0)
+                .cloned(),
             phase: event.phase.clone(),
             elapsed_seconds: event.elapsed.as_secs_f64(),
             values: event

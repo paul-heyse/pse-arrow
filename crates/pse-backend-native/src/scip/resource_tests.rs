@@ -67,7 +67,12 @@ fn copied_watch_context_attributes_progress_and_restores_foreign_worker_context(
                 let _observation = watch.observation_scope();
                 assert_eq!(current().unwrap().id(), captured.id());
                 watch.progress.push(Event {
-                    source: Some(crate::solve::EventSource::new("branch_and_bound", Some("original_source"), None)), phase: "scip.incumbent".into(),
+                    source: Some(crate::solve::EventSource::new(
+                        "branch_and_bound",
+                        Some("original_source"),
+                        None,
+                    )),
+                    phase: "scip.incumbent".into(),
                     elapsed: Duration::ZERO,
                     values: BTreeMap::from([("worker_probe".into(), Metric::Integer(7))]),
                     incumbent: None,
@@ -82,14 +87,27 @@ fn copied_watch_context_attributes_progress_and_restores_foreign_worker_context(
     .join()
     .unwrap();
     let snapshot = source.reader().snapshot(Duration::from_secs(60));
+    let producer = snapshot
+        .producers
+        .iter()
+        .find(|producer| {
+            producer
+                .current
+                .as_ref()
+                .is_some_and(|record| record.family == "branch_and_bound.v1")
+        })
+        .unwrap();
+    assert_eq!(producer.coverage.accepted, 2);
+    let record = producer.current.as_ref().unwrap();
+    assert_eq!(record.sequence, 2);
     assert_eq!(
-        snapshot
-            .metrics
+        record
+            .values
             .iter()
-            .find(|metric| metric.name == "scip.incumbent.checkpoints")
+            .find(|field| field.name == "worker_probe")
             .unwrap()
-            .cumulative,
-        Value::Count(2)
+            .value,
+        Value::Integer(7)
     );
     assert!(
         unrelated

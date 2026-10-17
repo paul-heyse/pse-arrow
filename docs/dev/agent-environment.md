@@ -307,11 +307,22 @@ export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
 scripts/pse-env --native -- .venv/bin/python -m scripts.arrow_validation build -p xtask --bin pse-worker --locked --features native-solvers
 just surreal setup --execution-profile plan28-reference \
   --worker-executable "$PWD/target/debug/pse-worker"
-just surreal start
+scripts/pse-env --resource-class reference -- bash -euo pipefail -s <<'SH'
+cleanup() {
+  just surreal quiesce --state "$PSE_SURREAL_STATE"
+  just surreal stop --drained --state "$PSE_SURREAL_STATE"
+}
+trap cleanup EXIT
+just surreal start --state "$PSE_SURREAL_STATE"
 just canonical-init "$PSE_SURREAL_STATE"
+# Run the selected managed study here, before leaving its allocation.
+SH
 ```
 
 The setup records the selected worker bytes and the exact reference allocation.
+Start, managed work and drained stop share one reference allocation: the reference
+store exceeds the ordinary resident functional lane. A plain light start does not
+establish that allocation. The trap stops the owned service without deleting its data.
 A compatible rebuilt worker is frozen into a new context receiver generation;
 existing receivers retain their admitted bytes and storage remains running.
 Existing legacy state requires quiescing and draining its workers, stopping the

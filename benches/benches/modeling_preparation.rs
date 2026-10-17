@@ -355,91 +355,92 @@ async fn prepare(
     phases.reset();
     let mut seconds = serde_json::Map::new();
     let started = Instant::now();
-    let (outcome, preparation_counts): (Result<Value, (&str, WorkflowError)>, _) = pse_runtime::invocation::counted(async {
-        let mut analysis = package
-            .declared_execution(
-                case,
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                limits,
-                &cancel,
-            )
-            .await
-            .map_err(|e| ("specialization_lowering", e))?
-            .analysis;
-        if stage == "value" {
-            let path = if workload["model"] == "pcsaft" {
-                "root.pressure"
-            } else {
-                "root.target_pressure"
-            };
-            analysis.case.values.insert(path.into(), 100100.);
-        }
-        if stage == "structural" {
-            let path = if workload["model"] == "pcsaft" {
-                "root.phase.rho"
-            } else {
-                "root.rho"
-            };
-            analysis
-                .case
-                .variables
-                .entry(path.into())
-                .or_default()
-                .upper = Some(Some(50000.));
-        }
-        seconds.insert(
-            "specialization_lowering".into(),
-            started.elapsed().as_secs_f64().into(),
-        );
-        let phase = Instant::now();
-        let prepared = package
-            .prepare_diagnostics(&analysis, &cancel)
-            .await
-            .map_err(|e| ("case_resolution", e))?;
-        seconds.insert(
-            "case_resolution".into(),
-            phase.elapsed().as_secs_f64().into(),
-        );
-        let phase = Instant::now();
-        owner
-            .runtime
-            .math()
-            .assemble(prepared.model.case.clone())
-            .await
-            .map_err(|e| ("derivative_programs", WorkflowError::from(e)))?;
-        seconds.insert(
-            "derivative_programs".into(),
-            phase.elapsed().as_secs_f64().into(),
-        );
-        let admitted = &prepared.model.model.compiled().admitted;
-        let bodies: Vec<_> = admitted
-            .bodies
-            .values()
-            .map(|b| b.math())
-            .chain(
-                admitted
-                    .implicit_systems()
-                    .flat_map(|i| i.bodies().map(|b| b.math())),
-            )
-            .collect();
-        let plan = &prepared.model.case.compiled().plan;
-        Ok(json!({
-            "bodies": bodies.len(),
-            "formal_slots": {
-                "max": bodies.iter().map(|b| b.slot_count()).max(),
-                "total": bodies.iter().map(|b| b.slot_count()).sum::<usize>(),
-            },
-            "body_occurrences": {
-                "max": bodies.iter().map(|b| b.occurrence_count()).max(),
-                "total": bodies.iter().map(|b| b.occurrence_count()).sum::<usize>(),
-            },
-            "columns": plan.columns().len(),
-            "rows": plan.structure().rows().len(),
-        }))
-    })
-    .await;
+    let (outcome, preparation_counts): (Result<Value, (&str, WorkflowError)>, _) =
+        pse_runtime::invocation::counted(async {
+            let mut analysis = package
+                .declared_execution(
+                    case,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    limits,
+                    &cancel,
+                )
+                .await
+                .map_err(|e| ("specialization_lowering", e))?
+                .analysis;
+            if stage == "value" {
+                let path = if workload["model"] == "pcsaft" {
+                    "root.pressure"
+                } else {
+                    "root.target_pressure"
+                };
+                analysis.case.values.insert(path.into(), 100100.);
+            }
+            if stage == "structural" {
+                let path = if workload["model"] == "pcsaft" {
+                    "root.phase.rho"
+                } else {
+                    "root.rho"
+                };
+                analysis
+                    .case
+                    .variables
+                    .entry(path.into())
+                    .or_default()
+                    .upper = Some(Some(50000.));
+            }
+            seconds.insert(
+                "specialization_lowering".into(),
+                started.elapsed().as_secs_f64().into(),
+            );
+            let phase = Instant::now();
+            let prepared = package
+                .prepare_diagnostics(&analysis, &cancel)
+                .await
+                .map_err(|e| ("case_resolution", e))?;
+            seconds.insert(
+                "case_resolution".into(),
+                phase.elapsed().as_secs_f64().into(),
+            );
+            let phase = Instant::now();
+            owner
+                .runtime
+                .math()
+                .assemble(prepared.model.case.clone())
+                .await
+                .map_err(|e| ("derivative_programs", WorkflowError::from(e)))?;
+            seconds.insert(
+                "derivative_programs".into(),
+                phase.elapsed().as_secs_f64().into(),
+            );
+            let admitted = &prepared.model.model.compiled().admitted;
+            let bodies: Vec<_> = admitted
+                .bodies
+                .values()
+                .map(|b| b.math())
+                .chain(
+                    admitted
+                        .implicit_systems()
+                        .flat_map(|i| i.bodies().map(|b| b.math())),
+                )
+                .collect();
+            let plan = &prepared.model.case.compiled().plan;
+            Ok(json!({
+                "bodies": bodies.len(),
+                "formal_slots": {
+                    "max": bodies.iter().map(|b| b.slot_count()).max(),
+                    "total": bodies.iter().map(|b| b.slot_count()).sum::<usize>(),
+                },
+                "body_occurrences": {
+                    "max": bodies.iter().map(|b| b.occurrence_count()).max(),
+                    "total": bodies.iter().map(|b| b.occurrence_count()).sum::<usize>(),
+                },
+                "columns": plan.columns().len(),
+                "rows": plan.structure().rows().len(),
+            }))
+        })
+        .await;
     let elapsed = started.elapsed();
     seconds.insert("total".into(), elapsed.as_secs_f64().into());
     let mut record = json!({

@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, PS-09, PS-10]
 blueprint: [§23.1, §21.1]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Interface-checked
+evidence: Tested — Plan43a producer/current/finite-coverage/native/workflow/Python controls; its Outcome records exact commands, conditions and qualification limits.
 supersedes: []
 superseded-by: null
 revisit: A consumed native event family cannot fit the bounded owner-issued record or a collection setting changes scientific work or admission.
@@ -47,7 +47,7 @@ Independent admission covers descriptors, records, copies and selected output. C
 
 ### Confirmation
 
-The review and execution planning inspected the existing producer, Progress, native callback/timer, runtime publication, workflow and benchmark contracts. This is Interface-checked support, not implementation qualification. Plan43a owns implementation and scoped acceptance; Plan43 owns finding dispositions. Environment/provenance proof and a mandatory repeated benchmark campaign remain eliminated.
+The review and execution planning inspected the existing producer, Progress, native callback/timer, runtime publication, workflow and benchmark contracts. Plan43a's Outcome records scoped Tested support for independent nested producers, coherent current/history-off records, finite selected coverage and stop/drain failure controls, native activation, workflow invocation endpoints and actual Python/managed consumers. It distinguishes selected acceptance from unexercised contexts and the remaining Plan43 packages; Plan43 owns finding dispositions. A05 retains full Controls identity because history changes report-memory admission, while existing narrower native-session and mathematical compatibility remain sound. Environment/provenance proof and a mandatory repeated benchmark campaign remain eliminated. Implementation evidence does not change this ADR's formal proposed status.
 
 ## Pros and cons
 

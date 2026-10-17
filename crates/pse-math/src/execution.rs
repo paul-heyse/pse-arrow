@@ -2254,7 +2254,11 @@ impl PreparedBody {
                 .and_then(|n| n.checked_add(retained_instructions))
                 .and_then(|n| n.checked_add(retained_modules))
                 .and_then(|n| n.checked_add(descriptor_bytes))
-                .and_then(|n| n.checked_add(size_of::<EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>>()))
+                .and_then(|n| {
+                    n.checked_add(size_of::<
+                        EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>,
+                    >())
+                })
                 .and_then(|n| n.checked_add(evidence_bytes))
                 .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
                 .and_then(|n| n.checked_add(scalar_new_bytes))
@@ -2462,11 +2466,14 @@ impl StageCensus {
                     }
                 }
                 CompiledStage::Provider { .. } => self.provider_stages += 1,
-                CompiledStage::Applicability { stages, .. } | CompiledStage::Domain { stages, .. } => {
+                CompiledStage::Applicability { stages, .. }
+                | CompiledStage::Domain { stages, .. } => {
                     self.control_stages += 1;
                     self.add(stages);
                 }
-                CompiledStage::Branch { then, otherwise, .. } => {
+                CompiledStage::Branch {
+                    then, otherwise, ..
+                } => {
                     self.control_stages += 1;
                     self.add(then);
                     self.add(otherwise);
@@ -3830,7 +3837,8 @@ fn compile_stages(
                     .instructions
                     .checked_add(storage.instruction_bytes)
                     .ok_or(MathError::Limit("evaluator instruction storage"))?;
-                allowance.instruction_count = allowance.instruction_count
+                allowance.instruction_count = allowance
+                    .instruction_count
                     .checked_add(storage.instruction_count)
                     .ok_or(MathError::Limit("evaluator instruction population"))?;
                 // Public exports distinguish registered/sub-evaluator state. Ordinary
@@ -3998,7 +4006,8 @@ fn compile_stages(
                     .map(|lift| library::storage(&lift.evaluator))
                     .transpose()?;
                 if let Some(storage) = &lift_storage {
-                    allowance.instruction_count = allowance.instruction_count
+                    allowance.instruction_count = allowance
+                        .instruction_count
                         .checked_add(storage.instruction_count)
                         .ok_or(MathError::Limit("provider lift instruction population"))?;
                     allowance.instructions = allowance

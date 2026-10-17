@@ -152,42 +152,45 @@ impl Runtime {
                     .as_ref()
                     .map(|attempt| attempt.canonical_keys(run_id));
                 let stream = progress.clone();
-                tokio::spawn(crate::workflow::inherit_runtime_activity(crate::invocation::scope(async move {
-                    use futures_util::FutureExt;
-                    let source_owner = admitted.clone();
-                    let scopes = admitted
-                        .held
-                        .iter()
-                        .map(|source| source.scope.clone())
-                        .collect::<Vec<_>>();
-                    let mut operation = async {
-                        let mut durable = durable;
-                        let staged = match admit(
-                            &mut durable,
-                            run_id,
-                            &admitted,
-                            opened,
-                            &runtime,
-                            &stream,
-                            &cancel,
-                        )
-                        .await
-                        {
-                            Ok(staged) => staged,
-                            Err(error) => {
-                                return RunResult::joined(
-                                    run_id,
-                                    runtime,
-                                    RunRequest::Horizon(admitted.request()),
-                                    None,
-                                    Err(Arc::new(error)),
-                                )
-                                .refused(durable)
-                                .await;
-                            }
-                        };
-                        let original =
-                            match super::prefix::OriginalHistory::new(&runtime, &admitted.output) {
+                tokio::spawn(crate::workflow::inherit_runtime_activity(
+                    crate::invocation::scope(async move {
+                        use futures_util::FutureExt;
+                        let source_owner = admitted.clone();
+                        let scopes = admitted
+                            .held
+                            .iter()
+                            .map(|source| source.scope.clone())
+                            .collect::<Vec<_>>();
+                        let mut operation = async {
+                            let mut durable = durable;
+                            let staged = match admit(
+                                &mut durable,
+                                run_id,
+                                &admitted,
+                                opened,
+                                &runtime,
+                                &stream,
+                                &cancel,
+                            )
+                            .await
+                            {
+                                Ok(staged) => staged,
+                                Err(error) => {
+                                    return RunResult::joined(
+                                        run_id,
+                                        runtime,
+                                        RunRequest::Horizon(admitted.request()),
+                                        None,
+                                        Err(Arc::new(error)),
+                                    )
+                                    .refused(durable)
+                                    .await;
+                                }
+                            };
+                            let original = match super::prefix::OriginalHistory::new(
+                                &runtime,
+                                &admitted.output,
+                            ) {
                                 Ok(original) => original,
                                 Err(error) => {
                                     staged.close().await;
@@ -202,55 +205,60 @@ impl Runtime {
                                     .await;
                                 }
                             };
-                        if let Some(attempt) = &mut durable
-                            && let Err(error) = attempt
-                                .begin_horizon_prefix(admitted.output.clone(), admitted.steps * 3)
-                        {
-                            staged.close().await;
-                            return RunResult::joined(
-                                run_id,
-                                runtime,
-                                RunRequest::Horizon(admitted.request()),
-                                None,
-                                Err(Arc::new(error)),
-                            )
-                            .refused(durable)
-                            .await;
-                        }
-                        let mut run = Loop::new(
-                            admitted,
-                            staged,
-                            run_id,
-                            cancel.clone(),
-                            stream,
-                            durable,
-                            original,
-                        );
-                        let outcome = run.run().await;
-                        run.finish(runtime, outcome, cancel.token().is_cancelled())
-                            .await
-                    }
-                    .boxed();
-                    // The same actual owners stay admitted through native teardown, progress
-                    // drain, tables, seeds and final settlement, including every refusal.
-                    for scope in scopes {
-                        let phase = &cancel;
-                        operation = async move {
-                            let (mut result, renewal) = scope.joined(phase, operation).await;
-                            if let Some(error) = renewal {
-                                result.report = Err(Arc::new(error));
+                            if let Some(attempt) = &mut durable
+                                && let Err(error) = attempt.begin_horizon_prefix(
+                                    admitted.output.clone(),
+                                    admitted.steps * 3,
+                                )
+                            {
+                                staged.close().await;
+                                return RunResult::joined(
+                                    run_id,
+                                    runtime,
+                                    RunRequest::Horizon(admitted.request()),
+                                    None,
+                                    Err(Arc::new(error)),
+                                )
+                                .refused(durable)
+                                .await;
                             }
-                            result
+                            let mut run = Loop::new(
+                                admitted,
+                                staged,
+                                run_id,
+                                cancel.clone(),
+                                stream,
+                                durable,
+                                original,
+                            );
+                            let outcome = run.run().await;
+                            run.finish(runtime, outcome, cancel.token().is_cancelled())
+                                .await
                         }
                         .boxed();
-                    }
-                    let mut result = operation.await;
-                    if let Err(error) = source_owner.close_sources().await {
-                        result.report = Err(Arc::new(error));
-                    }
-                    if let Some(recorder) = &result.invocation { recorder.ready(); }
-                    sender.send_replace(Some(Arc::new(result)));
-                })));
+                        // The same actual owners stay admitted through native teardown, progress
+                        // drain, tables, seeds and final settlement, including every refusal.
+                        for scope in scopes {
+                            let phase = &cancel;
+                            operation = async move {
+                                let (mut result, renewal) = scope.joined(phase, operation).await;
+                                if let Some(error) = renewal {
+                                    result.report = Err(Arc::new(error));
+                                }
+                                result
+                            }
+                            .boxed();
+                        }
+                        let mut result = operation.await;
+                        if let Err(error) = source_owner.close_sources().await {
+                            result.report = Err(Arc::new(error));
+                        }
+                        if let Some(recorder) = &result.invocation {
+                            recorder.ready();
+                        }
+                        sender.send_replace(Some(Arc::new(result)));
+                    }),
+                ));
                 Ok(RunHandle::staged(
                     checks,
                     receiver,
@@ -1442,7 +1450,9 @@ impl Loop {
             Some(error) => Err(error),
             None => Ok(completion),
         };
-        if let Some(recorder) = &result.invocation { recorder.qualified(usable && result.completion.is_ok()); }
+        if let Some(recorder) = &result.invocation {
+            recorder.qualified(usable && result.completion.is_ok());
+        }
         result.original_completion_captured = result.completion.is_ok();
         result.horizon_unmerged = unmerged;
         result.horizon_owners = owners;

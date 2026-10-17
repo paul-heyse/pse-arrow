@@ -722,7 +722,13 @@ pub fn read_checkpoint(path: &Path) -> Result<ProcessCheckpoint, ObservationErro
 fn essential_active(sample: &mut OperationSnapshot) {
     sample.compact();
     sample.coverage.curtailed = true;
-    sample.coverage.refused_items = sample.coverage.refused_items.saturating_add(sample.producers.iter().filter(|p| p.current.is_some()).count() as u64);
+    sample.coverage.refused_items = sample.coverage.refused_items.saturating_add(
+        sample
+            .producers
+            .iter()
+            .filter(|p| p.current.is_some())
+            .count() as u64,
+    );
     sample.producers.clear();
     sample.metrics.clear();
     sample.sources.clear();

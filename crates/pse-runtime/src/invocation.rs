@@ -4,7 +4,10 @@
 use crate::{math::PreparationCounts, workflow::AttemptSummary};
 use pse_diagnostics::observation::OperationId;
 use pse_model::generated::identities::{AttemptId, RunId};
-use std::{sync::{Arc, Mutex}, time::Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 /// A boundary's observed outcome, independent of scientific product permission.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
@@ -122,40 +125,91 @@ tokio::task_local! { static CURRENT: (Option<Arc<Recorder>>, Option<pse_diagnost
 impl Recorder {
     pub(crate) fn new() -> Option<Arc<Self>> {
         let context = pse_diagnostics::observation::current()?;
-        let producer = context.producer(pse_diagnostics::observation::ProducerRole::Workflow, "workflow.invocation");
+        let producer = context.producer(
+            pse_diagnostics::observation::ProducerRole::Workflow,
+            "workflow.invocation",
+        );
         // Live state plus bounded document/serialization copies; literal stage names are bounded below.
-        let reservation = producer.reserve_owner_bytes(size_of::<Self>() + 64 * (3 * size_of::<InvocationInterval>() + 384))?;
-        Some(Arc::new(Self { started: Instant::now(), operation: Some(context.id()), state: Mutex::new(State { intervals: Vec::with_capacity(64), ..State::default() }), _reservation: reservation }))
+        let reservation = producer.reserve_owner_bytes(
+            size_of::<Self>() + 64 * (3 * size_of::<InvocationInterval>() + 384),
+        )?;
+        Some(Arc::new(Self {
+            started: Instant::now(),
+            operation: Some(context.id()),
+            state: Mutex::new(State {
+                intervals: Vec::with_capacity(64),
+                ..State::default()
+            }),
+            _reservation: reservation,
+        }))
     }
-    pub(crate) fn operation(&self) -> Option<OperationId> { self.operation }
-    fn elapsed(&self) -> f64 { self.started.elapsed().as_secs_f64() }
+    pub(crate) fn operation(&self) -> Option<OperationId> {
+        self.operation
+    }
+    fn elapsed(&self) -> f64 {
+        self.started.elapsed().as_secs_f64()
+    }
     fn state(&self) -> std::sync::MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
     pub(crate) fn qualified(&self, succeeded: bool) {
-        if succeeded { self.state().endpoints.qualification_seconds = Some(self.elapsed()); }
+        if succeeded {
+            self.state().endpoints.qualification_seconds = Some(self.elapsed());
+        }
     }
-    pub(crate) fn terminal(&self) { self.state().endpoints.terminal_seconds = Some(self.elapsed()); }
+    pub(crate) fn terminal(&self) {
+        self.state().endpoints.terminal_seconds = Some(self.elapsed());
+    }
     pub(crate) fn ready(&self) {
         let mut state = self.state();
         state.endpoints.response_ready_seconds = Some(self.elapsed());
         state.preparations = crate::math::current_preparations();
     }
-    pub(crate) fn projection(&self) -> (Option<OperationId>, InvocationEndpoints, Vec<InvocationInterval>, usize, Option<PreparationCounts>) {
+    pub(crate) fn projection(
+        &self,
+    ) -> (
+        Option<OperationId>,
+        InvocationEndpoints,
+        Vec<InvocationInterval>,
+        usize,
+        Option<PreparationCounts>,
+    ) {
         let state = self.state();
-        (self.operation, state.endpoints.clone(), state.intervals.clone(), state.omitted, state.preparations)
+        (
+            self.operation,
+            state.endpoints.clone(),
+            state.intervals.clone(),
+            state.omitted,
+            state.preparations,
+        )
     }
 }
-pub(crate) fn current() -> Option<Arc<Recorder>> { CURRENT.try_with(|scope| scope.0.clone()).ok().flatten() }
+pub(crate) fn current() -> Option<Arc<Recorder>> {
+    CURRENT.try_with(|scope| scope.0.clone()).ok().flatten()
+}
 pub(crate) fn current_unavailability() -> Option<pse_diagnostics::observation::RecordAvailability> {
-    CURRENT.try_with(|scope| scope.1).unwrap_or(Some(pse_diagnostics::observation::RecordAvailability::Unavailable))
+    CURRENT.try_with(|scope| scope.1).unwrap_or(Some(
+        pse_diagnostics::observation::RecordAvailability::Unavailable,
+    ))
 }
 pub(crate) async fn scope<T>(work: impl Future<Output = T>) -> T {
     let recorder = Recorder::new();
-    let unavailable = if recorder.is_some() { None } else { Some(if pse_diagnostics::observation::current().is_some() {
-        pse_diagnostics::observation::RecordAvailability::Refused
-    } else { pse_diagnostics::observation::RecordAvailability::NotRequested }) };
-    CURRENT.scope((recorder, unavailable), async { crate::math::counted(work).await.0 }).await
+    let unavailable = if recorder.is_some() {
+        None
+    } else {
+        Some(if pse_diagnostics::observation::current().is_some() {
+            pse_diagnostics::observation::RecordAvailability::Refused
+        } else {
+            pse_diagnostics::observation::RecordAvailability::NotRequested
+        })
+    };
+    CURRENT
+        .scope((recorder, unavailable), async {
+            crate::math::counted(work).await.0
+        })
+        .await
 }
 /// Count preparation only within the actual operation's task, including nested flights.
 pub async fn counted<T>(work: impl Future<Output = T>) -> (T, PreparationCounts) {
@@ -184,9 +238,17 @@ pub(crate) fn stage(name: &'static str) -> Stage {
     let recorder = current();
     let index = recorder.as_ref().and_then(|recorder| {
         let mut state = recorder.state();
-        if name.len() > 128 || state.intervals.len() == 64 { state.omitted = state.omitted.saturating_add(1); return None; }
+        if name.len() > 128 || state.intervals.len() == 64 {
+            state.omitted = state.omitted.saturating_add(1);
+            return None;
+        }
         let index = state.intervals.len();
-        state.intervals.push(InvocationInterval { stage: name.into(), started_seconds: recorder.elapsed(), ended_seconds: None, outcome: None });
+        state.intervals.push(InvocationInterval {
+            stage: name.into(),
+            started_seconds: recorder.elapsed(),
+            ended_seconds: None,
+            outcome: None,
+        });
         Some(index)
     });
     Stage { recorder, index }
@@ -213,22 +275,28 @@ mod tests {
             assert!(endpoints.terminal_seconds.is_some());
             assert!(endpoints.response_ready_seconds >= endpoints.terminal_seconds);
             assert_eq!(intervals[0].outcome, Some(InvocationOutcome::Failed));
-        }).await;
+        })
+        .await;
         scope(async {
             let recorder = current().unwrap();
             recorder.qualified(true);
             let (_, endpoints, _, _, _) = recorder.projection();
             assert!(endpoints.qualification_seconds.is_some());
             assert!(endpoints.terminal_seconds.is_none());
-        }).await;
+        })
+        .await;
     }
     #[tokio::test]
     async fn unavailable_invocation_timing_does_not_fabricate_zero_endpoints() {
         scope(async {
             assert!(current().is_none());
-            assert_eq!(current_unavailability(), Some(pse_diagnostics::observation::RecordAvailability::NotRequested));
+            assert_eq!(
+                current_unavailability(),
+                Some(pse_diagnostics::observation::RecordAvailability::NotRequested)
+            );
             stage("unobserved").finish(InvocationOutcome::Completed);
-        }).await;
+        })
+        .await;
     }
     #[test]
     fn integration_reason_and_products_remain_coherent_across_failed_upgrade() {
@@ -237,17 +305,45 @@ mod tests {
         let operation = hub.start("integration.control");
         let context = operation.context();
         let producer = context.producer(ProducerRole::Workflow, "window.products");
-        IntegrationObservation::begin(Some(producer.clone()), IntegrationPurpose::PrimalTrial, false, false, false, 0).finish(true);
-        IntegrationObservation::begin(Some(producer), IntegrationPurpose::DerivativeUpgrade, true, false, false, 0).finish(false);
-        let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+        IntegrationObservation::begin(
+            Some(producer.clone()),
+            IntegrationPurpose::PrimalTrial,
+            false,
+            false,
+            false,
+            0,
+        )
+        .finish(true);
+        IntegrationObservation::begin(
+            Some(producer),
+            IntegrationPurpose::DerivativeUpgrade,
+            true,
+            false,
+            false,
+            0,
+        )
+        .finish(false);
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
         let records = &snapshot.producers[0].recent;
         assert_eq!(records.len(), 4);
         assert_eq!(records[1].phase, "completed");
         assert_eq!(records[3].phase, "failed");
-        assert_eq!(records[1].values[0].value, Value::Text("primal_trial".into()));
-        assert_eq!(records[3].values[0].value, Value::Text("derivative_upgrade".into()));
+        assert_eq!(
+            records[1].values[0].value,
+            Value::Text("primal_trial".into())
+        );
+        assert_eq!(
+            records[3].values[0].value,
+            Value::Text("derivative_upgrade".into())
+        );
         assert_eq!(records[3].values[2].value, Value::Boolean(true));
-        assert!(records.windows(2).all(|pair| pair[0].sequence < pair[1].sequence));
+        assert!(
+            records
+                .windows(2)
+                .all(|pair| pair[0].sequence < pair[1].sequence)
+        );
     }
     #[tokio::test]
     async fn invocation_stage_capacity_and_unfinished_intervals_are_explicit() {
@@ -256,12 +352,19 @@ mod tests {
         let context = operation.context();
         let _entered = context.enter();
         scope(async {
-            for _ in 0..65 { let _unfinished = stage("boundary"); }
+            for _ in 0..65 {
+                let _unfinished = stage("boundary");
+            }
             let (_, _, intervals, omitted, _) = current().unwrap().projection();
             assert_eq!(intervals.len(), 64);
             assert_eq!(omitted, 1);
-            assert!(intervals.iter().all(|v| v.ended_seconds.is_none() && v.outcome.is_none()));
-        }).await;
+            assert!(
+                intervals
+                    .iter()
+                    .all(|v| v.ended_seconds.is_none() && v.outcome.is_none())
+            );
+        })
+        .await;
     }
 }
 
@@ -283,8 +386,13 @@ pub enum IntegrationPurpose {
 }
 impl IntegrationPurpose {
     pub(crate) const fn as_str(self) -> &'static str {
-        match self { Self::PrimalTrial => "primal_trial", Self::DerivativeUpgrade => "derivative_upgrade",
-            Self::OriginalAssessment => "original_assessment", Self::Identifiability => "identifiability", Self::Curvature => "curvature" }
+        match self {
+            Self::PrimalTrial => "primal_trial",
+            Self::DerivativeUpgrade => "derivative_upgrade",
+            Self::OriginalAssessment => "original_assessment",
+            Self::Identifiability => "identifiability",
+            Self::Curvature => "curvature",
+        }
     }
 }
 /// Bounded records from an actual performing owner. It creates no numerical demand.
@@ -305,25 +413,72 @@ impl IntegrationObservation {
     ) -> Self {
         use pse_diagnostics::observation::{RecordField, Value};
         let producer = producer.filter(pse_diagnostics::observation::Producer::enabled);
-        let reservation = producer.as_ref().and_then(|producer|producer.reserve_owner_bytes(4096));
+        let reservation = producer
+            .as_ref()
+            .and_then(|producer| producer.reserve_owner_bytes(4096));
         if reservation.is_none() {
-            if let Some(producer)=&producer {producer.context().record_source_unavailable("workflow.integration.v1");}
-            return Self { producer:None,fields:Vec::new(),finished:false,_reservation:None };
+            if let Some(producer) = &producer {
+                producer
+                    .context()
+                    .record_source_unavailable("workflow.integration.v1");
+            }
+            return Self {
+                producer: None,
+                fields: Vec::new(),
+                finished: false,
+                _reservation: None,
+            };
         }
         let fields = vec![
-            RecordField { name: "purpose".into(), unit: "workflow reason".into(), value: Value::Text(purpose.as_str().into()), availability: None },
-            RecordField { name: "member".into(), unit: "experiment or window index".into(), value: Value::Count(member), availability: None },
-            RecordField { name: "forward_response".into(), unit: "requested product".into(), value: Value::Boolean(forward), availability: None },
-            RecordField { name: "adjoint".into(), unit: "requested product".into(), value: Value::Boolean(adjoint), availability: None },
-            RecordField { name: "curvature".into(), unit: "requested product".into(), value: Value::Boolean(curvature), availability: None },
+            RecordField {
+                name: "purpose".into(),
+                unit: "workflow reason".into(),
+                value: Value::Text(purpose.as_str().into()),
+                availability: None,
+            },
+            RecordField {
+                name: "member".into(),
+                unit: "experiment or window index".into(),
+                value: Value::Count(member),
+                availability: None,
+            },
+            RecordField {
+                name: "forward_response".into(),
+                unit: "requested product".into(),
+                value: Value::Boolean(forward),
+                availability: None,
+            },
+            RecordField {
+                name: "adjoint".into(),
+                unit: "requested product".into(),
+                value: Value::Boolean(adjoint),
+                availability: None,
+            },
+            RecordField {
+                name: "curvature".into(),
+                unit: "requested product".into(),
+                value: Value::Boolean(curvature),
+                availability: None,
+            },
         ];
-        let mut observation = Self { producer, fields, finished: false, _reservation:reservation };
+        let mut observation = Self {
+            producer,
+            fields,
+            finished: false,
+            _reservation: reservation,
+        };
         observation.publish("started");
         observation
     }
     fn publish(&mut self, phase: &'static str) {
         if let Some(producer) = &self.producer {
-            let record = producer.record("workflow.integration.v1", phase, None, None, self.fields.clone());
+            let record = producer.record(
+                "workflow.integration.v1",
+                phase,
+                None,
+                None,
+                self.fields.clone(),
+            );
             producer.publish(&record);
         }
     }
@@ -333,5 +488,9 @@ impl IntegrationObservation {
     }
 }
 impl Drop for IntegrationObservation {
-    fn drop(&mut self) { if !self.finished { self.publish("interrupted"); } }
+    fn drop(&mut self) {
+        if !self.finished {
+            self.publish("interrupted");
+        }
+    }
 }

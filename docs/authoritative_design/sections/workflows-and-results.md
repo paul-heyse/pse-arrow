@@ -143,6 +143,18 @@ between time points or deactivating a model at selected points have no counterpa
 
 ### 13.6 Native integrators and trajectories
 
+> Decision: [ADR-0194](../../adr/0194-dynamic-coverage-and-trajectory-effort.md) (proposed; maintainer-authorized Plan43 target).
+
+Dynamic Profile Version2 separates requested output coverage from native advancement.
+Only physical boundaries constrain the native mesh; root-aware interpolation preserves
+transition ordering. The accepted-step allowance applies independently to the complete
+forward trajectory, total forward replay of one derivative operation, and each complete
+backward functional/direction trajectory. Segment resets, checkpoint restores and samples
+do not renew permission. Covered output consumes no advancement. Failed calls, rejected
+trials and setup work retain separate observations. Actual library-owner guards enforce
+opaque replay; outer cancellation, deadline and scientific WorkLimits remain authoritative.
+Plan43d owns the combined implementation, consumer migration and acceptance.
+
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
 **Implemented:** live owner-affine history survives ordinary samples and safe output waits; changed IVP/parameter/mode/event/start resets or rebuilds under each backend contract. Opt-in preterminal output uses one bounded run-owned producer and existing cursor/append/close interfaces. Provisional samples, actual recording ACK and terminal complete/partial/unknown recording remain separate from scientific acceptance. No second full trajectory is retained merely to stream; terminal retention follows admitted demand. State-only restart is not native-history continuation. The single live cursor drains its bounded provisional queue, then reads the run's existing joined-result watch; early asynchronous refusal and cancellation do not need a terminal queue slot. Explicit cursor close detaches without cancelling the run. Full retains requested sample sensitivity products. Compact currently transports physical values only and refuses explicit sensitivity demand before dispatch; it retains coverage, original checks, events, endpoint and required private accuracy samples. Accuracy attempts keep their original locators and selected-attempt identity.

@@ -282,23 +282,40 @@ class CaseMeasurementTests(unittest.TestCase):
             self.run_measurement(rows="100,ns,2\n")
         self.assertFalse((self.root / "measurement/case-measure.json").exists())
 
-    def test_invocations_are_separate_from_measured_samples_and_keep_unknown_work(self) -> None:
-        records = [{"seconds": 3, "work": {"total": None}}, {"seconds": 5, "work": {"total": 4}}]
+    def test_invocations_are_separate_from_measured_samples_and_keep_unknown_work(
+        self,
+    ) -> None:
+        records = [
+            {"seconds": 3, "work": {"total": None}},
+            {"seconds": 5, "work": {"total": 4}},
+        ]
         path = self.root / "case-observations.jsonl"
         path.write_text("".join(json.dumps(record) + "\n" for record in records))
-        population = case_measure.invocation_population(self.root, {"iterations": 2, "observations_file": path.name})
+        population = case_measure.invocation_population(
+            self.root, {"iterations": 2, "observations_file": path.name}
+        )
         self.assertEqual(population["record_count"], 2)
         self.assertEqual(population["criterion_membership"]["status"], "unavailable")
-        self.assertEqual(json.loads(path.read_text().splitlines()[0])["work"]["total"], None)
+        self.assertEqual(
+            json.loads(path.read_text().splitlines()[0])["work"]["total"], None
+        )
         with self.assertRaisesRegex(ValueError, "count"):
-            case_measure.invocation_population(self.root, {"iterations": 1, "observations_file": path.name})
+            case_measure.invocation_population(
+                self.root, {"iterations": 1, "observations_file": path.name}
+            )
 
-    def test_invocation_reader_rejects_escaped_artifacts_and_malformed_records(self) -> None:
+    def test_invocation_reader_rejects_escaped_artifacts_and_malformed_records(
+        self,
+    ) -> None:
         with self.assertRaisesRegex(ValueError, "escapes"):
-            case_measure.invocation_population(self.root, {"observations_file": "../outside.jsonl"})
+            case_measure.invocation_population(
+                self.root, {"observations_file": "../outside.jsonl"}
+            )
         with self.assertRaisesRegex(ValueError, "object records"):
             case_measure.invocation_population(self.root, {"records": [1]})
-        self.assertEqual(case_measure.invocation_population(self.root, {})["status"], "unavailable")
+        self.assertEqual(
+            case_measure.invocation_population(self.root, {})["status"], "unavailable"
+        )
 
     def test_managed_command_registers_exact_profile_and_worker(self) -> None:
         receiver = {

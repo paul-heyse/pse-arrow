@@ -243,7 +243,9 @@ impl CanonicalResultReader {
     }
     /// Stop unread database work; returned arrays own their decoded buffers.
     pub fn close(&mut self) {
-        if let Some(operation) = self.observation.take() { operation.finish(pse_diagnostics::observation::Outcome::Interrupted); }
+        if let Some(operation) = self.observation.take() {
+            operation.finish(pse_diagnostics::observation::Outcome::Interrupted);
+        }
         self.cancel.cancel();
         self.pending.clear();
         self.indexes.clear();
@@ -353,7 +355,8 @@ impl CanonicalResultReader {
     /// Decode one admitted member from its exact protected native file.
     /// A late failure is surfaced to the stream; it cannot become normal exhaustion.
     pub async fn next_batch(&mut self) -> Result<Option<RecordBatch>, WorkflowError> {
-        let result = self.next_relation_batch()
+        let result = self
+            .next_relation_batch()
             .await?
             .map(|batch| {
                 batch
@@ -362,7 +365,9 @@ impl CanonicalResultReader {
                     .map_err(Into::into)
             })
             .transpose();
-        if result.is_err() && let Some(operation) = self.observation.take() {
+        if result.is_err()
+            && let Some(operation) = self.observation.take()
+        {
             operation.finish(pse_diagnostics::observation::Outcome::Failed);
         }
         result
@@ -374,13 +379,17 @@ impl CanonicalResultReader {
         &mut self,
     ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         if let Err(error) = self.cancel.checkpoint() {
-            if let Some(operation) = self.observation.take() { operation.finish(pse_diagnostics::observation::Outcome::Cancelled); }
+            if let Some(operation) = self.observation.take() {
+                operation.finish(pse_diagnostics::observation::Outcome::Cancelled);
+            }
             self.close();
             return Err(pse_engine::EngineError::from(error).into());
         }
         self.consumed = true;
         if self.pending.is_empty() && self.exhausted {
-            if let Some(operation) = self.observation.take() { operation.finish(pse_diagnostics::observation::Outcome::Completed); }
+            if let Some(operation) = self.observation.take() {
+                operation.finish(pse_diagnostics::observation::Outcome::Completed);
+            }
             self.metadata_owner = None;
             return Ok(None);
         }
@@ -399,7 +408,9 @@ impl CanonicalResultReader {
             Err(error) => Err(error),
         };
         if outcome.is_err() {
-            if let Some(operation) = self.observation.take() { operation.finish(pse_diagnostics::observation::Outcome::Failed); }
+            if let Some(operation) = self.observation.take() {
+                operation.finish(pse_diagnostics::observation::Outcome::Failed);
+            }
             self.close();
         }
         outcome
@@ -861,9 +872,18 @@ impl Runtime {
         end: u64,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
-        let access = pse_diagnostics::observation::current().map(|parent| parent.child("result.reopen_and_access", pse_diagnostics::observation::Relationship::Continuation));
+        let access = pse_diagnostics::observation::current().map(|parent| {
+            parent.child(
+                "result.reopen_and_access",
+                pse_diagnostics::observation::Relationship::Continuation,
+            )
+        });
         let context = access.as_ref().map(|operation| operation.context());
-        if let Some(context) = &context { context.source_ref("canonical.run", run); context.source_ref("canonical.attempt", attempt); context.text("result.relation", relation); }
+        if let Some(context) = &context {
+            context.source_ref("canonical.run", run);
+            context.source_ref("canonical.attempt", attempt);
+            context.text("result.relation", relation);
+        }
         let activity = self.admit_activity()?;
         let result = activity
             .scope(pse_diagnostics::observation::scope(context, async {
@@ -889,8 +909,16 @@ impl Runtime {
             }))
             .await;
         match result {
-            Ok(mut reader) => { reader.observation = access; Ok(reader) }
-            Err(error) => { if let Some(access) = access { access.finish(pse_diagnostics::observation::Outcome::Failed); } Err(error) }
+            Ok(mut reader) => {
+                reader.observation = access;
+                Ok(reader)
+            }
+            Err(error) => {
+                if let Some(access) = access {
+                    access.finish(pse_diagnostics::observation::Outcome::Failed);
+                }
+                Err(error)
+            }
         }
     }
 
@@ -2534,8 +2562,8 @@ mod canonical_connected_results_server_unit {
             .await
             .unwrap();
         let progress = super::super::ProgressEventDocument {
-            version:pse_model::document::Version,
-            source:None,
+            version: pse_model::document::Version,
+            source: None,
             phase: "fixture".into(),
             elapsed_seconds: 0.25,
             values: [(

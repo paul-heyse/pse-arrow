@@ -2251,7 +2251,14 @@ impl<'a> Session<'a> {
             value["native_step"] = observation;
         }
         let execution = &self.callback.callback.execution;
-        crate::observation::structured(&execution.progress, execution.started, None, "dynamic_segment_summary", "idas.segment", &value);
+        crate::observation::structured(
+            &execution.progress,
+            execution.started,
+            None,
+            "dynamic_segment_summary",
+            "idas.segment",
+            &value,
+        );
         value
     }
     /// Integrate one segment toward `stop`, sampling every requested time before it.
@@ -2300,7 +2307,12 @@ impl<'a> Session<'a> {
             r.completed_time = time;
             let execution = &self.callback.callback.execution;
             execution.progress.push(crate::solve::Event {
-                source: Some(crate::solve::EventSource::new("dynamic_output", Some("physical_model"), None)), phase: "idas.output".into(),
+                source: Some(crate::solve::EventSource::new(
+                    "dynamic_output",
+                    Some("physical_model"),
+                    None,
+                )),
+                phase: "idas.output".into(),
                 elapsed: execution.started.elapsed(),
                 values: std::collections::BTreeMap::from([
                     ("time".into(), crate::solve::Metric::Real(time)),
@@ -2633,7 +2645,12 @@ impl Session<'_> {
             carried = Some(states);
             let execution = &self.callback.callback.execution;
             execution.progress.push(crate::solve::Event {
-                source: Some(crate::solve::EventSource::new("dynamic_adjoint", Some("physical_model"), None)), phase: "idas.adjoint".into(),
+                source: Some(crate::solve::EventSource::new(
+                    "dynamic_adjoint",
+                    Some("physical_model"),
+                    None,
+                )),
+                phase: "idas.adjoint".into(),
                 elapsed: execution.started.elapsed(),
                 values: std::collections::BTreeMap::from([
                     ("time".into(), crate::solve::Metric::Real(start.time)),

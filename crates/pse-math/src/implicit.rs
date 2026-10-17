@@ -1286,13 +1286,24 @@ impl Nested {
             let reason = match (&self.numerical, self.configuration.fixed_identity()) {
                 (None, _) => "implicit.product.miss.empty",
                 (Some(_), None) => "implicit.product.miss.dynamic_configuration",
-                (Some(product), Some((identity, _))) if product.fixed_configuration != Some(identity) =>
-                    "implicit.product.miss.configuration",
-                (Some(product), _) if product.inputs.len() != inputs.len()
-                    || product.inputs.iter().zip(inputs).any(|(a, b)| *a != b.to_bits()) =>
-                    "implicit.product.miss.inputs",
-                (Some(product), _) if product.order < request.order =>
-                    "implicit.product.miss.order_upgrade",
+                (Some(product), Some((identity, _)))
+                    if product.fixed_configuration != Some(identity) =>
+                {
+                    "implicit.product.miss.configuration"
+                }
+                (Some(product), _)
+                    if product.inputs.len() != inputs.len()
+                        || product
+                            .inputs
+                            .iter()
+                            .zip(inputs)
+                            .any(|(a, b)| *a != b.to_bits()) =>
+                {
+                    "implicit.product.miss.inputs"
+                }
+                (Some(product), _) if product.order < request.order => {
+                    "implicit.product.miss.order_upgrade"
+                }
                 _ => "implicit.product.miss.unestablished",
             };
             context.count(reason, "requests", 1);

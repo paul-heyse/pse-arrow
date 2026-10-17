@@ -6,12 +6,14 @@ topics = [
   "architecture",
   "current-work",
   "design",
+  "diagnostics",
   "libraries",
   "decisions",
   "documentation",
   "validation",
   "environment",
   "preparation",
+  "numerical-execution",
   "storage",
 ]
 
@@ -1432,6 +1434,103 @@ headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
 kind = "packet"
 id_column = 0
 id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+# Plan 43 owns new findings; companions own native package progress only.
+
+[[scope_tables]]
+path = "docs/plans/43-solver-diagnostics-and-performance.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/43a-operation-evidence-and-coherent-live-diagnostics.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/43b-mathematical-products-and-evaluator-efficiency.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/43c-native-methods-reuse-and-matrix-boundaries.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/43d-dynamics-fitting-and-workflow-effectiveness.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/43e-diagnostic-analysis-artifacts-and-profiling.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/43f-execution-resources-and-platform-profiles.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/43g-qualification-and-design-publication.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)\b'
 status_profile = "packet"
 status_column = 3
 

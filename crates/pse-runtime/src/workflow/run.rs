@@ -112,13 +112,24 @@ impl RunHandle {
     /// Copy the whole current native event even with history zero. The subsequent
     /// source head/loss read is independent; a racing publication can make it stale.
     pub fn current_progress(&self) -> super::ProgressCheckpointDocument {
-        let current = self.progress.current().map(super::ProgressEventDocument::from);
+        let current = self
+            .progress
+            .current()
+            .map(super::ProgressEventDocument::from);
         let (generation, highest_issued_sequence) = self.progress.source_identity();
-        let current_is_latest = current.as_ref().and_then(|event| event.source.as_ref())
-            .is_some_and(|source| source.generation == generation && source.sequence == highest_issued_sequence);
+        let current_is_latest = current
+            .as_ref()
+            .and_then(|event| event.source.as_ref())
+            .is_some_and(|source| {
+                source.generation == generation && source.sequence == highest_issued_sequence
+            });
         super::ProgressCheckpointDocument {
-            version: pse_model::document::Version, current, generation,
-            highest_issued_sequence, dropped: self.progress.dropped_count(), current_is_latest,
+            version: pse_model::document::Version,
+            current,
+            generation,
+            highest_issued_sequence,
+            dropped: self.progress.dropped_count(),
+            current_is_latest,
         }
     }
     /// The run identity, known before any effect: minted when the run starts, or the run
@@ -226,7 +237,8 @@ pub struct RunResult {
     /// Supervisor-owned joined evidence clock; absent when constructed outside a supervised invocation.
     pub(super) invocation: Option<Arc<crate::invocation::Recorder>>,
     pub(super) invocation_cancelled: bool,
-    pub(super) invocation_timing_unavailable: Option<pse_diagnostics::observation::RecordAvailability>,
+    pub(super) invocation_timing_unavailable:
+        Option<pse_diagnostics::observation::RecordAvailability>,
     pub(super) modeling_continue_independent: bool,
     pub(super) attempt_summary: std::sync::OnceLock<Arc<super::AttemptSummary>>,
     pub(super) modeling_origin: usize,
@@ -364,8 +376,14 @@ impl RunResult {
         self.assessments = self.assess_candidates();
         self.completion = self.capture_completion().map_err(Arc::new);
         let qualified = self.completion.is_ok() && self.usable();
-        if let Some(recorder) = &self.invocation { recorder.qualified(qualified); }
-        stage.finish(if qualified { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
+        if let Some(recorder) = &self.invocation {
+            recorder.qualified(qualified);
+        }
+        stage.finish(if qualified {
+            crate::invocation::InvocationOutcome::Completed
+        } else {
+            crate::invocation::InvocationOutcome::Failed
+        });
         self.reset_result_projection();
         self
     }
@@ -373,7 +391,9 @@ impl RunResult {
     pub(super) async fn finished(self, durable: Option<DurableAttempt>, cancelled: bool) -> Self {
         let _phase = pse_diagnostics::observation::phase("run.completion.and.publication");
         let mut result = self.completed();
-        if let Some(recorder) = &result.invocation { recorder.terminal(); }
+        if let Some(recorder) = &result.invocation {
+            recorder.terminal();
+        }
         result.invocation_cancelled = cancelled;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.boolean("run.cancel_requested", cancelled);
@@ -384,7 +404,11 @@ impl RunResult {
         if let Some(attempt) = durable {
             let publication = crate::invocation::stage("required_durable_publication");
             let record = attempt.finish(&result, cancelled).await;
-            publication.finish(if record.attempt.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
+            publication.finish(if record.attempt.is_ok() {
+                crate::invocation::InvocationOutcome::Completed
+            } else {
+                crate::invocation::InvocationOutcome::Failed
+            });
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.boolean("run.publication.failed", record.attempt.is_err());
             }
@@ -394,14 +418,21 @@ impl RunResult {
             }
             result.durability = RunDurability::Durable(Arc::new(record));
         }
-        if let Some(recorder) = &result.invocation { recorder.ready(); }
+        if let Some(recorder) = &result.invocation {
+            recorder.ready();
+        }
         result
     }
     /// A durable run that failed before it ran: record why, and publish the failure.
     pub(super) async fn refused(mut self, durable: Option<DurableAttempt>) -> Self {
-        self.invocation_cancelled = self.report.as_ref().err().is_some_and(|error| pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()) == Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled));
+        self.invocation_cancelled = self.report.as_ref().err().is_some_and(|error| {
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref())
+                == Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+        });
         self = self.completed();
-        if let Some(recorder) = &self.invocation { recorder.terminal(); }
+        if let Some(recorder) = &self.invocation {
+            recorder.terminal();
+        }
         if let (Some(attempt), Err(error)) = (durable, &self.report) {
             let error = error.clone();
             let record = attempt.abandon(&error).await;
@@ -413,34 +444,127 @@ impl RunResult {
             }
             self.durability = RunDurability::Durable(Arc::new(record));
         }
-        if let Some(recorder) = &self.invocation { recorder.ready(); }
+        if let Some(recorder) = &self.invocation {
+            recorder.ready();
+        }
         self
     }
 
     /// Joined invocation facts without performing new mathematics or materializing result tables.
-    pub fn invocation_evidence(&self) -> Result<crate::invocation::InvocationEvidenceDocument, WorkflowError> {
-        use crate::invocation::{InvocationEndpoints, InvocationEvidenceDocument, InvocationOutcome, InvocationProduct, ProductAvailability};
-        let (operation, endpoints, intervals, omitted_intervals, preparations) = self.invocation.as_ref()
-            .map(|recorder| recorder.projection()).unwrap_or((None, InvocationEndpoints::default(), Vec::new(), 0, None));
-        let family = match self.original_horizon_request.as_ref().unwrap_or(&self.request) { RunRequest::Horizon(_) => "horizon", RunRequest::Modeling(_) => "modeling",
-            RunRequest::Simulation(_) => "simulation", RunRequest::Fit(_) => "fit",
-            #[cfg(feature = "solver-diffsol")] RunRequest::Shooting { .. } => "shooting" };
-        let mut products = vec![InvocationProduct { step: None, role: "original_scientific_result".into(), availability: if self.usable() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }];
+    pub fn invocation_evidence(
+        &self,
+    ) -> Result<crate::invocation::InvocationEvidenceDocument, WorkflowError> {
+        use crate::invocation::{
+            InvocationEndpoints, InvocationEvidenceDocument, InvocationOutcome, InvocationProduct,
+            ProductAvailability,
+        };
+        let (operation, endpoints, intervals, omitted_intervals, preparations) = self
+            .invocation
+            .as_ref()
+            .map(|recorder| recorder.projection())
+            .unwrap_or((None, InvocationEndpoints::default(), Vec::new(), 0, None));
+        let family = match self
+            .original_horizon_request
+            .as_ref()
+            .unwrap_or(&self.request)
+        {
+            RunRequest::Horizon(_) => "horizon",
+            RunRequest::Modeling(_) => "modeling",
+            RunRequest::Simulation(_) => "simulation",
+            RunRequest::Fit(_) => "fit",
+            #[cfg(feature = "solver-diffsol")]
+            RunRequest::Shooting { .. } => "shooting",
+        };
+        let mut products = vec![InvocationProduct {
+            step: None,
+            role: "original_scientific_result".into(),
+            availability: if self.usable() {
+                ProductAvailability::Available
+            } else {
+                ProductAvailability::Unavailable
+            },
+        }];
         if let RunRequest::Fit(prepared) = &self.request {
-            let report = match &self.report { Ok(RunReport::Fit(report)) => Some(report.as_ref()), _ => None };
-            let availability = |requested: bool, available: bool| if !requested { ProductAvailability::NotRequested } else if available { ProductAvailability::Available } else { ProductAvailability::Unavailable };
-            products.push(InvocationProduct { step: None, role: "response_jacobian".into(), availability: availability(true, report.is_some_and(|r| r.responses.is_some())) });
-            products.push(InvocationProduct { step: None, role: "identifiability".into(), availability: availability(true, report.is_some_and(|r| r.rank.is_some())) });
+            let report = match &self.report {
+                Ok(RunReport::Fit(report)) => Some(report.as_ref()),
+                _ => None,
+            };
+            let availability = |requested: bool, available: bool| {
+                if !requested {
+                    ProductAvailability::NotRequested
+                } else if available {
+                    ProductAvailability::Available
+                } else {
+                    ProductAvailability::Unavailable
+                }
+            };
+            products.push(InvocationProduct {
+                step: None,
+                role: "response_jacobian".into(),
+                availability: availability(true, report.is_some_and(|r| r.responses.is_some())),
+            });
+            products.push(InvocationProduct {
+                step: None,
+                role: "identifiability".into(),
+                availability: availability(true, report.is_some_and(|r| r.rank.is_some())),
+            });
             let covariance = report.and_then(|r| r.covariance.as_ref());
-            products.push(InvocationProduct { step: None, role: "parameter_covariance".into(), availability: availability(covariance.is_some() || prepared.problem.declaration.parameters.iter().any(|p| !p.fixed), covariance.is_some_and(|r| r.values.is_ok())) });
+            products.push(InvocationProduct {
+                step: None,
+                role: "parameter_covariance".into(),
+                availability: availability(
+                    covariance.is_some()
+                        || prepared
+                            .problem
+                            .declaration
+                            .parameters
+                            .iter()
+                            .any(|p| !p.fixed),
+                    covariance.is_some_and(|r| r.values.is_ok()),
+                ),
+            });
             let uncertainty = prepared.problem.profile.uncertainty.as_ref();
-            products.push(InvocationProduct { step: None, role: "wald_intervals".into(), availability: availability(uncertainty.is_some(), report.and_then(|r| r.wald.as_ref()).is_some_and(Result::is_ok)) });
-            products.push(InvocationProduct { step: None, role: "profile_intervals".into(), availability: availability(uncertainty.is_some_and(|u| u.profile.is_some()), report.and_then(|r| r.profiles.as_ref()).is_some_and(Result::is_ok)) });
+            products.push(InvocationProduct {
+                step: None,
+                role: "wald_intervals".into(),
+                availability: availability(
+                    uncertainty.is_some(),
+                    report
+                        .and_then(|r| r.wald.as_ref())
+                        .is_some_and(Result::is_ok),
+                ),
+            });
+            products.push(InvocationProduct {
+                step: None,
+                role: "profile_intervals".into(),
+                availability: availability(
+                    uncertainty.is_some_and(|u| u.profile.is_some()),
+                    report
+                        .and_then(|r| r.profiles.as_ref())
+                        .is_some_and(Result::is_ok),
+                ),
+            });
         }
         match &self.report {
-            Ok(RunReport::Simulation(trajectory)) => products.push(InvocationProduct { role: "trajectory".into(), step: None, availability: if trajectory.accepted() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }),
+            Ok(RunReport::Simulation(trajectory)) => products.push(InvocationProduct {
+                role: "trajectory".into(),
+                step: None,
+                availability: if trajectory.accepted() {
+                    ProductAvailability::Available
+                } else {
+                    ProductAvailability::Unavailable
+                },
+            }),
             #[cfg(feature = "solver-diffsol")]
-            Ok(RunReport::Shooting(report)) => products.push(InvocationProduct { role: "shooting_trajectory".into(), step: None, availability: if report.trajectory.is_some() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }),
+            Ok(RunReport::Shooting(report)) => products.push(InvocationProduct {
+                role: "shooting_trajectory".into(),
+                step: None,
+                availability: if report.trajectory.is_some() {
+                    ProductAvailability::Available
+                } else {
+                    ProductAvailability::Unavailable
+                },
+            }),
             _ => {}
         }
         let mut omitted_product_steps = 0;
@@ -448,20 +572,56 @@ impl RunResult {
             let limit = super::AttemptSummaryLimits::default().steps;
             omitted_product_steps = requests.len().saturating_sub(limit);
             for (step, request) in requests.iter().take(limit).enumerate() {
-                let native = self.modeling_result(step).and_then(|result| match &result.outcome { crate::math::solves::Outcome::Native(native) => Some(native.as_ref()), _ => None });
+                let native = self
+                    .modeling_result(step)
+                    .and_then(|result| match &result.outcome {
+                        crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
+                        _ => None,
+                    });
                 let wanted = request.profile.sensitivity.as_ref();
                 let evidence = native.and_then(|report| report.evidence.sensitivity.as_ref());
                 let root = native.and_then(|report| report.evidence.root_response.as_ref());
-                let status = |requested: bool, produced: bool| if !requested { ProductAvailability::NotRequested } else if produced { ProductAvailability::Available } else { ProductAvailability::Unavailable };
-                products.push(InvocationProduct { role: "parametric_sensitivity".into(), step: Some(step), availability: status(wanted.is_some(), evidence.is_some_and(|e| e.sensitivities.is_ok()) || root.is_some_and(Result::is_ok)) });
-                products.push(InvocationProduct { role: "reduced_hessian".into(), step: Some(step), availability: status(wanted.is_some_and(|w| w.reduced_hessian), evidence.and_then(|e| e.reduced_hessian.as_ref()).is_some_and(Result::is_ok)) });
+                let status = |requested: bool, produced: bool| {
+                    if !requested {
+                        ProductAvailability::NotRequested
+                    } else if produced {
+                        ProductAvailability::Available
+                    } else {
+                        ProductAvailability::Unavailable
+                    }
+                };
+                products.push(InvocationProduct {
+                    role: "parametric_sensitivity".into(),
+                    step: Some(step),
+                    availability: status(
+                        wanted.is_some(),
+                        evidence.is_some_and(|e| e.sensitivities.is_ok())
+                            || root.is_some_and(Result::is_ok),
+                    ),
+                });
+                products.push(InvocationProduct {
+                    role: "reduced_hessian".into(),
+                    step: Some(step),
+                    availability: status(
+                        wanted.is_some_and(|w| w.reduced_hessian),
+                        evidence
+                            .and_then(|e| e.reduced_hessian.as_ref())
+                            .is_some_and(Result::is_ok),
+                    ),
+                });
                 // Propagation is computed by the explicitly requested lazy projection owner;
                 // the immutable joined response must not invent its later completion.
-                products.push(InvocationProduct { role: "propagated_covariance".into(), step: Some(step), availability: status(wanted.is_some_and(|w| w.propagation.is_some()), false) });
+                products.push(InvocationProduct {
+                    role: "propagated_covariance".into(),
+                    step: Some(step),
+                    availability: status(wanted.is_some_and(|w| w.propagation.is_some()), false),
+                });
             }
         }
-        let attempt_id = match &self.durability { RunDurability::Ephemeral => None,
-            RunDurability::Durable(record) => Some(record.attempt_id) };
+        let attempt_id = match &self.durability {
+            RunDurability::Ephemeral => None,
+            RunDurability::Durable(record) => Some(record.attempt_id),
+        };
         Ok(InvocationEvidenceDocument { version: 1, run_id: self.run_id, attempt_id, operation, family: family.into(),
             clock_scope: "wall seconds from first supervisor poll; pre-dispatch preparation and earlier native execution excluded".into(),
             timing_unavailable: self.invocation_timing_unavailable,
@@ -1073,7 +1233,11 @@ impl super::ShootingProblem {
                             Ok((report, owner)) => (Ok(report), Some(owner)),
                             Err(error) => (Err(Arc::new(WorkflowError::Math(error))), None),
                         };
-                        join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
+                        join.finish(if report.is_ok() {
+                            crate::invocation::InvocationOutcome::Completed
+                        } else {
+                            crate::invocation::InvocationOutcome::Failed
+                        });
                         let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
                         let result = RunResult::joined(run_id, runtime, request, owner, report)
                             .finished(durable, cancelled)
@@ -1303,7 +1467,11 @@ impl super::PreparedFit {
                             Ok((r, o)) => (Ok(r), Some(o)),
                             Err(e) => (Err(Arc::new(WorkflowError::Math(e))), None),
                         };
-                        join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
+                        join.finish(if report.is_ok() {
+                            crate::invocation::InvocationOutcome::Completed
+                        } else {
+                            crate::invocation::InvocationOutcome::Failed
+                        });
                         let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
                         let result = RunResult::joined(run_id, runtime, request, owner, report)
                             .finished(durable, cancelled)
@@ -1771,18 +1939,37 @@ mod cancellation_tests {
     fn current_progress_remains_whole_without_retained_history() {
         use pse_backend_native::solve::{Event, Metric, Progress};
         let progress = std::sync::Arc::new(Progress::new(0));
-        progress.push(Event { source:None,phase:"ordinary".into(),elapsed:std::time::Duration::from_secs(3),values:std::collections::BTreeMap::from([("iteration".into(),Metric::Integer(7))]),incumbent:None });
-        let (_sender,receiver) = tokio::sync::watch::channel(None);
-        let handle = super::RunHandle::staged(crate::CancelSource::new(),receiver,progress,pse_model::generated::identities::RunId::from_bytes([1;16]),None,None);
+        progress.push(Event {
+            source: None,
+            phase: "ordinary".into(),
+            elapsed: std::time::Duration::from_secs(3),
+            values: std::collections::BTreeMap::from([("iteration".into(), Metric::Integer(7))]),
+            incumbent: None,
+        });
+        let (_sender, receiver) = tokio::sync::watch::channel(None);
+        let handle = super::RunHandle::staged(
+            crate::CancelSource::new(),
+            receiver,
+            progress,
+            pse_model::generated::identities::RunId::from_bytes([1; 16]),
+            None,
+            None,
+        );
         assert!(handle.progress().0.is_empty());
         let checkpoint = handle.current_progress();
-        assert_eq!(checkpoint.highest_issued_sequence,1);
+        assert_eq!(checkpoint.highest_issued_sequence, 1);
         assert!(checkpoint.current_is_latest);
-        let current=checkpoint.current.unwrap();
-        assert_eq!(current.phase,"ordinary");
-        assert_eq!(current.elapsed_seconds,3.0);
-        assert!(matches!(current.values["iteration"],super::super::ProgressMetricDocument::Integer(7)));
-        assert!(current.sequence.is_none(),"native source sequence is not a durable append sequence");
+        let current = checkpoint.current.unwrap();
+        assert_eq!(current.phase, "ordinary");
+        assert_eq!(current.elapsed_seconds, 3.0);
+        assert!(matches!(
+            current.values["iteration"],
+            super::super::ProgressMetricDocument::Integer(7)
+        ));
+        assert!(
+            current.sequence.is_none(),
+            "native source sequence is not a durable append sequence"
+        );
     }
     #[test]
     fn completed_handle_drop_does_not_fabricate_diagnostic_loss() {

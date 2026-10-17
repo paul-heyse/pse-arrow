@@ -239,7 +239,9 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_diagnostics::observation::CoherentRecord>("coherent-record"),
         document::<pse_runtime::invocation::InvocationEvidenceDocument>("invocation-evidence"),
         document::<pse_runtime::workflow::ProgressCheckpointDocument>("progress-checkpoint"),
-        document::<pse_runtime::workflow::ManagedStudyDiagnosticsDocument>("managed-study-diagnostics"),
+        document::<pse_runtime::workflow::ManagedStudyDiagnosticsDocument>(
+            "managed-study-diagnostics",
+        ),
         document::<pse_runtime::TableName>("table-name"),
         document::<pse_buildinfo::BuildInfo>("build-info"),
         document::<pse_runtime::workflow::ProgressEventDocument>("progress-event"),

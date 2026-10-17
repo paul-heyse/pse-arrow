@@ -1759,8 +1759,15 @@ impl NativeRunResult {
             .map_err(|error| errors::diagnostic(py, &error))
     }
     /// Joined actual invocation endpoints and existing attempt/work evidence.
-    fn invocation_evidence(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<pse_runtime::invocation::InvocationEvidenceDocument>> {
-        self.inner.invocation_evidence().map(documents::DocumentValue).map_err(|error| errors::diagnostic(py, &error))
+    fn invocation_evidence(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<documents::DocumentValue<pse_runtime::invocation::InvocationEvidenceDocument>>
+    {
+        self.inner
+            .invocation_evidence()
+            .map(documents::DocumentValue)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
     fn fit_profiles(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         let report = self
@@ -1875,8 +1882,12 @@ pub(crate) struct NativeStudyHandle {
 #[pymethods]
 impl NativeStudyHandle {
     /// Explicit bounded inspection of selected managed diagnostics; no scientific effects.
-    fn diagnostic_selection(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<native::ManagedStudyDiagnosticsDocument>> {
-        blocking(py, &self.owner, self.inner.diagnostic_selection(), || {}).map(documents::DocumentValue)
+    fn diagnostic_selection(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<documents::DocumentValue<native::ManagedStudyDiagnosticsDocument>> {
+        blocking(py, &self.owner, self.inner.diagnostic_selection(), || {})
+            .map(documents::DocumentValue)
     }
     /// The study identity.
     #[getter]

@@ -215,7 +215,8 @@ pub fn nlp(
             let tolerances = pipeline.tolerances(step.tolerances);
             let mut transported_execution = step.execution.clone();
             transported_execution.callback_work_owner = false;
-            transported_execution.callback_role = pse_diagnostics::observation::ProducerRole::CoordinateTransport;
+            transported_execution.callback_role =
+                pse_diagnostics::observation::ProducerRole::CoordinateTransport;
             step.adapter.execute(
                 retained,
                 Input {

@@ -9,8 +9,12 @@
 pub use crate::{NonFinite, OperationOutcome as Outcome, Relationship};
 mod producer;
 mod thread_cpu;
+pub use producer::{
+    CoherentRecord, DurationSummary, FactKind, OwnerBudget, OwnerReservation, PreparedFact,
+    Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability,
+    RecordCoverage, RecordField, RecordTap,
+};
 pub use thread_cpu::ThreadCpuSample;
-pub use producer::{CoherentRecord, DurationSummary, FactKind, PreparedFact, Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability, RecordCoverage, RecordField, OwnerReservation, OwnerBudget, RecordTap};
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -514,7 +518,10 @@ impl OperationSnapshot {
             .saturating_add(self.detail.len() as u64);
         self.detail = Vec::new();
         for producer in &mut self.producers {
-            producer.coverage.history_dropped = producer.coverage.history_dropped.saturating_add(producer.recent.len() as u64);
+            producer.coverage.history_dropped = producer
+                .coverage
+                .history_dropped
+                .saturating_add(producer.recent.len() as u64);
             producer.coverage.partial |= !producer.recent.is_empty();
             producer.recent.clear();
         }
@@ -817,8 +824,8 @@ impl ObservationHub {
                     hub: node.hub.clone(),
                     node: Some(node),
                     absent_enabled: true,
-            record_tap: None,
-            clock: Some(Arc::clone(&self.clock)),
+                    record_tap: None,
+                    clock: Some(Arc::clone(&self.clock)),
                     producer: None,
                 },
                 compact: None,
@@ -835,8 +842,8 @@ impl ObservationHub {
                     hub: summary.hub.clone(),
                     node: None,
                     absent_enabled: true,
-            record_tap: None,
-            clock: Some(Arc::clone(&self.clock)),
+                    record_tap: None,
+                    clock: Some(Arc::clone(&self.clock)),
                     producer: None,
                 },
                 compact: Some(Arc::clone(summary)),
@@ -954,8 +961,8 @@ impl ObservationHub {
                 hub: node.hub.clone(),
                 node: Some(Arc::clone(node)),
                 absent_enabled: true,
-            record_tap: None,
-            clock: Some(Arc::clone(&self.clock)),
+                record_tap: None,
+                clock: Some(Arc::clone(&self.clock)),
                 producer: None,
             },
             compact: None,
@@ -1152,9 +1159,21 @@ impl State {
             value,
         });
     }
-    fn producer_elapsed(&mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, at: Duration, elapsed: Duration) {
-        if let Some(metric) = self.producer_aggregate_metric(policy, producer, name, "nanoseconds", at) {
-            if metric.prepared_kind.is_some_and(|kind|kind!=FactKind::Duration) || (metric.counter && !metric.duration)
+    fn producer_elapsed(
+        &mut self,
+        policy: &Policy,
+        producer: Option<ProducerId>,
+        name: &str,
+        at: Duration,
+        elapsed: Duration,
+    ) {
+        if let Some(metric) =
+            self.producer_aggregate_metric(policy, producer, name, "nanoseconds", at)
+        {
+            if metric
+                .prepared_kind
+                .is_some_and(|kind| kind != FactKind::Duration)
+                || (metric.counter && !metric.duration)
                 || (!metric.counter && !matches!(metric.latest, Value::Unavailable(_)))
             {
                 self.refused = self.refused.saturating_add(1);
@@ -1165,13 +1184,22 @@ impl State {
         }
     }
     fn producer_metric_index(
-        &mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, unit: &str, at: Duration,
+        &mut self,
+        policy: &Policy,
+        producer: Option<ProducerId>,
+        name: &str,
+        unit: &str,
+        at: Duration,
     ) -> Option<usize> {
         if name.len() > policy.max_text_bytes || unit.len() > policy.max_text_bytes {
             self.refused = self.refused.saturating_add(1);
             return None;
         }
-        if let Some(index) = self.metrics.iter().position(|metric| metric.name == name && metric.producer == producer) {
+        if let Some(index) = self
+            .metrics
+            .iter()
+            .position(|metric| metric.name == name && metric.producer == producer)
+        {
             if self.metrics[index].unit.is_empty() && !unit.is_empty() {
                 self.metrics[index].unit = unit.to_owned();
             } else if self.metrics[index].unit != unit {
@@ -1209,7 +1237,14 @@ impl State {
         });
         Some(self.metrics.len() - 1)
     }
-    fn producer_aggregate_index(&mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, unit: &str, at: Duration) -> Option<usize> {
+    fn producer_aggregate_index(
+        &mut self,
+        policy: &Policy,
+        producer: Option<ProducerId>,
+        name: &str,
+        unit: &str,
+        at: Duration,
+    ) -> Option<usize> {
         let index = self.producer_metric_index(policy, producer, name, unit, at)?;
         if self.metrics[index].buckets.is_empty() {
             if !self.reserve(policy.aggregate_bytes()) {
@@ -1219,7 +1254,14 @@ impl State {
         }
         Some(index)
     }
-    fn producer_aggregate_metric(&mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, unit: &str, at: Duration) -> Option<&mut Metric> {
+    fn producer_aggregate_metric(
+        &mut self,
+        policy: &Policy,
+        producer: Option<ProducerId>,
+        name: &str,
+        unit: &str,
+        at: Duration,
+    ) -> Option<&mut Metric> {
         let index = self.producer_aggregate_index(policy, producer, name, unit, at)?;
         self.metrics.get_mut(index)
     }
@@ -1608,7 +1650,7 @@ impl ObservationContext {
                     hub: Weak::new(),
                     node: None,
                     absent_enabled: self.absent_enabled,
-            record_tap: self.record_tap.clone(),
+                    record_tap: self.record_tap.clone(),
                     clock: self.clock.clone(),
                     producer: None,
                 },
@@ -1702,13 +1744,21 @@ impl ObservationContext {
             return;
         };
         node.update(|state, at| {
-            if let Some(index) = state.producer_metric_index(&node.policy, self.producer, name, unit, at) {
+            if let Some(index) =
+                state.producer_metric_index(&node.policy, self.producer, name, unit, at)
+            {
                 let metric = &mut state.metrics[index];
-                if metric.prepared_kind.is_some_and(|kind|kind!=FactKind::Gauge) || metric.counter {
+                if metric
+                    .prepared_kind
+                    .is_some_and(|kind| kind != FactKind::Gauge)
+                    || metric.counter
+                {
                     state.refused = state.refused.saturating_add(1);
                     return;
                 }
-                if !matches!(value,Value::Unavailable(_)) {metric.prepared_kind=Some(FactKind::Gauge);}
+                if !matches!(value, Value::Unavailable(_)) {
+                    metric.prepared_kind = Some(FactKind::Gauge);
+                }
                 copy_value(&mut metric.latest, &value);
                 metric.observed_at = at;
                 state.point(&node.policy, index, at, false);
@@ -1721,8 +1771,13 @@ impl ObservationContext {
             return;
         };
         node.update(|state, at| {
-            if let Some(metric) = state.producer_aggregate_metric(&node.policy, self.producer, name, unit, at) {
-                if metric.prepared_kind.is_some_and(|kind|kind!=FactKind::Counter) || metric.duration
+            if let Some(metric) =
+                state.producer_aggregate_metric(&node.policy, self.producer, name, unit, at)
+            {
+                if metric
+                    .prepared_kind
+                    .is_some_and(|kind| kind != FactKind::Counter)
+                    || metric.duration
                     || metric.absolute.is_some()
                     || (!metric.counter && !matches!(metric.latest, Value::Unavailable(_)))
                 {
@@ -1754,9 +1809,16 @@ impl ObservationContext {
             return;
         };
         node.update(|state, at| {
-            if let Some(index) = state.producer_aggregate_index(&node.policy, self.producer, name, unit, at) {
+            if let Some(index) =
+                state.producer_aggregate_index(&node.policy, self.producer, name, unit, at)
+            {
                 let metric = &mut state.metrics[index];
-                if metric.prepared_kind.is_some_and(|kind|kind!=FactKind::AbsoluteCounter) || metric.duration || (metric.counter && metric.absolute.is_none()) {
+                if metric
+                    .prepared_kind
+                    .is_some_and(|kind| kind != FactKind::AbsoluteCounter)
+                    || metric.duration
+                    || (metric.counter && metric.absolute.is_none())
+                {
                     state.refused = state.refused.saturating_add(1);
                     return;
                 }
@@ -1813,7 +1875,9 @@ impl ObservationContext {
                 .find(|metric| metric.name == name && metric.producer == self.producer)
                 .map(|metric| metric.unit.clone())
                 .unwrap_or_default();
-            if let Some(index) = state.producer_metric_index(&node.policy, self.producer, name, &unit, at) {
+            if let Some(index) =
+                state.producer_metric_index(&node.policy, self.producer, name, &unit, at)
+            {
                 let metric = &mut state.metrics[index];
                 let value = Value::Unavailable(bounded(reason, node.policy.max_text_bytes));
                 copy_value(&mut metric.latest, &value);
@@ -2092,7 +2156,7 @@ impl OperationReader {
                     ..Coverage::default()
                 },
                 metrics: Vec::new(),
-            producers: Vec::new(),
+                producers: Vec::new(),
                 phases: Vec::new(),
                 children: Vec::new(),
                 sources: Vec::new(),
@@ -2282,7 +2346,18 @@ impl OperationReader {
                 .metrics
                 .iter()
                 .any(|metric| metric.recent_partial || metric.history_partial);
-        result.producers = state.producers.iter().map(|producer| producer.snapshot(start, end, empty_intersection, node.lost.load(Ordering::Relaxed))).collect();
+        result.producers = state
+            .producers
+            .iter()
+            .map(|producer| {
+                producer.snapshot(
+                    start,
+                    end,
+                    empty_intersection,
+                    node.lost.load(Ordering::Relaxed),
+                )
+            })
+            .collect();
         result.phases = state.phases.clone();
         result.sources = state.sources.clone();
         result.children = state

@@ -51,6 +51,7 @@ from pse.contracts.documents import (
     KnowledgeControls,
     LazyStudyDefinition,
     LinearDiagnosticControls,
+    ManagedStudyDiagnosticsDocument,
     ModelingInspection,
     ModelingNonlinearPolicy,
     OperationSource,
@@ -424,6 +425,10 @@ class StudyReport:
     """Independent outcomes with explicit accepted-predecessor dependencies."""
 
     _handle: _NativeStudyReport
+
+    def diagnostic_selection(self) -> ManagedStudyDiagnosticsDocument | None:
+        """Read managed child evidence; absent for in-process studies."""
+        return self._handle.diagnostic_selection()
 
     def findings(self) -> TableStream:
         return TableStream(self._handle.findings())

@@ -549,6 +549,18 @@ own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Decision: [ADR-0193](../../adr/0193-demand-products-and-compiled-derivatives.md) (proposed; maintainer-authorized Plan43 target).
+
+Prepared mathematical demand distinguishes selected partials, Jacobian actions, weighted
+Hessians and weighted Hessian actions from derivative ceiling. Product/layout/policy belong
+to prepared identity; consumed weights and directions belong to completed-product identity.
+Support-driven maps and lazy compatible projections preserve all original validity premises.
+Bounded joint library optimization retains each original materialized output and ordered
+finite/source check within one semantic scope. Providers, guards, branches, domains and
+applicability remain barriers. Optional compiled derivative arithmetic uses the existing
+compiler-child/module/scratch owners and conservative execution profile. Plan43b owns
+implementation and acceptance; this target statement does not assert their completion.
+
 > Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
 
 Deployment configuration retains only consumed resource and execution settings. Removing the
