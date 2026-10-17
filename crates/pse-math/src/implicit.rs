@@ -125,13 +125,18 @@ impl ResidualBodies {
         let axes=if self.unknown.compiled_order()>=DerivativeOrder::First {
             (0..unknowns).collect::<Vec<_>>()
         } else {Vec::new()};
+        let width=unknowns.checked_add(inputs).ok_or_else(||MathError::Contract("implicit formal extent".into()))?;
+        let parameter_axes=if self.parameter.compiled_order()>=DerivativeOrder::First {
+            (0..width).collect::<Vec<_>>()
+        } else {Vec::new()};
         if !a.same_source(b) || a.outputs()!=b.outputs()
             || self.unknown.product_kind()!=crate::guarded::ProductKind::SelectedPartials
             || self.parameter.product_kind()!=crate::guarded::ProductKind::SelectedPartials
             || self.unknown.compiled_order()>DerivativeOrder::First
             || self.unknown.coordinates()!=axes
+            || self.parameter.coordinates()!=parameter_axes
             || self.unknown.input_formals().iter().any(|formal|!self.parameter.input_formals().contains(formal))
-            || self.parameter.input_formals().iter().any(|formal|*formal>=unknowns.saturating_add(inputs))
+            || self.parameter.input_formals().iter().any(|formal|*formal>=width)
         { return Err(MathError::Contract("implicit residual programs have different source/output/input premises".into())); }
         Ok(())
     }
@@ -1534,6 +1539,41 @@ mod deadline_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn implicit_dual_programs_require_canonical_parameter_axes_and_analytic_ift() {
+        use crate::guarded::{PreparedBody,Stage};
+        use symbolica::atom::Atom;
+        crate::initialize().unwrap();
+        let x=crate::library::formal(0).unwrap();
+        let p=crate::library::formal(1).unwrap();
+        let id=SemanticId::from_bytes([43;16]);
+        let cancel=Arc::new(AtomicBool::new(false));
+        // u = 2p + p² independently gives u'(3)=8 and u''(3)=2.
+        let source=PreparedBody::new(2,3,vec![2],vec![Stage::Block {
+            expressions:vec![x-Atom::num(2)*&p-&p*&p],outputs:vec![2],source:id,
+        }],DerivativeOrder::Second).unwrap();
+        let compile=|axes:&[usize],order|Arc::new(source.compile(&[0],axes,order,
+            crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&cancel).unwrap());
+        let unknown=compile(&[0],DerivativeOrder::First);
+        for axes in [&[1,0][..],&[0][..],&[1][..]] {
+            let bodies=ResidualBodies{unknown:unknown.clone(),parameter:compile(axes,DerivativeOrder::First)};
+            assert!(matches!(bodies.check(1,1),Err(MathError::Contract(_))),"axes {axes:?}");
+        }
+        let options=Options{start:vec![15.],variable_nominals:vec![1.],variable_tolerance:vec![1e-10],
+            residual_tolerance:vec![1e-10],iterations:10,time_limit:Duration::from_secs(1),derivative_tolerance:1e-10};
+        for order in [DerivativeOrder::First,DerivativeOrder::Second] {
+            let bodies=ResidualBodies{unknown:unknown.clone(),parameter:compile(&[0,1],order)};
+            let problem=Problem::new(id,ContentHash::from_bytes([43;32]),vec![Unknown{id,lower:-100.,upper:100.}],
+                vec![id],1,bodies,1024).unwrap();
+            let actual=problem.derivatives(&[3.],&[15.],order,&options,&cancel).unwrap();
+            assert_eq!(actual.values,[15.]);
+            assert!((actual.jacobian[0]-8.).abs()<1e-12);
+            if order==DerivativeOrder::Second {assert!((actual.hessians[0]-2.).abs()<1e-12);}
+            else {assert!(actual.hessians.is_empty());}
+        }
+        let value=ResidualBodies{unknown:compile(&[],DerivativeOrder::Value),parameter:compile(&[],DerivativeOrder::Value)};
+        value.check(1,1).unwrap();
+    }
     #[test]
     fn implicit_dual_programs_refuse_a_different_original_definition() {
         use crate::guarded::{PreparedBody,Stage};
