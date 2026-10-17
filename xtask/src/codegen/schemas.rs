@@ -61,6 +61,7 @@ pub(super) fn boundary_fixtures() -> anyhow::Result<pse_codegen::codegen::Genera
     let cancelled =
         WorkflowError::Math(pse_runtime::math::MathRuntimeError::Cancelled).boundary_diagnostic();
     let incumbent = ProgressEventDocument::from(pse_backend_native::solve::Event {
+        source: None,
         phase: "incumbent".into(),
         elapsed: std::time::Duration::from_millis(125),
         values: BTreeMap::new(),

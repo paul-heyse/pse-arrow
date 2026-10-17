@@ -110,6 +110,80 @@
       ],
       "type": "object"
     },
+    "CoherentRecord": {
+      "additionalProperties": false,
+      "description": "All members belong to the same source event; a read never assembles a mixed row.",
+      "properties": {
+        "coordinates": {
+          "description": "Source coordinate convention, absent when not established.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "family": {
+          "description": "Versioned source family; native families retain different field meanings.",
+          "type": "string"
+        },
+        "family_sequence": {
+          "description": "Sequence within this exact source family; absent after counter/admission failure.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "generation": {
+          "description": "Source reset/attempt generation.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "norm": {
+          "description": "Source norm convention, absent when not established.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_at": {
+          "$ref": "#/$defs/ClosedDuration",
+          "description": "Actual producer event time on this operation's process clock."
+        },
+        "phase": {
+          "description": "Actual native/workflow phase.",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerId",
+          "description": "Performing producer and enclosing operation."
+        },
+        "sequence": {
+          "description": "Source sequence assigned before lossy fan-out.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "values": {
+          "description": "Complete bounded tuple; large scientific payloads use their existing owner.",
+          "items": {
+            "$ref": "#/$defs/RecordField"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "producer",
+        "generation",
+        "sequence",
+        "observed_at",
+        "family",
+        "phase",
+        "values"
+      ],
+      "type": "object"
+    },
     "CounterInterval": {
       "additionalProperties": false,
       "description": "Retained additive interval, copied for passive narrower-window reads.",
@@ -279,6 +353,45 @@
       ],
       "type": "object"
     },
+    "DurationSummary": {
+      "additionalProperties": false,
+      "description": "Finite duration extrema; no inferred distribution or exclusive time.",
+      "properties": {
+        "maximum_ns": {
+          "description": "Largest complete interval in nanoseconds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "minimum_ns": {
+          "description": "Smallest complete interval in nanoseconds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "overflow": {
+          "description": "A count or duration could not be represented exactly.",
+          "type": "boolean"
+        },
+        "samples": {
+          "description": "Completed observed intervals; overflow is explicit.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "samples",
+        "overflow"
+      ],
+      "type": "object"
+    },
     "MetricSnapshot": {
       "additionalProperties": false,
       "description": "Latest and cumulative facts remain available after recent detail has rolled over.",
@@ -301,6 +414,17 @@
         "cumulative_partial": {
           "description": "The additive subtotal excludes an absolute baseline or has lost updates.",
           "type": "boolean"
+        },
+        "duration_summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DurationSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bounded owner-local duration extrema, independent of recent retention."
         },
         "generation": {
           "description": "Producer-declared generation of an absolute counter.",
@@ -339,6 +463,17 @@
         "observed_at": {
           "$ref": "#/$defs/ClosedDuration",
           "description": "Actual monotonic producer timestamp of the latest published observation."
+        },
+        "producer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProducerId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Explicit performing producer; absent for unscoped legacy facts."
         },
         "recent": {
           "$ref": "#/$defs/Value",
@@ -533,6 +668,13 @@
           },
           "type": "array"
         },
+        "producers": {
+          "description": "Explicit producers with atomic current and independently retained recent records.",
+          "items": {
+            "$ref": "#/$defs/ProducerSnapshot"
+          },
+          "type": "array"
+        },
         "read_at": {
           "$ref": "#/$defs/ClosedDuration",
           "description": "Monotonic time at which this read was requested."
@@ -581,6 +723,7 @@
         "detail_partial",
         "coverage",
         "metrics",
+        "producers",
         "phases",
         "children",
         "sources",
@@ -789,6 +932,239 @@
           ]
         }
       },
+      "type": "object"
+    },
+    "ProducerDescriptor": {
+      "additionalProperties": false,
+      "description": "Stable bounded producer declaration.",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ProducerId",
+          "description": "Exact performing instance."
+        },
+        "name": {
+          "description": "Owner-supplied label; not its identity.",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/ProducerRole",
+          "description": "Declared responsibility."
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "name"
+      ],
+      "type": "object"
+    },
+    "ProducerId": {
+      "additionalProperties": false,
+      "description": "A performing instance, not a scientific or cache identity.",
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/OperationId",
+          "description": "Actual enclosing diagnostic operation."
+        },
+        "sequence": {
+          "description": "Unique performing instance within this process.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operation",
+        "sequence"
+      ],
+      "type": "object"
+    },
+    "ProducerRole": {
+      "description": "Responsibility declared at the performing owner, never inferred from a metric prefix.",
+      "oneOf": [
+        {
+          "const": "native_callback",
+          "description": "Foreign solver callback boundary.",
+          "type": "string"
+        },
+        {
+          "const": "coordinate_transport",
+          "description": "Original-to-native coordinate transport.",
+          "type": "string"
+        },
+        {
+          "const": "original_oracle",
+          "description": "Original scientific oracle.",
+          "type": "string"
+        },
+        {
+          "const": "native_iteration",
+          "description": "Native-issued iteration or safe return checkpoint.",
+          "type": "string"
+        },
+        {
+          "const": "evaluator",
+          "description": "Prepared mathematical demand evaluator.",
+          "type": "string"
+        },
+        {
+          "const": "provider",
+          "description": "Scientific property or implicit provider.",
+          "type": "string"
+        },
+        {
+          "const": "workflow",
+          "description": "Workflow or publication stage.",
+          "type": "string"
+        },
+        {
+          "const": "native_factor",
+          "description": "Native factor/setup/solve owner.",
+          "type": "string"
+        }
+      ]
+    },
+    "ProducerSnapshot": {
+      "additionalProperties": false,
+      "description": "One producer's independent current and recent record views.",
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/RecordCoverage",
+          "description": "Independent source-record coverage."
+        },
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CoherentRecord"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Latest admitted compact checkpoint, even when history is zero."
+        },
+        "descriptor": {
+          "$ref": "#/$defs/ProducerDescriptor",
+          "description": "Actual declaration."
+        },
+        "recent": {
+          "description": "Bounded whole records intersecting the requested interval.",
+          "items": {
+            "$ref": "#/$defs/CoherentRecord"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "descriptor",
+        "recent",
+        "coverage"
+      ],
+      "type": "object"
+    },
+    "RecordAvailability": {
+      "description": "Availability of an optional source observation, independent of a numerical zero.",
+      "oneOf": [
+        {
+          "const": "not_requested",
+          "description": "Not selected or activated.",
+          "type": "string"
+        },
+        {
+          "const": "running",
+          "description": "The source interval is still running.",
+          "type": "string"
+        },
+        {
+          "const": "interrupted",
+          "description": "The source did not finish its interval.",
+          "type": "string"
+        },
+        {
+          "const": "unavailable",
+          "description": "No fitting source capability exists.",
+          "type": "string"
+        },
+        {
+          "const": "not_supplied",
+          "description": "The source did not supply this field at this event.",
+          "type": "string"
+        },
+        {
+          "const": "refused",
+          "description": "Collection admission refused.",
+          "type": "string"
+        }
+      ]
+    },
+    "RecordCoverage": {
+      "additionalProperties": false,
+      "description": "Source-record retention coverage, separate from independent metric histories.",
+      "properties": {
+        "accepted": {
+          "description": "Successfully retained whole source events.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "history_dropped": {
+          "description": "Recent records omitted or displaced independently of current retention.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "partial": {
+          "description": "Missing source sequences, refusal, overflow or publication contention.",
+          "type": "boolean"
+        },
+        "refused": {
+          "description": "Records rejected whole by admission or representation bounds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "accepted",
+        "refused",
+        "history_dropped",
+        "partial"
+      ],
+      "type": "object"
+    },
+    "RecordField": {
+      "additionalProperties": false,
+      "description": "One typed member of an indivisible source-issued record.",
+      "properties": {
+        "availability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecordAvailability"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Structured source availability when not a completed measurement."
+        },
+        "name": {
+          "description": "Family-defined field name.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Source-defined unit or convention.",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/Value",
+          "description": "Exact value, nonfinite category or explicit absence."
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "value"
+      ],
       "type": "object"
     },
     "Relationship": {
