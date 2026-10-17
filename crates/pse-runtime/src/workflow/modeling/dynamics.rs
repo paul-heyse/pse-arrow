@@ -2539,16 +2539,29 @@ impl ModelingPackage {
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect();
+            let mut actions = Vec::new();
+            if profile.method == native::Method::Idas {
+                if function == Function::Rhs && !matches!(profile.idas.linear, native::IdasLinear::Klu) {
+                    actions.push(pse_math::jets::ProductKind::JacobianAction);
+                }
+                // A second-order dynamic preparation explicitly admits later
+                // exact transient Hessians, including observed window fluxes.
+                if derivatives == DerivativeOrder::Second && matches!(function,
+                    Function::Rhs | Function::Initial | Function::Output | Function::QuadratureFlux) {
+                    actions.push(pse_math::jets::ProductKind::WeightedHessianAction);
+                }
+            }
             let compiled = self
                 .runtime
                 .shared
                 .math()
-                .prepare_modeling_functions(
+                .prepare_modeling_function_products(
                     self.numerical_workspace()?,
                     model.clone(),
                     selected,
                     derivative_coordinates.clone(),
                     derivatives,
+                    actions,
                     compiler,
                     cancel,
                 )
@@ -6650,6 +6663,7 @@ mod tests {
         ));
     }
     #[tokio::test]
+    #[cfg(feature = "solver-idas")]
     async fn kernel_integrated_actions_preserve_scaled_axes_and_complete_publication() {
         let runtime = super::super::super::tests::runtime();
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p*(x[i]/1{s})^2; eq initial:x[0{s}]==offset; annotation start x(1{s}); annotation nominal x(10{s}); } }";
@@ -6660,8 +6674,18 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let prepared = package.prepare_simulation(root, pse_modeling::specialize::root_instance(root),
             Bindings::default(), Default::default(), Default::default(),
-            super::super::super::tests::compiler_profile(), native::Profile::default(),
-            DerivativeOrder::Second, &cancel).await.unwrap();
+            super::super::super::tests::compiler_profile(), native::Profile {
+                method: native::Method::Idas,
+                sensitivity: native::DynamicSensitivity::Adjoint,
+                idas: native::IdasSettings {
+                    linear: native::IdasLinear::Spgmr {
+                        dimension: pse_model::scalars::PositiveCount::try_new(8).unwrap(),
+                        preconditioner: pse_backend_native::solve::Preconditioner::None,
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            }, DerivativeOrder::Second, &cancel).await.unwrap();
         let mut worker = prepared.worker(pse_kernels::ExecutionScope::new(
             pse_diagnostics::Cancellation::default(), None)).unwrap();
         let state = [0.1];
