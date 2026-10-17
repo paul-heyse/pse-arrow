@@ -7465,7 +7465,7 @@ fn implicit_artifact_requests_separate_program_premises_from_fresh_hint_values()
     let limits = EvaluationLimits::default();
     let configs = |hint| BTreeMap::from([(inner.residuals[0].id, Configuration::Hints(Arc::new(Hints(hint))))]);
     let requests = |hint, order, limits| inner.program_requests(&configs(hint), &capabilities, order, &cancel, limits).unwrap();
-    let keys = |requests: Vec<ImplicitProgramRequest>| requests.into_iter().map(|request| request.artifact().key()).collect::<Vec<_>>();
+    let keys = |(requests, _): (Vec<ImplicitProgramRequest>, ImplicitPrograms)| requests.into_iter().map(|request| request.artifact().key()).collect::<Vec<_>>();
     assert_eq!(keys(requests(1, DerivativeOrder::First, limits)), keys(requests(2, DerivativeOrder::First, limits)),
         "fresh numerical resolvers cannot recompile stable residual/hint programs");
     assert_ne!(keys(requests(1, DerivativeOrder::First, limits)), keys(requests(1, DerivativeOrder::Second, limits)));
@@ -7477,7 +7477,47 @@ fn implicit_artifact_requests_separate_program_premises_from_fresh_hint_values()
     let changed_configs = BTreeMap::from([(changed_inner.residuals[0].id, Configuration::Hints(Arc::new(Hints(1))))]);
     let changed_requests = changed_inner.program_requests(&changed_configs, &capabilities, DerivativeOrder::First, &cancel, limits).unwrap();
     assert_ne!(keys(requests(1, DerivativeOrder::First, limits)), keys(changed_requests), "hint expression changes immutable program demand");
+    let (selected, _) = requests(1, DerivativeOrder::First, limits);
+    let refusal = selected[0].attribute_refusal(&MathError::DerivativeDemand {
+        source_id: None, body: None, outputs: vec![0], coordinates: vec![0],
+        requested: DerivativeOrder::First, available: DerivativeOrder::Value,
+    }).unwrap();
+    assert!(matches!(refusal, MathError::DerivativeDemand { source_id: Some(source), body: Some(_), .. }
+        if source == inner.residuals[0].id));
     let programs = inner.compile_programs(&configs(1), &capabilities, DerivativeOrder::First, &cancel, limits).unwrap();
     assert!(inner.factory_reusing(configs(2), capabilities.clone(), DerivativeOrder::First, cancel.clone(), narrower, &programs).is_err());
     assert!(inner.factory_reusing(configs(2), capabilities, DerivativeOrder::Second, cancel, limits, &programs).is_err());
+}
+
+#[test]
+fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_assembly() {
+    use pse_math::implicit::{Configuration, Options, Unknown};
+    #[derive(Debug)]
+    struct Counted(Arc<std::sync::atomic::AtomicUsize>);
+    impl pse_math::implicit::accelerators::Accelerator for Counted {
+        fn admit(&self, body: &pse_math::guarded::PreparedBody, unknowns: usize,
+            _: EvaluationLimits, cancel: &Arc<AtomicBool>) -> std::result::Result<Arc<dyn pse_math::implicit::InnerSolver>, MathError> {
+            self.0.fetch_add(1, Ordering::Relaxed);
+            Ok(Arc::new(pse_math::implicit::Affine::with_cancel(body, unknowns, cancel)?))
+        }
+    }
+    let (mut workspace, _, _, root) = setup("package p {def Root {var x:Scalar;implicit root select branch(y>=0) {var y:Scalar;eq residual:y==x/2;}realize r on root using accelerated(counter);eq pin:root.y==2;}}");
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+    accelerators.register("counter".into(), Arc::new(Counted(count.clone()))).unwrap();
+    let capabilities = ImplicitCapabilities { solver: Arc::new(pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap()), verifier: None, accelerators: &accelerators };
+    let configs = BTreeMap::from([(inner.residuals[0].id, Configuration::Fixed(
+        inner.unknowns.iter().map(|&id| Unknown {id, lower: f64::NEG_INFINITY, upper: f64::INFINITY}).collect(),
+        Options { start: vec![1.], variable_nominals: vec![1.], variable_tolerance: vec![0.001], residual_tolerance: vec![0.001],
+            iterations: 20, time_limit: std::time::Duration::from_secs(1), derivative_tolerance: 1e-9 },
+    ))]);
+    let cancel = Cancellation::default();
+    let limits = EvaluationLimits::default();
+    let programs = inner.compile_programs(&configs, &capabilities, DerivativeOrder::First, &cancel, limits).unwrap();
+    assert_eq!(count.load(Ordering::Relaxed), 1);
+    let factory = inner.factory_reusing(configs, capabilities, DerivativeOrder::First, cancel, limits, &programs).unwrap();
+    assert_eq!(count.load(Ordering::Relaxed), 1, "factory assembly retains its request-local capability rather than repeating admission");
+    assert!(factory.retained_bytes().unwrap() > 0);
 }

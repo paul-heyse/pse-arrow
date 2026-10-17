@@ -432,17 +432,29 @@ impl MathService {
                         let selected = item.admitted.program_requests(&item.configurations,
                             &pse_compiler::workspace::ImplicitCapabilities { solver: solver.clone(), verifier: verifier.clone(), accelerators: &accelerators },
                             requested, &flag, profile.evaluation)?;
-                        for request in &selected { bytes = bytes.checked_add(request.retained_bytes())
+                        for request in &selected.0 { bytes = bytes.checked_add(request.retained_bytes())
                             .ok_or(MathRuntimeError::Limit("inner request extent"))?; }
+                        bytes = bytes.checked_add(selected.1.descriptor_bytes())
+                            .ok_or(MathRuntimeError::Limit("inner request solver extent"))?;
                         requests.push(selected);
                     }
                     Ok(((inner, solver, verifier, accelerators, provider_demands, requests), bytes))
                 }).await?;
             let mut programs = Vec::with_capacity(requests.len());
-            for selected in requests {
-                let mut bound = pse_compiler::workspace::ImplicitPrograms::new(profile.evaluation);
+            fn derivative_cause(error: &MathRuntimeError) -> Option<&pse_math::MathError> {
+                match error {
+                    MathRuntimeError::Math(error) => Some(error),
+                    MathRuntimeError::Compile(pse_compiler::workspace::CompileError::Math(error)) => Some(error),
+                    MathRuntimeError::Shared(error) => derivative_cause(error),
+                    _ => None,
+                }
+            }
+            for (selected, mut bound) in requests {
                 for request in selected {
-                    let artifact = Self::preparation_wait(&driver, self.artifact(request.artifact().clone())).await?;
+                    let artifact = Self::preparation_wait(&driver, self.artifact(request.artifact().clone())).await
+                        .map_err(|error| match derivative_cause(&error).and_then(|cause| request.attribute_refusal(cause)) {
+                            Some(attributed) => MathRuntimeError::Math(attributed), None => error,
+                        })?;
                     bound.bind(request, artifact.program.clone())?;
                 }
                 programs.push(bound);

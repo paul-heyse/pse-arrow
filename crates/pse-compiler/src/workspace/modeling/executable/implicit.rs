@@ -276,10 +276,19 @@ pub struct ImplicitCapabilities<'a> {
 pub struct ImplicitProgramRequest {
     key: (ContentHash, u8, Vec<usize>, bool),
     artifact: ArtifactRequest,
+    source: SemanticId,
 }
 impl ImplicitProgramRequest {
     /// Use the existing admitted artifact/scalar service and its retention policy.
     pub fn artifact(&self) -> &ArtifactRequest { &self.artifact }
+    /// Reattach the actual consuming residual to a shared compilation refusal.
+    /// Other error kinds already retain their original scientific source/cause.
+    pub fn attribute_refusal(&self, cause: &MathError) -> Option<MathError> {
+        if let MathError::DerivativeDemand { outputs, coordinates, requested, available, .. } = cause {
+            Some(MathError::DerivativeDemand { source_id: Some(self.source), body: Some(self.key.0),
+                outputs: outputs.clone(), coordinates: coordinates.clone(), requested: *requested, available: *available })
+        } else { None }
+    }
     /// Request descriptors retained across asynchronous compilation.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>() + self.key.2.capacity() * size_of::<usize>()
@@ -291,10 +300,15 @@ impl ImplicitProgramRequest {
 pub struct ImplicitPrograms {
     limits: EvaluationLimits,
     bodies: BTreeMap<(ContentHash, u8, Vec<usize>, bool), Arc<CompiledBody>>,
+    solvers: BTreeMap<SemanticId, Arc<dyn pse_math::implicit::InnerSolver>>,
 }
 impl ImplicitPrograms {
     /// Start an empty assembly under the exact requested numeric limits.
-    pub fn new(limits: EvaluationLimits) -> Self { Self { limits, bodies: BTreeMap::new() } }
+    fn new(limits: EvaluationLimits) -> Self { Self { limits, bodies: BTreeMap::new(), solvers: BTreeMap::new() } }
+    /// Assembly-local solver descriptors remain charged across artifact waits.
+    pub fn descriptor_bytes(&self) -> usize {
+        size_of::<Self>() + self.solvers.values().map(|solver| 128 + size_of::<(SemanticId, Arc<dyn pse_math::implicit::InnerSolver>)>() + solver.retained_bytes()).sum::<usize>()
+    }
     /// Bind the result of the compiler-issued request, preserving its artifact owner.
     pub fn bind(&mut self, request: ImplicitProgramRequest, body: Arc<CompiledBody>) -> Result<()> {
         if request.artifact.evaluation != self.limits
@@ -710,14 +724,16 @@ impl AdmittedImplicit {
         requested_output: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
         limits: EvaluationLimits,
-    ) -> Result<Vec<ImplicitProgramRequest>> {
+    ) -> Result<(Vec<ImplicitProgramRequest>, ImplicitPrograms)> {
         let mut requests = BTreeMap::new();
+        let mut programs = ImplicitPrograms::new(limits);
         let profile = Profile { optimization: Optimization::default(), evaluation: limits, ..Profile::default() };
         for residual in &self.residuals {
             let configuration = configurations.get(&residual.id)
                 .ok_or_else(|| CompileError::Missing("implicit branch configuration".into()))?;
             let solver = self.branch_solver(residual, capabilities, limits, cancel)?;
             let requirements = self.residual_requirements(residual, requested_output, solver.minimum_order())?;
+            programs.solvers.insert(residual.id, solver);
             let local_order = if requested_output > DerivativeOrder::Value { DerivativeOrder::First } else { DerivativeOrder::Value };
             let mut add = |body: &AdmittedBody, order: DerivativeOrder, unknown_only: bool, local: bool| -> Result<()> {
                 let coordinates: Vec<_> = if order == DerivativeOrder::Value && !local { Vec::new() }
@@ -726,11 +742,12 @@ impl AdmittedImplicit {
                 let outputs = (0..body.quantities.len()).collect::<Vec<_>>();
                 let key = (body.spec.key(), order as u8, coordinates.clone(), local);
                 if requests.contains_key(&key) { return Ok(()); }
-                let support = Arc::new(body.math.prepare_support(&outputs, &coordinates, order, cancel)?);
+                let support = Arc::new(body.math.prepare_support(&outputs, &coordinates, order, cancel)
+                    .map_err(|error| error.with_derivative_body(Some(residual.id), body.spec.key()))?);
                 let demand = LocalDemand { body: body.spec.key(), outputs, coordinates, order,
                     product: pse_math::jets::ProductKind::SelectedPartials };
                 let artifact = artifact_request(&demand, support, profile, &body.spec.physical, local);
-                requests.insert(key.clone(), ImplicitProgramRequest { key, artifact });
+                requests.insert(key.clone(), ImplicitProgramRequest { key, artifact, source: residual.id });
                 Ok(())
             };
             add(&residual.body, requirements.inner_minimum, true, false)?;
@@ -745,7 +762,7 @@ impl AdmittedImplicit {
                 add(&assessment.criterion, local_order, false, true)?;
             }
         }
-        Ok(requests.into_values().collect())
+        Ok((requests.into_values().collect(), programs))
     }
     fn branch_solver(
         &self, residual: &AdmittedResidual, capabilities: &ImplicitCapabilities<'_>,
@@ -763,9 +780,10 @@ impl AdmittedImplicit {
         capabilities: &ImplicitCapabilities<'_>, requested_output: DerivativeOrder,
         cancel: &pse_diagnostics::Cancellation, limits: EvaluationLimits,
     ) -> Result<ImplicitPrograms> {
-        let mut programs = ImplicitPrograms::new(limits);
-        for request in self.program_requests(configurations, capabilities, requested_output, cancel, limits)? {
-            let body = Arc::new(request.artifact.build(&pse_kernels::ExecutionScope::new(cancel.clone(), None))?);
+        let (requests, mut programs) = self.program_requests(configurations, capabilities, requested_output, cancel, limits)?;
+        for request in requests {
+            let body = Arc::new(request.artifact.build(&pse_kernels::ExecutionScope::new(cancel.clone(), None))
+                .map_err(|error| request.attribute_refusal(&error).unwrap_or(error))?);
             programs.bind(request, body)?;
         }
         Ok(programs)
@@ -855,11 +873,7 @@ impl AdmittedImplicit {
     ) -> Result<pse_math::implicit::ImplicitFactory> {
         if programs.limits != limits { return Err(CompileError::Missing("implicit artifact numeric limits changed".into())); }
         use pse_math::implicit::{Factory, ImplicitFactory, RegimeFactory, RegimeFactoryBranch};
-        let ImplicitCapabilities {
-            solver,
-            verifier,
-            accelerators,
-        } = capabilities;
+        let verifier = capabilities.verifier;
         if configurations.len() != self.residuals.len() || self.residuals.is_empty() {
             return Err(CompileError::Missing(
                 "implicit branch configuration extent".into(),
@@ -910,20 +924,8 @@ impl AdmittedImplicit {
                     else { (0..body.math.input_count()).collect::<Vec<_>>() };
                 programs.get(body, &coordinates, order, false)
             };
-            let branch_solver: Arc<dyn pse_math::implicit::InnerSolver> = match &self.algorithm {
-                ImplicitAlgorithm::Accelerator(id) => accelerators.admit(
-                    id,
-                    &residual.body.math,
-                    self.unknowns.len(),
-                    limits,
-                    &cancel,
-                )?,
-                ImplicitAlgorithm::AffineRates => Arc::new(pse_math::implicit::Affine::new(
-                    &residual.body.math,
-                    self.unknowns.len(),
-                )?),
-                ImplicitAlgorithm::Native => solver.clone(),
-            };
+            let branch_solver = programs.solvers.get(&residual.id).cloned()
+                .ok_or_else(|| CompileError::Missing("implicit admitted branch solver missing".into()))?;
             let requirements = self.residual_requirements(
                 residual,
                 requested_output,
