@@ -160,9 +160,106 @@ fn source_valid(builder:&mut Builder,doc:&InvocationEvidenceDocument)->bool {
             counted(doc,"/attempts/run_id",text(&doc.attempts.run_id.to_string()),true)],vec![NextObservation::InspectRelated]);
     false
 }
+fn retained_failure(builder:&mut Builder,doc:&InvocationEvidenceDocument) {
+    if let Some(failure)=&doc.attempts.failure {
+        builder.add(StatementKind::Established,"invocation.retained_failure","The original attempt owner retained this typed failure. It describes supplied failure evidence, not a new assessment or proof that every strategy operation failed.",vec![
+            counted(doc,"/attempts/failure/observation",enum_text(failure.observation),false),
+            counted(doc,"/attempts/failure/code",enum_text(failure.code),false),
+            counted(doc,"/attempts/failure/class",enum_text(failure.class),false),
+            counted(doc,"/attempts/failure/retained_only",Value::Boolean(failure.retained_only),false)],vec![NextObservation::InspectRelated]);
+    }
+}
+fn step_context(builder:&mut Builder,doc:&InvocationEvidenceDocument,index:usize,step:&crate::workflow::AttemptStepSummary) {
+    let prefix=format!("/attempts/steps/{index}");
+    let predicate=|value:Option<bool>|value.map_or_else(||Value::Unavailable("native owner predicate unavailable".into()),Value::Boolean);
+    builder.add(if step.start_submitted.is_some() && step.reused_native_state.is_some(){StatementKind::Established}else{StatementKind::Limitation},"invocation.start_and_reuse","These are the actual native owner's supplied start/reuse predicates. Retained native state does not establish reused numeric factors; a submitted seed is distinct from retained state.",vec![
+        counted(doc,format!("{prefix}/start_submitted"),predicate(step.start_submitted),false),
+        counted(doc,format!("{prefix}/reused_native_state"),predicate(step.reused_native_state),false)],vec![]);
+    if let Some(start)=&step.start {
+        builder.add(StatementKind::Established,"invocation.start_metadata","The start owner retained these seed facts. The data identity describes the seed, not all scientific parameters, fixed values, coefficients or bounds.",vec![
+            counted(doc,format!("{prefix}/start/previous_attempt"),optional_count(start.previous_attempt.map(|v|v as u64)),false),
+            counted(doc,format!("{prefix}/start/layout"),start.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|text(&v.to_string())),false),
+            counted(doc,format!("{prefix}/start/data"),start.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|text(&v.to_string())),false),
+            counted(doc,format!("{prefix}/start/sparse_variables"),Value::Count(start.sparse_variables as u64),false),
+            counted(doc,format!("{prefix}/start/submitted"),Value::Boolean(start.submitted),false)],vec![]);
+        builder.omitted(start.transformations.len());
+        if !start.transformations.is_empty() {
+            // Retain the source reference without serializing potentially large nested
+            // presolve/working-set paths into this bounded interpretation.
+            builder.add(StatementKind::Limitation,"invocation.seed_transformations_uninterpreted","The original start document retains transformations. This bounded scalar interpretation does not reconstruct their coordinate mappings or infer compatible numeric state.",vec![
+                counted(doc,format!("{prefix}/start/transformations"),Value::Unavailable("inspect the retained transformation path".into()),true)],vec![NextObservation::InspectRelated]);
+        }
+    } else {
+        builder.add(StatementKind::Limitation,"invocation.start_metadata_unavailable","No detailed start metadata was retained. Absence is not evidence that no seed was submitted or that native state was cold.",vec![counted(doc,format!("{prefix}/start"),Value::Unavailable("detailed start metadata unavailable".into()),true)],vec![NextObservation::InspectRelated]);
+    }
+    for (name,options) in [("effective_options",&step.effective_options),("native_defaults",&step.native_defaults)] {
+        builder.omitted(options.len());
+        if name=="native_defaults" && options.is_empty() {
+            builder.add(StatementKind::Limitation,"invocation.native_defaults_unavailable","No native defaults were read back at this boundary. Empty queried defaults do not establish that the native library has no defaults or that submitted options describe all effective behavior.",vec![
+                counted(doc,format!("{prefix}/{name}"),Value::Unavailable("native default readback unavailable".into()),true)],vec![NextObservation::InspectRelated]);
+        }
+        for (key,value) in options.iter().take(builder.document.policy.source_items) {
+            if key.len()>TEXT_LIMIT {
+                builder.document.omitted_source_items=builder.document.omitted_source_items.saturating_add(1);
+                builder.document.partial=true;
+                continue;
+            }
+            let key=key.replace('~',"~0").replace('/',"~1");
+            let (value,leaf)=match value {
+                pse_backend_native::solve::OptionValue::Bool(v)=>(Value::Boolean(*v),"/value"),
+                pse_backend_native::solve::OptionValue::Integer(v)=>(Value::Integer(i64::from(*v)),"/value"),
+                pse_backend_native::solve::OptionValue::Real(v) if v.is_finite()=>(Value::number(*v),"/value"),
+                pse_backend_native::solve::OptionValue::Real(_)=>(Value::Unavailable("nonfinite native option; inspect original tagged observation".into()),""),
+                pse_backend_native::solve::OptionValue::Text(v)=>(text(v),"/value"),
+            };
+            builder.add(if matches!(value,Value::Unavailable(_)){StatementKind::Limitation}else{StatementKind::Established},if name=="effective_options" {"invocation.submitted_option"}else{"invocation.queried_default"},
+                if name=="effective_options" {"This is an actual adapter-submitted option, distinct from queried defaults and unspecified native behavior."}else{"This is an actual queried native default, distinct from an adapter-submitted override."},
+                vec![counted(doc,format!("{prefix}/{name}/{key}{leaf}"),value,false)],vec![]);
+        }
+    }
+}
+fn context_comparison(builder:&mut Builder,a:&InvocationEvidenceDocument,ai:usize,left:&crate::workflow::AttemptStepSummary,b:&InvocationEvidenceDocument,bi:usize,right:&crate::workflow::AttemptStepSummary) {
+    let value=|v:Option<bool>|v.map_or_else(||Value::Unavailable("native owner predicate unavailable".into()),Value::Boolean);
+    for (field,l,r) in [("start_submitted",left.start_submitted,right.start_submitted),("reused_native_state",left.reused_native_state,right.reused_native_state)] {
+        if l!=r {
+            builder.add(StatementKind::Limitation,"comparison.start_or_reuse_context_changed","Recorded seed submission or retained native state differs. Literal work/whole-loop averages remain descriptive facts; this context change limits causal cost attribution and does not establish numeric factor reuse.",vec![
+                counted(a,format!("/attempts/steps/{ai}/{field}"),value(l),false),counted(b,format!("/attempts/steps/{bi}/{field}"),value(r),false)],vec![NextObservation::InspectRelated]);
+        }
+    }
+    if let Some((l,r))=left.start.as_ref().zip(right.start.as_ref()) {
+        if l.data!=r.data || l.layout!=r.layout || l.previous_attempt!=r.previous_attempt || l.sparse_variables!=r.sparse_variables || l.submitted!=r.submitted || l.transformations.len()!=r.transformations.len() {
+            builder.add(StatementKind::Limitation,"comparison.seed_context_changed","Actual retained seed metadata differs. Different starts or coordinate transformations can change the trajectory; they do not establish an intrinsic solver or callback cost difference.",vec![
+                counted(a,format!("/attempts/steps/{ai}/start/data"),l.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|text(&v.to_string())),false),
+                counted(b,format!("/attempts/steps/{bi}/start/data"),r.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|text(&v.to_string())),false),
+                counted(a,format!("/attempts/steps/{ai}/start/layout"),l.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|text(&v.to_string())),false),
+                counted(b,format!("/attempts/steps/{bi}/start/layout"),r.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|text(&v.to_string())),false),
+                counted(a,format!("/attempts/steps/{ai}/start/submitted"),Value::Boolean(l.submitted),false),
+                counted(b,format!("/attempts/steps/{bi}/start/submitted"),Value::Boolean(r.submitted),false),
+                counted(a,format!("/attempts/steps/{ai}/start/sparse_variables"),Value::Count(l.sparse_variables as u64),false),
+                counted(b,format!("/attempts/steps/{bi}/start/sparse_variables"),Value::Count(r.sparse_variables as u64),false),
+                counted(a,format!("/attempts/steps/{ai}/start/previous_attempt"),optional_count(l.previous_attempt.map(|v|v as u64)),false),
+                counted(b,format!("/attempts/steps/{bi}/start/previous_attempt"),optional_count(r.previous_attempt.map(|v|v as u64)),false),
+                counted(a,format!("/attempts/steps/{ai}/start/transformations"),Value::Unavailable("inspect source transformation path".into()),true),
+                counted(b,format!("/attempts/steps/{bi}/start/transformations"),Value::Unavailable("inspect source transformation path".into()),true)],vec![NextObservation::InspectRelated]);
+        }
+    } else if left.start.is_some()!=right.start.is_some() {
+        builder.add(StatementKind::Limitation,"comparison.seed_context_unavailable","Detailed start coverage differs. Missing seed metadata is not a matching cold-start context.",vec![
+            counted(a,format!("/attempts/steps/{ai}/start"),Value::Unavailable("paired detailed start context not established".into()),true),
+            counted(b,format!("/attempts/steps/{bi}/start"),Value::Unavailable("paired detailed start context not established".into()),true)],vec![NextObservation::InspectRelated]);
+    }
+    for (name,l,r) in [("effective_options",&left.effective_options,&right.effective_options),("native_defaults",&left.native_defaults,&right.native_defaults)] {
+      if l!=r {
+        builder.add(StatementKind::Limitation,"comparison.native_settings_changed","Submitted options or queried native defaults differ. The individual retained values are reported separately; absent default readback cannot establish matching unspecified behavior.",vec![
+            counted(a,format!("/attempts/steps/{ai}/{name}"),Value::Unavailable("inspect bounded submitted option/default facts".into()),true),
+            counted(b,format!("/attempts/steps/{bi}/{name}"),Value::Unavailable("inspect bounded submitted option/default facts".into()),true)],vec![NextObservation::InspectRelated]);
+      }
+    }
+}
 fn strategy_comparison(builder:&mut Builder,doc:&InvocationEvidenceDocument) {
     let limit=builder.document.policy.source_items;
     for (index,step) in doc.attempts.steps.iter().take(limit).enumerate() {
+        builder.omitted(step.decisions.len());
+        step_context(builder,doc,index,step);
         let started=step.decisions.iter().take(limit).filter(|event|event.kind==pse_model::generated::enums::NumericalEventKind::Started).count();
         let failure=step.decisions.iter().take(limit).enumerate().find(|(_,event)|matches!(event.kind,pse_model::generated::enums::NumericalEventKind::Refused|pse_model::generated::enums::NumericalEventKind::Abandoned));
         if started>1 || failure.is_some() || step.accepted==Some(false) {
@@ -182,6 +279,7 @@ fn strategy_comparison(builder:&mut Builder,doc:&InvocationEvidenceDocument) {
 fn explain(builder:&mut Builder,doc:&InvocationEvidenceDocument) {
     let limit=builder.document.policy.source_items;
     builder.document.partial|=source_partial(doc);
+    retained_failure(builder,doc);
     builder.add(StatementKind::Established,"invocation.outcome","The invocation owner reported this operational outcome. Original scientific acceptance and requested product availability remain separate facts.",
         vec![inv(doc,"/outcome",outcome(doc.outcome)),counted(doc,"/attempts/usable",Value::Boolean(doc.attempts.usable),false)],vec![]);
     if let Some(preparation)=doc.preparations {
@@ -221,6 +319,7 @@ fn explain(builder:&mut Builder,doc:&InvocationEvidenceDocument) {
     }
     builder.omitted(doc.attempts.steps.len());
     for (index,step) in doc.attempts.steps.iter().take(limit).enumerate() {
+        step_context(builder,doc,index,step);
         if let Some(work)=step.work {
             builder.add(StatementKind::Established,"invocation.recorded_work","The synchronous owner supplied these inclusive work populations. Unknown counters stay unavailable; step, native and decision charges are not added together as separate work.",
                 [("attempts",Some(work.attempts)),("evaluations",work.evaluations),("iterations",work.iterations),("factorizations",work.factorizations),("proof_steps",work.proof_steps)].into_iter()
@@ -278,6 +377,7 @@ pub fn compare_invocations(a:&InvocationEvidenceDocument,b:&InvocationEvidenceDo
     if !valid_a || !valid_b {return builder.document;}
     let limit=builder.document.policy.source_items;
     builder.document.partial=source_partial(a)||source_partial(b);
+    retained_failure(&mut builder,a);retained_failure(&mut builder,b);
     builder.omitted(a.products.len());builder.omitted(b.products.len());
     for (ai,left) in a.products.iter().take(limit).enumerate() {
         let Some((bi,right))=b.products.iter().take(limit).enumerate().find(|(_,right)|right.role==left.role&&right.step==left.step) else{continue;};
@@ -323,6 +423,7 @@ pub fn compare_invocations(a:&InvocationEvidenceDocument,b:&InvocationEvidenceDo
     }
     for (ai,left) in a.attempts.steps.iter().take(limit).enumerate() {
         let Some((bi,right))=b.attempts.steps.iter().take(limit).enumerate().find(|(_,right)|right.step==left.step) else{continue;};
+        context_comparison(&mut builder,a,ai,left,b,bi,right);
         let route_equal=left.backend==right.backend;
         if !route_equal {
             builder.add(StatementKind::Established,"comparison.route_changed","The actual native backend changed for this original step. Its family-specific evaluation/iteration units and elapsed costs are not interchangeable.",
@@ -345,9 +446,9 @@ pub fn compare_invocations(a:&InvocationEvidenceDocument,b:&InvocationEvidenceDo
                 if *li>0 && *ri>0 && lt.is_finite()&&rt.is_finite()&&*lt>=0.&&*rt>=0.=>Some((*li,*lt,*ri,*rt)),_=>None,
         });
         if let Some((li,lt,ri,rt))=ratio.filter(|_|comparable(a,b,limit)&&left.accepted==Some(true)&&right.accepted==Some(true)) {
-            let mut fields=vec![evidence(a,format!("/attempts/steps/{ai}/native_observations/counters/wall_seconds"),seconds(Some(lt)),"Ipopt native algorithm wall including callbacks",false),
+            let mut fields=vec![evidence(a,format!("/attempts/steps/{ai}/native_observations/counters/wall_seconds/value"),seconds(Some(lt)),"Ipopt native algorithm wall including callbacks",false),
                 counted(a,format!("/attempts/steps/{ai}/native_observations/counters/iterations"),Value::Count(li),false),
-                evidence(b,format!("/attempts/steps/{bi}/native_observations/counters/wall_seconds"),seconds(Some(rt)),"Ipopt native algorithm wall including callbacks",false),
+                evidence(b,format!("/attempts/steps/{bi}/native_observations/counters/wall_seconds/value"),seconds(Some(rt)),"Ipopt native algorithm wall including callbacks",false),
                 counted(b,format!("/attempts/steps/{bi}/native_observations/counters/iterations"),Value::Count(ri),false)];
             if let Some((left,right))=matching {
                 for (doc,index,native) in [(a,ai,left),(b,bi,right)] {
@@ -355,7 +456,7 @@ pub fn compare_invocations(a:&InvocationEvidenceDocument,b:&InvocationEvidenceDo
                     fields.push(counted(doc,format!("/attempts/steps/{index}/native_observations/profile"),text(&native.profile.to_string()),false));
                 }
             }
-            builder.add(StatementKind::Established,"comparison.native_inclusive_seconds_per_iteration",format!("For each retained native report with matching problem/profile/backend/options, inclusive wall per reported iteration was {:.6} versus {:.6} seconds. This describes whole-loop averages; changed callback/factor work mix prevents a causal unit-cost or exclusive CPU conclusion.",lt/li as f64,rt/ri as f64),
+            builder.add(StatementKind::Established,"comparison.native_inclusive_seconds_per_iteration",format!("For each retained native report with matching recorded structural problem/profile/backend/options, inclusive wall per reported iteration was {:.6} versus {:.6} seconds. This describes whole-loop averages; changed callback/factor work mix prevents a causal unit-cost or exclusive CPU conclusion.",lt/li as f64,rt/ri as f64),
                 fields,vec![NextObservation::InspectRelated,NextObservation::CpuProfile]);
         } else {
             builder.add(StatementKind::Limitation,"comparison.unit_cost_unavailable","Matching complete native clock/count populations and problem/profile/backend/options were not established, or scientific endpoints differ. Counter absence is not zero cost. Inspect same-product callback/inner/factor durations and completed counts to distinguish extra work from more expensive work.",
@@ -392,6 +493,8 @@ pub fn compare_invocations(a:&InvocationEvidenceDocument,b:&InvocationEvidenceDo
             vec![counted(a,"/attempts/omitted_native_attempts",Value::Count(a.attempts.omitted_native_attempts as u64),source_partial(a)),counted(b,"/attempts/omitted_native_attempts",Value::Count(b.attempts.omitted_native_attempts as u64),source_partial(b))],vec![NextObservation::TimelineCapture]);
     }
     strategy_comparison(&mut builder,a);strategy_comparison(&mut builder,b);
+    builder.add(StatementKind::Limitation,"comparison.scientific_input_context_unknown","Matching recorded structural problem/profile/options does not establish equal parameters, fixed values, coefficients or bounds. Seed data identifies the start only. Literal counts and inclusive means remain descriptive; causal cost attribution requires the relevant supplied numerical context.",vec![
+        counted(a,"/attempts/run_id",text(&a.attempts.run_id.to_string()),false),counted(b,"/attempts/run_id",text(&b.attempts.run_id.to_string()),false)],vec![NextObservation::InspectRelated]);
     builder.add(StatementKind::Limitation,"comparison.causal_cost_unavailable","A larger wall endpoint or unchanged checkpoint alone cannot distinguish computation, contention, opaque native work or continuous stagnation. Selected same-product owner counts, CPU stacks and scheduler evidence can discriminate the remaining cause.",
         vec![inv(a,"/endpoints/terminal_seconds",seconds(a.endpoints.terminal_seconds)),inv(b,"/endpoints/terminal_seconds",seconds(b.endpoints.terminal_seconds))],vec![NextObservation::InspectRelated,NextObservation::CpuProfile,NextObservation::OptionalWaitProbe]);
     builder.document
@@ -554,7 +657,15 @@ mod tests {
             assert!(statement.message.len()<=TEXT_LIMIT);
             for evidence in &statement.evidence {
                 let source=if evidence.invocation.run_id==a.run_id {&source_a}else{&source_b};
-                assert!(source.pointer(&evidence.field).is_some(),"{}",evidence.field);
+                let actual=source.pointer(&evidence.field).unwrap_or_else(||panic!("{}",evidence.field));
+                match &evidence.value {
+                    Value::Number(value)=>assert_eq!(actual.as_f64(),Some(*value),"{}",evidence.field),
+                    Value::Count(value)=>assert_eq!(actual.as_u64(),Some(*value),"{}",evidence.field),
+                    Value::Integer(value)=>assert_eq!(actual.as_i64(),Some(*value),"{}",evidence.field),
+                    Value::Boolean(value)=>assert_eq!(actual.as_bool(),Some(*value),"{}",evidence.field),
+                    Value::Text(value)=>assert_eq!(actual.as_str(),Some(value.as_str()),"{}",evidence.field),
+                    _=>{},
+                }
                 assert!(!evidence.clock_scope.is_empty());
             }
         }
@@ -568,6 +679,113 @@ mod tests {
         let decoded:InvocationComparisonDocument=serde_json::from_slice(&encoded).unwrap();
         assert_eq!(decoded.baseline.run_id,a.run_id);
         assert_eq!(decoded.candidate.unwrap().run_id,b.run_id);
+    }
+    fn seed(data:u8)->crate::workflow::AttemptStartSummary {
+        crate::workflow::AttemptStartSummary{previous_attempt:Some(0),layout:Some(ContentHash::from_bytes([17;32])),data:Some(ContentHash::from_bytes([data;32])),transformations:Vec::new(),sparse_variables:3,submitted:true}
+    }
+    #[test]
+    fn invocation_comparison_seed_submission_and_reuse_are_actual_context_not_factor_reuse() {
+        let mut a=fixture(1,10,8.);
+        step(&mut a).start=Some(seed(21));
+        let mut b=fixture(2,10,12.);
+        step(&mut b).start=Some(seed(22));
+        step(&mut b).start_submitted=Some(true);
+        step(&mut b).reused_native_state=Some(true);
+        let result=compare_invocations(&a,&b,ComparisonPolicy::default());
+        assert!(has(&result,"comparison.seed_context_changed"));
+        let context=statement(&result,"comparison.start_or_reuse_context_changed");
+        assert!(context.message.contains("does not establish numeric factor reuse"));
+        assert!(has(&result,"comparison.native_inclusive_seconds_per_iteration"),"changed context limits causal attribution, not literal descriptive means");
+        assert!(has(&result,"comparison.scientific_input_context_unknown"));
+        let source=serde_json::to_value(&b).unwrap();
+        for field in &statement(&result,"comparison.seed_context_changed").evidence {
+            if field.invocation.run_id==b.run_id && let Value::Text(value)=&field.value {
+                assert_eq!(source.pointer(&field.field).and_then(serde_json::Value::as_str),Some(value.as_str()));
+            }
+        }
+        let single=explain_invocation(&b,ComparisonPolicy::default());
+        let predicates=statement(&single,"invocation.start_and_reuse");
+        assert_eq!(predicates.evidence[0].value,Value::Boolean(true));
+        assert_eq!(predicates.evidence[1].value,Value::Boolean(true));
+        assert!(has(&single,"invocation.start_metadata"));
+        // Each supplied scalar dimension is independently decision-relevant;
+        // data identity alone must not erase layout/submission/prior context.
+        for change in 0..4 {
+            let mut candidate=fixture(3,10,8.);
+            candidate.attempts=Arc::new((*a.attempts).clone());
+            Arc::get_mut(&mut candidate.attempts).unwrap().run_id=candidate.run_id;
+            let start=step(&mut candidate).start.as_mut().unwrap();
+            match change {
+                0=>start.layout=Some(ContentHash::from_bytes([19;32])),
+                1=>start.previous_attempt=Some(2),
+                2=>start.sparse_variables=4,
+                _=>start.submitted=false,
+            }
+            assert!(has(&compare_invocations(&a,&candidate,ComparisonPolicy::default()),"comparison.seed_context_changed"),"metadata dimension {change}");
+        }
+        step(&mut b).start_submitted=None;
+        step(&mut b).reused_native_state=None;
+        step(&mut b).start=None;
+        let missing=explain_invocation(&b,ComparisonPolicy::default());
+        assert_eq!(statement(&missing,"invocation.start_and_reuse").kind,StatementKind::Limitation);
+        assert!(has(&missing,"invocation.start_metadata_unavailable"));
+    }
+    #[test]
+    fn invocation_comparison_queried_defaults_are_distinct_and_exact_bounded_leaves() {
+        let a=fixture(1,10,8.);
+        let mut b=fixture(2,10,8.);
+        step(&mut b).native_defaults.insert("default/~mode".into(),pse_backend_native::solve::OptionValue::Integer(9));
+        step(&mut b).effective_options.insert("submitted_only".into(),pse_backend_native::solve::OptionValue::Bool(true));
+        let result=compare_invocations(&a,&b,ComparisonPolicy::default());
+        assert!(has(&result,"comparison.native_settings_changed"));
+        let default=statement(&result,"invocation.queried_default");
+        assert_eq!(default.evidence[0].field,"/attempts/steps/0/native_defaults/default~1~0mode/value");
+        assert_eq!(default.evidence[0].value,Value::Integer(9));
+        let source=serde_json::to_value(&b).unwrap();
+        assert_eq!(source.pointer(&default.evidence[0].field).and_then(serde_json::Value::as_i64),Some(9));
+        assert!(has(&result,"invocation.native_defaults_unavailable"));
+        let submitted=statement(&result,"invocation.submitted_option");
+        assert_eq!(submitted.evidence[0].value,Value::Boolean(true));
+        let limited=compare_invocations(&a,&b,ComparisonPolicy{statements:64,source_items:0});
+        assert!(!has(&limited,"invocation.queried_default"));
+        assert!(limited.partial);
+    }
+    #[test]
+    fn invocation_comparison_accounts_for_skipped_retained_decisions() {
+        let mut a=fixture(1,10,8.);
+        let b=fixture(2,10,8.);
+        let event=|mechanism|AttemptDecision{mechanism,kind:NumericalEventKind::Started,phase:Phase::Native,decision:None,observation:None,transition:None,permission:None,original:None,work:None};
+        step(&mut a).decisions=vec![event(0),event(1),event(2)];
+        let result=compare_invocations(&a,&b,ComparisonPolicy{statements:64,source_items:1});
+        assert_eq!(result.omitted_source_items,2);
+        assert!(result.partial,"the interpreter itself inspected only one retained decision");
+        assert!(!has(&result,"comparison.strategy_history"),"one inspected start does not establish multiple starts");
+    }
+    #[test]
+    fn invocation_comparison_retains_failure_before_any_step() {
+        let mut a=fixture(1,10,8.);
+        let b=fixture(2,10,8.);
+        a.outcome=InvocationOutcome::Failed;
+        let attempts=Arc::get_mut(&mut a.attempts).unwrap();
+        attempts.steps.clear();
+        attempts.usable=false;
+        attempts.failure=Some(crate::workflow::AttemptFailureSummary{
+            observation:pse_model::generated::enums::NumericalAttemptObservation::CapabilityRefusal,
+            code:pse_model::diagnostic::DiagnosticCode::AuthoringReference,
+            class:pse_model::diagnostic::BoundaryClass::Unsupported,retained_only:true});
+        let result=compare_invocations(&a,&b,ComparisonPolicy::default());
+        let failure=statement(&result,"invocation.retained_failure");
+        assert_eq!(failure.kind,StatementKind::Established);
+        let source=serde_json::to_value(&a).unwrap();
+        for field in &failure.evidence {
+            match &field.value {
+                Value::Text(value)=>assert_eq!(source.pointer(&field.field).and_then(serde_json::Value::as_str),Some(value.as_str())),
+                Value::Boolean(value)=>assert_eq!(source.pointer(&field.field).and_then(serde_json::Value::as_bool),Some(*value)),
+                _=>panic!("failure fields must retain source-native primitive values"),
+            }
+        }
+        assert!(has(&explain_invocation(&a,ComparisonPolicy::default()),"invocation.retained_failure"));
+        assert!(!has(&result,"comparison.native_inclusive_seconds_per_iteration"));
     }
     #[test]
     fn invocation_comparison_unavailable_timing_open_interval_and_wrong_join_refuse_inference() {
