@@ -3,7 +3,7 @@
 use super::fixtures::near;
 use pse_backend_native::{quality::Tolerances, solve::*, *};
 use pse_ids::{ContentHash, SemanticId};
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::atomic::AtomicBool;
 
 /// The coordinates of a problem that is its own original.
 fn identity(p: &CoefficientProblem) -> pse_math::normalization::Normalization {
@@ -52,7 +52,7 @@ fn certify(q: &faer::sparse::SparseColMat<usize, f64>) -> GramCertificate {
     }
 }
 fn execution(c: &Controls) -> Execution {
-    Execution::new(Arc::new(AtomicBool::new(false)), c)
+    Execution::new(pse_diagnostics::Cancellation::default(), c)
 }
 #[test]
 fn coefficient_conic() {

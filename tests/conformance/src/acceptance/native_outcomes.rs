@@ -29,10 +29,10 @@ struct Quadratic {
     hessian: SparseColMat<usize, f64>,
     fault: Fault,
     fired: Arc<AtomicBool>,
-    cancel: Arc<AtomicBool>,
+    cancel: pse_diagnostics::Cancellation,
 }
 impl Quadratic {
-    fn new(fault: Fault, cancel: Arc<AtomicBool>, fired: Arc<AtomicBool>) -> Self {
+    fn new(fault: Fault, cancel: pse_diagnostics::Cancellation, fired: Arc<AtomicBool>) -> Self {
         Self {
             contract: OracleContract {
                 identity: ContentHash::from_bytes([9; 32]),
@@ -87,7 +87,7 @@ impl NlpOracle for Quadratic {
                 }
                 Fault::Panic => panic!("injected contained native callback panic"),
                 Fault::Cancel => {
-                    self.cancel.store(true, Ordering::SeqCst);
+                    self.cancel.cancel();
                     return Err(pse_math::MathError::Cancelled.into());
                 }
                 Fault::None => {}
@@ -117,7 +117,7 @@ impl NlpOracle for Quadratic {
     }
 }
 fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, bool) {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let fired = Arc::new(AtomicBool::new(false));
     let mut oracle = Quadratic::new(fault, cancel.clone(), fired.clone());
     let execution = Execution::new(cancel, controls);

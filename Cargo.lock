@@ -6717,6 +6717,7 @@ dependencies = [
  "pse-backend-native",
  "pse-columnar",
  "pse-compiler",
+ "pse-diagnostics",
  "pse-engine",
  "pse-ids",
  "pse-kernels",
