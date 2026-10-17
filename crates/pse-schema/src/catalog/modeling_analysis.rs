@@ -188,14 +188,16 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             "cancelled",
         ],
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "modeling_diagnostic_samples",
+        2,
         S::Derived,
         &["run_id"],
         vec![
             run_id(),
+            column("origin_json", text()).optional(),
             column("unattempted", count()),
             column("stop", T::enumeration("ModelingDiagnosticSampleStop")),
             column(
@@ -221,14 +223,16 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             ("cosine", real()),
         ]))
     };
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "modeling_diagnostics",
+        2,
         S::Derived,
         &["run_id"],
         vec![
             run_id(),
+            column("origin_json", text()).optional(),
             column("source_identity", T::hash()),
             column("numerical_identity", T::hash()),
             column("profile", text()),

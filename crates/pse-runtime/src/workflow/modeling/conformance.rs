@@ -2079,14 +2079,15 @@ impl ModelingPackage {
             solver: policy.solver.clone(),
             numerical: policy.numerical.clone(),
         };
-        let prepared = self.prepare_diagnostics(&analysis, cancel).await?;
+        let operation = super::super::DiagnosticOperation::new(cancel, policy.solver.controls.time_limit, None)?;
+        let prepared = operation.within(self.prepare_diagnostics(&analysis, operation.driver())).await?;
         let mut values = prepared.model.values.clone();
         for (id, value) in &mut values.scalars {
             if let Some(solved) = result.values.scalars.get(id) {
                 *value = *solved;
             }
         }
-        self.diagnose_case(prepared, values, thresholds, policy.compiler, cancel)
+        self.diagnose_case(prepared, values, thresholds, policy.compiler, &operation)
             .await
     }
     async fn conform_integrated(

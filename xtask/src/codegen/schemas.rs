@@ -232,6 +232,8 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_runtime::inspection::DiagnosticListRequest>("diagnostic-list-request"),
         document::<pse_runtime::inspection::DiagnosticProcessPage>("diagnostic-process-page"),
         document::<pse_runtime::capture::CaptureRequest>("capture-request"),
+        document::<pse_runtime::workflow::DiagnosticOrigin>("diagnostic-origin"),
+        document::<pse_runtime::capture::LaunchCaptureRequest>("launch-capture-request"),
         document::<pse_runtime::capture::CaptureDocument>("capture-document"),
         document::<pse_runtime::capture::DetailRequest>("detail-request"),
         document::<pse_runtime::capture::DetailDocument>("detail-document"),

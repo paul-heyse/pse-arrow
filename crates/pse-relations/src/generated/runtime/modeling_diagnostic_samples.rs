@@ -9,20 +9,20 @@ pub use pse_model::generated::r#runtime::r#modeling_diagnostic_samples::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    29u8, 217u8, 47u8, 6u8, 108u8, 94u8, 89u8, 245u8, 180u8, 211u8, 82u8, 21u8, 230u8,
-    23u8, 109u8, 146u8,
+    221u8, 87u8, 189u8, 92u8, 85u8, 174u8, 32u8, 142u8, 90u8, 15u8, 232u8, 182u8, 87u8,
+    100u8, 32u8, 156u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_diagnostic_samples";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    109u8, 210u8, 0u8, 169u8, 149u8, 39u8, 166u8, 59u8, 67u8, 93u8, 53u8, 0u8, 250u8,
-    146u8, 238u8, 73u8, 33u8, 43u8, 56u8, 167u8, 140u8, 55u8, 254u8, 227u8, 0u8, 30u8,
-    204u8, 172u8, 192u8, 251u8, 230u8, 169u8,
+    211u8, 146u8, 164u8, 34u8, 204u8, 107u8, 171u8, 108u8, 144u8, 169u8, 234u8, 222u8,
+    110u8, 54u8, 46u8, 145u8, 40u8, 228u8, 43u8, 111u8, 235u8, 65u8, 148u8, 76u8, 173u8,
+    125u8, 89u8, 59u8, 187u8, 168u8, 125u8, 113u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticSamplesFieldOutcomesItem {
     fn append(
@@ -127,13 +127,17 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticSamplesRow {
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#run_id, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#unattempted,
+            &self.r#origin_json,
             children[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#stop, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unattempted,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#stop, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#outcomes,
-            children[3usize].as_mut(),
+            children[4usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -148,13 +152,16 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticSamplesRow {
         <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <crate::generated::enums::ModelingDiagnosticSampleStop as crate::columnar::ArrowValue>::append_null(
-            children[2usize].as_mut(),
+            children[3usize].as_mut(),
         )?;
         <Vec<
             RuntimeModelingDiagnosticSamplesFieldOutcomesItem,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -169,18 +176,24 @@ impl crate::columnar::ArrowValue for RuntimeModelingDiagnosticSamplesRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#unattempted: <i64 as crate::columnar::ArrowValue>::read(
+            r#origin_json: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#stop: <crate::generated::enums::ModelingDiagnosticSampleStop as crate::columnar::ArrowValue>::read(
+            r#unattempted: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#stop: <crate::generated::enums::ModelingDiagnosticSampleStop as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
             r#outcomes: <Vec<
                 RuntimeModelingDiagnosticSamplesFieldOutcomesItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
         })
@@ -241,11 +254,15 @@ impl crate::columnar::RelationRow for RuntimeModelingDiagnosticSamplesRow {
     ) -> Result<(), crate::RelationError> {
         crate::columnar::ArrowValue::append(&self.r#run_id, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#unattempted,
+            &self.r#origin_json,
             columns[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#stop, columns[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#outcomes, columns[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unattempted,
+            columns[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#stop, columns[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcomes, columns[4usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -285,16 +302,27 @@ impl crate::columnar::RelationRow for RuntimeModelingDiagnosticSamplesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        21_504_usize + size_of::<Self::Builder>()
+        23_552_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        168usize
+        184usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#origin_json).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -377,7 +405,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -385,30 +413,37 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "unattempted",
+        name: "origin_json",
         position: 1usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "stop",
+        name: "unattempted",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "outcomes",
+        name: "stop",
         position: 3usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "outcomes",
+        position: 4usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
     ///run_id
     pub const RUN_ID: crate::columnar::ColumnReference = super::COLUMNS[0usize];
+    ///origin_json
+    pub const ORIGIN_JSON: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///unattempted
-    pub const UNATTEMPTED: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    pub const UNATTEMPTED: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///stop
-    pub const STOP: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const STOP: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///outcomes
-    pub const OUTCOMES: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const OUTCOMES: crate::columnar::ColumnReference = super::COLUMNS[4usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -417,6 +452,7 @@ pub struct RuntimeModelingDiagnosticSamplesView<'a> {
     batch: &'a crate::RecordBatch,
     checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     run_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    origin_json_column: &'a arrow_array::StringArray,
     unattempted_column: &'a arrow_array::Int64Array,
     stop_column: &'a arrow_array::StringArray,
     outcomes_column: &'a arrow_array::ListArray,
@@ -467,15 +503,18 @@ impl<'a> RuntimeModelingDiagnosticSamplesView<'a> {
             run_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
+            origin_json_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(1usize).as_ref())?,
             unattempted_column: crate::columnar::array::<
                 arrow_array::Int64Array,
-            >(batch.column(1usize).as_ref())?,
+            >(batch.column(2usize).as_ref())?,
             stop_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(2usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
             outcomes_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(3usize).as_ref())?,
+            >(batch.column(4usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -504,6 +543,18 @@ impl<'a> RuntimeModelingDiagnosticSamplesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "origin_json",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn origin_json_column(&self) -> &'a arrow_array::StringArray {
+        self.origin_json_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "origin_json", "`.")]
+    pub fn origin_json_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "unattempted",
         "`, including its offsets and validity bitmap.",
     )]
@@ -512,7 +563,7 @@ impl<'a> RuntimeModelingDiagnosticSamplesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "unattempted", "`.")]
     pub fn unattempted_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[1usize]
+        &self.batch.schema_ref().fields()[2usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -524,7 +575,7 @@ impl<'a> RuntimeModelingDiagnosticSamplesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "stop", "`.")]
     pub fn stop_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -536,7 +587,7 @@ impl<'a> RuntimeModelingDiagnosticSamplesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "outcomes", "`.")]
     pub fn outcomes_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -551,6 +602,10 @@ impl<'a> RuntimeModelingDiagnosticSamplesView<'a> {
         }
         Ok(RuntimeModelingDiagnosticSamplesRow {
             r#run_id: crate::columnar::ArrowValue::read(self.run_id_column, index)?,
+            r#origin_json: crate::columnar::ArrowValue::read(
+                self.origin_json_column,
+                index,
+            )?,
             r#unattempted: crate::columnar::ArrowValue::read(
                 self.unattempted_column,
                 index,

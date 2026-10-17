@@ -329,7 +329,9 @@ fn evidence_invocation_and_failed_capture_keep_independent_readiness_and_raw_lin
     let capture = CaptureDocument {
         version: Default::default(),
         kind: CaptureKind::Timeline,
-        operation: record(1, Some(1), Vec::new()).producer.operation,
+        operation: Some(record(1, Some(1), Vec::new()).producer.operation),
+        related_operations: vec![],
+        launch_process: None,
         status: CaptureStatus::Failed,
         requested_duration: Duration::from_secs(1),
         observed_duration: Duration::ZERO,

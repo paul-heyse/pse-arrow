@@ -26,20 +26,20 @@ pub use pse_model::generated::r#runtime::r#modeling_linear_diagnostics::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    55u8, 153u8, 8u8, 38u8, 12u8, 214u8, 56u8, 26u8, 4u8, 56u8, 154u8, 98u8, 167u8, 10u8,
-    187u8, 20u8,
+    250u8, 173u8, 57u8, 44u8, 4u8, 66u8, 125u8, 114u8, 72u8, 125u8, 95u8, 199u8, 64u8,
+    40u8, 124u8, 106u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_linear_diagnostics";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    53u8, 218u8, 54u8, 65u8, 240u8, 92u8, 1u8, 215u8, 51u8, 89u8, 77u8, 191u8, 64u8,
-    181u8, 27u8, 85u8, 79u8, 128u8, 43u8, 100u8, 147u8, 255u8, 218u8, 214u8, 144u8,
-    153u8, 196u8, 137u8, 61u8, 177u8, 115u8, 133u8,
+    162u8, 21u8, 126u8, 238u8, 17u8, 51u8, 63u8, 69u8, 17u8, 27u8, 164u8, 55u8, 108u8,
+    163u8, 92u8, 116u8, 31u8, 245u8, 130u8, 227u8, 0u8, 228u8, 72u8, 147u8, 249u8, 121u8,
+    116u8, 104u8, 235u8, 49u8, 22u8, 167u8,
 ]);
 impl crate::columnar::ArrowValue
 for RuntimeModelingLinearDiagnosticsFieldAttemptTermination {
@@ -1110,33 +1110,40 @@ impl crate::columnar::ArrowValue for RuntimeModelingLinearDiagnosticsRow {
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#run_id, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#source_identity,
+            &self.r#origin_json,
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#numerical_identity,
+            &self.r#source_identity,
             children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#rows, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#columns, children[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#attempt, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#numerical_identity,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#rows, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#columns, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#attempt, children[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#primal_ray,
-            children[6usize].as_mut(),
+            children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#dual_ray,
-            children[7usize].as_mut(),
+            children[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#iis, children[8usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#ranging, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#iis, children[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#relaxation,
+            &self.r#ranging,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#unavailable,
+            &self.r#relaxation,
             children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unavailable,
+            children[12usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -1151,39 +1158,42 @@ impl crate::columnar::ArrowValue for RuntimeModelingLinearDiagnosticsRow {
         <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
-            children[1usize].as_mut(),
-        )?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <Vec<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
         <Vec<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <RuntimeModelingLinearDiagnosticsFieldAttempt as crate::columnar::ArrowValue>::append_null(
-            children[5usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
         <Option<
             Vec<RuntimeModelingLinearDiagnosticsFieldPrimalRayItem>,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <Option<
-            Vec<RuntimeModelingLinearDiagnosticsFieldDualRayItem>,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
-            RuntimeModelingLinearDiagnosticsFieldIis,
+            Vec<RuntimeModelingLinearDiagnosticsFieldDualRayItem>,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            RuntimeModelingLinearDiagnosticsFieldIis,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <Vec<
             RuntimeModelingLinearDiagnosticsFieldRangingItem,
-        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
             RuntimeModelingLinearDiagnosticsFieldRelaxation,
-        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Vec<
             RuntimeModelingLinearDiagnosticsFieldUnavailableItem,
-        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -1198,64 +1208,70 @@ impl crate::columnar::ArrowValue for RuntimeModelingLinearDiagnosticsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#source_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#origin_json: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#numerical_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#source_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#numerical_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
             r#rows: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#columns: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#attempt: <RuntimeModelingLinearDiagnosticsFieldAttempt as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#primal_ray: <Option<
                 Vec<RuntimeModelingLinearDiagnosticsFieldPrimalRayItem>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#dual_ray: <Option<
                 Vec<RuntimeModelingLinearDiagnosticsFieldDualRayItem>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#iis: <Option<
                 RuntimeModelingLinearDiagnosticsFieldIis,
             > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#ranging: <Vec<
                 RuntimeModelingLinearDiagnosticsFieldRangingItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#relaxation: <Option<
                 RuntimeModelingLinearDiagnosticsFieldRelaxation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#unavailable: <Vec<
                 RuntimeModelingLinearDiagnosticsFieldUnavailableItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -1316,30 +1332,34 @@ impl crate::columnar::RelationRow for RuntimeModelingLinearDiagnosticsRow {
     ) -> Result<(), crate::RelationError> {
         crate::columnar::ArrowValue::append(&self.r#run_id, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#source_identity,
+            &self.r#origin_json,
             columns[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#numerical_identity,
+            &self.r#source_identity,
             columns[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#rows, columns[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#columns, columns[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#attempt, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#numerical_identity,
+            columns[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#rows, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#columns, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#attempt, columns[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#primal_ray,
-            columns[6usize].as_mut(),
+            columns[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#dual_ray, columns[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#iis, columns[8usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#ranging, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#dual_ray, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#iis, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#ranging, columns[10usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#relaxation,
-            columns[10usize].as_mut(),
+            columns[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#unavailable,
-            columns[11usize].as_mut(),
+            columns[12usize].as_mut(),
         )?;
         Ok(())
     }
@@ -1380,16 +1400,27 @@ impl crate::columnar::RelationRow for RuntimeModelingLinearDiagnosticsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        139_264_usize + size_of::<Self::Builder>()
+        141_312_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        1088usize
+        1104usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#origin_json).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -1902,7 +1933,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -1910,86 +1941,93 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "source_identity",
+        name: "origin_json",
         position: 1usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "numerical_identity",
+        name: "source_identity",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "rows",
+        name: "numerical_identity",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "columns",
+        name: "rows",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "attempt",
+        name: "columns",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "primal_ray",
+        name: "attempt",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "dual_ray",
+        name: "primal_ray",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "iis",
+        name: "dual_ray",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "ranging",
+        name: "iis",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "relaxation",
+        name: "ranging",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "unavailable",
+        name: "relaxation",
         position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "unavailable",
+        position: 12usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
     ///run_id
     pub const RUN_ID: crate::columnar::ColumnReference = super::COLUMNS[0usize];
+    ///origin_json
+    pub const ORIGIN_JSON: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///source_identity
-    pub const SOURCE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    pub const SOURCE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///numerical_identity
-    pub const NUMERICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const NUMERICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///rows
-    pub const ROWS: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const ROWS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///columns
-    pub const COLUMNS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const COLUMNS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///attempt
-    pub const ATTEMPT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const ATTEMPT: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///primal_ray
-    pub const PRIMAL_RAY: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const PRIMAL_RAY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///dual_ray
-    pub const DUAL_RAY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const DUAL_RAY: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///iis
-    pub const IIS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const IIS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///ranging
-    pub const RANGING: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const RANGING: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///relaxation
-    pub const RELAXATION: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const RELAXATION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///unavailable
-    pub const UNAVAILABLE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const UNAVAILABLE: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -1998,6 +2036,7 @@ pub struct RuntimeModelingLinearDiagnosticsView<'a> {
     batch: &'a crate::RecordBatch,
     checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     run_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    origin_json_column: &'a arrow_array::StringArray,
     source_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     numerical_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     rows_column: &'a arrow_array::ListArray,
@@ -2056,39 +2095,42 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
             run_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
+            origin_json_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(1usize).as_ref())?,
             source_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(1usize).as_ref())?,
+            >(batch.column(2usize).as_ref())?,
             numerical_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(2usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
             rows_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(3usize).as_ref())?,
+            >(batch.column(4usize).as_ref())?,
             columns_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
             attempt_column: crate::columnar::array::<
                 arrow_array::StructArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             primal_ray_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             dual_ray_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             iis_column: crate::columnar::array::<
                 arrow_array::StructArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             ranging_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             relaxation_column: crate::columnar::array::<
                 arrow_array::StructArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             unavailable_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -2117,6 +2159,18 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "origin_json",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn origin_json_column(&self) -> &'a arrow_array::StringArray {
+        self.origin_json_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "origin_json", "`.")]
+    pub fn origin_json_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "source_identity",
         "`, including its offsets and validity bitmap.",
     )]
@@ -2125,7 +2179,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "source_identity", "`.")]
     pub fn source_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[1usize]
+        &self.batch.schema_ref().fields()[2usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2143,7 +2197,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
         "`.",
     )]
     pub fn numerical_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2155,7 +2209,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "rows", "`.")]
     pub fn rows_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2167,7 +2221,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "columns", "`.")]
     pub fn columns_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2179,7 +2233,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "attempt", "`.")]
     pub fn attempt_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2191,7 +2245,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "primal_ray", "`.")]
     pub fn primal_ray_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2203,7 +2257,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "dual_ray", "`.")]
     pub fn dual_ray_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2215,7 +2269,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "iis", "`.")]
     pub fn iis_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2227,7 +2281,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "ranging", "`.")]
     pub fn ranging_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2239,7 +2293,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "relaxation", "`.")]
     pub fn relaxation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -2251,7 +2305,7 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "unavailable", "`.")]
     pub fn unavailable_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -2266,6 +2320,10 @@ impl<'a> RuntimeModelingLinearDiagnosticsView<'a> {
         }
         Ok(RuntimeModelingLinearDiagnosticsRow {
             r#run_id: crate::columnar::ArrowValue::read(self.run_id_column, index)?,
+            r#origin_json: crate::columnar::ArrowValue::read(
+                self.origin_json_column,
+                index,
+            )?,
             r#source_identity: crate::columnar::ArrowValue::read(
                 self.source_identity_column,
                 index,

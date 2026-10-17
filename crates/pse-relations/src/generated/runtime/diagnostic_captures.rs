@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#diagnostic_captures::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    142u8, 6u8, 48u8, 185u8, 228u8, 120u8, 210u8, 197u8, 75u8, 32u8, 126u8, 213u8, 103u8,
-    211u8, 71u8, 99u8,
+    123u8, 164u8, 53u8, 112u8, 101u8, 168u8, 159u8, 56u8, 210u8, 126u8, 153u8, 68u8,
+    22u8, 150u8, 161u8, 252u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "diagnostic_captures";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    94u8, 12u8, 139u8, 29u8, 149u8, 91u8, 174u8, 230u8, 226u8, 23u8, 112u8, 193u8, 29u8,
-    176u8, 149u8, 203u8, 64u8, 33u8, 149u8, 189u8, 57u8, 118u8, 25u8, 134u8, 112u8,
-    151u8, 48u8, 33u8, 153u8, 114u8, 109u8, 154u8,
+    27u8, 208u8, 68u8, 75u8, 79u8, 119u8, 108u8, 153u8, 191u8, 220u8, 230u8, 234u8,
+    145u8, 228u8, 119u8, 32u8, 53u8, 247u8, 34u8, 39u8, 219u8, 79u8, 43u8, 244u8, 137u8,
+    177u8, 174u8, 160u8, 58u8, 34u8, 123u8, 8u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeDiagnosticCapturesRow {
     fn append(
@@ -32,18 +32,23 @@ impl crate::columnar::ArrowValue for RuntimeDiagnosticCapturesRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#subject, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#operation,
-            children[0usize].as_mut(),
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#launch_process_json,
+            children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#capture_kind,
-            children[1usize].as_mut(),
+            children[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#status, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#status, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#document_json,
-            children[3usize].as_mut(),
+            children[5usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -56,9 +61,15 @@ impl crate::columnar::ArrowValue for RuntimeDiagnosticCapturesRow {
         >(output)?;
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -69,20 +80,32 @@ impl crate::columnar::ArrowValue for RuntimeDiagnosticCapturesRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#operation: <String as crate::columnar::ArrowValue>::read(
+            r#subject: <String as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#capture_kind: <String as crate::columnar::ArrowValue>::read(
+            r#operation: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#status: <String as crate::columnar::ArrowValue>::read(
+            r#launch_process_json: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#document_json: <String as crate::columnar::ArrowValue>::read(
+            r#capture_kind: <String as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#status: <String as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#document_json: <String as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
                 index,
             )?,
         })
@@ -141,18 +164,23 @@ impl crate::columnar::RelationRow for RuntimeDiagnosticCapturesRow {
         &self,
         columns: &mut [Box<dyn arrow_array::builder::ArrayBuilder>],
     ) -> Result<(), crate::RelationError> {
+        crate::columnar::ArrowValue::append(&self.r#subject, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#operation,
-            columns[0usize].as_mut(),
+            columns[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#launch_process_json,
+            columns[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#capture_kind,
-            columns[1usize].as_mut(),
+            columns[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#status, columns[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#status, columns[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#document_json,
-            columns[3usize].as_mut(),
+            columns[5usize].as_mut(),
         )?;
         Ok(())
     }
@@ -189,16 +217,38 @@ impl crate::columnar::RelationRow for RuntimeDiagnosticCapturesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        8_192_usize + size_of::<Self::Builder>()
+        12_288_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        64usize
+        96usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#operation).len())?,
+            crate::columnar::allocation_add(8, (self.r#subject).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#operation).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#launch_process_json).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -222,38 +272,52 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "operation",
+        name: "subject",
         position: 0usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "capture_kind",
+        name: "operation",
         position: 1usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "status",
+        name: "launch_process_json",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "document_json",
+        name: "capture_kind",
         position: 3usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "status",
+        position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "document_json",
+        position: 5usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
+    ///subject
+    pub const SUBJECT: crate::columnar::ColumnReference = super::COLUMNS[0usize];
     ///operation
-    pub const OPERATION: crate::columnar::ColumnReference = super::COLUMNS[0usize];
+    pub const OPERATION: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    ///launch_process_json
+    pub const LAUNCH_PROCESS_JSON: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///capture_kind
-    pub const CAPTURE_KIND: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    pub const CAPTURE_KIND: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///status
-    pub const STATUS: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const STATUS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///document_json
-    pub const DOCUMENT_JSON: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const DOCUMENT_JSON: crate::columnar::ColumnReference = super::COLUMNS[5usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -261,7 +325,9 @@ pub mod columns {
 pub struct RuntimeDiagnosticCapturesView<'a> {
     batch: &'a crate::RecordBatch,
     checked: Option<&'a crate::columnar::FieldCheckedBatch>,
+    subject_column: &'a arrow_array::StringArray,
     operation_column: &'a arrow_array::StringArray,
+    launch_process_json_column: &'a arrow_array::StringArray,
     capture_kind_column: &'a arrow_array::StringArray,
     status_column: &'a arrow_array::StringArray,
     document_json_column: &'a arrow_array::StringArray,
@@ -309,18 +375,24 @@ impl<'a> RuntimeDiagnosticCapturesView<'a> {
         Ok(Self {
             batch,
             checked,
-            operation_column: crate::columnar::array::<
+            subject_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
-            capture_kind_column: crate::columnar::array::<
+            operation_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(1usize).as_ref())?,
-            status_column: crate::columnar::array::<
+            launch_process_json_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
-            document_json_column: crate::columnar::array::<
+            capture_kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(3usize).as_ref())?,
+            status_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
+            document_json_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(5usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -337,6 +409,18 @@ impl<'a> RuntimeDiagnosticCapturesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "subject",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn subject_column(&self) -> &'a arrow_array::StringArray {
+        self.subject_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "subject", "`.")]
+    pub fn subject_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[0usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "operation",
         "`, including its offsets and validity bitmap.",
     )]
@@ -345,7 +429,23 @@ impl<'a> RuntimeDiagnosticCapturesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "operation", "`.")]
     pub fn operation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[0usize]
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "launch_process_json",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn launch_process_json_column(&self) -> &'a arrow_array::StringArray {
+        self.launch_process_json_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "launch_process_json",
+        "`.",
+    )]
+    pub fn launch_process_json_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -357,7 +457,7 @@ impl<'a> RuntimeDiagnosticCapturesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "capture_kind", "`.")]
     pub fn capture_kind_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[1usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -369,7 +469,7 @@ impl<'a> RuntimeDiagnosticCapturesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "status", "`.")]
     pub fn status_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -381,7 +481,7 @@ impl<'a> RuntimeDiagnosticCapturesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "document_json", "`.")]
     pub fn document_json_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -395,8 +495,13 @@ impl<'a> RuntimeDiagnosticCapturesView<'a> {
             return Err(crate::columnar::mismatch("a row within the generated view"));
         }
         Ok(RuntimeDiagnosticCapturesRow {
+            r#subject: crate::columnar::ArrowValue::read(self.subject_column, index)?,
             r#operation: crate::columnar::ArrowValue::read(
                 self.operation_column,
+                index,
+            )?,
+            r#launch_process_json: crate::columnar::ArrowValue::read(
+                self.launch_process_json_column,
                 index,
             )?,
             r#capture_kind: crate::columnar::ArrowValue::read(

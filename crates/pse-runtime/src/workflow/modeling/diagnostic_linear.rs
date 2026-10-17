@@ -8,6 +8,7 @@ use pse_model::generated::identities::RunId;
 /// An independent diagnostic attempt; a relaxed candidate is never a model result.
 #[derive(Debug)]
 pub struct ModelingLinearDiagnostics {
+    pub origin: Option<super::super::super::DiagnosticOrigin>,
     /// Identity of this diagnostic run.
     pub run_id: RunId,
     /// The diagnostic model's own solve.
@@ -30,17 +31,18 @@ impl ModelingPackage {
         request: highs::diagnostics::Request,
         controls: Controls,
         maximum_entries: usize,
-        cancel: &crate::CancelSource,
+        operation: &super::super::super::DiagnosticOperation,
     ) -> Result<ModelingLinearDiagnostics, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
+        operation.check()?;
         controls
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
         let service = self.runtime.shared.math();
         // Coefficients belong to this diagnostic consumer; general diagnostic
         // preparation leaves optional class evidence unassessed.
-        prepared.model.case = service
+        prepared.model.case = crate::math::MathService::within_task(operation.scope(), operation.driver(), service
             .discover_class(
                 prepared.model.case,
                 prepared.model.values.clone(),
@@ -49,7 +51,7 @@ impl ModelingPackage {
                     selection: SolverSelection::Explicit(Backend::Highs),
                     ..Default::default()
                 },
-            )
+            ))
             .await?;
         let product = prepared.model.case.compiled();
         let coefficients = product.coefficients.clone().ok_or_else(|| contract("linear diagnostics require an admitted affine coefficient representation and discharged domains"))?;
@@ -100,9 +102,9 @@ impl ModelingPackage {
             .ok_or_else(|| contract("linear diagnostic storage extent"))?;
         let owner = service.reserve("modeling:linear-diagnostics", allowance)?;
         let retained = owner.clone();
-        let assembly = service.assemble(prepared.model.case).await?;
+        let assembly = crate::math::MathService::within_task(operation.scope(), operation.driver(), service.assemble(prepared.model.case)).await?;
         let (attempt, evidence, owner) = service
-            .with_worker(assembly, prepared.providers, cancel, move |worker| {
+            .with_owned_worker(assembly, prepared.providers, operation.driver(), Some((operation.scope().clone(), operation.scope().cancellation_control().clone())), move |worker| {
                 let original = CoefficientProblem::from_plan(&plan, coefficients.as_ref().clone())?;
                 let (problem, _) = transport::coefficients(&original, &normalization, None)?;
                 let request = transport::diagnostic_request(&request, &normalization)?;
@@ -135,7 +137,9 @@ impl ModelingPackage {
                 Ok((attempt, evidence, retained))
             })
             .await?;
+        operation.check()?;
         Ok(ModelingLinearDiagnostics {
+            origin: operation.origin.clone(),
             run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
             source_identity,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Derived diagnostic views; raw source artifacts retain their independent authority.
-use super::declarations::{column, relation};
+use super::declarations::{column, relation, relation_version};
 use crate::{
     RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
@@ -69,9 +69,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ),
         (
             "diagnostic_captures",
-            "operation",
+            "subject",
             vec![
-                column("operation", text()),
+                column("subject", text()),
+                column("operation", text()).optional(),
+                column("launch_process_json", text()).optional(),
                 column("capture_kind", text()),
                 column("status", text()),
                 column("document_json", text()),
@@ -79,6 +81,6 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "Immutable optional capture link and its original typed document. Capture failure, output prefixes, loss, symbols and process/thread scope remain independent from scientific result permission.",
         ),
     ] {
-        relation(b, N::Runtime, name, S::Derived, &[key], columns, doc);
+        relation_version(b, N::Runtime, name, if name == "diagnostic_captures" { 2 } else { 1 }, S::Derived, &[key], columns, doc);
     }
 }

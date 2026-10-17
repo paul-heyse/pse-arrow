@@ -9,8 +9,12 @@
 )]
 #[derive(Clone, Debug)]
 pub struct RuntimeDiagnosticCapturesRow {
+    ///subject
+    pub r#subject: String,
     ///operation
-    pub r#operation: String,
+    pub r#operation: Option<String>,
+    ///launch_process_json
+    pub r#launch_process_json: Option<String>,
     ///capture_kind
     pub r#capture_kind: String,
     ///status
@@ -20,7 +24,12 @@ pub struct RuntimeDiagnosticCapturesRow {
 }
 impl crate::SemanticEq for RuntimeDiagnosticCapturesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#operation, &other.r#operation)
+        crate::SemanticEq::semantic_eq(&self.r#subject, &other.r#subject)
+            && crate::SemanticEq::semantic_eq(&self.r#operation, &other.r#operation)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#launch_process_json,
+                &other.r#launch_process_json,
+            )
             && crate::SemanticEq::semantic_eq(
                 &self.r#capture_kind,
                 &other.r#capture_kind,
@@ -40,8 +49,12 @@ impl PartialEq for RuntimeDiagnosticCapturesRow {
 pub type Row = RuntimeDiagnosticCapturesRow;
 impl crate::SemanticFrame for RuntimeDiagnosticCapturesRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#subject));
+        crate::SemanticFrame::frame(&self.r#subject, hash);
         hash.str(stringify!(r#operation));
         crate::SemanticFrame::frame(&self.r#operation, hash);
+        hash.str(stringify!(r#launch_process_json));
+        crate::SemanticFrame::frame(&self.r#launch_process_json, hash);
         hash.str(stringify!(r#capture_kind));
         crate::SemanticFrame::frame(&self.r#capture_kind, hash);
         hash.str(stringify!(r#status));
@@ -53,7 +66,9 @@ impl crate::SemanticFrame for RuntimeDiagnosticCapturesRow {
 impl crate::HeapUsage for RuntimeDiagnosticCapturesRow {
     fn heap_bytes(&self) -> usize {
         0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#subject))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#operation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#launch_process_json))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#capture_kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#status))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#document_json))

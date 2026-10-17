@@ -450,6 +450,25 @@ impl RunResult {
         self
     }
 
+    /// Link a follow-up diagnostic to retained original facts without granting result permission.
+    pub fn diagnostic_origin(&self, step: Option<usize>) -> Result<super::DiagnosticOrigin, WorkflowError> {
+        let modeling = step.and_then(|step| self.modeling_result(step));
+        if let Some(step) = step {
+            let count = match &self.request { RunRequest::Modeling(request) => request.len(), _ => 0 };
+            if step >= count { return Err(super::contract("diagnostic origin step outside original request")); }
+        }
+        let failure = modeling.and_then(|result| result.validation_error.clone())
+            .or_else(|| self.report.as_ref().err().map(|error| error.boundary_diagnostic()));
+        Ok(super::DiagnosticOrigin {
+            run_id: self.run_id,
+            attempt_id: match &self.durability { RunDurability::Ephemeral => None, RunDurability::Durable(record) => Some(record.attempt_id) },
+            step,
+            native_attempt: modeling.map(|result| result.original_attempt),
+            operation: self.invocation.as_ref().and_then(|recorder| recorder.operation()),
+            failure,
+        })
+    }
+
     /// Joined invocation facts without performing new mathematics or materializing result tables.
     pub fn invocation_evidence(
         &self,

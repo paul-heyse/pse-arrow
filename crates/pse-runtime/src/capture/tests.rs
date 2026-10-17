@@ -47,7 +47,9 @@ fn state_for(request: &CaptureRequest) -> Shared {
     Arc::new(Mutex::new(CaptureDocument {
         version: Version,
         kind: request.kind,
-        operation: request.operation,
+        operation: Some(request.operation),
+        related_operations: vec![request.operation],
+        launch_process: None,
         status: CaptureStatus::Running,
         requested_duration: request.duration,
         observed_duration: Duration::ZERO,

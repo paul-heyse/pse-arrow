@@ -128,6 +128,12 @@ impl DocumentType for pse_runtime::inspection::DiagnosticProcessPage {
 impl DocumentType for pse_runtime::capture::CaptureRequest {
     const NAME: &'static str = "CaptureRequest";
 }
+impl DocumentType for pse_runtime::capture::LaunchCaptureRequest {
+    const NAME: &'static str = "LaunchCaptureRequest";
+}
+impl DocumentType for pse_runtime::workflow::DiagnosticOrigin {
+    const NAME: &'static str = "DiagnosticOrigin";
+}
 impl DocumentType for pse_runtime::capture::CaptureDocument {
     const NAME: &'static str = "CaptureDocument";
 }

@@ -18,20 +18,20 @@ pub use pse_model::generated::r#runtime::r#modeling_jacobian_optimization::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    67u8, 214u8, 232u8, 97u8, 187u8, 7u8, 242u8, 54u8, 208u8, 27u8, 246u8, 164u8, 130u8,
-    240u8, 62u8, 233u8,
+    243u8, 48u8, 158u8, 140u8, 140u8, 135u8, 89u8, 71u8, 106u8, 91u8, 147u8, 3u8, 237u8,
+    30u8, 105u8, 68u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_jacobian_optimization";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    197u8, 74u8, 67u8, 236u8, 221u8, 75u8, 98u8, 44u8, 219u8, 29u8, 158u8, 177u8, 216u8,
-    102u8, 64u8, 127u8, 33u8, 122u8, 138u8, 93u8, 229u8, 115u8, 14u8, 3u8, 130u8, 41u8,
-    168u8, 197u8, 89u8, 143u8, 88u8, 155u8,
+    121u8, 102u8, 188u8, 114u8, 35u8, 48u8, 216u8, 171u8, 49u8, 182u8, 62u8, 251u8,
+    149u8, 46u8, 3u8, 63u8, 36u8, 234u8, 228u8, 191u8, 117u8, 243u8, 191u8, 163u8, 145u8,
+    194u8, 28u8, 252u8, 80u8, 42u8, 183u8, 145u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingJacobianOptimizationFieldPointItem {
     fn append(
@@ -600,53 +600,57 @@ impl crate::columnar::ArrowValue for RuntimeModelingJacobianOptimizationRow {
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#run_id, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#source_identity,
+            &self.r#origin_json,
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#numerical_identity,
+            &self.r#source_identity,
             children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#point, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#numerical_identity,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#point, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#row_nominals,
-            children[4usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#variable_nominals,
             children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#tolerance,
+            &self.r#variable_nominals,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#rank_relative,
+            &self.r#tolerance,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#multiplier_bound,
+            &self.r#rank_relative,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#complete,
+            &self.r#multiplier_bound,
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#conditioning,
+            &self.r#complete,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#degenerate,
+            &self.r#conditioning,
             children[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#attempts,
+            &self.r#degenerate,
             children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#unavailable,
+            &self.r#attempts,
             children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unavailable,
+            children[14usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -661,37 +665,40 @@ impl crate::columnar::ArrowValue for RuntimeModelingJacobianOptimizationRow {
         <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
-            children[1usize].as_mut(),
-        )?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
         <Vec<
             RuntimeModelingJacobianOptimizationFieldPointItem,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <Vec<
-            RuntimeModelingJacobianOptimizationFieldRowNominalsItem,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Vec<
-            RuntimeModelingJacobianOptimizationFieldVariableNominalsItem,
+            RuntimeModelingJacobianOptimizationFieldRowNominalsItem,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Vec<
+            RuntimeModelingJacobianOptimizationFieldVariableNominalsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <f64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <f64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Vec<
             RuntimeModelingJacobianOptimizationFieldConditioningItem,
-        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
-        <Vec<
-            RuntimeModelingJacobianOptimizationFieldDegenerateItem,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Vec<
-            RuntimeModelingJacobianOptimizationFieldAttemptsItem,
+            RuntimeModelingJacobianOptimizationFieldDegenerateItem,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Vec<
-            String,
+            RuntimeModelingJacobianOptimizationFieldAttemptsItem,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Vec<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -706,70 +713,76 @@ impl crate::columnar::ArrowValue for RuntimeModelingJacobianOptimizationRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#source_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#origin_json: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#numerical_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#source_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#numerical_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
             r#point: <Vec<
                 RuntimeModelingJacobianOptimizationFieldPointItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#row_nominals: <Vec<
                 RuntimeModelingJacobianOptimizationFieldRowNominalsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#variable_nominals: <Vec<
                 RuntimeModelingJacobianOptimizationFieldVariableNominalsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
-                index,
-            )?,
-            r#tolerance: <f64 as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#rank_relative: <f64 as crate::columnar::ArrowValue>::read(
+            r#tolerance: <f64 as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#multiplier_bound: <f64 as crate::columnar::ArrowValue>::read(
+            r#rank_relative: <f64 as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#complete: <bool as crate::columnar::ArrowValue>::read(
+            r#multiplier_bound: <f64 as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#complete: <bool as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#conditioning: <Vec<
                 RuntimeModelingJacobianOptimizationFieldConditioningItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#degenerate: <Vec<
                 RuntimeModelingJacobianOptimizationFieldDegenerateItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#attempts: <Vec<
                 RuntimeModelingJacobianOptimizationFieldAttemptsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#unavailable: <Vec<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
         })
@@ -830,50 +843,57 @@ impl crate::columnar::RelationRow for RuntimeModelingJacobianOptimizationRow {
     ) -> Result<(), crate::RelationError> {
         crate::columnar::ArrowValue::append(&self.r#run_id, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#source_identity,
+            &self.r#origin_json,
             columns[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#numerical_identity,
+            &self.r#source_identity,
             columns[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#point, columns[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#numerical_identity,
+            columns[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#point, columns[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#row_nominals,
-            columns[4usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#variable_nominals,
             columns[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#tolerance,
+            &self.r#variable_nominals,
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#rank_relative,
+            &self.r#tolerance,
             columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#multiplier_bound,
+            &self.r#rank_relative,
             columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#complete, columns[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#conditioning,
+            &self.r#multiplier_bound,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#complete,
             columns[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#degenerate,
+            &self.r#conditioning,
             columns[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#attempts,
+            &self.r#degenerate,
             columns[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#unavailable,
+            &self.r#attempts,
             columns[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unavailable,
+            columns[14usize].as_mut(),
         )?;
         Ok(())
     }
@@ -914,16 +934,27 @@ impl crate::columnar::RelationRow for RuntimeModelingJacobianOptimizationRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        95_232_usize + size_of::<Self::Builder>()
+        97_280_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        744usize
+        760usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#origin_json).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -1213,7 +1244,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 15usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -1221,100 +1252,107 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "source_identity",
+        name: "origin_json",
         position: 1usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "numerical_identity",
+        name: "source_identity",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "point",
+        name: "numerical_identity",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "row_nominals",
+        name: "point",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "variable_nominals",
+        name: "row_nominals",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "tolerance",
+        name: "variable_nominals",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "rank_relative",
+        name: "tolerance",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "multiplier_bound",
+        name: "rank_relative",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "complete",
+        name: "multiplier_bound",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "conditioning",
+        name: "complete",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "degenerate",
+        name: "conditioning",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "attempts",
+        name: "degenerate",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "unavailable",
+        name: "attempts",
         position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "unavailable",
+        position: 14usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
     ///run_id
     pub const RUN_ID: crate::columnar::ColumnReference = super::COLUMNS[0usize];
+    ///origin_json
+    pub const ORIGIN_JSON: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///source_identity
-    pub const SOURCE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    pub const SOURCE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///numerical_identity
-    pub const NUMERICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const NUMERICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///point
-    pub const POINT: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const POINT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///row_nominals
-    pub const ROW_NOMINALS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const ROW_NOMINALS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///variable_nominals
-    pub const VARIABLE_NOMINALS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const VARIABLE_NOMINALS: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///tolerance
-    pub const TOLERANCE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const TOLERANCE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///rank_relative
-    pub const RANK_RELATIVE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const RANK_RELATIVE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///multiplier_bound
-    pub const MULTIPLIER_BOUND: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const MULTIPLIER_BOUND: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///complete
-    pub const COMPLETE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const COMPLETE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///conditioning
-    pub const CONDITIONING: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const CONDITIONING: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///degenerate
-    pub const DEGENERATE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const DEGENERATE: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///attempts
-    pub const ATTEMPTS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const ATTEMPTS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///unavailable
-    pub const UNAVAILABLE: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const UNAVAILABLE: crate::columnar::ColumnReference = super::COLUMNS[14usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -1323,6 +1361,7 @@ pub struct RuntimeModelingJacobianOptimizationView<'a> {
     batch: &'a crate::RecordBatch,
     checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     run_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    origin_json_column: &'a arrow_array::StringArray,
     source_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     numerical_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     point_column: &'a arrow_array::ListArray,
@@ -1383,45 +1422,48 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
             run_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
+            origin_json_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(1usize).as_ref())?,
             source_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(1usize).as_ref())?,
+            >(batch.column(2usize).as_ref())?,
             numerical_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(2usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
             point_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(3usize).as_ref())?,
+            >(batch.column(4usize).as_ref())?,
             row_nominals_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
             variable_nominals_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             tolerance_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             rank_relative_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             multiplier_bound_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             complete_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             conditioning_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             degenerate_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             attempts_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             unavailable_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -1450,6 +1492,18 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "origin_json",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn origin_json_column(&self) -> &'a arrow_array::StringArray {
+        self.origin_json_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "origin_json", "`.")]
+    pub fn origin_json_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "source_identity",
         "`, including its offsets and validity bitmap.",
     )]
@@ -1458,7 +1512,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "source_identity", "`.")]
     pub fn source_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[1usize]
+        &self.batch.schema_ref().fields()[2usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1476,7 +1530,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
         "`.",
     )]
     pub fn numerical_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1488,7 +1542,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "point", "`.")]
     pub fn point_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1500,7 +1554,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "row_nominals", "`.")]
     pub fn row_nominals_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1512,7 +1566,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "variable_nominals", "`.")]
     pub fn variable_nominals_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1524,7 +1578,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "tolerance", "`.")]
     pub fn tolerance_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1536,7 +1590,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "rank_relative", "`.")]
     pub fn rank_relative_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1548,7 +1602,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "multiplier_bound", "`.")]
     pub fn multiplier_bound_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1560,7 +1614,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "complete", "`.")]
     pub fn complete_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1572,7 +1626,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "conditioning", "`.")]
     pub fn conditioning_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1584,7 +1638,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "degenerate", "`.")]
     pub fn degenerate_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1596,7 +1650,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "attempts", "`.")]
     pub fn attempts_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1608,7 +1662,7 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "unavailable", "`.")]
     pub fn unavailable_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1623,6 +1677,10 @@ impl<'a> RuntimeModelingJacobianOptimizationView<'a> {
         }
         Ok(RuntimeModelingJacobianOptimizationRow {
             r#run_id: crate::columnar::ArrowValue::read(self.run_id_column, index)?,
+            r#origin_json: crate::columnar::ArrowValue::read(
+                self.origin_json_column,
+                index,
+            )?,
             r#source_identity: crate::columnar::ArrowValue::read(
                 self.source_identity_column,
                 index,

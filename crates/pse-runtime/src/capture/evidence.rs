@@ -369,13 +369,17 @@ pub fn capture_arrow(
     cancel.checkpoint().map_err(invalid)?;
     let owner = reserve_document(document, pool)?;
     let raw = json(document)?;
-    let operation = document.operation.to_string();
+    let operation = document.operation.map(|operation| operation.to_string());
+    let launch = document.launch_process.as_ref().map(json).transpose()?;
+    let subject = operation.as_deref().or(launch.as_deref()).ok_or_else(|| invalid("capture subject absent"))?;
     let kind = json(&document.kind)?;
     let status = json(&document.status)?;
     publish(
         "runtime.diagnostic_captures",
         vec![
-            strings([Some(operation.as_str())]),
+            strings([Some(subject)]),
+            strings([operation.as_deref()]),
+            strings([launch.as_deref()]),
             strings([Some(kind.trim_matches('"'))]),
             strings([Some(status.trim_matches('"'))]),
             strings([Some(raw.as_str())]),

@@ -5,7 +5,7 @@ use super::*;
 use pse_model::generated::identities::RunId;
 use std::{
     collections::BTreeSet,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 /// Why a finite sample campaign stopped; individual evaluation failures are retained separately.
@@ -13,6 +13,7 @@ pub use pse_model::generated::enums::ModelingDiagnosticSampleStop as DiagnosticS
 /// Named sample evidence. Every result uses the same original model and numerical profile.
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnosticSamples {
+    pub origin: Option<super::super::super::DiagnosticOrigin>,
     /// Run identity of the sample campaign.
     pub run_id: RunId,
     pub(in crate::workflow::modeling) runtime: Runtime,
@@ -41,14 +42,12 @@ impl ModelingPackage {
         policy: ModelingDiagnosticPolicy,
         compiler: pse_compiler::workspace::Profile,
         maximum_samples: usize,
-        time_limit: Duration,
-        cancel: &crate::CancelSource,
+        operation: &super::super::super::DiagnosticOperation,
     ) -> Result<ModelingDiagnosticSamples, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         policy.validate()?;
         if maximum_samples == 0
-            || time_limit.is_zero()
             || samples
                 .iter()
                 .map(|(id, _)| id)
@@ -58,9 +57,7 @@ impl ModelingPackage {
         {
             return Err(contract("diagnostic sample identities or work limits"));
         }
-        let deadline = Instant::now()
-            .checked_add(time_limit)
-            .ok_or_else(|| contract("diagnostic sample deadline"))?;
+        let deadline = operation.scope().deadline().ok_or_else(|| contract("diagnostic sample deadline absent"))?;
         let bytes = samples
             .len()
             .min(maximum_samples)
@@ -72,6 +69,7 @@ impl ModelingPackage {
             .math()
             .reserve("modeling:diagnostic-samples", bytes)?;
         let mut report = ModelingDiagnosticSamples {
+            origin: operation.origin.clone(),
             run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
             outcomes: Vec::new(),
@@ -89,7 +87,7 @@ impl ModelingPackage {
                 report.stop = DiagnosticSampleStop::FindingLimit;
                 break;
             }
-            if cancel.token().is_cancelled() {
+            if operation.driver().token().is_cancelled() {
                 report.stop = DiagnosticSampleStop::Cancelled;
                 break;
             }
@@ -121,8 +119,7 @@ impl ModelingPackage {
                 remaining = remaining.saturating_sub(1);
                 continue;
             }
-            let child = crate::CancelSource::new();
-            let operation = self.diagnose_case(
+            let result = self.diagnose_case(
                 prepared.clone(),
                 values,
                 ModelingDiagnosticPolicy {
@@ -130,14 +127,13 @@ impl ModelingPackage {
                     ..policy.clone()
                 },
                 compiler,
-                &child,
-            );
-            tokio::pin!(operation);
-            let result = tokio::select! {
-                value = &mut operation => value,
-                () = cancel.cancelled() => { child.cancel(); let value=operation.await; report.stop=DiagnosticSampleStop::Cancelled; value },
-                () = tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)) => { child.cancel(); let value=operation.await; report.stop=DiagnosticSampleStop::TimeLimit; value },
-            };
+                operation,
+            ).await;
+            if operation.driver().token().is_cancelled() {
+                report.stop = DiagnosticSampleStop::Cancelled;
+            } else if Instant::now() >= deadline {
+                report.stop = DiagnosticSampleStop::TimeLimit;
+            }
             let result = result
                 .map(Arc::new)
                 .map_err(|error| error.boundary_diagnostic());

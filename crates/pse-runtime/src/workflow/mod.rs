@@ -40,6 +40,8 @@ mod retention;
 pub use retention::{
     HistoryObligation, HistoryOwner, HistoryPurpose, HistoryReclamationPage, ResultReclamationPage,
 };
+mod diagnostic_operation;
+pub use diagnostic_operation::{DiagnosticOperation, DiagnosticOrigin};
 mod diagnostic_documents;
 pub use diagnostic_documents::{
     DiagnosticAnnotationDocument, DiagnosticCauseDocument, DiagnosticContextDocument,

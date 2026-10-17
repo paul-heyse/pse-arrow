@@ -1120,8 +1120,8 @@ impl FactBatch {
             }
             Self::r#RuntimeDiagnosticCaptures(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    142u8, 6u8, 48u8, 185u8, 228u8, 120u8, 210u8, 197u8, 75u8, 32u8,
-                    126u8, 213u8, 103u8, 211u8, 71u8, 99u8,
+                    123u8, 164u8, 53u8, 112u8, 101u8, 168u8, 159u8, 56u8, 210u8, 126u8,
+                    153u8, 68u8, 22u8, 150u8, 161u8, 252u8,
                 ])
             }
             Self::r#RuntimeDiagnosticEvidenceFields(_) => {
@@ -1216,14 +1216,14 @@ impl FactBatch {
             }
             Self::r#RuntimeModelingDiagnosticSamples(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    29u8, 217u8, 47u8, 6u8, 108u8, 94u8, 89u8, 245u8, 180u8, 211u8, 82u8,
-                    21u8, 230u8, 23u8, 109u8, 146u8,
+                    221u8, 87u8, 189u8, 92u8, 85u8, 174u8, 32u8, 142u8, 90u8, 15u8,
+                    232u8, 182u8, 87u8, 100u8, 32u8, 156u8,
                 ])
             }
             Self::r#RuntimeModelingDiagnostics(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    107u8, 238u8, 141u8, 70u8, 235u8, 237u8, 49u8, 176u8, 30u8, 237u8,
-                    30u8, 8u8, 214u8, 93u8, 177u8, 116u8,
+                    171u8, 16u8, 177u8, 230u8, 102u8, 236u8, 95u8, 36u8, 149u8, 183u8,
+                    125u8, 64u8, 62u8, 170u8, 162u8, 10u8,
                 ])
             }
             Self::r#RuntimeModelingFindings(_) => {
@@ -1246,8 +1246,8 @@ impl FactBatch {
             }
             Self::r#RuntimeModelingJacobianOptimization(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    67u8, 214u8, 232u8, 97u8, 187u8, 7u8, 242u8, 54u8, 208u8, 27u8,
-                    246u8, 164u8, 130u8, 240u8, 62u8, 233u8,
+                    243u8, 48u8, 158u8, 140u8, 140u8, 135u8, 89u8, 71u8, 106u8, 91u8,
+                    147u8, 3u8, 237u8, 30u8, 105u8, 68u8,
                 ])
             }
             Self::r#RuntimeModelingKnowledge(_) => {
@@ -1264,8 +1264,8 @@ impl FactBatch {
             }
             Self::r#RuntimeModelingLinearDiagnostics(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    55u8, 153u8, 8u8, 38u8, 12u8, 214u8, 56u8, 26u8, 4u8, 56u8, 154u8,
-                    98u8, 167u8, 10u8, 187u8, 20u8,
+                    250u8, 173u8, 57u8, 44u8, 4u8, 66u8, 125u8, 114u8, 72u8, 125u8, 95u8,
+                    199u8, 64u8, 40u8, 124u8, 106u8,
                 ])
             }
             Self::r#RuntimeModelingNonlinearExplanations(_) => {
@@ -7427,10 +7427,7 @@ impl FactBatch {
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#operation,
-                            &right.r#operation,
-                        )
+                        crate::SemanticEq::semantic_eq(&left.r#subject, &right.r#subject)
                     }
                     _ => false,
                 }
@@ -8844,7 +8841,7 @@ impl FactBatch {
             }
             Self::r#RuntimeDiagnosticCaptures(rows) => {
                 let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#operation, &mut hash);
+                crate::SemanticFrame::frame(&row.r#subject, &mut hash);
             }
             Self::r#RuntimeDiagnosticEvidenceFields(rows) => {
                 let row = rows.get(index)?;

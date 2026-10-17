@@ -318,6 +318,7 @@ impl ModelingPackage {
     ) -> Result<ModelingObservations, WorkflowError> {
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
+        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), cancel.deadline());
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -335,9 +336,7 @@ impl ModelingPackage {
                     });
                 }
                 // One value-independent program per observed structure; values bind per call (A6).
-                let assembly = self
-                    .observation_program(&model, &rows, profile, cancel)
-                    .await?;
+                let assembly = crate::math::MathService::within_task(&scope, cancel, self.observation_program(&model, &rows, profile, cancel)).await?;
                 let ids = assembly
                     .assembly
                     .structure()
@@ -347,7 +346,7 @@ impl ModelingPackage {
                     .collect::<Vec<_>>();
                 let retained = owner.clone();
                 let (values, applicability, _previous_owner) = service
-                    .with_worker(assembly, providers, cancel, move |worker| {
+                    .with_owned_worker(assembly, providers, cancel, Some((scope.clone(), scope.cancellation_control().clone())), move |worker| {
                         let observed = worker.constraints(&values)?;
                         Ok((
                             ids.into_iter().zip(observed.iter().copied()).collect(),

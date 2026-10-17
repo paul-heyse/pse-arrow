@@ -110,6 +110,8 @@ pub struct ModelingDiagnosticPolicy {
 /// Named numerical evidence at one point of one prepared case.
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnostics {
+    /// Retained original invocation, when this is follow-up analysis.
+    pub origin: Option<super::super::DiagnosticOrigin>,
     pub(super) encodings: Arc<crate::workflow::result_export::EncodingState>,
     /// Identity of this diagnostic run.
     pub run_id: RunId,
@@ -653,10 +655,11 @@ impl ModelingPackage {
         values: CaseValues,
         policy: ModelingDiagnosticPolicy,
         compiler: pse_compiler::workspace::Profile,
-        cancel: &crate::CancelSource,
+        operation: &super::super::DiagnosticOperation,
     ) -> Result<ModelingDiagnostics, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
+        operation.check()?;
         policy.validate()?;
         prepared.validate_point(&values)?;
         let ModelingDiagnosticPreparation {
@@ -696,7 +699,8 @@ impl ModelingPackage {
             .and_then(|n| n.checked_add(values.scalars.len()))
             .and_then(|n| n.checked_mul(256))
             .and_then(|n| n.checked_add(policy.maximum_findings.checked_mul(1024)?))
-            .and_then(|n| n.checked_add(policy.matrix.dense_entries.checked_mul(64)?))
+            .and_then(|n| n.checked_add(policy.matrix.dense_entries.checked_mul(64)?)
+            .and_then(|n| n.checked_add(operation.retained_bytes())))
             .ok_or_else(|| contract("diagnostic storage extent"))?;
         let owner = self
             .runtime
@@ -723,6 +727,7 @@ impl ModelingPackage {
         let inequality_count = assessment.equations.len() - equality_count;
         let free_count = assessment.variables.len();
         let mut report = ModelingDiagnostics {
+            origin: operation.origin.clone(),
             encodings: Arc::default(),
             run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
@@ -982,7 +987,7 @@ impl ModelingPackage {
             }
         }
         let service = self.runtime.shared.math();
-        let assembly = service.assemble(prepared.case.clone()).await?;
+        let assembly = crate::math::MathService::within_task(operation.scope(), operation.driver(), service.assemble(prepared.case.clone())).await?;
         let row_ids = structure.rows().iter().map(|r| r.id).collect::<Vec<_>>();
         let columns = plan.columns().to_vec();
         let row_scales = row_ids
@@ -999,7 +1004,7 @@ impl ModelingPackage {
         let scaled_columns = column_scales.clone();
         let retained = report._owner.clone();
         let sampled = service
-            .with_worker(assembly, providers.clone(), cancel, move |worker| {
+            .with_owned_worker(assembly, providers.clone(), operation.driver(), Some((operation.scope().clone(), operation.scope().cancellation_control().clone())), move |worker| {
                 let rows = crate::workflow::dynamics::analysis("diagnostic.original_rows", || worker.constraints(&candidate).map(<[f64]>::to_vec))?;
                 let flag = worker.cancellation().clone();
                 let jacobian = crate::workflow::dynamics::analysis("diagnostic.original_jacobian", || worker.jacobian(&candidate))?;
@@ -1242,7 +1247,7 @@ impl ModelingPackage {
                 values,
                 compiler,
                 providers,
-                cancel,
+                operation.driver(),
             )
             .await
         {
@@ -1259,7 +1264,7 @@ impl ModelingPackage {
                     })
                     .collect::<BTreeMap<_, Vec<_>>>();
                 let evidence = service
-                    .modeling_term_diagnostics(magnitudes.clone(), policy.terms, cancel)
+                    .modeling_term_diagnostics(magnitudes.clone(), policy.terms, operation.driver())
                     .await?;
                 if evidence.unattempted > 0 {
                     report.complete = false;
@@ -1303,6 +1308,7 @@ impl ModelingPackage {
                 report.push(f, maximum, product);
             }
         }
+        operation.check()?;
         Ok(report)
 
         }).await
@@ -1949,6 +1955,7 @@ mod tests {
 #[cfg(feature = "solver-highs")]
 #[derive(Debug)]
 pub struct ModelingJacobianOptimization {
+    pub origin: Option<super::super::DiagnosticOrigin>,
     /// Identity of this analysis run.
     pub run_id: RunId,
     /// Certificates, degenerate sets and every native attempt.
@@ -1971,7 +1978,7 @@ impl ModelingPackage {
         values: CaseValues,
         policy: pse_backend_native::jacobian_diagnostics::Policy,
         controls: pse_backend_native::solve::Controls,
-        cancel: &crate::CancelSource,
+        operation: &super::super::DiagnosticOperation,
     ) -> Result<ModelingJacobianOptimization, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity
@@ -1979,13 +1986,9 @@ impl ModelingPackage {
                 controls
                     .validate()
                     .map_err(crate::math::MathRuntimeError::from)?;
-                let control = pse_diagnostics::Cancellation::default();
-                let deadline = std::time::Instant::now()
-                    .checked_add(controls.time_limit)
-                    .ok_or(crate::math::MathRuntimeError::Limit(
-                        "Jacobian diagnostic deadline extent",
-                    ))?;
-                let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(deadline));
+                operation.check()?;
+                let scope = operation.scope().clone();
+                let control = scope.cancellation_control().clone();
                 prepared.validate_point(&values)?;
                 let ModelingDiagnosticPreparation {
                     model: prepared,
@@ -2033,7 +2036,7 @@ impl ModelingPackage {
                 let retained = owner.clone();
                 let assembly = crate::math::MathService::within_task(
                     &scope,
-                    cancel,
+                    operation.driver(),
                     service.assemble(prepared.case),
                 )
                 .await?;
@@ -2041,7 +2044,7 @@ impl ModelingPackage {
                     .with_owned_worker(
                         assembly,
                         providers,
-                        cancel,
+                        operation.driver(),
                         Some((scope.clone(), control)),
                         move |mut worker| {
                             let execution = pse_backend_native::solve::Execution::within(
@@ -2070,7 +2073,9 @@ impl ModelingPackage {
                         },
                     )
                     .await?;
+                operation.check()?;
                 Ok(ModelingJacobianOptimization {
+                    origin: operation.origin.clone(),
                     run_id: pse_operations::mint_id(),
                     runtime: self.runtime.clone(),
                     source_identity,

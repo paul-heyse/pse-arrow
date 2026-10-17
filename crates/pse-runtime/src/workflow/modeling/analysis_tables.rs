@@ -88,6 +88,7 @@ fn real_evidence(
 /// Owned generated analysis table and the native attempts it describes.
 #[derive(Debug)]
 pub struct ModelingNativeAnalysis {
+    pub origin: Option<super::super::DiagnosticOrigin>,
     /// Generated relation name identifies the analysis and its evidence scope.
     pub relation: &'static str,
     /// Checked source-coordinate table; clones retain their columnar owner.
@@ -528,6 +529,7 @@ impl ModelingDiagnostics {
                 });
             columns
                 .push(RuntimeModelingDiagnosticsRow {
+                    origin_json: self.origin.as_ref().map(serde_json::to_string).transpose().map_err(|e| contract(e.to_string()))?,
                     run_id: self.run_id,
                     source_identity: self.source_identity,
                     numerical_identity: self.numerical_identity,
@@ -697,8 +699,10 @@ impl ModelingDiagnosticSamples {
     /// The modeling diagnostic samples row as a checked `modeling_diagnostic_samples` relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_diagnostic_samples::*;
+        let origin_json = self.origin.as_ref().map(serde_json::to_string).transpose().map_err(|e| contract(e.to_string()))?;
         one(&self.runtime, self._owner.size(), || {
             RuntimeModelingDiagnosticSamplesRow {
+                origin_json,
                 run_id: self.run_id,
                 unattempted: self.unattempted as i64,
                 stop: self.stop,

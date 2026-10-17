@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native analysis projections retain the distinction between affine and local evidence.
-use super::declarations::{column, relation, run_id};
+use super::declarations::{column, relation_version, run_id};
 use crate::{
     builder::RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
@@ -54,14 +54,16 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             ("sentinel", integer().optional()),
         ])
     };
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "modeling_linear_diagnostics",
+        2,
         S::Derived,
         &["run_id"],
         vec![
             run_id(),
+            column("origin_json", text()).optional(),
             column("source_identity", T::hash()),
             column("numerical_identity", T::hash()),
             column("rows", T::list(T::id())),
@@ -115,14 +117,16 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             ("pivot", T::id()),
         ])
     };
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "modeling_jacobian_optimization",
+        2,
         S::Derived,
         &["run_id"],
         vec![
             run_id(),
+            column("origin_json", text()).optional(),
             column("source_identity", T::hash()),
             column("numerical_identity", T::hash()),
             column("point", coordinates()),

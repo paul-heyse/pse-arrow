@@ -19,6 +19,8 @@ use std::{
 };
 
 mod cpu;
+mod launch;
+pub use launch::{LaunchCaptureRequest, LaunchedCommand, launch_capture};
 mod detail;
 pub mod evidence;
 pub use detail::{
@@ -148,11 +150,15 @@ pub struct CaptureLoss {
 #[serde(deny_unknown_fields)]
 pub struct CaptureDocument {
     /// Standalone answer encoding version.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Explicitly selected mechanism.
     pub kind: CaptureKind,
-    /// Selected root diagnostic operation.
-    pub operation: OperationId,
+    /// Selected root diagnostic operation, absent for a process launch without one.
+    pub operation: Option<OperationId>,
+    /// Actual published operation relationships; an empty list means not observed.
+    pub related_operations: Vec<OperationId>,
+    /// Exact launched command process; absent for checkpoint-based attachment.
+    pub launch_process: Option<ProcessLocator>,
     /// Exporter lifecycle only.
     pub status: CaptureStatus,
     /// Requested attachment duration.
@@ -336,7 +342,9 @@ pub fn start_capture(request: CaptureRequest) -> Result<CaptureSession, CaptureE
     let state = Arc::new(Mutex::new(CaptureDocument {
         version: Version,
         kind: request.kind,
-        operation: request.operation,
+        operation: Some(request.operation),
+            related_operations: vec![request.operation],
+        launch_process: None,
         status: CaptureStatus::Running,
         requested_duration: request.duration,
         observed_duration: Duration::ZERO,

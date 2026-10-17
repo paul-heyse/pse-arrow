@@ -353,6 +353,8 @@ impl PartialEq for RuntimeModelingDiagnosticsFieldMatrix {
 pub struct RuntimeModelingDiagnosticsRow {
     ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
     pub r#run_id: crate::generated::identities::RunId,
+    ///origin_json
+    pub r#origin_json: Option<String>,
     ///source_identity
     pub r#source_identity: pse_ids::ContentHash,
     ///numerical_identity
@@ -379,6 +381,7 @@ pub struct RuntimeModelingDiagnosticsRow {
 impl crate::SemanticEq for RuntimeModelingDiagnosticsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#run_id, &other.r#run_id)
+            && crate::SemanticEq::semantic_eq(&self.r#origin_json, &other.r#origin_json)
             && crate::SemanticEq::semantic_eq(
                 &self.r#source_identity,
                 &other.r#source_identity,
@@ -635,6 +638,8 @@ impl crate::SemanticFrame for RuntimeModelingDiagnosticsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#run_id));
         crate::SemanticFrame::frame(&self.r#run_id, hash);
+        hash.str(stringify!(r#origin_json));
+        crate::SemanticFrame::frame(&self.r#origin_json, hash);
         hash.str(stringify!(r#source_identity));
         crate::SemanticFrame::frame(&self.r#source_identity, hash);
         hash.str(stringify!(r#numerical_identity));
@@ -663,6 +668,7 @@ impl crate::HeapUsage for RuntimeModelingDiagnosticsRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#origin_json))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#numerical_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#profile))
