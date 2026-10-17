@@ -5049,9 +5049,9 @@ class IpoptLinearMumps(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     memory_percent: Annotated[int, msgspec.Meta(ge=0)]
     #: Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7)).
     ordering: enums.MumpsOrdering
-    #: Native ICNTL(6) permuting/scaling strategy, inclusive [0,7].
+    #: Native ICNTL(6) permuting/scaling strategy, inclusive `[0,7]`.
     permuting_scaling: Annotated[int, msgspec.Meta(ge=0, le=7)]
-    #: Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive [0,1].
+    #: Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive `[0,1]`.
     pivot_tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -9257,7 +9257,7 @@ class SourceSettlement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class SourceSlotDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An ordered input gather: aliases deliberately retain separate formal positions."""
 
-    #: The source is absent from this selected assembly’s free columns.
+    #: The source is absent from this selected assembly's free columns.
     fixed: bool
     #: Original formal input ordinal.
     formal: Annotated[int, msgspec.Meta(ge=0)]

@@ -1624,6 +1624,10 @@ pub(super) struct ExperimentWorkers<'a> {
 }
 /// One independent experiment's scientific products. Mutable evaluator/provider scratch
 /// belongs to the caller's lane; changed coordinates always create a fresh native IVP.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one experiment binds problem/index/point/demand, original execution, exclusive workers, prior completed trajectory and joined upgrade validity"
+)]
 pub(super) fn evaluate_experiment(
     p: &FitProblem,
     ei: usize,

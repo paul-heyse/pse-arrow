@@ -464,7 +464,7 @@
       "description": "An ordered input gather: aliases deliberately retain separate formal positions.",
       "properties": {
         "fixed": {
-          "description": "The source is absent from this selected assembly’s free columns.",
+          "description": "The source is absent from this selected assembly's free columns.",
           "type": "boolean"
         },
         "formal": {

@@ -645,6 +645,10 @@ impl MathService {
         .await
     }
     /// Explicit action products; ordinary matrix function preparation requests none.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one admitted compiler job binds workspace/model, ordered outputs/coordinates, derivative ceiling, selected actions, evaluator policy and original driver"
+    )]
     pub async fn prepare_modeling_function_products(
         self: &Arc<Self>,
         workspace: Workspace,

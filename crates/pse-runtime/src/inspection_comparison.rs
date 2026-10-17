@@ -303,8 +303,8 @@ fn step_context(
     if let Some(start) = &step.start {
         builder.add(StatementKind::Established,"invocation.start_metadata","The start owner retained these seed facts. The data identity describes the seed, not all scientific parameters, fixed values, coefficients or bounds.",vec![
             counted(doc,format!("{prefix}/start/previous_attempt"),optional_count(start.previous_attempt.map(|v|v as u64)),false),
-            counted(doc,format!("{prefix}/start/layout"),start.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|source_text(v)),false),
-            counted(doc,format!("{prefix}/start/data"),start.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|source_text(v)),false),
+            counted(doc,format!("{prefix}/start/layout"),start.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),source_text),false),
+            counted(doc,format!("{prefix}/start/data"),start.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),source_text),false),
             counted(doc,format!("{prefix}/start/sparse_variables"),Value::Count(start.sparse_variables as u64),false),
             counted(doc,format!("{prefix}/start/submitted"),Value::Boolean(start.submitted),false)],vec![]);
         builder.omitted(start.transformations.len());
@@ -397,10 +397,10 @@ fn context_comparison(
             || l.transformations.len() != r.transformations.len()
         {
             builder.add(StatementKind::Limitation,"comparison.seed_context_changed","Actual retained seed metadata differs. Different starts or coordinate transformations can change the trajectory; they do not establish an intrinsic solver or callback cost difference.",vec![
-                counted(a,format!("/attempts/steps/{ai}/start/data"),l.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|source_text(v)),false),
-                counted(b,format!("/attempts/steps/{bi}/start/data"),r.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),|v|source_text(v)),false),
-                counted(a,format!("/attempts/steps/{ai}/start/layout"),l.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|source_text(v)),false),
-                counted(b,format!("/attempts/steps/{bi}/start/layout"),r.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),|v|source_text(v)),false),
+                counted(a,format!("/attempts/steps/{ai}/start/data"),l.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),source_text),false),
+                counted(b,format!("/attempts/steps/{bi}/start/data"),r.data.map_or_else(||Value::Unavailable("seed data unavailable".into()),source_text),false),
+                counted(a,format!("/attempts/steps/{ai}/start/layout"),l.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),source_text),false),
+                counted(b,format!("/attempts/steps/{bi}/start/layout"),r.layout.map_or_else(||Value::Unavailable("seed layout unavailable".into()),source_text),false),
                 counted(a,format!("/attempts/steps/{ai}/start/submitted"),Value::Boolean(l.submitted),false),
                 counted(b,format!("/attempts/steps/{bi}/start/submitted"),Value::Boolean(r.submitted),false),
                 counted(a,format!("/attempts/steps/{ai}/start/sparse_variables"),Value::Count(l.sparse_variables as u64),false),

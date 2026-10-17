@@ -11,6 +11,10 @@ use pse_model::generated::enums::{
 use pse_modeling::DeclarationId;
 use std::collections::BTreeMap;
 
+/// Positional native transport for the public Python `SingularMode` record:
+/// value, left/right vectors, optional left/right residuals, normalization and bound.
+type SingularModeTuple = (f64, Vec<f64>, Vec<f64>, Option<f64>, Option<f64>, f64, f64);
+
 /// A modeling declaration (a case, test or definition) named by its hex identity.
 fn declaration(py: Python<'_>, text: &str) -> PyResult<DeclarationId> {
     id(py, text).map(DeclarationId::from)
@@ -1535,7 +1539,7 @@ impl NativeModelingDiagnostics {
             self.inner.columns.iter().map(|v| v.to_hex()).collect(),
         )
     }
-    fn singular_modes(&self) -> Vec<(f64, Vec<f64>, Vec<f64>, Option<f64>, Option<f64>, f64, f64)> {
+    fn singular_modes(&self) -> Vec<SingularModeTuple> {
         self.inner
             .matrix
             .iter()

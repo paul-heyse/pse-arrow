@@ -444,28 +444,28 @@ pub fn explain_numerical_history(
                     .is_some_and(|(a, b)| a.checked_add(1) == Some(b))
             });
         if native_iterations {
-            if let Some(threshold) = policy.tiny_step_maximum {
-                if let Some(name) = numeric_field(current, "step.norm", "d_norm") {
-                    let qualified = text(current, "step_norm_kind").is_some()
-                        && text(current, "step_coordinates").is_some()
-                        && text(current, "step_semantics") == Some("search_direction")
-                        && consistent_fields(records, &[name])
-                        && records.iter().all(|r| {
-                            matches!(
-                                field(r, "step_available").map(|f| &f.value),
-                                Some(Value::Boolean(true))
-                            ) && number(r, name).is_some_and(|v| v >= 0.0)
-                        });
-                    if qualified {
-                        if records
-                            .iter()
-                            .all(|r| number(r, name).is_some_and(|v| v <= threshold))
-                        {
-                            output.push(statement(snapshot, records, Some(name), StatementKind::Hypothesis, "tiny_step", format!("All {} consecutive native search-direction measures are at most {threshold} in {:?}/{:?}. Inspect scaling or constraints; this is not an alpha-scaled accepted step or physical progress.",records.len(),text(current,"step_coordinates"),text(current,"step_norm_kind")),partial));
-                        }
-                    } else {
-                        output.push(statement(snapshot, &[current], None, StatementKind::Limitation, "tiny_step.unqualified", "The selected tiny-step question lacks complete supplied search directions with established field-specific norm/coordinates. Initial or unknown direction placeholders are not small-step evidence.".into(),partial));
+            if let Some(threshold) = policy.tiny_step_maximum
+                && let Some(name) = numeric_field(current, "step.norm", "d_norm")
+            {
+                let qualified = text(current, "step_norm_kind").is_some()
+                    && text(current, "step_coordinates").is_some()
+                    && text(current, "step_semantics") == Some("search_direction")
+                    && consistent_fields(records, &[name])
+                    && records.iter().all(|r| {
+                        matches!(
+                            field(r, "step_available").map(|f| &f.value),
+                            Some(Value::Boolean(true))
+                        ) && number(r, name).is_some_and(|v| v >= 0.0)
+                    });
+                if qualified {
+                    if records
+                        .iter()
+                        .all(|r| number(r, name).is_some_and(|v| v <= threshold))
+                    {
+                        output.push(statement(snapshot, records, Some(name), StatementKind::Hypothesis, "tiny_step", format!("All {} consecutive native search-direction measures are at most {threshold} in {:?}/{:?}. Inspect scaling or constraints; this is not an alpha-scaled accepted step or physical progress.",records.len(),text(current,"step_coordinates"),text(current,"step_norm_kind")),partial));
                     }
+                } else {
+                    output.push(statement(snapshot, &[current], None, StatementKind::Limitation, "tiny_step.unqualified", "The selected tiny-step question lacks complete supplied search directions with established field-specific norm/coordinates. Initial or unknown direction placeholders are not small-step evidence.".into(),partial));
                 }
             }
             if let (Some(primal_max), Some(barrier_min), Some(primal_name), Some(barrier_name)) = (
@@ -473,31 +473,27 @@ pub fn explain_numerical_history(
                 policy.barrier_progress_minimum,
                 numeric_field(current, "primal.native", "inf_pr"),
                 numeric_field(current, "barrier", "mu"),
-            ) {
-                if consistent_fields(records, &[primal_name, barrier_name]) {
-                    let first = records[0];
-                    let last = records[records.len() - 1];
-                    if let (Some(p0), Some(p1), Some(b0), Some(b1)) = (
-                        number(first, primal_name),
-                        number(last, primal_name),
-                        number(first, barrier_name),
-                        number(last, barrier_name),
-                    ) {
-                        if p0 > 0.0
-                            && p1 >= 0.0
-                            && b0 > 0.0
-                            && b1 >= 0.0
-                            && records.iter().all(|r| {
-                                number(r, primal_name).is_some()
-                                    && number(r, barrier_name).is_some()
-                            })
-                        {
-                            let primal = (p0 - p1) / p0;
-                            let barrier = (b0 - b1) / b0;
-                            if primal <= primal_max && barrier >= barrier_min {
-                                output.push(statement(snapshot, records, Some(primal_name), StatementKind::Hypothesis, "barrier_primal", format!("Across {} consecutive same-phase native checkpoints, barrier relative decrease {barrier} meets selected minimum {barrier_min}, while primal endpoint decrease {primal} is at most {primal_max}. This is an endpoint-based native-measure question, not continuous stagnation or original physical feasibility.",records.len()),partial));
-                            }
-                        }
+            ) && consistent_fields(records, &[primal_name, barrier_name])
+            {
+                let first = records[0];
+                let last = records[records.len() - 1];
+                if let (Some(p0), Some(p1), Some(b0), Some(b1)) = (
+                    number(first, primal_name),
+                    number(last, primal_name),
+                    number(first, barrier_name),
+                    number(last, barrier_name),
+                ) && p0 > 0.0
+                    && p1 >= 0.0
+                    && b0 > 0.0
+                    && b1 >= 0.0
+                    && records.iter().all(|r| {
+                        number(r, primal_name).is_some() && number(r, barrier_name).is_some()
+                    })
+                {
+                    let primal = (p0 - p1) / p0;
+                    let barrier = (b0 - b1) / b0;
+                    if primal <= primal_max && barrier >= barrier_min {
+                        output.push(statement(snapshot, records, Some(primal_name), StatementKind::Hypothesis, "barrier_primal", format!("Across {} consecutive same-phase native checkpoints, barrier relative decrease {barrier} meets selected minimum {barrier_min}, while primal endpoint decrease {primal} is at most {primal_max}. This is an endpoint-based native-measure question, not continuous stagnation or original physical feasibility.",records.len()),partial));
                     }
                 }
             }
@@ -1100,7 +1096,7 @@ mod tests {
                         .value = Value::Boolean(false)
                 }
                 "context" => record.values.retain(|field| field.name != "inner_context"),
-                _ => unreachable!(),
+                _ => panic!("unrecognized fixture mutation: {missing}"),
             });
             let statements = explain_numerical_history(&snapshot, &raw_policy());
             assert!(
@@ -1204,7 +1200,7 @@ mod tests {
                         .unwrap()
                         .value = Value::Integer(1)
                 }
-                _ => unreachable!(),
+                _ => panic!("unrecognized fixture mutation: {boundary}"),
             }
             let statements = explain_numerical_history(&snapshot, &raw_policy());
             assert!(

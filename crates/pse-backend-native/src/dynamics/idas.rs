@@ -674,9 +674,13 @@ unsafe extern "C" fn jtimes(
             // SAFETY: IDAS supplies live serial input vectors of n initialized
             // values. They are read-only throughout this inner scope; even if a
             // native output aliases either input, all borrows end before publish.
-            let x = unsafe { std::slice::from_raw_parts(ffi::N_VGetArrayPointer(y), n) };
+            let x_pointer = unsafe { ffi::N_VGetArrayPointer(y) };
+            // SAFETY: the serial vector's initialized array has the contract's n entries.
+            let x = unsafe { std::slice::from_raw_parts(x_pointer, n) };
             // SAFETY: same native input extent and callback lifetime as above.
-            let direction = unsafe { std::slice::from_raw_parts(ffi::N_VGetArrayPointer(v), n) };
+            let direction_pointer = unsafe { ffi::N_VGetArrayPointer(v) };
+            // SAFETY: the direction array has n initialized entries, borrowed only here.
+            let direction = unsafe { std::slice::from_raw_parts(direction_pointer, n) };
             if c.rhs_action(t, x, direction, cj).is_none() {
                 return c.failure();
             }
@@ -4364,10 +4368,9 @@ mod initialization_tests {
             );
             for alias_state in [false, true] {
                 // SAFETY: both vectors belong to this live session, with two entries.
-                unsafe {
-                    write(direction, &[1., 3.]);
-                    write(session.y, &[2., 0.]);
-                }
+                unsafe { write(direction, &[1., 3.]) };
+                // SAFETY: the session's state vector also owns exactly two entries.
+                unsafe { write(session.y, &[2., 0.]) };
                 let output = if alias_state { session.y } else { direction };
                 // SAFETY: the live callback context owns all borrowed data. This
                 // deliberate input/output alias exercises read-before-publish.

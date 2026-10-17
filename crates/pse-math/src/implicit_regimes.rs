@@ -2351,12 +2351,12 @@ impl RegimeSelection {
         order: DerivativeOrder,
         control: &pse_diagnostics::Cancellation,
     ) -> Result<SelectedRegime, MathError> {
-        if let Some(scope) = &self.scope {
-            if !Arc::ptr_eq(scope.cancellation(), &control.flag()) {
-                return Err(MathError::Contract(
-                    "regime selection execution control differs from its scope".into(),
-                ));
-            }
+        if let Some(scope) = &self.scope
+            && !Arc::ptr_eq(scope.cancellation(), &control.flag())
+        {
+            return Err(MathError::Contract(
+                "regime selection execution control differs from its scope".into(),
+            ));
         }
         self.control = Some(control.clone());
         let cancel = &control.flag();

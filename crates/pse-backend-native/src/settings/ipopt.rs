@@ -80,7 +80,7 @@ pub enum Linear {
     Mumps {
         /// Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7)).
         ordering: MumpsOrdering,
-        /// Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive [0,1].
+        /// Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive `[0,1]`.
         #[schemars(extend("minimum" = 0.0, "maximum" = 1.0))]
         pivot_tolerance: f64,
         /// Maximum refinement-requested pivot tolerance (`mumps_pivtolmax`).
@@ -89,7 +89,7 @@ pub enum Linear {
         /// Extra estimated workspace percentage (`mumps_mem_percent`), zero allowed.
         #[schemars(extend("minimum" = 0))]
         memory_percent: i32,
-        /// Native ICNTL(6) permuting/scaling strategy, inclusive [0,7].
+        /// Native ICNTL(6) permuting/scaling strategy, inclusive `[0,7]`.
         #[schemars(extend("maximum" = 7))]
         permuting_scaling: u8,
     },
@@ -151,18 +151,16 @@ impl Settings {
             permuting_scaling,
             ..
         } = self.linear
-        {
-            if !pivot_tolerance.is_finite()
+            && (!pivot_tolerance.is_finite()
                 || !(0. ..=1.).contains(&pivot_tolerance)
                 || !maximum_pivot_tolerance.is_finite()
                 || !(pivot_tolerance..=1.).contains(&maximum_pivot_tolerance)
                 || memory_percent < 0
-                || permuting_scaling > 7
-            {
-                return Err(ProblemError::Contract(
-                    "MUMPS controls outside registered native ranges".into(),
-                ));
-            }
+                || permuting_scaling > 7)
+        {
+            return Err(ProblemError::Contract(
+                "MUMPS controls outside registered native ranges".into(),
+            ));
         }
         self.restart.validate()
     }

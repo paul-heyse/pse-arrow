@@ -217,7 +217,7 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
             values.scalars.insert(prepared.model.paths[path], value);
         }
         let computed = worker.constraints(&values).unwrap();
-        let ordered = prepared.admitted.ordered_values(&computed).unwrap();
+        let ordered = prepared.admitted.ordered_values(computed).unwrap();
         let contributions = prepared
             .admitted
             .outputs

@@ -994,7 +994,7 @@ fn capture_builtin_clock_relationship_precedes_typed_source_events() {
     );
     let Some(trace_packet::Data::ClockSnapshot(snapshot)) = &trace.packet[snapshot_index].data
     else {
-        unreachable!()
+        panic!("the located clock packet must contain a snapshot")
     };
     assert_eq!(snapshot.primary_trace_clock, Some(6));
     let clock = |id| {

@@ -187,5 +187,6 @@ if __name__ == "__main__":
         # Internal child entry: both regular output files share this per-file cap.
         limit = int(sys.argv[2])
         resource.setrlimit(resource.RLIMIT_FSIZE, (limit, limit))
-        os.execv(sys.argv[3], sys.argv[3:])
+        # The parent supplies an absolute owned tool and argv; exec retains its PID.
+        os.execv(sys.argv[3], sys.argv[3:])  # noqa: S606
     raise SystemExit(main())

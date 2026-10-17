@@ -765,7 +765,7 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
             }
         }
         // SAFETY: as above.
-        unsafe { publish(out, &v) }?;
+        unsafe { publish(out, v) }?;
         if !matches!(c.function, Function::FixedPoint(_)) {
             // A function evaluation is not an accepted KINSOL iteration. Preserve
             // source-associated scalars rather than a norm of unlike physical units.
@@ -942,10 +942,11 @@ unsafe extern "C" fn jvp(
         y.fill(f64::NAN);
         match &mut c.function {
             Function::Equations(o) => o.jacobian_product(
-                // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
-                // checks it against the `n` coordinates.
                 {
-                    shifted_into(unsafe { values(x, c.n) }?, &c.offsets, &mut c.point)?;
+                    // SAFETY: KINSOL supplies a live serial input (or null), and
+                    // `values` checks null, length and storage before borrowing.
+                    let point = unsafe { values(x, c.n) }?;
+                    shifted_into(point, &c.offsets, &mut c.point)?;
                     &c.point
                 },
                 // SAFETY: as above.
@@ -969,7 +970,7 @@ unsafe extern "C" fn jvp(
             }
         }
         // SAFETY: as above.
-        unsafe { publish(out, &y) }
+        unsafe { publish(out, y) }
     });
     result(value, &c.state)
 }
@@ -1012,7 +1013,7 @@ unsafe extern "C" fn precondition_setup(
             ));
         }
         if let Some(blocks) = &mut c.blocks {
-            blocks.setup(&v, &execution)?;
+            blocks.setup(v, &execution)?;
         } else {
             for col in 0..c.n {
                 let range = c.columns[col] as usize..c.columns[col + 1] as usize;
@@ -2522,10 +2523,8 @@ mod tests {
         )
         .unwrap();
         // SAFETY: live exclusively owned KLU solver; null matrix is a checked refusal.
-        assert_ne!(
-            unsafe { ffi::SUNLinSolSetup_KLU(session.linear, std::ptr::null_mut()) },
-            0
-        );
+        let refused = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, std::ptr::null_mut()) };
+        assert_ne!(refused, 0);
         // SAFETY: getter reads only this session's live KLU counters.
         let failed = unsafe { linear_work::snapshot(session.linear) }.unwrap();
         assert_eq!(failed.setup_issued, 1);
@@ -2546,21 +2545,26 @@ mod tests {
             );
             assert!(metric(&report, "klu.solve.completed") > 0);
         }
-        // SAFETY: the session's exact one-entry CSC storage is live and exclusively owned.
-        unsafe {
-            *ffi::SUNSparseMatrix_IndexPointers(session.matrix) = 0;
-            *ffi::SUNSparseMatrix_IndexPointers(session.matrix).add(1) = 1;
-            *ffi::SUNSparseMatrix_IndexValues(session.matrix) = 0;
-            *ffi::SUNSparseMatrix_Data(session.matrix) = 0.;
-            assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
-        }
+        // SAFETY: this affine fixture owns a live one-entry CSC matrix.
+        let column_pointer = unsafe { ffi::SUNSparseMatrix_IndexPointers(session.matrix) };
+        // SAFETY: this one-column matrix owns two initialized column pointers.
+        unsafe { std::slice::from_raw_parts_mut(column_pointer, 2) }.copy_from_slice(&[0, 1]);
+        // SAFETY: the same live matrix owns its one row-index entry.
+        let row_pointer = unsafe { ffi::SUNSparseMatrix_IndexValues(session.matrix) };
+        // SAFETY: the one-entry row storage is exclusive throughout this test step.
+        (unsafe { std::slice::from_raw_parts_mut(row_pointer, 1) })[0] = 0;
+        // SAFETY: the same live matrix owns its one numeric entry.
+        let data_pointer = unsafe { ffi::SUNSparseMatrix_Data(session.matrix) };
+        // SAFETY: the numeric storage is exclusive and holds this one entry.
+        (unsafe { std::slice::from_raw_parts_mut(data_pointer, 1) })[0] = 0.;
+        // SAFETY: the exclusively owned solver is live; initialize starts fresh numeric state.
+        let initialized = unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) };
+        assert_eq!(initialized, 0);
         // SAFETY: safe-return getter on the same live owner.
         let before = unsafe { linear_work::snapshot(session.linear) }.unwrap();
         // SAFETY: admitted canonical singular CSC on this owned solver.
-        assert_ne!(
-            unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) },
-            0
-        );
+        let singular = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) };
+        assert_ne!(singular, 0);
         // SAFETY: getter reports the failed actual factor prefix without initiating work.
         let after = unsafe { linear_work::snapshot(session.linear) }.unwrap();
         assert_eq!(
@@ -2591,43 +2595,56 @@ mod tests {
         .unwrap();
         let mut counts = [0_u64; 12];
         // SAFETY: exact live owner; callback data remains in scope until cleared.
-        unsafe {
-            assert_eq!(
-                ffi::SUNLinSol_KLUSetObserver(
-                    session.linear,
-                    Some(capture),
-                    std::ptr::from_mut(&mut counts).cast()
-                ),
-                0
-            );
-            *ffi::SUNSparseMatrix_IndexPointers(session.matrix) = 0;
-            *ffi::SUNSparseMatrix_IndexPointers(session.matrix).add(1) = 1;
-            *ffi::SUNSparseMatrix_IndexValues(session.matrix) = 0;
-            *ffi::SUNSparseMatrix_Data(session.matrix) = 0.;
-            assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
-            assert_ne!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
-        }
+        let observed = unsafe {
+            ffi::SUNLinSol_KLUSetObserver(
+                session.linear,
+                Some(capture),
+                std::ptr::from_mut(&mut counts).cast(),
+            )
+        };
+        assert_eq!(observed, 0);
+        // SAFETY: this affine fixture owns a live one-entry CSC matrix.
+        let column_pointer = unsafe { ffi::SUNSparseMatrix_IndexPointers(session.matrix) };
+        // SAFETY: this one-column matrix owns two initialized column pointers.
+        unsafe { std::slice::from_raw_parts_mut(column_pointer, 2) }.copy_from_slice(&[0, 1]);
+        // SAFETY: the same live matrix owns its one row-index entry.
+        let row_pointer = unsafe { ffi::SUNSparseMatrix_IndexValues(session.matrix) };
+        // SAFETY: the one-entry row storage is exclusive throughout this test step.
+        (unsafe { std::slice::from_raw_parts_mut(row_pointer, 1) })[0] = 0;
+        // SAFETY: the same live matrix owns its one numeric entry.
+        let data_pointer = unsafe { ffi::SUNSparseMatrix_Data(session.matrix) };
+        // SAFETY: the numeric storage is exclusive and holds this one entry.
+        (unsafe { std::slice::from_raw_parts_mut(data_pointer, 1) })[0] = 0.;
+        // SAFETY: the exclusively owned solver is live; initialize starts fresh numeric state.
+        let initialized = unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) };
+        assert_eq!(initialized, 0);
+        // SAFETY: canonical one-entry singular CSC and live solver share this session.
+        let singular = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) };
+        assert_ne!(singular, 0);
         assert_eq!(
             &counts[..4],
             &[1, 1, 1, 1],
             "failed factor still ends its active phase"
         );
-        // SAFETY: same exact live owner and stable observer; one fresh successful call.
-        unsafe {
-            *ffi::SUNSparseMatrix_Data(session.matrix) = 1.;
-            assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
-            assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
-            assert_eq!(
-                ffi::SUNLinSol_KLUSetObserver(session.linear, None, std::ptr::null_mut()),
-                0
-            );
-        }
+        // SAFETY: the same one-entry live matrix owns this exclusive numeric storage.
+        (unsafe { std::slice::from_raw_parts_mut(data_pointer, 1) })[0] = 1.;
+        // SAFETY: same live solver and stable observer; reset only its numeric state.
+        let initialized = unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) };
+        assert_eq!(initialized, 0);
+        // SAFETY: the now-nonsingular canonical matrix belongs to this live solver.
+        let factored = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) };
+        assert_eq!(factored, 0);
+        // SAFETY: clear this exact live owner's hook before releasing its userdata.
+        let cleared =
+            unsafe { ffi::SUNLinSol_KLUSetObserver(session.linear, None, std::ptr::null_mut()) };
+        assert_eq!(cleared, 0);
         assert_eq!(&counts[..4], &[2, 2, 2, 2]);
-        // SAFETY: after clear, native work cannot invoke the former userdata.
-        unsafe {
-            assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
-            assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
-        }
+        // SAFETY: live solver after hook clear cannot invoke the former userdata.
+        let initialized = unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) };
+        assert_eq!(initialized, 0);
+        // SAFETY: the unchanged canonical matrix and solver are still exclusively live.
+        let factored = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) };
+        assert_eq!(factored, 0);
         assert_eq!(&counts[..4], &[2, 2, 2, 2]);
     }
     #[test]

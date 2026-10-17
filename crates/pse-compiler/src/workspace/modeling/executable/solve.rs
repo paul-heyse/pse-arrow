@@ -833,6 +833,10 @@ impl CompilerWorkspace {
         )
     }
     /// Prepare only the action products selected by the consuming numerical route.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "preparation binds the admitted model, ordered outputs/coordinates, derivative ceiling, selected actions, evaluator policy and cancellation"
+    )]
     pub fn prepare_modeling_function_products(
         &self,
         model: &PreparedModeling,

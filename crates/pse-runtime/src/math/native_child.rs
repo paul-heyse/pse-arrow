@@ -595,12 +595,7 @@ fn wait_ready(
             self.wake_by_ref();
         }
         fn wake_by_ref(self: &Arc<Self>) {
-            loop {
-                match rustix::io::write(&self.0, &1_u64.to_ne_bytes()) {
-                    Err(Errno::INTR) => continue,
-                    _ => break,
-                }
-            }
+            while let Err(Errno::INTR) = rustix::io::write(&self.0, &1_u64.to_ne_bytes()) {}
         }
     }
     let signal = Arc::new(Signal(

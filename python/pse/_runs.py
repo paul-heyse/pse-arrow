@@ -390,7 +390,7 @@ class RunResult:
         return self._handle.explain_invocation(policy=policy)
 
     def compare_invocation(
-        self, other: "RunResult", *, policy: ComparisonPolicy | None = None
+        self, other: Self, *, policy: ComparisonPolicy | None = None
     ) -> InvocationComparisonDocument:
         """Compare actual products, work, outcomes and clock scopes of two results."""
         return self._handle.compare_invocation(other._handle, policy=policy)

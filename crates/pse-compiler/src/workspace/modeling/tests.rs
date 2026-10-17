@@ -1271,7 +1271,7 @@ fn kernel_original_terms_survive_exact_cancellation_for_scaling() {
         })
         .unwrap();
     assert_eq!(
-        equation_values(admitted, admitted.ordered_values(&observations).unwrap()),
+        equation_values(admitted, admitted.ordered_values(observations).unwrap()),
         vec![0.0]
     );
     let schemes = prepared
@@ -1286,7 +1286,7 @@ fn kernel_original_terms_survive_exact_cancellation_for_scaling() {
             }
         })
         .collect();
-    let scales = admitted.derived_scales(&schemes, &observations).unwrap();
+    let scales = admitted.derived_scales(&schemes, observations).unwrap();
     assert_eq!(scales.values().copied().collect::<Vec<_>>(), vec![0.125]);
 }
 
@@ -2493,7 +2493,7 @@ fn kernel_elastic_variants_preserve_originals_and_normalize_penalties() {
     let mut worker = f.assembly.worker(BTreeMap::new(), cancel);
     let values = CaseValues { scalars: values };
     let rows = worker.constraints(&values).unwrap();
-    let public = a.ordered_values(&rows).unwrap();
+    let public = a.ordered_values(rows).unwrap();
     for (output, value) in a.outputs.iter().zip(public) {
         if matches!(output, ModelingOutput::Equation { .. }) {
             assert!(value.abs() < 1e-12);

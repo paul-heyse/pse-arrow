@@ -604,6 +604,13 @@ impl Scope {
 /// Serve steps until the session closes. Native state is built and torn down inside the
 /// scopes of the adapters that own it; a step needing another scope ends the current one
 /// (dropping retained state there) and re-enters with the extended set.
+#[cfg_attr(
+    test,
+    expect(
+        clippy::too_many_arguments,
+        reason = "the test-only scope-entry fault joins the seven actual retained session owners"
+    )
+)]
 fn serve(
     receiver: &std::sync::Mutex<mpsc::Receiver<Request>>,
     pool: &Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
@@ -795,10 +802,10 @@ fn serve(
                 };
                 // The scope could not be entered: refuse the step that needed it and serve
                 // on outside every adapter scope, which cannot fail to enter.
-                if let Some(request) = pending.take() {
-                    if let Some(work) = request.work {
-                        work(Err(error));
-                    }
+                if let Some(request) = pending.take()
+                    && let Some(work) = request.work
+                {
+                    work(Err(error));
                 }
                 scope = Scope {
                     backends: Vec::new(),

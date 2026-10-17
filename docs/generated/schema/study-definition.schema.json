@@ -7797,14 +7797,14 @@
               "description": "Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7))."
             },
             "permuting_scaling": {
-              "description": "Native ICNTL(6) permuting/scaling strategy, inclusive [0,7].",
+              "description": "Native ICNTL(6) permuting/scaling strategy, inclusive `[0,7]`.",
               "format": "uint8",
               "maximum": 7,
               "minimum": 0,
               "type": "integer"
             },
             "pivot_tolerance": {
-              "description": "Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive [0,1].",
+              "description": "Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive `[0,1]`.",
               "format": "double",
               "maximum": 1.0,
               "minimum": 0.0,

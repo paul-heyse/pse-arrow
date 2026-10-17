@@ -309,7 +309,7 @@ fn independent_selected_logging_controls() {
             pse_petsc_log_event(
                 second.handle,
                 c"PSE nonexistent native event".as_ptr(),
-                &mut info
+                &mut info,
             )
         },
         0
