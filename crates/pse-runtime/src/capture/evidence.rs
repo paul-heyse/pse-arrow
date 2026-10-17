@@ -76,7 +76,7 @@ pub fn detail_arrow(page:&DetailRecordPage,pool:&Arc<dyn MemoryPool>,cancel:&Can
         }
     }
     let text=|get:fn(&CoherentRecord)->Option<&str>|strings(members.iter().map(|(r,_,_,_)|get(r)));
-    let count=|get:fn(&CoherentRecord)->u64|Arc::new(UInt64Array::from_iter_values(members.iter().map(|(r,_,_,_)|get(r)))) as ArrayRef;
+    let count=|get:fn(&CoherentRecord)->u64| -> ArrayRef { Arc::new(UInt64Array::from_iter_values(members.iter().map(|(r,_,_,_)|get(r)))) };
     let kinds=members.iter().map(|(_,f,_,_)|f.map(|f|match &f.value{Value::Count(_)=>"count",Value::Integer(_)=>"integer",Value::Number(_)=>"number",Value::Boolean(_)=>"boolean",Value::Text(_)=>"text",Value::Unavailable(_)=>"unavailable",Value::NonFinite(_)=>"nonfinite",Value::Overflow=>"overflow"})).collect::<Vec<_>>();
     let texts=members.iter().map(|(_,f,_,_)|f.and_then(|f|match &f.value{Value::Text(v)|Value::Unavailable(v)=>Some(v.clone()),Value::NonFinite(v)=>Some(format!("{v:?}")),_=>None})).collect::<Vec<_>>();
     let availability=members.iter().map(|(_,f,_,_)|f.and_then(|f|f.availability).map(|v|format!("{v:?}"))).collect::<Vec<_>>();

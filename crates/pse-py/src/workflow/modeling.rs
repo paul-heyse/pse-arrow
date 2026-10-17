@@ -496,7 +496,7 @@ impl NativeModelingPackage {
         settings: &[u8],
         maximum_bytes: usize,
         time_limit: f64,
-    ) -> PyResult<documents::DocumentValue<native::modeling::ModelingSourceMap>> {
+    ) -> PyResult<documents::DocumentValue<native::ModelingSourceMap>> {
         let time_limit = std::time::Duration::try_from_secs_f64(time_limit)
             .map_err(|error| invalid(py, format!("source map clock: {error}")))?;
         let settings = settings::solve_profile(py, settings)?;

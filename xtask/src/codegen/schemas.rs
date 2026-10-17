@@ -236,7 +236,7 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_runtime::capture::DetailRequest>("detail-request"),
         document::<pse_runtime::capture::DetailDocument>("detail-document"),
         document::<pse_runtime::capture::DetailRecordPage>("detail-record-page"),
-        document::<pse_runtime::workflow::modeling::ModelingSourceMapDocument>("modeling-source-map"),
+        document::<pse_runtime::workflow::ModelingSourceMapDocument>("modeling-source-map"),
         document::<pse_diagnostics::observation::CoherentRecord>("coherent-record"),
         document::<pse_runtime::invocation::InvocationEvidenceDocument>("invocation-evidence"),
         document::<pse_runtime::inspection_comparison::InvocationComparisonDocument>("invocation-comparison"),

@@ -140,10 +140,10 @@ impl DocumentType for pse_runtime::capture::DetailDocument {
 impl DocumentType for pse_runtime::capture::DetailRecordPage {
     const NAME: &'static str = "DetailRecordPage";
 }
-impl DocumentType for pse_runtime::workflow::modeling::ModelingSourceMapDocument {
+impl DocumentType for pse_runtime::workflow::ModelingSourceMapDocument {
     const NAME: &'static str = "ModelingSourceMapDocument";
 }
-impl DocumentType for pse_runtime::workflow::modeling::ModelingSourceMap {
+impl DocumentType for pse_runtime::workflow::ModelingSourceMap {
     const NAME: &'static str = "ModelingSourceMapDocument";
 }
 impl DocumentType for pse_runtime::inspection_comparison::InvocationComparisonDocument {

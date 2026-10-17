@@ -178,7 +178,8 @@ impl EvaluationContext<'_> {
 }
 
 /// Required partial derivative order; distinct from physical phase and conditioning.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, enum_map::Enum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, enum_map::Enum, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum DerivativeOrder {
     /// Values only.
     Value,

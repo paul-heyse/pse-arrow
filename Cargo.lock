@@ -6368,6 +6368,7 @@ dependencies = [
  "pse-ids",
  "pse-model",
  "pse-quantity",
+ "schemars",
  "serde",
  "thiserror 2.0.21",
 ]

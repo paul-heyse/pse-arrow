@@ -209,7 +209,7 @@ pub struct ModelingSourceMapDocument {
 #[derive(Debug)]
 pub struct ModelingSourceMap {
     /// Complete selected static source document under the retained lease.
-    pub document: ModelingSourceMapDocument,
+    document: ModelingSourceMapDocument,
     _lease: Arc<pse_columnar::AllocationLease>,
 }
 
@@ -217,6 +217,10 @@ impl serde::Serialize for ModelingSourceMap {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serde::Serialize::serialize(&self.document, serializer)
     }
+}
+impl ModelingSourceMap {
+    /// Borrow the static manifest while its complete construction lease remains alive.
+    pub fn document(&self) -> &ModelingSourceMapDocument { &self.document }
 }
 
 fn cell_count(lengths: &[usize]) -> Result<usize, WorkflowError> {

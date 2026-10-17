@@ -167,6 +167,7 @@ pub mod uncertainty;
 pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
+    ModelingSourceMap, ModelingSourceMapDocument,
     DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
     ElasticObservation, InitializationOverrides, ModelingAnalysis, ModelingCheck,
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
