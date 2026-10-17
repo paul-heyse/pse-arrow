@@ -1,6 +1,6 @@
 ---
 title: Dynamics, fitting and workflow effectiveness
-status: in-progress
+status: done
 date: 2026-10-17
 adrs: [ADR-0194]
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -13,7 +13,7 @@ doc_topics: [current-work, design, libraries, validation]
 
 ## Purpose and consumed foundations
 
-This companion owns F08 and workflow contributors to F01/F06, plus dynamic/fitting/shooting detail in O02/O04 and Q03. [Plan43](43-solver-diagnostics-and-performance.md) owns shared decisions and dispositions. RC06 was accepted on 2026-10-17; RC03/RC05/RC07 retain their stated product/reuse/investigation bounds. Product changes and acceptance are **Proposed**.
+This companion owns F08 and workflow contributors to F01/F06, plus dynamic/fitting/shooting detail in O02/O04 and Q03. [Plan43](43-solver-diagnostics-and-performance.md) owns shared decisions and dispositions. RC06 was accepted on 2026-10-17; RC03/RC05/RC07 retain their stated product/reuse/investigation bounds. At document authoring, product changes and acceptance were **Proposed**; the Outcome records delivered scope and evidence.
 
 **Interface-checked:** IDAS/Diffsol drivers and adjoint paths, runtime dynamic windows/experiments, fitting oracle/final identifiability, shooting integral/terminal products, public Rust/Python requests/reports and related publication consumers. The same authored model definitions, typed event/reset and derivative contracts, independent closure/qualification, retained workers and explicit failed products are suitable foundations.
 
@@ -90,10 +90,10 @@ Acceptance covers usable point with withheld local analysis, original failure af
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| D01 | Accepted RC06; pinned IDAS interpolation/event/effort contract; actual dependent consumer inventory | Combined boundary/interpolation/budget correction with all dynamic/workflow consumers and edge controls; remove sample-hard-stop path | open |
-| D02 | Existing product validity; A04 record slice; B projection/product slice where changed | Actual integration purpose and complete same-point upgrades/reuse across fit/shooting/response/curvature; remove misleading aggregate-only interpretation | open |
-| D03 | Q03 capability/accuracy/profile decision; C06 only for new native capability | Equivalent supported derivative/linear/corrector/checkpoint profiles or retained defaults, with correct work generations and eligibility | open |
-| D04 | A04 endpoint meaning; actual workflow/result/publication owners | Complete qualification/withholding/readiness facts and consumers, without changing science or artifact authority | open |
+| D01 | Accepted RC06; pinned IDAS interpolation/event/effort contract; actual dependent consumer inventory | Combined boundary/interpolation/budget correction with all dynamic/workflow consumers and edge controls; remove sample-hard-stop path | done |
+| D02 | Existing product validity; A04 record slice; B projection/product slice where changed | Actual integration purpose and complete same-point upgrades/reuse across fit/shooting/response/curvature; remove misleading aggregate-only interpretation | done |
+| D03 | Q03 capability/accuracy/profile decision; C06 only for new native capability | Equivalent supported derivative/linear/corrector/checkpoint profiles or retained defaults, with correct work generations and eligibility | done |
+| D04 | A04 endpoint meaning; actual workflow/result/publication owners | Complete qualification/withholding/readiness facts and consumers, without changing science or artifact authority | done |
 
 <!-- Package state is owned in this table. -->
 
@@ -101,11 +101,22 @@ D01 is a combined correctness delivery, not independent mesh/budget/event edits 
 
 ## Verification and checkpoint
 
-**Proposed:** native driver fixtures and independent analytic trajectories/derivatives, actual fitting/shooting product controls and targeted workflow/Python checks; force-validation for Arrow correctness closures. G02 assembles dense-output/event and derivative journeys after integration. G03 selects grid/work observations only where they settle a decision or support a claimed benefit.
+**Tested, 2026-10-17:** complete packet acceptance and selected supported inquiry branches are recorded in the Outcome below. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The packet table is the native progress owner; formal proposed ADR status does not assert or replace implementation acceptance.
 
-The supporting checkpoint below records observation-only integration purposes and endpoints. The existing driver and numerical products remain in force; no driver optimization or speedup is claimed. The remaining D scope stays open. Full F08 and workflow F01/F06 closure belongs to the coordinator with their other contributors.
+## Outcome (recorded after implementation)
 
+### What was built
 
-### Plan43a supporting-scope checkpoint — 2026-10-17
+**Implemented:** D01–D04 separate genuine event/reset/physical boundaries from covered output interpolation. Profile Version2 governs accepted advancement cumulatively for the complete forward trajectory, aggregate replay of a derivative operation and each complete backward functional/direction trajectory. Sampling, restores and reinitialization do not renew permission. Public Rust/Python/nested consumers migrate together and Version1 is explicitly rejected. Maintained IDAS guards operate at actual replay/per-memory advancement while NORMAL scheduling preserves covered output. Diffsol restores retain the actual producer and cumulative counters. Selected JVP/HVP products and admitted scratch serve actions; exact-point fit upgrades install complete products transactionally. Qualification, requested response/curvature, statistics withholding and readiness tails stay distinct.
 
-Observation-only D02/D04 support records actual fitting/shooting integration purpose and requested response/adjoint/curvature products, direct workflow endpoints and per-invocation references. No new integration, derivative request, IDAS driver or method policy is introduced; D01–D04 numerical and broader product scope remains open. [43a](43a-operation-evidence-and-coherent-live-diagnostics.md#a-execution-checkpoint) owns the selected execution checkpoint; [Plan43](43-solver-diagnostics-and-performance.md#current-checkpoint) owns finding disposition. [43a’s Outcome](43a-operation-evidence-and-coherent-live-diagnostics.md#outcome) records passing selected acceptance and its exclusions; package table states continue to describe each package’s complete scope, now authorized for execution.
+**Tested, 2026-10-17:** the linked native 284-case selection includes independent trajectories, covered-output exhaustion, events/IC/sensitivity/quadrature, reset/sample order, replay/backward budgets, product actions and restored producer work. The integrated runtime selection passed 76/76, including nonlinear DAE sensitivities, terminal integrals, event routes, scaled actions, shooting/multiple shooting, exact/first covariance, failed original-fit withholding and horizon reuse. Native Python ordinary consumers and all three managed sixteen-owner/equal-occurrence/cancellation study journeys passed with cleanup; their composite boundary and exact commands are recorded in [43g Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation).
+
+**Interface-checked:** D03/Q03 retain IDAS Simultaneous/KLU, Diffsol BDF/faer and current checkpoint spacing250/max400. Actual alternative/corrector/linear/checkpoint controls establish supported behavior, not a representative latency winner. Exactly zero functionals/sample cotangents avoid reverse/jump work after original eligibility and scope checks. A valid rank-deficient profile result remains usable while unavailable statistical products are withheld.
+
+### A mistake made and corrected
+
+A restore previously replaced the numerical producer, losing continuity of cumulative work. It now preserves the actual producer and records restores separately. The runtime action fixture omitted the two required parameter scales; adding explicit scales preserved its numerical, derivative and atomic publication assertions. Python integration also exposed a displaced existing `accuracy_goals` property; restoring its decorator repaired the public regression.
+
+### Deviations from the plan, deliberate
+
+Retain IDAS NORMAL scheduling with per-memory guards; ONE_STEP advances all active backward directions and can destroy already covered interpolants while another direction catches up. No aggregate backward cap across independent directions, renewed segment budget, automatic solver winner or hidden finite-difference production path was introduced. Formal ADR-0194 remains proposed.

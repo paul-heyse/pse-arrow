@@ -192,12 +192,12 @@ producer facts do not establish universal evaluator benefit or whole-model quali
 The selected analytic/interpreted/compiled and assembled acceptance is recorded in Plan43b/43g.
 
 For an explicitly selected Python/native compiled-evaluator build, use the repository
-checkout environment and the mathematical owner's feature:
+checkout environment and the feature forwarded through the runtime to the mathematical owner:
 
 ```bash
-scripts/pse-env --native=compiler,solver,klu,isolation,uno,petsc -- \
+scripts/pse-env --resource-class compile --native=compiler,solver,klu,isolation,uno,petsc -- \
   .venv/bin/maturin develop --uv --profile dev --locked \
-  --features force-validate,native-solvers,pse-math/compiled-evaluator
+  --features force-validate,native-solvers,compiled-evaluator
 ```
 
 Ordinary `py-sync` builds do not select this optional mathematical feature. Select

@@ -1,6 +1,6 @@
 ---
 title: Diagnostic analysis, artifacts and profiling
-status: planned
+status: done
 date: 2026-10-17
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -13,7 +13,7 @@ doc_topics: [current-work, design, storage, libraries, validation, environment]
 
 ## Purpose and foundations
 
-This companion consumes trustworthy producer facts to deliver evidence-linked explanation, source attribution, selected numerical analysis, immutable views and question-driven profiling. It owns E-package progress and Q05/Q07 decisions; [Plan43](43-solver-diagnostics-and-performance.md) owns combined dispositions and the accepted RC01–RC11 recommendations. Product work remains **Proposed**.
+This companion consumes trustworthy producer facts to deliver evidence-linked explanation, source attribution, selected numerical analysis, immutable views and question-driven profiling. It owns E-package progress and Q05/Q07 decisions; [Plan43](43-solver-diagnostics-and-performance.md) owns combined dispositions and the accepted RC01–RC11 recommendations. At document authoring, product work was **Proposed**; the Outcome records delivered scope and evidence.
 
 **Interface-checked:** current Rust-owned inspection statements/evidence references, Python/CLI projections, capture/session outputs, source/transform maps and existing artifact/data boundaries. Passive reads, caller-owned tracing, explicit availability/loss and exact owned capture cleanup are useful foundations. They should not acquire scientific evaluation, a second scheduler/charge ledger or mandatory canonical-store writes.
 
@@ -102,19 +102,53 @@ Preserve task/descendant overlap, concurrent operation/thread partiality, unknow
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| E01 | Existing copied facts; A02/A03 only for required iteration history; A04 for comparisons | Pure evidence-linked explanations/policies and common Rust/Python/CLI consumers; no hidden science or automatic solver changes | open |
-| E02 | Actual B/C/D mapping slices; A02 for live records | Many-to-many original-source attribution with valid pullbacks, shared execution charged once and unavailable mapping explicit | open |
-| E03 | Q05 requirement/operator/library decision; fitting math/factor owner; E02 where needed | Explicit selected numerical probe with qualified result or supported withheld/dense branch, original failure preserved | open |
-| E04 | A04 invocation joins; selected A03 detail/B01 census; existing artifact owners | Immutable linked Arrow/query/Trace Processor-derived views and full consumers, no duplicate authority or ordinary-store dependency | open |
-| E05 | Q07 question/feasibility; particular F/C build or hook if needed | Useful existing/new owned capture adapters or supported no-adoption outcomes for considered candidates; honest scope/loss and safe stop | open |
+| E01 | Existing copied facts; A02/A03 only for required iteration history; A04 for comparisons | Pure evidence-linked explanations/policies and common Rust/Python/CLI consumers; no hidden science or automatic solver changes | done |
+| E02 | Actual B/C/D mapping slices; A02 for live records | Many-to-many original-source attribution with valid pullbacks, shared execution charged once and unavailable mapping explicit | done |
+| E03 | Q05 requirement/operator/library decision; fitting math/factor owner; E02 where needed | Explicit selected numerical probe with qualified result or supported withheld/dense branch, original failure preserved | done |
+| E04 | A04 invocation joins; selected A03 detail/B01 census; existing artifact owners | Immutable linked Arrow/query/Trace Processor-derived views and full consumers, no duplicate authority or ordinary-store dependency | done |
+| E05 | Q07 question/feasibility; particular F/C build or hook if needed | Useful existing/new owned capture adapters or supported no-adoption outcomes for considered candidates; honest scope/loss and safe stop | done |
 
 ## Verification and checkpoint
 
-**Proposed:** pure analysis tests require no store/native startup. Probe/capture tests own only their actual numerical/tool fixture; external tool absence is explicit where a selected capability is required. Generated document/API changes migrate their Rust/Python consumers. G02 checks active/terminal/postfailure end-to-end interpretation; G03 assesses evidence sufficiency and any claimed benefit separately from scientific validity.
+**Tested, 2026-10-17:** the Outcome below records complete selected delivery and actual mechanism/consumer controls. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The supported inquiry conclusions below are complete retained/selected branches; they are not pending benchmark or environment-proof work.
 
-The supporting checkpoint below records migrated inspection, timeline and finite record readers. Broader interpretation, probes, columnar products and profiler integration remain open; named tool alternatives retain conditional selection. Full source review scope and external recommendation routing remain at the coordinator; this companion is not a second findings ledger.
+### Q05/Q07 selected branches — 2026-10-17
 
+**Interface-checked:** Q05 retains the full bounded faer SVD because the actual request asks for full rank and both rectangular nullspaces. PRIMME/ARPACK partial products do not satisfy that contract; normal equations and a borrowed J factor do not supply a lawful shortcut. Published modes now carry actual operator residual/normalization qualification. A future explicitly requested few-mode product remains technically eligible; it is not required to finish this request.
 
-### Plan43a supporting-scope checkpoint — 2026-10-17
+Q07 selects the existing independent bounded capture owner, Perfetto timeline and perf/Samply CPU route. The new optional Trace Processor58.2 adapter installs only by explicit command and queries existing immutable traces into a fresh finite output directory. Actual CLI import exposed a missing builtin clock relationship; the writer now supplies actual MONOTONIC/BOOTTIME snapshots, keeps event timestamps in their source clock and reports the sampling bracket. SQL uses actual `debug.*` arguments and reads unsigned source sequences through exact display text. Direct Arrow views retain typed unsigned values instead of importing SQL's signed representation. Native Arrow-tar export is an actual Trace Processor58.2 capability; our selected direct Arrow/SQL consumers need no custom conversion parser.
 
-The A02/A03 E01/E04 enabling slice carries whole producer records through inspection/timeline and finite source JSONL/page readers; A04 consumers retain per-invocation records separately from Criterion populations. Numerical probes, columnar comparison products, optional profilers and broader E01–E05 analysis remain open. [43a](43a-operation-evidence-and-coherent-live-diagnostics.md#a-execution-checkpoint) owns the selected execution checkpoint; [Plan43](43-solver-diagnostics-and-performance.md#current-checkpoint) owns finding disposition. [43a’s Outcome](43a-operation-evidence-and-coherent-live-diagnostics.md#outcome) records passing selected acceptance and its exclusions; package table states continue to describe each package’s complete scope, now authorized for execution.
+| Candidate | Selected outcome and settling reason |
+| --- | --- |
+| Perfetto/Trace Processor | Adopt timeline/SQL and explicit pinned optional install. Query source/clock/loss facts; slice durations remain inclusive. Scheduler tables require scheduler data. Controlled CLI import and all three queries worked; the actual production trace consumer passed in G02’s 76-case runtime selection. |
+| perf/Samply/Inferno | Retain owned perf raw capture and existing optional rendering. User cycles/instructions succeeded on this workstation. Raw losses, unresolved frames, inherited children and shared thread overlap remain visible; a hot stack alone is not causality. No unconditional higher frequency/frame-pointer rebuild is selected. |
+| perf stat/perf-event2 | Retain explicit bounded owned-command experiments when a concrete counter question arises; no additional production PMU adapter is selected because current source-work counts settle the selected corrections. Host user cycles/instructions feasibility does not establish raw/ftrace/uncore permissions or bandwidth saturation; no new parallel PMU owner is justified. |
+| Heaptrack | Technically eligible; isolated launch captured an allocation. Do not integrate launch injection as an independently stoppable capture because its lifetime is tied to the scientific child. No currently qualified independent attach/stop route warrants replacing the existing capture owner. A whole instrumented experiment has a distinct lifetime. |
+| BCC/bpftrace/off-CPU/perf sched/c2c/branch | Explicitly unavailable for the probed bpftrace path: even BEGIN/exit requires root here. User perf counters do not confer those capabilities. No permanent daemon or blanket privilege change is selected for an unestablished wait/false-sharing question. |
+| Gungraun/Valgrind/dhat | Retain isolated experimental eligibility. Callgrind produced instructions on a controlled launch; simulated instructions/cache differ from hardware latency. No new mandatory adapter or claim that Rust allocation covers Python/native memory. |
+| Coz | Supported no-adoption: no qualified meaningful progress/virtual-speedup intervention spans the current native/Python/child workflow. Source work counts answer the selected removed-work question without introducing an intervention owner. |
+| Tracy | Supported no-adoption: Perfetto already supplies the selected timeline/view and coherent event authority. A second subscriber/protocol brings no currently required observation. |
+| Tokio Console | Supported no-adoption: selected defects are notification/admission ownership and native numerical work; async scheduling is not convergence. No dedicated instrumented runtime build is needed for this correction. |
+| SUNProfiler/Caliper | Retain eligibility, omit activation: bundled profiling is disabled and variadic/file timing does not supply typed native factor work. Selected KLU hooks and PETSc handler answer the actual questions within their owners. |
+| AMD uProf/IBS | Supported no-adoption for this selected scope: Ryzen presence does not qualify all EPYC/OS/PMU capabilities, and no measured memory-bandwidth bottleneck requires an installed profiler. No unsupported roofline claim or compulsory SDK install. |
+| LLVM remarks/llvm-mca | Retain existing tools for a confirmed generated hot region. No such region is selected by the current work-count evidence, so whole-workflow optimization is not inferred from instruction throughput. |
+
+**Tested:** adapter controls (`scripts/pse-env --` route, `unittest scripts.tests.test_diagnostic_trace`) exercised literal paths, independent timeout/child join, finite output failure, absent optional tool, invalid bounds and preservation of existing output:6 passed against zero failures. Tool feasibility used `/usr/bin/true`, not a simulation: perf user counters succeeded, Heaptrack captured1 allocation/no leak, Callgrind emitted173133 instructions, and bpftrace reported root-only. These are capability observations, not simulation performance measurements. The assembled source/consumer acceptance is recorded in the 43g Outcome.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** E01–E05 provide pure evidence-linked explanations/comparisons, actual raw-map/native Integer interpretation, bounded coherent-history policies, static many-to-many source maps and explicit qualified numerical diagnostics. Source-map public preparation/waits/copy share one original deadline and admitted storage; inspection never evaluates science. Full bounded faer SVD publishes independently checked operator residual/normalization and honest rectangular absence. Three registry-declared leased Arrow/DataFusion evidence/invocation/capture views retain exact source keys, unsigned sequences, nullable availability, loss and immutable raw authority. Rust/Python/CLI consumers and optional pinned Trace Processor58.2 queries use the existing finite capture owner and clock relationship.
+
+**Tested, 2026-10-17:** all 78 low diagnostics controls and selected 12 policy controls passed. The integrated runtime selection passed 76/76, including 12 comparisons, seven Arrow/query/lease controls, three source maps, producer-only capture loss and the explicitly selected actual Trace Processor consumer. The Python consumer selections passed immutable explanation/comparison/source-linked Arrow/export, history-off current progress and memory-refusal assertions. All six optional Trace Processor adapter unit controls passed. [43g Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) records exact commands, repaired composite evidence and exclusions.
+
+**Interface-checked:** Q05 retains the requested full bounded SVD; a few-mode partial solver or JᵀJ substitution cannot establish full rank and both nullspaces. Q07's candidate table above records every considered tool's selected/retained/unavailable/no-adoption branch. Existing perf/Samply capture is retained; Perfetto/Trace Processor is the selected added optional consumer. Host perf, Heaptrack and Callgrind probes establish only feasibility; bpftrace's tested path requires root. No blanket privilege, second telemetry authority or compulsory profiler sweep was introduced.
+
+### A mistake made and corrected
+
+Actual query consumers exposed nullable modifiers attached inside a payload constructor that resets them; all17 optional columns now declare nullability at the column owner and were regenerated. Comparisons now use canonical serde source scalars (including hash prefixes) and exact `/value` evidence pointers. Capture sufficiency now includes producer-only refusal/history loss. Actual Trace Processor import required a builtin clock relationship and exact unsigned argument display. Source-map public preparation initially renewed/escaped the copy deadline; one original clock now covers it.
+
+### Deviations from the plan, deliberate
+
+Keep original authored values/guards and selected-product attribution distinct from unrequested jets. Static source maps include all branches without numerical evaluation; live worst-member pullbacks remain explicitly unavailable when unsupported. Selected direct Arrow and SQL views need no custom Trace Processor Arrow-tar parser. Unsupported profiling attachments and speculative causal verdicts remain unavailable/hypotheses, not new product paths. Formal ADR-0196 remains proposed; no complete IDAES DiagnosticsToolbox parity is claimed.

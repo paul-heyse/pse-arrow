@@ -533,6 +533,21 @@ actual boundaries. This is composed selected acceptance, not a fresh monolithic 
 rerun, statistical speedup, exhaustive feature powerset or qualification of Plan40/28/32 scope.
 Environment/provenance proof and repeated comparative benchmarking are permanently eliminated.
 
+Selected Plan43 solver/diagnostic acceptance of 2026-10-17 belongs to the
+[Plan43g Outcome](../../plans/43g-qualification-and-design-publication.md#outcome-recorded-after-implementation).
+It records independent mathematical/product/guard controls, native conformance and
+workflow/dynamic/fitting journeys, installed ordinary/managed Python consumers, coherent
+inspection/query views, actual bounded Trace Processor consumption and resource drain.
+Continuing default/no-default/linked-native Clippy, repaired hygiene leaves, governance,
+native contract/data checks and the depth-two feature matrix retain their exact commands
+and composite repair boundaries there. The optional compiled route has its separately
+selected qualification. This is selected assembled acceptance, not a replacement of the
+historical full basis, certification of the whole physical model library, a statistical
+speedup or an all-platform campaign. An unchanged external-report metadata error blocks
+full-book publication; authored-scope metadata/native tables/links/rendering remain a
+separate check. Older plans and formal proposed ADR statuses are not reassessed.
+Environment/provenance proof and compulsory repeated benchmarking remain eliminated.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

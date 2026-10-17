@@ -1,6 +1,6 @@
 ---
 title: Native methods, reuse and matrix boundaries
-status: planned
+status: done
 date: 2026-10-17
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -13,7 +13,7 @@ doc_topics: [current-work, design, libraries, validation]
 
 ## Purpose and foundations
 
-This companion owns F04, native F02/F07 contributors and O01/O02/O04 native work in [Plan43](43-solver-diagnostics-and-performance.md). It develops Q02/Q03/Q04 with explicit decision branches. Rule recommendations RC01–RC11 were accepted as written on 2026-10-17; acceptance of a bounded investigation does not select its unknown answer. Product implementation remains **Proposed**.
+This companion owns F04, native F02/F07 contributors and O01/O02/O04 native work in [Plan43](43-solver-diagnostics-and-performance.md). It develops Q02/Q03/Q04 with explicit decision branches. Rule recommendations RC01–RC11 were accepted as written on 2026-10-17; acceptance of a bounded investigation does not select its unknown answer. At document authoring, product implementation was **Proposed**; the Outcome records delivered scope and evidence.
 
 **Interface-checked:** current callback/TNLP/presolve/sequence, structural/routing, native settings, conditioning and backend extraction owners plus the review's exact-version source. Numerical iteration, globalization, factorization and fitting model management remain library-owned. Typed policy, original assessment, charge ownership, panic containment and native drain are suitable foundations.
 
@@ -104,20 +104,31 @@ R2's six Ipopt deep options have a source-supported current route. Boolean/text 
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| C01 | A01 availability/producer slice; A02 for coherent projections | Truthful native activation/current progress across supported classes, terminal/live consumer migration and no zero-for-disabled timing | open |
-| C02 | Existing callback/output semantics; narrow B fill slice where needed | Prepared maps/owned scratch/bulk output plus valid bridge/transformed witnesses; no partial publication or unchecked foreign structure | open |
-| C03 | Q02 validity/owner inspection; accepted RC05 route; extra concrete decision for stronger retention | Qualified compatible native/conditioning reuse or fresh-state branch, actual reuse facts and adversarial invalidation/drain controls | open |
-| C04 | Q03 capability/formulation decision; accepted RC07 route | Declared family profiles with native-owned algorithms, original recovery and concrete default decision or retained defaults | open |
-| C05 | ResolvedAccuracy/effective config authority; specific Q03 choice | Sound method-specific refinement/stopping/bound policy and original-candidate qualification; remove conflicting implicit defaults | open |
-| C06 | Exact library/build evidence; Q04 only for hook work; A02 for extraction and A03 only for selected history integration | Needed bounded native hooks and independently ready library-owner fixes, supported unknown branches and consumer/ABI qualification | open |
+| C01 | A01 availability/producer slice; A02 for coherent projections | Truthful native activation/current progress across supported classes, terminal/live consumer migration and no zero-for-disabled timing | done |
+| C02 | Existing callback/output semantics; narrow B fill slice where needed | Prepared maps/owned scratch/bulk output plus valid bridge/transformed witnesses; no partial publication or unchecked foreign structure | done |
+| C03 | Q02 validity/owner inspection; accepted RC05 route; extra concrete decision for stronger retention | Qualified compatible native/conditioning reuse or fresh-state branch, actual reuse facts and adversarial invalidation/drain controls | done |
+| C04 | Q03 capability/formulation decision; accepted RC07 route | Declared family profiles with native-owned algorithms, original recovery and concrete default decision or retained defaults | done |
+| C05 | ResolvedAccuracy/effective config authority; specific Q03 choice | Sound method-specific refinement/stopping/bound policy and original-candidate qualification; remove conflicting implicit defaults | done |
+| C06 | Exact library/build evidence; Q04 only for hook work; A02 for extraction and A03 only for selected history integration | Needed bounded native hooks and independently ready library-owner fixes, supported unknown branches and consumer/ABI qualification | done |
 
 ## Verification and checkpoint
 
-**Proposed:** compile actual touched closures and add focused adapter/bridge/policy tests while implementing. Pure admission/strategy tests use injected facts; foreign safety tests own their actual native fixture. Regenerate declarations/bindings through their generator where changed. G02 integrates native outcomes and original checks across full workflows; G04 runs scope-end static/manual checks.
+**Tested, 2026-10-17:** complete packet acceptance and selected supported inquiry branches are recorded in the Outcome below. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The packet table is the native progress owner; formal proposed ADR status does not assert or replace implementation acceptance.
 
-The supporting checkpoint below records the selected C01/C06 observation delivery and its acceptance owner. Remaining native materialization, reuse, numerical-policy and library investigations stay open. RC05/RC07 accept investigation routes, not state-reuse/default winners. The coordinator owns F02/F04/F07 resolution with other contributors.
+## Outcome (recorded after implementation)
 
+### What was built
 
-### Plan43a supporting-scope checkpoint — 2026-10-17
+**Implemented:** C01–C06 retain truthful native activation and coherent progress, prepared callback/TNLP/KINSOL/PETSc transport and bulk publication, checked original/transformed witnesses, typed MUMPS pivot/max-pivot/memory/permuting controls and one effective FERAL refinement authority across IPM/SQP exact/limited-memory methods. Actual KLU issued/completed counters, optional Uno accepted/trial detail and PETSc owned nested hook extraction retain unknown/refusal and generation meaning. The coherent maintained POUNCE/FERAL family is pinned at `cfa07f0d4089bbab756def9df25dbca740547f03`.
 
-C01 activation-aware POUNCE timers and common coherent progress projection, plus the A03 C06 owner-safe extraction slice, are implemented. Shared callback roles and selected synchronous CPU use A01. This does not close C02 materialization, C03 reuse or C04–C06 numerical/library/profiler investigations. [43a](43a-operation-evidence-and-coherent-live-diagnostics.md#a-execution-checkpoint) owns the selected execution checkpoint; [Plan43](43-solver-diagnostics-and-performance.md#current-checkpoint) owns finding disposition. [43a’s Outcome](43a-operation-evidence-and-coherent-live-diagnostics.md#outcome) records passing selected acceptance and its exclusions; package table states continue to describe each package’s complete scope, now authorized for execution.
+**Tested, 2026-10-17:** `just unit-native-capability-package pse-backend-native native-solvers solver,klu,isolation,uno,petsc` with callback/presolve/sequence/POUNCE/implicit/dynamics/KINSOL/PETSc/transport/lifetime selectors passed 284/284. Actual Uno ABI (8), backend (9), selected POUNCE factor (1), maintained-family fatal factor detail (1) and final PETSc getter/refusal ABI (1) controls passed in their linked routes. The integrated runtime selection passed 76/76 with original equations, branch restoration, profiles, recycling and consumed-accuracy assertions. [43g Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns integrated/static evidence and exact boundaries.
+
+**Interface-checked:** Q02 retains compatible allocation and symbolic/pattern reuse with fresh point-dependent numeric state: no Ipopt same-structure warm-start shortcut, KINSOL setup suppression, or stale KLU/FERAL numerical factor. Q03 retains global setup10/inner1 after actual 1/2/3/10 controls; existing bounded declared conditioning/composition routes keep original acceptance and do not become automatic retries. Typed explicit FERAL refinement defaults remain true/10 and explicit false is honored by every method. Q04 selects bounded actual KLU/PETSc/Uno and maintained-family hooks; unsupported getters remain unavailable/unknown, never disabled-as-zero. These are completed decisions, not pending performance winners.
+
+### A mistake made and corrected
+
+Actual native tests exposed an empty-Hessian SQP declared-product boundary and stale factor-detail survival after fatal factorization. The boundary now supplies the declared empty product without a full-oracle call or zero-curvature certificate; fatal factor detail is cleared at its library owner. PETSc getter failure now reports unknown instead of falsely inactive, with an actual ABI refusal assertion.
+
+### Deviations from the plan, deliberate
+
+Stronger numerical-state retention and native factor handoff were not adopted without valid compatibility premises. Existing default setup/strategy choices remain supported conclusions rather than tournament deferrals. Native accepted/trial or inclusive hook observations are not relabelled iterations/exclusive times. No license restriction excluded a technically fitting library. Formal ADR statuses remain unchanged.

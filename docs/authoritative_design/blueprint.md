@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 190
+revision: 191
 date: 2026-10-17
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 191 | 2026-10-17 | Plan43 G05 publishes optional compiled-evaluator deployment forwarding at §14.5 and selected solver/diagnostic qualification at §24.2, with original scientific assertions, repaired composite/static boundaries and unchanged external-report publication limitation. | Maintainer delegated full-series execution; PSE_DESIGN_EDIT=1. Exact selected commands, conditions and exclusions stay in Plan43g; historical full basis, other plans and formal ADR statuses are unchanged. |
 | 190 | 2026-10-17 | Plan43 G05 reconciles §14.5 optional compiled arithmetic with the delivered selected First/Second and weighted/action products; removes stale Value-only implementation wording. | Maintainer delegated full-series execution; PSE_DESIGN_EDIT=1. Analytic/interpreted/compiled controls passed; full-series qualification stays at Plan43g. Formal ADR status unchanged. |
 | 189 | 2026-10-17 | Plan43 G05 publishes selected implicit Newton/IFT demand and factor ownership (§14.3), typed MUMPS and authoritative FERAL refinement (§18.3), Version2 migration and per-memory NORMAL backward guards (§13.6), and the source-map caller clock (§23.1). | Maintainer delegated full-series execution; PSE_DESIGN_EDIT=1. Native runtime 76-control acceptance passed; Python/durable/static qualification remains with Plan43g. Formal ADR status is unchanged. |
 | 188 | 2026-10-17 | Plan43 RC03 clarifies requested-product versus unrequested intermediate-jet validity (§14.3), and RC11 corrects local diagnostic catalogue wording (§15); proposed ADR-0192/0196 extend source-linked pure analysis, static attribution, qualified singular modes, actual native detail, clock-aligned capture and three derived evidence views (§23.1). | Maintainer delegated full-series execution; PSE_DESIGN_EDIT=1. Functional source is integrated; assembled qualification remains at Plan43g. No complete IDAES Toolbox parity, automatic causal verdict or environment proof. |

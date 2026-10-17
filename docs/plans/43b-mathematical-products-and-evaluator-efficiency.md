@@ -1,6 +1,6 @@
 ---
 title: Mathematical products and evaluator efficiency
-status: in-progress
+status: done
 date: 2026-10-17
 adrs: [ADR-0193]
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -15,7 +15,7 @@ doc_topics: [current-work, design, preparation, libraries, validation]
 
 This companion supplies F05/F06, mathematical slices of F07, O01/O03 and Q01 to [Plan43](43-solver-diagnostics-and-performance.md). It owns selected product preparation, arithmetic realization, point-result projections and implicit derivative work. Native policy/factors remain with [43c](43c-native-methods-reuse-and-matrix-boundaries.md), dynamic scientific composition with [43d](43d-dynamics-fitting-and-workflow-effectiveness.md), and admitted lanes/platforms with [43f](43f-execution-resources-and-platform-profiles.md). This document owns B-package progress, not combined finding disposition.
 
-**Interface-checked:** the integrated review, Symbolica 3.0.1/faer 0.24.4 source contracts and current `pse-math` typed/execution/jets/assembly/implicit/library owners plus compiler/runtime artifact consumers. Reuse that evidence; the local skill's Symbolica 3.0.0 baseline alone cannot qualify3.0.1 behavior. **Proposed:** all corrections/qualification. The coordinator records accepted RC03/RC04 and their bounds; any additional consequential identity change follows its concrete decision route before implementation.
+**Interface-checked:** the integrated review, Symbolica 3.0.1/faer 0.24.4 source contracts and current `pse-math` typed/execution/jets/assembly/implicit/library owners plus compiler/runtime artifact consumers. Reuse that evidence; the local skill's Symbolica 3.0.0 baseline alone cannot qualify3.0.1 behavior. **At document authoring — Proposed:** all corrections/qualification. The coordinator records accepted RC03/RC04 and their bounds; any additional consequential identity change follows its concrete decision route before implementation.
 
 The foundation already separates immutable scalar/artifact preparation, selected supports/bindings, mutable worker scratch and fallible providers. Assembly uses packed second partials, narrows axes and serves lower orders from a successful higher order within a demand group. Implicit provider full/point/jet reuse, symbolic LU and factor scratch already exist. Preserve those strengths rather than introducing another cache/optimizer/AD engine. The gaps are intermediate-shape amplification, small arithmetic regions, cross-demand projections and broad implicit products.
 
@@ -103,22 +103,39 @@ Compare eligible arithmetic versus surrounding preparation/providers/checks; inc
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| B01 | Existing support/addend/census facts; common A fact slice; RC03 for changed product contract | Support-driven contributions, compact census, owner-local demand/cache/provider counters, prepared offsets and sound clearing; aliases/overflow/reset/limits checked; retire redundant scans/lookups | open |
-| B02 | Selected demand and settled region semantic barriers; RC03 | Library-optimized compatible regions with full source/provider/guard/portable migration and independent value/derivative controls | open |
-| B03 | Q01 capability/representation decision; RC03 | Product-specific weighted/directional/selected lowering and complete math/compiler/runtime/native consumers | open |
-| B04 | Existing complete products and projection premises; RC03 if contract changes | Lazy cross-demand projections with exact point/configuration/weight identity and failure/reset controls; retire duplicate result reuse | open |
-| B05 | Admitted implicit contract; RC03; C03 only for optional factor handoff | Unknown-only Newton plus qualified IFT realization and current-factor checks; no unnecessary dense expansion/contraction | open |
-| B06 | Accepted RC04; actual product/region identity and bounded compile/load contract | Qualified optional derivative arithmetic compilation for eligible scope, equivalent outputs, own scratch/child drain and complete artifact consumers; unsupported shapes explicit | open |
+| B01 | Existing support/addend/census facts; common A fact slice; RC03 for changed product contract | Support-driven contributions, compact census, owner-local demand/cache/provider counters, prepared offsets and sound clearing; aliases/overflow/reset/limits checked; retire redundant scans/lookups | done |
+| B02 | Selected demand and settled region semantic barriers; RC03 | Library-optimized compatible regions with full source/provider/guard/portable migration and independent value/derivative controls | done |
+| B03 | Q01 capability/representation decision; RC03 | Product-specific weighted/directional/selected lowering and complete math/compiler/runtime/native consumers | done |
+| B04 | Existing complete products and projection premises; RC03 if contract changes | Lazy cross-demand projections with exact point/configuration/weight identity and failure/reset controls; retire duplicate result reuse | done |
+| B05 | Admitted implicit contract; RC03; C03 only for optional factor handoff | Unknown-only Newton plus qualified IFT realization and current-factor checks; no unnecessary dense expansion/contraction | done |
+| B06 | Accepted RC04; actual product/region identity and bounded compile/load contract | Qualified optional derivative arithmetic compilation for eligible scope, equivalent outputs, own scratch/child drain and complete artifact consumers; unsupported shapes explicit | done |
 
 B01–B06 are not a required serial chain. Shared assembly/execution/compiler/artifact editing requires coordination; C02 can remove transport work before B03, and F01 lane design needs exclusive worker/provider ownership rather than every optimization.
 
 ## Verification and checkpoint
 
-**Proposed:** focused mathematical/compiler/provider fixtures plus touched-package compile checks; actual Arrow correctness closures use force-validation. Independent analytic/finite-difference comparisons are verification tools, not production derivative fallbacks. Native adapter and complete dynamic/fitting/optimization journeys are integrated by G02; selected census/work observations establish removed work without a mandatory timing campaign.
+**Tested, 2026-10-17:** complete packet acceptance and selected supported inquiry branches are recorded in the Outcome below. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The packet table is the native progress owner; formal proposed ADR status does not assert or replace implementation acceptance.
 
-The full B packages remain open. Q01 choices and dependent rule decisions remain explicit; the supporting checkpoint below records the narrower A01/A04 observation delivery. Global F05/F06/F07 resolution remains with the coordinator and all contributors.
+### Contract clarification from independent review — 2026-10-17
 
+RC03's selected product boundary preserves all original materialized values and ordered source/domain/derivative-eligibility guards, and finite checks on the complete requested product. It does not require constructing unrequested intermediate derivative jets or certify their availability. At positive x=1e-300, materializing u=sqrt(x) and requesting the Hessian of u²+x² can yield the valid contracted result2 even though an unused separate u″ exceeds binary64. Actual production BodyBuilder square roots retain Nonnegative Value and Positive First-order guards through lowering; x=0 remains ineligible for derivative products. The raw PreparedBody constructor used by tests is crate-private/test-only and does not infer missing guards. E02's explicit Value-check versus selected-product scopes retain this distinction. Independent review accepted this concrete interpretation after tracing the production guard path; analytic/interpreted/compiled controls remain required before acceptance.
 
-### Plan43a supporting-scope checkpoint — 2026-10-17
+Independent review also found that implicit final derivative programs could supply permuted formal axes even though IFT assumes unknowns then parameters. The constructor now requires canonical complete derivative axes (empty for Value); analytic first/second and permutation-rejection controls qualify the correction. This is a correctness repair, not a relaxation of verification or an alternative production path.
 
-Compact prepared/realized census and separately admitted occurrence/demand/order observations, aggregate fallback, provider/implicit performed-work facts and selected census/demand records are implemented for A01/A04. Support-driven assembly, derivative representations, contraction and other B01–B06 algorithm changes remain open. [43a](43a-operation-evidence-and-coherent-live-diagnostics.md#a-execution-checkpoint) owns the selected execution checkpoint; [Plan43](43-solver-diagnostics-and-performance.md#current-checkpoint) owns finding disposition. [43a’s Outcome](43a-operation-evidence-and-coherent-live-diagnostics.md#outcome) records passing selected acceptance and its exclusions; package table states continue to describe each package’s complete scope, now authorized for execution.
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** B01–B06 use support-driven sparse contributions/prepared offsets, bounded joint optimization of compatible siblings, explicitly demanded selected/weighted/directional products, and lazy complete-product projection. Exact consumed weights/directions, point/fixed inputs, provider/applicability and configuration premises govern reuse. Unknown-only Newton and canonical unknown-then-parameter IFT programs are separate; current faer factors serve multiple IFT right-hand sides without claiming a KINSOL/KLU factor handoff. Eligible derivative arithmetic uses the optional owned Symbolica C++ compile/load route with conservative flags, independent admitted scratch and cold unused Second products. Runtime/Python deployment roots forward the same opt-in compiled-evaluator feature and report actual extension availability. Compiler/runtime/native/portable/artifact consumers use the same contract; no legacy broad-body alias or second derivative engine remains.
+
+**Tested, 2026-10-17:** support/assembly controls (14 B05 and 12 assembly cases), 17 projection/product/math controls, nine compiled-derivative controls and two first-only/branch controls passed through the selected `just unit-package pse-math` routes with actual `compiled-evaluator`/native compiler capability where required. The final `just unit-package pse-math` compiled contract selection passed 9/9: independent implicit u=2p+p² at p=3 gives first8/second2, canonical-axis refusal, analytic/interpreted/compiled products, ordered guards and full singular-mode checks. G02's native runtime selection passed 76/76, including consumed-accuracy/refinement, derivative actions, fitting/shooting and original-corrector qualification. The compiler all-unit run passed 261/262; its single demand-ceiling fixture was corrected and the affected selection then passed 1/1. [43g Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns commands, integrated/static results and exclusions.
+
+**Interface-checked:** Q01 selects existing library product-specific lowering, support and bounded region optimization. Provider cross-demand projection stays ineligible without an established validity premise; pointer identity supplies none. Full materialized source values/ordered guards and finite complete requested products remain required. Unrequested intermediate jets are not separately constructed or certified. No all-context speedup or unexercised scientific-model claim is made.
+
+### A mistake made and corrected
+
+Independent review exposed permuted final implicit derivative axes despite IFT's canonical indexing assumption. Construction now rejects those axes and an independent nonlinear analytic control checks first/second derivatives. Actual Maturin execution disproved a metadata-only transitive-feature build assumption; explicit forwarding through existing dependencies now makes the optional route selectable without an artificial direct dependency. A compiler fixture also assumed every local demand inherits a case's Second ceiling; it now checks each projected support's real ceiling while still requiring the requested case ceiling and unchanged first/second support restrictions.
+
+### Deviations from the plan, deliberate
+
+Retain library-owned faer IFT factor/RHS reuse rather than an unqualified native factor handoff. Direct weighted/action completion preserves requested-product validity without fabricating unrequested intermediate derivative obligations. Existing opaque construction admission governs symbolic weighted construction; no invented full-square HVP bound or mandatory timing campaign was introduced. Formal ADR-0193 remains proposed; target authorization, implementation and test evidence are separate.

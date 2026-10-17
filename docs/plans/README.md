@@ -4,14 +4,6 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan 43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
-is an active standalone series capturing the integrated review and corrected external
-recommendations. The operator accepted RC01–RC11 as written on 2026-10-17, including their
-bounded investigation limits. Companions 43a–43g own operation evidence, mathematical products,
-native execution, dynamic workflows, analysis/profiling, resources/platforms and qualification.
-The [checkpoint](43-solver-diagnostics-and-performance.md#current-checkpoint) records accepted Plan43a delivery and authorization to execute the entirety of remaining 43b–43g; 43a’s Outcome owns its selected A01–A05 acceptance and enabling observation slices. Existing plans
-retain their statuses and scopes without reassessment or supersession by this series.
-
 [Plan 42: Post-Plan41 simulation efficiency and diagnostics](42-post-plan41-simulation-efficiency-and-diagnostics.md)
 is complete. Its [Outcome](42-post-plan41-simulation-efficiency-and-diagnostics.md#outcome-recorded-after-implementation)
 records F01–F08/RC01–RC02 disposition, seven settled inquiries, selected assembled acceptance and
@@ -116,6 +108,15 @@ execution follows only the explicitly recorded scope of active plans from 28 onw
 Plan 32 owns workspace content lifecycle work; Plan 28 retains its own scope.
 
 ## Latest completed plan
+
+[Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
+is complete (2026-10-17). Its [Outcome](43-solver-diagnostics-and-performance.md#outcome-recorded-after-implementation)
+and [43g qualification](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation)
+record all36 completed packages/eight resolved findings, supported retained inquiry choices,
+selected scientific/native/Python acceptance, repaired composite static/feature results and
+publication limits. Standard accuracies and other plans' scopes/statuses remain unchanged.
+The highest coordinator and consumed companions remain for current qualification and proposed
+ADR verification; formal ADR acceptance is separate.
 
 
 [Plan39](39-implementation-friction-and-codex-effectiveness.md#outcome-recorded-after-implementation)

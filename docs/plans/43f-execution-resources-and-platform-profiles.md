@@ -1,6 +1,6 @@
 ---
 title: Execution resources and platform profiles
-status: in-progress
+status: done
 date: 2026-10-17
 adrs: [ADR-0195]
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -13,7 +13,7 @@ doc_topics: [current-work, design, environment, libraries, validation]
 
 ## Purpose and foundations
 
-This companion develops O03/O05/O07 and Q06/platform contributors to Q07 in [Plan43](43-solver-diagnostics-and-performance.md). It owns F-package progress. The operator accepted RC08/RC09's bounded routes on 2026-10-17, retaining conservative defaults until a concrete optional profile/provider is selected. No unknown hardware, allocator or numerical winner is preapproved. All implementation/equivalence/measurement remains **Proposed**.
+This companion develops O03/O05/O07 and Q06/platform contributors to Q07 in [Plan43](43-solver-diagnostics-and-performance.md). It owns F-package progress. The operator accepted RC08/RC09's bounded routes on 2026-10-17, retaining conservative defaults until a concrete optional profile/provider is selected. No unknown hardware, allocator or numerical winner is preapproved. At document authoring, implementation/equivalence/measurement was **Proposed**; the Outcome records delivered scope and evidence.
 
 **Interface-checked:** current CaseWorker serial shared scratch, provider/session construction, runtime jobs/study/admission, POUNCE factor pools, Cargo profiling/dist profiles, explicit evaluator compiler flags and native/provider settings. Exclusive mutable workspaces, immutable preparation, issued-work ownership and existing admission are suitable foundations. Fine-grained parallelism must not multiply nested teams/scratch or replace existing execution policy with another scheduler.
 
@@ -85,14 +85,40 @@ B06 derivative compilation consumes the conservative/selected build contract it 
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| F01 | Exclusive worker/provider construction and enclosing resource contract; B product slice where needed | Admitted lanes/pools with preserved scientific behavior, selected reduction/error class and actual drain; optional library batching route | open |
-| F02 | Existing wait/admission/native exclusion contracts | Notification-based waiting with race/cancellation/deadline/fairness tests; remove replaced polling without another scheduler | open |
-| F03 | Q06 requirement/actual-context inspection; accepted RC08 route | Explicit selected equivalence profile or conservative retained branch, actual/unknown dispatch facts and qualified boundaries | open |
-| F04 | F03 equivalence; accepted RC09 route; particular provider/allocator requirement | Qualified concrete alternative or supported current-provider/allocator branch, coherent ABI/thread/ownership consumers | open |
-| F05 | F03 where numerical realization changes; actual build/compiler lifecycle | Fitting existing/selected profile and any justified trained optimization with independent correctness; no redundant blanket campaign | open |
+| F01 | Exclusive worker/provider construction and enclosing resource contract; B product slice where needed | Admitted lanes/pools with preserved scientific behavior, selected reduction/error class and actual drain; optional library batching route | done |
+| F02 | Existing wait/admission/native exclusion contracts | Notification-based waiting with race/cancellation/deadline/fairness tests; remove replaced polling without another scheduler | done |
+| F03 | Q06 requirement/actual-context inspection; accepted RC08 route | Explicit selected equivalence profile or conservative retained branch, actual/unknown dispatch facts and qualified boundaries | done |
+| F04 | F03 equivalence; accepted RC09 route; particular provider/allocator requirement | Qualified concrete alternative or supported current-provider/allocator branch, coherent ABI/thread/ownership consumers | done |
+| F05 | F03 where numerical realization changes; actual build/compiler lifecycle | Fitting existing/selected profile and any justified trained optimization with independent correctness; no redundant blanket campaign | done |
 
 ## Verification and checkpoint
 
-**Proposed:** pure race/policy/lane tests and actual touched native/provider fixtures. Use existing workload placement/environment routes; never share target directories across checkouts. G02 assembles concurrency/native outcomes, G03 handles decision-relevant benefit evidence, and G04 scope-end feature/static checks. Do not run all platform/tool alternatives as a mandatory Cartesian qualification.
+**Tested, 2026-10-17:** the Outcome below records complete selected delivery and actual mechanism/consumer controls. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The supported inquiry conclusions below are complete retained/selected branches; they are not pending benchmark or environment-proof work.
 
-Current state: document scope only. No lane/wait/provider/build/host changes, installation, scientific test or timing measurement. Conservative current settings remain until a concrete selected branch is implemented/qualified. Completed inquiries cannot erase open structural findings in other companions.
+### Q06 / F03–F05 retained-profile decision — 2026-10-17
+
+**Interface-checked:** current Cargo/native/compiler source and actual native control getters. Required equivalence covers original values/derivatives, scientific branches and termination classes, original acceptance and any explicitly promised reduction/error order. Fixed input/library/algorithm/order/thread context is required for a deterministic claim; neither one close scalar nor CNR establishes whole-pipeline bit determinism.
+
+Retain current conservative realization: devO2/dependenciesO3, releaseO2/thinLTO/16 codegen units, existing full-debug profiling and fat-LTO/one-unit dist profiles. Compiled arithmetic explicitly uses baseline x86-64/generic/O2, no fast math and contraction off; the Ipopt bridge also disables contraction/fast math. Common native C/C++/Fortran O2/PIC flags do not establish explicit contraction-off everywhere. No new host-native/v3/FMA/O3 profile is selected without affected scientific qualification. Existing profiles fit the selected capture and derivative compilation; no redundant profile is required.
+
+Retain coherent oneMKL LP64/GNU-thread ABI, COMPATIBLE selection and current teams. Actual CBWR/dynamic/OpenMP getters and thread-local RAII restoration supply current facts; AUTO or SDK/CPU presence does not establish an AMD kernel or gain. AOCL/HSL and other eligible providers have no qualified ABI/thread/lifecycle/scientific-trajectory advantage for this scope; licence is not a rejection reason. There is no arbitrary BLAS-share threshold.
+
+Retain current allocation after the selected B/C churn corrections. No isolated decision-relevant evidence justifies a global allocator or workstation `MALLOC_ARENA_MAX` change, and Rust global allocation would not automatically cover all Python/native allocations. PGO/BOLT are not selected because no representative training/held-out corpus or actual native/generated-code applicability has been established for a concrete target; existing build profiles meet the need. These are completed supported retained branches, not deferred environment/provenance proof or promises of later benchmark tournaments. Qualification of the changed execution mechanisms remains at G02–G04.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** F01/F02 use existing coarse admitted case/study/session lanes with exclusive mutable workers/provider maps and precharged reset overlap. One notifying cancellation owner and actual permit-release/change notifications replace owned idle polling across job admission, native exclusion/pressure, surrogate serialization and private child readiness. Predicate rechecks, original deadlines, rollback and actual issued-work join remain with their existing owners; no nested scheduler or unadmitted fine-grained teams were added.
+
+**Tested, 2026-10-17:** six engine resource controls, 20 runtime job/race controls and selected actor/surrogate/private-child wake/cancel/deadline controls passed. The integrated runtime selection passed 76/76. Three actual managed sixteen-owner/equal-occurrence/cancellation studies passed, including no tail start and registered cleanup. [43g Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns combined/native/static acceptance and exact conditions.
+
+**Interface-checked:** F03–F05/Q06 retain the conservative numerical/build/provider/allocator profiles specified in the completed retained-profile decision above. Original values/derivatives, branches/termination and acceptance plus explicitly promised order define equivalence; no blanket bit determinism is promised. Keep oneMKL LP64/GNU COMPATIBLE/current teams with actual getters/RAII, current allocation after churn removal and existing dev/release/profiling/dist profiles. Eligible AOCL/HSL/MKL AUTO have no established fitting ABI/lifecycle/scientific advantage here; license is not a rejection reason. No representative training/held-out target justifies PGO/BOLT. These are completed retained decisions, not unfinished experiments or environment proof deferrals.
+
+### A mistake made and corrected
+
+Independent review exposed retries after paired admission semaphores closed and a surrogate stop path that changed a raw flag without waking its waiter. Closed resources now terminate with a typed refusal; the surrogate uses the same notifying cancellation owner. Native private-readiness tests distinguish data, HUP, stop and the original deadline before actual child join.
+
+### Deviations from the plan, deliberate
+
+Retain the existing coarse execution lanes and default platform profiles rather than create fine-grained nested scheduling, a global allocator switch or host-native/FMA flags without useful scientific evidence. Current source-work controls establish removed unnecessary work without exact comparative timing. Formal ADR-0195 remains proposed.
