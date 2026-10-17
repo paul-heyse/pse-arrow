@@ -511,11 +511,18 @@ impl PreparedSupport {
     pub fn compilation_allocation_bound(
         &self,
         limits: EvaluationLimits,
-        directional: bool,
+        product: ProductKind,
         options: Optimization,
     ) -> Result<Option<usize>, MathError> {
-        let bound =
-            self.selected_compilation_allocation_bound(limits, self.order(), directional)?;
+        if matches!(product,ProductKind::WeightedHessian|ProductKind::WeightedHessianAction) {
+            if self.order()!=DerivativeOrder::Second {return Err(MathError::Contract("weighted construction requires Second support".into()));}
+            // Temporary flattened expressions and library derivative optimization have
+            // no sound source-only exact shape envelope. The installed finite foreign
+            // owner admits them and reserves known positive excess before allocation.
+            return Ok(None);
+        }
+        let directional=product==ProductKind::JacobianAction;
+        let bound=self.selected_compilation_allocation_bound(limits,self.order(),directional)?;
         bound
             .map(|bytes| {
                 self.body()
@@ -6166,7 +6173,7 @@ mod compact_tests {
             provider_calls: 1_000_000,
         };
         let demand = support
-            .compilation_allocation_bound(limits, false, Optimization::default())
+            .compilation_allocation_bound(limits, ProductKind::SelectedPartials, Optimization::default())
             .unwrap()
             .unwrap();
         assert!(demand < 1 << 20);
@@ -6218,15 +6225,15 @@ mod compact_tests {
         let first = value.upgrade(DerivativeOrder::First, &cancel).unwrap();
         let second = first.upgrade(DerivativeOrder::Second, &cancel).unwrap();
         let value_bound = value
-            .compilation_allocation_bound(limits, false, Optimization::default())
+            .compilation_allocation_bound(limits, ProductKind::SelectedPartials, Optimization::default())
             .unwrap()
             .unwrap();
         let first_bound = first
-            .compilation_allocation_bound(limits, false, Optimization::default())
+            .compilation_allocation_bound(limits, ProductKind::SelectedPartials, Optimization::default())
             .unwrap()
             .unwrap();
         let second_bound = second
-            .compilation_allocation_bound(limits, false, Optimization::default())
+            .compilation_allocation_bound(limits, ProductKind::SelectedPartials, Optimization::default())
             .unwrap()
             .unwrap();
         assert!(value_bound < first_bound);
@@ -6308,15 +6315,15 @@ mod compact_tests {
             .unwrap();
         let second = first.upgrade(DerivativeOrder::Second, &cancel).unwrap();
         let first_bound = first
-            .compilation_allocation_bound(limits, false, Optimization::default())
+            .compilation_allocation_bound(limits, ProductKind::SelectedPartials, Optimization::default())
             .unwrap()
             .unwrap();
         let second_bound = second
-            .compilation_allocation_bound(limits, false, Optimization::default())
+            .compilation_allocation_bound(limits, ProductKind::SelectedPartials, Optimization::default())
             .unwrap()
             .unwrap();
         let directional_bound = first
-            .compilation_allocation_bound(limits, true, Optimization::default())
+            .compilation_allocation_bound(limits, ProductKind::JacobianAction, Optimization::default())
             .unwrap()
             .unwrap();
         assert!(directional_bound < first_bound);
@@ -6336,7 +6343,7 @@ mod compact_tests {
             .unwrap();
         assert_eq!(
             reordered
-                .compilation_allocation_bound(limits, false, Optimization::default())
+                .compilation_allocation_bound(limits, ProductKind::SelectedPartials, Optimization::default())
                 .unwrap(),
             Some(second_bound)
         );
@@ -6392,7 +6399,7 @@ mod compact_tests {
             assert!((actual - expected).abs() < 1e-12);
         }
         assert!(matches!(
-            second.compilation_allocation_bound(limits, true, Optimization::default()),
+            second.compilation_allocation_bound(limits, ProductKind::JacobianAction, Optimization::default()),
             Err(MathError::Contract(_))
         ));
     }
@@ -7165,7 +7172,7 @@ mod compact_tests {
             .prepare_support(&[0, 1], &[2, 0], DerivativeOrder::Second, &cancel)
             .unwrap();
         let bound = support
-            .compilation_allocation_bound(limits, false, options)
+            .compilation_allocation_bound(limits, ProductKind::SelectedPartials, options)
             .unwrap()
             .unwrap();
         let hub = ObservationHub::new(Policy::default());
