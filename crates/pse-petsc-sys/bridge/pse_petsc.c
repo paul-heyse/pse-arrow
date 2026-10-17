@@ -47,8 +47,12 @@ int32_t pse_petsc_log_event(PsePetscHandle raw, const char *name, PsePetscEventP
   if (!state) return PETSC_ERR_ARG_WRONGSTATE;
   TRY(PetscLogStateGetCurrentStage(state, &stage));
   TRY(PetscLogStateGetEventFromName(state, name, &event));
-  PsePetscEventPerf value = {0, stage, event, 0, 0, 0., 0.};
+  PsePetscEventPerf value = {0, event >= 0, 0, stage, event, 0, 0, 0., 0.};
   if (stage >= 0 && event >= 0) {
+    PetscBool active = PETSC_FALSE;
+    TRY(PetscLogStateEventGetActive(state, stage, event, &active));
+    value.activated = active ? 1 : 0;
+    if (!active) { *out = value; return PETSC_SUCCESS; }
     TRY(PetscLogHandlerGetEventPerfInfo(handler, stage, event, &info));
     if (!info) return PETSC_ERR_ARG_WRONGSTATE;
     value.available = 1; value.entered_calls = info->count;

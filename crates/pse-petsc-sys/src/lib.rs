@@ -89,6 +89,8 @@ pub struct Block {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EventPerf {
     pub available: i32,
+    pub registered: i32,
+    pub activated: i32,
     pub stage: i32,
     pub event: i32,
     pub entered_calls: i32,

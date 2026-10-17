@@ -46,8 +46,11 @@ impl Log {
                 && info.active_depth >= 0 && info.completed_seconds.is_finite()
                 && info.completed_seconds >= 0. && info.completed_flops.is_finite()
                 && info.completed_flops >= 0.;
-            let value = |value| if measured { Metric::Integer(value) } else { Metric::Unavailable(UnavailableReason::NotComputed) };
-            let real = |value| if measured { Metric::Real(value) } else { Metric::Unavailable(UnavailableReason::NotComputed) };
+            let unavailable = if code == 0 && info.registered != 0 && info.activated == 0 {
+                UnavailableReason::NotRequested
+            } else { UnavailableReason::NotComputed };
+            let value = |value| if measured { Metric::Integer(value) } else { Metric::Unavailable(unavailable) };
+            let real = |value| if measured { Metric::Real(value) } else { Metric::Unavailable(unavailable) };
             self.execution.progress.push_from(Event {
                 source: Some(EventSource::new("petsc_event", None, None).with_role(ProducerRole::NativeFactor)),
                 phase: phase.into(), elapsed: self.execution.started.elapsed(), incumbent: None,
@@ -58,6 +61,8 @@ impl Log {
                     ("count_semantics".into(), Metric::Text("outermost_native_event_entries".into())),
                     ("time_semantics".into(), Metric::Text("inclusive_completed_event_intervals".into())),
                     ("source_available".into(), Metric::Bool(measured)),
+                    ("event_registered".into(), Metric::Bool(code == 0 && info.registered != 0)),
+                    ("event_activated".into(), Metric::Bool(code == 0 && info.activated != 0)),
                     ("stage".into(), value(i64::from(info.stage))),
                     ("entered_calls".into(), value(i64::from(info.entered_calls))),
                     ("native_event_depth".into(), value(i64::from(info.active_depth))),

@@ -34,7 +34,7 @@ typedef int32_t (*PsePetscBlockJacobian)(void *, PsePetscHandle, PsePetscHandle,
  * active outer event, while completed_seconds/flops exclude that active interval.
  * active_depth therefore remains explicit. No global default handler is toggled. */
 typedef struct {
-  int32_t available, stage, event, entered_calls, active_depth;
+  int32_t available, registered, activated, stage, event, entered_calls, active_depth;
   double completed_seconds, completed_flops;
 } PsePetscEventPerf;
 int32_t pse_petsc_log_create(PsePetscHandle *);
