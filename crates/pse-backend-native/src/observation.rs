@@ -288,6 +288,18 @@ mod tests {
         assert_eq!(progress.current().unwrap().source.as_ref().unwrap().sequence, 3);
     }
     #[test]
+    fn refused_oversized_checkpoint_keeps_previous_record_with_visible_source_gap() {
+        let progress = Progress::new(1);
+        progress.push(event_at(1));
+        let mut oversized = event_at(2);
+        oversized.values.insert("too_large".into(), Metric::Text("x".repeat(8192)));
+        progress.push(oversized);
+        let latest = progress.current().unwrap();
+        assert_eq!(latest.source.unwrap().sequence, 1);
+        assert_eq!(progress.source_identity().1, 2);
+        assert_eq!(progress.snapshot().1, 1);
+    }
+    #[test]
     fn checkpoint_projection_preserves_lossless_counter_and_nonfinite() {
         let hub = ObservationHub::new(Policy::default());
         let operation = hub.start("native.test");

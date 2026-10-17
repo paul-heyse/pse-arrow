@@ -780,6 +780,11 @@ impl Progress {
                 Some(n.saturating_add(1))
             });
     }
+    /// Attempt stream generation and highest issued sequence, including events that
+    /// observers or current/history retention refused. Zero means none was issued.
+    pub fn source_identity(&self) -> (u64, u64) {
+        (self.generation, self.sequence.load(Ordering::Relaxed))
+    }
     /// Latest compact checkpoint, including when history retention is disabled.
     /// Contention is unavailable, never a reason to wait for a native owner.
     pub fn current(&self) -> Option<Event> {

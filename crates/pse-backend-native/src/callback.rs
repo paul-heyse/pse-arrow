@@ -671,7 +671,7 @@ mod tests {
         assert_eq!(state.counts[&CallbackKey::Named("residual")], 1);
     }
     #[test]
-    fn live_callback_reset_does_not_subtract_previous_attempt_or_lose_total_work() {
+    fn live_callback_attempts_keep_distinct_populations_and_total_work() {
         use pse_diagnostics::observation::{ObservationHub, Policy, Value};
         let hub = ObservationHub::new(Policy::default());
         let operation = hub.start("native.callback-reset");
