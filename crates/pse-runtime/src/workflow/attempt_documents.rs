@@ -330,6 +330,18 @@ pub struct AttemptSummary {
     #[schemars(skip)]
     _owner: Arc<pse_columnar::AllocationLease>,
 }
+#[cfg(test)]
+impl AttemptSummary {
+    pub(crate) fn empty_for_test(run_id:RunId)->Self {
+        use datafusion::execution::memory_pool::{GreedyMemoryPool,MemoryConsumer,MemoryPool};
+        let pool:Arc<dyn MemoryPool>=Arc::new(GreedyMemoryPool::new(64<<10));
+        let reservation=MemoryConsumer::new("unit:invocation-comparison").register(&pool);
+        reservation.try_grow(64<<10).unwrap();
+        Self {run_id,requested_steps:0,steps:Vec::new(),native_attempts:Vec::new(),omitted_native_attempts:0,
+            native_record_coverage:super::ReplayNativeRecordCoverage::StrategyAttempts,omitted_steps:0,failure:None,usable:true,
+            _owner:pse_columnar::AllocationLease::new(reservation)}
+    }
+}
 fn native_copy_extent(native: &pse_backend_native::solve::SolveReport) -> Option<usize> {
     let mut extent = 0usize;
     for options in [&native.options, &native.native_defaults] {
