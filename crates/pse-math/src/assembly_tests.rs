@@ -124,7 +124,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
         )
         .unwrap(),
     );
@@ -440,14 +440,15 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
         )
         .unwrap()
     };
     let values = CaseValues {
         scalars: BTreeMap::from([(id(1), 2.0)]),
     };
-    let cancel = Arc::new(AtomicBool::new(false));
+    let compile_control = pse_diagnostics::Cancellation::new(false);
+    let cancel = compile_control.flag();
     assert_eq!(
         prepare(0.0)
             .presolve_domain_facts(&values, 100, &cancel)
@@ -592,7 +593,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap(),
     );
@@ -911,7 +912,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );
@@ -952,7 +953,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );
@@ -1120,7 +1121,7 @@ fn lexicographic_structure_projects_every_level() {
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );
@@ -1763,7 +1764,7 @@ fn repeated_occurrences_share_serial_scratch_and_keep_bound_caches_under_finite_
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap();
     let bytes = assembly.numeric_worker_bytes();
@@ -2004,7 +2005,7 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
         };
         let action = Arc::new(
             Arc::new(requested)
-                .compile(Optimization::default(), limits, &cancel)
+                .compile(Optimization::default(), limits, &pse_kernels::ExecutionScope::new(control.clone(), None))
                 .unwrap(),
         );
         let mut actual = action.worker(BTreeMap::new(), control.clone());
@@ -2185,7 +2186,7 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );
@@ -2194,7 +2195,7 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );
@@ -2449,7 +2450,7 @@ fn conditional_blocks_share_original_coordinates_and_binding_inputs() {
                 .compile(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
                 )
                 .unwrap(),
         );
@@ -3065,7 +3066,7 @@ fn affine_original_rows_cancel_across_bodies_before_proof_and_reuse_bound_output
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap(),
     );
@@ -3649,7 +3650,7 @@ fn selected_functions_prepare_once_keep_contributions_coordinates_and_complete_u
                     .compile(
                         Optimization::default(),
                         EvaluationLimits::default(),
-                        &cancel,
+                        &pse_kernels::ExecutionScope::new(control.clone(), None),
                     )
                     .unwrap(),
             )
@@ -3779,7 +3780,7 @@ fn selected_functions_ignore_unselected_bad_guard_and_preserve_selected_guard() 
                 .compile(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
                 )
                 .unwrap(),
         )
@@ -3842,7 +3843,7 @@ fn selected_functions_differentiate_fixed_variables_and_parameters_in_request_or
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap(),
     );
@@ -4105,7 +4106,7 @@ fn selected_demand_rows_preserve_occurrences_and_actual_order_without_eager_work
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap(),
     );
@@ -4240,7 +4241,7 @@ fn weighted_case_hessian_actions_preserve_aliases_scales_and_runtime_bindings() 
                 .compile(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
                 )
                 .unwrap(),
         );
@@ -4336,7 +4337,8 @@ fn overlapping_output_fixture(
     } else {
         original.bodies().clone()
     };
-    let cancel = Arc::new(AtomicBool::new(false));
+    let compile_control = pse_diagnostics::Cancellation::new(false);
+    let cancel = compile_control.flag();
     let plan = CasePlan::prepare(
         structure,
         bodies,
@@ -4356,7 +4358,7 @@ fn overlapping_output_fixture(
                 .compile(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
                 )
                 .unwrap(),
         ),
@@ -4548,14 +4550,15 @@ fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partia
         })),
         true,
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let compile_control = pse_diagnostics::Cancellation::new(false);
+    let cancel = compile_control.flag();
     let plan = original.with_hessian_actions(&cancel).unwrap();
     let assembly = Arc::new(
         Arc::new(plan)
             .compile(
                 Optimization::default(),
                 EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
             )
             .unwrap(),
     );

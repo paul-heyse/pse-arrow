@@ -100,10 +100,10 @@ impl InnerWorker for Affine {
             .map(|(i, j)| jet.jacobian[i * width + j])
             .collect();
         let matrix = SparseColMat::new(problem.pattern.clone(), values);
-        let mut factor = problem.factorize_matrix(&matrix, "affine residual matrix is singular")?;
+        let mut factor = problem.factorize_matrix(&matrix, "affine residual matrix is singular", cancel)?;
         let mut delta = Mat::from_fn(n, 1, |i, _| -jet.values[i]);
         let rhs = delta.clone();
-        problem.solve_factor(&mut factor, delta.as_mut());
+        problem.solve_factor(&mut factor, delta.as_mut(), cancel)?;
         check_solve(
             &jet.jacobian,
             width,

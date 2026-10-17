@@ -1609,7 +1609,8 @@ pub(crate) fn residual_bodies_for_test(parameter: Arc<CompiledBody>) -> Residual
     } else {
         Vec::new()
     };
-    let cancel = Arc::new(AtomicBool::new(false));
+    let compile_control = pse_diagnostics::Cancellation::new(false);
+    let cancel = compile_control.flag();
     let support = parameter
         .prepared_support()
         .incidence(&axes, &cancel)
@@ -1621,7 +1622,7 @@ pub(crate) fn residual_bodies_for_test(parameter: Arc<CompiledBody>) -> Residual
             .compile(
                 crate::library::Optimization::default(),
                 crate::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
             )
             .unwrap(),
     );
@@ -1643,7 +1644,8 @@ mod tests {
         let x = crate::library::formal(0).unwrap();
         let p = crate::library::formal(1).unwrap();
         let id = SemanticId::from_bytes([43; 16]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let compile_control = pse_diagnostics::Cancellation::new(false);
+        let cancel = compile_control.flag();
         // u = 2p + p² independently gives u'(3)=8 and u''(3)=2.
         let source = PreparedBody::new(
             2,
@@ -1666,7 +1668,7 @@ mod tests {
                         order,
                         crate::library::Optimization::default(),
                         crate::jets::EvaluationLimits::default(),
-                        &cancel,
+                        &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
                     )
                     .unwrap(),
             )
@@ -1755,7 +1757,7 @@ mod tests {
         crate::initialize().unwrap();
         let x = crate::library::formal(0).unwrap();
         let p = crate::library::formal(1).unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let compile_control = pse_diagnostics::Cancellation::new(false);
         let compile = |value: Atom, axes: &[usize]| {
             Arc::new(
                 PreparedBody::new(
@@ -1776,7 +1778,7 @@ mod tests {
                     DerivativeOrder::First,
                     crate::library::Optimization::default(),
                     crate::jets::EvaluationLimits::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
                 )
                 .unwrap(),
             )
@@ -1820,7 +1822,7 @@ mod tests {
                 DerivativeOrder::Value,
                 crate::library::Optimization::default(),
                 crate::jets::EvaluationLimits::default(),
-                &cancel,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
             .unwrap();
         let mut worker = body.worker();
@@ -1848,7 +1850,8 @@ mod tests {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let quantity = registry.neutral_dimensionless().unwrap();
         let id = SemanticId::from_bytes([98; 16]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let compile_control = pse_diagnostics::Cancellation::new(false);
+        let cancel = compile_control.flag();
         let mut builder = crate::typed::BodyBuilder::new(
             crate::initialize().unwrap(),
             &registry,
@@ -1893,7 +1896,7 @@ mod tests {
                         order,
                         crate::library::Optimization::default(),
                         crate::jets::EvaluationLimits::default(),
-                        &cancel,
+                        &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
                     )
                     .unwrap(),
             )
@@ -2037,7 +2040,8 @@ mod tests {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let quantity = registry.neutral_dimensionless().unwrap();
         let id = SemanticId::from_bytes([97; 16]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let compile_control = pse_diagnostics::Cancellation::new(false);
+        let cancel = compile_control.flag();
         let mut builder = crate::typed::BodyBuilder::new(
             crate::initialize().unwrap(),
             &registry,
@@ -2080,7 +2084,7 @@ mod tests {
                         order,
                         crate::library::Optimization::default(),
                         crate::jets::EvaluationLimits::default(),
-                        &cancel,
+                        &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
                     )
                     .unwrap(),
             )
@@ -2181,7 +2185,7 @@ mod tests {
                     &[residual],
                     DerivativeOrder::Second,
                     crate::library::Optimization::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
                 )
                 .unwrap(),
         );
@@ -2430,7 +2434,7 @@ mod tests {
                     &[residual],
                     DerivativeOrder::Second,
                     crate::library::Optimization::default(),
-                    &cancel,
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
                 )
                 .unwrap(),
         );
