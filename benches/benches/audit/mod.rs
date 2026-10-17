@@ -29,6 +29,7 @@ struct State {
     context: ObservationContext,
     cancel: CancelSource,
     owners: Mutex<Vec<(u64, CancelSource)>>,
+    math_controls: Mutex<Vec<(u64, pse_diagnostics::Cancellation)>>,
     next_owner: AtomicU64,
     stop_requested: AtomicBool,
     publisher_stop: AtomicBool,
@@ -121,6 +122,7 @@ impl Audit {
             context,
             cancel: CancelSource::new(),
             owners: Mutex::new(Vec::new()),
+            math_controls: Mutex::new(Vec::new()),
             next_owner: AtomicU64::new(0),
             stop_requested: AtomicBool::new(false),
             publisher_stop: AtomicBool::new(false),
@@ -159,6 +161,11 @@ impl Audit {
                         .iter()
                     {
                         source.cancel();
+                    }
+                    for (_, control) in worker.math_controls.lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner).iter()
+                    {
+                        control.cancel();
                     }
                     worker.context.boolean("audit.stop_requested", true);
                 }
@@ -355,6 +362,28 @@ impl Drop for OwnerBinding {
                 .owners
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .retain(|(id, _)| *id != self.id);
+        }
+    }
+}
+/// Register a direct synchronous mathematical owner with the same real stop request.
+/// Its caller retains the control until the operation returns; no worker is detached.
+#[derive(Debug)]
+pub(crate) struct MathBinding {
+    id: u64,
+}
+pub(crate) fn bind_math_control(control: &pse_diagnostics::Cancellation) -> Option<MathBinding> {
+    let state = state()?;
+    let id = state.next_owner.fetch_add(1, Ordering::Relaxed);
+    let mut controls = state.math_controls.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if state.stop_requested.load(Ordering::Acquire) { control.cancel(); }
+    controls.push((id, control.clone()));
+    Some(MathBinding { id })
+}
+impl Drop for MathBinding {
+    fn drop(&mut self) {
+        if let Some(state) = state() {
+            state.math_controls.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
                 .retain(|(id, _)| *id != self.id);
         }
     }

@@ -287,9 +287,11 @@ async fn run(
     owner: &WorkflowRuntime,
     operation: &str,
     size: usize,
+    spec: &Value,
     observations: &mut observations::Observations,
 ) {
     match operation {
+        operation if operation.starts_with("compact-") => compact::run(owner, spec, observations).await,
         "shooting" => shooting::run(owner, observations).await,
         "curved-fit" | "curved-gradient" => {
             curved_fit::run(owner, observations, operation == "curved-gradient").await;
@@ -509,6 +511,7 @@ pub(super) fn measure(
                     &owner,
                     operation,
                     size,
+                    spec,
                     &mut observations,
                 ))));
                 observations.counted_preparations(counts);
