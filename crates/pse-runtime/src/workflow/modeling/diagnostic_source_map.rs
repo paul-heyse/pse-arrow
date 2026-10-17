@@ -41,6 +41,18 @@ pub struct ArithmeticSourceDocument {
     pub end_output: usize,
     pub check_order: DerivativeOrder,
 }
+/// Which actual program owns the exposed source-check ranges.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ArithmeticMappingScope {
+    /// Actual selected compiled product, including both static branch alternatives.
+    SelectedCompiledProduct,
+    /// Direct weighted differentiation retains original Value checks. Their ranges
+    /// do not identify derivative-kernel instructions or assign shared runtime cost.
+    OriginalValueChecksForWeightedProduct,
+    /// Arithmetic exists but no original check ranges were supplied by its owner.
+    Unavailable { reason: String },
+}
 /// One compiler-issued selected product template. Numerical weights/directions are not static identities.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -51,6 +63,7 @@ pub struct SourceTemplateDocument {
     pub product: ProductKind,
     pub outputs: Vec<usize>,
     pub coordinates: Vec<usize>,
+    pub arithmetic_mapping: ArithmeticMappingScope,
     pub arithmetic: Vec<ArithmeticSourceDocument>,
 }
 /// An ordered input gather: aliases deliberately retain separate formal positions.
@@ -211,9 +224,15 @@ impl Runtime {
                     });
                 });
                 if let Some(error) = stopped { return Err(error); }
+                let census = template.program.census().find(|census| census.order == template.demand.order);
+                let arithmetic_mapping = if census.is_some_and(|census| census.direct_weighted) {
+                    ArithmeticMappingScope::OriginalValueChecksForWeightedProduct
+                } else if arithmetic.is_empty() && census.is_some_and(|census| census.arithmetic_blocks > 0) {
+                    ArithmeticMappingScope::Unavailable { reason: "compiled owner supplies arithmetic but no original source-check ranges".into() }
+                } else { ArithmeticMappingScope::SelectedCompiledProduct };
                 Ok(SourceTemplateDocument { template: template.template, body: template.demand.body,
                     order: template.demand.order, product: template.demand.product,
-                    outputs: template.demand.outputs.clone(), coordinates: template.demand.coordinates.clone(), arithmetic })
+                    outputs: template.demand.outputs.clone(), coordinates: template.demand.coordinates.clone(), arithmetic_mapping, arithmetic })
             }).collect::<Result<Vec<_>, WorkflowError>>()?;
             let mut instances = assembly.structure().instances().iter().enumerate().map(|(ordinal, instance)| -> Result<_, WorkflowError> {
                 check()?;
