@@ -6296,6 +6296,7 @@ version = "0.0.1"
 dependencies = [
  "miette",
  "pin-project-lite",
+ "rustix 1.1.5",
  "schemars",
  "serde",
  "strum",

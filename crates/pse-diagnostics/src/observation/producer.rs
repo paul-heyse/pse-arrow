@@ -195,8 +195,12 @@ pub struct Producer {
 pub trait RecordTap: Send + Sync + std::fmt::Debug {
     /// Whether this family belongs to the active selected interval.
     fn selected(&self, family: &str) -> bool;
+    /// Explicit synchronous boundary thread-CPU selection; never enabled by default.
+    fn thread_cpu(&self) -> bool { false }
     /// Offer an already-issued source record; losses remain with the selected collector.
     fn observe(&self, record: &CoherentRecord);
+    /// Offer bounded producer metadata before its first source record.
+    fn describe(&self, _producer: &ProducerDescriptor) {}
 }
 impl ObservationContext {
     /// Propagate an explicitly selected finite collector to future performing children.
@@ -224,6 +228,10 @@ impl ObservationContext {
                 });
             });
         }
+        if let Some(tap) = &self.record_tap {
+            let descriptor = ProducerDescriptor { id, role, name: name.to_owned() };
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tap.describe(&descriptor)));
+        }
         let mut context = self.clone(); context.producer = Some(id);
         Producer { context, id, index, sequence: Arc::new(AtomicU64::new(1)) }
     }
@@ -244,12 +252,20 @@ impl Producer {
     pub fn reserve_owner_bytes(&self, bytes: usize) -> Option<OwnerReservation> {
         if !self.enabled() || bytes == 0 { return None; }
         let node = self.context.node.as_ref()?;
-        node.state.try_lock().ok()?.budget.reserve(bytes).map(|reservation| OwnerReservation { _reservation: reservation })
+        let Ok(mut state) = node.state.try_lock() else { bump(&node.lost); return None; };
+        let reservation = state.budget.reserve(bytes);
+        if reservation.is_none() { state.refused = state.refused.saturating_add(1); }
+        reservation.map(|reservation| OwnerReservation { _reservation: reservation })
     }
     /// Whether explicitly selected detail consumes this source family now.
     #[must_use]
     pub fn detail_selected(&self, family: &str) -> bool {
         self.context.record_tap.as_ref().is_some_and(|tap| tap.selected(family))
+    }
+    /// Explicit selected synchronous thread-CPU mode, independent from ordinary wall facts.
+    #[must_use]
+    pub fn thread_cpu_requested(&self) -> bool {
+        self.context.record_tap.as_ref().is_some_and(|tap| tap.thread_cpu())
     }
     /// Prepare a population and unit once; updates use its admitted slot directly.
     #[must_use]

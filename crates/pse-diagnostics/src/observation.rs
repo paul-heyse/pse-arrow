@@ -8,6 +8,8 @@
 
 pub use crate::{NonFinite, OperationOutcome as Outcome, Relationship};
 mod producer;
+mod thread_cpu;
+pub use thread_cpu::ThreadCpuSample;
 pub use producer::{CoherentRecord, DurationSummary, FactKind, PreparedFact, Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability, RecordCoverage, RecordField, OwnerReservation, RecordTap};
 
 use std::cell::RefCell;

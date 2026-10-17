@@ -23,3 +23,4 @@ thiserror.workspace = true
 miette.workspace = true
 serde.workspace = true
 schemars.workspace = true
+rustix.workspace = true
