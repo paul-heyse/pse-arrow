@@ -689,15 +689,20 @@ pub(super) fn discover_launch(
         Err(error) => { failure(state, error); return; }
     };
     let mut selected = Vec::new();
+    let mut omitted = 0_u64;
     for operation in &image.operations {
         for id in std::iter::once(operation.id).chain(operation.children.iter().map(|child| child.id)) {
-            if !selected.contains(&id) && selected.len() < 512 { selected.push(id); }
+            if !selected.contains(&id) {
+                if selected.len() < 512 { selected.push(id); }
+                else { omitted = omitted.saturating_add(1); }
+            }
         }
     }
     let mut entry = target(&image, &selected);
     entry.concurrent_operations = image.operations.iter().filter(|operation| operation.finished_at.is_none()).count() > 1;
     let mut state = document(state);
-    state.loss.source_partial |= source_partial(&image, &selected);
+    state.loss.refused_items = state.loss.refused_items.saturating_add(omitted);
+    state.loss.source_partial |= omitted > 0 || source_partial(&image, &selected);
     state.loss.unknown_clock |= image.clock.is_none();
     if let Some(target) = state.targets.first_mut() { *target = entry; }
     for operation in selected {
