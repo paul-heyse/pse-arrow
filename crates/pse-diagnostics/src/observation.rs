@@ -7,6 +7,8 @@
 //! coverage and bounded interval facts without depending on a subscriber or async runtime.
 
 pub use crate::{NonFinite, OperationOutcome as Outcome, Relationship};
+mod producer;
+pub use producer::{CoherentRecord, DurationSummary, FactKind, PreparedFact, Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability, RecordCoverage, RecordField, OwnerReservation};
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -42,6 +44,10 @@ pub struct Policy {
     pub max_text_bytes: usize,
     /// Recent detail ring capacity; ceiling 256.
     pub detail_capacity: usize,
+    /// Recent coherent source records per producer; zero preserves current progress.
+    pub record_capacity: usize,
+    /// Maximum admitted compact record extent, including field metadata.
+    pub record_bytes: usize,
     /// Time since the latest observation at which an active checkpoint is stale.
     pub stale_after: Duration,
     /// Operator-selected terminal summary lifetime, independent of recent detail retention.
@@ -58,6 +64,8 @@ impl Default for Policy {
             max_source_refs: 16,
             max_text_bytes: 128,
             detail_capacity: 256,
+            record_capacity: 16,
+            record_bytes: 8192,
             stale_after: Duration::from_secs(5),
             summary_retention: Duration::from_secs(60),
         }
@@ -72,6 +80,8 @@ impl Policy {
         self.max_source_refs = self.max_source_refs.min(32);
         self.max_text_bytes = self.max_text_bytes.clamp(1, 256);
         self.detail_capacity = self.detail_capacity.min(256);
+        self.record_capacity = self.record_capacity.min(256);
+        self.record_bytes = self.record_bytes.clamp(512, 65536);
         self
     }
     // Charge structural state before starting, then bounded field storage before growth.
@@ -221,7 +231,8 @@ pub enum Value {
     Overflow,
 }
 impl Value {
-    fn number(value: f64) -> Self {
+    /// Preserve finite values and explicit IEEE nonfinite categories.
+    pub fn number(value: f64) -> Self {
         if value.is_nan() {
             Self::NonFinite(NonFinite::Nan)
         } else if value == f64::INFINITY {
@@ -288,6 +299,10 @@ pub struct CounterWindow {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MetricSnapshot {
+    /// Explicit performing producer; absent for unscoped legacy facts.
+    pub producer: Option<ProducerId>,
+    /// Bounded owner-local duration extrema, independent of recent retention.
+    pub duration_summary: Option<DurationSummary>,
     /// Producer-owned observation name.
     pub name: String,
     /// Producer-declared unit; changes are refused.
@@ -472,6 +487,8 @@ pub struct OperationSnapshot {
     pub coverage: Coverage,
     /// Bounded producer-owned facts; child facts are never summed implicitly.
     pub metrics: Vec<MetricSnapshot>,
+    /// Explicit producers with atomic current and independently retained recent records.
+    pub producers: Vec<ProducerSnapshot>,
     /// Independently active phase scopes at the last retained checkpoint.
     pub phases: Vec<Phase>,
     /// Bounded linked-operation summaries, with explicit unavailable attribution.
@@ -494,6 +511,11 @@ impl OperationSnapshot {
             .dropped_detail
             .saturating_add(self.detail.len() as u64);
         self.detail = Vec::new();
+        for producer in &mut self.producers {
+            producer.coverage.history_dropped = producer.coverage.history_dropped.saturating_add(producer.recent.len() as u64);
+            producer.coverage.partial |= !producer.recent.is_empty();
+            producer.recent.clear();
+        }
         self.phases = Vec::new();
         self.interval_partial = true;
         self.coverage.sampled = true;
@@ -678,6 +700,7 @@ impl ObservationHub {
             hub: Arc::downgrade(self),
             node: None,
             absent_enabled: self.policy.enabled,
+            producer: None,
         };
         if !self.policy.enabled {
             return OperationGuard { context };
@@ -790,6 +813,7 @@ impl ObservationHub {
                     hub: node.hub.clone(),
                     node: Some(node),
                     absent_enabled: true,
+                    producer: None,
                 },
                 compact: None,
             });
@@ -805,6 +829,7 @@ impl ObservationHub {
                     hub: summary.hub.clone(),
                     node: None,
                     absent_enabled: true,
+                    producer: None,
                 },
                 compact: Some(Arc::clone(summary)),
             })
@@ -921,6 +946,7 @@ impl ObservationHub {
                 hub: node.hub.clone(),
                 node: Some(Arc::clone(node)),
                 absent_enabled: true,
+                producer: None,
             },
             compact: None,
         };
@@ -934,7 +960,8 @@ impl ObservationHub {
         let bytes = self.policy.node_bytes()
             + snapshot.metrics.len() * self.policy.metric_bytes()
             + snapshot.children.len() * self.policy.link_bytes()
-            + snapshot.sources.len() * self.policy.source_bytes();
+            + snapshot.sources.len() * self.policy.source_bytes()
+            + snapshot.producers.len() * (2 * self.policy.record_bytes + 1024);
         // The original node and independent readers keep their own charges. A failed
         // copy cannot borrow their allocation or silently retain the rich owner instead.
         self.trim_completed(bytes);
@@ -1046,6 +1073,7 @@ impl Node {
 struct State {
     last_observed: Option<Duration>,
     metrics: Vec<Metric>,
+    producers: Vec<producer::ProducerState>,
     phases: Vec<Phase>,
     links: Vec<LinkedNode>,
     sources: Vec<SourceRef>,
@@ -1063,6 +1091,7 @@ impl State {
         Self {
             last_observed: None,
             metrics: Vec::new(),
+            producers: Vec::new(),
             phases: Vec::new(),
             links: Vec::new(),
             sources: Vec::new(),
@@ -1113,8 +1142,8 @@ impl State {
             value,
         });
     }
-    fn elapsed(&mut self, policy: &Policy, name: &str, at: Duration, elapsed: Duration) {
-        if let Some(metric) = self.aggregate_metric(policy, name, "nanoseconds", at) {
+    fn producer_elapsed(&mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, at: Duration, elapsed: Duration) {
+        if let Some(metric) = self.producer_aggregate_metric(policy, producer, name, "nanoseconds", at) {
             if (metric.counter && !metric.duration)
                 || (!metric.counter && !matches!(metric.latest, Value::Unavailable(_)))
             {
@@ -1125,18 +1154,14 @@ impl State {
             self.overflow |= matches!(metric.cumulative, Value::Overflow);
         }
     }
-    fn metric_index(
-        &mut self,
-        policy: &Policy,
-        name: &str,
-        unit: &str,
-        at: Duration,
+    fn producer_metric_index(
+        &mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, unit: &str, at: Duration,
     ) -> Option<usize> {
         if name.len() > policy.max_text_bytes || unit.len() > policy.max_text_bytes {
             self.refused = self.refused.saturating_add(1);
             return None;
         }
-        if let Some(index) = self.metrics.iter().position(|metric| metric.name == name) {
+        if let Some(index) = self.metrics.iter().position(|metric| metric.name == name && metric.producer == producer) {
             if self.metrics[index].unit.is_empty() && !unit.is_empty() {
                 self.metrics[index].unit = unit.to_owned();
             } else if self.metrics[index].unit != unit {
@@ -1153,6 +1178,9 @@ impl State {
             return None;
         }
         self.metrics.push(Metric {
+            producer,
+            duration_summary: None,
+            prepared_kind: None,
             name: name.to_owned(),
             unit: unit.to_owned(),
             latest: unknown(),
@@ -1171,14 +1199,8 @@ impl State {
         });
         Some(self.metrics.len() - 1)
     }
-    fn aggregate_index(
-        &mut self,
-        policy: &Policy,
-        name: &str,
-        unit: &str,
-        at: Duration,
-    ) -> Option<usize> {
-        let index = self.metric_index(policy, name, unit, at)?;
+    fn producer_aggregate_index(&mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, unit: &str, at: Duration) -> Option<usize> {
+        let index = self.producer_metric_index(policy, producer, name, unit, at)?;
         if self.metrics[index].buckets.is_empty() {
             if !self.reserve(policy.aggregate_bytes()) {
                 return None;
@@ -1187,14 +1209,8 @@ impl State {
         }
         Some(index)
     }
-    fn aggregate_metric(
-        &mut self,
-        policy: &Policy,
-        name: &str,
-        unit: &str,
-        at: Duration,
-    ) -> Option<&mut Metric> {
-        let index = self.aggregate_index(policy, name, unit, at)?;
+    fn producer_aggregate_metric(&mut self, policy: &Policy, producer: Option<ProducerId>, name: &str, unit: &str, at: Duration) -> Option<&mut Metric> {
+        let index = self.producer_aggregate_index(policy, producer, name, unit, at)?;
         self.metrics.get_mut(index)
     }
     fn point(&mut self, policy: &Policy, index: usize, at: Duration, reset: bool) {
@@ -1323,6 +1339,9 @@ struct LinkedNode {
     node: Weak<Node>,
 }
 struct Metric {
+    producer: Option<ProducerId>,
+    duration_summary: Option<DurationSummary>,
+    prepared_kind: Option<FactKind>,
     name: String,
     unit: String,
     latest: Value,
@@ -1505,6 +1524,7 @@ pub struct ObservationContext {
     hub: Weak<ObservationHub>,
     node: Option<Arc<Node>>,
     absent_enabled: bool,
+    producer: Option<ProducerId>,
 }
 impl ObservationContext {
     /// Return the operation diagnostic identity.
@@ -1575,6 +1595,7 @@ impl ObservationContext {
                     hub: Weak::new(),
                     node: None,
                     absent_enabled: self.absent_enabled,
+                    producer: None,
                 },
             }
         }
@@ -1666,7 +1687,7 @@ impl ObservationContext {
             return;
         };
         node.update(|state, at| {
-            if let Some(index) = state.metric_index(&node.policy, name, unit, at) {
+            if let Some(index) = state.producer_metric_index(&node.policy, self.producer, name, unit, at) {
                 let metric = &mut state.metrics[index];
                 if metric.counter {
                     state.refused = state.refused.saturating_add(1);
@@ -1684,7 +1705,7 @@ impl ObservationContext {
             return;
         };
         node.update(|state, at| {
-            if let Some(metric) = state.aggregate_metric(&node.policy, name, unit, at) {
+            if let Some(metric) = state.producer_aggregate_metric(&node.policy, self.producer, name, unit, at) {
                 if metric.duration
                     || metric.absolute.is_some()
                     || (!metric.counter && !matches!(metric.latest, Value::Unavailable(_)))
@@ -1707,7 +1728,7 @@ impl ObservationContext {
             return;
         };
         node.update(|state, at| {
-            state.elapsed(&node.policy, name, at, elapsed);
+            state.producer_elapsed(&node.policy, self.producer, name, at, elapsed);
         });
     }
     /// Absolute counter sample; generations and backwards samples are reset boundaries.
@@ -1717,7 +1738,7 @@ impl ObservationContext {
             return;
         };
         node.update(|state, at| {
-            if let Some(index) = state.aggregate_index(&node.policy, name, unit, at) {
+            if let Some(index) = state.producer_aggregate_index(&node.policy, self.producer, name, unit, at) {
                 let metric = &mut state.metrics[index];
                 if metric.duration || (metric.counter && metric.absolute.is_none()) {
                     state.refused = state.refused.saturating_add(1);
@@ -1773,10 +1794,10 @@ impl ObservationContext {
             let unit = state
                 .metrics
                 .iter()
-                .find(|metric| metric.name == name)
+                .find(|metric| metric.name == name && metric.producer == self.producer)
                 .map(|metric| metric.unit.clone())
                 .unwrap_or_default();
-            if let Some(index) = state.metric_index(&node.policy, name, &unit, at) {
+            if let Some(index) = state.producer_metric_index(&node.policy, self.producer, name, &unit, at) {
                 let metric = &mut state.metrics[index];
                 let value = Value::Unavailable(bounded(reason, node.policy.max_text_bytes));
                 copy_value(&mut metric.latest, &value);
@@ -1939,7 +1960,7 @@ impl Drop for PhaseGuard {
                     });
                 }
                 let name = format!("phase.{}.nanoseconds", phase.kind);
-                state.elapsed(&node.policy, &name, at, elapsed);
+                state.producer_elapsed(&node.policy, self.context.producer, &name, at, elapsed);
             }
         });
     }
@@ -2055,6 +2076,7 @@ impl OperationReader {
                     ..Coverage::default()
                 },
                 metrics: Vec::new(),
+            producers: Vec::new(),
                 phases: Vec::new(),
                 children: Vec::new(),
                 sources: Vec::new(),
@@ -2090,6 +2112,7 @@ impl OperationReader {
                 ..Coverage::default()
             },
             metrics: Vec::new(),
+            producers: Vec::new(),
             phases: Vec::new(),
             children: Vec::new(),
             sources: Vec::new(),
@@ -2192,6 +2215,8 @@ impl OperationReader {
                         .is_some_and(|sample| sample.last_observed_at < end)
                     || (!metric.history.is_empty() && history.is_empty() && !empty_intersection);
                 MetricSnapshot {
+                    producer: metric.producer,
+                    duration_summary: metric.duration_summary.clone(),
                     name: metric.name.clone(),
                     unit: metric.unit.clone(),
                     latest: metric.latest.clone(),
@@ -2241,6 +2266,7 @@ impl OperationReader {
                 .metrics
                 .iter()
                 .any(|metric| metric.recent_partial || metric.history_partial);
+        result.producers = state.producers.iter().map(|producer| producer.snapshot(start, end, empty_intersection, node.lost.load(Ordering::Relaxed))).collect();
         result.phases = state.phases.clone();
         result.sources = state.sources.clone();
         result.children = state

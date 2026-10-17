@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 183
+revision: 184
 date: 2026-10-17
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 184 | 2026-10-17 | Proposed ADR-0192 / Plan43a accepted target (§23.1/§21.1): producer-scoped prepared facts, coherent current/recent records, finite selected source coverage and joined invocation endpoints; complete generated boundary migration. | Maintainer-authorized RC01/RC02/RC10 execution; visible `.design-edit`; implementation and scoped acceptance remain Plan43a, formal ADR acceptance separate. |
 | 183 | 2026-10-17 | Plan39/38 selected final qualification and retirement (§20.5/§24.2): composed native/managed/Python/scientific/interruption/case acceptance and exact exclusions; completed-owner navigation. | Maintainer-authorized D5 closeout; PSE_DESIGN_EDIT=1; formal ADR statuses and independent Plan28/32/40 campaigns unchanged. |
 | 182 | 2026-10-17 | Plan39 final recovery correction (§20.5): bounded startup configuration references immutable operation/source-bound payload retirement evidence; exact pointer succession and final retirement preserve drain, unknown-content and crash boundaries. | Maintainer-authorized final qualification; PSE_DESIGN_EDIT=1; within-contract lifecycle correction and focused controls, assembled acceptance remains Plan39d. |
 | 181 | 2026-10-17 | Plan39 final qualification factual reconciliation (§17.1): the optional conditional block-solve offer requires complete actual-route iteration coverage and declines currently incomplete POUNCE block work before effects, preserving declared original-operation fallback, Auto/overrides and analytic constant evaluation. | Maintainer-authorized Plan39/38 qualification repairs; PSE_DESIGN_EDIT=1. Records the existing aggregate-work contract and tested capability refusal; no new solver method, scientific permission or environment/provenance-proof target. |

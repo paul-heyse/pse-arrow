@@ -174,7 +174,8 @@ pub fn seconds_per_call(
     if stem.is_some_and(|stem| snapshot.phases.iter().any(|phase| phase.kind == stem)) {
         return None;
     }
-    if duration.unit != "nanoseconds"
+    if duration.producer != calls.producer
+        || duration.unit != "nanoseconds"
         || duration.resets != calls.resets
         || duration.generation != calls.generation
         || duration.cumulative_partial

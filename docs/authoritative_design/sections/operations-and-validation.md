@@ -125,6 +125,34 @@ work limits or new scientific/cache identities. No exact overhead/latency criter
 identical trajectory guarantee is added. Environment/provenance proof campaigns remain
 permanently eliminated. Plan 40 owns implementation and qualification of this accepted target.
 
+**Producer-scoped coherent evidence.** > Decision: ADR-0192 (proposed; maintainer-authorized Plan43a target).
+
+Performing owners declare operation-local producer instances and stable fact populations.
+Prepared fact handles bind kind and unit before hot updates. Native boundary, coordinate
+transport and original oracle observations remain distinct even when their demands match;
+only the existing work owner charges science. Coupled numerical fields are published as one
+bounded source-issued record, with producer/attempt, generation, sequence, actual event time,
+family, phase and coordinate/norm meanings. Source sequences precede lossy fan-out and differ
+from durable append sequences. Current compact records and bounded recent records have
+independent retention; history zero does not remove admitted current progress. Point-coalesced
+metric histories remain a separate view and never reconstruct an iteration tuple.
+
+Selected detail declares event family, interval, sampled/complete requirement and finite
+memory/output allowances. Successful queue drain is not complete source coverage; loss,
+unsupported families, writer failure and unacknowledged tails remain explicit. Selection is
+acknowledged by the actual producer before its interval. Later checkpoint attachment is
+sampled and cannot recover an unrecorded prefix. Existing Progress, capture and artifact owners
+carry the records without installing a subscriber, retaining unbounded native histories or
+implicitly blocking a numerical callback. Optional telemetry failure cannot change science.
+
+Invocation records reference actual strategy/work evidence and preserve distinct qualification,
+terminal, response-readiness and requested-product outcomes. Later materialization/reopening
+are related access operations, not invented endpoints at native return. Benchmarks retain one
+record per executed invocation; Criterion statistics keep their actual separate sample population.
+Observation effects are classified before any preparation identity is narrowed. Full effective
+settings and resource/reporting consequences remain visible; no identical-deadline-trajectory or
+zero-overhead claim follows.
+
 ### 23.2 Failure taxonomy
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).

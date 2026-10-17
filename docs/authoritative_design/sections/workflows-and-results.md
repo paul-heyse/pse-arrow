@@ -1256,6 +1256,8 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 ### 21.1 Extension module, canonical operations and Arrow streams
 
+> Decision: ADR-0192 (proposed): Plan43a coherent diagnostic and invocation document changes migrate their Rust, generated Python and CLI consumers together; diagnostic locators and selected-detail coverage grant no scientific or publication permission.
+
 > Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
 
 > Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A1/P-A2).
