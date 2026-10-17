@@ -4602,7 +4602,8 @@ fn weighted_provider_products_reexecute_for_changed_weights_points_and_refused_c
     let assembly = Arc::new(Arc::new(plan).compile(Optimization::default(), EvaluationLimits::default(),
         &pse_kernels::ExecutionScope::new(compile_control.clone(), None)).unwrap());
     let stop = pse_diagnostics::Cancellation::default();
-    let mut worker = assembly.worker(BTreeMap::from([(key, Box::new(provider) as Box<dyn pse_kernels::Provider>)]), stop.clone());
+    let provider: Box<dyn pse_kernels::Provider> = Box::new(provider);
+    let mut worker = assembly.worker(BTreeMap::from([(key, provider)]), stop.clone());
     let mut output = [f64::NAN; 2];
     worker.hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output).unwrap();
     assert_eq!(output, [258., 176.]);
