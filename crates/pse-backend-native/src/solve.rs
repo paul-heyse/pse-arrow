@@ -1078,6 +1078,8 @@ impl WorkCoverage {
 /// Cancellation and deadline checkpoints are shared by every callback adapter.
 #[derive(Clone, Debug)]
 pub struct Execution {
+    /// Sole cancellation writer and notification owner for this task.
+    pub cancellation: pse_diagnostics::Cancellation,
     /// Cooperative cancellation; native teardown still must complete.
     pub cancel: Arc<AtomicBool>,
     /// Attempt start, set after admission.
@@ -1103,9 +1105,10 @@ pub struct Execution {
 }
 impl Execution {
     /// Construct at the admitted worker boundary.
-    pub fn new(cancel: Arc<AtomicBool>, controls: &Controls) -> Self {
+    pub fn new(cancellation: pse_diagnostics::Cancellation, controls: &Controls) -> Self {
         Self {
-            cancel,
+            cancel: cancellation.flag(),
+            cancellation,
             started: Instant::now(),
             time_limit: controls.time_limit,
             progress: Arc::new(Progress::new(controls.history)),
@@ -1120,12 +1123,12 @@ impl Execution {
     /// Admit a native attempt within the original task scope, capping its local
     /// allowance without starting another task clock.
     pub fn within(
-        cancel: Arc<AtomicBool>,
+        cancellation: pse_diagnostics::Cancellation,
         controls: &Controls,
         scope: pse_kernels::ExecutionScope,
     ) -> Result<Self, ProblemError> {
         controls.validate()?;
-        if !Arc::ptr_eq(&cancel, scope.cancellation()) {
+        if !Arc::ptr_eq(&cancellation.flag(), scope.cancellation()) {
             return Err(ProblemError::Contract(
                 "execution cancellation owner differs from task scope".into(),
             ));
@@ -1134,7 +1137,7 @@ impl Execution {
             pse_kernels::ProviderError::Cancelled => ProblemError::Cancelled,
             _ => ProblemError::stopped(Termination::TimeLimit, "enclosing execution deadline"),
         })?;
-        let mut execution = Self::new(cancel, controls);
+        let mut execution = Self::new(cancellation, controls);
         if let Some(deadline) = scope.deadline() {
             execution.time_limit = execution
                 .time_limit
@@ -1143,6 +1146,10 @@ impl Execution {
         execution.enclosing_scope = Some(scope);
         execution.check()?;
         Ok(execution)
+    }
+    /// Notification-owning control; synchronous numerical consumers only read `cancel`.
+    pub fn cancellation_control(&self) -> &pse_diagnostics::Cancellation {
+        &self.cancellation
     }
     /// Admit one actual operation, reconcile it even on failure or unwind, then apply the
     /// original late-stop veto. The admission lock is never held during numerical work.
@@ -1199,7 +1206,7 @@ impl Execution {
             .and_then(pse_kernels::ExecutionScope::deadline)
             .map_or(deadline, |enclosing| deadline.min(enclosing));
         Ok(
-            pse_kernels::ExecutionScope::new(self.cancel.clone(), Some(deadline))
+            pse_kernels::ExecutionScope::new(self.cancellation.clone(), Some(deadline))
                 .with_admitted_threads(self.enclosing_scope.as_ref().map_or(
                     std::num::NonZeroUsize::MIN,
                     pse_kernels::ExecutionScope::admitted_threads,
@@ -2578,7 +2585,7 @@ mod numerical_tests {
                 category: Termination::Evaluation,
                 assurance: Assurance::None,
             },
-            &Execution::new(Arc::default(), &Controls::default()),
+            &Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default()),
         )
     }
     fn trial_failure() -> Arc<ProblemError> {
@@ -2761,7 +2768,7 @@ mod numerical_tests {
         let tolerance = 100.0 * pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
         let accuracy = ResolvedAccuracy::from_policy(&policy, tolerance / 100.0).unwrap();
         let contract = crate::solver_tests::contract();
-        let execution = Execution::new(Arc::default(), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         let mut report = SolveReport::new(
             Backend::Ipopt,
             &contract,
@@ -2823,7 +2830,7 @@ mod numerical_tests {
     #[test]
     fn attempt_abandonment_is_local_typed_and_first_write() {
         use pse_model::generated::enums::NumericalAttemptObservation as O;
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let execution = Execution::new(cancel.clone(), &Controls::default());
         let sibling = Execution::new(cancel.clone(), &Controls::default());
         assert!(execution.clone().abandon(O::Stalled).unwrap());
@@ -2837,17 +2844,17 @@ mod numerical_tests {
                 ..
             })
         ));
-        assert!(!cancel.load(Ordering::Acquire));
+        assert!(!cancel.is_cancelled());
         assert_eq!(sibling.stopped(), None);
         assert!(sibling.abandon(O::ContractFailure).is_err());
         assert_eq!(sibling.abandonment.observation(), None);
-        cancel.store(true, Ordering::Release);
+        cancel.cancel();
         assert_eq!(execution.stopped(), Some(Termination::Cancelled));
     }
 
     #[test]
     fn within_caps_original_deadline_and_rejects_late_exit() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let original_deadline = Instant::now() + Duration::from_millis(100);
         let original = pse_kernels::ExecutionScope::new(cancel.clone(), Some(original_deadline))
             .with_admitted_threads(std::num::NonZeroUsize::new(3).unwrap());
@@ -2864,7 +2871,7 @@ mod numerical_tests {
         );
         assert!(Arc::ptr_eq(
             execution.scope().unwrap().cancellation(),
-            &cancel
+            &cancel.flag()
         ));
         assert!(execution.time_limit <= Duration::from_millis(100));
         assert_eq!(
@@ -2884,8 +2891,8 @@ mod numerical_tests {
             })
         ));
         assert!(Execution::within(cancel.clone(), &Controls::default(), original).is_err());
-        assert!(!cancel.load(Ordering::Acquire));
-        let foreign = pse_kernels::ExecutionScope::new(Arc::default(), None);
+        assert!(!cancel.is_cancelled());
+        let foreign = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         assert!(matches!(
             Execution::within(cancel, &Controls::default(), foreign),
             Err(ProblemError::Contract(_))
