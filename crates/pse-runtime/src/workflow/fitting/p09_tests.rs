@@ -3190,6 +3190,6 @@ async fn transient_fit_trial_scheduling_keeps_rejected_values_lazy_for_both_deri
             oracle.gradient(&[2.5], &mut gradient).unwrap();
             assert_eq!(gradient, before);
             assert_eq!(oracle.transient_passes, expected);
-        });
+        }).await;
     }
 }
