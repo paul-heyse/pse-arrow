@@ -18,7 +18,7 @@ use pse_model::scalars::{Fraction, Tolerance};
 
 /// Process state that linear-solver admission depends on, observed on the calling thread.
 #[derive(
-    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
