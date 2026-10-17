@@ -771,7 +771,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             escaped_run_column = invocation_view.column("run")
             del invocation_view
             gc.collect()
-            assert escaped_run_column[0].as_py() == invocation.run_id.to_hex()
+            assert escaped_run_column[0].as_py() == invocation.run_id
             assert codec.encode_json(result.invocation_evidence) == invocation_before
             assert codec.encode_json(result.attempt_summary) == summary_before
             assert invocation.timing_unavailable is None
