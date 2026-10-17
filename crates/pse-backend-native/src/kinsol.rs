@@ -570,6 +570,7 @@ struct Context {
     klu: ffi::SUNLinearSolver,
     klu_baseline: Option<ffi::SUNLinearSolver_KLUWork>,
     klu_producer: Option<pse_diagnostics::observation::Producer>,
+    klu_phases: [Option<pse_diagnostics::observation::PhaseGuard>; 6],
 }
 /// Worker-local allocation retains native layouts across compatible equation values.
 pub struct Session {
@@ -596,6 +597,7 @@ impl std::fmt::Debug for Session {
 }
 impl Drop for Session {
     fn drop(&mut self) {
+        linear_work::clear(&mut self.callback);
         // Every object below was created by this session and is freed exactly once, the
         // solver memory first so nothing native refers to the rest afterwards.
         if !self.mem.is_null() {
@@ -1360,6 +1362,7 @@ impl Session {
             data: compatibility.data,
             raw_map: None,
             klu: std::ptr::null_mut(), klu_baseline: None, klu_producer: None,
+            klu_phases: std::array::from_fn(|_| None),
         });
         let mut s = Self {
             ctx: std::ptr::null_mut(),
@@ -1668,28 +1671,13 @@ impl Session {
             Strategy::LineSearch => 1,
             Strategy::FixedPoint => 3,
         };
-        if method.linear == Linear::Klu && !self.linear.is_null() {
-            crate::observation::unavailable(
-                "kinsol.klu.factor_work",
-                "SUNDIALS owns KLU setup/refactor/solve; current attempt has no safe per-factor checkpoint/count hook",
-            );
-            for name in [
-                "kinsol.klu.current_attempt.symbolic_calls",
-                "kinsol.klu.current_attempt.factor_calls",
-                "kinsol.klu.current_attempt.refactor_calls",
-                "kinsol.klu.current_attempt.solve_calls",
-            ] {
-                crate::observation::unavailable(
-                    name,
-                    "opaque SUNDIALS KLU subphase; Jacobian/linear-iteration counts do not establish this count",
-                );
-            }
-        }
+        linear_work::install(&mut self.callback);
         // SAFETY: the session's live KINSOL memory and vectors on its owning thread; the
         // callbacks reach the context only through their user data.
         let code = crate::observation::scoped("kinsol.solve", || unsafe {
             ffi::KINSol(self.mem, self.x, strategy, self.us, self.fs)
         });
+        linear_work::clear(&mut self.callback);
         let mut report = SolveReport::new(
             Backend::Kinsol,
             self.callback.function.contract(),
@@ -2517,6 +2505,44 @@ mod tests {
         let after = unsafe { linear_work::snapshot(session.linear) }.unwrap();
         assert_eq!(after.numeric_factor_issued - before.numeric_factor_issued, 1);
         assert_eq!(after.numeric_factor_completed, before.numeric_factor_completed);
+    }
+    #[test]
+    fn klu_optional_phase_hook_pairs_failed_and_successful_calls_and_clears() {
+        unsafe extern "C" fn capture(phase: i32, begin: i32, userdata: *mut c_void) {
+            // SAFETY: this test passes its exclusively borrowed twelve scalar slots
+            // only for the synchronous native calls below, then clears the hook.
+            let counts = unsafe { &mut *userdata.cast::<[u64; 12]>() };
+            let index = usize::try_from(phase - 1).unwrap() * 2 + usize::from(begin == 0);
+            counts[index] += 1;
+        }
+        let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let session = Session::new(affine_function(1., &setups), settings(), execution(), crate::solver_tests::stamp(Backend::Kinsol)).unwrap();
+        let mut counts = [0_u64; 12];
+        // SAFETY: exact live owner; callback data remains in scope until cleared.
+        unsafe {
+            assert_eq!(ffi::SUNLinSol_KLUSetObserver(session.linear, Some(capture), std::ptr::from_mut(&mut counts).cast()), 0);
+            *ffi::SUNSparseMatrix_IndexPointers(session.matrix) = 0;
+            *ffi::SUNSparseMatrix_IndexPointers(session.matrix).add(1) = 1;
+            *ffi::SUNSparseMatrix_IndexValues(session.matrix) = 0;
+            *ffi::SUNSparseMatrix_Data(session.matrix) = 0.;
+            assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
+            assert_ne!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
+        }
+        assert_eq!(&counts[..4], &[1,1,1,1], "failed factor still ends its active phase");
+        // SAFETY: same exact live owner and stable observer; one fresh successful call.
+        unsafe {
+            *ffi::SUNSparseMatrix_Data(session.matrix) = 1.;
+            assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
+            assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
+            assert_eq!(ffi::SUNLinSol_KLUSetObserver(session.linear, None, std::ptr::null_mut()), 0);
+        }
+        assert_eq!(&counts[..4], &[2,2,2,2]);
+        // SAFETY: after clear, native work cannot invoke the former userdata.
+        unsafe {
+            assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
+            assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
+        }
+        assert_eq!(&counts[..4], &[2,2,2,2]);
     }
     #[test]
     fn setup_interval_profiles_preserve_original_acceptance_and_expose_actual_work() {

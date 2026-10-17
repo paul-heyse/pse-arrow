@@ -103,11 +103,19 @@ typedef struct {
   int overflow;
 } SUNLinearSolver_KLUWork;
 
+/* Optional synchronous owner notification. Phase IDs: 1 symbolic, 2 numeric
+ * factor, 3 refactor, 4 rcond, 5 condest, 6 substitution. Begin is 1, end is 0;
+ * every issued native call has an end, including failed calls. No result/admission
+ * is taken from this observer; caller owns userdata until it clears the hook. */
+typedef void (*SUNLinearSolver_KLUObserver)(int phase, int begin, void* userdata);
+
 struct _SUNLinearSolverContent_KLU
 {
   int last_flag;
   int first_factorize;
   SUNLinearSolver_KLUWork work;
+  SUNLinearSolver_KLUObserver observer;
+  void* observer_data;
   sun_klu_symbolic* symbolic;
   sun_klu_numeric* numeric;
   sun_klu_common common;
@@ -135,6 +143,9 @@ SUNDIALS_EXPORT sun_klu_symbolic* SUNLinSol_KLUGetSymbolic(SUNLinearSolver S);
 SUNDIALS_EXPORT sun_klu_numeric* SUNLinSol_KLUGetNumeric(SUNLinearSolver S);
 SUNDIALS_EXPORT sun_klu_common* SUNLinSol_KLUGetCommon(SUNLinearSolver S);
 SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUGetWork(SUNLinearSolver S, SUNLinearSolver_KLUWork* work);
+
+SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUSetObserver(SUNLinearSolver S,
+  SUNLinearSolver_KLUObserver observer, void* userdata);
 
 /* -----------------------------------------------
  *  Implementations of SUNLinearSolver operations

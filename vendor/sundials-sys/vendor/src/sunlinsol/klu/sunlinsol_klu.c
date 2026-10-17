@@ -50,6 +50,11 @@ static void count_work(uint64_t* value, int* overflow) {
   else { ++*value; }
 }
 #define COUNT_WORK(S, field) count_work(&WORK(S).field, &WORK(S).overflow)
+static void observe_work(SUNLinearSolver S, int phase, int begin) {
+  if (KLU_CONTENT(S)->observer) {
+    KLU_CONTENT(S)->observer(phase, begin, KLU_CONTENT(S)->observer_data);
+  }
+}
 
 /*
  * -----------------------------------------------------------------
@@ -112,6 +117,8 @@ SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A, SUNContext sunctx)
   content->last_flag       = 0;
   content->first_factorize = 1;
   content->work = (SUNLinearSolver_KLUWork){0};
+  content->observer = NULL;
+  content->observer_data = NULL;
   content->symbolic        = NULL;
   content->numeric         = NULL;
 
@@ -226,6 +233,16 @@ SUNErrCode SUNLinSol_KLUGetWork(SUNLinearSolver S, SUNLinearSolver_KLUWork* work
   return SUN_SUCCESS;
 }
 
+SUNErrCode SUNLinSol_KLUSetObserver(SUNLinearSolver S,
+  SUNLinearSolver_KLUObserver observer, void* userdata)
+{
+  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
+  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU) { return SUN_ERR_ARG_INCOMPATIBLE; }
+  KLU_CONTENT(S)->observer = observer;
+  KLU_CONTENT(S)->observer_data = observer ? userdata : NULL;
+  return SUN_SUCCESS;
+}
+
 
 /*
  * -----------------------------------------------------------------
@@ -275,9 +292,11 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
     /* Perform symbolic analysis of sparsity structure */
     if (SYMBOLIC(S)) { sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S)); }
     COUNT_WORK(S, symbolic_issued);
+    observe_work(S, 1, 1);
     SYMBOLIC(S) = sun_klu_analyze(SUNSparseMatrix_NP(A),
                                   SUNSparseMatrix_IndexPointers(A),
                                   SUNSparseMatrix_IndexValues(A), &COMMON(S));
+    observe_work(S, 1, 0);
     if (SYMBOLIC(S) == NULL)
     {
       LASTFLAG(S) = SUN_ERR_EXT_FAIL;
@@ -291,9 +310,11 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
        ------------------------------------------------------------*/
     if (NUMERIC(S)) { sun_klu_free_numeric(&NUMERIC(S), &COMMON(S)); }
     COUNT_WORK(S, numeric_factor_issued);
+    observe_work(S, 2, 1);
     NUMERIC(S) = sun_klu_factor(SUNSparseMatrix_IndexPointers(A),
                                 SUNSparseMatrix_IndexValues(A),
                                 SUNSparseMatrix_Data(A), SYMBOLIC(S), &COMMON(S));
+    observe_work(S, 2, 0);
     if (NUMERIC(S) == NULL)
     {
       LASTFLAG(S) = SUN_ERR_EXT_FAIL;
@@ -307,10 +328,12 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
   { /* not the first decomposition, so just refactor */
 
     COUNT_WORK(S, refactor_issued);
+    observe_work(S, 3, 1);
     retval = sun_klu_refactor(SUNSparseMatrix_IndexPointers(A),
                               SUNSparseMatrix_IndexValues(A),
                               SUNSparseMatrix_Data(A), SYMBOLIC(S), NUMERIC(S),
                               &COMMON(S));
+    observe_work(S, 3, 0);
     if (retval == 0)
     {
       LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
@@ -326,7 +349,9 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
       -----------------------------------------------------------*/
 
     COUNT_WORK(S, rcond_issued);
+    observe_work(S, 4, 1);
     retval = sun_klu_rcond(SYMBOLIC(S), NUMERIC(S), &COMMON(S));
+    observe_work(S, 4, 0);
     if (retval == 0)
     {
       LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
@@ -339,9 +364,11 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
       /* Condition number may be getting large.
 	 Compute more accurate estimate */
       COUNT_WORK(S, condest_issued);
+      observe_work(S, 5, 1);
       retval = sun_klu_condest(SUNSparseMatrix_IndexPointers(A),
                                SUNSparseMatrix_Data(A), SYMBOLIC(S), NUMERIC(S),
                                &COMMON(S));
+      observe_work(S, 5, 0);
       if (retval == 0)
       {
         LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
@@ -355,10 +382,12 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
            large, so recompute the numeric factorization */
         sun_klu_free_numeric(&NUMERIC(S), &COMMON(S));
         COUNT_WORK(S, numeric_factor_issued);
+        observe_work(S, 2, 1);
         NUMERIC(S) = sun_klu_factor(SUNSparseMatrix_IndexPointers(A),
                                     SUNSparseMatrix_IndexValues(A),
                                     SUNSparseMatrix_Data(A), SYMBOLIC(S),
                                     &COMMON(S));
+        observe_work(S, 2, 0);
         if (NUMERIC(S) == NULL)
         {
           LASTFLAG(S) = SUN_ERR_EXT_FAIL;
@@ -399,8 +428,10 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
   }
 
   /* Call KLU to solve the linear system */
+  observe_work(S, 6, 1);
   flag = SOLVE(S)(SYMBOLIC(S), NUMERIC(S), SUNSparseMatrix_NP(A), 1, xdata,
                   &COMMON(S));
+  observe_work(S, 6, 0);
   if (flag == 0)
   {
     LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;

@@ -12,6 +12,54 @@ pub(super) unsafe fn snapshot(solver: ffi::SUNLinearSolver) -> Option<ffi::SUNLi
     // SAFETY: successful getter wrote every scalar in the work record.
     Some(unsafe { work.assume_init() })
 }
+const PHASES: [&str; 6] = [
+    "kinsol.klu.symbolic", "kinsol.klu.numeric_factor", "kinsol.klu.refactor",
+    "kinsol.klu.rcond", "kinsol.klu.condest", "kinsol.klu.substitution",
+];
+/// Installed only while a selected invocation owns both the live native handle
+/// and its boxed callback. It never reads numerical arrays or initiates work.
+unsafe extern "C" fn phase(phase: i32, begin: i32, userdata: *mut c_void) {
+    if userdata.is_null() { return; }
+    // SAFETY: install passes this Session's stable boxed Context. Synchronous
+    // KLU calls cannot outlive KINSol; clear removes the pointer before release.
+    let context = unsafe { &mut *userdata.cast::<Context>() };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let Some(index) = usize::try_from(phase).ok().and_then(|id| id.checked_sub(1))
+            .filter(|index| *index < PHASES.len()) else { return; };
+        if begin != 0 {
+            if let Some(producer) = &context.klu_producer {
+                context.klu_phases[index] = Some(producer.context().phase(PHASES[index]));
+            }
+        } else {
+            context.klu_phases[index] = None;
+        }
+    }));
+    if result.is_err() {
+        // Optional observation failure cannot alter the numerical return code.
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if let Some(producer) = &context.klu_producer {
+                producer.context().unavailable("kinsol.klu.phase", "observer callback failed");
+            }
+        }));
+    }
+}
+pub(super) fn install(context: &mut Context) {
+    if context.klu.is_null() || !context.klu_producer.as_ref()
+        .is_some_and(|producer| producer.detail_selected("native_linear_work.v1")) { return; }
+    // SAFETY: exclusive live owner; the boxed Context stays fixed through the call.
+    let status = unsafe { ffi::SUNLinSol_KLUSetObserver(context.klu, Some(phase),
+        std::ptr::from_mut(context).cast()) };
+    if status != 0 && let Some(producer) = &context.klu_producer {
+        producer.context().unavailable("kinsol.klu.phase", "native observer registration refused");
+    }
+}
+pub(super) fn clear(context: &mut Context) {
+    if !context.klu.is_null() {
+        // SAFETY: the Session retains the live handle until after this clear.
+        unsafe { ffi::SUNLinSol_KLUSetObserver(context.klu, None, std::ptr::null_mut()) };
+    }
+    for guard in &mut context.klu_phases { *guard = None; }
+}
 fn delta(before: Option<&ffi::SUNLinearSolver_KLUWork>, after: Option<&ffi::SUNLinearSolver_KLUWork>) -> std::collections::BTreeMap<String, Metric> {
     let valid = before.zip(after).filter(|(before, after)| before.overflow == 0 && after.overflow == 0);
     let mut values = std::collections::BTreeMap::from([
