@@ -96,6 +96,7 @@ class ManagedStudyFixture:
         self.database = ""
         self.observer_group = ""
         self.worker_pid = 0
+        self.diagnostic_handoff: dict[str, object] | None = None
         self.lock_owned = False
         self.primary_attempted = False
         self.caller: subprocess.Popen[bytes] | None = None
@@ -203,6 +204,17 @@ class ManagedStudyFixture:
             assert ready["canonical_database"] == self.database
             marker = _read_object(self.state / "primary-receiver.json")
             assert marker["canonical_database"] == self.database
+            self.diagnostic_handoff = msgspec.convert(
+                ready["diagnostics"], type=dict[str, object]
+            )
+            marker_diagnostics = msgspec.convert(
+                marker["diagnostics"], type=dict[str, object]
+            )
+            assert self.diagnostic_handoff["identity"] == marker_diagnostics["identity"]
+            assert (
+                self.diagnostic_handoff["checkpoint"]
+                == marker_diagnostics["checkpoint"]
+            )
             assert marker["qualification_native_entry"] == str(self.directory)
             for key in ("pool_memory_bytes", "cpu_threads", "case_lanes", "math_jobs"):
                 assert marker[key] == profile[key]

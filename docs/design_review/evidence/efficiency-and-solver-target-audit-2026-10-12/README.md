@@ -1,6 +1,6 @@
 # Efficiency and solver target audit evidence
 
-Supporting material for the [independent principal audit](../../reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md) of the [consolidated review](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md) and its [solver companion](../efficiency-and-solver-target-2026-10-12/solver-target.md).
+Supporting material for the [independent principal audit](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md) of the [consolidated review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md) and its [solver companion](../efficiency-and-solver-target-2026-10-12/solver-target.md).
 
 Baseline: `6c368c88acda548d421b44e8fc4f457c95bcec7e`, examined 2026-10-12. The source review/evidence and its design-review index edit were already uncommitted work by another author. The audit preserved them, apart from adding its own separate index entry. Criteria: Core 3.4/template 3.4, Efficient Architecture 1.0, Process Simulator 1.5 and the pse-arrow binding's functional target. Current ADRs, plans, product choices and pins describe the subject and potential rule impacts.
 

@@ -95,7 +95,7 @@ impl ResultSnapshot {
                 let response = super::connected_results::response_owner(
                     runtime,
                     "canonical:result-snapshot-page",
-                    MetadataResponse::Page,
+                    MetadataResponse::BlockPage,
                 )?;
                 let page = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone(), response.clone())),

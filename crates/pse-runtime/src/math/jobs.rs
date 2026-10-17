@@ -169,6 +169,7 @@ impl MathService {
                     Ok(()) => true,
                     Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
                         pressure.get_or_insert_with(|| self.pressure.demand());
+                        self.trim_compiler_lanes();
                         self.retire_idle_native_lanes();
                         match self.pressure.retry_growth(&lease, bytes) {
                             Ok(()) => true,
@@ -260,6 +261,7 @@ impl MathService {
                 Ok(()) => true,
                 Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
                     pressure.get_or_insert_with(|| self.pressure.demand());
+                    self.trim_compiler_lanes();
                     self.retire_idle_native_lanes();
                     match self.pressure.retry_growth(&lease, bytes) {
                         Ok(()) => true,
@@ -1153,6 +1155,7 @@ impl MathService {
                 Ok(()) => return Ok(pse_columnar::AllocationLease::new(reservation)),
                 Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
                     pressure.get_or_insert_with(|| self.pressure.demand());
+                    self.trim_compiler_lanes();
                     self.retire_idle_native_lanes();
                     match self.pressure.retry_growth(&reservation, bytes) {
                         Ok(()) => return Ok(pse_columnar::AllocationLease::new(reservation)),

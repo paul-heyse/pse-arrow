@@ -147,6 +147,13 @@ impl ResultReadDrain {
         if self.live.load(std::sync::atomic::Ordering::SeqCst) != 0 {
             return Err(invalid("canonical client still has live protected readers"));
         }
+        self.join_pending_releases().await
+    }
+    /// Join cleanup already enqueued by dropped readers while independent
+    /// readers may remain live. This does not close protection admission or
+    /// establish global reader drain; later drops still enqueue tracked releases.
+    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    pub(crate) async fn join_pending_releases(&self) -> Result<(), CanonicalError> {
         self.releases.close();
         self.wait_for_releases().await
     }
@@ -1048,7 +1055,7 @@ impl CanonicalStore {
         end: u64,
         after: Option<u64>,
     ) -> Result<Vec<BlockMetadata>, CanonicalError> {
-        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Page, async {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::BlockPage, async {
         let activity = read.owner.store.selection_activity(&read.owner.selection)?;
         activity.scope(async {
         if !self.db.same_driver(&read.owner.store.db) {
@@ -1068,7 +1075,7 @@ impl CanonicalStore {
         } else {
             ""
         };
-        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block_page", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page, format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block_page", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::BlockPage, format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned()))
@@ -1500,6 +1507,34 @@ mod protection_drain_unit {
     #[tokio::test]
     async fn canonical_protection_drain_reports_failed_release() {
         reports_release_fault(ReleaseFault::Failed).await;
+    }
+    #[tokio::test]
+    async fn pending_release_join_preserves_independent_live_reader_refusal() {
+        let drain = Arc::new(ResultReadDrain::default());
+        drain.retain().unwrap(); // Independent artifact reader.
+        drain.retain().unwrap(); // Result reader whose last follower is dropped.
+        let cleanup = drain.release();
+        let joining = drain.join_pending_releases();
+        tokio::pin!(joining);
+        tokio::select! {
+            biased;
+            result = &mut joining => panic!("pending cleanup did not block join: {result:?}"),
+            () = tokio::task::yield_now() => {}
+        }
+        cleanup.complete(Ok(()));
+        joining.await.unwrap();
+        assert!(drain.drain().await.is_err());
+        assert!(drain.close_and_drain().await.is_err());
+        let later_cleanup = drain.release();
+        let final_drain = drain.close_and_drain();
+        tokio::pin!(final_drain);
+        tokio::select! {
+            biased;
+            result = &mut final_drain => panic!("later tracked cleanup did not block drain: {result:?}"),
+            () = tokio::task::yield_now() => {}
+        }
+        later_cleanup.complete(Ok(()));
+        final_drain.await.unwrap();
     }
     #[tokio::test]
     async fn canonical_protection_close_refusal_and_observation_keep_live_admission() {

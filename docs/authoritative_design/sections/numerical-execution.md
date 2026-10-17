@@ -634,6 +634,15 @@ policy; libraries own every iteration.
 
 **Implemented:** stable compiler block-ID native solver/control overrides resolve through the shared contextual policy, preserving original physical acceptance, intent, branch/start permissions and aggregate caps. Only complete independent ready blocks execute together; successful overlays commit in canonical order and full original assessment remains mandatory. Unknown/incompatible overrides refuse. Discovery and selected capability/witness facts authenticate overrides without rebuilding all conditional evaluators; value-only changes reuse the source proof. Aggregate wave demand sums effective native team widths and foreign memory with owner-thread stacks before dispatch. Coupled tear decisions are not split by SCC.
 
+The optional conditional block-solve offer requires complete per-attempt iteration totals
+from its actual contextual routes to debit the original aggregate allowance. The current
+POUNCE adapter does not provide that coverage for every method/exit, so a block routed to
+POUNCE declines this offer before native effects. The declared strategy may then select its
+unchanged original native operation; direct original POUNCE execution is unaffected. Auto
+selection and explicit per-block overrides still determine the actual route, and eligible
+constant evaluation needs no native iteration total. Progress samples and cached statistics
+do not substitute for complete work evidence.
+
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —
 > restates D13: initialization stages, including discrete fixing, are immutable overlays;
 > [ADR-0093](../../adr/0093-qualified-native-strategies.md) — transactional stages. Plan 22

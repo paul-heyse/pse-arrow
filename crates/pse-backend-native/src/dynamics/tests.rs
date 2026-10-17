@@ -888,6 +888,17 @@ impl Oracle for TrialToy {
 #[cfg(feature = "idas")]
 #[test]
 fn idas_recovers_typed_trial_and_terminal_policy_stops() {
+    #[derive(Debug, Default)]
+    struct Rejection(std::sync::atomic::AtomicBool);
+    impl crate::solve::ProgressTap for Rejection {
+        fn observe(&self, event: &crate::solve::Event) {
+            if event.phase == "idas.residual.failure"
+                && event.values.get("recoverable") == Some(&crate::solve::Metric::Bool(true))
+            {
+                self.0.store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+    }
     for policy in [TrialPolicy::Recoverable, TrialPolicy::Terminal] {
         let mut p = profile(false);
         p.method = Method::Idas;
@@ -896,7 +907,10 @@ fn idas_recovers_typed_trial_and_terminal_policy_stops() {
             toy: Toy::new(false, false),
             rejected: false,
         };
-        let r = integrate(&mut toy, &p, &[2.0], Arc::default()).unwrap();
+        let rejection = Arc::new(Rejection::default());
+        // Observe the actual callback even when later progress replaces its history.
+        let progress = Arc::new(crate::solve::Progress::tapped(0, rejection.clone()));
+        let r = integrate_with_progress(&mut toy, &p, &[2.0], Arc::default(), progress).unwrap();
         assert!(toy.rejected);
         assert_eq!(
             r.termination,
@@ -908,11 +922,22 @@ fn idas_recovers_typed_trial_and_terminal_policy_stops() {
             "{:?}",
             r.error
         );
-        assert!(
-            r.progress
-                .iter()
-                .any(|e| e.phase == "idas.evaluation.failure")
-        );
+        assert!(rejection.0.load(std::sync::atomic::Ordering::Acquire));
+        if policy == TrialPolicy::Recoverable {
+            assert!(r.error.is_none());
+            assert_eq!(r.completed_time, p.end);
+            assert_eq!(r.samples.len(), p.samples.len());
+            for sample in &r.samples {
+                assert!((sample.state[0] - 2.0 * (-2.0 * sample.time).exp()).abs() < 1e-6);
+            }
+        } else {
+            assert!(matches!(
+                r.error,
+                Some(ProblemError::Math(pse_math::MathError::Domain { source_id, .. }))
+                    if source_id == id(9)
+            ));
+            assert!(r.completed_time < p.end);
+        }
     }
 }
 

@@ -2995,6 +2995,18 @@ class CausalUnitRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         v.unique(v.scalar_key)(self, None, self.outputs)
 
 
+class CheckpointIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact diagnostic association supplied by the registered receiver, never stop authority."""
+
+    #: Actual process/start association recorded by the runtime.
+    locator: ProcessLocator
+    #: Diagnostic process instance, independent of PID reuse.
+    process: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.locator), v.scalar_key(self.process),))
+
+
 class ChildSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Copied linked-operation summary; availability is explicit."""
 
@@ -3090,6 +3102,20 @@ class ClarabelSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.chordal_decomposition_compact), v.scalar_key(self.chordal_decomposition_complete_dual), v.scalar_key(self.chordal_decomposition_enable), v.scalar_key(self.chordal_decomposition_merge_method), v.scalar_key(self.direct), v.scalar_key(self.dynamic_regularization_delta), v.scalar_key(self.dynamic_regularization_enable), v.scalar_key(self.dynamic_regularization_eps), v.scalar_key(self.equilibrate_max_iter), v.scalar_key(self.equilibrate_max_scaling), v.scalar_key(self.equilibrate_min_scaling), v.scalar_key(self.input_sparse_dropzeros), v.scalar_key(self.iterative_refinement_abstol), v.scalar_key(self.iterative_refinement_enable), v.scalar_key(self.iterative_refinement_max_iter), v.scalar_key(self.iterative_refinement_reltol), v.scalar_key(self.iterative_refinement_stop_ratio), v.scalar_key(self.linesearch_backtrack_step), v.scalar_key(self.max_step_fraction), v.scalar_key(self.min_switch_step_length), v.scalar_key(self.min_terminate_step_length), v.scalar_key(self.mode), v.scalar_key(self.presolve_enable), v.scalar_key(self.reduced_tol_infeas_abs), v.scalar_key(self.reduced_tol_infeas_rel), v.scalar_key(self.reduced_tol_ktratio), v.scalar_key(self.static_regularization_constant), v.scalar_key(self.static_regularization_enable), v.scalar_key(self.static_regularization_proportional), v.scalar_key(self.tol_infeas_abs), v.scalar_key(self.tol_infeas_rel), v.scalar_key(self.tol_ktratio),))
+
+
+class ClockMapping(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Mapping of one observation clock checkpoint to the same-host Linux monotonic clock."""
+
+    #: CLOCK_MONOTONIC nanoseconds, not Unix time or process CPU time.
+    monotonic_nanoseconds: Annotated[int, msgspec.Meta(ge=0)]
+    #: Observation-clock sample immediately preceding the OS clock read.
+    observation_at: ClosedDuration
+    #: Elapsed observation time bracketing the clock read; alignment is not exact.
+    uncertainty_nanoseconds: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.monotonic_nanoseconds), v.record_key(self.observation_at), v.scalar_key(self.uncertainty_nanoseconds),))
 
 
 class ClosedDuration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3520,9 +3546,11 @@ class DiagnosticProcessSummary(msgspec.Struct, frozen=True, forbid_unknown_field
     partial: bool
     #: Process diagnostic identity, if the image is readable.
     process: str | None = None
+    #: Explicit producer-summary admission, expiry and pressure losses when readable.
+    summaries: SummaryCoverage | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.checkpoint), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.locator), v.sequence_key(v.record_key)(self.operations), v.scalar_key(self.partial), v.optional_key(v.scalar_key)(self.process),))
+        return (type(self), (v.scalar_key(self.checkpoint), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.locator), v.sequence_key(v.record_key)(self.operations), v.scalar_key(self.partial), v.optional_key(v.scalar_key)(self.process), v.optional_key(v.record_key)(self.summaries),))
 
 
 class DiagnosticSamplesControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5690,9 +5718,11 @@ class OperationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Bounded current-catalogue page.
     operations: tuple[OperationSummary, ...]
+    #: Summary admission and loss facts, separate from scientific metrics.
+    summaries: SummaryCoverage
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.coverage), v.optional_key(v.scalar_key)(self.next_offset), v.sequence_key(v.record_key)(self.operations),))
+        return (type(self), (v.record_key(self.coverage), v.optional_key(v.scalar_key)(self.next_offset), v.sequence_key(v.record_key)(self.operations), v.record_key(self.summaries),))
 
 
 class OperationRequestDeclaredCase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="declared_case"):
@@ -5772,9 +5802,11 @@ class OperationSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     stale_after: ClosedDuration
     #: Actual monotonic start time.
     started_at: ClosedDuration
+    #: Producer-declared responsibility and finite copied-output lifetime.
+    summary: SummaryPublication | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.children), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.detail), v.scalar_key(self.detail_partial), v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.record_key(self.interval_end), v.scalar_key(self.interval_partial), v.record_key(self.interval_start), v.scalar_key(self.kind), v.sequence_key(v.record_key)(self.metrics), v.optional_key(v.record_key)(self.observed_at), v.optional_key(v.scalar_key)(self.outcome), v.sequence_key(v.record_key)(self.phases), v.record_key(self.read_at), v.record_key(self.requested_interval), v.sequence_key(v.record_key)(self.sources), v.record_key(self.stale_after), v.record_key(self.started_at),))
+        return (type(self), (v.sequence_key(v.record_key)(self.children), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.detail), v.scalar_key(self.detail_partial), v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.record_key(self.interval_end), v.scalar_key(self.interval_partial), v.record_key(self.interval_start), v.scalar_key(self.kind), v.sequence_key(v.record_key)(self.metrics), v.optional_key(v.record_key)(self.observed_at), v.optional_key(v.scalar_key)(self.outcome), v.sequence_key(v.record_key)(self.phases), v.record_key(self.read_at), v.record_key(self.requested_interval), v.sequence_key(v.record_key)(self.sources), v.record_key(self.stale_after), v.record_key(self.started_at), v.optional_key(v.record_key)(self.summary),))
 
 
 class OperationSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5802,9 +5834,11 @@ class OperationSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     outcome: enums.OperationOutcome | None = None
     #: Actual monotonic start time.
     started_at: ClosedDuration
+    #: Producer-declared responsibility and finite copied-output lifetime.
+    summary: SummaryPublication | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.outcome), v.record_key(self.started_at),))
+        return (type(self), (v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.outcome), v.record_key(self.started_at), v.optional_key(v.record_key)(self.summary),))
 
 
 class Optimization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6128,6 +6162,42 @@ class PresolveSeedTransformation(msgspec.Struct, frozen=True, forbid_unknown_fie
         return (type(self), (v.sequence_key(v.scalar_key)(self.passes), v.scalar_key(self.transformation),))
 
 
+class ProcessCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One immutable process publication, never a scientific result or native restart state."""
+
+    #: Format version of this diagnostic-only representation.
+    version: Annotated[int, msgspec.Meta(ge=0)]
+    #: Mapping to the same-host monotonic clock, with bounded read uncertainty.
+    clock: ClockMapping | None = None
+    #: Actual operational attachment locator, not build provenance.
+    locator: ProcessLocator
+    #: Operations omitted from this bounded external image.
+    omitted: Annotated[int, msgspec.Meta(ge=0)]
+    #: Current/cumulative/recent facts, including their own scopes and coverage.
+    operations: tuple[OperationSnapshot, ...]
+    #: A parent diagnostic operation, when this process was explicitly dispatched by it.
+    parent: OperationId | None = None
+    #: Unique process-instance locator; PID alone is never its identity.
+    process: str
+    #: Publication wall timestamp, distinct from each producer's checkpoint time.
+    published_unix_micros: Annotated[int, msgspec.Meta(ge=0)]
+    #: Registry refusal/loss, including operations that could not obtain diagnostic storage.
+    registry_coverage: Coverage
+    #: Process-wide samples, never a private operation's peak or exclusive CPU time.
+    resources: ProcessResources
+    #: Monotonic publication sequence within this process instance.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit compact-output admission, expiry and pressure losses.
+    summaries: SummaryCoverage
+    #: Bounded actual native-thread execution scopes.
+    threads: tuple[ThreadExecution, ...]
+    #: Thread scopes were displaced or could not be observed.
+    threads_partial: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.clock), v.record_key(self.locator), v.scalar_key(self.omitted), v.sequence_key(v.record_key)(self.operations), v.optional_key(v.record_key)(self.parent), v.scalar_key(self.process), v.scalar_key(self.published_unix_micros), v.record_key(self.registry_coverage), v.record_key(self.resources), v.scalar_key(self.sequence), v.record_key(self.summaries), v.sequence_key(v.record_key)(self.threads), v.scalar_key(self.threads_partial),))
+
+
 class ProcessLocator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual process locator. PID reuse must be checked before attaching an optional sampler."""
 
@@ -6140,6 +6210,22 @@ class ProcessLocator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.executable), v.scalar_key(self.pid), v.optional_key(v.scalar_key)(self.start_ticks),))
+
+
+class ProcessResources(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Independently sampled process scope. Missing values are unavailable, never zero-filled."""
+
+    #: Process-lifetime resident high-water mark; it is not reset for an operation.
+    lifetime_peak_resident_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Current resident bytes at publication, including observer/library allocations.
+    resident_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Process-lifetime system CPU clock ticks.
+    system_cpu_ticks: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Process-lifetime user CPU clock ticks, with no inferred frequency or operation owner.
+    user_cpu_ticks: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.lifetime_peak_resident_bytes), v.optional_key(v.scalar_key)(self.resident_bytes), v.optional_key(v.scalar_key)(self.system_cpu_ticks), v.optional_key(v.scalar_key)(self.user_cpu_ticks),))
 
 
 class ProductDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6702,6 +6788,32 @@ class RawMapSample(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.coordinates), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.inner_accuracy), v.optional_key(v.scalar_key)(self.inner_branch), v.scalar_key(self.inner_context), v.optional_key(v.scalar_key)(self.inner_start), v.optional_key(v.scalar_key)(self.inner_tolerance), v.scalar_key(self.ordinal), v.scalar_key(self.partial), v.scalar_key(self.role), v.scalar_key(self.total_coordinates), v.sequence_key(v.record_key)(self.values),))
+
+
+class ReceiverCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied association returned by the actual receiver readiness consumer.
+    This observation grants no service-stop or allocation-release authority.
+    """
+
+    #: Optional diagnostics availability, independent of scientific readiness.
+    available: bool
+    #: Exact canonical association admitted by readiness.
+    canonical_database: str
+    #: Exact checkpoint owned by that runtime, possibly not yet published.
+    checkpoint: str
+    #: Receiver's explicit observation selection.
+    enabled: bool
+    #: Actual runtime diagnostic process/start identity.
+    identity: CheckpointIdentity
+    #: Existing receiver registration nonce.
+    nonce: str
+    #: Exact selected receiver state whose readiness consumed this association.
+    receiver_state: str
+    #: Optional writer failure, never a scientific outcome.
+    writer_failure: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.available), v.scalar_key(self.canonical_database), v.scalar_key(self.checkpoint), v.scalar_key(self.enabled), v.record_key(self.identity), v.scalar_key(self.nonce), v.scalar_key(self.receiver_state), v.optional_key(v.scalar_key)(self.writer_failure),))
 
 
 class ReconstructionAccuracy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8781,6 +8893,32 @@ class SubmittedStartRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.optional_key(v.scalar_key)(self.previous_attempt), v.optional_key(v.record_key)(self.seed), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_seed), v.scalar_key(self.submitted), v.sequence_key(v.record_key)(self.transformations),))
 
 
+class SummaryCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit lifetime/admission losses for producer-declared compact outputs."""
+
+    #: Outputs whose selected terminal lifetime elapsed.
+    expired: Annotated[int, msgspec.Meta(ge=0)]
+    #: Oldest terminal outputs displaced to preserve active admission.
+    pressure_lost: Annotated[int, msgspec.Meta(ge=0)]
+    #: Declarations or terminal copies refused by bounds/contention/opt-out.
+    refused: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.expired), v.scalar_key(self.pressure_lost), v.scalar_key(self.refused),))
+
+
+class SummaryPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Generic producer-owned compact explanation; it grants no execution ownership."""
+
+    #: Finite terminal output deadline; absent for an active declaration or a refused copy.
+    expires_at: ClosedDuration | None = None
+    #: Bounded producer-supplied purpose, never interpreted by the hub.
+    purpose: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.expires_at), v.scalar_key(self.purpose),))
+
+
 class TableName(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A literal native table reference, without SQL normalization."""
 
@@ -8908,6 +9046,24 @@ class TerminationDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.record_key(self.cause), v.scalar_key(self.effect), v.optional_key(v.record_key)(self.point), v.optional_key(v.scalar_key)(self.retry_failure),))
+
+
+class ThreadExecution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One actual entered native-thread scope. Async migration is not inferred from this record."""
+
+    #: Actual return/drain from this scope, not scientific acceptance.
+    finished_at: ClosedDuration | None = None
+    #: Actual diagnostic operation executing in this scope.
+    operation: OperationId
+    #: OS thread start identity; missing means thread-specific attachment is unavailable.
+    start_ticks: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual scope entry on the process observation clock.
+    started_at: ClosedDuration
+    #: Linux OS thread ID, distinct from Rust's opaque ThreadId.
+    tid: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.finished_at), v.record_key(self.operation), v.optional_key(v.scalar_key)(self.start_ticks), v.record_key(self.started_at), v.scalar_key(self.tid),))
 
 
 class TrustRegion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -9515,8 +9671,10 @@ __all__ = [
     "CausalUnitRealizationConditional",
     "CausalUnitRealizationExplicitMap",
     "CausalUnitRequest",
+    "CheckpointIdentity",
     "ChildSnapshot",
     "ClarabelSettings",
+    "ClockMapping",
     "ClosedDuration",
     "Completion",
     "CompositionRequest",
@@ -9738,7 +9896,9 @@ __all__ = [
     "PreparationCounts",
     "PreparationSettings",
     "PresolveSeedTransformation",
+    "ProcessCheckpoint",
     "ProcessLocator",
+    "ProcessResources",
     "ProductDemand",
     "ProductionDemand",
     "Profile",
@@ -9786,6 +9946,7 @@ __all__ = [
     "RawMapHistory",
     "RawMapRole",
     "RawMapSample",
+    "ReceiverCheckpoint",
     "ReconstructionAccuracy",
     "RecycleRequest",
     "RecycleRestartRequest",
@@ -9911,6 +10072,8 @@ __all__ = [
     "StudyVariants",
     "StudyWaitControls",
     "SubmittedStartRecord",
+    "SummaryCoverage",
+    "SummaryPublication",
     "TableName",
     "TargetSpec",
     "TearSelectionDocument",
@@ -9920,6 +10083,7 @@ __all__ = [
     "TerminationCauseError",
     "TerminationCauseInfrastructure",
     "TerminationDetail",
+    "ThreadExecution",
     "Tolerance",
     "TrustRegion",
     "UnoSettings",

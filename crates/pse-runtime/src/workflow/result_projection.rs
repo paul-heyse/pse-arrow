@@ -293,8 +293,7 @@ pub(super) async fn store_result_table(
     queue.flush().await
 }
 
-/// Sole serial append owner shared by whole relation exports. Encoded items
-/// retain their pre-allocation grants until the one transaction/settlement joins.
+/// Homogeneous file packing and bounded sealed metadata have separate lifetimes.
 /// Publication coverage advances only from the returned actual opaque ACKs.
 pub(super) struct ResultAppendQueue<'a> {
     store: &'a CanonicalStore,
@@ -305,17 +304,30 @@ pub(super) struct ResultAppendQueue<'a> {
     file_extent: usize,
     extent: usize,
     deadline: Option<std::time::Instant>,
-    complete: Vec<String>,
+    appends: Vec<PendingAppend>,
+    append_extent: usize,
+    append_deadline: Option<std::time::Instant>,
+    complete: Vec<SetCompletion>,
     _owner: Option<Arc<pse_columnar::AllocationLease>>,
     #[cfg(test)]
     requests: usize,
     #[cfg(test)]
     projection_retries: usize,
 }
+struct PendingAppend {
+    append: ResultBlockAppend,
+    name: String,
+    ordinal: u64,
+}
+struct SetCompletion {
+    name: String,
+    ordinal: u64,
+}
 struct PendingBatch {
     name: String,
     ordinal: u64,
     batch: datafusion::arrow::record_batch::RecordBatch,
+    source: FieldCheckedBatch,
     block: Block,
     rows: Vec<RowLocator>,
     outputs: Vec<Output>,
@@ -346,6 +358,9 @@ impl<'a> ResultAppendQueue<'a> {
             file_extent: 0,
             extent: 4096,
             deadline: None,
+            appends: Vec::new(),
+            append_extent: 4096,
+            append_deadline: None,
             complete: Vec::new(),
             _owner: owner,
             #[cfg(test)]
@@ -354,11 +369,16 @@ impl<'a> ResultAppendQueue<'a> {
             projection_retries: 0,
         }
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the logical slice, its checked allocation owner and immutable append metadata have independent lifetimes"
+    )]
     async fn push(
         &mut self,
         name: &str,
         ordinal: u64,
         batch: datafusion::arrow::record_batch::RecordBatch,
+        source: &FieldCheckedBatch,
         block: &Block,
         rows: &[RowLocator],
         outputs: &[Output],
@@ -397,7 +417,7 @@ impl<'a> ResultAppendQueue<'a> {
                     > pse_operations::canonical::PAYLOAD_BYTES
                 || self.items.len() == pse_operations::generated::surreal::RESULT_INDEX_RECORDS)
         {
-            self.flush().await?;
+            self.seal_pending().await?;
         }
         let reservation =
             MemoryConsumer::new("canonical:owned-file-batch-metadata").register(self.pool);
@@ -423,6 +443,7 @@ impl<'a> ResultAppendQueue<'a> {
             name: name.into(),
             ordinal,
             batch,
+            source: source.clone(),
             block: block.clone(),
             rows: rows.to_vec(),
             outputs: outputs.to_vec(),
@@ -433,97 +454,196 @@ impl<'a> ResultAppendQueue<'a> {
         }
         Ok(())
     }
-    pub(super) async fn flush(&mut self) -> Result<(), WorkflowError> {
-        let complete = std::mem::take(&mut self.complete);
-        if !self.items.is_empty() {
-            let items = std::mem::take(&mut self.items);
-            let deadline = self
-                .deadline
-                .take()
-                .ok_or_else(|| contract("file group original clock absent"))?;
-            let reservation =
-                MemoryConsumer::new("canonical:result-file-encoding").register(self.pool);
+    /// Seal one homogeneous file, then discard its actual byte and batch working
+    /// sets before retaining only independently charged append metadata.
+    async fn seal_pending(&mut self) -> Result<(), WorkflowError> {
+        if self.items.is_empty() {
+            return Ok(());
+        }
+        let deadline = self
+            .deadline
+            .take()
+            .ok_or_else(|| contract("file group original clock absent"))?;
+        let items = std::mem::take(&mut self.items);
+        self.extent = 4096;
+        self.file_extent = 0;
+        let reservation = MemoryConsumer::new("canonical:result-file-encoding").register(self.pool);
+        if reservation
+            .try_grow(3 * result_files::MAX_FILE_BYTES)
+            .is_err()
+        {
+            self.flush_metadata().await?;
             reservation
                 .try_grow(3 * result_files::MAX_FILE_BYTES)
                 .map_err(pse_engine::EngineError::from)?;
-            let owner = pse_columnar::AllocationLease::new(reservation);
-            let batches = items
-                .iter()
-                .map(|item| item.batch.clone())
-                .collect::<Vec<_>>();
-            let bytes = result_files::encode_file_batches(&batches)?;
-            let digest = pse_operations::canonical_execution::result_payload_digest(&bytes);
-            let operation = format!(
-                "file:{}:{}:{}",
-                self.fence.attempt(),
-                items[0].block.key,
-                items[items.len() - 1].ordinal
-            );
-            let schema = items[0].block.output.clone();
-            let acks = pse_operations::canonical::operation_scope(deadline, async {
-                let intent = self
-                    .store
-                    .reserve_result_file(self.fence, &operation, &digest)
-                    .await?;
-                let file = self
-                    .store
-                    .seal_file(
-                        &intent,
-                        &bytes,
-                        pse_operations::canonical_files::ARROW_IPC_FILE,
-                        batches.len() as u64,
-                        &schema,
-                    )
-                    .await?;
-                let mut appends = Vec::with_capacity(items.len());
-                for (index, mut item) in items.into_iter().enumerate() {
-                    let payload = ResultPayload::from_sealed_owned(
-                        file.clone(),
-                        index as u64,
-                        owner.clone(),
-                    )?;
-                    item.block.payload_bytes = payload.byte_len();
-                    item.block.payload_digest = payload.digest().to_owned();
-                    appends.push(ResultBlockAppend::new(
-                        self.fence,
-                        &format!("table:{}:{}", self.fence.attempt(), item.block.key),
-                        &item.name,
-                        item.ordinal,
-                        payload,
-                        item.block.rows,
-                        &item.block,
-                        &item.rows,
-                        &item.outputs,
-                        item.owner,
-                    )?);
-                }
-                self.store.append_result_blocks(self.fence, appends).await
-            })
-            .await?;
-            #[cfg(test)]
-            {
-                self.requests += 1;
-            }
-            for ack in acks {
-                self.acknowledgments.append(self.fence, ack)?;
-            }
-            self.extent = 4096;
-            self.file_extent = 0;
         }
-        for name in complete {
-            self.acknowledgments.complete(self.fence, &name)?;
+        let owner = pse_columnar::AllocationLease::new(reservation);
+        let batches = items
+            .iter()
+            .map(|item| item.batch.clone())
+            .collect::<Vec<_>>();
+        let bytes = result_files::encode_file_batches(&batches)?;
+        let digest = pse_operations::canonical_execution::result_payload_digest(&bytes);
+        let operation = format!(
+            "file:{}:{}:{}",
+            self.fence.attempt(),
+            items[0].block.key,
+            items[items.len() - 1].ordinal
+        );
+        let schema = items[0].block.output.clone();
+        // Do not spend a newer file's clock while an older metadata operation
+        // is awaiting its ACK. This is a stricter boundary, never a renewal.
+        let seal_deadline = self
+            .append_deadline
+            .map_or(deadline, |clock| clock.min(deadline));
+        let file = pse_operations::canonical::operation_scope(seal_deadline, async {
+            let intent = self
+                .store
+                .reserve_result_file(self.fence, &operation, &digest)
+                .await?;
+            self.store
+                .seal_file(
+                    &intent,
+                    &bytes,
+                    pse_operations::canonical_files::ARROW_IPC_FILE,
+                    batches.len() as u64,
+                    &schema,
+                )
+                .await
+        })
+        .await?;
+        // Physical publication is synchronous; seal_file's RPC binds only the
+        // descriptor. No byte-bearing transport outlives its return. Drop every
+        // batch alias and byte allocation before releasing the encoder allowance.
+        drop(bytes);
+        drop(batches);
+        let metadata = items
+            .into_iter()
+            .map(|item| {
+                let PendingBatch {
+                    name,
+                    ordinal,
+                    batch,
+                    source,
+                    block,
+                    rows,
+                    outputs,
+                    owner,
+                } = item;
+                drop(batch);
+                drop(source); // Checked-storage/export metadata stays charged through sealing.
+                (name, ordinal, block, rows, outputs, owner)
+            })
+            .collect::<Vec<_>>();
+        drop(owner);
+        for (index, (name, ordinal, mut block, rows, outputs, owner)) in
+            metadata.into_iter().enumerate()
+        {
+            // The sealed payload has no resident bytes. Its existing per-item
+            // metadata lease covers the descriptor, intent and request copies.
+            let payload =
+                ResultPayload::from_sealed_owned(file.clone(), index as u64, owner.clone())?;
+            block.payload_bytes = payload.byte_len();
+            block.payload_digest = payload.digest().to_owned();
+            let append = ResultBlockAppend::new(
+                self.fence,
+                &format!("table:{}:{}", self.fence.attempt(), block.key),
+                &name,
+                ordinal,
+                payload,
+                block.rows,
+                &block,
+                &rows,
+                &outputs,
+                owner.clone(),
+            )?;
+            // The prepaid envelope includes final physical-binding framing and
+            // all driver copies, not just the current pre-binding wire extent.
+            let extent = append
+                .encoded_extent()
+                .checked_add(4096)
+                .ok_or_else(|| contract("sealed append metadata extent"))?;
+            if extent > owner.size() || extent > pse_operations::canonical::PAYLOAD_BYTES - 4096 {
+                return Err(contract("sealed append exceeds admitted metadata extent"));
+            }
+            if !self.appends.is_empty()
+                && (self.append_extent.saturating_add(extent)
+                    > pse_operations::canonical::PAYLOAD_BYTES
+                    || self.appends.len()
+                        == pse_operations::generated::surreal::RESULT_INDEX_RECORDS)
+            {
+                self.flush_metadata().await?;
+            }
+            self.append_extent += extent;
+            self.append_deadline = Some(
+                self.append_deadline
+                    .map_or(deadline, |clock| clock.min(deadline)),
+            );
+            self.appends.push(PendingAppend {
+                append,
+                name,
+                ordinal,
+            });
         }
         Ok(())
+    }
+    async fn flush_metadata(&mut self) -> Result<(), WorkflowError> {
+        if self.appends.is_empty() {
+            return Ok(());
+        }
+        let deadline = self
+            .append_deadline
+            .take()
+            .ok_or_else(|| contract("append group original clock absent"))?;
+        let appends = std::mem::take(&mut self.appends)
+            .into_iter()
+            .map(|item| item.append)
+            .collect();
+        self.append_extent = 4096;
+        // Completion obligations remain in self across fallible I/O. Only the
+        // exact final operation ACK can discharge one, including after settlement.
+        let acks = pse_operations::canonical::operation_scope(
+            deadline,
+            self.store.append_result_blocks(self.fence, appends),
+        )
+        .await?;
+        #[cfg(test)]
+        {
+            self.requests += 1;
+        }
+        for ack in acks {
+            let completed = self.complete.iter().position(|completion| {
+                ack.ordinal == completion.ordinal
+                    && ack.result_set == result_set_key(self.fence.attempt(), &completion.name)
+            });
+            self.acknowledgments.append(self.fence, ack)?;
+            if let Some(index) = completed {
+                self.acknowledgments
+                    .complete(self.fence, &self.complete[index].name)?;
+                self.complete.remove(index);
+            }
+        }
+        Ok(())
+    }
+    pub(super) async fn flush(&mut self) -> Result<(), WorkflowError> {
+        self.seal_pending().await?;
+        self.flush_metadata().await
     }
     pub(super) async fn yield_optional(&mut self) -> Result<(), WorkflowError> {
         // Join and publish authentic earlier ACKs before releasing optional
         // storage. A denied original encoder reservation may then retry cold.
         self.flush().await?;
+        if !self.complete.is_empty() {
+            return Err(contract("append completion remains unsettled"));
+        }
+        // Removing acknowledged entries does not release their Vec backing
+        // allocation. Drain that allocation before relinquishing its charge.
+        self.complete = Vec::new();
         self._owner = None;
         Ok(())
     }
     pub(super) fn has_optional_retention(&self) -> bool {
-        self._owner.is_some() || !self.items.is_empty()
+        self._owner.is_some() || !self.items.is_empty() || !self.appends.is_empty()
     }
     fn try_enable(&mut self) {
         if self._owner.is_none() {
@@ -535,7 +655,18 @@ impl<'a> ResultAppendQueue<'a> {
                 .map(|()| pse_columnar::AllocationLease::new(reservation));
         }
     }
+    /// Callers demanding an ACK keep this explicit barrier. Ordinary complete
+    /// run exports use finish_deferred and join once at store_tables' boundary.
+    #[cfg(all(test, feature = "canonical-tests"))]
     async fn finish(
+        &mut self,
+        id: SemanticId,
+        position: ResultStreamPosition,
+    ) -> Result<(), WorkflowError> {
+        self.finish_deferred(id, position).await?;
+        self.flush().await
+    }
+    async fn finish_deferred(
         &mut self,
         id: SemanticId,
         position: ResultStreamPosition,
@@ -555,13 +686,29 @@ impl<'a> ResultAppendQueue<'a> {
             self.acknowledgments.empty(self.fence, ack)?;
             self.acknowledgments.complete(self.fence, &name)?;
         } else if self._owner.is_none() {
+            self.flush().await?;
             self.acknowledgments.complete(self.fence, &name)?;
         } else {
-            if self.complete.len() == 256 {
-                return Err(contract("append queue completed set extent"));
+            let ordinal = position.ordinal - 1;
+            if self
+                .items
+                .iter()
+                .any(|item| item.name == name && item.ordinal == ordinal)
+                || self
+                    .appends
+                    .iter()
+                    .any(|item| item.name == name && item.ordinal == ordinal)
+            {
+                if self.complete.len() == 256 {
+                    return Err(contract("append queue completed set extent"));
+                }
+                self.complete.push(SetCompletion { name, ordinal });
+                self.seal_pending().await?;
+            } else {
+                // An allocating producer may have required the final append's
+                // ACK before its last (possibly empty) cursor poll.
+                self.acknowledgments.complete(self.fence, &name)?;
             }
-            self.complete.push(name);
-            self.flush().await?;
         }
         Ok(())
     }
@@ -741,7 +888,7 @@ async fn append_run_result_table_queued(
     if !cursor.complete() {
         return Err(contract("original result relation did not complete"));
     }
-    queue.finish(id, position).await
+    queue.finish_deferred(id, position).await
 }
 
 /// Issued append positions belong to the sole serial producer. Authoritative
@@ -966,7 +1113,7 @@ async fn store_result_chunk(
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
             queue
-                .push(&name, current, payload, &block, &locators, &[])
+                .push(&name, current, payload, table, &block, &locators, &[])
                 .await?;
             *ordinal += 1;
             offset += rows;
@@ -1124,7 +1271,7 @@ async fn store_trajectory(
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         queue
-            .push(&name, *ordinal, payload, &block, &[], &outputs)
+            .push(&name, *ordinal, payload, table, &block, &[], &outputs)
             .await?;
         *ordinal += 1;
         base += rows;
@@ -1250,11 +1397,14 @@ mod result_projection_unit {
         assert_eq!(
             queue.items.len(),
             0,
-            "each complete projection has joined its own schema-correct append"
+            "each complete projection seals its homogeneous file"
         );
-        assert_eq!(queue.requests, 2);
+        assert_eq!(queue.appends.len(), 2);
+        assert_eq!(queue.complete.len(), 2);
+        assert_eq!(queue.requests, 0);
         queue.flush().await.unwrap();
-        assert_eq!(queue.requests, 2);
+        assert_eq!(queue.requests, 1);
+        assert!(queue.complete.is_empty());
         drop(queue);
 
         // A valid large queued immutable metric consumes enough optional bytes
@@ -1468,6 +1618,7 @@ mod result_projection_unit {
             append_result_table_queued(&mut queue, id, cursor, &mut position, None)
                 .await
                 .unwrap();
+            queue.finish_deferred(id, position).await.unwrap();
             assert!(
                 acks.complete(&fence, &id.to_string()).is_err(),
                 "issuing a queue item grants no ACK coverage"
@@ -1486,7 +1637,9 @@ mod result_projection_unit {
             );
         }
         assert_eq!(queue.requests, 0);
-        assert_eq!(queue.items.len(), 1);
+        assert!(queue.items.is_empty());
+        assert_eq!(queue.appends.len(), 1);
+        assert_eq!(queue.complete.len(), 1);
         assert!(
             operations.pool.reserved() > idle,
             "owned encoded items stay charged while queued"
@@ -1518,7 +1671,12 @@ mod result_projection_unit {
             ),
             "the actual append refusal must name the original fence: {error:?}"
         );
-        assert!(queue.items.is_empty() && queue.complete.is_empty());
+        assert!(queue.items.is_empty() && queue.appends.is_empty());
+        assert_eq!(
+            queue.complete.len(),
+            1,
+            "failed I/O retains the final-ACK obligation"
+        );
         assert_eq!(
             operations.pool.reserved(),
             idle,
@@ -1566,7 +1724,7 @@ mod result_projection_unit {
 
     #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_append_queue_separates_schemas_and_acknowledges_completed_tables() {
+    async fn canonical_append_queue_groups_sealed_schemas_and_acknowledges_final_operations() {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
         let runtime = super::super::durable_tests::durable_runtime();
         let super::super::Durability::Durable(operations) = runtime.durability() else {
@@ -1638,11 +1796,17 @@ mod result_projection_unit {
         let mut queue = ResultAppendQueue::new(store, &fence, &operations.pool, &acks);
         let idle = operations.pool.reserved();
         assert!(idle > before, "queue control is admitted before allocation");
+        let mut original_deadline = None;
         for (id, table) in [
             (solve_metrics::RELATION_ID, metrics),
             (fit_parameters::RELATION_ID, parameters),
         ] {
-            let original = [table];
+            let source_reservation =
+                MemoryConsumer::new("test:publication-source-owner").register(&operations.pool);
+            source_reservation.try_grow(64 * 1024).unwrap();
+            let source_owner = pse_columnar::AllocationLease::new(source_reservation);
+            let observed_source = Arc::downgrade(&source_owner);
+            let original = [table.with_export_owner(source_owner)];
             let cursor = super::super::ResultCursor::from_retained(
                 original[0].batch().schema(),
                 id,
@@ -1650,10 +1814,35 @@ mod result_projection_unit {
             )
             .unwrap();
             assert!(cursor.owns_checked_buffers());
-            store_result_table_queued(&mut queue, id, cursor, None)
+            let mut position = ResultStreamPosition::default();
+            append_result_table_queued(&mut queue, id, cursor, &mut position, None)
                 .await
                 .unwrap();
-            acks.complete(&fence, &id.to_string()).unwrap();
+            drop(original);
+            assert!(
+                observed_source.upgrade().is_some(),
+                "packing retains the checked source allocation owner"
+            );
+            queue.finish_deferred(id, position).await.unwrap();
+            assert!(
+                observed_source.upgrade().is_none(),
+                "sealing releases source ownership before retaining append metadata"
+            );
+            assert!(acks.complete(&fence, &id.to_string()).is_err());
+            if let Some(clock) = original_deadline {
+                assert_eq!(
+                    queue.append_deadline,
+                    Some(clock),
+                    "new files do not renew the oldest operation clock"
+                );
+            } else {
+                original_deadline = queue.append_deadline;
+            }
+            assert!(operations.pool.reserved() > idle);
+            assert!(
+                operations.pool.reserved() - idle < result_files::MAX_FILE_BYTES,
+                "sealed metadata must not retain the three-file encoder allowance"
+            );
             assert_eq!(
                 pse_operations::testing::pending_result_batch_rows(
                     store,
@@ -1663,12 +1852,21 @@ mod result_projection_unit {
                 )
                 .await
                 .unwrap(),
-                Some(1),
-                "table completion has an authentic server append acknowledgment"
+                None,
+                "sealing and producer completion do not grant an append ACK"
             );
         }
-        assert_eq!(queue.requests, 2);
+        assert_eq!(queue.requests, 0);
         assert!(queue.items.is_empty());
+        assert_eq!(queue.appends.len(), 2);
+        assert_eq!(queue.complete.len(), 2);
+        queue.flush().await.unwrap();
+        assert_eq!(
+            queue.requests, 1,
+            "separate homogeneous files share one metadata submission"
+        );
+        assert!(queue.appends.is_empty() && queue.complete.is_empty());
+        assert!(queue.complete.capacity() > 0);
         let metrics_file = pse_operations::testing::pending_result_file_coordinates(
             store,
             &fence,
@@ -1702,7 +1900,7 @@ mod result_projection_unit {
         .await
         .unwrap();
         assert_eq!(
-            queue.requests, 2,
+            queue.requests, 1,
             "empty membership introduces no IPC append"
         );
         assert!(queue.items.is_empty());
@@ -1739,6 +1937,9 @@ mod result_projection_unit {
             None,
             "demanded empty membership has no IPC append"
         );
+        queue.yield_optional().await.unwrap();
+        assert_eq!(queue.complete.capacity(), 0);
+        assert!(queue._owner.is_none());
         drop(queue);
         assert_eq!(operations.pool.reserved(), before);
         let closed = store
@@ -1848,7 +2049,7 @@ mod result_projection_unit {
         };
         acks.expect(&fence, &name).unwrap();
         queue
-            .push(&name, 0, payload, &block, &locators, &[])
+            .push(&name, 0, payload, &table, &block, &locators, &[])
             .await
             .unwrap();
         queue
@@ -1974,6 +2175,12 @@ mod result_projection_unit {
         assert_eq!(queue.requests, 0);
         assert!(!queue.items.is_empty());
         assert!(pool.reserved() > 256 * 1024);
+        queue
+            .finish_deferred(solve_metrics::RELATION_ID, position)
+            .await
+            .unwrap();
+        assert_eq!(queue.complete.len(), 1);
+        assert!(queue.complete.capacity() > 0);
         let id = fit_parameters::RELATION_ID;
         let schema = pse_schema::arrow::relation_schema_ref(
             runtime.registry(),
@@ -2035,11 +2242,9 @@ mod result_projection_unit {
             "each boundary drains before the unknown next producer poll"
         );
         assert!(queue.items.is_empty() && queue._owner.is_none());
+        assert!(queue.appends.is_empty() && queue.complete.is_empty());
+        assert_eq!(queue.complete.capacity(), 0);
         assert_eq!(pool.reserved(), 0);
-        queue
-            .finish(solve_metrics::RELATION_ID, position)
-            .await
-            .unwrap();
         for id in [solve_metrics::RELATION_ID, fit_parameters::RELATION_ID] {
             acks.complete(&fence, &id.to_string()).unwrap();
             assert_eq!(

@@ -1,10 +1,10 @@
-> Supporting evidence for [the efficiency and solver target review](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md): the detailed solver target that the principal review summarizes in its findings F09–F13 and rule impact RC10. Standard: Core 3.4, Efficient Architecture 1.0, Process Simulator 1.5. Baseline: `main` at `6c368c88a`. Revised after the omission/preservation (X1) and numerical-methods (X2) challenges.
+> Supporting evidence for [the efficiency and solver target review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md): the detailed solver target that the principal review summarizes in its findings F09–F13 and rule impact RC10. Standard: Core 3.4, Efficient Architecture 1.0, Process Simulator 1.5. Baseline: `main` at `6c368c88a`. Revised after the omission/preservation (X1) and numerical-methods (X2) challenges.
 
 # Solver target on the post-efficiency codebase
 
-This is a supporting document. The [principal review](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md) owns the combined decision, the finding identifiers and the rule impacts. The solver findings are its F09–F13.
+This is a supporting document. The [principal review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md) owns the combined decision, the finding identifiers and the rule impacts. The solver findings are its F09–F13.
 
-This document restates the target of the [2026-10-12 solver-methods review](../../reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md), to that review's standard, for the codebase the principal's target produces. It incorporates the [numerical-methods challenge](x2-numerical-methods-challenge.md) (X2). It carries no competing verdict.
+This document restates the target of the [2026-10-12 solver-methods review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md), to that review's standard, for the codebase the principal's target produces. It incorporates the [numerical-methods challenge](x2-numerical-methods-challenge.md) (X2). It carries no competing verdict.
 
 The prior diagnosis is current: routing, composition, the walker, bridge stops, recycle defaults, the HiGHS basis and observation are unchanged at `6c368c88a`. The target changes because five premises moved:
 
@@ -306,7 +306,7 @@ It maps native indices to model elements and never changes an outcome. A diagnos
 
 ## 7. <a id="rule-impacts"></a>Prior rule impacts RC01–RC13, amended
 
-These are carried as principal [RC10](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md#rc10).
+These are carried as principal [RC10](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md#rc10).
 
 | Prior RC | Status |
 |---|---|
@@ -328,11 +328,11 @@ These are carried as principal [RC10](../../reviews/design_review_efficiency-and
 
 | 2026-10-12 finding | Here |
 |---|---|
-| F01, F02, F03, F11 | Principal [F09](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f09), §4.1–§4.3, §4.7 |
-| F04 | [F10](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f10), §5 |
-| F05, F06, F07, F10, F12, F13 | [F11](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f11), §4.4–§4.5 |
-| F08 | [F12](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f12), §4.6 |
-| F09 | [F13](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f13), §6 |
+| F01, F02, F03, F11 | Principal [F09](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f09), §4.1–§4.3, §4.7 |
+| F04 | [F10](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f10), §5 |
+| F05, F06, F07, F10, F12, F13 | [F11](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f11), §4.4–§4.5 |
+| F08 | [F12](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f12), §4.6 |
+| F09 | [F13](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md#f13), §6 |
 
 ## 9. Change scenarios
 

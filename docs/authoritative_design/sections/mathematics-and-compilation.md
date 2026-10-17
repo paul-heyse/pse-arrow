@@ -1005,6 +1005,16 @@ requests. Current revision attribution is rebound separately.
 `CompilerWorkspace::prepare_modeling_view` prepares the view and
 binds its first values.
 
+Bound-case reuse derives a complete internal lookup from the admitted immutable structure,
+selected constraint rows, normalized current variable states, derivative order, compiler
+profile and physical context before expanding reusable rows and instances. State/domain
+admission and bound tightenings remain fresh on every request; values rebind independently.
+A miss expands the already admitted lookup. Exact declaration, role, occurrence position,
+document and span identity governs current attribution independently of equal mathematics.
+Shared occurrence maps and their lookup metadata retain independent charges, never an old
+complete model solely for attribution. Optional cache-retention denial leaves an otherwise
+valid current preparation usable; it cannot turn reuse pressure into scientific refusal.
+
 `PreparedCase::rebind` binds later values to the same view. The plan, structural analysis,
 artifact requests, source occurrences and derivation rules are shared. Derived realization
 parameters are recomputed only when a value they consumed changed. The presolve projection,

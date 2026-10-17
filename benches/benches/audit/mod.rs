@@ -301,6 +301,12 @@ pub(crate) fn managed_target(runtime: &pse_runtime::workflow::Runtime) {
             "managed-target.json",
             &json!({
                 "state": selected.receiver_state(), "database": store.database(),
+                "caller": {
+                    "checkpoint": runtime.observations().checkpoint_path(),
+                    "identity": runtime.observations().checkpoint_identity(),
+                },
+                "receiver": null,
+                "pending": "actual ready handoff is published by its consuming responsibility",
                 "scope": "exact fixture receiver association; not caller-process counters"
             }),
         ) {

@@ -292,6 +292,15 @@ async fn abandoned_rpc_waiter_retains_activity_until_actual_late_response_drains
 
 #[tokio::test]
 async fn final_fixture_teardown_seals_admission_and_joins_actual_response_work() {
+    terminal_teardown_seals_admission_and_joins_actual_response_work(true).await;
+}
+
+#[tokio::test]
+async fn owned_initialization_teardown_seals_admission_and_joins_actual_response_work() {
+    terminal_teardown_seals_admission_and_joins_actual_response_work(false).await;
+}
+
+async fn terminal_teardown_seals_admission_and_joins_actual_response_work(fixture: bool) {
     use std::{future::Future, task::Poll};
     let (mut store, mut received, server) = super::tests::canonical_read_barrier_peer().await;
     // This wire fixture owns its clients directly and needs no service disposal.
@@ -310,7 +319,13 @@ async fn final_fixture_teardown_seals_admission_and_joins_actual_response_work()
             .await
     });
     assert_eq!(received.recv().await.unwrap(), "RETURN 'FIRST_READ'");
-    let mut cleanup = Box::pin(store.remove_isolated_fixture());
+    let mut cleanup = Box::pin(async {
+        if fixture {
+            store.remove_isolated_fixture().await
+        } else {
+            store.drain_owned_connection().await
+        }
+    });
     std::future::poll_fn(|cx| {
         assert!(cleanup.as_mut().poll(cx).is_pending());
         Poll::Ready(())

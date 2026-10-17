@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-04, AP-07, DP-09, PS-08, PS-09, PS-10, PS-11]
 blueprint: [§15.6, §16.5, §18.6, §18.7, §19.2, §21]
-review: docs/design_review/reviews/design_review_plan38b-common-policy-and-attempt-evidence_2026-10-13.md
+review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_plan38b-common-policy-and-attempt-evidence_2026-10-13.md
 evidence: Tested
 supersedes: []
 superseded-by: null
@@ -72,7 +72,7 @@ One shared meaning improves change locality and makes policy independently testa
 
 ## More information
 
-[Plan38b](../plans/38b-solver-policy-observation-and-diagnostics.md) owns this implementation; [Plan38](../plans/38-efficiency-and-solver-target.md) owns shared finding disposition. ADR-0183 retains local model authority; ADR-0181/0182 retain caller, recording, artifact and history lifetimes.
+[Plan38b](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38b-solver-policy-observation-and-diagnostics.md) owns this implementation; [Plan38](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38-efficiency-and-solver-target.md) owns shared finding disposition. ADR-0183 retains local model authority; ADR-0181/0182 retain caller, recording, artifact and history lifetimes.
 
 ## Status history
 

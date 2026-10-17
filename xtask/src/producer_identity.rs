@@ -5761,9 +5761,11 @@ mod tests {
         // A new arbitrary-input review cannot rely on CargoFresh output from a
         // preceding unguarded invocation whose script omitted a rerun hint.
         fs::write(root.join("ambient-header-name"), "changed-header").unwrap();
+        let stale_path = evidence_directory.path().join("stale-build.json");
+        instrumented.declarations.actual_build_evidence = Some(stale_path.clone());
         run(&instrumented).unwrap();
         let stale: serde_json::Value =
-            serde_json::from_slice(&fs::read(&evidence_path).unwrap()).unwrap();
+            serde_json::from_slice(&fs::read(&stale_path).unwrap()).unwrap();
         assert!(
             stale["selected_build_outputs"]
                 .as_object()
@@ -5772,9 +5774,11 @@ mod tests {
                 .any(|bytes| bytes.as_str() == Some("observed-object: selected-header\n"))
         );
         instrumented.declarations.refresh_executors = true;
+        let refreshed_path = evidence_directory.path().join("refreshed-build.json");
+        instrumented.declarations.actual_build_evidence = Some(refreshed_path.clone());
         run(&instrumented).unwrap();
         let refreshed: serde_json::Value =
-            serde_json::from_slice(&fs::read(&evidence_path).unwrap()).unwrap();
+            serde_json::from_slice(&fs::read(&refreshed_path).unwrap()).unwrap();
         assert_eq!(
             refreshed["refreshed_executor_packages"]
                 .as_array()
@@ -5934,7 +5938,8 @@ mod tests {
         );
         let mut rustc_shared_options = options.clone();
         rustc_shared_options.production_target = ProducerTarget::Cdylib(root.join("Cargo.toml"));
-        rustc_shared_options.declarations.actual_build_evidence = Some(evidence_path.clone());
+        let rustc_evidence_path = evidence_directory.path().join("rustc-build.json");
+        rustc_shared_options.declarations.actual_build_evidence = Some(rustc_evidence_path.clone());
         let rustc_shared = run(&rustc_shared_options).unwrap();
         assert!(
             rustc_shared
@@ -5945,7 +5950,7 @@ mod tests {
             rustc_shared.reasons
         );
         let rustc_evidence: serde_json::Value =
-            serde_json::from_slice(&fs::read(&evidence_path).unwrap()).unwrap();
+            serde_json::from_slice(&fs::read(&rustc_evidence_path).unwrap()).unwrap();
         assert_eq!(rustc_evidence["arguments"][0], "rustc");
         assert!(
             rustc_evidence["arguments"]
@@ -5961,6 +5966,8 @@ mod tests {
                 .flatten()
                 .any(|input| input.path.ends_with("src/helper.rs"))
         );
+        rustc_shared_options.declarations.actual_build_evidence =
+            Some(evidence_directory.path().join("wrong-package-build.json"));
         rustc_shared_options.package = "another-package".into();
         assert!(
             run(&rustc_shared_options)
@@ -5969,6 +5976,8 @@ mod tests {
                 .contains("does not match requested package")
         );
         rustc_shared_options.package = "producer-fixture".into();
+        rustc_shared_options.declarations.actual_build_evidence =
+            Some(evidence_directory.path().join("changed-rustc-build.json"));
         fs::write(root.join("src/helper.rs"), "pub fn value()->u32 {3}").unwrap();
         assert_ne!(shared.identity, run(&options).unwrap().identity);
         assert_ne!(

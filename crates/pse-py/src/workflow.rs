@@ -823,13 +823,9 @@ impl NativeRuntime {
             py,
             &owner,
             async {
-                let store = pse_operations::canonical::CanonicalStore::connect(&options)
+                pse_operations::canonical::CanonicalStore::initialize_database(&options)
                     .await
-                    .map_err(native::WorkflowError::Canonical)?;
-                let initialized = store.create().await;
-                let drained = store.disconnect().await;
-                initialized.map_err(native::WorkflowError::Canonical)?;
-                drained.map_err(native::WorkflowError::Canonical)
+                    .map_err(native::WorkflowError::Canonical)
             },
             || {},
         )
@@ -1539,9 +1535,8 @@ impl NativeRuntime {
             py,
             &self.owner,
             self.recording_operation(&cancel, |recording| async move {
-                recording
-                    .start_recorded_study(definition, &operation_stop)
-                    .await
+                // Keep durable admission out of the recording/activity polling frames.
+                Box::pin(recording.start_recorded_study(definition, &operation_stop)).await
             }),
             || cancel.cancel(),
         )?;

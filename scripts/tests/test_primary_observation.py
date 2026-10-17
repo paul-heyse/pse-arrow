@@ -25,6 +25,7 @@ class PrimaryObservationTests(unittest.TestCase):
             "invocation": "a" * 32,
         }
         self.owner: dict[str, object] = {"scope": self.scope, "scope_inode": 41}
+        server.write_json(self.state / "primary-launch.json", {"nonce": "registered"})
         self.observed = {
             "LoadState": "loaded",
             "ActiveState": "failed",
@@ -32,6 +33,10 @@ class PrimaryObservationTests(unittest.TestCase):
             "ControlGroup": self.scope["group"],
             "MemoryMax": "1000",
         }
+
+    def diagnostics(self, marker: dict, database: str = "case") -> dict[str, object]:
+        with patch.object(native_operation, "start_identity", return_value="9"):
+            return server.primary_diagnostics(self.state, database, marker)
 
     def observation(
         self,
@@ -59,6 +64,63 @@ class PrimaryObservationTests(unittest.TestCase):
         self.assertEqual(result["primary_owner"], self.owner)
         self.assertEqual(result["canonical_database"], "case")
 
+    def test_optional_diagnostic_handoff_never_grants_cleanup_or_requires_publication(
+        self,
+    ) -> None:
+        marker: dict = {
+            "ready": True,
+            "canonical_database": "case",
+            "pid": 42,
+            "nonce": "registered",
+            "diagnostics": {
+                "identity": {
+                    "process": "instance",
+                    "locator": {"pid": 42, "start_ticks": 9},
+                },
+                "checkpoint": str(self.state / "pending-first-checkpoint.json"),
+                "enabled": True,
+                "writer_failure": "optional writer failed",
+            },
+        }
+        server.write_json(self.state / "primary-receiver.json", marker)
+        result = self.diagnostics(marker)
+        self.assertTrue(result["available"])
+        self.assertEqual(result["identity"], marker["diagnostics"]["identity"])
+        self.assertEqual(result["writer_failure"], "optional writer failed")
+        self.assertEqual(result["receiver_state"], str(self.state))
+        self.assertNotIn("primary_owner", result)
+        self.assertNotIn("scope", result)
+        self.assertNotIn("scope_inode", result)
+        self.assertFalse(Path(marker["diagnostics"]["checkpoint"]).exists())
+        marker["diagnostics"]["enabled"] = False
+        server.write_json(self.state / "primary-receiver.json", marker)
+        self.assertFalse(self.diagnostics(marker)["available"])
+        self.assertTrue(server.read_json(self.state / "primary-receiver.json")["ready"])
+
+    def test_optional_handoff_rejects_wrong_database_and_start_identity(self) -> None:
+        marker: dict = {
+            "ready": True,
+            "canonical_database": "case",
+            "pid": 42,
+            "nonce": "registered",
+            "diagnostics": {
+                "identity": {
+                    "process": "instance",
+                    "locator": {"pid": 42, "start_ticks": 9},
+                },
+                "checkpoint": "prefix.json",
+                "enabled": True,
+            },
+        }
+        server.write_json(self.state / "primary-receiver.json", marker)
+        self.assertFalse(self.diagnostics(marker, "different")["available"])
+        marker["diagnostics"]["identity"]["locator"]["start_ticks"] = None
+        server.write_json(self.state / "primary-receiver.json", marker)
+        self.assertFalse(self.diagnostics(marker)["available"])
+        marker.pop("diagnostics")
+        server.write_json(self.state / "primary-receiver.json", marker)
+        self.assertFalse(self.diagnostics(marker)["available"])
+
     def test_owned_descendants_and_active_unit_do_not_establish_drain(self) -> None:
         self.assertEqual(self.observation(populated=True)["phase"], "populated")
         self.assertEqual(
@@ -67,6 +129,79 @@ class PrimaryObservationTests(unittest.TestCase):
             ],
             "active",
         )
+
+    def handoff_marker(self) -> dict:
+        return {
+            "ready": True,
+            "canonical_database": "case",
+            "pid": 42,
+            "nonce": "registered",
+            "diagnostics": {
+                "identity": {
+                    "process": "instance",
+                    "locator": {"pid": 42, "start_ticks": 9},
+                },
+                "checkpoint": "prefix.json",
+                "enabled": True,
+            },
+        }
+
+    def test_dispatch_handoff_captures_marker_before_owner_admission(self) -> None:
+        marker = self.handoff_marker()
+        server.write_json(self.state / "primary-receiver.json", marker)
+
+        def admit(*_args: object) -> dict[str, object]:
+            replacement = {**marker, "nonce": "replacement"}
+            server.write_json(self.state / "primary-receiver.json", replacement)
+            return self.owner
+
+        with (
+            patch.object(server, "primary_dispatch_owner", side_effect=admit) as owner,
+            patch.object(server, "primary_ready") as ready,
+        ):
+            result = server.primary_dispatch_handoff(self.state, {}, "case", None)
+        self.assertEqual(result["primary_owner"], self.owner)
+        diagnostics = result["diagnostics"]
+        assert isinstance(diagnostics, dict)
+        self.assertFalse(diagnostics["available"])
+        owner.assert_called_once_with(self.state, {}, "case", None)
+        ready.assert_not_called()
+
+    def test_missing_optional_marker_preserves_dispatch_owner(self) -> None:
+        with patch.object(server, "primary_dispatch_owner", return_value=self.owner):
+            result = server.primary_dispatch_handoff(self.state, {}, "case", None)
+        self.assertEqual(result["primary_owner"], self.owner)
+        diagnostics = result["diagnostics"]
+        assert isinstance(diagnostics, dict)
+        self.assertFalse(diagnostics["available"])
+
+    def test_optional_copy_requires_launch_nonce_and_actual_start_ticks(self) -> None:
+        marker = self.handoff_marker()
+        server.write_json(self.state / "primary-receiver.json", marker)
+        with patch.object(native_operation, "start_identity", return_value="10"):
+            self.assertFalse(
+                server.primary_diagnostics(self.state, "case", marker)["available"]
+            )
+        server.write_json(self.state / "primary-launch.json", {"nonce": "replacement"})
+        self.assertFalse(self.diagnostics(marker)["available"])
+        (self.state / "primary-launch.json").unlink()
+        self.assertFalse(self.diagnostics(marker)["available"])
+
+    def test_optional_copy_rejects_any_marker_drift(self) -> None:
+        marker = self.handoff_marker()
+        for field, value in (("pid", 43), ("nonce", "replacement"), ("ready", False)):
+            with self.subTest(field=field):
+                server.write_json(
+                    self.state / "primary-receiver.json", {**marker, field: value}
+                )
+                self.assertFalse(self.diagnostics(marker)["available"])
+        server.write_json(self.state / "primary-receiver.json", marker)
+        with patch.object(
+            native_operation, "start_identity", side_effect=FileNotFoundError("exited")
+        ):
+            self.assertFalse(
+                server.primary_diagnostics(self.state, "case", marker)["available"]
+            )
 
     def test_mismatched_invocation_is_unknown_even_with_empty_group(self) -> None:
         result = self.observation(manager={**self.observed, "InvocationID": "b" * 32})

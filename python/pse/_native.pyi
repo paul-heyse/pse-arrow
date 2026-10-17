@@ -13,6 +13,7 @@ from pse.contracts.documents import (
     BuildInfo,
     CaptureDocument,
     CaptureRequest,
+    CheckpointIdentity,
     CompositionRequest,
     DiagnosticCauseDocument,
     DiagnosticContextDocument,
@@ -27,6 +28,7 @@ from pse.contracts.documents import (
     OperationId,
     OperationPage,
     OperationSnapshot,
+    ProcessCheckpoint,
     ProgressCoverage,
     ProgressEventDocument,
     ReplayDocument,
@@ -1003,11 +1005,19 @@ def diagnostic_capture(request: CaptureRequest) -> NativeCaptureSession: ...
 def diagnostic_inspect(
     checkpoint: str | PathLike[str], request: InspectionRequest
 ) -> InspectionDocument: ...
+def diagnostic_inspect_image(
+    checkpoint: str | PathLike[str],
+    image: ProcessCheckpoint,
+    request: InspectionRequest,
+) -> InspectionDocument: ...
 def diagnostic_list(
     request: DiagnosticListRequest, directory: str | PathLike[str] | None = None
 ) -> DiagnosticProcessPage: ...
 def diagnostic_operation_id(text: str) -> OperationId: ...
 def diagnostic_operation_text(operation: OperationId) -> str: ...
+def diagnostic_read_checkpoint(
+    checkpoint: str | PathLike[str], expected: CheckpointIdentity | None = None
+) -> ProcessCheckpoint: ...
 def registry_fingerprint() -> str: ...
 def registry_table(name: str, *, settings: EngineSettings) -> TableStream: ...
 def semantic_id_from_hex(text: str) -> bytes: ...

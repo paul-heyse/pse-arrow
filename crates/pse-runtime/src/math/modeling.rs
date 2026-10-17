@@ -1284,6 +1284,20 @@ impl MathService {
             lanes.retain(|lane| Arc::strong_count(&lane.workspace.compiler) > 1);
         }
     }
+    /// A failed first admission has no completed generation worth retaining. Remove
+    /// only its exact idle lane; another borrower or an admitted head retains ownership.
+    pub(crate) fn discard_uninitialized_compiler_lane(&self, workspace: &Workspace) {
+        if let Ok(mut lanes) = self.compiler_lanes.lock() {
+            lanes.retain(|lane| {
+                !Arc::ptr_eq(&lane.workspace.compiler, &workspace.compiler)
+                    || Arc::strong_count(&workspace.compiler) != 2
+                    || workspace
+                        .compiler
+                        .try_lock()
+                        .map_or(true, |compiler| compiler.has_modeling_revision())
+            });
+        }
+    }
     /// Retain one bounded idle generation per complete live lineage/context.
     /// Active borrowers may outlive eviction, charged by their workspace owner.
     pub(crate) fn compiler_lane(

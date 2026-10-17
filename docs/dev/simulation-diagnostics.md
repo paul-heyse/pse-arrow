@@ -21,7 +21,12 @@ recent counter/duration aggregates, point history, relationships, source referen
 independent coverage. Inspecting before a RunHandle exists uses the same hub. It does not
 ask the preparation owner to do work.
 
-Active owners take priority over completed history. A relationship always names its
+Active identities and coverage take priority over completed history. Producers can call
+`ObservationContext::declare_summary` with a bounded responsibility purpose. Completed fit,
+shooting, study and receiver-readiness responsibilities publish compact current/cumulative
+facts through this generic contract. They remain completed; their diagnostic copies retain
+no native handle, scientific payload or cancellation ownership. The hub never interprets
+workflow names to select them. A relationship always names its
 exact operation: if its parent has been evicted, the parent is absent rather than
 replaced by another root. Retained readers can still inspect their copied operation.
 Read generation/reset and detail-loss fields before interpreting a recent delta;
@@ -29,7 +34,8 @@ metric publication alone does not imply a complete event history.
 
 Each process publishes one atomic JSON checkpoint under `PSE_DIAGNOSTICS_DIR`, or
 `$XDG_STATE_HOME/pse/diagnostics`, or `$HOME/.local/state/pse/diagnostics`. The process locator
-contains its instance identity rather than PID alone. Checkpoint version **2** adds the actual
+contains its instance identity rather than PID alone. Version **3** adds producer summary
+purpose, eligibility deadlines and explicit admission/expiry/pressure losses. It retains the actual
 OS PID, optional Linux process start ticks and executable path, a same-host `CLOCK_MONOTONIC`
 mapping with explicit uncertainty, and bounded actual native-thread scopes. A thread scope
 contains its operation, OS TID, optional thread start ticks and observed entry/return times;
@@ -74,10 +80,22 @@ uniform rates. Native checkpoints remain distinct from accepted or original phys
 Collection defaults to a 60-second recent window, 128 metric slots, 256 detail events and
 16 MiB of internal process diagnostic allowance, including bounded transport buffers and
 one read-copy allowance. Caller-retained copies are caller memory. Publication normally
-runs once per second and is limited to 1 MiB: active/recent work takes priority, compacted
-history and omitted operations are explicit. These limits affect diagnostics only.
+runs once per second and is limited to 1 MiB. Essential active identity/coverage is reserved
+first, then compact responsibility summaries, then optional richer active/history and ordinary
+completed detail. Omitted operations and compacted history remain explicit. These limits affect diagnostics only.
 `PSE_DIAGNOSTICS=off` selects absent collection at the first process registry initialization.
 Engine `ObservationPolicy::Off` separately leaves operator metrics uncollected.
+
+Completed summary eligibility defaults to 60 seconds, independently of the recent-window
+setting. `PSE_DIAGNOSTICS_SUMMARY_SECONDS=0` opts out; invalid settings report an optional
+writer failure and refuse summary retention. Hub bytes and operation count bound admission.
+Active admission can displace oldest terminal summaries; `summaries.refused`, `expired` and
+`pressure_lost` report distinct losses. Expiry is applied on catalogue, read, snapshot,
+admission and retained-byte observations, and by ordinary publication. An idle hub can retain
+bounded charged bytes until its next interaction/drop; no reaper or physical expiry-latency
+promise is implied. Copied external readers remain charged and become stale at the semantic
+deadline. Passive checkpoint inspection applies that same deadline. Writer failure neither
+extends retention nor makes science unready.
 
 Process RSS, lifetime resident high-water and CPU ticks have process scope. Shared pool
 reserved bytes have shared-runtime scope. Neither supplies a private operation peak or
@@ -105,6 +123,9 @@ operation's collection coverage and generation; missing metrics do not establish
 
 | Metrics | Observed work |
 | --- | --- |
+| `modeling.declaration_environments` | Actual declaration-environment constructions. Empty scalar member-index checks avoid this work; required enclosing declaration checks remain. |
+| `modeling.member_expansions`, `modeling.member_memo_hits` | Actual source-member expansion and empty-probing completed root-memo reuse on an unchanged operation-local frontier. A hit does not certify global graph closure. |
+| `compiler.bound_structures` | Full bound row/instance expansion, including original structural validation of invalid bounds. Valid warm lookup avoids expansion while retaining fresh domain/value checks. |
 | `modeling.import_candidates` | Declarations examined in requested root buckets, including repeated import groups. Unrelated root inventory is excluded. |
 | `modeling.lexical_base_builds`, `modeling.lexical_base_bindings`, `modeling.type_overlays` | Actual immutable lexical bases and their bindings, then current occurrence frames. Evaluation and source inference have distinct bases where their meanings differ. |
 | `math.selected_function_constructions`, `math.selected_function_bodies`, `math.selected_function_rows` | Selected plan constructions, distinct required complete bodies and selected rows. Coupled provider obligations can legitimately require broader support within a selected body. |
@@ -180,6 +201,22 @@ to inspect. It supports only the explicitly wired cases listed in
 [39d D4](../plans/39d-qualification-and-plan38-cutover.md#d4--development-context-prerequisites-and-once-only-simulation-audit).
 The selected reference store must be started inside its existing reference allocation
 owner and drained before that owner exits.
+
+Managed readiness carries the actual receiver's diagnostic identity and exact checkpoint,
+under its exact registered receiver state, database and registration nonce. The actual readiness consumer retains a compact
+copied handoff, so a short receiver can drain before the observer first polls. A checkpoint
+may still be pending, disabled or have an optional writer failure; none of those states
+changes scientific readiness. `diagnostics.read_checkpoint(path, expected=identity)` validates
+the decoded image, and `diagnostics.inspect_image(image, request, checkpoint=path)` inspects
+that same image. Copy the decoded image rather than reopening its path after validation.
+A cached association can inspect the last published prefix after process exit without `/proc`;
+it is not proof of final science, callback delivery or native drain, and never stop authority.
+
+Managed observation selects the registered receiver and rotates its bounded active-operation
+subset across successive reads. Bounded discovery continues catalogue pagination between
+reads, and terminal navigation includes completed related owners within its existing bound.
+A single window does not establish coverage of every lane or completed owner; catalogue
+partiality, evicted records and unavailable receiver suffixes remain explicit.
 
 `case-operation.json` names the exact checkpoint and operation. An explicit
 `diagnostics/stop.request` requests cooperative cancellation through the case's owners;

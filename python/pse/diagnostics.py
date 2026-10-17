@@ -22,9 +22,11 @@ from pse._build import (
     InspectionError,
     _diagnostic_capture,
     _diagnostic_inspect,
+    _diagnostic_inspect_image,
     _diagnostic_list,
     _diagnostic_operation_id,
     _diagnostic_operation_text,
+    _diagnostic_read_checkpoint,
     _NativeCaptureSession,
     _NativeDiagnostics,
     _NativeOperationObservations,
@@ -33,6 +35,7 @@ from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
+    CheckpointIdentity,
     ClosedDuration,
     DiagnosticListRequest,
     DiagnosticProcessPage,
@@ -41,6 +44,7 @@ from pse.contracts.documents import (
     OperationId,
     OperationPage,
     OperationSnapshot,
+    ProcessCheckpoint,
 )
 from pse.contracts.enums import CaptureKind, CaptureStatus
 
@@ -156,6 +160,20 @@ def inspect_checkpoint(
 ) -> InspectionDocument:
     """Explain an exact published prefix through the same Rust inspection owner."""
     return _diagnostic_inspect(Path(checkpoint), request)
+
+
+def read_checkpoint(
+    checkpoint: str | Path, *, expected: CheckpointIdentity | None = None
+) -> ProcessCheckpoint:
+    """Decode one bounded prefix and validate its exact registered association."""
+    return _diagnostic_read_checkpoint(Path(checkpoint), expected)
+
+
+def inspect_image(
+    image: ProcessCheckpoint, request: InspectionRequest, *, checkpoint: str | Path
+) -> InspectionDocument:
+    """Inspect the already validated image, avoiding a second path read."""
+    return _diagnostic_inspect_image(Path(checkpoint), image, request)
 
 
 def capture(request: CaptureRequest) -> CaptureSession:

@@ -1,6 +1,6 @@
 # Parallel execution, native update grain and prior-scope coverage
 
-Supporting inquiry for [the principal audit](../../reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md); the principal owns the integrated verdict and evidence limits.
+Supporting inquiry for [the principal audit](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md); the principal owns the integrated verdict and evidence limits.
 
 
 Supporting coordinator inquiry for the independent efficiency/solver audit. Baseline:

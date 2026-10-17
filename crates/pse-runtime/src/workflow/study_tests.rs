@@ -486,9 +486,8 @@ async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
         "original document ingress admits one exact canonical physical receipt"
     );
     assert_eq!(
-        after[0].hits,
-        before[0].hits + 1,
-        "definition admission reuses the ingress owner"
+        after[0].hits, before[0].hits,
+        "local definition admission and recording carry the ingress owner without a canonical reload"
     );
     assert!(matches!(
         runtime.work_once().await.unwrap(),
@@ -502,7 +501,11 @@ async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
         before[0].misses + 1,
         "ready preparation does not reparse or re-admit physical documents"
     );
-    assert_eq!(after[0].hits, before[0].hits + 2);
+    assert_eq!(
+        after[0].hits,
+        before[0].hits + 1,
+        "ready occurrence preparation reuses the one canonical physical admission"
+    );
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
@@ -2193,6 +2196,7 @@ struct StudyNativeProbe {
 #[cfg(feature = "solver-ipopt")]
 #[derive(Debug, Default)]
 struct StudyNativeState {
+    tasks: Vec<Arc<std::sync::atomic::AtomicBool>>,
     entered: Vec<std::thread::ThreadId>,
     released: std::collections::HashSet<std::thread::ThreadId>,
     release_all: bool,
@@ -2201,13 +2205,18 @@ struct StudyNativeState {
 }
 #[cfg(feature = "solver-ipopt")]
 impl StudyNativeProbe {
-    fn enter(&self, cancel: &std::sync::atomic::AtomicBool) {
+    fn enter(&self, cancel: &Arc<std::sync::atomic::AtomicBool>) {
         let thread = std::thread::current().id();
         let mut state = self.state.lock().unwrap();
-        if state.entered.contains(&thread) {
+        // Neutral parking/reset keeps the completed task's original cancellation
+        // owner. A fresh occurrence gets a new owner even on the same native thread.
+        if state.tasks.iter().any(|task| Arc::ptr_eq(task, cancel)) {
             return;
         }
-        state.entered.push(thread);
+        state.tasks.push(cancel.clone());
+        if !state.entered.contains(&thread) {
+            state.entered.push(thread);
+        }
         state.active += 1;
         state.maximum = state.maximum.max(state.active);
         self.changed.notify_waiters();
@@ -2249,7 +2258,12 @@ impl StudyNativeProbe {
         self.released.notify_all();
     }
     fn release_all(&self) {
-        self.state.lock().unwrap().release_all = true;
+        // The watchdog can panic while holding this test gate. Cleanup must still
+        // release the other native owners without a second panic during unwinding.
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .release_all = true;
         self.released.notify_all();
     }
 }
@@ -2277,7 +2291,7 @@ async fn ephemeral_study_sixteen_native_lanes_reuse_capacity_and_keep_equal_occu
     let _drain = StudyProbeDrain(probe.clone());
     let observer = probe.clone();
     let cancel = crate::CancelSource::new();
-    let run = crate::math::observed_native_entry(
+    let run = crate::math::observed_native_task_entry(
         Arc::new(move |flag| observer.enter(flag)),
         package.study(&definition, 20, &cancel),
     );
@@ -2286,8 +2300,13 @@ async fn ephemeral_study_sixteen_native_lanes_reuse_capacity_and_keep_equal_occu
             .wait(|state| state.entered.len() == 16 && state.active == 16)
             .await;
         probe.release_following();
-        probe.wait(|state| state.entered.len() == 20).await;
+        probe.wait(|state| state.tasks.len() == 20).await;
         let state = probe.state.lock().unwrap();
+        assert_eq!(
+            state.entered.len(),
+            16,
+            "tail occurrences reuse admitted native threads"
+        );
         assert_eq!(state.maximum, 16);
         assert!(
             !state.released.contains(&state.entered[0]),
@@ -2341,7 +2360,7 @@ async fn ephemeral_study_cancellation_drains_sixteen_issued_lanes_without_starti
     let _drain = StudyProbeDrain(probe.clone());
     let observer = probe.clone();
     let cancel = crate::CancelSource::new();
-    let run = crate::math::observed_native_entry(
+    let run = crate::math::observed_native_task_entry(
         Arc::new(move |flag| observer.enter(flag)),
         package.study(&definition, 20, &cancel),
     );
@@ -2365,6 +2384,7 @@ async fn ephemeral_study_cancellation_drains_sixteen_issued_lanes_without_starti
             .all(|outcome| outcome.attempts.is_empty())
     );
     assert_eq!(probe.state.lock().unwrap().entered.len(), 16);
+    assert_eq!(probe.state.lock().unwrap().tasks.len(), 16);
     assert_eq!(probe.state.lock().unwrap().active, 0);
     assert!(
         report
@@ -2873,6 +2893,19 @@ impl ManagedStudyFixture {
             fixture.runtime.canonical_store().unwrap().database()
         );
         let marker = managed_read_json(&state.join("primary-receiver.json"));
+        assert_eq!(
+            ready["diagnostics"]["identity"],
+            marker["diagnostics"]["identity"]
+        );
+        assert_eq!(
+            ready["diagnostics"]["checkpoint"],
+            marker["diagnostics"]["checkpoint"]
+        );
+        assert_eq!(
+            ready["diagnostics"]["canonical_database"],
+            marker["canonical_database"]
+        );
+        assert_eq!(ready["diagnostics"]["nonce"], marker["nonce"]);
         assert_eq!(
             marker["canonical_database"],
             fixture.runtime.canonical_store().unwrap().database()
@@ -3856,6 +3889,8 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
                     &member.batch.digest,
                     member.batch.row_count,
                 )
+                .native_file(&solve_metrics::RELATION_ID.to_string())
+                .unwrap()
             })
             .collect::<Vec<_>>();
         drop(original_members);

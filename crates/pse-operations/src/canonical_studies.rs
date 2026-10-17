@@ -2676,13 +2676,50 @@ mod canonical_studies_server_unit {
 
     #[tokio::test]
     async fn canonical_studies_readiness_discovers_explicit_seed_resolution_and_unknown_effect() {
+        use crate::canonical_artifacts::{artifact_block, seal_artifact_request};
         use pse_model::study::{SeedAvailability, SeedRole, WaitReason};
         let (store, database, revision) = fixture().await;
+        let solution = pse_model::generated::identities::SolutionId::from_bytes([19; 16]);
+        let mut artifact = store
+            .new_artifact(&revision, "seed", vec![19], 1, 1)
+            .await
+            .unwrap();
+        let blocks = [artifact_block(
+            &artifact.key,
+            0,
+            "seed-fixture",
+            vec![19],
+            "original-seed",
+            1,
+        )];
+        seal_artifact_request(
+            &mut artifact,
+            std::slice::from_ref(&revision),
+            &[],
+            &blocks,
+            "user",
+            "seed-owner",
+        );
+        store
+            .persist_artifact(
+                &artifact,
+                std::slice::from_ref(&revision),
+                &[],
+                &blocks,
+                "user",
+                "seed-owner",
+            )
+            .await
+            .unwrap();
+        store
+            .retain_study_input("readiness-seed", &solution.to_string(), &artifact.key)
+            .await
+            .unwrap();
         let mut explicit = occurrence(&revision, 2, vec![]);
         explicit.policy.seed_need = SeedNeed::Required;
         explicit.policy.start = StartPolicy::Explicit {
             role: SeedRole::PrimalSolution,
-            seed: pse_model::generated::identities::SolutionId::from_bytes([19; 16]),
+            seed: solution,
         };
         let points = [
             occurrence(&revision, 0, vec![]),
@@ -2699,6 +2736,13 @@ mod canonical_studies_server_unit {
             )
             .await
             .unwrap();
+        assert_eq!(
+            store
+                .study_input("readiness-seed", &solution.to_string())
+                .await
+                .unwrap(),
+            artifact.key
+        );
         let seed = store
             .study_scope(&point_key("readiness-seed", OccurrenceKey(2)))
             .await
@@ -2720,9 +2764,8 @@ mod canonical_studies_server_unit {
                 .iter()
                 .any(|point| point.ordinal == 2)
         );
-        // Discovery grants neither the missing artifact nor a start permission.
-        assert!(
-            store
+        // Retained input does not establish caller seed qualification or authorize a start.
+        assert!(matches!(store
                 .claim_study_point(
                     &seed,
                     None,
@@ -2730,9 +2773,8 @@ mod canonical_studies_server_unit {
                     "worker",
                     Duration::from_secs(60)
                 )
-                .await
-                .is_err()
-        );
+                .await,
+                Err(CanonicalError::Configuration(message)) if message == "study policy did not authorize a start"));
         assert_eq!(
             store
                 .canonical_study_point(&seed.point.key)

@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-03, AP-04, AP-07, DP-09, PS-09, PS-10]
 blueprint: [§19, §20.1, §20.2, §20.4, §20.6, §21]
-review: docs/design_review/reviews/design_review_sealed-payloads-and-strong-result-snapshots_2026-10-13.md
+review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_sealed-payloads-and-strong-result-snapshots_2026-10-13.md
 evidence: Implemented
 supersedes: []
 superseded-by: null
@@ -61,7 +61,7 @@ Native IPC access and bulk-byte locality remove a database payload crossing whil
 
 ## More information
 
-[Plan 38e](../plans/38e-durable-records-results-and-analytics.md) owns current state and finding contributions. ADR-0180/0182 retain demand, receipt and independent scientific borrower rationale; this record amends their physical realization and result-read lifetime without weakening those obligations.
+[Plan 38e](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38e-durable-records-results-and-analytics.md) owns current state and finding contributions. ADR-0180/0182 retain demand, receipt and independent scientific borrower rationale; this record amends their physical realization and result-read lifetime without weakening those obligations.
 
 ## Status history
 

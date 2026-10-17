@@ -20,7 +20,605 @@ from unittest.mock import Mock, patch
 from scripts import case_audit, case_measure
 
 
+class DiagnosticDouble:
+    """Named mock handles for the observer's native diagnostic boundary."""
+
+    InspectionError = RuntimeError
+
+    def __init__(
+        self,
+        *,
+        list_processes: Mock | None = None,
+        read_checkpoint: Mock | None = None,
+        inspect_image: Mock | None = None,
+        operation_id: Mock | None = None,
+        operation_text: Mock | None = None,
+    ) -> None:
+        self.list_processes = list_processes if list_processes is not None else Mock()
+        self.read_checkpoint = (
+            read_checkpoint if read_checkpoint is not None else Mock()
+        )
+        self.inspect_image = inspect_image if inspect_image is not None else Mock()
+        self.operation_id = operation_id if operation_id is not None else Mock()
+        self.operation_text = operation_text if operation_text is not None else Mock()
+
+
+class CodecDouble:
+    def __init__(self) -> None:
+        self.decode_json = Mock(side_effect=lambda data, _kind: json.loads(data))
+        self.encode_json = Mock(side_effect=lambda value: json.dumps(value).encode())
+
+
+class ObserverDouble(case_audit.Observer):
+    # Production methods still run on this object. Mock controls are accessed
+    # separately, without claiming a SimpleNamespace implements the native module.
+    diagnostic_double: DiagnosticDouble
+    codec_double: CodecDouble
+    write_mock: Mock
+
+
 class AuditTests(unittest.TestCase):
+    def install_diagnostics(
+        self, observer: ObserverDouble, diagnostics: DiagnosticDouble
+    ) -> None:
+        observer.diagnostic_double = diagnostics
+        self.enterContext(
+            patch.object(observer, "diagnostics", diagnostics, create=True)
+        )
+
+    def association(self, observer: case_audit.Observer) -> dict:
+        association = observer.managed_association
+        assert association is not None
+        return association
+
+    def managed_reader(self, observer: ObserverDouble, operations: list) -> None:
+        observer.codec_double = CodecDouble()
+        self.enterContext(
+            patch.object(observer, "codec", observer.codec_double, create=True)
+        )
+        self.enterContext(patch.object(observer, "identity_type", dict, create=True))
+        self.enterContext(patch.object(observer, "receiver_type", dict, create=True))
+        observer.diagnostic_double.read_checkpoint = Mock(
+            return_value=SimpleNamespace(operations=operations)
+        )
+
+        def inspect(image: SimpleNamespace, request: dict, **_kwargs: object) -> object:
+            if isinstance(request, dict) and "include_related" in request:
+                operation = next(
+                    operation
+                    for operation in image.operations
+                    if operation.id == request["operation"]
+                )
+                return SimpleNamespace(
+                    operation=operation, transport=SimpleNamespace(partial=False)
+                )
+            return "document"
+
+        observer.diagnostic_double.inspect_image = Mock(side_effect=inspect)
+
+    def ready_observer(self, directory: Path) -> tuple[ObserverDouble, dict]:
+        identity = {
+            "process": "exact-instance",
+            "locator": {"pid": 424242, "start_ticks": 7, "executable": None},
+        }
+        marker = {
+            "ready": True,
+            "canonical_database": "owned",
+            "pid": 424242,
+            "nonce": "registered-nonce",
+            "diagnostics": {
+                "identity": identity,
+                "checkpoint": str(directory / "worker.json"),
+                "enabled": True,
+                "writer_failure": None,
+            },
+        }
+        (directory / "managed-target.json").write_text(
+            json.dumps({"state": str(directory), "database": "owned"})
+        )
+        (directory / "primary-receiver.json").write_text(json.dumps(marker))
+        observer = object.__new__(ObserverDouble)
+        observer.directory = directory
+        observer.managed_checkpoint = None
+        observer.managed_association = None
+        observer.managed_offset = 0
+        observer.managed_cursor = None
+        observer.managed_operations = []
+        observer.reads = 0
+        observer.failures = []
+        observer.write_mock = Mock()
+        self.enterContext(patch.object(observer, "write", observer.write_mock))
+        observer.request = Mock(side_effect=lambda **kwargs: kwargs)
+        observer.list_request = Mock()
+        self.install_diagnostics(observer, DiagnosticDouble(list_processes=Mock()))
+        self.managed_reader(
+            observer,
+            [SimpleNamespace(id="completed responsibility", outcome="completed")],
+        )
+        return observer, marker
+
+    def test_ready_locator_associates_short_process_without_catalogue_or_proc(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            observer, marker = self.ready_observer(Path(temporary))
+            observer.inspect_managed()
+            observer.diagnostic_double.list_processes.assert_not_called()
+            observer.diagnostic_double.read_checkpoint.assert_called_once_with(
+                marker["diagnostics"]["checkpoint"],
+                expected=marker["diagnostics"]["identity"],
+            )
+            image = observer.diagnostic_double.read_checkpoint.return_value
+            self.assertIs(
+                observer.diagnostic_double.inspect_image.call_args.args[0], image
+            )
+            self.assertIs(observer.write_mock.call_args.args[1], image)
+            self.assertEqual(observer.failures, [])
+
+    def test_pending_handoff_is_cached_then_reads_after_marker_and_process_disappear(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            image = observer.diagnostic_double.read_checkpoint.return_value
+            observer.diagnostic_double.read_checkpoint.side_effect = [
+                FileNotFoundError("first checkpoint pending"),
+                image,
+            ]
+            observer.inspect_managed()
+            self.assertEqual(
+                self.association(observer)["identity"],
+                marker["diagnostics"]["identity"],
+            )
+            self.assertIn("pending", observer.failures[0])
+            (directory / "primary-receiver.json").unlink()
+            (directory / "managed-target.json").unlink()
+            observer.inspect_managed()
+            self.assertEqual(observer.diagnostic_double.inspect_image.call_count, 1)
+            observer.diagnostic_double.list_processes.assert_not_called()
+
+    def test_cached_association_never_rebinds_to_replacement_pid_or_checkpoint(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            observer.inspect_managed()
+            selected = dict(self.association(observer))
+            marker["diagnostics"]["identity"]["locator"]["start_ticks"] += 1
+            marker["diagnostics"]["identity"]["process"] = "replacement-instance"
+            marker["diagnostics"]["checkpoint"] = str(directory / "replacement.json")
+            marker["nonce"] = "replacement-nonce"
+            (directory / "primary-receiver.json").write_text(json.dumps(marker))
+            observer.diagnostic_double.read_checkpoint.side_effect = ValueError(
+                "checkpoint process/start identity mismatch"
+            )
+            observer.inspect_managed()
+            self.assertEqual(observer.managed_association, selected)
+            self.assertEqual(observer.diagnostic_double.inspect_image.call_count, 1)
+            self.assertIn("identity mismatch", observer.failures[-1])
+            self.assertEqual(
+                observer.diagnostic_double.read_checkpoint.call_args.kwargs["expected"],
+                selected["identity"],
+            )
+
+    def test_wrong_database_missing_start_and_opt_out_remain_diagnostic_absence(
+        self,
+    ) -> None:
+        for variant in ("database", "start", "disabled"):
+            with self.subTest(variant), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                observer, marker = self.ready_observer(directory)
+                if variant == "database":
+                    marker["canonical_database"] = "wrong"
+                elif variant == "start":
+                    marker["diagnostics"]["identity"]["locator"]["start_ticks"] = None
+                else:
+                    marker["diagnostics"]["enabled"] = False
+                (directory / "primary-receiver.json").write_text(json.dumps(marker))
+                observer.inspect_managed()
+                self.assertIsNone(observer.managed_association)
+                observer.diagnostic_double.read_checkpoint.assert_not_called()
+                observer.diagnostic_double.list_processes.assert_not_called()
+                self.assertTrue(
+                    json.loads((directory / "primary-receiver.json").read_text())[
+                        "ready"
+                    ]
+                )
+
+    def test_writer_failure_does_not_reject_registered_last_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            marker["diagnostics"]["writer_failure"] = "optional writer failed"
+            (directory / "primary-receiver.json").write_text(json.dumps(marker))
+            observer.inspect_managed()
+            self.assertEqual(
+                self.association(observer)["writer_failure"], "optional writer failed"
+            )
+            self.assertEqual(observer.diagnostic_double.inspect_image.call_count, 1)
+
+    def caller_ready_image(
+        self, marker: dict, state: Path
+    ) -> tuple[SimpleNamespace, bytes]:
+        handoff = {
+            **marker["diagnostics"],
+            "available": True,
+            "receiver_state": str(state),
+            "canonical_database": marker["canonical_database"],
+            "nonce": marker["nonce"],
+        }
+        payload = json.dumps(handoff).encode()
+        chunks = [payload[index : index + 128] for index in range(0, len(payload), 128)]
+        selection_sources = []
+        selection_metrics = []
+        for name, value in (
+            ("receiver.state", str(state)),
+            ("receiver.database", marker["canonical_database"]),
+        ):
+            data = value.encode()
+            parts = [data[index : index + 128] for index in range(0, len(data), 128)]
+            selection_sources.extend(
+                SimpleNamespace(name=f"{name}.{index}", bytes=part)
+                for index, part in enumerate(parts)
+            )
+            selection_metrics.extend(
+                [
+                    SimpleNamespace(
+                        name=f"{name}_chunks",
+                        latest={"kind": "Integer", "value": len(parts)},
+                    ),
+                    SimpleNamespace(
+                        name=f"{name}_bytes",
+                        latest={"kind": "Integer", "value": len(data)},
+                    ),
+                ]
+            )
+        operation = SimpleNamespace(
+            id=SimpleNamespace(sequence=7),
+            summary=SimpleNamespace(purpose="registered receiver checkpoint"),
+            coverage=SimpleNamespace(stale=False),
+            metrics=[
+                *selection_metrics,
+                SimpleNamespace(
+                    name="receiver.handoff_chunks",
+                    latest={"kind": "Integer", "value": len(chunks)},
+                ),
+                SimpleNamespace(
+                    name="receiver.handoff_bytes",
+                    latest={"kind": "Integer", "value": len(payload)},
+                ),
+            ],
+            sources=[
+                *selection_sources,
+                *(
+                    SimpleNamespace(name=f"receiver.handoff.{index}", bytes=chunk)
+                    for index, chunk in enumerate(chunks)
+                ),
+            ],
+        )
+        return SimpleNamespace(operations=[operation], clock=SimpleNamespace()), payload
+
+    def test_actual_caller_ready_handoff_survives_short_receiver_and_removed_marker(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            target = json.loads((directory / "managed-target.json").read_text())
+            target["caller"] = {
+                "checkpoint": str(directory / "caller.json"),
+                "identity": {"process": "caller-instance"},
+            }
+            (directory / "managed-target.json").write_text(json.dumps(target))
+            (directory / "primary-receiver.json").unlink()
+            image, _payload = self.caller_ready_image(marker, directory)
+            receiver_image = observer.diagnostic_double.read_checkpoint.return_value
+
+            observer.diagnostic_double.read_checkpoint.side_effect = [
+                image,
+                receiver_image,
+            ]
+            observer.inspect_managed()
+            self.assertEqual(self.association(observer)["nonce"], marker["nonce"])
+            self.assertEqual(
+                self.association(observer)["identity"],
+                marker["diagnostics"]["identity"],
+            )
+            self.assertEqual(
+                self.association(observer)["source"],
+                "actual caller ready responsibility",
+            )
+            self.assertEqual(observer.diagnostic_double.inspect_image.call_count, 2)
+            self.assertIs(
+                observer.diagnostic_double.inspect_image.call_args_list[0].args[0],
+                image,
+            )
+            self.assertEqual(
+                [
+                    call.args[0]
+                    for call in observer.diagnostic_double.read_checkpoint.call_args_list
+                ],
+                [target["caller"]["checkpoint"], marker["diagnostics"]["checkpoint"]],
+            )
+            observer.diagnostic_double.list_processes.assert_not_called()
+            self.assertEqual(observer.failures, [])
+
+    def test_partial_caller_handoff_never_reconstructs_or_falls_back_to_replacement_marker(
+        self,
+    ) -> None:
+        for missing in ("chunk", "inventory", "extent", "selection", "pending"):
+            with self.subTest(missing), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                observer, marker = self.ready_observer(directory)
+                target = json.loads((directory / "managed-target.json").read_text())
+                target["caller"] = {
+                    "checkpoint": str(directory / "caller.json"),
+                    "identity": {"process": "caller-instance"},
+                }
+                (directory / "managed-target.json").write_text(json.dumps(target))
+                image, _payload = self.caller_ready_image(marker, directory)
+                if missing == "chunk":
+                    image.operations[0].sources.pop()
+                elif missing == "inventory":
+                    image.operations[0].metrics.pop()
+                elif missing == "extent":
+                    next(
+                        metric
+                        for metric in image.operations[0].metrics
+                        if metric.name == "receiver.handoff_bytes"
+                    ).latest["value"] += 1
+                elif missing == "selection":
+                    image.operations[0].sources.pop(0)
+                else:
+                    image.operations.clear()
+
+                observer.diagnostic_double.read_checkpoint.return_value = image
+                observer.inspect_managed()
+                self.assertIsNone(observer.managed_association)
+                self.assertEqual(
+                    observer.diagnostic_double.read_checkpoint.call_count, 1
+                )
+                self.assertEqual(
+                    observer.diagnostic_double.inspect_image.call_count,
+                    int(missing not in {"pending", "selection"}),
+                )
+                observer.diagnostic_double.list_processes.assert_not_called()
+                if missing != "pending":
+                    self.assertIn("handoff", observer.failures[-1])
+
+    def test_caller_discovery_selects_exact_state_among_same_database_summaries(
+        self,
+    ) -> None:
+        for unrelated_incomplete in (False, True):
+            with (
+                self.subTest(unrelated_incomplete=unrelated_incomplete),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                directory = Path(temporary)
+                observer, marker = self.ready_observer(directory)
+                selected, _payload = self.caller_ready_image(marker, directory)
+                other, _payload = self.caller_ready_image(
+                    {**marker, "nonce": "other-receiver"}, directory / "other-state"
+                )
+                other.operations[0].id.sequence = 8
+                if unrelated_incomplete:
+                    other.operations[0].metrics = [
+                        metric
+                        for metric in other.operations[0].metrics
+                        if not metric.name.startswith("receiver.handoff_")
+                    ]
+                    other.operations[0].sources = [
+                        source
+                        for source in other.operations[0].sources
+                        if not source.name.startswith("receiver.handoff.")
+                    ]
+                selected.operations.extend(other.operations)
+                target = {
+                    "state": str(directory),
+                    "database": "owned",
+                    "caller": {"identity": {}, "checkpoint": "caller.json"},
+                }
+
+                observer.diagnostic_double.read_checkpoint.return_value = selected
+                association = observer._managed_from_caller(target)  # noqa: SLF001 -- exact caller-summary recovery control
+                assert association is not None
+                self.assertEqual(association["nonce"], marker["nonce"])
+                observer.diagnostic_double.read_checkpoint.return_value = other
+                self.assertIsNone(observer._managed_from_caller(target))  # noqa: SLF001 -- exact caller-summary recovery control
+
+    def test_newer_incomplete_exact_target_never_falls_back_to_older_receiver(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            selected, _payload = self.caller_ready_image(marker, directory)
+            newer, _payload = self.caller_ready_image(
+                {**marker, "nonce": "new-receiver"}, directory
+            )
+            newer.operations[0].id.sequence = 8
+            newer.operations[0].sources.pop()
+            selected.operations.extend(newer.operations)
+
+            observer.diagnostic_double.read_checkpoint.return_value = selected
+            target = {
+                "state": str(directory),
+                "database": "owned",
+                "caller": {"identity": {}, "checkpoint": "caller.json"},
+            }
+            with self.assertRaisesRegex(ValueError, "chunks incomplete"):
+                observer._managed_from_caller(target)  # noqa: SLF001 -- exact caller-summary recovery control
+
+    def test_long_registered_state_chunks_select_exact_receiver_and_reject_gaps(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            state = (
+                directory
+                / ("service-state" * 8)
+                / ".receivers"
+                / ("a" * 64)
+                / "canonical-database"
+            )
+            self.assertGreaterEqual(len(str(state).encode()), 200)
+            observer, marker = self.ready_observer(directory)
+            marker["canonical_database"] = "database-" + "d" * 128
+            selected, _payload = self.caller_ready_image(marker, state)
+            other, _payload = self.caller_ready_image(
+                {**marker, "nonce": "unrelated"}, state.parent / "other-database"
+            )
+            other.operations[0].id.sequence = 8
+            other.operations[0].metrics = [
+                metric
+                for metric in other.operations[0].metrics
+                if not metric.name.startswith("receiver.handoff_")
+            ]
+            other.operations[0].sources = [
+                source
+                for source in other.operations[0].sources
+                if not source.name.startswith("receiver.handoff.")
+            ]
+            selected.operations.extend(other.operations)
+
+            observer.diagnostic_double.read_checkpoint.return_value = selected
+            target = {
+                "state": str(state),
+                "database": marker["canonical_database"],
+                "caller": {"identity": {}, "checkpoint": "caller.json"},
+            }
+            association = observer._managed_from_caller(target)  # noqa: SLF001 -- exact caller-summary recovery control
+            assert association is not None
+            self.assertEqual(association["nonce"], marker["nonce"])
+            self.assertEqual(association["state"], str(state))
+            self.assertLessEqual(len(selected.operations[0].sources), 16)
+            self.assertTrue(
+                all(
+                    len(source.bytes) <= 128
+                    for source in selected.operations[0].sources
+                )
+            )
+            for prefix in ("receiver.state", "receiver.database"):
+                with self.subTest(prefix=prefix):
+                    image, _payload = self.caller_ready_image(marker, state)
+                    image.operations[0].sources = [
+                        source
+                        for source in image.operations[0].sources
+                        if source.name != f"{prefix}.1"
+                    ]
+                    observer.diagnostic_double.read_checkpoint.return_value = image
+                    with self.assertRaisesRegex(ValueError, "chunks incomplete"):
+                        observer._managed_from_caller(target)  # noqa: SLF001 -- exact caller-summary recovery control
+
+    def test_typed_handoff_must_match_copied_selection_discriminator(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            image, _payload = self.caller_ready_image(marker, directory / "other-state")
+            image.operations[0].sources[0].bytes = str(directory).encode()
+            next(
+                metric
+                for metric in image.operations[0].metrics
+                if metric.name == "receiver.state_bytes"
+            ).latest["value"] = len(str(directory).encode())
+
+            observer.diagnostic_double.read_checkpoint.return_value = image
+            target = {
+                "state": str(directory),
+                "database": "owned",
+                "caller": {"identity": {}, "checkpoint": "caller.json"},
+            }
+            with self.assertRaisesRegex(ValueError, "selection differs"):
+                observer._managed_from_caller(target)  # noqa: SLF001 -- exact caller-summary recovery control
+
+    def test_expired_caller_summary_cannot_establish_new_association(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            image, _payload = self.caller_ready_image(marker, directory)
+            image.operations[0].coverage.stale = True
+            target = {
+                "state": str(directory),
+                "database": "owned",
+                "caller": {"identity": {}, "checkpoint": "caller.json"},
+            }
+            (directory / "managed-target.json").write_text(json.dumps(target))
+
+            observer.diagnostic_double.read_checkpoint.return_value = image
+            observer.inspect_managed()
+            self.assertIsNone(observer.managed_association)
+            self.assertEqual(observer.diagnostic_double.read_checkpoint.call_count, 1)
+            self.assertIn("expired", observer.failures[-1])
+
+    def test_cached_caller_association_keeps_reading_prefix_after_summary_expiry(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            image, _payload = self.caller_ready_image(marker, directory)
+            receiver_image = observer.diagnostic_double.read_checkpoint.return_value
+            target = {
+                "state": str(directory),
+                "database": "owned",
+                "caller": {"identity": {}, "checkpoint": "caller.json"},
+            }
+            (directory / "managed-target.json").write_text(json.dumps(target))
+
+            observer.diagnostic_double.read_checkpoint.side_effect = [
+                image,
+                receiver_image,
+                receiver_image,
+            ]
+            observer.inspect_managed()
+            selected = observer.managed_association
+            image.operations[0].coverage.stale = True
+            (directory / "managed-target.json").unlink()
+            (directory / "primary-receiver.json").unlink()
+            observer.inspect_managed()
+            self.assertIs(observer.managed_association, selected)
+            self.assertEqual(
+                [
+                    call.args[0]
+                    for call in observer.diagnostic_double.read_checkpoint.call_args_list
+                ],
+                [
+                    "caller.json",
+                    marker["diagnostics"]["checkpoint"],
+                    marker["diagnostics"]["checkpoint"],
+                ],
+            )
+            self.assertEqual(observer.failures, [])
+
+    def test_new_caller_association_requires_clock_but_tolerates_other_transport_loss(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observer, marker = self.ready_observer(directory)
+            image, _payload = self.caller_ready_image(marker, directory)
+
+            observer.diagnostic_double.read_checkpoint.return_value = image
+            observer.diagnostic_double.inspect_image.side_effect = None
+            observer.diagnostic_double.inspect_image.return_value = SimpleNamespace(
+                operation=image.operations[0],
+                transport=SimpleNamespace(partial=True),
+            )
+            target = {
+                "state": str(directory),
+                "database": "owned",
+                "caller": {"identity": {}, "checkpoint": "caller.json"},
+            }
+            association = observer._managed_from_caller(target)  # noqa: SLF001 -- exact caller-summary recovery control
+            assert association is not None
+            self.assertEqual(association["nonce"], marker["nonce"])
+            image.clock = None
+            with self.assertRaisesRegex(ValueError, "clock unavailable"):
+                observer._managed_from_caller(target)  # noqa: SLF001 -- exact caller-summary recovery control
+            self.assertEqual(observer.diagnostic_double.inspect_image.call_count, 1)
+
     def test_missing_outcome_and_nonzero_exit_cannot_be_success(self) -> None:
         self.assertEqual(case_audit.reconcile_outcome(0, None)["status"], "failed")
         self.assertEqual(
@@ -138,16 +736,19 @@ class AuditTests(unittest.TestCase):
                 .split()[19]
             )
             for matches in (False, True):
-                observer = object.__new__(case_audit.Observer)
+                observer = object.__new__(ObserverDouble)
                 observer.directory = directory
                 observer.managed_checkpoint = None
                 observer.managed_operations = []
+                observer.managed_offset = 0
+                observer.managed_cursor = None
                 observer.reads = 1
                 observer.failures = []
                 observer.list_request = Mock()
                 observer.request = Mock()
                 observer.write = Mock()
                 process = SimpleNamespace(
+                    process="worker-instance",
                     locator=SimpleNamespace(
                         pid=os.getpid(), start_ticks=start if matches else start + 1
                     ),
@@ -155,20 +756,159 @@ class AuditTests(unittest.TestCase):
                     operations=[SimpleNamespace(id="operation", outcome=None)],
                     partial=False,
                 )
-                diagnostics = SimpleNamespace(
+                diagnostics = DiagnosticDouble(
                     list_processes=Mock(
                         return_value=SimpleNamespace(processes=[process], next=None)
                     ),
-                    inspect_checkpoint=Mock(return_value="document"),
-                    InspectionError=RuntimeError,
                 )
-                with patch.object(observer, "diagnostics", diagnostics, create=True):
+                self.install_diagnostics(observer, diagnostics)
+                with self.subTest(matches=matches):
+                    self.managed_reader(observer, process.operations)
                     observer.inspect_managed()
                 self.assertEqual(
                     observer.managed_checkpoint, checkpoint if matches else None
                 )
+                self.assertEqual(diagnostics.inspect_image.call_count, int(matches))
+                self.assertEqual(observer.failures, [])
+
+    def test_managed_reads_rotate_across_sixteen_active_owners(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "managed-target.json").write_text(
+                json.dumps({"state": str(directory), "database": "owned"})
+            )
+            checkpoint = directory / "worker.json"
+            checkpoint.write_text("retained worker prefix")
+            observer = object.__new__(ObserverDouble)
+            observer.directory = directory
+            observer.managed_checkpoint = checkpoint
+            observer.managed_association = {
+                "state": str(directory),
+                "checkpoint": str(checkpoint),
+                "identity": {
+                    "process": "selected",
+                    "locator": {"pid": 123, "start_ticks": 4},
+                },
+            }
+            observer.managed_operations = list(range(16))
+            observer.managed_offset = 0
+            observer.reads = 0
+            observer.failures = []
+            observer.request = Mock(side_effect=lambda **kwargs: kwargs)
+            observer.write = Mock()
+            self.install_diagnostics(observer, DiagnosticDouble())
+            self.managed_reader(observer, [SimpleNamespace(id=i) for i in range(16)])
+            observer.inspect_managed()
+            self.assertEqual(observer.diagnostic_double.inspect_image.call_count, 8)
+            observer.inspect_managed()
+            requests = observer.diagnostic_double.inspect_image.call_args_list
+            self.assertEqual(
+                [call.args[1]["operation"] for call in requests], list(range(16))
+            )
+            self.assertEqual(observer.failures, [])
+
+    def test_managed_discovery_continues_bounded_pages_across_reads(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            checkpoint = directory / "worker.json"
+            checkpoint.write_text("retained worker prefix")
+            (directory / "managed-target.json").write_text(
+                json.dumps({"state": str(directory), "database": "owned"})
+            )
+            (directory / "primary-receiver.json").write_text(
+                json.dumps(
+                    {"pid": os.getpid(), "ready": True, "canonical_database": "owned"}
+                )
+            )
+            start = int(
+                Path(f"/proc/{os.getpid()}/stat")
+                .read_text()
+                .rsplit(")", 1)[1]
+                .split()[19]
+            )
+            process = SimpleNamespace(
+                process="worker-instance",
+                locator=SimpleNamespace(pid=os.getpid(), start_ticks=start),
+                checkpoint=str(checkpoint),
+                operations=[SimpleNamespace(id="operation", outcome=None)],
+                partial=False,
+            )
+            observer = object.__new__(ObserverDouble)
+            observer.directory = directory
+            observer.managed_checkpoint = None
+            observer.managed_operations = []
+            observer.managed_offset = 0
+            observer.managed_cursor = None
+            observer.reads = 0
+            observer.failures = []
+            observer.request = Mock()
+            observer.list_request = Mock(side_effect=lambda **kwargs: kwargs)
+            observer.write = Mock()
+            self.install_diagnostics(
+                observer,
+                DiagnosticDouble(
+                    list_processes=Mock(
+                        side_effect=[
+                            *(
+                                SimpleNamespace(processes=[], next=f"page{i}")
+                                for i in range(1, 5)
+                            ),
+                            SimpleNamespace(processes=[process], next=None),
+                        ]
+                    ),
+                ),
+            )
+            self.managed_reader(observer, process.operations)
+            observer.inspect_managed()
+            self.assertIsNone(observer.managed_checkpoint)
+            self.assertEqual(observer.diagnostic_double.list_processes.call_count, 4)
+            observer.inspect_managed()
+            self.assertEqual(observer.managed_checkpoint, checkpoint)
+            self.assertEqual(
+                observer.diagnostic_double.list_processes.call_args.args[0]["after"],
+                "page4",
+            )
+            self.assertEqual(observer.failures, [])
+
+    def test_terminal_navigation_includes_completed_related_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            checkpoint = directory / "worker.json"
+            checkpoint.write_text("retained prefix")
+            (directory / "case-operation.json").write_text(
+                json.dumps({"checkpoint": str(checkpoint), "operation": "root"})
+            )
+            for terminal in (False, True):
+                observer = object.__new__(ObserverDouble)
+                observer.directory = directory
+                observer.request = Mock(side_effect=lambda **kwargs: kwargs)
+                observer.list_request = Mock()
+                observer.write = Mock()
+                observer.inspect_managed = Mock()
+                observer.reads = 0
+                observer.failures = []
+                observer.started = time.monotonic()
+                completed = SimpleNamespace(outcome="completed", phases=[])
+                root = SimpleNamespace(
+                    operation=completed,
+                    related=[SimpleNamespace(id="child", outcome="completed")],
+                )
+                child = SimpleNamespace(operation=completed, related=[])
+                self.install_diagnostics(
+                    observer,
+                    DiagnosticDouble(
+                        operation_id=Mock(side_effect=lambda value: value),
+                        operation_text=Mock(side_effect=lambda value: value),
+                        read_checkpoint=Mock(return_value="validated prefix"),
+                        inspect_image=Mock(side_effect=[root, child]),
+                        list_processes=Mock(return_value=SimpleNamespace(processes=[])),
+                    ),
+                )
+                observer.inspect(terminal=terminal)
+                requests = observer.diagnostic_double.inspect_image.call_args_list
                 self.assertEqual(
-                    diagnostics.inspect_checkpoint.call_count, int(matches)
+                    [call.args[1]["operation"] for call in requests],
+                    ["root", "child"] if terminal else ["root"],
                 )
                 self.assertEqual(observer.failures, [])
 

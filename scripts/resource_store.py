@@ -450,7 +450,10 @@ class FileStore:
                             )
                         member["phase"] = "registered"
                         member["publication"] = "durable"
-                        publish(coordination, state)
+                        # invocation_edit publishes completion once, still under
+                        # invocation exclusion, after the child locks release.
+                        # If that publication fails, freeze reconstructs the
+                        # durable authority from the pending/uncertain member.
         return resource
 
     def freeze(

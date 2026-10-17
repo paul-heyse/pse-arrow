@@ -523,6 +523,7 @@ class SurrealMcpTests(unittest.TestCase):
                         server.read_json(path, deadline=started + 0.2)
                     self.assertLess(time.monotonic() - started, 0.2)
                     path.unlink()
+
         os.mkfifo(self.state / "config.json", mode=0o600)
         with patch.object(host, "inherit", return_value=MagicMock()):
             code, output, error = self.invoke(child=True)
@@ -563,6 +564,28 @@ class SurrealMcpTests(unittest.TestCase):
                         [call.args[0] for call in reads.call_args_list],
                     )
                     path.unlink()
+
+    def test_lifecycle_inventory_read_preserves_mcp_record_size_policy(self) -> None:
+        path = self.state / "large-lifecycle.json"
+        inventory = {
+            "derived_rebuild_pending": {"payload_inventory": ["x" * 1024] * 80}
+        }
+        server.write_json(path, inventory)
+        self.assertGreater(path.stat().st_size, 64 * 1024)
+        self.assertEqual(server.read_json(path, deadline=self.deadline), inventory)
+        with self.assertRaisesRegex(server.SupervisorError, "exceeds its bound"):
+            server.mcp_private_record(path, self.deadline)
+
+    def test_lifecycle_inventory_read_keeps_original_deadline_between_chunks(
+        self,
+    ) -> None:
+        path = self.state / "large-lifecycle.json"
+        server.write_json(path, {"inventory": "x" * (128 * 1024)})
+        with (
+            patch.object(server.time, "monotonic", side_effect=[1.0, 1.1, 2.1]),
+            self.assertRaises(server.DeadlineExpiredError),
+        ):
+            server.read_json(path, deadline=2.0)
 
     def test_fixed_config_process_and_launch_propagate_read_deadline(self) -> None:
         with patch.object(

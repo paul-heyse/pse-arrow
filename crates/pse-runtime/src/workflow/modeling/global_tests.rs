@@ -131,7 +131,7 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
                 SolverSelection::Explicit(Backend::Scip),
             ),
         );
-        // Artifact construction is admitted before complete attempt storage. The
+        // Scalar construction is admitted before complete attempt storage. The
         // low-capacity leg must refuse before publishing a route, while the same
         // scientific compiler policy succeeds with an ordinary resource allowance.
         request.compiler.evaluation.scratch_bytes = 512;
@@ -147,7 +147,7 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
                 "{diagnostic:?}"
             );
             assert!(
-                error.to_string().contains("artifact construction capacity"),
+                error.to_string().contains("constructor worker capacity"),
                 "{error}"
             );
         } else {

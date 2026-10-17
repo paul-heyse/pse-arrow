@@ -77,6 +77,7 @@
       "related_limit": 16
     },
     "operation": {
+      "summary": null,
       "id": {
         "process_instance": [
           1,

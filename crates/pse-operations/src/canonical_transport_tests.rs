@@ -469,6 +469,250 @@ async fn canonical_conflict_clock_does_not_renew_nested_deadlines() {
 }
 
 #[tokio::test]
+async fn canonical_file_metadata_conflicts_preserve_original_effect_and_unknown_seal_is_not_replayed()
+ {
+    use crate::canonical::CanonicalError;
+    use std::{collections::BTreeMap, sync::Mutex};
+    use surrealdb::types::{QueryError, SurrealValue};
+    for unknown_seal in [false, true] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let calls = Arc::new(Mutex::new(BTreeMap::<String, Vec<Object>>::new()));
+        let observed = calls.clone();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = accept_hdr_async(stream, native_protocol).await.unwrap();
+            let mut file: Option<Object> = None;
+            while let Some(Ok(Message::Binary(bytes))) = socket.next().await {
+                let Value::Object(request) = surrealdb::types::decode(&bytes).unwrap() else {
+                    continue;
+                };
+                if request.get("id").is_none_or(|id| matches!(id, Value::None)) {
+                    continue;
+                }
+                let method = request.get("method").and_then(Value::as_string).unwrap();
+                let result = if method == "query" {
+                    let params = request.get("params").and_then(Value::as_array).unwrap();
+                    let query = params[0].as_string().unwrap();
+                    let bindings = params[1].as_object().unwrap();
+                    let phase = ["register_owner", "reserve", "intent_open", "seal"]
+                        .into_iter()
+                        .find(|phase| query.contains(&format!("fn::pse_files_v1::{phase}(")))
+                        .unwrap();
+                    let first = {
+                        let mut calls = observed.lock().unwrap();
+                        let attempts = calls.entry(phase.to_owned()).or_default();
+                        attempts.push(bindings.clone());
+                        attempts.len() == 1
+                    };
+                    let output = if first {
+                        Err(if phase == "seal" && unknown_seal {
+                            surrealdb::Error::query(
+                                "unknown original sealing acknowledgement".into(),
+                                None,
+                            )
+                        } else {
+                            surrealdb::Error::query(
+                                "definite metadata commit conflict".into(),
+                                QueryError::TransactionConflict,
+                            )
+                        })
+                    } else {
+                        let row = match phase {
+                            "register_owner" => bindings
+                                .get("row")
+                                .and_then(Value::as_object)
+                                .unwrap()
+                                .clone(),
+                            "reserve" => {
+                                let row = bindings
+                                    .get("row")
+                                    .and_then(Value::as_object)
+                                    .unwrap()
+                                    .clone();
+                                file = Some(row.clone());
+                                row
+                            }
+                            "intent_open" => file.as_ref().unwrap().clone(),
+                            "seal" => {
+                                let row = file.as_mut().unwrap();
+                                let descriptor = bindings
+                                    .get("descriptor")
+                                    .and_then(Value::as_object)
+                                    .unwrap();
+                                for (target, source) in [
+                                    ("digest", "digest"),
+                                    ("payload_bytes", "bytes"),
+                                    ("encoding", "encoding"),
+                                    ("batch_count", "batch_count"),
+                                    ("schema", "schema"),
+                                    ("interpretation", "interpretation"),
+                                ] {
+                                    row.insert(target, descriptor.get(source).unwrap().clone());
+                                }
+                                row.insert("state", "sealed");
+                                row.clone()
+                            }
+                            _ => panic!("unexpected file-metadata phase: {phase}"),
+                        };
+                        Ok(Value::Object(row))
+                    };
+                    let ack = |result: Result<Value, surrealdb::Error>| {
+                        let mut row = match result {
+                            Ok(value) => {
+                                let mut row = Object::new();
+                                row.insert("status", "OK");
+                                row.insert("result", value);
+                                row
+                            }
+                            Err(error) => {
+                                let mut row = error
+                                    .details()
+                                    .clone()
+                                    .into_value()
+                                    .as_object()
+                                    .expect("query error details are an object")
+                                    .clone();
+                                row.insert("status", "ERR");
+                                row.insert("result", error.message().to_owned());
+                                row
+                            }
+                        };
+                        row.insert("time", "0ns");
+                        Value::Object(row)
+                    };
+                    // Refuse at COMMIT, the production failure seam, before any
+                    // original catalog effect is acknowledged by the caller.
+                    let statements = match output {
+                        Ok(row) => vec![ack(Ok(Value::None)), ack(Ok(row)), ack(Ok(Value::None))],
+                        Err(error) => {
+                            vec![ack(Ok(Value::None)), ack(Ok(Value::None)), ack(Err(error))]
+                        }
+                    };
+                    Value::Array(statements.into())
+                } else if method == "version" {
+                    Value::String("3.3.0".into())
+                } else {
+                    Value::None
+                };
+                let mut reply = Object::new();
+                reply.insert("id", request.get("id").unwrap().clone());
+                reply.insert("session", request.get("session").unwrap().clone());
+                reply.insert("result", result);
+                socket
+                    .send(Message::Binary(
+                        surrealdb::types::encode(&Value::Object(reply))
+                            .unwrap()
+                            .into(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+        });
+        let state =
+            std::env::temp_dir().join(format!("pse-file-metadata-retry-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&state).unwrap();
+        let options = crate::canonical::CanonicalOptions {
+            endpoint: format!("ws://{address}"),
+            namespace: "namespace".into(),
+            database: "database".into(),
+            username: "owner".into(),
+            password: "test".into(),
+            selection_username: "viewer".into(),
+            selection_password: "test".into(),
+            state_path: state.clone(),
+            initializer_nonce: None,
+        };
+        std::fs::write(state.join("config.json"), serde_json::to_vec(&serde_json::json!({
+            "namespace": options.namespace, "database": options.database, "endpoint": options.endpoint,
+            "payload_incarnation": uuid::Uuid::new_v4().to_string(), "accepting_writes": true,
+        })).unwrap()).unwrap();
+        let sdk = Surreal::new::<Ws>((address, Config::new().bounded_requests()))
+            .await
+            .unwrap();
+        let client = Arc::new(super::CanonicalClient::new(
+            sdk,
+            Duration::from_secs(5),
+            &options,
+        ));
+        let issuing_store = Arc::new(std::sync::OnceLock::new());
+        issuing_store.set("wire-file-store".to_owned()).unwrap();
+        let store = crate::canonical::CanonicalStore {
+            db: client.clone(),
+            activation_db: client,
+            problem_turns: Arc::default(),
+            fixture_lifetime: None,
+            issuing_store,
+            files: Arc::new(
+                crate::canonical_files::FileSession::from_state(&state, &options.database).unwrap(),
+            ),
+            result_read_drain: Arc::default(),
+            connection_options: options.clone(),
+            state_path: state.clone(),
+            database: options.database,
+            namespace: options.namespace,
+        };
+        let bytes = b"[1,2]";
+        let digest = crate::canonical_execution::result_payload_digest(bytes);
+        let intent = store
+            .reserve_artifact_file("selected-artifact", "original-intent", &digest)
+            .await
+            .unwrap();
+        let sealed = store
+            .seal_file(&intent, bytes, crate::canonical_files::OPAQUE_JSON, 0, "")
+            .await;
+        if unknown_seal {
+            assert!(
+                matches!(sealed, Err(CanonicalError::Driver(error)) if error.is_query() && error.query_details().is_none())
+            );
+        } else {
+            let sealed = sealed.unwrap();
+            assert_eq!(
+                serde_json::to_value(sealed.original_intent()).unwrap(),
+                serde_json::to_value(&intent).unwrap()
+            );
+            assert_eq!(sealed.descriptor().digest, digest);
+        }
+        assert_eq!(
+            std::fs::read(store.files.path(intent.instance()).unwrap()).unwrap(),
+            bytes
+        );
+        {
+            let calls = calls.lock().unwrap();
+            for (phase, expected) in [
+                ("register_owner", 2),
+                ("reserve", 2),
+                ("intent_open", 3),
+                ("seal", if unknown_seal { 1 } else { 2 }),
+            ] {
+                let attempts = &calls[phase];
+                assert_eq!(attempts.len(), expected, "{phase}");
+                let meaning = |row: &Object| {
+                    let mut row = row.clone();
+                    row.remove("pse_rpc_expires_at");
+                    row.remove("pse_rpc_timeout");
+                    row
+                };
+                for row in &attempts[1..] {
+                    assert_eq!(
+                        meaning(&attempts[0]),
+                        meaning(row),
+                        "{phase} must retain exact original effect"
+                    );
+                }
+            }
+        }
+        store.db.disconnect().await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), server)
+            .await
+            .unwrap()
+            .unwrap();
+        drop(store);
+        std::fs::remove_dir_all(state).unwrap();
+    }
+}
+
+#[tokio::test]
 async fn canonical_operation_scope_keeps_nested_minimum_clock_and_drains_issued_owner() {
     let deadline = Instant::now() + Duration::from_millis(20);
     let expected = tokio::time::Instant::from_std(deadline);
@@ -1958,12 +2202,39 @@ fn canonical_statistics_exact_sample_fits_default_text_bound() {
 #[derive(Clone, Copy, Debug)]
 enum MetadataFault {
     Valid,
+    BlockBits,
+    SingleBlockBits,
+    ExcessBlockBits,
+    LongBlockBits,
     LongString,
     SharedCopies,
     UnknownId,
     UnknownSession,
     DuplicateId,
     MalformedId,
+}
+
+fn metadata_block_bits(rows: usize, width: usize) -> Value {
+    Value::Array(
+        (0..rows)
+            .map(|_| {
+                let coordinate = || {
+                    let mut value = Object::new();
+                    value.insert("bits", Value::Bytes(vec![0; width].into()));
+                    value.insert(
+                        "projection",
+                        Value::Number(surrealdb::types::Number::Float(0.0)),
+                    );
+                    Value::Object(value)
+                };
+                let mut row = Object::new();
+                row.insert("coordinate_min", coordinate());
+                row.insert("coordinate_max", coordinate());
+                Value::Object(row)
+            })
+            .collect::<Vec<_>>()
+            .into(),
+    )
 }
 
 fn metadata_peer_frame(request: &Object, fault: MetadataFault) -> Vec<u8> {
@@ -2014,8 +2285,24 @@ fn metadata_peer_frame(request: &Object, fault: MetadataFault) -> Vec<u8> {
     .to_fb(&mut builder)
     .unwrap();
     let result = match fault {
-        MetadataFault::Valid | MetadataFault::LongString | MetadataFault::SharedCopies => {
+        MetadataFault::Valid
+        | MetadataFault::LongString
+        | MetadataFault::SharedCopies
+        | MetadataFault::BlockBits
+        | MetadataFault::SingleBlockBits
+        | MetadataFault::ExcessBlockBits
+        | MetadataFault::LongBlockBits => {
             let value = match fault {
+                MetadataFault::BlockBits => metadata_block_bits(64, 8).to_fb(&mut builder).unwrap(),
+                MetadataFault::SingleBlockBits => {
+                    metadata_block_bits(1, 8).to_fb(&mut builder).unwrap()
+                }
+                MetadataFault::ExcessBlockBits => {
+                    metadata_block_bits(65, 8).to_fb(&mut builder).unwrap()
+                }
+                MetadataFault::LongBlockBits => {
+                    metadata_block_bits(1, 9).to_fb(&mut builder).unwrap()
+                }
                 MetadataFault::SharedCopies => {
                     let text = builder.create_string(&"s".repeat(4096));
                     let string = fb::StringValue::create(
@@ -2251,6 +2538,13 @@ async fn canonical_metadata_preflight_peer(
                 response.unwrap().take::<Value>(0).unwrap(),
                 Value::Bool(true)
             );
+        } else if matches!(fault, MetadataFault::BlockBits)
+            && matches!(profile, crate::canonical::MetadataResponse::BlockPage)
+        {
+            assert_eq!(
+                response.unwrap().take::<Value>(0).unwrap(),
+                metadata_block_bits(64, 8)
+            );
         } else {
             assert!(
                 response.is_err(),
@@ -2280,6 +2574,28 @@ async fn canonical_metadata_preflight_peer(
         "physical driver drain releases the exact grant"
     );
     assert!(weak.upgrade().is_none());
+}
+
+#[tokio::test]
+async fn canonical_metadata_preflight_bounds_exact_block_coordinate_bits() {
+    for fault in [
+        MetadataFault::BlockBits,
+        MetadataFault::ExcessBlockBits,
+        MetadataFault::LongBlockBits,
+    ] {
+        canonical_metadata_preflight_peer(
+            fault,
+            false,
+            crate::canonical::MetadataResponse::BlockPage,
+        )
+        .await;
+    }
+    for profile in [
+        crate::canonical::MetadataResponse::Page,
+        crate::canonical::MetadataResponse::Protection,
+    ] {
+        canonical_metadata_preflight_peer(MetadataFault::SingleBlockBits, false, profile).await;
+    }
 }
 
 #[tokio::test]

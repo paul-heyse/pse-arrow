@@ -379,53 +379,84 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await?;
-                let mut route_decision = resolved.route_decision()?;
-                if route_decision.structure.is_none() {
-                    // Diagnostics retain the requested candidate's original witness even
-                    // when it cannot admit a solve. Other candidates may interpret that
-                    // same witness differently, so no unnamed alternative is substituted.
-                    let backend = match route_decision.selection {
-                        pse_backend_native::solve::SolverSelection::Explicit(backend) => {
-                            Some(backend)
-                        }
-                        pse_backend_native::solve::SolverSelection::Auto => {
-                            route_decision.pending_backend
-                        }
-                    };
-                    route_decision.structure = backend.and_then(|backend| {
-                        route_decision
-                            .eligibility
-                            .iter()
-                            .find(|candidate| candidate.backend == backend)
-                            .and_then(|candidate| candidate.structure.clone())
-                    });
-                }
-                let admission_identity = resolved.admission_identity(&route_decision)?;
-                let physical = &resolved.model.case.compiled().quantities;
-                let mut targets = resolved
-                    .model
-                    .case
-                    .compiled()
-                    .plan
-                    .numerical_targets(physical)
-                    .map_err(crate::math::MathRuntimeError::from)?;
-                targets.extend(resolved.numerical.targets);
-                let numerics = self.runtime.native().policy_resolution_owner().resolve(
-                    physical.clone(),
-                    resolved.model.case.compiled().preconditions.clone(),
-                    &targets,
-                    &resolved.numerical.declarations,
-                    &resolved.solver.numerics,
-                )?;
-                Ok(ModelingDiagnosticPreparation {
-                    model: resolved.model,
-                    numerics,
-                    route_decision,
-                    admission_identity,
-                    providers: resolved.providers,
-                })
+                self.finish_diagnostics(resolved)
             })
             .await
+    }
+    /// Inspect this exact retained declaration with diagnostic missing-free policy,
+    /// independently of the authored execution procedure.
+    pub async fn prepare_declared_diagnostics(
+        &self,
+        execution: &DeclaredExecution,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
+        let activity = self.runtime.admit_activity()?;
+        activity
+            .scope(async {
+                let model = execution.prepared_model(self)?;
+                let analysis = &execution.analysis;
+                let resolved = self
+                    .resolve_prepared_case(
+                        model,
+                        analysis.case.clone(),
+                        pse_kernels::DerivativeOrder::First,
+                        analysis.compiler,
+                        analysis.solver.clone(),
+                        analysis.numerical.clone(),
+                        Default::default(),
+                        true,
+                        cancel,
+                    )
+                    .await?;
+                self.finish_diagnostics(resolved)
+            })
+            .await
+    }
+    fn finish_diagnostics(
+        &self,
+        resolved: cases::ModelingCaseResolution,
+    ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
+        let mut route_decision = resolved.route_decision()?;
+        if route_decision.structure.is_none() {
+            // Diagnostics retain the requested candidate's original witness even
+            // when it cannot admit a solve. Other candidates may interpret that
+            // same witness differently, so no unnamed alternative is substituted.
+            let backend = match route_decision.selection {
+                pse_backend_native::solve::SolverSelection::Explicit(backend) => Some(backend),
+                pse_backend_native::solve::SolverSelection::Auto => route_decision.pending_backend,
+            };
+            route_decision.structure = backend.and_then(|backend| {
+                route_decision
+                    .eligibility
+                    .iter()
+                    .find(|candidate| candidate.backend == backend)
+                    .and_then(|candidate| candidate.structure.clone())
+            });
+        }
+        let admission_identity = resolved.admission_identity(&route_decision)?;
+        let physical = &resolved.model.case.compiled().quantities;
+        let mut targets = resolved
+            .model
+            .case
+            .compiled()
+            .plan
+            .numerical_targets(physical)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        targets.extend(resolved.numerical.targets);
+        let numerics = self.runtime.native().policy_resolution_owner().resolve(
+            physical.clone(),
+            resolved.model.case.compiled().preconditions.clone(),
+            &targets,
+            &resolved.numerical.declarations,
+            &resolved.solver.numerics,
+        )?;
+        Ok(ModelingDiagnosticPreparation {
+            model: resolved.model,
+            numerics,
+            route_decision,
+            admission_identity,
+            providers: resolved.providers,
+        })
     }
     /// Diagnostic-only model analysis. It neither changes a candidate nor upgrades solver status.
     pub async fn diagnose_case(

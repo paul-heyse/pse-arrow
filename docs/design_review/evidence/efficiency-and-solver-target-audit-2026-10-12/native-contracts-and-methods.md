@@ -1,6 +1,6 @@
 # Native lifecycle and method audit
 
-Supporting inquiry for [the principal audit](../../reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md); the principal owns the integrated verdict and evidence limits.
+Supporting inquiry for [the principal audit](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md); the principal owns the integrated verdict and evidence limits.
 
 
 Baseline examined: `6c368c88acda548d421b44e8fc4f457c95bcec7e` plus the untracked 2026-10-12 efficiency review and its companion. Read-only library/source audit; no probes, builds, tests, services, or performance measurements. Criteria: Core 3.4, Efficient Architecture 1.0 and Process Simulator 1.5, serving the best-in-class functional target, with the supplied no-HSL product choice. Recommendations are Proposed; inspected source behavior is Interface-checked, not runtime qualification.

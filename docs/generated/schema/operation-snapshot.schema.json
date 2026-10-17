@@ -575,6 +575,31 @@
       ],
       "type": "object"
     },
+    "SummaryPublication": {
+      "additionalProperties": false,
+      "description": "Generic producer-owned compact explanation; it grants no execution ownership.",
+      "properties": {
+        "expires_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClosedDuration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Finite terminal output deadline; absent for an active declaration or a refused copy."
+        },
+        "purpose": {
+          "description": "Bounded producer-supplied purpose, never interpreted by the hub.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "purpose"
+      ],
+      "type": "object"
+    },
     "Value": {
       "description": "A value and its availability are inseparable.",
       "oneOf": [
@@ -840,6 +865,17 @@
     "started_at": {
       "$ref": "#/$defs/ClosedDuration",
       "description": "Actual monotonic start time."
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SummaryPublication"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Producer-declared responsibility and finite copied-output lifetime."
     }
   },
   "required": [

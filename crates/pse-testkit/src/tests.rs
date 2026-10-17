@@ -39,11 +39,14 @@ async fn native_unit_value_helper_defaults_to_contract_and_diagnostic_is_explici
         .into_unoptimized_plan();
     let registry = pse_schema::shared_registry().unwrap();
     let prepared = execution::prepare(state, registry.clone(), &plan).unwrap();
-    assert!(!prepared.observation().is_captured());
+    assert!(prepared.observation().is_captured());
+    assert!(prepared.observation().explain_pgjson().is_empty());
+    assert!(prepared.observation().rules_fired().is_empty());
     let diagnostic =
         execution::prepare_with_observation(state, registry, &plan, ObservationPolicy::Diagnostic)
             .unwrap();
     assert!(diagnostic.observation().is_captured());
+    assert!(!diagnostic.observation().explain_pgjson().is_empty());
     let cancel = CancellationToken::new();
     assert_eq!(
         prepared.execute(&cancel).await.unwrap().batches(),
@@ -120,10 +123,15 @@ async fn native_unit_execution_capture_has_terminal_and_negative_controls() {
             .await
             .unwrap();
         let prepared = plan;
-        assert!(!prepared.observation().is_captured());
+        assert!(prepared.observation().is_captured());
+        assert!(prepared.observation().explain_pgjson().is_empty());
+        assert!(prepared.observation().rules_fired().is_empty());
         let completed = prepared.execute(&cancel).await.unwrap();
-        // Contract-only capture retains no live physical plan or metric snapshot.
-        assert!(completed.observation().execution().is_none());
+        // Contract capture retains bounded execution metrics without plan text.
+        let terminal = completed.observation().execution().unwrap();
+        assert_eq!(terminal.status, TerminalStatus::Completed);
+        assert!(!terminal.truncated);
+        assert_eq!(completed.observation().physical_plan(), Some(""));
         drop(completed);
     }
     .with_subscriber(capture.dispatch())
@@ -419,7 +427,15 @@ async fn native_unit_custom_assembly_and_freshness_survive_observation_modes() {
         assert!(session.requires_fresh_execution());
         assert_eq!(
             completed.observation().is_captured(),
-            policy == ObservationPolicy::Diagnostic
+            policy != ObservationPolicy::Off
+        );
+        assert_eq!(
+            completed.observation().execution().is_some(),
+            policy != ObservationPolicy::Off
+        );
+        assert_eq!(
+            completed.observation().explain_pgjson().is_empty(),
+            policy != ObservationPolicy::Diagnostic
         );
     }
 }

@@ -249,11 +249,9 @@ fn main() -> Result<()> {
                 .worker_threads(2)
                 .enable_all()
                 .build()?;
-            executor.block_on(async {
-                let store = pse_operations::canonical::CanonicalStore::connect(&options).await?;
-                store.create().await?;
-                store.open().await
-            })?;
+            executor.block_on(
+                pse_operations::canonical::CanonicalStore::initialize_database(&options),
+            )?;
             println!("canonical database initialized and interpretation verified");
             Ok(())
         }

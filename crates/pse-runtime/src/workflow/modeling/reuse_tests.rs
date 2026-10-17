@@ -1024,21 +1024,54 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn checked_selected_admission_cancelled_before_native_entry_retains_owners_until_drain() {
+    checked_selection_cancellation_keeps_retention(false, false).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn cancelled_selected_admission_preserves_initialized_compiler_head() {
+    checked_selection_cancellation_keeps_retention(true, false).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn cancelled_selected_admission_preserves_borrowed_uninitialized_compiler_lane() {
+    checked_selection_cancellation_keeps_retention(false, true).await;
+}
+
+async fn checked_selection_cancellation_keeps_retention(initialized: bool, borrowed: bool) {
     use std::task::Poll;
     let runtime = super::super::tests::runtime();
     let service = runtime.shared.math();
     let pool = runtime.shared.pool();
     let baseline = pool.reserved();
-    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let rows = declarations(
+        "package p {def Root {var x:Scalar; eq e:x*x==1;} def Other {var y:Scalar; eq e:y==2;}}",
+    );
     let root = rows
         .iter()
         .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let other = rows
+        .iter()
+        .find(|row| row.name == "Other")
         .unwrap()
         .declaration_id;
     let package = runtime
         .modeling_package(rows, super::super::tests::physical())
         .await
         .unwrap();
+    let initial = if initialized {
+        Some(
+            package
+                .checked_selection(&[root], &crate::CancelSource::new())
+                .await
+                .unwrap(),
+        )
+    } else {
+        None
+    };
+    let held_workspace = borrowed.then(|| package.pure_workspace().unwrap());
+    let workspaces = service.preparation_effects().workspaces;
     let (admitted, admission) = tokio::sync::oneshot::channel();
     let (exit, gate) = std::sync::mpsc::channel::<()>();
     let mut submission = crate::math::Submission::ephemeral();
@@ -1056,7 +1089,11 @@ async fn checked_selected_admission_cancelled_before_native_entry_retains_owners
     admission.await.unwrap();
     let before_selection = pool.reserved();
     let cancel = crate::CancelSource::new();
-    let roots = [root];
+    let roots = if initialized {
+        vec![root, other]
+    } else {
+        vec![root]
+    };
     let mut selection = Box::pin(package.checked_selection(&roots, &cancel));
     // The timeout is a deadlock watchdog; the gate and actual flight table, rather
     // than elapsed time or a delay, establish that native entry is unavailable.
@@ -1114,10 +1151,19 @@ async fn checked_selected_admission_cancelled_before_native_entry_retains_owners
     exit.send(()).unwrap();
     blocker.finish().await.unwrap();
     let retry = package
-        .checked_selection(&[root], &crate::CancelSource::new())
+        .checked_selection(&roots, &crate::CancelSource::new())
         .await
         .unwrap();
     assert!(!retry.admission.revision.declarations().is_empty());
+    if initialized || borrowed {
+        assert_eq!(
+            service.preparation_effects().workspaces,
+            workspaces,
+            "a failed selected flight cannot replace an initialized or independently borrowed compiler lane"
+        );
+    }
+    drop(held_workspace);
+    drop(initial);
     service.clear_program_cache();
     drop(retry);
     drop(package);

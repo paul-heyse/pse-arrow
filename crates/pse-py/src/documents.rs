@@ -107,6 +107,12 @@ impl DocumentType for pse_diagnostics::observation::OperationPage {
 impl DocumentType for pse_diagnostics::observation::OperationSnapshot {
     const NAME: &'static str = "OperationSnapshot";
 }
+impl DocumentType for pse_runtime::observation::CheckpointIdentity {
+    const NAME: &'static str = "CheckpointIdentity";
+}
+impl DocumentType for pse_runtime::observation::ProcessCheckpoint {
+    const NAME: &'static str = "ProcessCheckpoint";
+}
 impl DocumentType for pse_runtime::inspection::InspectionRequest {
     const NAME: &'static str = "InspectionRequest";
 }

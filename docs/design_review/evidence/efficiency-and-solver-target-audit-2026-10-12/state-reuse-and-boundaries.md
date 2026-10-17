@@ -1,6 +1,6 @@
 # Supporting target audit: state, reuse and boundaries
 
-Supporting inquiry for [the principal audit](../../reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md); the principal owns the integrated verdict and evidence limits.
+Supporting inquiry for [the principal audit](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md); the principal owns the integrated verdict and evidence limits.
 
 
 Independent bounded advice for `design_review_efficiency-and-solver-target_2026-10-12.md`, findings F01–F06/F14 and RC01–RC05/RC08/RC09/RC11. Examined 2026-10-12 at `6c368c88acda548d421b44e8fc4f457c95bcec7e`; the review/evidence directory was untracked and its README edit was present. No repository files changed. This document does not replace the principal review or own dispositions.

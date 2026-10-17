@@ -406,7 +406,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             async {
-                let analysis = self
+                let execution = self
                     .inner
                     .declared_execution(
                         root,
@@ -416,9 +416,11 @@ impl NativeModelingPackage {
                         self.limits,
                         &cancel,
                     )
-                    .await?
-                    .analysis;
-                let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
+                    .await?;
+                let prepared = self
+                    .inner
+                    .prepare_declared_diagnostics(&execution, &cancel)
+                    .await?;
                 let samples = samples
                     .into_iter()
                     .map(|(name, overrides)| {
@@ -432,7 +434,7 @@ impl NativeModelingPackage {
                         prepared,
                         samples,
                         diagnostics.policy.clone(),
-                        analysis.compiler,
+                        execution.analysis.compiler,
                         maximum_samples,
                         duration,
                         &cancel,
@@ -501,7 +503,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             async {
-                let analysis = self
+                let execution = self
                     .inner
                     .declared_execution(
                         root,
@@ -511,16 +513,18 @@ impl NativeModelingPackage {
                         self.limits,
                         &cancel,
                     )
-                    .await?
-                    .analysis;
-                let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
+                    .await?;
+                let prepared = self
+                    .inner
+                    .prepare_declared_diagnostics(&execution, &cancel)
+                    .await?;
                 let values = prepared.model.values.clone();
                 self.inner
                     .diagnose_case(
                         prepared,
                         values,
                         diagnostics.policy.clone(),
-                        analysis.compiler,
+                        execution.analysis.compiler,
                         &cancel,
                     )
                     .await
@@ -559,7 +563,7 @@ impl NativeModelingPackage {
                 py,
                 &self.owner,
                 async {
-                    let analysis = self
+                    let execution = self
                         .inner
                         .declared_execution(
                             root,
@@ -569,9 +573,11 @@ impl NativeModelingPackage {
                             self.limits,
                             &cancel,
                         )
-                        .await?
-                        .analysis;
-                    let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
+                        .await?;
+                    let prepared = self
+                        .inner
+                        .prepare_declared_diagnostics(&execution, &cancel)
+                        .await?;
                     let plan = &prepared.model.case.compiled().plan;
                     let rows = plan
                         .structure()
@@ -627,7 +633,7 @@ impl NativeModelingPackage {
                 py,
                 &self.owner,
                 async {
-                    let analysis = self
+                    let execution = self
                         .inner
                         .declared_execution(
                             root,
@@ -637,9 +643,11 @@ impl NativeModelingPackage {
                             self.limits,
                             &cancel,
                         )
-                        .await?
-                        .analysis;
-                    let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
+                        .await?;
+                    let prepared = self
+                        .inner
+                        .prepare_declared_diagnostics(&execution, &cancel)
+                        .await?;
                     let values = prepared.model.values.clone();
                     self.inner
                         .diagnose_jacobian_optimization(

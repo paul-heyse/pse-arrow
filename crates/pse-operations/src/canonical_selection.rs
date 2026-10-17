@@ -2471,12 +2471,7 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         dependencies: &SelectedDependencies,
     ) -> Result<bool, CanonicalError> {
-        let activity = self.selection_activity(read.selection())?;
-        activity
-            .scope(async {
-                self.recheck_dependencies(read, &dependencies.dependencies)
-                    .await
-            })
+        self.recheck_dependencies(read, &dependencies.dependencies)
             .await
     }
     async fn recheck_dependencies(
@@ -2496,143 +2491,148 @@ impl CanonicalStore {
         }) {
             return Ok(false);
         }
-        let mut eligible = true;
-        let mut candidate_read = SelectedRead::new(read.selection.clone());
-        // Reject each bounded exact positive/absent window before acquiring later
-        // windows or inventories. Accepted candidates still check every premise.
-        let mut logicals = dependencies
-            .premises
-            .iter()
-            .filter_map(|premise| match premise {
-                Premise::Logical { logical, version } => Some((logical, version)),
-                _ => None,
-            });
-        loop {
-            let window = logicals.by_ref().take(256).collect::<Vec<_>>();
-            if window.is_empty() {
-                break;
-            }
-            let selected = window
-                .iter()
-                .map(|(logical, _)| (*logical).clone())
-                .collect::<Vec<_>>();
-            self.resolve_logicals(&mut candidate_read, &selected)
-                .await?;
-            if window
-                .iter()
-                .any(|(logical, expected)| candidate_read.logicals.get(*logical) != Some(*expected))
-            {
-                return Ok(false);
-            }
-        }
-        let mut names = dependencies
-            .premises
-            .iter()
-            .filter_map(|premise| match premise {
-                Premise::Name {
-                    scope,
-                    name,
-                    version,
-                } => Some(((scope.clone(), name.clone()), version)),
-                _ => None,
-            });
-        loop {
-            let window = names.by_ref().take(64).collect::<Vec<_>>();
-            if window.is_empty() {
-                break;
-            }
-            let pairs = window
-                .iter()
-                .map(|(pair, _)| pair.clone())
-                .collect::<Vec<_>>();
-            self.resolve_name_pairs(&mut candidate_read, &pairs).await?;
-            if window
-                .iter()
-                .any(|(pair, expected)| candidate_read.names.get(pair) != Some(*expected))
-            {
-                return Ok(false);
-            }
-        }
-        for premise in dependencies.premises.iter().cloned() {
-            match premise {
-                Premise::Name {
-                    scope,
-                    name,
-                    version,
-                } => {
-                    eligible &= candidate_read.names.get(&(scope, name)) == Some(&version);
-                }
-                Premise::Scope { scope, members } => {
-                    eligible &= self
-                        .same_membership(
-                            read.selection(),
-                            Some(&scope),
-                            None,
-                            None,
-                            &members,
-                            false,
-                        )
+        let activity = self.selection_activity(read.selection())?;
+        activity
+            .scope(async {
+                let mut eligible = true;
+                let mut candidate_read = SelectedRead::new(read.selection.clone());
+                // Reject each bounded exact positive/absent window before acquiring later
+                // windows or inventories. Accepted candidates still check every premise.
+                let mut logicals =
+                    dependencies
+                        .premises
+                        .iter()
+                        .filter_map(|premise| match premise {
+                            Premise::Logical { logical, version } => Some((logical, version)),
+                            _ => None,
+                        });
+                loop {
+                    let window = logicals.by_ref().take(256).collect::<Vec<_>>();
+                    if window.is_empty() {
+                        break;
+                    }
+                    let selected = window
+                        .iter()
+                        .map(|(logical, _)| (*logical).clone())
+                        .collect::<Vec<_>>();
+                    self.resolve_logicals(&mut candidate_read, &selected)
                         .await?;
-                    if eligible {
-                        candidate_read.scopes.insert(scope, members);
+                    if window.iter().any(|(logical, expected)| {
+                        candidate_read.logicals.get(*logical) != Some(*expected)
+                    }) {
+                        return Ok(false);
                     }
                 }
-                Premise::Interpretation { role, identity } => {
-                    eligible &= read.interpretations.get(&role) == Some(&identity)
-                }
-                Premise::Logical { logical, version } => {
-                    eligible &= candidate_read.logicals.get(&logical) == Some(&version);
-                }
-                Premise::KindScope {
-                    scope,
-                    source_kind,
-                    members,
-                } => {
-                    eligible &= self
-                        .same_membership(
-                            read.selection(),
-                            scope.as_deref(),
-                            Some(&source_kind),
-                            None,
-                            &members,
-                            true,
-                        )
-                        .await?;
-                    if eligible {
-                        candidate_read.kinds.insert((scope, source_kind), members);
+                let mut names = dependencies
+                    .premises
+                    .iter()
+                    .filter_map(|premise| match premise {
+                        Premise::Name {
+                            scope,
+                            name,
+                            version,
+                        } => Some(((scope.clone(), name.clone()), version)),
+                        _ => None,
+                    });
+                loop {
+                    let window = names.by_ref().take(64).collect::<Vec<_>>();
+                    if window.is_empty() {
+                        break;
+                    }
+                    let pairs = window
+                        .iter()
+                        .map(|(pair, _)| pair.clone())
+                        .collect::<Vec<_>>();
+                    self.resolve_name_pairs(&mut candidate_read, &pairs).await?;
+                    if window
+                        .iter()
+                        .any(|(pair, expected)| candidate_read.names.get(pair) != Some(*expected))
+                    {
+                        return Ok(false);
                     }
                 }
-                Premise::References {
-                    scope,
-                    name,
-                    source_kind,
-                    members,
-                } => {
-                    eligible &= self
-                        .same_membership(
-                            read.selection(),
-                            None,
-                            Some(&source_kind),
-                            Some((&scope, &name)),
-                            &members,
-                            true,
-                        )
-                        .await?;
-                    if eligible {
-                        candidate_read
-                            .references
-                            .insert((scope, name, source_kind), members);
+                for premise in dependencies.premises.iter().cloned() {
+                    match premise {
+                        Premise::Name {
+                            scope,
+                            name,
+                            version,
+                        } => {
+                            eligible &= candidate_read.names.get(&(scope, name)) == Some(&version);
+                        }
+                        Premise::Scope { scope, members } => {
+                            eligible &= self
+                                .same_membership(
+                                    read.selection(),
+                                    Some(&scope),
+                                    None,
+                                    None,
+                                    &members,
+                                    false,
+                                )
+                                .await?;
+                            if eligible {
+                                candidate_read.scopes.insert(scope, members);
+                            }
+                        }
+                        Premise::Interpretation { role, identity } => {
+                            eligible &= read.interpretations.get(&role) == Some(&identity)
+                        }
+                        Premise::Logical { logical, version } => {
+                            eligible &= candidate_read.logicals.get(&logical) == Some(&version);
+                        }
+                        Premise::KindScope {
+                            scope,
+                            source_kind,
+                            members,
+                        } => {
+                            eligible &= self
+                                .same_membership(
+                                    read.selection(),
+                                    scope.as_deref(),
+                                    Some(&source_kind),
+                                    None,
+                                    &members,
+                                    true,
+                                )
+                                .await?;
+                            if eligible {
+                                candidate_read.kinds.insert((scope, source_kind), members);
+                            }
+                        }
+                        Premise::References {
+                            scope,
+                            name,
+                            source_kind,
+                            members,
+                        } => {
+                            eligible &= self
+                                .same_membership(
+                                    read.selection(),
+                                    None,
+                                    Some(&source_kind),
+                                    Some((&scope, &name)),
+                                    &members,
+                                    true,
+                                )
+                                .await?;
+                            if eligible {
+                                candidate_read
+                                    .references
+                                    .insert((scope, name, source_kind), members);
+                            }
+                        }
+                    }
+                    if !eligible {
+                        break;
                     }
                 }
-            }
-            if !eligible {
-                break;
-            }
-        }
-        if eligible {
-            read.merge_delta(candidate_read)?;
-        }
-        Ok(eligible)
+                if eligible {
+                    read.merge_delta(candidate_read)?;
+                }
+                Ok(eligible)
+            })
+            .await
     }
 }
 

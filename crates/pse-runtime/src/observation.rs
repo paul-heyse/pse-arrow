@@ -24,6 +24,54 @@ use std::{
 };
 pub use target::{ClockMapping, ProcessLocator, ThreadExecution};
 
+/// Exact diagnostic association supplied by the registered receiver, never stop authority.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CheckpointIdentity {
+    /// Diagnostic process instance, independent of PID reuse.
+    pub process: String,
+    /// Actual process/start association recorded by the runtime.
+    pub locator: ProcessLocator,
+}
+
+/// Copied association returned by the actual receiver readiness consumer.
+/// This observation grants no service-stop or allocation-release authority.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReceiverCheckpoint {
+    /// Optional diagnostics availability, independent of scientific readiness.
+    pub available: bool,
+    /// Exact selected receiver state whose readiness consumed this association.
+    pub receiver_state: PathBuf,
+    /// Exact canonical association admitted by readiness.
+    pub canonical_database: String,
+    /// Existing receiver registration nonce.
+    pub nonce: String,
+    /// Actual runtime diagnostic process/start identity.
+    pub identity: CheckpointIdentity,
+    /// Exact checkpoint owned by that runtime, possibly not yet published.
+    pub checkpoint: PathBuf,
+    /// Receiver's explicit observation selection.
+    pub enabled: bool,
+    /// Optional writer failure, never a scientific outcome.
+    pub writer_failure: Option<String>,
+}
+impl CheckpointIdentity {
+    /// Validate against the same bounded image subsequently inspected or copied.
+    pub fn validate(&self, image: &ProcessCheckpoint) -> Result<(), ObservationError> {
+        if self.process != image.process
+            || self.locator.pid != image.locator.pid
+            || self.locator.start_ticks.is_none()
+            || self.locator.start_ticks != image.locator.start_ticks
+        {
+            return Err(ObservationError::Format(
+                "checkpoint process/start identity mismatch".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 const IMAGE_BYTES: usize = 1 << 20;
 const METADATA_BYTES: usize = 16 * 1024;
 const PUBLICATION_INTERVAL: Duration = Duration::from_secs(1);
@@ -48,6 +96,8 @@ pse_diagnostics::impl_diagnostic! {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProcessCheckpoint {
+    /// Explicit compact-output admission, expiry and pressure losses.
+    pub summaries: pse_diagnostics::observation::SummaryCoverage,
     /// Format version of this diagnostic-only representation.
     pub version: u32,
     /// Unique process-instance locator; PID alone is never its identity.
@@ -78,6 +128,7 @@ pub struct ProcessCheckpoint {
 
 /// Independently sampled process scope. Missing values are unavailable, never zero-filled.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProcessResources {
     /// Current resident bytes at publication, including observer/library allocations.
     pub resident_bytes: Option<u64>,
@@ -188,6 +239,89 @@ impl Diagnostics {
     pub fn locator(&self) -> ProcessLocator {
         self.locator.clone()
     }
+    /// Exact identity for passive checkpoint reads, including after this process exits.
+    pub fn checkpoint_identity(&self) -> CheckpointIdentity {
+        CheckpointIdentity {
+            process: self.process.clone(),
+            locator: self.locator(),
+        }
+    }
+    /// Publish the actual consumed ready association through the generic compact
+    /// output contract. Only this producer interprets the opaque source chunks.
+    pub(crate) fn observe_receiver_ready(
+        &self,
+        receiver_state: &Path,
+        database: &str,
+        value: Option<serde_json::Value>,
+    ) {
+        let operation = pse_diagnostics::observation::current().map_or_else(
+            || self.hub.start("receiver.ready"),
+            |parent| {
+                parent.child(
+                    "receiver.ready",
+                    pse_diagnostics::observation::Relationship::Nested,
+                )
+            },
+        );
+        let context = operation.context();
+        context.declare_summary("registered receiver checkpoint");
+        let copied = (|| {
+            // Selection and payload share the same bounded source allowance.
+            // Copy selection first so unrelated incomplete payloads can be skipped.
+            let policy = self.hub.policy();
+            let state = receiver_state
+                .to_str()
+                .ok_or("receiver diagnostic state is not UTF-8")?;
+            let selection = [
+                ("receiver.state", state.as_bytes()),
+                ("receiver.database", database.as_bytes()),
+            ];
+            let mut selection_slots = 0;
+            for (name, bytes) in selection {
+                let count = bytes.len().div_ceil(policy.max_text_bytes);
+                context.integer(&format!("{name}_chunks"), "chunks", count as i64);
+                context.integer(&format!("{name}_bytes"), "bytes", bytes.len() as i64);
+                selection_slots += count;
+            }
+            if selection_slots > policy.max_source_refs {
+                return Err("receiver diagnostic selection exceeds copied-source bounds");
+            }
+            for (name, bytes) in selection {
+                for (index, chunk) in bytes.chunks(policy.max_text_bytes).enumerate() {
+                    context.source_ref(&format!("{name}.{index}"), chunk);
+                }
+            }
+            let handoff: ReceiverCheckpoint =
+                serde_json::from_value(value.ok_or("receiver diagnostic handoff unavailable")?)
+                    .map_err(|_| "receiver diagnostic handoff malformed")?;
+            if handoff.receiver_state != receiver_state
+                || handoff.canonical_database != database
+                || handoff.nonce.is_empty()
+                || handoff.identity.locator.start_ticks.is_none()
+            {
+                return Err("receiver diagnostic association incomplete");
+            }
+            let capacity =
+                policy.max_source_refs.saturating_sub(selection_slots) * policy.max_text_bytes;
+            let mut buffer = BoundedImage {
+                bytes: Vec::with_capacity(capacity),
+                limit: capacity,
+            };
+            serde_json::to_writer(&mut buffer, &handoff)
+                .map_err(|_| "receiver diagnostic handoff exceeds copied-source bounds")?;
+            let chunks = buffer.bytes.chunks(policy.max_text_bytes);
+            context.integer("receiver.handoff_chunks", "chunks", chunks.len() as i64);
+            context.integer("receiver.handoff_bytes", "bytes", buffer.bytes.len() as i64);
+            for (index, chunk) in chunks.enumerate() {
+                context.source_ref(&format!("receiver.handoff.{index}"), chunk);
+            }
+            Ok::<_, &'static str>(())
+        })();
+        if let Err(reason) = copied {
+            context.unavailable("receiver.handoff", reason);
+        }
+        operation.finish(pse_diagnostics::observation::Outcome::Completed);
+    }
     /// Map the process observation clock to Linux monotonic time.
     pub fn clock_mapping(&self) -> Option<ClockMapping> {
         self.clock.mapping()
@@ -277,16 +411,29 @@ impl Diagnostics {
             .lock()
             .map_err(|_| ObservationError::Format("publisher lock poisoned".into()))?;
         let mut page = self.hub.list(0, usize::MAX);
-        // An old completed operation must never displace newer currently active work.
+        // Reserve essential active identity/coverage before compact responsibilities;
+        // rich active/history and ordinary completed attempts use the remaining space.
         page.operations.sort_by_key(|operation| {
             (
-                operation.finished_at.is_some(),
+                if operation.finished_at.is_some()
+                    && operation
+                        .summary
+                        .as_ref()
+                        .is_some_and(|summary| summary.expires_at.is_some())
+                {
+                    0
+                } else if operation.finished_at.is_none() {
+                    1
+                } else {
+                    2
+                },
                 std::cmp::Reverse(operation.started_at),
                 std::cmp::Reverse(operation.id.sequence),
             )
         });
         let mut image = ProcessCheckpoint {
-            version: 2,
+            summaries: page.summaries,
+            version: 3,
             process: self.process.clone(),
             sequence: self.sequence.fetch_add(1, Ordering::Relaxed),
             published_unix_micros: unix_micros(),
@@ -314,38 +461,53 @@ impl Diagnostics {
             bytes: Vec::with_capacity(IMAGE_BYTES - METADATA_BYTES),
             limit: 0,
         };
+        let mut essential = Vec::new();
+        for operation in page
+            .operations
+            .iter()
+            .filter(|operation| operation.finished_at.is_none())
+        {
+            if let Some(reader) = self.hub.reader(operation.id) {
+                let mut sample = reader.snapshot(Duration::from_secs(60));
+                essential_active(&mut sample);
+                candidate.limit = IMAGE_BYTES - METADATA_BYTES;
+                candidate.bytes.clear();
+                if serde_json::to_writer(&mut candidate, &sample).is_ok() {
+                    essential.push((operation.id, candidate.bytes.len() + 1));
+                }
+            }
+        }
+        let mut reserved: usize = essential.iter().map(|(_, bytes)| bytes).sum();
         for operation in page.operations {
             let Some(reader) = self.hub.reader(operation.id) else {
                 image.omitted = image.omitted.saturating_add(1);
                 continue;
             };
-            let remaining = IMAGE_BYTES.saturating_sub(METADATA_BYTES + operations.len() + 1);
+            if let Some((_, bytes)) = essential.iter().find(|(id, _)| *id == operation.id) {
+                reserved = reserved.saturating_sub(*bytes);
+            }
+            let remaining =
+                IMAGE_BYTES.saturating_sub(METADATA_BYTES + operations.len() + 1 + reserved);
             let mut sample = reader.snapshot(Duration::from_secs(60));
             candidate.limit = remaining;
             candidate.bytes.clear();
             if serde_json::to_writer(&mut candidate, &sample).is_err() {
                 // Keep current/cumulative facts when rich recent point/detail history cannot
                 // fit this transport. Local readers still retain the full bounded history.
-                sample.coverage.curtailed = true;
-                sample.coverage.sampled = true;
-                sample.detail_partial = true;
-                sample.coverage.dropped_detail = sample
-                    .coverage
-                    .dropped_detail
-                    .saturating_add(sample.detail.len() as u64);
-                sample.detail.clear();
-                for metric in &mut sample.metrics {
-                    metric.history_partial = true;
-                    metric.history_dropped = metric
-                        .history_dropped
-                        .saturating_add(metric.history.len() as u64);
-                    metric.history.clear();
-                    metric.counter_window = None;
-                }
+                sample.compact();
                 candidate.bytes.clear();
                 if serde_json::to_writer(&mut candidate, &sample).is_err() {
-                    image.omitted = image.omitted.saturating_add(1);
-                    continue;
+                    if operation.finished_at.is_none() {
+                        essential_active(&mut sample);
+                        candidate.bytes.clear();
+                        if serde_json::to_writer(&mut candidate, &sample).is_err() {
+                            image.omitted = image.omitted.saturating_add(1);
+                            continue;
+                        }
+                    } else {
+                        image.omitted = image.omitted.saturating_add(1);
+                        continue;
+                    }
                 }
             }
             if !operations.is_empty() {
@@ -532,19 +694,37 @@ pub fn read_checkpoint(path: &Path) -> Result<ProcessCheckpoint, ObservationErro
     }
     let header: Header = serde_json::from_slice(&bytes)
         .map_err(|error| ObservationError::Format(error.to_string()))?;
-    if header.version != 2 {
+    if header.version != 3 {
         return Err(ObservationError::Format(
             "unsupported diagnostic checkpoint version".into(),
         ));
     }
     let image: ProcessCheckpoint = serde_json::from_slice(&bytes)
         .map_err(|error| ObservationError::Format(error.to_string()))?;
-    if image.version != 2 {
+    if image.version != 3 {
         return Err(ObservationError::Format(
             "unsupported diagnostic checkpoint version".into(),
         ));
     }
+    if image.operations.iter().any(|operation| {
+        format!(
+            "{:016x}-{:016x}",
+            operation.id.process_instance[0], operation.id.process_instance[1]
+        ) != image.process
+    }) {
+        return Err(ObservationError::Format(
+            "checkpoint operation process identity mismatch".into(),
+        ));
+    }
     Ok(image)
+}
+
+fn essential_active(sample: &mut OperationSnapshot) {
+    sample.compact();
+    sample.coverage.curtailed = true;
+    sample.metrics.clear();
+    sample.sources.clear();
+    sample.children.clear();
 }
 
 fn unix_micros() -> u128 {
@@ -559,11 +739,27 @@ pub fn process_diagnostics() -> &'static Arc<Diagnostics> {
     static PROCESS: OnceLock<Arc<Diagnostics>> = OnceLock::new();
     PROCESS.get_or_init(|| {
         let root = crate::inspection::default_directory();
+        let retention = std::env::var("PSE_DIAGNOSTICS_SUMMARY_SECONDS");
+        let retention = match retention {
+            Ok(value) => value
+                .parse::<u64>()
+                .map(Duration::from_secs)
+                .map_err(|error| format!("invalid PSE_DIAGNOSTICS_SUMMARY_SECONDS: {error}")),
+            Err(std::env::VarError::NotPresent) => Ok(Duration::from_secs(60)),
+            Err(error) => Err(format!("invalid PSE_DIAGNOSTICS_SUMMARY_SECONDS: {error}")),
+        };
         let policy = Policy {
             enabled: std::env::var("PSE_DIAGNOSTICS").as_deref() != Ok("off"),
+            summary_retention: retention.as_ref().copied().unwrap_or(Duration::ZERO),
             ..Policy::default()
         };
-        Diagnostics::new(policy, root)
+        let owner = Diagnostics::new(policy, root);
+        if let Err(error) = retention
+            && let Ok(mut failure) = owner.writer_failure.lock()
+        {
+            *failure = Some(error);
+        }
+        owner
     })
 }
 
@@ -630,6 +826,317 @@ pub(crate) fn native_execution_scope() -> Option<ThreadScope> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn compact_summary_export_precedes_inner_history_and_preserves_active_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
+        let responsibility = owner.hub().start("producer responsibility");
+        let id = responsibility.context().id();
+        responsibility
+            .context()
+            .declare_summary("owned cumulative facts");
+        responsibility.context().count("actual.trials", "calls", 47);
+        responsibility.finish(pse_diagnostics::observation::Outcome::Completed);
+        let mut active = Vec::new();
+        for _ in 0..16 {
+            let operation = owner.hub().start("active lane");
+            for index in 0..64 {
+                operation
+                    .context()
+                    .text(&format!("active.field.{index}"), &"a".repeat(128));
+            }
+            active.push(operation);
+        }
+        for _ in 0..110 {
+            let inner = owner.hub().start("inner attempt detail");
+            for index in 0..64 {
+                inner
+                    .context()
+                    .text(&format!("inner.field.{index}"), &"h".repeat(128));
+            }
+            inner.finish(pse_diagnostics::observation::Outcome::Completed);
+        }
+        assert!(
+            owner.hub().reader(id).is_some(),
+            "retention is established separately from export"
+        );
+        owner.publish().unwrap();
+        let image = read_checkpoint(&owner.checkpoint_path()).unwrap();
+        let summary = image
+            .operations
+            .iter()
+            .find(|operation| operation.id == id)
+            .unwrap();
+        assert_eq!(
+            summary.outcome,
+            Some(pse_diagnostics::observation::Outcome::Completed)
+        );
+        assert_eq!(
+            summary
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "actual.trials")
+                .unwrap()
+                .cumulative,
+            pse_diagnostics::observation::Value::Count(47)
+        );
+        assert!(summary.summary.as_ref().unwrap().expires_at.is_some());
+        assert!(active.iter().all(|active| {
+            image
+                .operations
+                .iter()
+                .any(|operation| operation.id == active.context().id())
+        }));
+        assert!(
+            image.omitted > 0
+                || image
+                    .operations
+                    .iter()
+                    .any(|operation| operation.coverage.curtailed),
+            "fixture must exert transport pressure"
+        );
+        assert!(
+            owner.hub().retained_bytes() + 2 * IMAGE_BYTES + METADATA_BYTES <= 16 * 1024 * 1024
+        );
+        assert!(std::fs::metadata(owner.checkpoint_path()).unwrap().len() <= IMAGE_BYTES as u64);
+    }
+    #[test]
+    fn writer_failure_leaves_completed_summary_available_until_its_selected_lifetime() {
+        let directory = tempfile::tempdir().unwrap();
+        let obstacle = directory.path().join("not-directory");
+        std::fs::write(&obstacle, b"obstacle").unwrap();
+        let owner = Diagnostics::new(Policy::default(), obstacle);
+        let operation = owner.hub().start("responsibility");
+        let id = operation.context().id();
+        operation.context().declare_summary("owned facts");
+        operation.context().count("actual.calls", "calls", 5);
+        operation.finish(pse_diagnostics::observation::Outcome::Completed);
+        assert!(owner.publish().is_err());
+        let summary = owner.reader(id).unwrap().snapshot(Duration::from_secs(60));
+        assert_eq!(
+            summary.outcome,
+            Some(pse_diagnostics::observation::Outcome::Completed)
+        );
+        assert!(summary.summary.unwrap().expires_at.is_some());
+        assert_eq!(owner.hub().list(0, 128).summaries.refused, 0);
+    }
+    #[test]
+    fn receiver_ready_copies_exact_state_and_reserves_selection_source_slots() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
+        let policy = owner.hub().policy();
+        let database = format!("same-database-{}", "d".repeat(128));
+        for name in ["state-a", "state-b"] {
+            let state = directory
+                .path()
+                .join("service-state".repeat(8))
+                .join(".receivers")
+                .join("a".repeat(64))
+                .join(name);
+            assert!(state.to_str().unwrap().len() >= 200);
+            let handoff = ReceiverCheckpoint {
+                available: true,
+                receiver_state: state.clone(),
+                canonical_database: database.clone(),
+                nonce: name.into(),
+                identity: owner.checkpoint_identity(),
+                checkpoint: owner.checkpoint_path(),
+                enabled: true,
+                writer_failure: None,
+            };
+            owner.observe_receiver_ready(
+                &state,
+                &database,
+                Some(serde_json::to_value(handoff).unwrap()),
+            );
+        }
+        owner.publish().unwrap();
+        let page = read_checkpoint(&owner.checkpoint_path()).unwrap();
+        assert_eq!(page.operations.len(), 2);
+        for operation in &page.operations {
+            assert!(operation.sources.len() <= policy.max_source_refs);
+            let source_bytes = |prefix: &str| {
+                let mut parts: Vec<_> = operation
+                    .sources
+                    .iter()
+                    .filter(|source| source.name.starts_with(prefix))
+                    .collect();
+                parts.sort_by_key(|source| {
+                    source
+                        .name
+                        .rsplit('.')
+                        .next()
+                        .unwrap()
+                        .parse::<usize>()
+                        .unwrap()
+                });
+                parts
+                    .iter()
+                    .flat_map(|source| source.bytes.iter().copied())
+                    .collect::<Vec<u8>>()
+            };
+            let state = source_bytes("receiver.state.");
+            assert!(state.len() >= 200);
+            assert_eq!(source_bytes("receiver.database."), database.as_bytes());
+            let selection_slots = operation
+                .sources
+                .iter()
+                .filter(|source| {
+                    source.name.starts_with("receiver.state.")
+                        || source.name.starts_with("receiver.database.")
+                })
+                .count();
+            assert!(
+                selection_slots >= 4,
+                "both selected fields must exercise chunking"
+            );
+            for (name, bytes) in [
+                ("receiver.state", state.as_slice()),
+                ("receiver.database", database.as_bytes()),
+            ] {
+                assert_eq!(
+                    operation
+                        .metrics
+                        .iter()
+                        .find(|metric| metric.name == format!("{name}_chunks"))
+                        .unwrap()
+                        .latest,
+                    pse_diagnostics::observation::Value::Integer(
+                        bytes.len().div_ceil(policy.max_text_bytes) as i64
+                    )
+                );
+                assert_eq!(
+                    operation
+                        .metrics
+                        .iter()
+                        .find(|metric| metric.name == format!("{name}_bytes"))
+                        .unwrap()
+                        .latest,
+                    pse_diagnostics::observation::Value::Integer(bytes.len() as i64)
+                );
+            }
+            let mut chunks: Vec<_> = operation
+                .sources
+                .iter()
+                .filter(|source| source.name.starts_with("receiver.handoff."))
+                .collect();
+            chunks.sort_by_key(|source| {
+                source
+                    .name
+                    .rsplit('.')
+                    .next()
+                    .unwrap()
+                    .parse::<usize>()
+                    .unwrap()
+            });
+            let payload: Vec<u8> = chunks
+                .iter()
+                .flat_map(|source| source.bytes.iter().copied())
+                .collect();
+            assert!(
+                payload.len()
+                    <= policy.max_source_refs.saturating_sub(selection_slots)
+                        * policy.max_text_bytes
+            );
+            let copied: ReceiverCheckpoint = serde_json::from_slice(&payload).unwrap();
+            assert_eq!(
+                copied.receiver_state.to_str().unwrap().as_bytes(),
+                state.as_slice()
+            );
+            assert_eq!(copied.canonical_database, database);
+        }
+    }
+    #[test]
+    fn receiver_ready_rejects_other_state_before_copying_handoff() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
+        let selected = directory.path().join("selected");
+        let handoff = ReceiverCheckpoint {
+            available: true,
+            receiver_state: directory.path().join("other"),
+            canonical_database: "same-database".into(),
+            nonce: "registered".into(),
+            identity: owner.checkpoint_identity(),
+            checkpoint: owner.checkpoint_path(),
+            enabled: true,
+            writer_failure: None,
+        };
+        owner.observe_receiver_ready(
+            &selected,
+            "same-database",
+            Some(serde_json::to_value(handoff).unwrap()),
+        );
+        owner.publish().unwrap();
+        let page = read_checkpoint(&owner.checkpoint_path()).unwrap();
+        assert_eq!(page.operations.len(), 1);
+        assert_eq!(page.operations[0].sources.len(), 2);
+        assert!(
+            page.operations[0]
+                .sources
+                .iter()
+                .all(|source| !source.name.starts_with("receiver.handoff."))
+        );
+        assert_eq!(
+            page.operations[0]
+                .sources
+                .iter()
+                .find(|source| source.name == "receiver.state.0")
+                .unwrap()
+                .bytes,
+            selected.to_str().unwrap().as_bytes()
+        );
+    }
+    #[test]
+    fn receiver_ready_selection_cannot_exceed_source_allowance() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
+        let selected = directory.path().join("state".repeat(1024));
+        owner.observe_receiver_ready(&selected, "database", None);
+        owner.publish().unwrap();
+        let image = read_checkpoint(&owner.checkpoint_path()).unwrap();
+        assert_eq!(image.operations.len(), 1);
+        assert!(image.operations[0].sources.is_empty());
+        assert!(
+            image.operations[0]
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "receiver.handoff"
+                    && matches!(
+                        metric.latest,
+                        pse_diagnostics::observation::Value::Unavailable(_)
+                    ))
+        );
+    }
+    #[test]
+    fn exact_checkpoint_identity_requires_process_and_start_but_no_live_proc_lookup() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
+        assert!(
+            read_checkpoint(&owner.checkpoint_path()).is_err(),
+            "a ready locator may precede its first publication"
+        );
+        owner.publish().unwrap();
+        let mut image = read_checkpoint(&owner.checkpoint_path()).unwrap();
+        image.locator.pid = u32::MAX;
+        image.locator.start_ticks = Some(77);
+        assert!(!image.locator.is_current());
+        let expected = CheckpointIdentity {
+            process: image.process.clone(),
+            locator: image.locator.clone(),
+        };
+        expected.validate(&image).unwrap();
+        image.locator.start_ticks = Some(78);
+        assert!(
+            expected.validate(&image).is_err(),
+            "PID reuse must not rebind"
+        );
+        image.locator = expected.locator.clone();
+        image.process = "replacement-process".into();
+        assert!(expected.validate(&image).is_err());
+        image.process = expected.process.clone();
+        image.locator.pid = 1;
+        assert!(expected.validate(&image).is_err());
+    }
     #[test]
     fn checkpoint_preserves_actual_thread_entry_and_return() {
         let directory = tempfile::tempdir().unwrap();

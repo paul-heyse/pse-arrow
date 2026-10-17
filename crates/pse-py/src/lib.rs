@@ -67,8 +67,8 @@ mod _native {
         build_info, compiled_features,
         diagnostics::{
             NativeCaptureSession, NativeDiagnostics, NativeOperationObservations,
-            diagnostic_capture, diagnostic_inspect, diagnostic_list, diagnostic_operation_id,
-            diagnostic_operation_text,
+            diagnostic_capture, diagnostic_inspect, diagnostic_inspect_image, diagnostic_list,
+            diagnostic_operation_id, diagnostic_operation_text, diagnostic_read_checkpoint,
         },
         identities::{
             content_hash_from_prefixed, content_hash_to_prefixed, semantic_id_from_hex,

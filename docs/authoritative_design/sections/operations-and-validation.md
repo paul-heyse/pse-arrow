@@ -71,7 +71,26 @@ execution. Library code does not install a global subscriber. A reader retains c
 observations rather than scientific cancellation leases or native resources. Closing a
 reader does not stop execution; native ownership ends only after actual drain/join.
 
-Bounded history favors active owners over completed history. Relationships keep exact
+Bounded history preserves useful active work and admitted compact responsibility summaries
+before ordinary completed-attempt detail. The producing composition declares summary eligibility
+and its owned facts through the generic observation contract; the hub does not classify workflow
+names. Admission charges copied facts and indexing within the existing diagnostic allowance.
+Execution completion remains truthful: terminal handoff retains observations only, never native
+handles, scientific payloads or cancellation leases. Completed summaries have a default finite
+60-second retention lifetime, independent of the recent window and external-reader acknowledgement.
+Expiry, pressure-driven displacement, refusal, resets and unavailable detail remain explicit.
+Independent readers may retain only their charged copied observations. Compact summaries have
+an export route after essential active identity/coverage and before optional repetitive history;
+the bounded image does not promise an unlimited complete operation tree.
+
+The completed-summary deadline governs semantic eligibility. Catalogue, read, snapshot,
+admission and retained-byte observations prune expired hub outputs. The ordinary publisher
+also prunes on publication. An idle hub without a publisher can keep bounded charged copied
+bytes until its next interaction or drop; no background reaper or physical expiry-latency
+promise follows. Independently held copied readers stay charged and report stale summary
+eligibility after the deadline. Transported snapshots reapply the same deadline.
+
+Relationships keep exact
 operation identities: an evicted parent is absent/partial, never rebound to another
 root. Retained readers may still inspect their copied operation. Producer generations,
 resets, saturation and dropped detail survive serialization and recent interpretation;
@@ -84,6 +103,14 @@ publication time is not the freshness of its native facts. Cross-process composi
 atomic, and hard death preserves at most the last published prefix. Optional writer failure
 cannot supply or revoke scientific permission. Cleanup follows exact diagnostic ownership
 and publisher lifetime, never generic age/size deletion.
+
+Managed receiver readiness carries its actual runtime diagnostic process identity, start locator
+and checkpoint path inside the existing receiver/database registration. A locator may precede
+the first checkpoint; opt-out or optional publication failure does not make science unready.
+Independent inspection validates the expected identity against the same bounded image it reads.
+After valid association, a retained prefix remains inspectable after process exit without a fresh
+live-process lookup. This is the last published prefix, not proof of final science or native drain;
+the locator grants no service-stop or allocation-release authority.
 
 Numerical observations preserve native phase, activation, coordinate, unit, clock and reset
 semantics. Owner-safe callbacks/returns publish already available facts; inspection performs
@@ -446,6 +473,29 @@ the managed read control. Primary loss yields operational unavailability with in
 science. This evidence neither replaces the historical full basis nor completes Plan39/40
 or Plan28 campaigns. No elapsed-speedup, arbitrary solver configuration or other-platform
 claim is made; environment/provenance proof is permanently eliminated.
+
+Focused post-Plan41 correction acceptance belongs to the
+[Plan42 Outcome](../../plans/42-post-plan41-simulation-efficiency-and-diagnostics.md#outcome-recorded-after-implementation).
+Both original ordinary caller-stack result journeys, selected preparation/fit/shooting/managed
+journeys, reader pressure/lifetime and installed analysis interruption/recovery pass with their
+original scientific/resource assertions and registered cleanup. The scope-end workspace check,
+repaired hygiene/three continuing Clippy modes, depth-two feature/no-default checks and governance
+pass. Earlier failures retain their actual conditions. This supplies corrected selected evidence
+to Plan39/40; their independent final campaigns and other unexercised breadth remain separate.
+
+
+Completed selected Plan39/38 qualification of 2026-10-17 belongs to the
+[Plan39d Outcome](../../plans/39d-qualification-and-plan38-cutover.md#outcome-recorded-after-implementation).
+It composes the original full native selection with affected successful repairs, 272 ordinary
+and nine managed installed-Python cases, both physical thousand-point variants, all eleven
+once-only simulation positions, actual entered-pull SIGINT, scientific process-crash/offline
+restore/rebuild and nine IDAES comparisons. Exact native/file/receiver drain and original
+scientific assertions remain. All 28 final hygiene checks, default/no-default/linked-native
+continuing Clippy and governance pass; current documentation/metadata and turn-end results
+remain in that Outcome. Initial failures, interrupted runners and repaired reruns retain their
+actual boundaries. This is composed selected acceptance, not a fresh monolithic whole-product
+rerun, statistical speedup, exhaustive feature powerset or qualification of Plan40/28/32 scope.
+Environment/provenance proof and repeated comparative benchmarking are permanently eliminated.
 
 ### 24.3 Benchmarks
 

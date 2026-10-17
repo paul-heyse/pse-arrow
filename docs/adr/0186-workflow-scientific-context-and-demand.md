@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-06, AP-07, DP-09, DP-15, DP-20, PS-07, PS-08, PS-10, PS-11]
 blueprint: [§13.6, §17.1, §17.4, §17.5, §19.3, §19.4, §21]
-review: docs/design_review/reviews/design_review_plan38d-workflow-context-and-demand_2026-10-13.md
+review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_plan38d-workflow-context-and-demand_2026-10-13.md
 evidence: Implemented
 supersedes: []
 superseded-by: null
@@ -81,7 +81,7 @@ Bounded descriptors, contextual execution and demanded products remove avoidable
 
 ## More information
 
-[Plan38d](../plans/38d-studies-recycles-dynamics-and-fitting.md) owns scope and outcomes; [Plan38](../plans/38-efficiency-and-solver-target.md) owns shared finding dispositions. ADR-0183/0184/0185 own the prerequisites. The prior efficiency/solver audit supplies evidence, not implementation authority.
+[Plan38d](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38d-studies-recycles-dynamics-and-fitting.md) owns scope and outcomes; [Plan38](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38-efficiency-and-solver-target.md) owns shared finding dispositions. ADR-0183/0184/0185 own the prerequisites. The prior efficiency/solver audit supplies evidence, not implementation authority.
 
 ## Status history
 

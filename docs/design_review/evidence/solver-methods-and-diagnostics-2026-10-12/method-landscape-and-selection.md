@@ -1,4 +1,4 @@
-> Supporting evidence for [the solver methods, selection and diagnostics review](../../reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md). Principal reviewer's mathematical analysis.
+> Supporting evidence for [the solver methods, selection and diagnostics review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md). Principal reviewer's mathematical analysis.
 >
 > This version was revised after an adversarial numerical-methods challenge ([numerical-methods-challenge.md](numerical-methods-challenge.md)). Repository facts cite the wave-1 evidence in this folder: A1–A3, B1–B5b. Baseline: `ff5a4aa2f` plus the Plan 36 working tree, diff fingerprint `45ceea51b0698679`.
 >

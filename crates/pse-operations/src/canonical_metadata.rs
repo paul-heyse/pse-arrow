@@ -19,6 +19,9 @@ pub enum MetadataResponse {
     Selection,
     /// A 64-row descriptor or analysis page, each below 32 declared fields.
     Page,
+    /// A 64-row block page, including two optional exact IEEE coordinate values
+    /// per row. Each native Float64 wrapper carries eight bytes of original bits.
+    BlockPage,
     /// A 64-row scalar/dense output page, including encoded registry keys.
     OutputPage,
 }
@@ -28,7 +31,7 @@ impl MetadataResponse {
     pub fn limits(self) -> surrealdb::opt::ResponseLimits {
         let rows = match self {
             Self::Protection | Self::Header | Self::Selection => 2,
-            Self::Page => crate::canonical_results::PAGE,
+            Self::Page | Self::BlockPage => crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
         };
         let nodes = 512 + rows * 32 * 2;
@@ -36,6 +39,7 @@ impl MetadataResponse {
             (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
             Self::Protection | Self::Page => 0,
+            Self::BlockPage => rows * 2 * size_of::<f64>(),
             Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
         };
         surrealdb::opt::ResponseLimits {
@@ -57,7 +61,11 @@ impl MetadataResponse {
             string_bytes: strings,
             string_length: wire::METADATA_ID_BYTES,
             blob_bytes: blobs,
-            blob_length: crate::canonical::PAYLOAD_BYTES,
+            blob_length: if matches!(self, Self::BlockPage) {
+                size_of::<f64>()
+            } else {
+                crate::canonical::PAYLOAD_BYTES
+            },
         }
     }
     /// Raw frame plus four simultaneous owned/intermediate representations.
@@ -107,12 +115,21 @@ mod tests {
             MetadataResponse::Header,
             MetadataResponse::Selection,
             MetadataResponse::Page,
+            MetadataResponse::BlockPage,
             MetadataResponse::OutputPage,
         ] {
             assert!(profile.allocation_bytes() < 2 * wire::RESULT_BLOCK_BYTES);
             assert!(profile.limits().nodes >= 512 + 2 * 32 * 2);
         }
         assert_eq!(MetadataResponse::Page.limits().blob_bytes, 0);
+        assert_eq!(
+            MetadataResponse::BlockPage.limits().blob_bytes,
+            crate::canonical_results::PAGE * 2 * size_of::<f64>()
+        );
+        assert_eq!(
+            MetadataResponse::BlockPage.limits().blob_length,
+            size_of::<f64>()
+        );
         assert_eq!(MetadataResponse::Protection.limits().blob_bytes, 0);
         assert!(
             MetadataResponse::Protection.allocation_bytes()

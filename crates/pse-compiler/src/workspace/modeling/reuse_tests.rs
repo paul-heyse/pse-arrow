@@ -877,3 +877,166 @@ fn observation_distinguishes_value_product_reuse_from_consumed_value_change() {
     );
     assert_eq!(count("math.compiled_body_constructions"), None);
 }
+
+#[test]
+fn bound_lookup_preserves_complete_public_view_identity_and_exact_attribution() {
+    use pse_kernels::DerivativeOrder;
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let source = "package p {def Root {var x:Scalar; eq e:x==2;}}";
+    let declarations = rows(source);
+    let root = declarations
+        .iter()
+        .find(|r| r.name == "Root")
+        .unwrap()
+        .declaration_id;
+    workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
+    let model = prepare(&mut workspace, root, Bindings::default());
+    let x = model
+        .model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".x"))
+        .unwrap()
+        .id;
+    let context = ContentHash::from_bytes([61; 32]);
+    let profile = Profile::default();
+    let empty = BTreeMap::new();
+    let lookup = model
+        .bound_lookup(&empty, DerivativeOrder::First, profile, &context)
+        .unwrap();
+    let original_key = lookup.key.clone();
+    let expanded = model.expand_bound_lookup(lookup).unwrap();
+    let direct = model.bound_structure(&empty).unwrap();
+    assert_eq!(expanded.structure.key(), direct.structure.key());
+    assert_eq!(
+        model.view_key(
+            &expanded.structure,
+            DerivativeOrder::First,
+            profile,
+            &context
+        ),
+        model.view_key(&direct.structure, DerivativeOrder::First, profile, &context)
+    );
+    for state in [
+        ModelingVariableState {
+            fixed: Some(true),
+            ..Default::default()
+        },
+        ModelingVariableState {
+            lower: Some(Some(0.)),
+            upper: Some(Some(9.)),
+            ..Default::default()
+        },
+    ] {
+        let states = BTreeMap::from([(x, state)]);
+        assert_ne!(
+            model
+                .bound_lookup(&states, DerivativeOrder::First, profile, &context)
+                .unwrap()
+                .key,
+            original_key
+        );
+    }
+    let mut changed_profile = profile;
+    changed_profile.class_proof_work += 1;
+    assert_ne!(
+        model
+            .bound_lookup(&empty, DerivativeOrder::First, changed_profile, &context)
+            .unwrap()
+            .key,
+        original_key
+    );
+    assert_ne!(
+        model
+            .bound_lookup(&empty, DerivativeOrder::Value, profile, &context)
+            .unwrap()
+            .key,
+        original_key
+    );
+    assert_ne!(
+        model
+            .bound_lookup(
+                &empty,
+                DerivativeOrder::First,
+                profile,
+                &ContentHash::from_bytes([62; 32])
+            )
+            .unwrap()
+            .key,
+        original_key
+    );
+    for bounds in [(f64::NAN, 1.), (2., 1.), (0., f64::INFINITY)] {
+        let state = ModelingVariableState {
+            lower: Some(Some(bounds.0)),
+            upper: Some(Some(bounds.1)),
+            ..Default::default()
+        };
+        assert!(
+            model
+                .bound_lookup(
+                    &BTreeMap::from([(x, state)]),
+                    DerivativeOrder::First,
+                    profile,
+                    &context
+                )
+                .is_err()
+        );
+    }
+    workspace
+        .publish_modeling(rows(&format!("\n\n{source}")), PhysicalScope::default())
+        .unwrap();
+    let shifted = prepare(&mut workspace, root, Bindings::default());
+    assert_eq!(
+        shifted
+            .bound_lookup(&empty, DerivativeOrder::First, profile, &context)
+            .unwrap()
+            .key,
+        original_key
+    );
+    assert_ne!(shifted.occurrence_identity(), model.occurrence_identity());
+    assert!(Arc::ptr_eq(
+        &model.shared_occurrences(),
+        &model.shared_occurrences()
+    ));
+    let mut relocated = rows(source);
+    for row in &mut relocated {
+        row.document_id = SemanticId::from_bytes([93; 16]);
+    }
+    workspace
+        .publish_modeling(relocated, PhysicalScope::default())
+        .unwrap();
+    let relocated = prepare(&mut workspace, root, Bindings::default());
+    assert_eq!(
+        relocated
+            .bound_lookup(&empty, DerivativeOrder::First, profile, &context)
+            .unwrap()
+            .key,
+        original_key
+    );
+    assert_eq!(
+        relocated.occurrences(),
+        model.occurrences(),
+        "offset-only map alone cannot establish document identity"
+    );
+    assert_ne!(relocated.occurrence_identity(), model.occurrence_identity());
+    workspace
+        .publish_modeling(
+            rows(&source.replace("x==2", "x*x==3")),
+            PhysicalScope::default(),
+        )
+        .unwrap();
+    let edited = prepare(&mut workspace, root, Bindings::default());
+    assert_ne!(
+        edited
+            .bound_lookup(&empty, DerivativeOrder::First, profile, &context)
+            .unwrap()
+            .key,
+        original_key
+    );
+}

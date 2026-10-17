@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import shutil
 import struct
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,6 +19,90 @@ from scripts.tests import canonical_recovery_science as science
 
 
 class ScientificRecoveryControls(unittest.TestCase):
+    def test_file_effect_uses_strict_managed_scope_and_preserves_bare_callers(
+        self,
+    ) -> None:
+        for group, environment in (
+            ("/unmanaged", {}),
+            ("/unmanaged", {"PSE_HOST_ALLOCATION": "declared"}),
+            ("/unmanaged", {"PSE_HOST_ALLOCATION": ""}),
+            ("/pse-native-owned.scope", {}),
+            ("/pse-surreal-worker-owned.service", {}),
+        ):
+            managed = bool(environment) or group != "/unmanaged"
+            with (
+                self.subTest(group=group, declared=bool(environment)),
+                patch.object(
+                    server.native_operation, "process_group", return_value=group
+                ),
+                patch.object(server.time, "monotonic", return_value=100),
+                patch.object(
+                    server.native_operation, "run_child_scope", return_value=7
+                ) as scoped,
+                patch.object(
+                    server.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess([], 5),
+                ) as bare,
+            ):
+                result = server.run_file_effect(
+                    ["effect"],
+                    environment,
+                    deadline=220,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            self.assertEqual(result, 7 if managed else 5)
+            if managed:
+                bare.assert_not_called()
+                self.assertEqual(scoped.call_args.kwargs["deadline"], 220)
+                self.assertEqual(scoped.call_args.args[1], environment)
+            else:
+                scoped.assert_not_called()
+                self.assertEqual(bare.call_args.kwargs["timeout"], 120)
+                self.assertFalse(bare.call_args.kwargs["check"])
+            selected = scoped if managed else bare
+            self.assertEqual(selected.call_args.kwargs["stdout"], subprocess.DEVNULL)
+            self.assertEqual(selected.call_args.kwargs["stderr"], subprocess.DEVNULL)
+        with (
+            patch.object(
+                server.native_operation,
+                "process_group",
+                return_value="/pse-native-owned.scope",
+            ),
+            patch.object(
+                server.native_operation,
+                "run_child_scope",
+                side_effect=ValueError("managed authority differs"),
+            ),
+            patch.object(server.subprocess, "run") as bare,
+            self.assertRaisesRegex(ValueError, "managed authority differs"),
+        ):
+            server.run_file_effect(["effect"], {})
+        bare.assert_not_called()
+
+    def test_effect_scope_preserves_original_clock_and_unbounded_science(self) -> None:
+        for timeout in (None, 120):
+            with (
+                self.subTest(timeout=timeout),
+                patch.object(recovery.time, "monotonic", return_value=100),
+                patch.object(recovery.server, "run_file_effect", return_value=0) as run,
+            ):
+                recovery.run_effect(["canonical-effect"], timeout=timeout)
+            self.assertEqual(run.call_args.args[0], ["canonical-effect"])
+            if timeout is None:
+                self.assertNotIn("deadline", run.call_args.kwargs)
+            else:
+                self.assertEqual(run.call_args.kwargs["deadline"], 220)
+            self.assertNotIn("stdout", run.call_args.kwargs)
+            self.assertNotIn("stderr", run.call_args.kwargs)
+        with (
+            patch.object(recovery.server, "run_file_effect", return_value=7),
+            self.assertRaises(subprocess.CalledProcessError) as failed,
+        ):
+            recovery.run_effect(["canonical-effect"])
+        self.assertEqual(failed.exception.returncode, 7)
+
     def test_retained_science_detects_content_changes_with_unchanged_keys(self) -> None:
         import pyarrow as pa  # noqa: PLC0415
 

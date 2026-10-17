@@ -1063,6 +1063,16 @@ impl CanonicalStore {
             issuing_store: Arc::default(),
         })
     }
+    /// Explicitly initialize a database through an operation-owned connection
+    /// pair, then join its actual terminal transport work before disconnecting.
+    /// No caller or reader receives this temporary connection's authority.
+    pub async fn initialize_database(options: &CanonicalOptions) -> Result<(), CanonicalError> {
+        let store = Self::connect(options).await?;
+        let initialized = store.create().await;
+        let drained = store.drain_owned_connection().await;
+        initialized?;
+        drained
+    }
     /// Explicit schema creation; ordinary opening never mutates an unknown schema.
     pub async fn create(&self) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
@@ -1866,9 +1876,14 @@ impl CanonicalStore {
     /// this path grants no cancellation or early close of escaped protected reads.
     #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
     pub(crate) async fn drain_fixture_connection(&self) -> Result<(), CanonicalError> {
+        self.drain_owned_connection().await
+    }
+    /// Only private initialization or final fixture ownership establishes that
+    /// no caller can escape. Ordinary disconnect keeps its live-activity refusal.
+    async fn drain_owned_connection(&self) -> Result<(), CanonicalError> {
         let deadline = original_deadline(REQUEST_TIMEOUT);
         within_clock(deadline, async {
-            self.result_read_drain.drain().await?;
+            self.result_read_drain.close_and_drain().await?;
             self.db
                 .access
                 .physical
@@ -3323,6 +3338,30 @@ mod canonical_server_unit {
             crate::testing::canonical_fixture_with_options(&options, false).unwrap(),
             options,
         )
+    }
+    #[tokio::test]
+    async fn operation_owned_initialization_repeats_and_preserves_readback_failure() {
+        let (store, options) = initialization_fixture().await;
+        CanonicalStore::initialize_database(&options).await.unwrap();
+        store.open().await.unwrap();
+        let identity = store.issuing_store().unwrap().to_owned();
+        for _ in 0..4 {
+            CanonicalStore::initialize_database(&options).await.unwrap();
+            store.open().await.unwrap();
+            assert_eq!(store.issuing_store().unwrap(), identity);
+        }
+        bounded_query(
+            store.db.query(
+                "UPDATE canonical_interpretations:current SET schema_digest='unknown-reader';",
+            ),
+        )
+        .await
+        .unwrap();
+        assert!(matches!(
+            CanonicalStore::initialize_database(&options).await,
+            Err(CanonicalError::Interpretation { observed, .. }) if observed == "unknown-reader"
+        ));
+        store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn source_protection_last_fixture_drop_joins_automatic_release() {

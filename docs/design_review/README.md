@@ -30,53 +30,16 @@ and bounded workstation profiling probes. [Plan 40](../plans/40-simulation-perfo
 owns adopted F01–F06, the accepted RC01 route and future implementation/qualification.
 The review does not restart benchmarking or alter other active plans' scope or status.
 
-The [implementation friction and Codex effectiveness review](reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md)
-examines the final October 14 implementation interval and its operational logs. It traces
-startup ownership, local preparation and replay work, producer assurance and capture lifetimes,
-and command diagnostics. [Plan 39](../plans/39-implementation-friction-and-codex-effectiveness.md)
-owns its proposed corrections and rule decisions, with all remaining Plan 38 acceptance
-sequenced last. Plan authoring does not restart or close that campaign. The
-[observed episodes](evidence/implementation-friction-and-codex-effectiveness-2026-10-14/observed-episodes.md)
-retain the historical evidence boundaries and route to the independent assessment.
-
-The [independent efficiency and solver target audit](reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md)
-assesses every finding and principal/nested rule impact in the consolidated review. It supports
-local immutable preparation and a common solver-policy seam while correcting existing-capability
-and native-library claims, separating topology choices from numerical prerequisites, and adding
-native update-grain and retained-policy qualifications. Its [supporting inquiries](evidence/efficiency-and-solver-target-audit-2026-10-12/README.md)
-include a fresh independent target challenge and comparative coverage of all Plan 36 packets.
-The verdict is Revise; rule decisions and disposition remain for later plan creation.
-
-The [efficiency and solver target review](reviews/design_review_efficiency-and-solver-target_2026-10-12.md)
-consolidates three bodies of work after Plan 37:
-- the efficiency alignment review, audit and remaining Plan 36 scope;
-- the solver methods review;
-- the SurrealDB functionality that now exists.
-
-It assesses the whole simulator holistically, from workload obligations and the capabilities of
-the libraries already in use. A clean-sheet allocation and two independent challenges informed
-its Revise verdict. It records fourteen findings and eleven proposed rule impacts, the central
-ones being:
-- where the working authority lives: a live model, a local journal and an immutable record;
-- how many processes write durable state;
-- reuse and structure ownership;
-- lane-owned allocation reuse with declared warm edges;
-- placement by shared native resources.
-
-Its [supporting evidence](evidence/efficiency-and-solver-target-2026-10-12/README.md) holds the
-obligations ledgers, library-responsibility surveys, clean-sheet allocations, challenges and the
-detailed [solver target](evidence/efficiency-and-solver-target-2026-10-12/solver-target.md). That
-target restates the solver review below for the post-efficiency codebase. Disposition awaits plan
-creation. The review classifies the remaining Plan 36 packets and maps the earlier findings
-without editing their owners.
-
-The [solver methods, selection logic and diagnostics review](reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md)
-assesses how the solve pipeline chooses mathematical methods across classes, blocks, recycles and
-dynamics, and how solver observations serve switching, diagnosis and measurement. It works from
-the maintainer's three-layer selection requirement. Its Revise verdict identifies thirteen findings
-and thirteen proposed rule impacts. The [supporting evidence](evidence/solver-methods-and-diagnostics-2026-10-12/README.md)
-holds library inventories at the pins, the method landscape and an independent assessment.
-Disposition awaits plan creation.
+[Plan39's Outcome](../plans/39-implementation-friction-and-codex-effectiveness.md#outcome-recorded-after-implementation)
+records resolved implementation-friction findings and all selected inherited Plan38 scope.
+[39d's final reconciliation](../plans/39d-qualification-and-plan38-cutover.md#final-source-reconciliation--2026-10-17)
+owns combined efficiency/solver findings, accepted decisions, support choices and investigations;
+its Outcome preserves actual failed, interrupted and repaired acceptance boundaries.
+The implementation-friction, efficiency/solver review and audit, solver-methods review and
+resolved bounded target reviews retire to Git history. Immutable source references remain
+with their disposition/rationale owners; supporting inquiry evidence remains preserved.
+Their old proposed recommendations are historical observations, not a new backlog or pending
+plan-creation request. Plan40 retains its separate diagnostics/profile/locality qualification.
 
 [Plan 37](../plans/37-surrealdb-lifecycle-and-integration.md) records the resolved lifecycle
 findings, confirmed rule decisions, bounded capability outcomes and affected acceptance.

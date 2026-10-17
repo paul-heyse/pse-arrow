@@ -110,7 +110,7 @@ class ServiceObservation:
     protocol_ready: bool = False
 
     def diagnostic(self) -> str:
-        return f"Service readiness is {self.phase.value}: {self.cause}; selected={self.state}/{self.instance_id}, unit={self.unit}; reservation={self.reservation}; observed={dict(self.manager)}"
+        return f"Service readiness is {self.phase.value}: {self.cause}; selected={self.state}, instance_id={self.instance_id}, unit={self.unit}; reservation={self.reservation}; observed={dict(self.manager)}"
 
     def __bool__(self) -> bool:
         raise TypeError("Consume ServiceObservation.phase explicitly")
@@ -126,7 +126,7 @@ class LifecycleBusyError(SupervisorError):
 
 def read_json(path: Path, *, deadline: float | None = None) -> dict[str, object]:
     if deadline is not None:
-        return mcp_private_record(path, deadline)[0]
+        return object_mapping(json.loads(private_record_bytes(path, deadline)))
     value = json.loads(path.read_text())
     if not isinstance(value, dict):
         raise SupervisorError(f"Expected an object in {path.name}")
@@ -3355,6 +3355,93 @@ def observe_primary(
     }
 
 
+def primary_dispatch_handoff(
+    state: Path,
+    config: dict[str, object],
+    database: str,
+    qualification: Path | None,
+) -> dict[str, object]:
+    """Compose actual dispatch admission with an optional unchanged marker copy."""
+    try:
+        marker = read_json(state / "primary-receiver.json")
+    except (OSError, ValueError, SupervisorError):
+        marker = None
+    owner = primary_dispatch_owner(state, config, database, qualification)
+    return {
+        "primary_owner": owner,
+        "diagnostics": primary_diagnostics(state, database, marker),
+    }
+
+
+def primary_diagnostics(
+    state: Path, database: str, admitted_marker: dict[str, object] | None
+) -> dict[str, object]:
+    """Copy optional receiver observation after readiness's own admission.
+
+    This handoff supplies no process-stop or allocation-release permission.
+    Missing publication, opt-out and writer failure never affect readiness.
+    """
+    try:
+        marker = read_json(state / "primary-receiver.json")
+        if admitted_marker is None or marker != admitted_marker:
+            return {
+                "available": False,
+                "failure": "receiver marker changed during dispatch admission",
+            }
+        launch = read_json(state / "primary-launch.json")
+        if (
+            marker.get("canonical_database") != database
+            or marker.get("ready") is not True
+            or not marker.get("nonce")
+            or marker.get("nonce") != launch.get("nonce")
+        ):
+            return {"available": False, "failure": "receiver association changed"}
+        handoff = marker.get("diagnostics")
+        if not isinstance(handoff, dict):
+            return {
+                "available": False,
+                "failure": "receiver diagnostic locator unavailable",
+            }
+        identity = handoff.get("identity")
+        if not isinstance(identity, dict):
+            return {
+                "available": False,
+                "failure": "receiver diagnostic identity unavailable",
+            }
+        locator = identity.get("locator")
+        if not isinstance(locator, dict):
+            return {
+                "available": False,
+                "failure": "receiver diagnostic identity unavailable",
+            }
+        if (
+            locator.get("pid") != marker.get("pid")
+            or type(locator.get("start_ticks")) is not int
+            or str(locator["start_ticks"])
+            != native_operation.start_identity(integer(marker["pid"]))
+        ):
+            return {
+                "available": False,
+                "failure": "receiver diagnostic start identity unavailable",
+            }
+        if not isinstance(identity.get("process"), str) or not isinstance(
+            handoff.get("checkpoint"), str
+        ):
+            return {
+                "available": False,
+                "failure": "receiver diagnostic checkpoint unavailable",
+            }
+        return {
+            **handoff,
+            "available": bool(handoff.get("enabled")),
+            "receiver_state": str(state),
+            "canonical_database": database,
+            "nonce": marker["nonce"],
+        }
+    except (OSError, ValueError, KeyError, TypeError, SupervisorError) as error:
+        return {"available": False, "failure": str(error)}
+
+
 def _primary_process(
     state: Path,
     config: dict[str, object],
@@ -3735,9 +3822,7 @@ def _ensure_primary(
         return {
             "ready": True,
             "unit": primary_unit(state),
-            "primary_owner": primary_dispatch_owner(
-                state, config, selected_database, qualification
-            ),
+            **primary_dispatch_handoff(state, config, selected_database, qualification),
             "execution": allocation["execution"],
             "canonical_database": selected_database,
             "placement": placement_observation(state),
@@ -3847,7 +3932,7 @@ def _ensure_primary(
                 return {
                     "ready": True,
                     "unit": primary_unit(state),
-                    "primary_owner": primary_dispatch_owner(
+                    **primary_dispatch_handoff(
                         state, config, selected_database, qualification
                     ),
                     "execution": allocation["execution"],
@@ -6678,6 +6763,123 @@ def current_marker(
         raise SupervisorError("Current interpretation was not acknowledged")
 
 
+def maintenance_payloads(state: Path, pending: dict[str, object]) -> dict[str, object]:
+    """Load exact frozen retirement evidence separately from bounded startup metadata."""
+    names = ("payload_inventory", "payload_targets", "retired_payloads")
+    if any(name in pending for name in names):
+        raise SupervisorError("Inline maintenance payload evidence is unsupported")
+    reference = pending.get("payload_retirement")
+    if reference is None:
+        if pending.get("payload_retirement_nonce") is not None or (
+            pending.get("kind") == "rebuild"
+            and pending.get("payload_incarnation") is not None
+        ):
+            raise SupervisorError("Maintenance payload evidence is missing")
+        return {name: [] for name in names}
+    reference = object_mapping(reference)
+    nonce = pending.get("payload_retirement_nonce")
+    name = reference.get("path")
+    if (
+        not isinstance(nonce, str)
+        or re.fullmatch(r"[a-f0-9]{32}", nonce) is None
+        or set(reference) != {"path", "bytes", "sha256"}
+        or type(reference.get("bytes")) is not int
+        or not isinstance(name, str)
+        or re.fullmatch(
+            r"\.maintenance-payloads-" + nonce + r"-[a-f0-9]{32}\.json", name
+        )
+        is None
+    ):
+        raise SupervisorError("Maintenance payload evidence identity differs")
+    raw = private_record_bytes(state / name, getattr(_STARTUP, "deadline", None))
+    if (
+        reference.get("bytes") != len(raw)
+        or reference.get("sha256") != hashlib.sha256(raw).hexdigest()
+    ):
+        raise SupervisorError("Maintenance payload evidence changed")
+    record = object_mapping(json.loads(raw))
+    source = {
+        key: pending.get(key)
+        for key in ("namespace", "database", "payload_incarnation")
+    }
+    if (
+        record.get("schema") != "maintenance-payloads-v1"
+        or record.get("operation") != nonce
+        or record.get("source") != source
+        or set(record) != {"schema", "operation", "source", *names}
+    ):
+        raise SupervisorError("Maintenance payload evidence source differs")
+    return {name: record[name] for name in names}
+
+
+def retire_maintenance_payloads(state: Path, pending: dict[str, object]) -> None:
+    """Remove only the exact record whose config reference has durably departed."""
+    if pending.get("payload_retirement") is None:
+        return
+    if getattr(_LIFECYCLE, "state", None) != state:
+        raise SupervisorError(
+            "Maintenance payload retirement requires its lifecycle owner"
+        )
+    reference = object_mapping(pending["payload_retirement"])
+    current = config_for(state).get("derived_rebuild_pending")
+    if current is not None:
+        current_reference = object_mapping(current).get("payload_retirement")
+        if (
+            current_reference is not None
+            and object_mapping(current_reference).get("path") == reference["path"]
+        ):
+            raise SupervisorError("Maintenance payload evidence remains referenced")
+    maintenance_payloads(state, pending)
+    (state / str(reference["path"])).unlink()
+    descriptor = os.open(state, os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def write_maintenance_payloads(
+    state: Path, config: dict[str, object], payloads: dict[str, object]
+) -> None:
+    """Publish immutable evidence before its bounded pointer; preserve crash orphans."""
+    if getattr(_LIFECYCLE, "state", None) != state:
+        raise SupervisorError(
+            "Maintenance payload publication requires its lifecycle owner"
+        )
+    if set(payloads) != {"payload_inventory", "payload_targets", "retired_payloads"}:
+        raise SupervisorError("Unknown maintenance payload evidence fields")
+    pending = object_mapping(config["derived_rebuild_pending"])
+    previous = dict(pending)
+    if previous.get("payload_retirement") is not None:
+        maintenance_payloads(state, previous)
+    nonce = pending.setdefault("payload_retirement_nonce", uuid.uuid4().hex)
+    if not isinstance(nonce, str) or re.fullmatch(r"[a-f0-9]{32}", nonce) is None:
+        raise SupervisorError("Invalid maintenance payload operation")
+    name = ".maintenance-payloads-" + nonce + "-" + uuid.uuid4().hex + ".json"
+    path = state / name
+    if path.exists() or path.is_symlink():
+        raise SupervisorError("Maintenance payload record already exists")
+    record = {
+        "schema": "maintenance-payloads-v1",
+        "operation": nonce,
+        "source": {
+            key: pending.get(key)
+            for key in ("namespace", "database", "payload_incarnation")
+        },
+        **payloads,
+    }
+    write_json(path, record)
+    raw = private_record_bytes(path, getattr(_STARTUP, "deadline", None))
+    pending["payload_retirement"] = {
+        "path": name,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "bytes": len(raw),
+    }
+    config["derived_rebuild_pending"] = pending
+    write_json(state / "config.json", config)
+    retire_maintenance_payloads(state, previous)
+
+
 def retire_partial_payload_target(
     state: Path, config: dict[str, object], credentials: dict[str, object]
 ) -> None:
@@ -6711,7 +6913,8 @@ def retire_partial_payload_target(
     if any(owner.get("drained") is not True for owner in owners):
         raise SupervisorError("Partial target file owners remain undrained")
     pending = object_mapping(config["derived_rebuild_pending"])
-    retired = pending.setdefault("retired_payloads", [])
+    payloads = maintenance_payloads(state, pending)
+    retired = payloads["retired_payloads"]
     if not isinstance(retired, list):
         raise SupervisorError("Invalid retired file-tier recovery inventory")
     retirement = {
@@ -6722,8 +6925,7 @@ def retire_partial_payload_target(
     }
     if retirement not in retired:
         retired.append(retirement)
-    config["derived_rebuild_pending"] = pending
-    write_json(state / "config.json", config)
+    write_maintenance_payloads(state, config, payloads)
 
 
 def retired_payload_cleanup_files(
@@ -6778,6 +6980,7 @@ def cleanup_retired_payloads(
 ) -> None:
     """Retire only inventoried placement after exact old-owner drain; unknown bytes survive."""
     pending = object_mapping(config["derived_rebuild_pending"])
+    payloads = maintenance_payloads(state, pending)
     old_incarnation = pending.get("payload_incarnation")
     if old_incarnation is None:
         # Maintenance begun before a file tier existed carries no deletion authority.
@@ -6805,13 +7008,13 @@ def cleanup_retired_payloads(
             backup, SUBSTRATE_INTERPRETATION
         )
     else:
-        inventory = object_inventory(pending.get("payload_inventory", []))
+        inventory = object_inventory(payloads["payload_inventory"])
     placements = [
         {"payload_incarnation": old_incarnation, "database": pending["database"]},
-        *object_inventory(pending.get("payload_targets", [])),
+        *object_inventory(payloads["payload_targets"]),
     ]
     work = [(placement, inventory) for placement in placements]
-    for retired in object_inventory(pending.get("retired_payloads", [])):
+    for retired in object_inventory(payloads["retired_payloads"]):
         owners = retired.get("owners")
         retired_inventory = object_inventory(retired.get("inventory"))
         if any(owner.get("drained") is not True for owner in object_inventory(owners)):
@@ -6865,6 +7068,7 @@ def finish_maintenance(
         "quiesced" if pending["kind"] == "rebuild" else "validation_required"
     )
     write_json(state / "config.json", config)
+    retire_maintenance_payloads(state, pending)
 
 
 def copy_current_database(
@@ -7005,14 +7209,14 @@ def rehome_restored_payloads(
     if response.get("value") is not True:
         raise SupervisorError("Restored file-owner drain was not acknowledged")
     target = {"payload_incarnation": new_incarnation, "database": config["database"]}
-    targets = object_inventory(pending.get("payload_targets", []))
+    payloads = maintenance_payloads(state, pending)
+    targets = object_inventory(payloads["payload_targets"])
     for placement in targets:
         payload_files.root(state, placement)
     if target not in targets:
         targets.append(target)
-        pending["payload_targets"] = targets
-        config["derived_rebuild_pending"] = pending
-        write_json(state / "config.json", config)
+        payloads["payload_targets"] = targets
+        write_maintenance_payloads(state, config, payloads)
     for entry in inventory:
         instance = object_mapping(entry["instance"])
         sealed, staging = payload_files.instance_paths(state, config, instance["key"])
@@ -7117,7 +7321,6 @@ def rebuild(state: Path, initializer: list[str]) -> dict[str, object]:
                 "namespace": old["namespace"],
                 "database": old["database"],
                 "payload_incarnation": old["payload_incarnation"],
-                "payload_inventory": old_payloads,
                 "initializer": initializer_owner,
                 "kind": "rebuild",
                 "phase": "accounts",
@@ -7127,7 +7330,15 @@ def rebuild(state: Path, initializer: list[str]) -> dict[str, object]:
                 "next_username": credentials["username"],
             },
         )
-        write_json(state / "config.json", selected)
+        write_maintenance_payloads(
+            state,
+            selected,
+            {
+                "payload_inventory": old_payloads,
+                "payload_targets": [],
+                "retired_payloads": [],
+            },
+        )
         rotate_database_accounts(state, selected, prior, credentials)
         initialize_rebuild(state, selected, initializer)
         finish_maintenance(state, selected, credentials)
@@ -7151,18 +7362,17 @@ def initialize_rebuild(
         start(state, selected, validation=True)
         # Ordinary admission stays closed, including after owner death. Only
         # this explicit child can borrow the exact live lifecycle authority.
-        result = subprocess.run(
+        status = run_file_effect(
             initializer,
-            env={
+            {
                 **os.environ,
                 "PSE_SURREAL_STATE": str(state),
                 "PSE_CANONICAL_INITIALIZER": str(initializer_owner["nonce"]),
             },
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            check=False,
         )
-        if result.returncode:
+        if status:
             raise SupervisorError(
                 "Current initializer failed; admission closed and exact target retained"
             )
@@ -7260,6 +7470,7 @@ def recover_maintenance(
                 "Interrupted beta rollout requires its exact rollout owner and settlement; rebuild recovery refuses it"
             )
         pending = object_mapping(config.get("derived_rebuild_pending"))
+        maintenance_payloads(state, pending)
         if (
             pending.get("kind") == "current-restore"
             and pending.get("phase") == "backup-copy"
@@ -7361,6 +7572,7 @@ def recover_maintenance(
             maintenance_phase(state, config, "copy")
             copy_current_database(state, source, config, credentials)
             rehome_restored_payloads(state, config, credentials)
+            pending = object_mapping(config["derived_rebuild_pending"])
             new_credentials = fresh_credentials()
             pending["next_username"] = new_credentials["username"]
             config["derived_rebuild_pending"] = pending
@@ -7634,6 +7846,46 @@ def restore(
         return recover_maintenance(state, [])
 
 
+def run_file_effect(
+    command: list[str],
+    environment: dict[str, str],
+    *,
+    deadline: float | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
+) -> int:
+    """Drain a managed file borrower separately; preserve observable bare callers."""
+    if deadline is not None and not math.isfinite(deadline):
+        raise SupervisorError("Invalid file effect deadline")
+    group = native_operation.process_group(os.getpid())
+    managed = "PSE_HOST_ALLOCATION" in environment or any(
+        part.startswith(("pse-native-", "pse-surreal-worker-"))
+        and part.endswith((".scope", ".service"))
+        for part in Path(group).parts
+    )
+    if managed:
+        # Missing or contradictory managed authority must refuse in the existing
+        # factory. It is never permission to launch an untracked bare borrower.
+        return native_operation.run_child_scope(
+            command,
+            environment,
+            stdout=stdout,
+            stderr=stderr,
+            **native_operation.deadline_options(deadline),
+        )
+    timeout = None if deadline is None else deadline - time.monotonic()
+    if timeout is not None and timeout <= 0:
+        raise subprocess.TimeoutExpired(command, 0)
+    return subprocess.run(
+        command,
+        env=environment,
+        stdout=stdout,
+        stderr=stderr,
+        timeout=timeout,
+        check=False,
+    ).returncode
+
+
 def validation_payload_reads(
     state: Path, config: dict[str, object], interpretation: str
 ) -> None:
@@ -7711,15 +7963,14 @@ def validate(
         validate_interpretation(state, config, interpretation)
         all_contexts_drained(state)
         validation_payload_reads(state, config, interpretation)
-        result = subprocess.run(
+        status = run_file_effect(
             command,
-            env=environment,
+            environment,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=120,
-            check=False,
+            deadline=time.monotonic() + 120,
         )
-        if result.returncode:
+        if status:
             raise SupervisorError(
                 "Restored database semantic validation failed; admission remains closed"
             )
@@ -8111,9 +8362,12 @@ def qualify_recovery(state: Path) -> dict[str, object]:
         _STARTUP.deadline = prior
 
 
-def mcp_private_record(path: Path, deadline: float) -> tuple[dict[str, object], str]:
-    """Read an existing private record without following links or repairing modes."""
-    remaining(deadline)
+def private_record_bytes(
+    path: Path, deadline: float | None, *, maximum_bytes: int | None = None
+) -> bytes:
+    """Read an owned regular record within its clock and the caller's size policy."""
+    if deadline is not None:
+        remaining(deadline)
     descriptor = os.open(
         path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
     )
@@ -8123,13 +8377,25 @@ def mcp_private_record(path: Path, deadline: float) -> tuple[dict[str, object], 
             not stat.S_ISREG(information.st_mode)
             or information.st_uid != os.getuid()
             or stat.S_IMODE(information.st_mode) != 0o600
-            or information.st_size > 64 * 1024
         ):
-            raise SupervisorError("MCP private record is unavailable")
-        raw = stream.read(64 * 1024 + 1)
-    remaining(deadline)
-    if len(raw) > 64 * 1024:
-        raise SupervisorError("MCP private record exceeds its bound")
+            raise SupervisorError("Owned private record is unavailable")
+        if maximum_bytes is not None and information.st_size > maximum_bytes:
+            raise SupervisorError("Private record exceeds its bound")
+        raw = bytearray()
+        while chunk := stream.read(64 * 1024):
+            if deadline is not None:
+                remaining(deadline)
+            if maximum_bytes is not None and len(raw) + len(chunk) > maximum_bytes:
+                raise SupervisorError("Private record exceeds its bound")
+            raw.extend(chunk)
+    if deadline is not None:
+        remaining(deadline)
+    return bytes(raw)
+
+
+def mcp_private_record(path: Path, deadline: float) -> tuple[dict[str, object], str]:
+    """Read a bounded MCP credential/protocol record under the owned-file contract."""
+    raw = private_record_bytes(path, deadline, maximum_bytes=64 * 1024)
     value = object_mapping(json.loads(raw))
     return value, hashlib.sha256(raw).hexdigest()
 

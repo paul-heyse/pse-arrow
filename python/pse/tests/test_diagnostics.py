@@ -20,6 +20,7 @@ from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
+    CheckpointIdentity,
     ClosedDuration,
     DiagnosticListRequest,
     DiagnosticProcessPage,
@@ -27,6 +28,10 @@ from pse.contracts.documents import (
     InspectionRequest,
     MetricSnapshot,
     NativeCountersKinsol,
+    ProcessCheckpoint,
+    ProcessLocator,
+    ProcessResources,
+    SummaryCoverage,
     WorkObservation,
 )
 from pse.contracts.enums import (
@@ -365,6 +370,70 @@ def test_diagnostic_operation_locator_roundtrip_and_exact_admission() -> None:
     ):
         with pytest.raises(pse.InspectionError):
             diagnostics.operation_id(invalid)
+
+
+@pytest.mark.unit
+def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
+    tmp_path: Path,
+) -> None:
+    products = codec.decode_json(
+        (
+            Path(__file__).parent / "fixtures/generated-native-boundaries/products.json"
+        ).read_bytes(),
+        dict[str, msgspec.Raw],
+    )
+    document = codec.decode_json(
+        bytes(products["diagnostic_inspection"]), InspectionDocument
+    )
+    assert document.operation is not None
+    locator = ProcessLocator(pid=(1 << 32) - 1, start_ticks=77, executable=None)
+    image = ProcessCheckpoint(
+        version=3,
+        process="0000000000000001-0000000000000002",
+        sequence=1,
+        published_unix_micros=1,
+        operations=(document.operation,),
+        omitted=0,
+        summaries=SummaryCoverage(refused=0, expired=0, pressure_lost=0),
+        registry_coverage=document.operation.coverage,
+        resources=ProcessResources(
+            resident_bytes=None,
+            lifetime_peak_resident_bytes=None,
+            user_cpu_ticks=None,
+            system_cpu_ticks=None,
+        ),
+        parent=None,
+        locator=locator,
+        clock=None,
+        threads=(),
+        threads_partial=False,
+    )
+    checkpoint = tmp_path / "retained.json"
+    checkpoint.write_bytes(codec.encode_json(image))
+    expected = CheckpointIdentity(process=image.process, locator=locator)
+    retained = diagnostics.read_checkpoint(checkpoint, expected=expected)
+    assert retained == image
+    checkpoint.write_bytes(b"replacement/truncated path")
+    inspected = diagnostics.inspect_image(
+        retained, document.request, checkpoint=checkpoint
+    )
+    assert inspected.operation is not None
+    assert inspected.operation.id == document.operation.id
+    assert inspected.operation.outcome == document.operation.outcome
+    assert (
+        inspected.transport.partial
+    )  # Last published prefix has no live clock mapping.
+    checkpoint.write_bytes(codec.encode_json(image))
+    reused = CheckpointIdentity(
+        process=image.process,
+        locator=ProcessLocator(pid=locator.pid, start_ticks=78, executable=None),
+    )
+    with pytest.raises(pse.InspectionError, match="identity mismatch"):
+        diagnostics.read_checkpoint(checkpoint, expected=reused)
+    with pytest.raises(pse.InspectionError, match="identity mismatch"):
+        diagnostics.read_checkpoint(
+            checkpoint, expected=CheckpointIdentity(process="wrong", locator=locator)
+        )
 
 
 @pytest.mark.unit

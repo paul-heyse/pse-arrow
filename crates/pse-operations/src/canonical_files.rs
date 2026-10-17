@@ -5,7 +5,7 @@
 //! Runtime; only an attached catalog receipt acknowledges durable publication.
 
 use crate::{
-    canonical::{CanonicalError, CanonicalStore, bounded_query},
+    canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
     canonical_codec as codec,
     canonical_execution::AttemptFence,
 };
@@ -467,7 +467,7 @@ impl CanonicalStore {
         if !pending.acknowledged {
             #[cfg(all(test, feature = "canonical-tests"))]
             effect_pause("register").await;
-            let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",pending.row.clone()))).await?;
+            let mut response=protected_query("canonical_files::register_owner", || Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",pending.row.clone())))).await?;
             let mut saved = last_object(&mut response)?;
             saved.remove("id");
             if saved != pending.row {
@@ -516,7 +516,7 @@ impl CanonicalStore {
         self.ensure_writes()?;let owner=self.registered_file_owner().await?;
         if operation.is_empty()||operation.len()>4096||request_digest.len()!=64{return Err(configuration("file original intent malformed"));}
         let mut row=Object::new();row.insert("key",uuid::Uuid::new_v4().to_string());row.insert("intent",operation.to_owned());row.insert("request_digest",request_digest.to_owned());row.insert("owner",owner.clone());row.insert("owner_kind",kind.to_owned());row.insert("selection",selection.to_owned());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("digest",String::new());row.insert("payload_bytes",codec::encode_uint(0)?);row.insert("encoding",String::new());row.insert("batch_count",codec::encode_uint(0)?);row.insert("schema",String::new());row.insert("interpretation",crate::generated::surreal::INTERPRETATION);row.insert("state","pending");
-        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::reserve($pse_rpc_expires_at,$row,$run,$attempt,$generation); COMMIT;").bind(("row",row)).bind(("run",fence.map(|f|Value::String(f.run().to_owned())).unwrap_or(Value::None))).bind(("attempt",fence.map(|f|Value::String(f.attempt().to_owned())).unwrap_or(Value::None))).bind(("generation",fence.map(|f|codec::encode_uint(f.generation())).transpose()?.unwrap_or(Value::None)))).await?;
+        let mut response=protected_query("canonical_files::reserve", || Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::reserve($pse_rpc_expires_at,$row,$run,$attempt,$generation); COMMIT;").bind(("row",row.clone())).bind(("run",fence.map(|f|Value::String(f.run().to_owned())).unwrap_or(Value::None))).bind(("attempt",fence.map(|f|Value::String(f.attempt().to_owned())).unwrap_or(Value::None))).bind(("generation",fence.map(|f|codec::encode_uint(f.generation())).transpose()?.unwrap_or(Value::None))))).await?;
         let mut saved=crate::canonical_execution::writer_response(last_object(&mut response)?)?;
         let original=FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner:text(&mut saved,"owner")?,storage_incarnation:text(&mut saved,"storage_incarnation")?};
         if original.owner!=owner {self.recover_file_intent(&original).await}else{Ok(original)}
@@ -553,7 +553,7 @@ impl CanonicalStore {
         expected.insert("instance", intent.instance.clone());
         expected.insert("intent", intent.intent.clone());
         expected.insert("request_digest", intent.request_digest.clone());
-        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::intent_open($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected)).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut response=protected_query("canonical_files::intent_open", || Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::intent_open($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())))).await?;
         last_object(&mut response)
     }
     /// Complete an opaque bounded native file after original intent reservation.
@@ -583,7 +583,7 @@ impl CanonicalStore {
         publish_locked(&self.files.root,&descriptor,bytes,&lock)?;
         #[cfg(all(test,feature="canonical-tests"))]
         effect_pause("seal").await;
-        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::seal($pse_rpc_expires_at,$key,$owner,$incarnation,$descriptor); COMMIT;").bind(("key",intent.instance.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())).bind(("descriptor",descriptor.encode()?))).await?;
+        let mut response=protected_query("canonical_files::seal", || Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::seal($pse_rpc_expires_at,$key,$owner,$incarnation,$descriptor); COMMIT;").bind(("key",intent.instance.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())).bind(("descriptor",descriptor.encode()?)))).await?;
         let saved=last_object(&mut response)?;
         if saved.get("digest")!=Some(&Value::String(descriptor.digest.clone())){return Err(CanonicalError::OperationReused);}
         Ok(SealedFile{descriptor,intent:intent.clone()})
@@ -1464,7 +1464,11 @@ mod catalog_controls {
         let mut observed = Vec::new();
         unread.read_to_end(&mut observed).unwrap();
         assert_eq!(observed, bytes);
-        assert!(store.forget_run_results(fence.run()).await.is_err());
+        assert!(matches!(
+            store.forget_run_results(fence.run()).await,
+            Err(CanonicalError::Driver(error))
+                if error.is_thrown() && error.message().ends_with("run results have protected readers")
+        ));
         assert!(
             store
                 .collect_file(file.descriptor().instance.as_str())

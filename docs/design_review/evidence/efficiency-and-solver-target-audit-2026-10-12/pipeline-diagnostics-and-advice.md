@@ -1,6 +1,6 @@
 # Independent advice: solver pipeline, diagnostics and advisory history
 
-Supporting inquiry for [the principal audit](../../reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md); the principal owns the integrated verdict and evidence limits.
+Supporting inquiry for [the principal audit](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md); the principal owns the integrated verdict and evidence limits.
 
 
 This is bounded advice to the principal auditor of `design_review_efficiency-and-solver-target_2026-10-12.md`, especially F09–F13, its solver companion and the thirteen carried solver rule impacts under principal RC10. It creates neither an overall verdict nor a disposition ledger. Criteria: Core 3.4, Efficient Architecture 1.0 and Process Simulator 1.5, with the repository binding used to locate the functional target. Existing decisions are descriptions of the subject rather than constraints on the recommendation.

@@ -315,6 +315,7 @@ fn producer_receipt_observation(
 fn publish_ready(
     cli: &Cli,
     selected: &pse_runtime::workflow::NativeExecutionSelection,
+    diagnostics: &pse_runtime::observation::Diagnostics,
 ) -> Result<(), String> {
     let Some(nonce) = std::env::var_os("PSE_PRIMARY_NONCE") else {
         return Ok(());
@@ -341,6 +342,12 @@ fn publish_ready(
         "producer_receipt_path": receipt_path, "producer_receipt_sha256": receipt_sha256,
         "ready": true, "pid": std::process::id(), "nonce": nonce.to_string_lossy(),
         "canonical_database": selected.database(),
+        "diagnostics": {
+            "identity": diagnostics.checkpoint_identity(),
+            "checkpoint": diagnostics.checkpoint_path(),
+            "enabled": diagnostics.hub().policy().enabled,
+            "writer_failure": diagnostics.writer_failure(),
+        },
         "pool_memory_bytes": execution.pool_memory_bytes, "worker_bytes": execution.worker_bytes,
         "cpu_threads": execution.cpu_threads, "case_lanes": execution.case_lanes, "math_jobs": execution.math_jobs,
     });
@@ -522,7 +529,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     }
-    if let Err(error) = publish_ready(&cli, &selected) {
+    if let Err(error) = publish_ready(&cli, &selected, runtime.observations()) {
         eprintln!("error: primary readiness publication: {error}");
         return ExitCode::FAILURE;
     }

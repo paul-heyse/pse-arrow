@@ -12,7 +12,7 @@ use pse_runtime::{
     inspection::{
         self, DiagnosticListRequest, DiagnosticProcessPage, InspectionDocument, InspectionRequest,
     },
-    observation::Diagnostics,
+    observation::{CheckpointIdentity, Diagnostics, ProcessCheckpoint},
 };
 use pyo3::prelude::*;
 use std::{
@@ -144,6 +144,34 @@ pub(crate) fn diagnostic_inspect(
     py.detach(|| inspection::inspect_checkpoint(&checkpoint, request.0))
         .map(DocumentValue)
         .map_err(|error| errors::diagnostic(py, &error))
+}
+
+#[pyfunction]
+#[pyo3(signature = (checkpoint, expected=None))]
+pub(crate) fn diagnostic_read_checkpoint(
+    py: Python<'_>,
+    checkpoint: PathBuf,
+    expected: Option<DocumentInput<CheckpointIdentity>>,
+) -> PyResult<DocumentValue<ProcessCheckpoint>> {
+    py.detach(|| {
+        let image = pse_runtime::observation::read_checkpoint(&checkpoint)?;
+        if let Some(expected) = expected {
+            expected.0.validate(&image)?;
+        }
+        Ok::<_, pse_runtime::observation::ObservationError>(image)
+    })
+    .map(DocumentValue)
+    .map_err(|error| errors::diagnostic(py, &error))
+}
+
+#[pyfunction]
+pub(crate) fn diagnostic_inspect_image(
+    py: Python<'_>,
+    checkpoint: PathBuf,
+    image: DocumentInput<ProcessCheckpoint>,
+    request: DocumentInput<InspectionRequest>,
+) -> DocumentValue<InspectionDocument> {
+    DocumentValue(py.detach(|| inspection::inspect_image(&checkpoint, request.0, image.0)))
 }
 
 struct CaptureState {

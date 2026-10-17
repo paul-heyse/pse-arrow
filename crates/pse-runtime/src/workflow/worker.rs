@@ -1320,6 +1320,7 @@ impl Runtime {
             ready: bool,
             canonical_database: String,
             primary_owner: PrimaryOwner,
+            diagnostics: Option<serde_json::Value>,
         }
         let ready: Ready = serde_json::from_slice(&stdout)
             .map_err(|error| contract(format!("managed primary readiness: {error}")))?;
@@ -1327,6 +1328,7 @@ impl Runtime {
             return Err(contract("managed primary is not ready"));
         }
         selected.require_current()?;
+        self.observations().observe_receiver_ready(selected.receiver_state(), selected.database(), ready.diagnostics);
         Ok(ManagedPrimary { selected, owner: ready.primary_owner })
 
         }).await

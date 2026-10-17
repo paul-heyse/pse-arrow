@@ -1,6 +1,6 @@
 # Observed implementation and operator episodes
 
-This is bounded historical evidence for the [principal review](../../reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md), not a second assessment or a live qualification ledger. It supplies the previous implementation coordinator's observations to fresh investigators and an independent principal. Investigators must challenge these leads against source and artifacts.
+This is bounded historical evidence for the [principal review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md), not a second assessment or a live qualification ledger. It supplies the previous implementation coordinator's observations to fresh investigators and an independent principal. Investigators must challenge these leads against source and artifacts.
 
 The inspected source baseline is `d5e8606bb4cd9a3f2aeed7b885b8a8c8925d2dda`. The implementation window is 2026-10-14 11:35–16:36 EDT (15:35–20:36 UTC), approximately `945fad591^..d5e8606bb`. The narrower operational window is 13:35–16:36 EDT (17:35–20:36 UTC). Earlier prerequisites are included where they explain an episode. Commit times do not establish causal order.
 

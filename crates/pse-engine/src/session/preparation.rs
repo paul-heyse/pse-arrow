@@ -830,6 +830,9 @@ impl PreparedComputation {
                 &self.0.state,
                 cancel,
                 caches,
+                // Volatile re-preparation temporarily binds the operation's
+                // caches. Only the retained session identifies nested work.
+                session.invocation.is_some(),
             ),
             None => {
                 super::execution::NativeExecutionContext::execution_state(&self.0.state, cancel)

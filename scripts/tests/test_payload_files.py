@@ -20,6 +20,15 @@ from scripts.tests import test_surreal_server as supervisor_controls
 
 
 class PayloadLifecycleTests(unittest.TestCase):
+    def persist_maintenance_payloads(self, config: dict[str, object]) -> None:
+        pending = server.object_mapping(config["derived_rebuild_pending"])
+        payloads = {
+            name: pending.pop(name, [])
+            for name in ("payload_inventory", "payload_targets", "retired_payloads")
+        }
+        with server.lifecycle_reservation(self.state):
+            server.write_maintenance_payloads(self.state, config, payloads)
+
     def setUp(self) -> None:
         self.fixture = supervisor_controls.SurrealSupervisorTests(methodName="runTest")
         self.fixture.setUp()
@@ -170,13 +179,14 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.validation_profile()
         self.validation_controls()
 
-        def validator(
-            *_args: object, **_kwargs: object
-        ) -> subprocess.CompletedProcess[bytes]:
+        def validator(*_args: object, **_kwargs: object) -> int:
             self.validator_owner()
-            return subprocess.CompletedProcess([], 0)
+            self.assertEqual(_kwargs["stdout"], subprocess.DEVNULL)
+            self.assertEqual(_kwargs["stderr"], subprocess.DEVNULL)
+            self.assertIsInstance(_kwargs["deadline"], float)
+            return 0
 
-        with patch.object(server.subprocess, "run", side_effect=validator):
+        with patch.object(server, "run_file_effect", side_effect=validator):
             server.validate(
                 self.state, self.config, server.SUBSTRATE_INTERPRETATION, ["validator"]
             )
@@ -275,18 +285,18 @@ class PayloadLifecycleTests(unittest.TestCase):
 
             def validator(
                 *_args: object, timed_out: bool = timed_out, **_kwargs: object
-            ) -> subprocess.CompletedProcess[bytes]:
+            ) -> int:
                 self.validator_owner()
                 if timed_out:
                     raise subprocess.TimeoutExpired("validator", 120)
-                return subprocess.CompletedProcess([], 1)
+                return 1
 
             expected = (
                 subprocess.TimeoutExpired if timed_out else server.SupervisorError
             )
             with (
                 self.subTest(timed_out=timed_out),
-                patch.object(server.subprocess, "run", side_effect=validator),
+                patch.object(server, "run_file_effect", side_effect=validator),
                 self.assertRaises(expected),
             ):
                 server.validate(
@@ -319,9 +329,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             self.validation_profile()
             self.events.clear()
 
-            def validator(
-                *_args: object, case: str = case, **_kwargs: object
-            ) -> subprocess.CompletedProcess[bytes]:
+            def validator(*_args: object, case: str = case, **_kwargs: object) -> int:
                 self.validator_owner(live=case != "managed-descendant")
                 if case == "unknown":
                     self.owners[0]["pid_namespace"] = "pid:[unknown]"
@@ -332,11 +340,11 @@ class PayloadLifecycleTests(unittest.TestCase):
                         start="original-dead-parent",
                         invocation="owned-managed-invocation",
                     )
-                return subprocess.CompletedProcess([], 0)
+                return 0
 
             with (
                 self.subTest(case=case),
-                patch.object(server.subprocess, "run", side_effect=validator),
+                patch.object(server, "run_file_effect", side_effect=validator),
                 patch.object(server, "managed_file_owner_drained", return_value=False),
                 self.assertRaises(server.SupervisorError),
             ):
@@ -383,7 +391,7 @@ class PayloadLifecycleTests(unittest.TestCase):
 
         with (
             patch.object(server, "payload_query", side_effect=query),
-            patch.object(server.subprocess, "run") as child,
+            patch.object(server, "run_file_effect") as child,
             self.assertRaisesRegex(server.SupervisorError, "not acknowledged"),
         ):
             server.validate(
@@ -411,9 +419,9 @@ class PayloadLifecycleTests(unittest.TestCase):
         with (
             patch.object(server, "payload_query", side_effect=query),
             patch.object(
-                server.subprocess,
-                "run",
-                return_value=subprocess.CompletedProcess([], 0),
+                server,
+                "run_file_effect",
+                return_value=0,
             ),
             self.assertRaisesRegex(
                 server.SupervisorError, "closure was not acknowledged"
@@ -1074,12 +1082,15 @@ class PayloadLifecycleTests(unittest.TestCase):
             patch.object(server, "payload_query", side_effect=self.query),
             patch.object(server, "start"),
             patch.object(server, "all_contexts_drained"),
+            server.lifecycle_reservation(self.state),
         ):
             server.retire_partial_payload_target(self.state, self.config, {})
         pending = server.object_mapping(
             server.config_for(self.state)["derived_rebuild_pending"]
         )
-        retired = server.object_inventory(pending["retired_payloads"])[0]
+        retired = server.object_inventory(
+            server.maintenance_payloads(self.state, pending)["retired_payloads"]
+        )[0]
         self.assertEqual(retired["owners"], [self.owner])
         self.assertEqual(
             server.object_inventory(retired["inventory"])[0]["instance"], self.instance
@@ -1206,7 +1217,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             "payload_incarnation": self.config["payload_incarnation"],
             "payload_inventory": inventory,
         }
-        server.write_json(self.state / "config.json", selected)
+        self.persist_maintenance_payloads(selected)
         unknown = locks / (str(uuid.uuid4()) + ".lock")
         unknown.write_bytes(b"")
         unknown.chmod(0o600)
@@ -1326,7 +1337,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             elif case == "symlink":
                 (retired_root / "unknown").symlink_to(self.final)
             selected["derived_rebuild_pending"] = pending
-            server.write_json(self.state / "config.json", selected)
+            self.persist_maintenance_payloads(selected)
             before = (self.state / "config.json").read_bytes()
             if case == "held-lock":
                 locks = retired_root / ".locks"

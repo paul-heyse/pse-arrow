@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-02, AP-04, AP-07, DP-09, DP-19, PS-10]
 blueprint: [§4.6, §14.2, §14.3, §14.4, §19, §21, §22.2]
-review: docs/design_review/reviews/design_review_plan38a-local-authority-and-scoped-validity_2026-10-13.md
+review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_plan38a-local-authority-and-scoped-validity_2026-10-13.md
 evidence: Interface-checked
 supersedes: []
 superseded-by: null
@@ -63,7 +63,7 @@ Local ownership removes repeated canonical crossings and makes scientific respon
 
 ## More information
 
-[Plan38a](../plans/38a-authoring-preparation-and-validity.md) owns this execution scope; [Plan38](../plans/38-efficiency-and-solver-target.md) owns accepted decisions and finding disposition. ADR-0181 retains caller/activity/physical shutdown meaning. ADR-0182 retains independent scientific artifact/history obligations.
+[Plan38a](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38a-authoring-preparation-and-validity.md) owns this execution scope; [Plan38](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38-efficiency-and-solver-target.md) owns accepted decisions and finding disposition. ADR-0181 retains caller/activity/physical shutdown meaning. ADR-0182 retains independent scientific artifact/history obligations.
 
 ## Status history
 

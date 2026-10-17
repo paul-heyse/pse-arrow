@@ -1,7 +1,7 @@
 ---
 title: Efficiency alignment across the simulator and development loop
 status: abandoned
-superseded-by: docs/plans/38-efficiency-and-solver-target.md
+superseded-by: https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38-efficiency-and-solver-target.md
 date: 2026-10-11
 adrs: [ADR-0173, ADR-0174, ADR-0175, ADR-0176, ADR-0177, ADR-0178, ADR-0179, ADR-0180]
 review_sources:
@@ -15,7 +15,7 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 
 # Plan 36: Efficiency alignment
 
-> **Superseded 2026-10-13 by [Plan 38](38-efficiency-and-solver-target.md).** Remaining execution and acceptance obligations now belong to the [new series transfer](38-efficiency-and-solver-target.md#plan-36-transfer-and-supersession). The inactive `abandoned` lifecycle value records replacement of this execution plan, not completion or loss of its delivered work. All packet statuses, running notes, decisions and checkpoints below are historical; failed/interrupted evidence is unchanged. Do not resume this plan.
+> **Superseded 2026-10-13 by [Plan 38](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38-efficiency-and-solver-target.md).** Remaining execution and acceptance obligations now belong to the [new series transfer](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38-efficiency-and-solver-target.md#plan-36-transfer-and-supersession). The inactive `abandoned` lifecycle value records replacement of this execution plan, not completion or loss of its delivered work. All packet statuses, running notes, decisions and checkpoints below are historical; failed/interrupted evidence is unchanged. Do not resume this plan.
 
 
 This standalone series reconciles the [original review](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md) and [independent audit](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md) into one target and actionable work. It covers all 29 original findings, five new audit findings, twenty rule recommendations, and the inquiries' additional opportunities and unexamined areas. The audit's corrections replace the original diagnoses where they conflict; neither report is edited.

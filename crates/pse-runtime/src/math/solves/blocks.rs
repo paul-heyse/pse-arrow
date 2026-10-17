@@ -538,6 +538,19 @@ impl MathService {
                 )
                 .into());
             };
+            // The block runner debits the original finite iteration allowance
+            // from each completed native report. POUNCE's current adapter does
+            // not expose a complete per-attempt iteration total for every exit
+            // and method. Decline this optional preparation after contextual
+            // routing, before any block runs; the existing strategy can still
+            // execute the unchanged original native operation. Do not infer
+            // coverage from the original backend, progress or a cached summary.
+            if actual_backend == Backend::Pounce {
+                return Err(ProblemError::Unsupported(
+                    "POUNCE block aggregate iteration coverage unavailable".into(),
+                )
+                .into());
+            }
             if !backends.contains(&actual_backend) {
                 backends.push(actual_backend);
             }

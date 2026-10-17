@@ -160,12 +160,78 @@
         "started_at": {
           "$ref": "#/$defs/ClosedDuration",
           "description": "Actual monotonic start time."
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SummaryPublication"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Producer-declared responsibility and finite copied-output lifetime."
         }
       },
       "required": [
         "id",
         "kind",
         "started_at"
+      ],
+      "type": "object"
+    },
+    "SummaryCoverage": {
+      "additionalProperties": false,
+      "description": "Explicit lifetime/admission losses for producer-declared compact outputs.",
+      "properties": {
+        "expired": {
+          "description": "Outputs whose selected terminal lifetime elapsed.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pressure_lost": {
+          "description": "Oldest terminal outputs displaced to preserve active admission.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "refused": {
+          "description": "Declarations or terminal copies refused by bounds/contention/opt-out.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "refused",
+        "expired",
+        "pressure_lost"
+      ],
+      "type": "object"
+    },
+    "SummaryPublication": {
+      "additionalProperties": false,
+      "description": "Generic producer-owned compact explanation; it grants no execution ownership.",
+      "properties": {
+        "expires_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClosedDuration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Finite terminal output deadline; absent for an active declaration or a refused copy."
+        },
+        "purpose": {
+          "description": "Bounded producer-supplied purpose, never interpreted by the hub.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "purpose"
       ],
       "type": "object"
     }
@@ -193,9 +259,14 @@
         "$ref": "#/$defs/OperationSummary"
       },
       "type": "array"
+    },
+    "summaries": {
+      "$ref": "#/$defs/SummaryCoverage",
+      "description": "Summary admission and loss facts, separate from scientific metrics."
     }
   },
   "required": [
+    "summaries",
     "operations",
     "coverage"
   ],

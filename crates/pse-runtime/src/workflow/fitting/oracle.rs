@@ -782,6 +782,9 @@ impl FitProblem {
             )
         });
         let context = operation.as_ref().map(|operation| operation.context());
+        if let Some(context) = &context {
+            context.declare_summary("fit responsibility");
+        }
         let _entered = context.as_ref().map(|context| context.enter());
         let result = (|| {
             let adapters: Vec<&dyn native::execution::BackendExecution> = match route {

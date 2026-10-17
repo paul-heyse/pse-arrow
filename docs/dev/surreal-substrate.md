@@ -1,9 +1,9 @@
 # Local SurrealDB substrate
 
-The [current-work index](../plans/README.md) routes to transport, lifecycle and
-qualification owners. [Plan 38e](../plans/38e-durable-records-results-and-analytics.md) owns
-the sealed-payload transition and its affected acceptance; Plan 37 and earlier plans retain
-their separately scoped qualification. Blueprint §20.5–§20.6 and ADR-0164 own the substrate contracts.
+The [current-work index](../plans/README.md) routes to active owners. Blueprint §20.5–§20.6,
+ADR-0164 and the maintainer-selected ADR-0187 target describe the substrate and sealed-payload
+contracts. [Plan39d's Outcome](../plans/39d-qualification-and-plan38-cutover.md#outcome-recorded-after-implementation)
+records completed selected qualification; Plan37 and other plans retain their own evidence limits.
 This page describes the local server operator surface implemented by
 `scripts/surreal_server.py`; its bounded controls do not qualify all scientific operations,
 remote deployment, returned physical disk space or physical power-loss survival.
@@ -370,6 +370,15 @@ Under the exact restored incarnation, validation atomically admits protected fil
 while keeping GC frozen and application writes closed. Every exit refreezes file admission
 and authenticates managed descendants and registered file owners before stopping or
 publishing success; unknown ownership or an unacknowledged closure keeps validation required.
+Managed recovery clients, semantic validators and rebuild initializers run their file
+effects in separately joined child scopes borrowed from the existing allocation. A client
+that exits can therefore settle its exact file-owner lifetime while the campaign supervisor
+remains alive. Native recovery clients and validators retain their original 120-second clock,
+including placement; science and rebuild calls remain unbounded. Timeout requests owned
+cancellation and actual drain before reporting timeout. Direct observably unmanaged terminal
+callers retain their existing route; declared or observed managed ownership must authenticate
+and never falls back to an unmanaged launch. File-owner guards remain conservative.
+
 The validator owns exact selected values, operation identities and schema/codec checks;
 it must use the read path permitted during validation, not normal write admission.
 Its output is suppressed to avoid accidental credential disclosure. Failure/timeout
@@ -403,6 +412,10 @@ neither supervisor readmission nor successful server startup upgrades canonical 
 Memberships, analysis edges/inputs, problem runs and run sources enforce existing endpoints.
 Study dependency ingestion permits valid references to predecessors in later pages. Native
 import bypasses endpoint admission, so post-restore integrity checks remain required.
+
+Startup configuration references the private maintenance payload record described in blueprint
+§20.5; large inventories do not enlarge the Rust startup record. Missing or changed inventory
+evidence keeps recovery closed. Do not remove a referenced `.maintenance-payloads-*.json` file.
 
 Interrupted rebuild or restore remains closed. `recover-maintenance --state PATH` resumes
 its durable phase after verifying exact identities; an interrupted rebuild initializer also

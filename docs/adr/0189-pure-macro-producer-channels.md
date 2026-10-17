@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-03, AP-04, AP-07, DP-09, DP-19]
 blueprint: [§3.1, §5.3, §14.3, §24.2]
-review: docs/design_review/reviews/design_review_plan39-pure-macro-channels_2026-10-14.md
+review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_plan39-pure-macro-channels_2026-10-14.md
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -57,7 +57,7 @@ The maintainer authorized the remaining-design execution on 2026-10-14, excludin
 
 Actual Maturin child argv/SDK/environment remains authoritative and is enrolled late. Unknown executor families refuse before build. A first exact executor compilation context requires successful non-Fresh compiler evidence; later Fresh use requires that same operation's preceding exact compilation with unchanged dependency-complete source/configuration/reviewed environment/native/absence premises and original outputs. Unit-graph keys alone are insufficient. Build-script output associations remain distinct from executable compilation evidence; an emitted build-script-executed message alone does not prove execution in that child. Unknown, changed or incomplete premises refuse.
 
-Protected historical evidence remains independently reconstructible; original-path current artifact/input/namespace/environment verification is unchanged. Existing coordinated ownership and before/after checks still apply: private preparation exclusion does not make arbitrary concurrent tools harmless. The bounded independent assessment is [the preparation-operation review](../design_review/reviews/design_review_plan39-preparation-operation_2026-10-14.md). That assessment preceded the implemented bounded correction; no additional review or assurance-code prerequisite is scheduled. Tiny compiler fixtures establish only this mechanism. Actual PSE all-role proof capture/install/import is withdrawn from Plan39d.
+Protected historical evidence remains independently reconstructible; original-path current artifact/input/namespace/environment verification is unchanged. Existing coordinated ownership and before/after checks still apply: private preparation exclusion does not make arbitrary concurrent tools harmless. The bounded independent assessment is [the preparation-operation review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_plan39-preparation-operation_2026-10-14.md). That assessment preceded the implemented bounded correction; no additional review or assurance-code prerequisite is scheduled. Tiny compiler fixtures establish only this mechanism. Actual PSE all-role proof capture/install/import is withdrawn from Plan39d.
 
 ### Withdrawn environment/provenance proof targets
 
@@ -69,7 +69,7 @@ The target removes unrelated caller review invalidation at the channel owner and
 
 ## More information
 
-[Plan39b](../plans/39b-deployment-assurance-and-preparation.md), [friction F02](../design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f02), [producer identity](../authoritative_design/sections/identity-and-publication.md).
+[Plan39b](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/39b-deployment-assurance-and-preparation.md), [friction F02](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f02), [producer identity](../authoritative_design/sections/identity-and-publication.md).
 
 ## Status history
 

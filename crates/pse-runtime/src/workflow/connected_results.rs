@@ -13,12 +13,49 @@ use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata
 use pse_operations::{canonical::MetadataResponse, canonical_results::ResultRead};
 use std::{
     collections::{BTreeMap, VecDeque},
+    future::Future,
     io::{BufWriter, Write},
+    pin::Pin,
     sync::Arc,
+    task::{Context, Poll},
 };
 
 #[cfg(all(test, feature = "canonical-tests"))]
 use std::time::Duration;
+
+// The boxed child drops before its grant, including cancellation and an unpolled
+// reader. Keeping the grant outside the child also retains it after Poll::Ready
+// until the allocation itself is dropped.
+struct PrepaidReaderFuture<'a, T> {
+    future: futures_util::future::BoxFuture<'a, T>,
+    _owner: MemoryReservation,
+}
+
+impl<T> Future for PrepaidReaderFuture<'_, T> {
+    type Output = T;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<T> {
+        self.get_mut().future.as_mut().poll(cx)
+    }
+}
+
+fn prepaid_reader_future<'a, F>(
+    pool: &Arc<dyn MemoryPool>,
+    future: F,
+) -> Result<PrepaidReaderFuture<'a, F::Output>, WorkflowError>
+where
+    F: Future + Send + 'a,
+{
+    let owner = MemoryConsumer::new("canonical:result-reader-future").register(pool);
+    owner
+        .try_grow(size_of_val(&future))
+        .map_err(pse_engine::EngineError::from)?;
+    Ok(PrepaidReaderFuture {
+        future: Box::pin(future),
+        _owner: owner,
+    })
+}
+
 // Metadata transport and retained storage have independent real lifetimes.
 pub(super) fn response_owner(
     runtime: &Runtime,
@@ -147,6 +184,18 @@ impl ResultAdmission {
         .map_err(pse_engine::EngineError::from)
         .map_err(WorkflowError::from)
     }
+}
+
+/// Existing terminal selection alternatives, borrowed until read admission.
+enum TerminalResultSelection<'a> {
+    Exact {
+        run: &'a str,
+        attempt: &'a str,
+    },
+    Latest {
+        problem: &'a str,
+        classes: &'a [pse_operations::canonical_execution::TerminalClass],
+    },
 }
 
 /// A protected terminal attempt, exact relation and requested row coordinates.
@@ -322,17 +371,24 @@ impl CanonicalResultReader {
             return Err(pse_engine::EngineError::from(error).into());
         }
         self.consumed = true;
+        if self.pending.is_empty() && self.exhausted {
+            self.metadata_owner = None;
+            return Ok(None);
+        }
         // Interrupt the original RPC future, rather than waiting for another
         // between-block checkpoint. The SDK's CancelOnDrop cancels its exact
         // RequestContext; its driver retains uncertain dispatched work through
         // physical drain. This asserts no rollback of a late pin renewal.
         let cancel = self.cancel.clone();
-        let outcome = cancel
-            .until_cancelled(self.next_checked())
-            .await
-            .map_err(pse_engine::EngineError::from)
-            .map_err(WorkflowError::from)
-            .and_then(std::convert::identity);
+        let outcome = match self.next_checked() {
+            Ok(future) => cancel
+                .until_cancelled(future)
+                .await
+                .map_err(pse_engine::EngineError::from)
+                .map_err(WorkflowError::from)
+                .and_then(std::convert::identity),
+            Err(error) => Err(error),
+        };
         if outcome.is_err() {
             self.close();
         }
@@ -372,7 +428,24 @@ impl CanonicalResultReader {
         }
         Ok(bytes)
     }
-    async fn next_checked(
+    #[inline(never)]
+    fn next_checked(
+        &mut self,
+    ) -> Result<
+        PrepaidReaderFuture<
+            '_,
+            Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError>,
+        >,
+        WorkflowError,
+    > {
+        // Construct and erase the large borrowed file-read state here, before
+        // polling. Cancellation wrappers then retain only this small owner;
+        // their forwarding futures cannot embed another concrete child state.
+        let pool = self.runtime.shared.pool();
+        prepaid_reader_future(&pool, self.next_checked_body())
+    }
+
+    async fn next_checked_body(
         &mut self,
     ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         loop {
@@ -387,7 +460,7 @@ impl CanonicalResultReader {
                     if self.output.is_some() {
                         MetadataResponse::OutputPage
                     } else {
-                        MetadataResponse::Page
+                        MetadataResponse::BlockPage
                     },
                 )?;
                 let page = pse_operations::canonical::response_ownership_scope(
@@ -754,13 +827,15 @@ impl Runtime {
                     "canonical:result-selection",
                     MetadataResponse::Selection,
                 )?;
-                let read = pse_operations::canonical::response_ownership_scope(
-                    extent.clone(),
-                    self.canonical_store()?.latest_results(problem, classes),
-                )
-                .await?;
-                self.result_selection(read, relation, start, end, cancel, extent)
-                    .await
+                self.result_reader_body(
+                    TerminalResultSelection::Latest { problem, classes },
+                    relation,
+                    start,
+                    end,
+                    cancel,
+                    extent,
+                )?
+                .await
             })
             .await
     }
@@ -789,16 +864,61 @@ impl Runtime {
                     "canonical:result-selection",
                     MetadataResponse::Selection,
                 )?;
-                let read = pse_operations::canonical::response_ownership_scope(
-                    extent.clone(),
-                    self.canonical_store()?.read_results(run, attempt),
-                )
-                .await?;
-                self.result_selection(read, relation, start, end, cancel, extent)
-                    .await
+                self.result_reader_body(
+                    TerminalResultSelection::Exact { run, attempt },
+                    relation,
+                    start,
+                    end,
+                    cancel,
+                    extent,
+                )?
+                .await
             })
             .await
     }
+
+    /// Construct the large native selection state before its caller polls it.
+    /// The existing activity scope owns this boxed body through cancellation. Its
+    /// independently prepaid heap state drops under its own grant. The response
+    /// grant moves in without an extra alias, so protected
+    /// metadata transfer can still unwrap a unique grant after transport drains.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the reader factory keeps terminal selection, row coordinates, cancellation and continuing response ownership explicit"
+    )]
+    #[inline(never)]
+    fn result_reader_body<'a>(
+        &'a self,
+        selection: TerminalResultSelection<'a>,
+        relation: &'a str,
+        start: u64,
+        end: u64,
+        cancel: CancellationToken,
+        extent: Arc<MemoryReservation>,
+    ) -> Result<PrepaidReaderFuture<'a, Result<CanonicalResultReader, WorkflowError>>, WorkflowError>
+    {
+        prepaid_reader_future(&self.shared.pool(), async move {
+            let read = match selection {
+                TerminalResultSelection::Exact { run, attempt } => {
+                    pse_operations::canonical::response_ownership_scope(
+                        extent.clone(),
+                        self.canonical_store()?.read_results(run, attempt),
+                    )
+                    .await?
+                }
+                TerminalResultSelection::Latest { problem, classes } => {
+                    pse_operations::canonical::response_ownership_scope(
+                        extent.clone(),
+                        self.canonical_store()?.latest_results(problem, classes),
+                    )
+                    .await?
+                }
+            };
+            self.result_selection(read, relation, start, end, cancel, extent)
+                .await
+        })
+    }
+
     async fn result_selection(
         &self,
         read: ResultRead,
@@ -981,6 +1101,69 @@ mod result_admission_unit {
     use pse_schema::model::{
         Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass,
     };
+
+    #[test]
+    fn reader_future_refuses_unfunded_state_before_polling() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+        let polled = Arc::new(AtomicBool::new(false));
+        let observed = polled.clone();
+        let payload = [0_u8; 4096];
+        let future = async move {
+            observed.store(true, Ordering::Release);
+            std::hint::black_box(payload)
+        };
+        assert!(size_of_val(&future) > 1);
+        assert!(prepaid_reader_future(&pool, future).is_err());
+        assert!(!polled.load(Ordering::Acquire));
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn reader_future_grant_survives_ready_and_child_drop() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        struct ChildDrop {
+            pool: Arc<dyn MemoryPool>,
+            dropped: Arc<AtomicBool>,
+        }
+        impl Drop for ChildDrop {
+            fn drop(&mut self) {
+                assert!(self.pool.reserved() > 0, "child drops under its grant");
+                self.dropped.store(true, Ordering::Release);
+            }
+        }
+
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 10));
+        let dropped = Arc::new(AtomicBool::new(false));
+        let guard = ChildDrop {
+            pool: pool.clone(),
+            dropped: dropped.clone(),
+        };
+        let payload = [0_u8; 4096];
+        let mut first = true;
+        let future = std::future::poll_fn(move |_| {
+            std::hint::black_box((&guard, &payload));
+            if std::mem::take(&mut first) {
+                Poll::Pending
+            } else {
+                Poll::Ready(7)
+            }
+        });
+        let bytes = size_of_val(&future);
+        let mut future = prepaid_reader_future(&pool, future).unwrap();
+        assert_eq!(pool.reserved(), bytes);
+        let mut cx = Context::from_waker(futures_util::task::noop_waker_ref());
+        assert_eq!(Pin::new(&mut future).poll(&mut cx), Poll::Pending);
+        assert_eq!(pool.reserved(), bytes);
+        assert_eq!(Pin::new(&mut future).poll(&mut cx), Poll::Ready(7));
+        assert_eq!(pool.reserved(), bytes);
+        assert!(!dropped.load(Ordering::Acquire));
+        drop(future);
+        assert!(dropped.load(Ordering::Acquire));
+        assert_eq!(pool.reserved(), 0);
+    }
 
     #[test]
     fn metadata_transfer_never_shrinks_live_sdk_or_alias_grants() {
@@ -1418,6 +1601,11 @@ mod canonical_connected_results_server_unit {
             rows += 1;
         }
         assert_eq!(rows, 65, "every nonempty block opened and decoded");
+        let pressure = MemoryConsumer::new("test:exhausted-reader-pressure").register(&pool);
+        pressure.try_grow((256 << 20) - pool.reserved()).unwrap();
+        assert!(reader.next_relation_batch().await.unwrap().is_none());
+        assert!(reader.next_batch().await.unwrap().is_none());
+        drop(pressure);
         drop(reader);
         drop(snapshot);
         assert!(
@@ -1619,8 +1807,26 @@ mod canonical_connected_results_server_unit {
             .find(|set| set.name == solve_metrics::RELATION_ID.to_string())
             .unwrap();
         assert_eq!((demanded.batch_count, demanded.row_count), (0, 0));
+        let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) = pool.memory_limit()
+        else {
+            panic!("empty-demand pressure control requires its finite runtime pool");
+        };
+        let pressure = MemoryConsumer::new("test:empty-reader-pressure").register(&pool);
+        pressure.try_grow(limit - pool.reserved()).unwrap();
+        assert_eq!(
+            pool.reserved(),
+            limit,
+            "no boxed reader state can be admitted"
+        );
+        assert!(selected.next_relation_batch().await.unwrap().is_none());
         assert!(selected.next_batch().await.unwrap().is_none());
         assert!(selected.next_batch().await.unwrap().is_none());
+        selected.cancellation_token().cancel();
+        assert!(
+            selected.next_relation_batch().await.is_err(),
+            "cancellation precedes exhaustion"
+        );
+        drop(pressure);
         drop(selected);
         assert_eq!(
             pool.reserved() - before_selection,

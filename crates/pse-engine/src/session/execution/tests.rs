@@ -124,6 +124,12 @@ async fn native_algorithms_keep_functions_configuration_scopes_and_resource_ceil
             .admission_scope()
             .same_invocation(next_services.validation_context().admission_scope())
     );
+    assert_ne!(services.attempt_scope(), next_services.attempt_scope());
+    assert!(
+        services
+            .validation_context()
+            .same_bindings(next_services.validation_context())
+    );
     assert_eq!(
         next.execution_props().query_execution_start_time,
         next_services
@@ -176,6 +182,18 @@ async fn native_algorithms_keep_functions_configuration_scopes_and_resource_ceil
         ScalarValue::try_from_array(values[0].column(0), 0).unwrap(),
         ScalarValue::Int64(Some(731))
     );
+    let (nested_services, nested_state) = capture.0.lock().unwrap().take().unwrap();
+    let repeated_nested = NativeExecutionContext::execution_state(&nested_state, &cancel).unwrap();
+    let repeated_services = NativeExecutionContext::from_session(&repeated_nested).unwrap();
+    for nested_services in [&nested_services, &repeated_services] {
+        assert_eq!(services.attempt_scope(), nested_services.attempt_scope());
+        assert!(
+            services
+                .validation_context()
+                .admission_scope()
+                .same_invocation(nested_services.validation_context().admission_scope())
+        );
+    }
     let refused = nested
         .prepare_sql("CREATE TABLE workspace.other (id BIGINT)", &cancel)
         .await

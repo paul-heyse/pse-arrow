@@ -671,6 +671,13 @@ impl Evaluator<'_, '_> {
     }
     /// The complete type of a static arithmetic result, inferred at its root.
     fn typed_result(&mut self, e: &Expr, result: f64, expected: Option<&Type>) -> Result<Value> {
+        #[cfg(test)]
+        TYPED_RESULT_WORK.with(|work| {
+            let mut nodes = 0;
+            e.walk(|_| nodes += 1);
+            let (calls, previous) = work.get();
+            work.set((calls + 1, previous + nodes));
+        });
         let base = self.named_types();
         let mut env = crate::TypeScope::shared(base);
         env.extend(
@@ -1944,5 +1951,66 @@ pub(crate) fn conforms(value: &Value, ty: &Type, p: &CheckedPackage) -> bool {
         // A member of a refined kind is a member of every kind it refines.
         (Value::Entity { kind, .. }, Type::Entity(expected)) => p.refines(*kind, *expected),
         _ => value_type(value).as_ref() == Some(ty),
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    static TYPED_RESULT_WORK: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+}
+#[cfg(test)]
+mod typing_work_tests {
+    use super::*;
+    #[test]
+    fn additive_typing_work_depends_on_shape_while_maximal_products_type_once() {
+        let (registry, _) = crate::kernel_types::physical();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
+        let context = TypeContext {
+            admissions: None,
+            formula_authority: None,
+            quantities: &registry,
+            preconditions: &preconditions,
+            scope: &crate::PhysicalScope::default(),
+        };
+        let package = crate::check(
+            &crate::kernel_types::source("package p {def D {}}"),
+            &context,
+        )
+        .unwrap();
+        let at = package
+            .declarations
+            .values()
+            .find(|r| r.name == "D")
+            .unwrap()
+            .declaration_id;
+        let env = Environment::new();
+        let mut evaluator = Evaluator {
+            lexical_bases: None,
+            selections: None,
+            package: &package,
+            physical: &context,
+            at,
+            env: &env,
+            limit: 1024,
+            stack: vec![],
+            reader: crate::provenance::Reader::Production(at),
+        };
+        let scalar = Type::Quantity(Scheme::Concrete(registry.neutral_dimensionless().unwrap()));
+        for (source, expected_value, expected_work) in [
+            ("1.5+1.5+1.5+1.5+1.5+1.5+1.5+1.5", 12., (7, 63)),
+            ("((1.5+1.5)+(1.5+1.5))+((1.5+1.5)+(1.5+1.5))", 12., (7, 41)),
+            ("1.5*1.5*1.5*1.5*1.5*1.5*1.5*1.5", 25.62890625, (1, 15)),
+        ] {
+            TYPED_RESULT_WORK.with(|work| work.set((0, 0)));
+            let result = evaluator
+                .expr(&dsl::parse_expr(source).unwrap(), Some(&scalar), 0)
+                .unwrap();
+            assert_eq!(result.scalar(at).unwrap(), expected_value);
+            assert_eq!(
+                TYPED_RESULT_WORK.with(std::cell::Cell::get),
+                expected_work,
+                "{source}"
+            );
+        }
     }
 }

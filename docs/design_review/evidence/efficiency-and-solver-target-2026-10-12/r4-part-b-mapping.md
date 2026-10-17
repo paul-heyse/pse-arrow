@@ -1,4 +1,4 @@
-> Supporting evidence for [the efficiency and solver target review](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md). Inquiry R4 (library-research), Part B: obligations mapped onto the R4 libraries. Facts A and B of X2 correct its §1.1 statements about retained symbolic analysis. Baseline: `main` at `6c368c88a`. This contribution is preserved as returned; its local labels are not finding identifiers, and the principal review owns the judgment.
+> Supporting evidence for [the efficiency and solver target review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md). Inquiry R4 (library-research), Part B: obligations mapped onto the R4 libraries. Facts A and B of X2 correct its §1.1 statements about retained symbolic analysis. Baseline: `main` at `6c368c88a`. This contribution is preserved as returned; its local labels are not finding identifiers, and the principal review owns the judgment.
 
 # R4 Part B: mapping the W-A/W-B obligations onto the numerical and native-session libraries
 

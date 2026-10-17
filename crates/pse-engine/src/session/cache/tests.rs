@@ -1070,6 +1070,7 @@ async fn model_retention_is_completed_only_and_preserves_live_nested_admission()
             &state,
             &cancel,
             services.caches.clone(),
+            false,
         )
         .unwrap();
     let sibling =

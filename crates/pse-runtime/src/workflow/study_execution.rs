@@ -195,6 +195,9 @@ impl super::Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.declare_summary("recorded study responsibility");
+                }
                 let physical = self.physical_source(&definition.physical, cancel).await?;
                 let revision = self
                     .canonical_store()?
@@ -237,6 +240,9 @@ impl ModelingPackage {
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.execute");
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.declare_summary("study responsibility");
+                }
                 let (report, preparations) = crate::math::counted(local.package.study_inner(
                     &local.science,
                     maximum_points,
@@ -2548,15 +2554,28 @@ mod occurrence_execution_tests {
             .study(&large, 8, &crate::CancelSource::new())
             .await
             .unwrap();
+        let lanes = package
+            .runtime
+            .shared
+            .math()
+            .cores()
+            .min(package.runtime.shared.budget().math.jobs)
+            .max(1);
         for report in [&small_report, &large_report] {
             assert!(
                 report.outcomes.iter().all(|point| point.scientific.usable),
                 "{:?}",
                 report.outcomes
             );
-            assert!(report.preparations.views <= 1, "{:?}", report.preparations);
+            // Each admitted lane owns one stable view and its two observation
+            // programs; more occurrences rebind those same finite lane owners.
             assert!(
-                report.preparations.observations <= 2,
+                report.preparations.views <= lanes,
+                "{:?}",
+                report.preparations
+            );
+            assert!(
+                report.preparations.observations <= 2 * lanes,
                 "{:?}",
                 report.preparations
             );
@@ -2570,6 +2589,9 @@ mod occurrence_execution_tests {
             );
         }
         assert!(large_report.preparations.views <= small_report.preparations.views + 1);
+        assert!(
+            large_report.preparations.observations <= small_report.preparations.observations + 2
+        );
     }
     #[tokio::test]
     async fn simultaneous_studies_count_only_their_own_preparations() {
@@ -2824,19 +2846,27 @@ mod occurrence_execution_tests {
         }
         // Supply one fully prepared cohort to the same runtime adapter used by the
         // study scheduler, without making preparation readiness depend on timing.
-        let LaneCompletion::Executed { points, staged, .. } =
-            execute_lane(&package, members, &cancel).await
-        else {
+        let mut completed = execute_lane(&package, members, &cancel).await;
+        let LaneCompletion::Executed { points, staged, .. } = &mut completed else {
             panic!("expected completed occurrences");
         };
-        assert!(staged.is_none());
+        assert!(
+            staged.is_some(),
+            "the adapter returns the actual reusable native owner"
+        );
         assert_eq!(points.len(), 4);
-        for (index, point) in points.into_iter().enumerate() {
+        for (index, point) in points.iter().enumerate() {
             assert_eq!(point.index, index);
             assert!(matches!(point.start, StartProvenance::Fresh));
-            let run = point.result.unwrap();
-            assert_eq!(assert_pounce_occurrence(&definition, index, &run), 4);
+            let run = point.result.as_ref().unwrap();
+            assert_eq!(assert_pounce_occurrence(&definition, index, run), 4);
         }
+        completed.close().await.unwrap();
+        assert_eq!(
+            package.runtime.shared.math().test_admission_snapshot().2,
+            package.runtime.shared.budget().math.jobs,
+            "explicit completion close joins the returned native lane and releases its population"
+        );
     }
 
     #[tokio::test]

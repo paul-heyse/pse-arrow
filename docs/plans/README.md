@@ -4,6 +4,14 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan 42: Post-Plan41 simulation efficiency and diagnostics](42-post-plan41-simulation-efficiency-and-diagnostics.md)
+is complete. Its [Outcome](42-post-plan41-simulation-efficiency-and-diagnostics.md#outcome-recorded-after-implementation)
+records F01–F08/RC01–RC02 disposition, seven settled inquiries, selected assembled acceptance and
+repaired zero-finding scope-end checks. The highest-numbered coordinator and consumed companions
+remain retained as evidence. Plan39d records completed selected Plan39/38 final qualification, sharing applicable
+once-only case evidence and preserving original failures and repaired acceptance boundaries.
+Plan40e retains its separate broader diagnostics/profile/locality campaign.
+
 [Plan 40: Simulation performance diagnostics](40-simulation-performance-diagnostics.md)
 owns the adopted diagnostics review's F01–F06 and operator-accepted RC01. Its companions
 [40a](40a-operation-context-and-live-history.md),
@@ -18,17 +26,6 @@ the coordinator and packet Outcomes link commands, results and exclusions. The c
 companions remain needed by the active series. Remaining assembled qualification,
 scope-end checks and finding/document closeout stay with 40e. Other active plans retain
 their existing scope and status, and eliminated environment/provenance proof work is not revived.
-
-[Plan 39: Implementation friction and Codex effectiveness](39-implementation-friction-and-codex-effectiveness.md)
-owns the new review-driven corrections and remaining functional Plan 38 execution/disposition. The maintainer withdrew environment/provenance proof targets, including strict all-role capture and compiler/launcher/installer phase proof; these are eliminated, not deferred.
-Its [sequence](39-implementation-friction-and-codex-effectiveness.md#prerequisites-and-execution-sequence)
-places local preparation/rebinding, deployment and operational work first, then the complete
-[transferred qualification and cutover](39d-qualification-and-plan38-cutover.md).
-[39d's diagnostics-led simulation audit](39d-qualification-and-plan38-cutover.md#simulation-audit--2026-10-15)
-owns the current eleven-case outcomes and proposed production corrections; it does not close
-Plan39 or Plan40e. Plan 38a–f retain completed implementation/investigation outcomes; the inactive
-[Plan 38 coordinator](38-efficiency-and-solver-target.md) and [38g handoff](38g-qualification-and-cutover.md#turn-handoff--2026-10-14)
-preserve historical decisions and exact failed/scoped/not-run evidence. The owning Plan39 checkpoint records selected implementation; [39d's selected static Outcome](39d-qualification-and-plan38-cutover.md#selected-static-repair-outcome--2026-10-14) records the later authorized checker repairs. [39d’s current prerequisite assessment](39d-qualification-and-plan38-cutover.md#final-campaign-prerequisite-assessment--2026-10-14) owns the authorized functional remainder and withdrawn proof-scope disposition; this index does not establish acceptance.
 
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
 interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded
@@ -112,6 +109,16 @@ Plan 32 owns workspace content lifecycle work; Plan 28 retains its own scope.
 
 ## Latest completed plan
 
+
+[Plan39](39-implementation-friction-and-codex-effectiveness.md#outcome-recorded-after-implementation)
+is complete (2026-10-17), including all remaining inherited Plan38 scope.
+[39d's Outcome](39d-qualification-and-plan38-cutover.md#outcome-recorded-after-implementation)
+records composed native/managed/Python acceptance, both physical thousand-point variants,
+all eleven once-only simulations, scientific recovery, entered-pull interruption, parity and
+zero-finding final checks. Earlier failed/interrupted reports retain their boundaries. Completed
+companions and resolved reviews retire to Git history; current39/39d remain for live readers.
+Plan28/32/40 campaigns and formal proposed ADR statuses remain separate.
+
 [Plan 41: Simulation pipeline efficiency and effectiveness](41-simulation-pipeline-efficiency-and-effectiveness.md)
 records all fourteen resolved findings, eight settled opportunity routes, accepted RC01–RC04
 implementation boundaries and selected S01–S10 assembled acceptance. Its
@@ -119,7 +126,7 @@ implementation boundaries and selected S01–S10 assembled acceptance. Its
 owns initial failures, repaired evidence, full continuing Clippy, scope-end checks and exclusions.
 Enduring contracts live in the architecture and diagnostics guide. Completed companions,
 resolved review and inquiries retire to Git history; the highest-numbered coordinator remains.
-Older Plan39/40/28 campaigns keep their independent scope. ADR-0190/0191 remain proposed.
+Plan40/28 campaigns keep their independent scope. ADR-0190/0191 remain proposed.
 
 [Plan 37: SurrealDB lifecycle and integration target](37-surrealdb-lifecycle-and-integration.md)
 records all seven resolved findings, nine confirmed rule decisions, settled capability outcomes

@@ -1443,61 +1443,86 @@ impl ShootingProblem {
         initial: Option<&[f64]>,
         solver: &SolverProfile,
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
-        let adapters: Vec<&dyn native::execution::BackendExecution> = match self.route {
-            native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
-            native::routing::Route::Constant => vec![],
-        };
-        let projection = |profile: &SolverProfile| self.operation_profile(profile);
-        let mut source = self.callable_source(solver, initial)?;
-        source.profile_projection = Some(&projection);
-        let (mut report, trace) = crate::math::strategy::target::callable(
-            self.runtime.shared.math(),
-            source,
-            &scope,
-            |profile, admission| {
-                let profile = profile.unwrap_or(solver);
-                native::execution::scoped(
-                    &adapters,
-                    profile.controls.threads,
-                    self.runtime.native().stack_bytes(),
-                    || {
-                        self.solve_inner(
-                            run_id,
-                            scope.clone(),
-                            progress.clone(),
-                            initial,
-                            profile,
-                            admission,
-                        )
-                    },
-                )
-            },
-            |report| report.solve.as_ref(),
-            |report| {
-                report.solve.as_ref().map_or(
-                    pse_model::generated::enums::NumericalAttemptObservation::Converged,
-                    crate::math::strategy::observe_native,
-                )
-            },
-            |report, observed| {
-                let mut assessment = crate::math::strategy::target::original_assessment(
-                    self.original_completion(report).decision,
-                    report
-                        .validation_error
-                        .as_ref()
-                        .map(crate::math::strategy::target::assessment_failure),
-                    report
-                        .solve
-                        .as_ref()
-                        .and_then(crate::math::strategy::cause_native),
-                    observed,
-                );
-                assessment.retention.candidate = report.completion.decision.clone();
-                assessment
-            },
-        )?;
-        report.strategy = Some(trace);
-        Ok(report)
+        let operation = pse_diagnostics::observation::current().map(|parent| {
+            parent.child(
+                "shooting.execution",
+                pse_diagnostics::observation::Relationship::Nested,
+            )
+        });
+        let context = operation.as_ref().map(|operation| operation.context());
+        if let Some(context) = &context {
+            context.declare_summary("shooting responsibility");
+        }
+        let _entered = context.as_ref().map(|context| context.enter());
+        let result = (|| {
+            let adapters: Vec<&dyn native::execution::BackendExecution> = match self.route {
+                native::routing::Route::Native(backend) => {
+                    vec![native::execution::adapter(backend)]
+                }
+                native::routing::Route::Constant => vec![],
+            };
+            let projection = |profile: &SolverProfile| self.operation_profile(profile);
+            let mut source = self.callable_source(solver, initial)?;
+            source.profile_projection = Some(&projection);
+            let (mut report, trace) = crate::math::strategy::target::callable(
+                self.runtime.shared.math(),
+                source,
+                &scope,
+                |profile, admission| {
+                    let profile = profile.unwrap_or(solver);
+                    native::execution::scoped(
+                        &adapters,
+                        profile.controls.threads,
+                        self.runtime.native().stack_bytes(),
+                        || {
+                            self.solve_inner(
+                                run_id,
+                                scope.clone(),
+                                progress.clone(),
+                                initial,
+                                profile,
+                                admission,
+                            )
+                        },
+                    )
+                },
+                |report| report.solve.as_ref(),
+                |report| {
+                    report.solve.as_ref().map_or(
+                        pse_model::generated::enums::NumericalAttemptObservation::Converged,
+                        crate::math::strategy::observe_native,
+                    )
+                },
+                |report, observed| {
+                    let mut assessment = crate::math::strategy::target::original_assessment(
+                        self.original_completion(report).decision,
+                        report
+                            .validation_error
+                            .as_ref()
+                            .map(crate::math::strategy::target::assessment_failure),
+                        report
+                            .solve
+                            .as_ref()
+                            .and_then(crate::math::strategy::cause_native),
+                        observed,
+                    );
+                    assessment.retention.candidate = report.completion.decision.clone();
+                    assessment
+                },
+            )?;
+            report.strategy = Some(trace);
+            Ok(report)
+        })();
+        if let Some(operation) = operation {
+            operation.finish(match &result {
+                Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                Err(crate::math::MathRuntimeError::Cancelled) => {
+                    pse_diagnostics::observation::Outcome::Cancelled
+                }
+                Err(_) => pse_diagnostics::observation::Outcome::Failed,
+            });
+        }
+        result
     }
     fn solve_inner(
         self: &Arc<Self>,

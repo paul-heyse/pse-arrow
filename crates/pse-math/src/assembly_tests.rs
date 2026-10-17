@@ -621,7 +621,8 @@ fn mathematical_facts_are_independent_of_requested_artifacts() {
         &cancel,
     )
     .unwrap();
-    let bound = plan.presolve_facts(&values, 1000, &cancel).unwrap();
+    // This checks mathematical demand, not a small symbolic-construction cap.
+    let bound = plan.presolve_facts(&values, 10_000, &cancel).unwrap();
     let facts = crate::facts::ProblemFacts::from_plan(&plan, None, &bound, &cancel).unwrap();
     assert_eq!(facts.derivatives, DerivativeOrder::Second);
     assert_eq!(facts.prepared_derivatives, DerivativeOrder::First);
@@ -756,7 +757,20 @@ fn exhausted_factorable_projection_refuses_facts_and_preserves_original_evaluati
     ));
     let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![20., 0.]);
-    let complete = assembly.presolve_facts(&values, 1000, &cancel).unwrap();
+    let proof_work = 10_000;
+    let complete = assembly
+        .presolve_facts(&values, proof_work, &cancel)
+        .unwrap();
+    let consumed = proof_work - complete.proof_remaining;
+    assert!(consumed > 0);
+    assert!(assembly.presolve_facts(&values, consumed, &cancel).is_ok());
+    assert!(matches!(
+        assembly.presolve_facts(&values, consumed - 1, &cancel),
+        Err(crate::MathError::WorkLimit {
+            resource: "class proof construction",
+            ..
+        })
+    ));
     assert!(complete.complete.iter().all(|v| *v));
     assert_eq!(
         complete.affine[0].as_ref().unwrap().entries,
@@ -1092,12 +1106,15 @@ fn lexicographic_structure_projects_every_level() {
     );
     let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
     assert_eq!(worker.objective(&values).unwrap(), -4.0);
-    let coefficients = linear.coefficients(&values, 1000, &cancel).unwrap();
+    let proof_work = 10_000;
+    let coefficients = linear.coefficients(&values, proof_work, &cancel).unwrap();
     assert_eq!(coefficients.objective, vec![1.0, 1.0]);
     assert_eq!(coefficients.lexicographic, vec![(vec![2.0, -2.0], 0.0)]);
     // A later level must be linear to be a coefficient model.
     let quadratic = plan(structure(2, levels).unwrap());
-    let facts = quadratic.presolve_facts(&values, 1000, &cancel).unwrap();
+    let facts = quadratic
+        .presolve_facts(&values, proof_work, &cancel)
+        .unwrap();
     assert_eq!(facts.lexicographic_degree, None);
     assert!(matches!(
         facts.class_status,
@@ -1106,7 +1123,10 @@ fn lexicographic_structure_projects_every_level() {
         )
     ));
     assert!(!facts.coefficient_eligible());
-    assert!(quadratic.coefficients(&values, 1000, &cancel).is_err());
+    assert!(matches!(
+        quadratic.coefficients(&values, proof_work, &cancel),
+        Err(crate::MathError::Contract(_))
+    ));
 }
 
 #[test]

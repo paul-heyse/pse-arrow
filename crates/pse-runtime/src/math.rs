@@ -39,6 +39,8 @@ use pse_math::assembly::{CaseAssembly, CaseWorker};
 pub(crate) use staged::NativeSession;
 #[cfg(all(test, feature = "solver-ipopt", not(feature = "canonical-tests")))]
 pub(crate) use staged::observed_native_entry;
+#[cfg(all(test, feature = "solver-ipopt"))]
+pub(crate) use staged::observed_native_task_entry;
 pub(crate) use staged::{SessionDisposition, StepRetention};
 #[cfg(feature = "canonical-tests")]
 #[doc(hidden)]

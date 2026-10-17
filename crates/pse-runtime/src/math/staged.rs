@@ -28,6 +28,10 @@ use std::sync::{
 type NativeEntry = Arc<dyn Fn(&AtomicBool) + Send + Sync>;
 #[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
 tokio::task_local! { static NATIVE_ENTRY: NativeEntry; }
+#[cfg(all(test, feature = "solver-ipopt"))]
+type NativeTaskEntry = Arc<dyn Fn(&Arc<AtomicBool>) + Send + Sync>;
+#[cfg(all(test, feature = "solver-ipopt"))]
+tokio::task_local! { static NATIVE_TASK_ENTRY: NativeTaskEntry; }
 #[cfg(feature = "canonical-tests")]
 static RECEIVER_ENTRY: std::sync::OnceLock<NativeEntry> = std::sync::OnceLock::new();
 /// Install one qualified receiver observer before any scientific work is issued.
@@ -57,6 +61,16 @@ pub fn install_qualified_native_entry(
 )]
 pub async fn observed_native_entry<T>(observer: NativeEntry, work: impl Future<Output = T>) -> T {
     NATIVE_ENTRY.scope(observer, work).await
+}
+
+/// Retain actual original-task identity in native composition controls. Neutral
+/// reset shares that owner; a fresh occurrence on a reused thread has a new owner.
+#[cfg(all(test, feature = "solver-ipopt"))]
+pub(crate) async fn observed_native_task_entry<T>(
+    observer: NativeTaskEntry,
+    work: impl Future<Output = T>,
+) -> T {
+    NATIVE_TASK_ENTRY.scope(observer, work).await
 }
 
 struct AccuracySignal<T> {
@@ -1318,6 +1332,8 @@ impl NativeSession {
         let entry = NATIVE_ENTRY.try_with(Arc::clone).ok();
         #[cfg(feature = "canonical-tests")]
         let entry = entry.or_else(|| RECEIVER_ENTRY.get().cloned());
+        #[cfg(all(test, feature = "solver-ipopt"))]
+        let task_entry = NATIVE_TASK_ENTRY.try_with(Arc::clone).ok();
         let scope_owner = pse_columnar::AllocationLease::new(reservation.split(stacks));
         #[cfg(any(test, feature = "solver-kinsol"))]
         let lane = self.population.clone();
@@ -1351,6 +1367,10 @@ impl NativeSession {
                                 feature = "canonical-tests"
                             ))]
                             if let Some(entry) = entry {
+                                entry(&flag);
+                            }
+                            #[cfg(all(test, feature = "solver-ipopt"))]
+                            if let Some(entry) = task_entry {
                                 entry(&flag);
                             }
                             work(retained, &flag, &budget, &mut context)

@@ -1239,52 +1239,6 @@ status_profile = "finding"
 status_column = 2
 owner_column = 3
 
-[[scope_tables]]
-path = "docs/plans/39a-local-selection-and-receiver-rebinding.md"
-name = "packets-and-dependencies"
-heading = "Packets and dependencies"
-headers = [
-  "Packet",
-  "Prerequisite",
-  "Delivered boundary and verification",
-  "State",
-]
-kind = "packet"
-id_column = 0
-id_pattern = '^(A[0-9]+)\b'
-status_profile = "packet"
-status_column = 3
-
-[[scope_tables]]
-path = "docs/plans/39b-deployment-assurance-and-preparation.md"
-name = "execution-packets"
-heading = "Execution packets"
-headers = [
-  "Packet",
-  "Delivered behavior",
-  "State",
-]
-kind = "packet"
-id_column = 0
-id_pattern = '^(B[0-9]+)\b'
-status_profile = "packet"
-status_column = 2
-
-[[scope_tables]]
-path = "docs/plans/39c-operational-composition-and-retained-evidence.md"
-name = "packet-sequence-and-progress"
-heading = "Packet sequence and progress"
-headers = [
-  "Packet",
-  "Prerequisite",
-  "Delivered boundary and verification",
-  "State",
-]
-kind = "packet"
-id_column = 0
-id_pattern = '^(C[0-9]+)\b'
-status_profile = "packet"
-status_column = 3
 
 [[scope_tables]]
 path = "docs/plans/39d-qualification-and-plan38-cutover.md"
@@ -1414,6 +1368,70 @@ headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
 kind = "packet"
 id_column = 0
 id_pattern = '^(G[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+# Plan 42 owns new review dispositions; companions own native package progress.
+
+[[scope_tables]]
+path = "docs/plans/42-post-plan41-simulation-efficiency-and-diagnostics.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/42-post-plan41-simulation-efficiency-and-diagnostics.md"
+name = "coordination-packages"
+heading = "Coordination packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+|Q[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/42a-preparation-and-incremental-reuse.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/42b-result-publication-and-analysis.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/42c-responsibility-diagnostics-and-receiver-discovery.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
 status_profile = "packet"
 status_column = 3
 

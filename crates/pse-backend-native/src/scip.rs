@@ -3785,6 +3785,15 @@ pub(crate) mod testing {
         intent: SolveIntent,
         execution: &Execution,
     ) -> Result<(Status, u64, bool), ProblemError> {
+        raw_status_with(program, intent, execution, || {})
+    }
+    /// Arm a test action after successful setup, immediately before entering SCIP.
+    pub(crate) fn raw_status_with(
+        program: &FactorableProgram,
+        intent: SolveIntent,
+        execution: &Execution,
+        before_solve: impl FnOnce(),
+    ) -> Result<(Status, u64, bool), ProblemError> {
         let plan = crate::execution::factorable::plan(program, intent)
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
         let mut instance = Instance::new(execution, Modes::default())?;
@@ -3798,16 +3807,19 @@ pub(crate) mod testing {
             &crate::execution::Snapshot::observe(&crate::execution::LINKED),
         )?;
         export(&mut instance, &plan, &identity(program))?;
+        before_solve();
         native!("SCIPsolve", ffi::SCIPsolve(instance.ptr()))?;
         // SAFETY: a status query after `SCIPsolve` returned.
         let raw = unsafe { ffi::SCIPgetStatus(instance.ptr()) };
         let status = Status::from_raw(raw).ok_or_else(|| ProblemError::internal("status"))?;
         let watch = instance.observed();
-        Ok((
+        let observed = (
             status,
             watch.events.load(Ordering::Acquire),
             watch.interrupted.load(Ordering::Acquire),
-        ))
+        );
+        instance.shutdown()?;
+        Ok(observed)
     }
     /// Export and read back at each point, returning the worst deviation.
     pub(crate) fn readback_at(

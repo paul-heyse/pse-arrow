@@ -255,10 +255,9 @@ impl PhysicalLifetime {
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(outcome.map_err(Arc::new));
         round.changed.notify_waiters();
     }
-    /// Fixture ownership has established its final borrower and joined protected
-    /// releases. Seal all new caller admission before joining actual SDK terminal
+    /// Terminal operation ownership has excluded escaped callers and joined
+    /// protected releases. Seal new admission before joining actual SDK terminal
     /// work; admitted continuations retain their original authority while draining.
-    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
     pub(crate) async fn seal_and_wait_for_idle(
         &self,
         deadline: tokio::time::Instant,

@@ -159,7 +159,7 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
         config["endpoint"] = f"ws://127.0.0.1:{listener.getsockname()[1]}"
-        config["schema_interpretation"] = "pse.substrate.v5"
+        config["schema_interpretation"] = server.SUBSTRATE_INTERPRETATION
         publish()
 
         def withhold_handshake() -> None:
@@ -945,6 +945,27 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
     # dynamic TLS/loader concurrency, scientific output and historical retention.
 
 
+def _queued_server_bytes(pid: int) -> int:
+    # The caller holds the selected process by pidfd for a disposable fixture's
+    # sole server. Observe receipt on its actual established sockets, without
+    # reading or consuming another process's network data.
+    inodes: set[str] = set()
+    for descriptor in Path(f"/proc/{pid}/fd").iterdir():
+        try:
+            target = str(descriptor.readlink())
+        except FileNotFoundError:
+            continue
+        if target.startswith("socket:[") and target.endswith("]"):
+            inodes.add(target[8:-1])
+    queued = 0
+    for family in ("tcp", "tcp6"):
+        for line in Path(f"/proc/{pid}/net/{family}").read_text().splitlines()[1:]:
+            fields = line.split()
+            if fields[3] == "01" and fields[9] in inodes:
+                queued += int(fields[4].split(":")[1], 16)
+    return queued
+
+
 def _assert_owned_delayed_canonical_sigint(
     settings: pse.EngineSettings,
     *,
@@ -980,7 +1001,6 @@ def _assert_owned_delayed_canonical_sigint(
     runtime: pse.Runtime | None = None
     cleanup: pse.Runtime | None = None
     stream: pse.TableStream | None = None
-    read_bytes = 96 * 1024 * 1024
     reservation_baselines: dict[str, int] = {}
 
     def reserved(name: str) -> int:
@@ -990,26 +1010,6 @@ def _assert_owned_delayed_canonical_sigint(
             for consumer in runtime.resource_usage().top_consumers
             if consumer.name == name
         )
-
-    def queued_server_bytes() -> int:
-        # The selected process is held by pidfd and is this disposable fixture's
-        # sole server. Observe receipt on its actual established sockets, without
-        # reading or consuming another process's network data.
-        inodes: set[str] = set()
-        for descriptor in Path(f"/proc/{pid}/fd").iterdir():
-            try:
-                target = str(descriptor.readlink())
-            except FileNotFoundError:
-                continue
-            if target.startswith("socket:[") and target.endswith("]"):
-                inodes.add(target[8:-1])
-        queued = 0
-        for family in ("tcp", "tcp6"):
-            for line in Path(f"/proc/{pid}/net/{family}").read_text().splitlines()[1:]:
-                fields = line.split()
-                if fields[3] == "01" and fields[9] in inodes:
-                    queued += int(fields[4].split(":")[1], 16)
-        return queued
 
     def delayed_call(
         work: Callable[[], object],
@@ -1058,13 +1058,18 @@ def _assert_owned_delayed_canonical_sigint(
                         break
                     assert time.monotonic() < stop_deadline, "owned server did not stop"
                     time.sleep(0.005)
-                queued_before = queued_server_bytes()
+                queued_before = _queued_server_bytes(pid)
                 ready.set()
                 entry_deadline = time.monotonic() + 5
-                while (
-                    reserved(consumer) < before + read_bytes
-                    or queued_server_bytes() <= queued_before
-                ):
+                # The endpoint owns its finite response extent. Observe that actual
+                # grant with dispatch receipt instead of copying a historical budget.
+                while True:
+                    entered_reserved = reserved(consumer)
+                    if (
+                        entered_reserved > before
+                        and _queued_server_bytes(pid) > queued_before
+                    ):
+                        break
                     assert not returned.is_set(), (
                         "call returned before a real canonical RPC entry"
                     )
@@ -1084,7 +1089,7 @@ def _assert_owned_delayed_canonical_sigint(
                     assert discarded.is_set(), (
                         "caller-owned reader was not discarded before resume"
                     )
-                    assert reserved(consumer) >= before + read_bytes, (
+                    assert reserved(consumer) >= entered_reserved, (
                         "late dispatched response lost its actual grant "
                         "before the server resumed"
                     )
@@ -1104,28 +1109,33 @@ def _assert_owned_delayed_canonical_sigint(
 
         peer = threading.Thread(target=controller, name="canonical-signal-owner")
         peer.start()
+        interruption: KeyboardInterrupt | None = None
         try:
             assert ready.wait(6), "owned delay controller did not establish its state"
             if failures:
                 raise failures[0]
-            with pytest.raises(KeyboardInterrupt) as interrupted_call:
+            try:
                 work()
-            assert interrupted_call.value is original_error
-            assert interrupted_call.value.__cause__ is original_cause
-            # Traceback frames can themselves retain the Python stream wrapper.
-            # Dispose those observer aliases before asserting caller release.
-            original_error.__traceback__ = None
-            del interrupted_call
-            if after_interrupt is not None:
-                after_interrupt()
-                discarded.set()
+            except KeyboardInterrupt as error:
+                interruption = error
+            if interruption is not None:
+                assert interruption is original_error
+                assert interruption.__cause__ is original_cause
+                # Traceback frames can themselves retain the Python stream wrapper.
+                # Dispose those observer aliases before asserting caller release.
+                original_error.__traceback__ = None
+                if after_interrupt is not None:
+                    after_interrupt()
+                    discarded.set()
         finally:
             times["returned"] = time.monotonic()
             returned.set()
             peer.join(timeout=10)
             signal.signal(signal.SIGINT, original_handler)
         assert not peer.is_alive(), "owned delay controller did not drain"
-        assert not failures, failures
+        if failures:
+            raise failures[0]
+        assert interruption is not None, "entered canonical call ignored SIGINT"
         assert observed_signal.is_set()
         return times["returned"] - times["entered"]
 

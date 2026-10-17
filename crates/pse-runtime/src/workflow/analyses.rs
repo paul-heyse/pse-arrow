@@ -9,7 +9,7 @@ use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::{Dfs, Reversed},
 };
-use pse_columnar::{CancellationToken, MemoryConsumer};
+use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_operations::canonical_analyses::{
     ANALYSIS_EDGES, ANALYSIS_NODES, AnalysisEdge, AnalysisNode, analysis_key,
 };
@@ -60,6 +60,15 @@ fn target_kind(kind: pse_model::generated::enums::NumericalTarget) -> &'static s
 use pse_operations::canonical::MetadataResponse;
 use pse_operations::canonical_artifacts::{ArtifactLocator, ArtifactRead};
 type Graph = DiGraph<(String, String), (String, Option<ArtifactLocator>)>;
+/// Small phase product. The protected input is retained through the complete transfer,
+/// even after dispatch data has been discarded; copied provenance is not a read lease.
+#[derive(Debug)]
+struct ResultAnalysisSelection {
+    input: Arc<pse_operations::canonical_results::ResultRead>,
+    sources: Vec<pse_operations::canonical::Revision>,
+    revision: pse_operations::canonical::Revision,
+    kind: super::artifacts::ScientificArtifactKind,
+}
 // Four MiB transport, native/typed copies, a <=128 KiB header configuration
 // or <=64 bounded graph rows, and Arrow projection scratch. No IPC verifier.
 fn vertex(
@@ -924,6 +933,101 @@ impl Runtime {
         })
     }
 
+    /// Construct the protected selection once, before its caller polls it.
+    /// The borrowed grant and cancellation owner outlive this boxed state. Keeping
+    /// construction out of the polling frame avoids moving its concrete RPC state
+    /// through each surrounding ownership scope; the same read leases remain held.
+    #[inline(never)]
+    fn select_result_analysis<'a>(
+        &'a self,
+        run: &'a str,
+        attempt: &'a str,
+        owner: &'a MemoryReservation,
+        cancel: &'a CancellationToken,
+    ) -> futures_util::future::BoxFuture<'a, Result<ResultAnalysisSelection, WorkflowError>> {
+        Box::pin(async move {
+            let response = super::connected_results::response_owner(
+                self,
+                "canonical:result-analysis-selection-response",
+                MetadataResponse::Selection,
+            )?;
+            let input = Arc::new(
+                pse_operations::canonical::response_ownership_scope(
+                    response.clone(),
+                    self.canonical_store()?.read_results(run, attempt),
+                )
+                .await?,
+            );
+            let input_owner = Arc::new(super::connected_results::retain_protected_metadata(
+                &self.shared.pool(),
+                response,
+                input.retained_bytes()?,
+                |owner| input.retain_metadata_owner(owner),
+            )?);
+            input.retain_metadata_owner(input_owner.clone())?;
+            let response = super::connected_results::response_owner(
+                self,
+                "canonical:result-analysis-sources-response",
+                MetadataResponse::Selection,
+            )?;
+            let sources = pse_operations::canonical::response_ownership_scope(
+                Arc::new((input.clone(), input_owner.clone(), response)),
+                self.canonical_store()?.analysis_run_sources(run),
+            )
+            .await?;
+            let revision = sources
+                .iter()
+                .find(|source| source.key == input.run().revision)
+                .ok_or_else(|| contract("analysis primary result source absent"))?
+                .clone();
+            let mut dispatch = ResponseEvidence::default();
+            for name in ["runtime.scientific_contexts", "runtime.computation_runs"] {
+                let spec = self
+                    .registry()
+                    .relation(name)
+                    .ok_or_else(|| contract("response dispatch relation absent"))?;
+                let Some(set) = input
+                    .sets()
+                    .iter()
+                    .find(|set| set.name == spec.id.to_string())
+                else {
+                    continue;
+                };
+                let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
+                    .map_err(|error| contract(error.to_string()))?;
+                let snapshot = super::ResultSnapshot::capture(
+                    self,
+                    input.clone(),
+                    input_owner.clone(),
+                    spec.id,
+                    &set.key,
+                    schema,
+                    0,
+                    u64::MAX,
+                )
+                .await?;
+                for block in snapshot.blocks() {
+                    let batch = snapshot.read_block(block, cancel).await?;
+                    owner
+                        .try_grow(batch.batch().get_array_memory_size().saturating_mul(4))
+                        .map_err(pse_engine::EngineError::from)?;
+                    dispatch.push(name, &batch, "dispatch", block.ordinal)?;
+                }
+            }
+            let kind = super::artifacts::response_artifact_kind(
+                dispatch.contexts.iter().map(|item| &item.row),
+                dispatch.computations.iter().map(|item| &item.row),
+            )?;
+            drop(dispatch);
+            Ok(ResultAnalysisSelection {
+                input,
+                sources,
+                revision,
+                kind,
+            })
+        })
+    }
+
     /// Persist family-qualified response evidence and its exact provenance.
     /// Scalar derivatives require their admitted route and original validity;
     /// transient recordings retain their weaker sample/endpoint meaning. Graph
@@ -945,40 +1049,122 @@ impl Runtime {
                 owner
                     .try_grow(128 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
-                let response = super::connected_results::response_owner(
-                    self,
-                    "canonical:result-analysis-selection-response",
-                    MetadataResponse::Selection,
-                )?;
-                let input = Arc::new(
-                    pse_operations::canonical::response_ownership_scope(
-                        response.clone(),
-                        self.canonical_store()?.read_results(run, attempt),
-                    )
-                    .await?,
-                );
-                let input_owner = Arc::new(super::connected_results::retain_protected_metadata(
+                self.result_analysis_body(run, attempt, controls, &owner, &cancel)
+                    .await
+            })
+            .await
+    }
+
+    /// The activity scope owns this future through return or cancellation. Its
+    /// prepaid grant stays in the small enclosing future until this borrowed body
+    /// drops. The factory returns before polling, so concrete state construction
+    /// cannot remain live underneath nested transport and artifact polls.
+    #[inline(never)]
+    fn result_analysis_body<'a>(
+        &'a self,
+        run: &'a str,
+        attempt: &'a str,
+        controls: &'a AnalysisControls,
+        owner: &'a MemoryReservation,
+        cancel: &'a CancellationToken,
+    ) -> futures_util::future::BoxFuture<'a, Result<AnalysisHandle, WorkflowError>> {
+        Box::pin(async move {
+            let selection = self
+                .select_result_analysis(run, attempt, owner, cancel)
+                .await?;
+            let ResultAnalysisSelection {
+                input: protected_input,
+                sources,
+                revision,
+                kind,
+            } = selection;
+            let staging_owner = format!(
+                "analysis-staging:{}",
+                pse_operations::mint_id::<pse_model::generated::identities::RunId>()
+            );
+            let artifact = match self
+                .promote_scientific_artifact(
+                    run,
+                    attempt,
+                    kind,
+                    "audit",
+                    &staging_owner,
+                    cancel.clone(),
+                )
+                .await
+            {
+                Ok(artifact) => artifact,
+                Err(source) => {
+                    if let WorkflowError::Canonical(
+                        pse_operations::canonical::CanonicalError::ArtifactUnsettled {
+                            intent, ..
+                        },
+                    ) = &source
+                    {
+                        return Err(WorkflowError::ArtifactTransferUnsettled {
+                            analysis: None,
+                            artifact: intent.clone(),
+                            owner_kind: "audit".into(),
+                            owner: staging_owner,
+                            read: None,
+                            source: Box::new(source),
+                        });
+                    }
+                    return Err(source);
+                }
+            };
+            let transfer_error =
+                |source: WorkflowError, analysis: Option<String>, read: Option<String>| {
+                    WorkflowError::ArtifactTransferUnsettled {
+                        analysis,
+                        artifact: Box::new(artifact.header().clone()),
+                        owner_kind: "audit".into(),
+                        owner: staging_owner.clone(),
+                        read,
+                        source: Box::new(source),
+                    }
+                };
+            let response = super::connected_results::response_owner(
+                self,
+                "canonical:analysis-artifact-selection-response",
+                MetadataResponse::Selection,
+            )
+            .map_err(|source| transfer_error(source, None, None))?;
+            let artifact_read = pse_operations::canonical::response_ownership_scope(
+                response.clone(),
+                self.canonical_store()?
+                    .read_artifact(&artifact.header().key),
+            )
+            .await
+            .map_err(|source| transfer_error(source.into(), None, None))?;
+            let read_owner = Arc::new(
+                super::connected_results::retain_protected_metadata(
                     &self.shared.pool(),
                     response,
-                    input.retained_bytes()?,
-                    |owner| input.retain_metadata_owner(owner),
-                )?);
-                input.retain_metadata_owner(input_owner.clone())?;
-                let response = super::connected_results::response_owner(
-                    self,
-                    "canonical:result-analysis-sources-response",
-                    MetadataResponse::Selection,
-                )?;
-                let sources = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((input.clone(), input_owner.clone(), response)),
-                    self.canonical_store()?.analysis_run_sources(run),
+                    artifact_read.retained_bytes().map_err(|source| {
+                        transfer_error(
+                            source.into(),
+                            None,
+                            Some(artifact_read.read_key().to_owned()),
+                        )
+                    })?,
+                    |owner| artifact_read.retain_metadata_owner(owner),
                 )
-                .await?;
-                let revision = sources
-                    .iter()
-                    .find(|source| source.key == input.run().revision)
-                    .ok_or_else(|| contract("analysis primary result source absent"))?
-                    .clone();
+                .map_err(|source| {
+                    transfer_error(source, None, Some(artifact_read.read_key().to_owned()))
+                })?,
+            );
+            artifact_read
+                .retain_metadata_owner(read_owner.clone())
+                .map_err(|source| {
+                    transfer_error(
+                        source.into(),
+                        None,
+                        Some(artifact_read.read_key().to_owned()),
+                    )
+                })?;
+            let read_key = artifact_read.read_key().to_owned();
+            let graph_result: Result<AnalysisHandle, WorkflowError> = Box::pin(async {
                 let mut graph = Graph::new();
                 let mut nodes = BTreeMap::new();
                 let attempt_node = vertex(
@@ -996,224 +1182,95 @@ impl Runtime {
                     )?;
                     edge(&mut graph, node, attempt_node, "input_provenance", None)?;
                 }
-                let mut dispatch = ResponseEvidence::default();
-                for name in ["runtime.scientific_contexts", "runtime.computation_runs"] {
-                    let spec = self
-                        .registry()
-                        .relation(name)
-                        .ok_or_else(|| contract("response dispatch relation absent"))?;
-                    let Some(set) = input
-                        .sets()
-                        .iter()
-                        .find(|set| set.name == spec.id.to_string())
-                    else {
-                        continue;
-                    };
-                    let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
-                        .map_err(|error| contract(error.to_string()))?;
-                    let snapshot = super::ResultSnapshot::capture(
+                let mut evidence = ResponseEvidence::default();
+                for ordinal in 0..artifact.header().block_count {
+                    let response = super::connected_results::response_owner(
                         self,
-                        input.clone(),
-                        input_owner.clone(),
-                        spec.id,
-                        &set.key,
-                        schema,
-                        0,
-                        u64::MAX,
+                        "canonical:analysis-artifact-response",
+                        MetadataResponse::Header,
+                    )?;
+                    let payload = Arc::new(
+                        MemoryConsumer::new("canonical:analysis-artifact-payload")
+                            .register(&self.shared.pool()),
+                    );
+                    payload
+                        .try_grow(4 * super::result_files::MAX_FILE_BYTES)
+                        .map_err(pse_engine::EngineError::from)?;
+                    let block = pse_operations::canonical::response_ownership_scope(
+                        Arc::new((response, payload, read_owner.clone())),
+                        artifact_read.block(ordinal),
                     )
                     .await?;
-                    for block in snapshot.blocks() {
-                        let batch = snapshot.read_block(block, &cancel).await?;
-                        owner
-                            .try_grow(batch.batch().get_array_memory_size().saturating_mul(4))
-                            .map_err(pse_engine::EngineError::from)?;
-                        dispatch.push(name, &batch, "dispatch", block.ordinal)?;
-                    }
-                }
-                let kind = super::artifacts::response_artifact_kind(
-                    dispatch.contexts.iter().map(|item| &item.row),
-                    dispatch.computations.iter().map(|item| &item.row),
-                )?;
-                drop(dispatch);
-                let staging_owner = format!(
-                    "analysis-staging:{}",
-                    pse_operations::mint_id::<pse_model::generated::identities::RunId>()
-                );
-                let artifact = match self
-                    .promote_scientific_artifact(
-                        run,
-                        attempt,
-                        kind,
-                        "audit",
-                        &staging_owner,
-                        cancel.clone(),
-                    )
-                    .await
-                {
-                    Ok(artifact) => artifact,
-                    Err(source) => {
-                        if let WorkflowError::Canonical(
-                            pse_operations::canonical::CanonicalError::ArtifactUnsettled {
-                                intent,
-                                ..
-                            },
-                        ) = &source
-                        {
-                            return Err(WorkflowError::ArtifactTransferUnsettled {
-                                analysis: None,
-                                artifact: intent.clone(),
-                                owner_kind: "audit".into(),
-                                owner: staging_owner,
-                                read: None,
-                                source: Box::new(source),
-                            });
-                        }
-                        return Err(source);
-                    }
-                };
-                let transfer_error =
-                    |source: WorkflowError, analysis: Option<String>, read: Option<String>| {
-                        WorkflowError::ArtifactTransferUnsettled {
-                            analysis,
-                            artifact: Box::new(artifact.header().clone()),
-                            owner_kind: "audit".into(),
-                            owner: staging_owner.clone(),
-                            read,
-                            source: Box::new(source),
-                        }
-                    };
-                let response = super::connected_results::response_owner(
-                    self,
-                    "canonical:analysis-artifact-selection-response",
-                    MetadataResponse::Selection,
-                )
-                .map_err(|source| transfer_error(source, None, None))?;
-                let artifact_read = pse_operations::canonical::response_ownership_scope(
-                    response.clone(),
-                    self.canonical_store()?
-                        .read_artifact(&artifact.header().key),
-                )
-                .await
-                .map_err(|source| transfer_error(source.into(), None, None))?;
-                let read_owner = Arc::new(
-                    super::connected_results::retain_protected_metadata(
-                        &self.shared.pool(),
-                        response,
-                        artifact_read.retained_bytes().map_err(|source| {
-                            transfer_error(
-                                source.into(),
-                                None,
-                                Some(artifact_read.read_key().to_owned()),
-                            )
-                        })?,
-                        |owner| artifact_read.retain_metadata_owner(owner),
-                    )
-                    .map_err(|source| {
-                        transfer_error(source, None, Some(artifact_read.read_key().to_owned()))
-                    })?,
-                );
-                artifact_read
-                    .retain_metadata_owner(read_owner.clone())
-                    .map_err(|source| {
-                        transfer_error(
-                            source.into(),
-                            None,
-                            Some(artifact_read.read_key().to_owned()),
-                        )
-                    })?;
-                let read_key = artifact_read.read_key().to_owned();
-                let graph_result: Result<AnalysisHandle, WorkflowError> = async {
-                    let mut evidence = ResponseEvidence::default();
-                    for ordinal in 0..artifact.header().block_count {
-                        let response = super::connected_results::response_owner(
-                            self,
-                            "canonical:analysis-artifact-response",
-                            MetadataResponse::Header,
-                        )?;
-                        let payload = Arc::new(
-                            MemoryConsumer::new("canonical:analysis-artifact-payload")
-                                .register(&self.shared.pool()),
-                        );
-                        payload
-                            .try_grow(4 * super::result_files::MAX_FILE_BYTES)
-                            .map_err(pse_engine::EngineError::from)?;
-                        let block = pse_operations::canonical::response_ownership_scope(
-                            Arc::new((response, payload, read_owner.clone())),
-                            artifact_read.block(ordinal),
-                        )
-                        .await?;
-                        let relation_name = block.relation.as_str();
-                        let spec = self
-                            .registry()
-                            .relation(relation_name)
-                            .ok_or_else(|| contract("analysis copied relation unavailable"))?;
-                        let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
-                            .map_err(|error| contract(error.to_string()))?;
-                        let decoded = super::result_files::decode_result_file(
-                            block.payload.as_slice(),
-                            schema,
-                            usize::try_from(block.rows)
-                                .map_err(|_| contract("analysis row extent"))?,
-                        )?;
-                        let batch = pse_relations::columnar::FieldCheckedBatch::admit(
-                            self.registry(),
-                            spec,
-                            decoded,
-                            &self.validation_context(),
-                            &cancel,
-                        )
-                        .map_err(pse_engine::EngineError::from)?;
-                        owner
-                            .try_grow(batch.batch().get_array_memory_size().saturating_mul(4))
-                            .map_err(pse_engine::EngineError::from)?;
-                        evidence.push(relation_name, &batch, &artifact.header().key, ordinal)?;
-                    }
-                    project_response_evidence(&evidence, &mut graph, &mut nodes, attempt_node)?;
-                    let configuration = serde_json::to_vec(&(2_u8, controls, run, attempt))
+                    let relation_name = block.relation.as_str();
+                    let spec = self
+                        .registry()
+                        .relation(relation_name)
+                        .ok_or_else(|| contract("analysis copied relation unavailable"))?;
+                    let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
                         .map_err(|error| contract(error.to_string()))?;
-                    let handle = self
-                        .store_analysis_graph(
-                            &revision,
-                            &sources,
-                            std::slice::from_ref(&artifact_read),
-                            "result-sensitivity-provenance-reachability:v2",
-                            configuration,
-                            graph,
-                            nodes,
-                            controls,
-                        )
-                        .await?;
-                    Ok(handle)
+                    let decoded = super::result_files::decode_result_file(
+                        block.payload.as_slice(),
+                        schema,
+                        usize::try_from(block.rows).map_err(|_| contract("analysis row extent"))?,
+                    )?;
+                    let batch = pse_relations::columnar::FieldCheckedBatch::admit(
+                        self.registry(),
+                        spec,
+                        decoded,
+                        &self.validation_context(),
+                        cancel,
+                    )
+                    .map_err(pse_engine::EngineError::from)?;
+                    owner
+                        .try_grow(batch.batch().get_array_memory_size().saturating_mul(4))
+                        .map_err(pse_engine::EngineError::from)?;
+                    evidence.push(relation_name, &batch, &artifact.header().key, ordinal)?;
                 }
-                .await;
-                let handle = graph_result.map_err(|source| {
-                    let analysis = match &source {
-                        WorkflowError::Canonical(
-                            pse_operations::canonical::CanonicalError::AnalysisUnsettled {
-                                intent,
-                                ..
-                            },
-                        ) => Some(intent.key.clone()),
-                        _ => None,
-                    };
-                    transfer_error(source, analysis, Some(read_key.clone()))
-                })?;
-                self.canonical_store()?
-                    .release_artifact_intent(artifact.header(), "audit", &staging_owner)
-                    .await
-                    .map_err(|source| {
-                        transfer_error(
-                            source.into(),
-                            Some(handle.key().to_owned()),
-                            Some(read_key.clone()),
-                        )
-                    })?;
-                artifact_read.release().await.map_err(|source| {
-                    transfer_error(source.into(), Some(handle.key().to_owned()), Some(read_key))
-                })?;
+                project_response_evidence(&evidence, &mut graph, &mut nodes, attempt_node)?;
+                let configuration = serde_json::to_vec(&(2_u8, controls, run, attempt))
+                    .map_err(|error| contract(error.to_string()))?;
+                let handle = self
+                    .store_analysis_graph(
+                        &revision,
+                        &sources,
+                        std::slice::from_ref(&artifact_read),
+                        "result-sensitivity-provenance-reachability:v2",
+                        configuration,
+                        graph,
+                        nodes,
+                        controls,
+                    )
+                    .await?;
                 Ok(handle)
             })
-            .await
+            .await;
+            let handle = graph_result.map_err(|source| {
+                let analysis = match &source {
+                    WorkflowError::Canonical(
+                        pse_operations::canonical::CanonicalError::AnalysisUnsettled {
+                            intent, ..
+                        },
+                    ) => Some(intent.key.clone()),
+                    _ => None,
+                };
+                transfer_error(source, analysis, Some(read_key.clone()))
+            })?;
+            self.canonical_store()?
+                .release_artifact_intent(artifact.header(), "audit", &staging_owner)
+                .await
+                .map_err(|source| {
+                    transfer_error(
+                        source.into(),
+                        Some(handle.key().to_owned()),
+                        Some(read_key.clone()),
+                    )
+                })?;
+            artifact_read.release().await.map_err(|source| {
+                transfer_error(source.into(), Some(handle.key().to_owned()), Some(read_key))
+            })?;
+            drop(protected_input);
+            Ok(handle)
+        })
     }
 }
 impl ModelingSolvePreparation {
@@ -1698,9 +1755,26 @@ mod analysis_bounds_unit {
         assert!(vertex(&mut graph, &mut nodes, "v:0".into(), "variable").is_ok());
         assert!(vertex(&mut graph, &mut nodes, "extra".into(), "variable").is_err());
         let root = nodes["v:0"];
-        for _ in 0..ANALYSIS_EDGES {
-            edge(&mut graph, root, root, "incidence", None).unwrap();
+        let evidence = |row| ArtifactLocator {
+            artifact: "cap-fixture".into(),
+            block: 0,
+            row: Some(row),
+            field: Some("value".into()),
+        };
+        for ordinal in 0..ANALYSIS_EDGES {
+            edge(
+                &mut graph,
+                root,
+                root,
+                "incidence",
+                Some(evidence(ordinal as u64)),
+            )
+            .unwrap();
         }
+        assert_eq!(graph.edge_count(), ANALYSIS_EDGES);
+        // An exact duplicate remains valid at the cap, while distinct scientific
+        // row evidence must consume its own membership slot.
+        assert!(edge(&mut graph, root, root, "incidence", Some(evidence(0))).is_ok());
         assert_eq!(graph.edge_count(), ANALYSIS_EDGES);
         assert!(edge(&mut graph, root, root, "incidence", None).is_err());
         let controls = AnalysisControls {

@@ -61,8 +61,8 @@ fn source_index(
             row.declaration_id,
             parsed_fields(runtime, row, fields.get(&row.declaration_id))?,
         );
-        index.scopes.insert(row.declaration_id);
-        index.imports.insert(row.declaration_id);
+        index.complete_scope(row.declaration_id);
+        index.complete_imports(row.declaration_id);
     }
     index.requests.clear();
     Ok(index)

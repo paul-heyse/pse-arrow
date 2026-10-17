@@ -1123,20 +1123,7 @@ async fn declared(
     limits: Limits,
     cancel: &CancelSource,
 ) -> Result<super::DeclaredExecution, WorkflowError> {
-    let execution = package
-        .declared_execution(
-            case.case,
-            compiler,
-            case.settings.clone().profile()?,
-            Default::default(),
-            limits,
-            cancel,
-        )
-        .await?;
-    validate_declared(case.case, case.route, &execution)?;
-    #[cfg(test)]
-    let _ = DECLARED_ADMISSION_OBSERVER.try_with(|observer| observer());
-    Ok(execution)
+    declared_paths(package, case, compiler, limits, cancel, Vec::new()).await
 }
 fn validate_declared(
     case: DeclarationId,
@@ -1161,19 +1148,20 @@ async fn declared_paths(
     cancel: &CancelSource,
     paths: Vec<String>,
 ) -> Result<super::DeclaredExecution, WorkflowError> {
-    let mut execution = declared(package, case, compiler, limits, cancel).await?;
-    execution.analysis.bindings.demand.extend(paths);
-    execution.analysis.bindings.demand.sort();
-    execution.analysis.bindings.demand.dedup();
-    execution.model = package
-        .prepare(
-            execution.analysis.root,
-            execution.analysis.instance,
-            execution.analysis.bindings.clone(),
-            execution.analysis.limits,
+    let execution = package
+        .declared_execution_with_demand(
+            case.case,
+            compiler,
+            case.settings.clone().profile()?,
+            Default::default(),
+            limits,
+            paths,
             cancel,
         )
         .await?;
+    validate_declared(case.case, case.route, &execution)?;
+    #[cfg(test)]
+    let _ = DECLARED_ADMISSION_OBSERVER.try_with(|observer| observer());
     Ok(execution)
 }
 fn refusal(
@@ -1275,6 +1263,77 @@ impl StudyPreparationLane {
 #[cfg(test)]
 mod study_operation_unit {
     use super::*;
+
+    #[tokio::test]
+    async fn declared_paths_admits_one_complete_product_before_observing_admission() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let rows = pse_authoring::language::parse(
+            "package p {def D {var x:Scalar; eq e:x==1;} test sampled fixture {dof 0; route steady; procedure solve;} {child root:D=D();}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "sampled")
+            .unwrap()
+            .declaration_id;
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let cancel = CancelSource::new();
+        let selected = CaseOperation {
+            case: root,
+            ..case()
+        };
+        let observed = Arc::new(AtomicUsize::new(0));
+        let observer = observed.clone();
+        let before = runtime.native().preparation_effects();
+        let mut execution = DECLARED_ADMISSION_OBSERVER
+            .scope(
+                Box::new(move || {
+                    observer.fetch_add(1, Ordering::Relaxed);
+                }),
+                declared_paths(
+                    &package,
+                    &selected,
+                    crate::workflow::tests::compiler_profile(),
+                    Limits::default(),
+                    &cancel,
+                    vec!["root.x".into()],
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(observed.load(Ordering::Relaxed), 1);
+        let effects = runtime.native().preparation_effects().since(before);
+        assert_eq!(
+            effects.frontiers, 1,
+            "path demand belongs to the first admission"
+        );
+        assert_eq!(effects.completions, 1, "no post-proof specialization");
+        let x = execution.model.compiled().model.paths["root.x"];
+        execution.analysis.case.values.insert("root.x".into(), 4.);
+        let prepared = package
+            .prepare_declared_diagnostics(&execution, &cancel)
+            .await
+            .unwrap();
+        assert_eq!(prepared.model.values.scalars[&x], 4.);
+        assert_eq!(
+            prepared.model.model.compiled().model.allocation_identity(),
+            execution.model.compiled().model.allocation_identity()
+        );
+        execution
+            .analysis
+            .case
+            .values
+            .insert("root.absent".into(), 5.);
+        assert!(
+            package
+                .prepare_declared_diagnostics(&execution, &cancel)
+                .await
+                .is_err()
+        );
+    }
 
     fn operation(operation: OperationRequest) -> StudyOperation {
         StudyOperation {

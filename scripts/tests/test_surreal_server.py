@@ -28,7 +28,7 @@ from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Mapping
     from typing import TextIO
 
 
@@ -5965,6 +5965,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         source.mkdir()
         (source / "input").write_text("external authority")
         events: list[str] = []
+        frozen = [{"files": {}, "context": "x" * 2048} for _ in range(49)]
 
         def rotate(
             _state: Path,
@@ -5987,14 +5988,27 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             events.append("accounts")
 
         def initialize(
-            _arguments: list[str], **options: object
-        ) -> subprocess.CompletedProcess[str]:
+            _arguments: list[str], environment: dict[str, str], **options: object
+        ) -> int:
             config = server.config_for(self.state)
             self.assertFalse(config["accepting_writes"])
             self.assertEqual(config["admission"], "validation_required")
-            environment = options["env"]
-            self.assertIsInstance(environment, dict)
+            self.assertLess((self.state / "config.json").stat().st_size, 64 * 1024)
+            pending = server.object_mapping(config["derived_rebuild_pending"])
+            self.assertEqual(
+                server.maintenance_payloads(self.state, pending)["payload_inventory"],
+                frozen,
+            )
+            self.assertGreater(
+                server.integer(
+                    server.object_mapping(pending["payload_retirement"])["bytes"]
+                ),
+                64 * 1024,
+            )
             self.assertNotIn("PSE_PRESERVED_INPUTS", environment)
+            self.assertEqual(options["stdout"], subprocess.DEVNULL)
+            self.assertEqual(options["stderr"], subprocess.DEVNULL)
+            self.assertNotIn("deadline", options)
             self.assertTrue((self.state / "lifecycle-owner.json").exists())
             self.assertEqual(
                 environment["PSE_CANONICAL_INITIALIZER"],
@@ -6005,7 +6019,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 server.read_json(self.state / "lifecycle-owner.json"),
             )
             events.append("initialize")
-            return subprocess.CompletedProcess([], 0)
+            return 0
 
         def discard(
             _state: Path,
@@ -6023,7 +6037,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             events.append("dispose")
 
         with (
-            patch.object(server, "freeze_payloads", return_value=[]),
+            patch.object(server, "freeze_payloads", return_value=frozen),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -6037,7 +6051,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             patch.object(
                 server, "stop", side_effect=lambda *_args: events.append("stop")
             ),
-            patch.object(server.subprocess, "run", side_effect=initialize),
+            patch.object(server, "run_file_effect", side_effect=initialize),
             patch.object(
                 server,
                 "validate_interpretation",
@@ -6057,6 +6071,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertEqual(config["admission"], "quiesced")
         self.assertEqual(config["interpretation"], server.SUBSTRATE_INTERPRETATION)
         self.assertEqual((source / "input").read_text(), "external authority")
+        self.assertEqual(list(self.state.glob(".maintenance-payloads-*.json")), [])
 
     def test_rebuild_current_marker_failure_retains_old_database(
         self,
@@ -6077,9 +6092,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             patch.object(server, "start"),
             patch.object(server, "stop") as stop,
             patch.object(
-                server.subprocess,
-                "run",
-                return_value=subprocess.CompletedProcess([], 0),
+                server,
+                "run_file_effect",
+                return_value=0,
             ),
             patch.object(
                 server,
@@ -6124,9 +6139,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             patch.object(server, "start"),
             patch.object(server, "stop") as stop,
             patch.object(
-                server.subprocess,
-                "run",
-                return_value=subprocess.CompletedProcess([], 1),
+                server,
+                "run_file_effect",
+                return_value=1,
             ),
             patch.object(server, "validate_interpretation") as validate,
             patch.object(server, "discard_database") as discard,
@@ -6269,7 +6284,10 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 "",
             )
 
-        with patch.object(server, "maintenance_sql", side_effect=sql):
+        with (
+            patch.object(server, "maintenance_sql", side_effect=sql),
+            server.lifecycle_reservation(self.state),
+        ):
             for _retry in range(2):
                 server.rehome_restored_payloads(self.state, selected, {})
         self.assertTrue(
@@ -6862,6 +6880,123 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             after if phase in {"initializing", "validated", "disposing"} else before,
         )
         return config, before, after
+
+    def test_maintenance_payload_evidence_survives_target_remint_and_publish_failure(
+        self,
+    ) -> None:
+        config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
+        payloads: dict[str, object] = {
+            "payload_inventory": [{"files": {}, "context": "x" * 2048}] * 49,
+            "payload_targets": [],
+            "retired_payloads": [],
+        }
+        with server.lifecycle_reservation(self.state):
+            server.write_maintenance_payloads(self.state, config, payloads)
+            pending = server.object_mapping(config["derived_rebuild_pending"])
+            first = self.state / str(
+                server.object_mapping(pending["payload_retirement"])["path"]
+            )
+            self.assertGreater(first.stat().st_size, 64 * 1024)
+            self.assertLess((self.state / "config.json").stat().st_size, 64 * 1024)
+            selected = server.fresh_database_identity(config)
+            selected["derived_rebuild_pending"] = {
+                **pending,
+                "initializer": {"nonce": "replacement-owner"},
+                "target_namespace": selected["namespace"],
+                "target_database": selected["database"],
+            }
+            server.write_maintenance_payloads(self.state, selected, payloads)
+            self.assertFalse(first.exists())
+            pending = server.object_mapping(selected["derived_rebuild_pending"])
+            self.assertEqual(server.maintenance_payloads(self.state, pending), payloads)
+            second = self.state / str(
+                server.object_mapping(pending["payload_retirement"])["path"]
+            )
+            write = server.write_json
+
+            def fail_config(path: Path, value: Mapping[str, object]) -> None:
+                if path == self.state / "config.json":
+                    raise OSError("config publication interrupted")
+                write(path, value)
+
+            with (
+                patch.object(server, "write_json", side_effect=fail_config),
+                self.assertRaisesRegex(OSError, "publication interrupted"),
+            ):
+                server.write_maintenance_payloads(self.state, selected, payloads)
+            current = server.object_mapping(
+                server.config_for(self.state)["derived_rebuild_pending"]
+            )
+            self.assertTrue(second.exists())
+            self.assertEqual(server.maintenance_payloads(self.state, current), payloads)
+            orphans = set(self.state.glob(".maintenance-payloads-*.json")) - {second}
+            self.assertEqual(len(orphans), 1)
+            # Continue from the durable pointer, not the failed in-memory publication.
+            selected = server.config_for(self.state)
+            server.write_maintenance_payloads(self.state, selected, payloads)
+            pending = server.object_mapping(selected["derived_rebuild_pending"])
+            final = self.state / str(
+                server.object_mapping(pending["payload_retirement"])["path"]
+            )
+            self.assertFalse(second.exists())
+            with self.assertRaisesRegex(server.SupervisorError, "remains referenced"):
+                server.retire_maintenance_payloads(self.state, pending)
+            for changed in ({"sha256": "different"}, {"bytes": 1}):
+                altered = {
+                    **pending,
+                    "payload_retirement": {
+                        **server.object_mapping(pending["payload_retirement"]),
+                        **changed,
+                    },
+                }
+                server.write_json(
+                    self.state / "config.json",
+                    {**selected, "derived_rebuild_pending": altered},
+                )
+                with self.assertRaisesRegex(
+                    server.SupervisorError, "remains referenced"
+                ):
+                    server.retire_maintenance_payloads(self.state, pending)
+                self.assertTrue(final.exists())
+            selected.pop("derived_rebuild_pending")
+            server.write_json(self.state / "config.json", selected)
+            server.retire_maintenance_payloads(self.state, pending)
+            self.assertFalse(final.exists())
+            self.assertTrue(all(path.exists() for path in orphans))
+
+    def test_maintenance_payload_evidence_refuses_changed_source_bytes_and_links(
+        self,
+    ) -> None:
+        config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
+        payloads: dict[str, object] = {
+            "payload_inventory": [],
+            "payload_targets": [],
+            "retired_payloads": [],
+        }
+        with server.lifecycle_reservation(self.state):
+            server.write_maintenance_payloads(self.state, config, payloads)
+        pending = server.object_mapping(config["derived_rebuild_pending"])
+        reference = server.object_mapping(pending["payload_retirement"])
+        path = self.state / str(reference["path"])
+        raw = path.read_bytes()
+        with self.assertRaisesRegex(server.SupervisorError, "source differs"):
+            server.maintenance_payloads(
+                self.state, {**pending, "database": "different-source"}
+            )
+        path.write_bytes(raw + b" ")
+        with (
+            patch.object(server, "database_present") as present,
+            self.assertRaisesRegex(server.SupervisorError, "evidence changed"),
+        ):
+            server.cleanup_retired_payloads(self.state, config, {})
+        present.assert_not_called()
+        path.unlink()
+        other = self.state / "unowned-payload-record.json"
+        server.write_json(other, {"retained": True})
+        path.symlink_to(other)
+        with self.assertRaises(OSError):
+            server.maintenance_payloads(self.state, pending)
+        self.assertTrue(other.exists())
 
     def test_maintenance_listener_reuses_live_owner_and_drains_before_release(
         self,
@@ -7756,6 +7891,8 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 server.object_mapping(target["derived_rebuild_pending"])["phase"],
                 "copy",
             )
+            # Native copy/start may refresh configuration, replacing nested owners.
+            target.update(server.config_for(_state))
             events.append("copy")
 
         with (
@@ -7795,6 +7932,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         recovered = server.config_for(self.state)
         self.assertFalse(recovered.get("derived_rebuild_pending"))
         self.assertEqual(recovered["admission"], "validation_required")
+        self.assertEqual(list(self.state.glob(".maintenance-payloads-*.json")), [])
 
     def test_restore_account_recovery_never_reimports_acknowledged_copy(self) -> None:
         _config, _before, after = self.maintenance_fixture(

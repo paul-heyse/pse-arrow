@@ -53,6 +53,13 @@ fn conflict(error: surrealdb::Error) {
         "{error}"
     );
 }
+fn thrown(error: CanonicalError, message: &str) {
+    let CanonicalError::Driver(error) = error else {
+        panic!("expected native domain refusal, got {error}");
+    };
+    assert!(error.is_thrown(), "{error}");
+    assert!(error.message().ends_with(message), "{error}");
+}
 fn expiry() -> i64 {
     i64::try_from(
         std::time::SystemTime::now()
@@ -1111,12 +1118,45 @@ async fn exact_result_pin_creation_retirement_both_orders() {
 }
 
 #[tokio::test]
-async fn exact_dispatched_result_renewal_and_expired_reader_retirement_both_orders() {
+async fn exact_dispatched_pre_ticket_renewal_and_expired_admission_retirement_both_orders() {
     for renewal_first in [false, true] {
         let (store, options, revision) = fixture().await;
         let attempt = finish(&store, &revision, "target").await;
-        let read = store.read_results("target", &attempt).await.unwrap();
-        let pin = read.protected_selection();
+        let manifest = store
+            .canonical_attempt(&attempt)
+            .await
+            .unwrap()
+            .unwrap()
+            .closed_manifest
+            .unwrap();
+        let control_deadline = original_deadline(crate::canonical::REQUEST_TIMEOUT);
+        // read_results and read_completion commit this source-only admission
+        // before admitting their strong manifest ticket. No public reader exists yet.
+        let pin = store
+            .protect(revision.clone(), Duration::from_secs(5))
+            .await
+            .unwrap();
+        bounded_query(
+            store
+                .db
+                .query(format!(
+                    "{}\n{}\nCOMMIT;",
+                    crate::canonical::PROTECTED_BEGIN,
+                    crate::canonical_results::RESULT_ADMISSION
+                ))
+                .bind(("problem", revision.problem.clone()))
+                .bind(("revision", revision.key.clone()))
+                .bind((
+                    "sequence",
+                    canonical_codec::encode_uint(revision.sequence).unwrap(),
+                ))
+                .bind(("protection", pin.key().to_owned()))
+                .bind(("run", "target"))
+                .bind(("attempt", attempt.clone()))
+                .bind(("manifest", manifest)),
+        )
+        .await
+        .unwrap();
         let renewal = held(&options).await;
         renewal
             .query(format!(
@@ -1140,7 +1180,20 @@ async fn exact_dispatched_result_renewal_and_expired_reader_retirement_both_orde
             .unwrap()
             .check()
             .unwrap();
-        tokio::time::sleep(Duration::from_millis(2100)).await;
+        // Observe the exact source deadline instead of assuming the public
+        // reader's lifetime or treating an open manifest ticket as expired.
+        within_clock(control_deadline, async {
+        loop {
+            let mut clock = bounded_query(store.db.query("RETURN {now:time::micros(),expiry:type::record('canonical_protections',$key).expires_at};")
+                .bind(("key", pin.key().to_owned()))).await.unwrap();
+            let mut clock = clock.take::<Option<Object>>(0).unwrap().unwrap();
+            let now = canonical_codec::decode_int(canonical_codec::required(&mut clock, "now").unwrap()).unwrap();
+            let expiry = canonical_codec::decode_int(canonical_codec::required(&mut clock, "expiry").unwrap()).unwrap();
+            if now >= expiry { break; }
+            tokio::time::sleep(Duration::from_micros((expiry - now).unsigned_abs().min(250_000))).await;
+        }
+        Ok(())
+        }).await.unwrap();
         let retirement = held(&options).await;
         retirement
             .query("RETURN fn::pse_retention_v1::forget_run($expiry,'target');")
@@ -1152,18 +1205,26 @@ async fn exact_dispatched_result_renewal_and_expired_reader_retirement_both_orde
         if renewal_first {
             renewal.commit().await.unwrap();
             conflict(retirement.commit().await.unwrap_err());
-            assert!(store.forget_run_results("target").await.is_err());
+            thrown(
+                store.forget_run_results("target").await.unwrap_err(),
+                "run results have protected readers",
+            );
         } else {
             retirement.commit().await.unwrap();
             conflict(renewal.commit().await.unwrap_err());
-            assert!(
-                store
-                    .result_file_batch_descriptors(&read, &read.sets()[0].key, &[0])
-                    .await
-                    .is_err()
-            );
+            // The same protected descriptor query used by the reader must now
+            // reject this retired pre-ticket admission before exposing any row.
+            let error = bounded_query(store.db.metadata_query(crate::canonical::MetadataResponse::Page,
+                format!("{}\nRETURN SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64; COMMIT;", crate::canonical::PROTECTED_BEGIN))
+                .bind(("problem", revision.problem.clone()))
+                .bind(("revision", revision.key.clone()))
+                .bind(("sequence", canonical_codec::encode_uint(revision.sequence).unwrap()))
+                .bind(("protection", pin.key().to_owned()))
+                .bind(("set", crate::canonical_execution::result_set_key(&attempt, "values")))
+                .bind(("selected", vec![canonical_codec::encode_uint(0).unwrap()]))).await.unwrap_err();
+            thrown(error, "immutable selection protection expired");
         }
-        drop(read);
+        store.release(&pin).await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
 }

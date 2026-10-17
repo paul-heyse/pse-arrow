@@ -217,8 +217,8 @@ impl SourceRevision {
                         row.0.declaration_id,
                         parsed_fields(runtime, &row.0, row.1.as_ref())?,
                     );
-                    index.scopes.insert(row.0.declaration_id);
-                    index.imports.insert(row.0.declaration_id);
+                    index.complete_scope(row.0.declaration_id);
+                    index.complete_imports(row.0.declaration_id);
                     index.insert(row)?;
                 }
             }
@@ -587,8 +587,8 @@ pub(super) async fn persist(
             row.declaration_id,
             parsed_fields(runtime, row, documents.field_spans.get(&row.declaration_id))?,
         );
-        index.scopes.insert(row.declaration_id);
-        index.imports.insert(row.declaration_id);
+        index.complete_scope(row.declaration_id);
+        index.complete_imports(row.declaration_id);
     }
     index.requests.clear();
     let mut edits = Vec::with_capacity(rows.len() + sources.len() + fits.fits.len() + 1);
@@ -948,17 +948,19 @@ struct SourceIndex {
     parsed_fields:
         BTreeMap<DeclarationId, Arc<pse_modeling::expression::occurrences::ParsedFields>>,
     children: BTreeMap<DeclarationId, Vec<DeclarationId>>,
-    named_children: BTreeMap<(DeclarationId, String), Vec<DeclarationId>>,
+    named_children: BTreeMap<DeclarationId, BTreeMap<String, Vec<DeclarationId>>>,
     named_roots: BTreeMap<String, Vec<DeclarationId>>,
     guards: BTreeMap<DeclarationId, Vec<DeclarationId>>,
-    imported_names: BTreeMap<(DeclarationId, String), Vec<String>>,
-    names: BTreeSet<(Option<DeclarationId>, String)>,
+    imported_names: BTreeMap<DeclarationId, BTreeMap<String, Vec<String>>>,
+    names: BTreeMap<Option<DeclarationId>, BTreeSet<String>>,
     imports: BTreeSet<DeclarationId>,
     scopes: BTreeSet<DeclarationId>,
     requests: BTreeSet<Request>,
     new_rows: BTreeSet<DeclarationId>,
     pending_references: BTreeMap<DeclarationId, selected_source::DeclarationReferences>,
-    probing: BTreeSet<(DeclarationId, String)>,
+    probing: BTreeMap<DeclarationId, BTreeSet<String>>,
+    member_memo: BTreeMap<DeclarationId, BTreeMap<String, Lookup>>,
+    bases: BTreeMap<DeclarationId, Arc<[String]>>,
     roots_complete: bool,
     versions: BTreeMap<String, String>,
     record_sources: BTreeMap<DeclarationId, DeclarationId>,
@@ -971,6 +973,36 @@ struct LocalSelection {
     dependencies: LocalSourcePremises,
 }
 impl SourceIndex {
+    fn invalidate_members(&mut self) {
+        self.member_memo.clear();
+    }
+    #[cfg(test)]
+    fn complete_roots(&mut self) {
+        if !self.roots_complete {
+            self.roots_complete = true;
+            self.invalidate_members();
+        }
+    }
+    fn complete_scope(&mut self, owner: DeclarationId) {
+        if self.scopes.insert(owner) {
+            self.invalidate_members();
+        }
+    }
+    fn complete_imports(&mut self, owner: DeclarationId) {
+        if self.imports.insert(owner) {
+            self.invalidate_members();
+        }
+    }
+    fn complete_name(&mut self, parent: Option<DeclarationId>, name: String) {
+        if self.names.entry(parent).or_default().insert(name) {
+            self.invalidate_members();
+        }
+    }
+    fn has_name(&self, parent: Option<DeclarationId>, name: &str) -> bool {
+        self.names
+            .get(&parent)
+            .is_some_and(|names| names.contains(name))
+    }
     fn insert(&mut self, (row, fields): SourcePayload) -> Result<(), WorkflowError> {
         let id = row.declaration_id;
         if let Some(previous) = self.rows.get(&id) {
@@ -982,10 +1014,16 @@ impl SourceIndex {
                 ))
             };
         }
+        self.invalidate_members();
+        if let Some(scope) = &row.value.scope {
+            self.bases.insert(id, scope.bases.clone().into());
+        }
         if let Some(parent) = row.parent_id {
             self.children.entry(parent).or_default().push(id);
             self.named_children
-                .entry((parent, row.name.clone()))
+                .entry(parent)
+                .or_default()
+                .entry(row.name.clone())
                 .or_default()
                 .push(id);
             if row.value.kind == Kind::When {
@@ -993,7 +1031,9 @@ impl SourceIndex {
             }
             if let Some(import) = &row.value.import {
                 self.imported_names
-                    .entry((parent, import.alias.as_deref().unwrap_or(&row.name).into()))
+                    .entry(parent)
+                    .or_default()
+                    .entry(import.alias.as_deref().unwrap_or(&row.name).into())
                     .or_default()
                     .push(row.name.clone());
             }
@@ -1035,7 +1075,10 @@ impl SourceIndex {
             pending.extend(row.parent_id);
             pending.extend(
                 match row.parent_id {
-                    Some(parent) => self.named_children.get(&(parent, row.name.clone())),
+                    Some(parent) => self
+                        .named_children
+                        .get(&parent)
+                        .and_then(|names| names.get(row.name.as_str())),
                     None => self.named_roots.get(&row.name),
                 }
                 .into_iter()
@@ -1238,7 +1281,7 @@ impl SourceIndex {
         }
     }
     fn needs_name(&self, parent: Option<DeclarationId>, name: &str) -> bool {
-        !self.names.contains(&(parent, name.into()))
+        !self.has_name(parent, name)
             && !parent.is_some_and(|parent| self.scopes.contains(&parent))
             && !(parent.is_none() && self.roots_complete)
     }
@@ -1279,12 +1322,20 @@ impl SourceIndex {
         let mut ready = true;
         found.extend(
             self.named_children
-                .get(&(owner, name.into()))
+                .get(&owner)
+                .and_then(|names| names.get(name))
                 .into_iter()
                 .flatten()
                 .copied(),
         );
-        for child in self.guards.get(&owner).cloned().unwrap_or_default() {
+        let mut position = 0;
+        while let Some(child) = self
+            .guards
+            .get(&owner)
+            .and_then(|ids| ids.get(position))
+            .copied()
+        {
+            position += 1;
             if !self.scopes.contains(&child) {
                 self.requests.insert(Request::Members(child));
                 ready = false;
@@ -1307,31 +1358,27 @@ impl SourceIndex {
             return Lookup::Pending;
         }
         if row.value.kind == Kind::Package
-            && !self.names.contains(&(Some(owner), name.into()))
+            && !self.has_name(Some(owner), name)
             && !self.scopes.contains(&owner)
         {
             self.requests
                 .insert(Request::Name(Some(owner), name.into()));
             return Lookup::Pending;
         }
-        let bases = row
-            .value
-            .scope
-            .as_ref()
-            .map(|scope| scope.bases.clone())
-            .unwrap_or_default();
-        let own = self
+        if let Some(own) = self
             .named_children
-            .get(&(owner, name.into()))
-            .cloned()
-            .unwrap_or_default();
-        if !own.is_empty() {
-            return Lookup::Found(own);
+            .get(&owner)
+            .and_then(|names| names.get(name))
+            && !own.is_empty()
+        {
+            return Lookup::Found(own.clone());
         }
+        // Shared immutable names avoid copying inherited spellings during recursion.
+        let bases = self.bases.get(&owner).cloned().unwrap_or_default();
         let mut found = BTreeSet::new();
         let mut ready = self.guarded(owner, name, &mut found);
-        for base in bases {
-            match self.resolve_name(owner, &base) {
+        for base in bases.iter() {
+            match self.resolve_name(owner, base) {
                 Lookup::Found(bases) => {
                     for base in bases {
                         match self.member(base, name) {
@@ -1411,19 +1458,19 @@ impl LexicalLookup for SourceIndex {
         }
         let imports = self
             .imported_names
-            .get(&(owner, name.into()))
-            .cloned()
-            .unwrap_or_default();
+            .get(&owner)
+            .and_then(|names| names.get(name))
+            .map_or(&[][..], Vec::as_slice);
         if imports.is_empty() {
             return Lookup::Absent;
         }
         let mut found = Vec::new();
         for import in imports {
-            if !self.roots_complete && !self.names.contains(&(None, import.clone())) {
-                self.requests.insert(Request::Name(None, import));
+            if !self.roots_complete && !self.has_name(None, import) {
+                self.requests.insert(Request::Name(None, import.clone()));
                 return Lookup::Pending;
             }
-            let candidates = self.named_roots.get(&import).map_or(&[][..], Vec::as_slice);
+            let candidates = self.named_roots.get(import).map_or(&[][..], Vec::as_slice);
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count(
                     "modeling.import_candidates",
@@ -1440,12 +1487,44 @@ impl LexicalLookup for SourceIndex {
         }
     }
     fn member(&mut self, owner: DeclarationId, name: &str) -> Lookup {
-        let key = (owner, name.into());
-        if !self.probing.insert(key.clone()) {
+        let root = self.probing.is_empty();
+        if root
+            && let Some(result) = self
+                .member_memo
+                .get(&owner)
+                .and_then(|names| names.get(name))
+        {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("modeling.member_memo_hits", "lookups", 1);
+            }
+            return result.clone();
+        }
+        if self
+            .probing
+            .get(&owner)
+            .is_some_and(|names| names.contains(name))
+        {
             return Lookup::Absent;
         }
+        self.probing.entry(owner).or_default().insert(name.into());
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("modeling.member_expansions", "lookups", 1);
+        }
         let result = self.member_candidates(owner, name);
-        self.probing.remove(&key);
+        if let Some(names) = self.probing.get_mut(&owner) {
+            names.remove(name);
+            if names.is_empty() {
+                self.probing.remove(&owner);
+            }
+        }
+        // A recursive result (even positive) can depend on the active cut. Pending
+        // is an acquisition obligation, never a completed negative observation.
+        if root && result != Lookup::Pending {
+            self.member_memo
+                .entry(owner)
+                .or_default()
+                .insert(name.into(), result.clone());
+        }
         result
     }
 }
@@ -1676,8 +1755,11 @@ impl ModelingPackage {
             .into_iter()
             .filter(|row| selected.contains(&row.declaration_id))
             .collect::<Vec<_>>();
-        if rows.len() != selected.len() {
-            return Err(contract("selected declaration absent"));
+        if let Some(missing) = selected
+            .iter()
+            .find(|id| !rows.iter().any(|row| row.declaration_id == **id))
+        {
+            return Err(contract(format!("selected declaration absent: {missing}")));
         }
         Ok(super::OwnedDeclarations {
             rows,
@@ -1778,6 +1860,7 @@ impl ModelingPackage {
                 let producer_deadline = producer_deadline?;
                 let worker_service = service.clone();
                 let workspace = service.compiler_lane(lineage, inputs)?;
+                let pending_workspace = workspace.clone();
                 let admitted = service
                     .compiler_job(
                         workspace,
@@ -1802,7 +1885,11 @@ impl ModelingPackage {
                             )
                         },
                     )
-                    .await
+                    .await;
+                if admitted.is_err() {
+                    service.discard_uninitialized_compiler_lane(&pending_workspace);
+                }
+                let admitted = admitted
                     .map_err(crate::math::MathRuntimeError::preparation_producer_failure)?;
                 Ok(Arc::new(admitted))
             })
@@ -1994,14 +2081,14 @@ impl ModelingPackage {
                     Request::Name(parent, name) if index.needs_name(parent, &name) => {
                         let objects = premises
                             .inventory(source, LocalInventory::Name(scope(parent), name.clone()));
-                        index.names.insert((parent, name));
+                        index.complete_name(parent, name);
                         objects
                     }
                     Request::Members(owner) => {
                         let objects =
                             premises.inventory(source, LocalInventory::Scope(logical(owner)));
-                        index.scopes.insert(owner);
-                        index.imports.insert(owner);
+                        index.complete_scope(owner);
+                        index.complete_imports(owner);
                         objects
                     }
                     Request::Imports(owner)
@@ -2025,7 +2112,7 @@ impl ModelingPackage {
                                 LocalInventory::Kind(Some(logical(owner)), ENGINEERING_RULE.into()),
                             ));
                         }
-                        index.imports.insert(owner);
+                        index.complete_imports(owner);
                         objects
                     }
                     _ => Vec::new(),
@@ -2602,8 +2689,8 @@ impl Runtime {
                     source.0.declaration_id,
                     parsed_fields(self, &source.0, source.1.as_ref())?,
                 );
-                index.scopes.insert(source.0.declaration_id);
-                index.imports.insert(source.0.declaration_id);
+                index.complete_scope(source.0.declaration_id);
+                index.complete_imports(source.0.declaration_id);
                 index.insert(source)?;
             }
         }
@@ -2747,11 +2834,14 @@ mod tests {
         ] {
             index.insert((row, None)).unwrap();
         }
-        index.imports.insert(owner_id);
-        index.roots_complete = true;
+        index.complete_imports(owner_id);
+        index.complete_roots();
         index.imported_names.insert(
-            (owner_id, "picked".into()),
-            vec!["first".into(), "second".into(), "first".into()],
+            owner_id,
+            BTreeMap::from([(
+                "picked".into(),
+                vec!["first".into(), "second".into(), "first".into()],
+            )]),
         );
         let id = |byte| DeclarationId::from(SemanticId::from_bytes([byte; 16]));
         assert_eq!(
@@ -2769,10 +2859,12 @@ mod tests {
         index.insert((owner, None)).unwrap();
         index
             .imported_names
-            .insert((owner_id, "picked".into()), vec!["first".into()]);
+            .entry(owner_id)
+            .or_default()
+            .insert("picked".into(), vec!["first".into()]);
         assert_eq!(index.imported(owner_id, "picked"), Lookup::Pending);
         assert!(index.requests.contains(&Request::Imports(owner_id)));
-        index.imports.insert(owner_id);
+        index.complete_imports(owner_id);
         index.requests.clear();
         let first = indexed_root("first", 3);
         let first_id = first.declaration_id;
@@ -2783,16 +2875,18 @@ mod tests {
                 .requests
                 .contains(&Request::Name(None, "first".into()))
         );
-        index.names.insert((None, "first".into()));
+        index.complete_name(None, "first".into());
         assert_eq!(
             index.imported(owner_id, "picked"),
             Lookup::Found(vec![first_id])
         );
         index
             .imported_names
-            .insert((owner_id, "empty".into()), vec!["absent".into()]);
+            .entry(owner_id)
+            .or_default()
+            .insert("empty".into(), vec!["absent".into()]);
         assert_eq!(index.imported(owner_id, "empty"), Lookup::Pending);
-        index.names.insert((None, "absent".into()));
+        index.complete_name(None, "absent".into());
         assert_eq!(index.imported(owner_id, "empty"), Lookup::Absent);
     }
 
@@ -2815,11 +2909,13 @@ mod tests {
         let target = indexed_root("target", 201);
         let target_id = target.declaration_id;
         index.insert((target, None)).unwrap();
-        index.imports.insert(owner_id);
-        index.roots_complete = true;
+        index.complete_imports(owner_id);
+        index.complete_roots();
         index
             .imported_names
-            .insert((owner_id, "picked".into()), vec!["target".into()]);
+            .entry(owner_id)
+            .or_default()
+            .insert("picked".into(), vec!["target".into()]);
         assert_eq!(
             index.imported(owner_id, "picked"),
             Lookup::Found(vec![target_id])
@@ -2859,7 +2955,7 @@ mod tests {
         for row in rows {
             index.insert((row, None)).unwrap();
         }
-        index.scopes.insert(root);
+        index.complete_scope(root);
         index.requests.clear();
         assert_eq!(
             index.resolve_name(equation, "x"),
@@ -2873,6 +2969,164 @@ mod tests {
             index.requests.is_empty(),
             "complete inventories and grammar leaves need no negative re-probe"
         );
+    }
+
+    fn complete_index(source: &str) -> SourceIndex {
+        let mut index = SourceIndex::default();
+        for row in parse(source) {
+            let id = row.declaration_id;
+            index.insert((row, None)).unwrap();
+            index.complete_scope(id);
+        }
+        index.complete_roots();
+        index.requests.clear();
+        index
+    }
+    #[test]
+    fn root_member_memo_preserves_cycles_diamonds_shadowing_and_frontier_changes() {
+        let mut index = complete_index(
+            "package p { interface A extends B,C {} interface B extends A {} interface C {let x:Scalar=1;} interface D extends A,C {} interface Own extends D {let x:Scalar=2;} }",
+        );
+        let id = |index: &SourceIndex, name: &str| {
+            index
+                .rows
+                .values()
+                .find(|r| r.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let (a, b, c, d, own) = (
+            id(&index, "A"),
+            id(&index, "B"),
+            id(&index, "C"),
+            id(&index, "D"),
+            id(&index, "Own"),
+        );
+        let member = |index: &SourceIndex, parent| {
+            index
+                .rows
+                .values()
+                .find(|r| r.name == "x" && r.parent_id == Some(parent))
+                .unwrap()
+                .declaration_id
+        };
+        let inherited = member(&index, c);
+        let direct = member(&index, own);
+        assert_eq!(index.member(a, "x"), Lookup::Found(vec![inherited]));
+        assert!(
+            !index.member_memo.contains_key(&b),
+            "nested cycle-cut absence is never retained"
+        );
+        assert_eq!(index.member(b, "x"), Lookup::Found(vec![inherited]));
+        assert_eq!(
+            index.member(d, "x"),
+            Lookup::Found(vec![inherited]),
+            "diamond deduplicates representatives"
+        );
+        assert_eq!(index.member(own, "x"), Lookup::Found(vec![direct]));
+        for owner in [a, b, c, d, own] {
+            let expected = index.member(owner, "x");
+            index.invalidate_members();
+            assert_eq!(index.member(owner, "x"), expected);
+        }
+        assert_eq!(index.member(c, "missing"), Lookup::Absent);
+        let mut added = index.rows[&direct].clone();
+        added.declaration_id = DeclarationId::from(SemanticId::from_bytes([223; 16]));
+        added.parent_id = Some(c);
+        added.name = "missing".into();
+        let added_id = added.declaration_id;
+        index.insert((added, None)).unwrap();
+        assert!(index.member_memo.is_empty());
+        assert_eq!(index.member(c, "missing"), Lookup::Found(vec![added_id]));
+    }
+    #[test]
+    fn root_member_memo_never_consults_from_nested_context_or_retains_pending() {
+        let mut index =
+            complete_index("package p { interface A extends B {} interface B {let x:Scalar=1;} }");
+        let a = index
+            .rows
+            .values()
+            .find(|r| r.name == "A")
+            .unwrap()
+            .declaration_id;
+        let b = index
+            .rows
+            .values()
+            .find(|r| r.name == "B")
+            .unwrap()
+            .declaration_id;
+        let x = index
+            .rows
+            .values()
+            .find(|r| r.name == "x")
+            .unwrap()
+            .declaration_id;
+        index.scopes.remove(&b);
+        index.invalidate_members();
+        assert_eq!(index.member(a, "x"), Lookup::Pending);
+        assert!(index.member_memo.is_empty());
+        index.complete_scope(b);
+        assert_eq!(index.member(a, "x"), Lookup::Found(vec![x]));
+        // A deliberately conflicting sentinel makes any nested consultation visible.
+        index
+            .member_memo
+            .entry(b)
+            .or_default()
+            .insert("x".into(), Lookup::Absent);
+        index.invalidate_members();
+        index
+            .member_memo
+            .entry(b)
+            .or_default()
+            .insert("x".into(), Lookup::Absent);
+        assert_eq!(index.member(a, "x"), Lookup::Found(vec![x]));
+        assert_eq!(index.member(a, "missing"), Lookup::Absent);
+        index.complete_name(Some(a), "new".into());
+        assert!(index.member_memo.is_empty());
+        index.member(a, "missing");
+        index.imports.remove(&a);
+        index.complete_imports(a);
+        assert!(index.member_memo.is_empty());
+    }
+    #[test]
+    fn root_member_memo_avoids_repeated_inherited_expansion_with_guard_representatives() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let mut index = complete_index(
+            "package p { interface A {when true {let x:Scalar=1;} when false {let x:Scalar=2;}} interface B extends A {} }",
+        );
+        let b = index
+            .rows
+            .values()
+            .find(|r| r.name == "B")
+            .unwrap()
+            .declaration_id;
+        let mut expected = index
+            .rows
+            .values()
+            .filter(|r| r.name == "x")
+            .map(|r| r.declaration_id)
+            .collect::<Vec<_>>();
+        expected.sort();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("source.member.memo");
+        let context = operation.context();
+        let _scope = context.enter();
+        assert_eq!(index.member(b, "x"), Lookup::Found(expected.clone()));
+        assert_eq!(index.member(b, "x"), Lookup::Found(expected));
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let count = |name| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == name)
+                .unwrap()
+                .cumulative
+                .clone()
+        };
+        assert_eq!(count("modeling.member_memo_hits"), Value::Count(1));
+        assert!(matches!(count("modeling.member_expansions"), Value::Count(n) if n >= 2));
     }
 
     #[tokio::test]

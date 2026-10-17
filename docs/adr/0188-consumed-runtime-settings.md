@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-04, AP-07, DP-16]
 blueprint: [§14.3, §18.8, §21]
-review: docs/design_review/reviews/design_review_consumed-runtime-settings_2026-10-14.md
+review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_consumed-runtime-settings_2026-10-14.md
 evidence: Tested
 supersedes: []
 superseded-by: null
@@ -84,7 +84,7 @@ accidental incompatibility behavior; the maintainer expressly selected both chan
 
 ## More information
 
-[Plan38f](../plans/38f-boundaries-build-test-and-development.md) owns disposition and execution.
+[Plan38f](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38f-boundaries-build-test-and-development.md) owns disposition and execution.
 [The Python boundary](../authoritative_design/sections/workflows-and-results.md#section-21)
 owns process-runtime sharing; the focused review records the source-backed correction to the
 historical claim that BLAKE3 `update_rayon` was gated by this flag.

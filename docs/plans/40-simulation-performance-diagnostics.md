@@ -21,7 +21,7 @@ This series adopts all six findings and the supporting investigations from the [
 
 **Interface-checked baseline:** `a08f5fa091db1840fc95b46c4d4f849ce4c5de62` plus the inspected concurrent working tree. **Proposed:** the target and execution packages in this series. Authoring these documents establishes neither product implementation nor newly Tested/Measured simulator behavior. The source review keeps its original conclusions and evidence. This coordinator alone owns adopted finding dispositions; companions own their native package status.
 
-Plan 40 is distinct from active Plans 28, 32 and 39. It neither supersedes their remaining scope nor closes their campaigns. Environment and provenance proof work has been permanently eliminated by the operator; this series must not recreate it as a prerequisite, deferred task or future investigation. Actual operation identity, scientific/model/result lineage and owned-resource drain remain necessary operating contracts. Exact comparative performance benchmarking, repeated cold samples, a hard latency SLA and environmental equivalence are outside scope.
+Plan 40 is distinct from active Plans 28/32 and the completed selected Plan39 qualification. It neither supersedes their owners nor transfers their acceptance. Environment and provenance proof work has been permanently eliminated by the operator; this series must not recreate it as a prerequisite, deferred task or future investigation. Actual operation identity, scientific/model/result lineage and owned-resource drain remain necessary operating contracts. Exact comparative performance benchmarking, repeated cold samples, a hard latency SLA and environmental equivalence are outside scope.
 
 ## Resulting system and responsibilities
 
@@ -125,6 +125,13 @@ No default daemon, mandatory remote collector, global subscriber takeover, model
 Completion requires all required functional packages integrated, bounded decisions resolved or explicitly changed by the operator, useful live/recent inspection across supported contexts and placements, the qualified deeper-profile route, sound local affine proof, migrated consumers and removed replacements. It also requires scoped assembled acceptance, enduring contracts/guides updated through their proper routes and current finding dispositions reconciled. Creating these plans is only the authoring step.
 
 ## Current checkpoint
+
+The post-Plan41 [diagnostic corrective handoff](40e-qualification-and-closeout.md#post-plan41-corrective-prerequisites)
+routes new responsibility-summary retention/export and exact receiver association through
+completed [Plan42c](42c-responsibility-diagnostics-and-receiver-discovery.md). Plan42 owns the
+new review's F06/F07 and accepted RC01/RC02; this series retains its original findings and
+40e qualification. Those corrections are prerequisites for the affected summary/managed
+acceptance, not completion of E0–E6 or a reason to repeat unaffected profile/locality work.
 
 The operator authorized the remaining 40c C0–C5 and 40d D0–D4 design changes after the
 accepted 40a/40b foundation and minimum Rust read slice. Execution includes supporting

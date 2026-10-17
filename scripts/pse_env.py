@@ -29,8 +29,10 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypedDict
@@ -771,24 +773,13 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
                 child_env = dict(env)
                 child_env.pop(operation.MARKER, None)
                 child_env["PSE_NATIVE_HANDOFF"] = str(handoff)
-                try:
-                    child_status = operation.run(
-                        list(command),
-                        child_env,
-                        observation=observation,
-                        foreground=handoff,
-                    )
-                    observed_status = observation.get("child_status")
-                    if observed_status is not None and (
-                        not isinstance(observed_status, int)
-                        or isinstance(observed_status, bool)
-                    ):
-                        raise BoundaryError("Native child status is not an integer")
-                    raw_status = observed_status
-                    return child_status
-                finally:
-                    child = operation._record(handoff)  # noqa: SLF001 -- authenticated foreground handoff protocol
+                normal_deadline: float | None = None
+
+                def selected_cancellation_clock(
+                    child: Mapping[str, object],
+                ) -> float | None:
                     clocks = [
+                        cancellation_deadline,
                         child.get("cancel_deadline"),
                         observation.get("cancellation_deadline"),
                         operation._record(observer.path).get("cancel_deadline"),  # noqa: SLF001 -- exact enclosing cancellation owner
@@ -805,29 +796,109 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
                             raise BoundaryError(
                                 "Invalid original cancellation clock"
                             ) from error
-                    cancellation_deadline = (
-                        min(selected_clocks) if selected_clocks else None
+                    return min(selected_clocks) if selected_clocks else None
+
+                def settle_scope() -> None:
+                    nonlocal normal_deadline, cancellation_deadline
+                    # Reaping can precede the manager's terminal transition.
+                    # Join while run still owns its non-raising signal handlers,
+                    # under one cleanup clock and any earlier cancellation clock.
+                    normal_deadline = time.monotonic() + 10
+                    previous_mask: set[int | signal.Signals] | None = None
+                    published_deadline: float | None = None
+                    try:
+                        while True:
+                            child = operation._record(handoff)  # noqa: SLF001 -- authenticated foreground handoff protocol
+                            cancellation_deadline = selected_cancellation_clock(child)
+                            deadline = (
+                                min(normal_deadline, cancellation_deadline)
+                                if cancellation_deadline is not None
+                                else normal_deadline
+                            )
+                            if cancellation_deadline is not None:
+                                if previous_mask is None:
+                                    previous_mask = signal.pthread_sigmask(
+                                        signal.SIG_BLOCK,
+                                        {signal.SIGINT, signal.SIGTERM},
+                                    )
+                                if published_deadline != cancellation_deadline:
+                                    with operation.record_lock(
+                                        observer.path, deadline=deadline
+                                    ):
+                                        registered = operation._record(observer.path)  # noqa: SLF001 -- publish the original clock on its authenticated owner
+                                        if (
+                                            registered.get("cancel_deadline")
+                                            is not None
+                                        ):
+                                            cancellation_deadline = min(
+                                                cancellation_deadline,
+                                                operation.original_cancellation_clock(
+                                                    registered["cancel_deadline"]
+                                                ),
+                                            )
+                                            deadline = min(
+                                                deadline, cancellation_deadline
+                                            )
+                                        registered["cancel_deadline"] = (
+                                            cancellation_deadline
+                                        )
+                                        operation.write_json(observer.path, registered)
+                                    published_deadline = cancellation_deadline
+                            completion = operation.drained(child, deadline=deadline)
+                            if completion.complete:
+                                return
+                            if (
+                                cancellation_deadline is None
+                                and completion.phase
+                                in {
+                                    operation.DrainPhase.POPULATED,
+                                    operation.DrainPhase.ACTIVE,
+                                }
+                                and observation.get("cancellation_deadline") is not None
+                            ):
+                                # A first signal arrived during observation. Read
+                                # its original clock before the next join step.
+                                continue
+                            if completion.phase not in {
+                                operation.DrainPhase.POPULATED,
+                                operation.DrainPhase.ACTIVE,
+                            }:
+                                raise BoundaryError(
+                                    completion.diagnostic()
+                                    + "; native placement remains charged"
+                                )
+                            time.sleep(
+                                min(0.02, operation.admission_remaining(deadline))
+                            )
+                    finally:
+                        if previous_mask is not None:
+                            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+                try:
+                    child_status = operation.run(
+                        list(command),
+                        child_env,
+                        observation=observation,
+                        foreground=handoff,
+                        on_reaped=settle_scope,
+                        cleanup_clock=lambda: normal_deadline,
                     )
-                    if cancellation_deadline is not None:
-                        with operation.record_lock(
-                            observer.path, deadline=cancellation_deadline
-                        ):
-                            registered = operation._record(observer.path)  # noqa: SLF001 -- publish the original clock on its authenticated owner
-                            registered["cancel_deadline"] = cancellation_deadline
-                            operation.write_json(observer.path, registered)
-                    completion = operation.drained(
-                        child,
-                        **(
-                            {"deadline": cancellation_deadline}
-                            if cancellation_deadline is not None
-                            else {}
-                        ),
+                    return child_status
+                finally:
+                    observed_status = observation.get("child_status")
+                    if observed_status is None:
+                        raw_status = None
+                    elif isinstance(observed_status, int) and not isinstance(
+                        observed_status, bool
+                    ):
+                        raw_status = observed_status
+                    else:
+                        raise BoundaryError("Native child status is not an integer")
+                    # run restores its handlers after on_reaped returns. Preserve
+                    # a first signal received in that final handoff for release.
+                    cancellation_deadline = selected_cancellation_clock(
+                        operation._record(handoff)  # noqa: SLF001 -- final exact foreground cancellation handoff
                     )
-                    if not completion.complete:
-                        raise BoundaryError(
-                            completion.diagnostic()
-                            + "; native placement remains charged"
-                        )
         raw_status = subprocess.call(command, env=env)
         child_status = 128 - raw_status if raw_status < 0 else raw_status
         return child_status

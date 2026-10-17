@@ -216,8 +216,17 @@ impl PreparedModeling {
         profile: Profile,
         context: &ContentHash,
     ) -> pse_ids::roles::PreparedViewHash {
+        self.view_key_for_structure_key(structure.key(), order, profile, context)
+    }
+    fn view_key_for_structure_key(
+        &self,
+        structure: ContentHash,
+        order: DerivativeOrder,
+        profile: Profile,
+        context: &ContentHash,
+    ) -> pse_ids::roles::PreparedViewHash {
         let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingViewV5);
-        h.hash(&structure.key())
+        h.hash(&structure)
             .hash(context)
             .u64(order as u64)
             .u64(self.admitted.bodies.len() as u64);
@@ -265,7 +274,20 @@ impl PreparedModeling {
     /// Source occurrences of the admitted bodies, by definition. They are provenance, not
     /// structure, so a reused view takes them from the current model.
     pub fn occurrences(&self) -> BTreeMap<SemanticId, Vec<Occurrence>> {
-        self.model
+        self.occurrences.as_ref().clone()
+    }
+    /// Shared exact current source mapping, independent of the model/revision owner.
+    pub fn shared_occurrences(&self) -> Arc<BTreeMap<SemanticId, Vec<Occurrence>>> {
+        self.occurrences.clone()
+    }
+    /// Exact field/document/range identity; mathematics never substitutes for attribution.
+    pub fn occurrence_identity(&self) -> Arc<ModelingOccurrenceIdentity> {
+        self.occurrence_identity.clone()
+    }
+    pub(super) fn collect_occurrences(
+        model: &SpecializedModel,
+    ) -> BTreeMap<SemanticId, Vec<Occurrence>> {
+        model
             .source_occurrences()
             .iter()
             .fold(BTreeMap::new(), |mut map, (key, value)| {
@@ -334,7 +356,7 @@ impl PreparedModeling {
             facts: bound.facts,
             structure: structural_plan(SemanticId::NIL, &plan, cancel)?.into(),
             artifacts: artifact_requests(&plan, profile, environment).into(),
-            occurrences: Arc::new(self.occurrences()).into(),
+            occurrences: self.shared_occurrences().into(),
             coefficients: bound.coefficients.map(Into::into),
             plan,
             derivation: derivation.into(),
@@ -477,6 +499,33 @@ impl PreparedCase {
         Ok(rebound)
     }
 }
+/// Exact attribution inputs, including document identity independently of span offsets.
+pub type ModelingOccurrenceIdentity =
+    Vec<(DeclarationId, String, usize, pse_authoring::SourceSpan)>;
+/// Internal precursor identity, distinct from the complete public scientific view key.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BoundLookupKey {
+    base: pse_ids::roles::PreparedViewHash,
+    equations: Arc<BTreeSet<SemanticId>>,
+    variables: Vec<(SemanticId, bool, Option<u64>, Option<u64>)>,
+}
+impl BoundLookupKey {
+    /// Retained descriptor extent; no complete model or revision owner is retained.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.equations.len() * 64
+            + self.variables.capacity() * size_of::<(SemanticId, bool, Option<u64>, Option<u64>)>()
+    }
+}
+/// Fresh state/domain admission plus the compact lookup identity.
+#[derive(Debug)]
+pub struct BoundLookup {
+    /// Complete internal lookup identity over immutable premises and current state.
+    pub key: Arc<BoundLookupKey>,
+    variables: Vec<Variable>,
+    /// Current bound-tightening records, also on a warm view hit.
+    pub tightenings: Vec<pse_modeling::DomainTightening>,
+}
 /// A case structure admitted for preparation, with the transformations admission applied
 /// to the specified case. The transformations depend on the specifications, not only on
 /// the structure: two cases that tighten to the same bounds share one view
@@ -561,6 +610,51 @@ impl PreparedModeling {
         &self,
         states: &BTreeMap<SemanticId, ModelingVariableState>,
     ) -> Result<BoundStructure> {
+        let (variables, tightenings) = self.bound_variables(states)?;
+        self.expand_bound_structure(variables, tightenings)
+    }
+    /// Apply current state and domain admission without expanding rows or instances.
+    /// # Errors
+    /// The same state/domain refusals as `bound_structure`.
+    pub fn bound_lookup(
+        &self,
+        states: &BTreeMap<SemanticId, ModelingVariableState>,
+        order: DerivativeOrder,
+        profile: Profile,
+        context: &ContentHash,
+    ) -> Result<BoundLookup> {
+        let (variables, tightenings) = self.bound_variables(states)?;
+        let key = BoundLookupKey {
+            base: self.view_key_for_structure_key(self.lookup_structure, order, profile, context),
+            equations: self.solver_rows.clone(),
+            variables: variables
+                .iter()
+                .map(|v| {
+                    (
+                        v.port.id,
+                        v.fixed,
+                        v.lower.map(pse_ids::canonical_f64_bits),
+                        v.upper.map(pse_ids::canonical_f64_bits),
+                    )
+                })
+                .collect(),
+        };
+        Ok(BoundLookup {
+            key: Arc::new(key),
+            variables,
+            tightenings,
+        })
+    }
+    /// Expand a lookup miss using the exact variables already admitted by `bound_lookup`.
+    /// # Errors
+    /// Malformed bound structure or exceeded structure limits.
+    pub fn expand_bound_lookup(&self, lookup: BoundLookup) -> Result<BoundStructure> {
+        self.expand_bound_structure(lookup.variables, lookup.tightenings)
+    }
+    fn bound_variables(
+        &self,
+        states: &BTreeMap<SemanticId, ModelingVariableState>,
+    ) -> Result<(Vec<Variable>, Vec<pse_modeling::DomainTightening>)> {
         let model = self;
         if !model.model.integrated.is_empty() {
             return Err(CompileError::Missing(
@@ -588,6 +682,26 @@ impl PreparedModeling {
             }
         }
         let tightenings = admit_domains(model, &mut variables)?;
+        // Invalid changed bounds must reach the original structural validator, even
+        // when a nonfinite value would canonicalize to an existing lookup key.
+        if variables.iter().any(|v| {
+            v.lower.iter().chain(&v.upper).any(|x| !x.is_finite())
+                || v.lower.zip(v.upper).is_some_and(|(l, u)| l > u)
+        }) {
+            self.expand_bound_structure(variables, tightenings)?;
+            return Err(CompileError::Missing("invalid variable bounds".into()));
+        }
+        Ok((variables, tightenings))
+    }
+    fn expand_bound_structure(
+        &self,
+        variables: Vec<Variable>,
+        tightenings: Vec<pse_modeling::DomainTightening>,
+    ) -> Result<BoundStructure> {
+        let model = self;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("compiler.bound_structures", "structures", 1);
+        }
         let equations = model
             .admitted
             .outputs

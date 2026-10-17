@@ -61,6 +61,9 @@ use std::{
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
+// Complete native comparison fixtures use the same finite allowance for both projections.
+// Deliberately small class-proof limits are exercised by the math owner's controls.
+const COMPLETE_PROOF_WORK: usize = 100_000;
 fn neutral() -> QuantityTypeId {
     ids::quantity("neutral")
 }
@@ -284,7 +287,7 @@ impl Case {
             .factorable_program(
                 &self.values,
                 request,
-                100_000,
+                COMPLETE_PROOF_WORK,
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap()
@@ -709,23 +712,29 @@ fn scip_interrupt_via_event_handler() {
     let registry = standard_registry().unwrap();
     let case = synthesis(&registry);
     let program = case.program(&FactorableRequest::default());
-    // The attempt's flag is raised before the solve; the handler interrupts at its first
-    // event on the owning thread.
+    // Setup must admit an uncancelled attempt. Arm its flag only after export, so the
+    // actual SCIPsolve enters and its handler interrupts on the owning thread.
+    let entered = execution(false);
     let (status, events, interrupted) =
-        scip::testing::raw_status(&program, SolveIntent::Optimize, &execution(true)).unwrap();
+        scip::testing::raw_status_with(&program, SolveIntent::Optimize, &entered, || {
+            entered.cancel.store(true, Ordering::Release)
+        })
+        .unwrap();
     assert_eq!(status, Status::UserInterrupt);
     assert!(events >= 1 && interrupted);
+    let terminal = scip::termination(status);
+    assert_eq!(terminal.category, Termination::Cancelled);
+    assert_eq!(terminal.assurance, Assurance::None);
     // Without the flag the same model solves.
     let (status, _, interrupted) =
         scip::testing::raw_status(&program, SolveIntent::Optimize, &execution(false)).unwrap();
     assert!(matches!(status, Status::Optimal | Status::GapLimit));
     assert!(!interrupted);
-    // Through the runner, a cancelled attempt is typed and claims nothing.
-    let report = run(&case, &program, SolveIntent::Optimize, false, true).unwrap();
-    assert_eq!(report.termination.category, Termination::Cancelled);
-    assert_eq!(report.termination.name, "SCIP_STATUS_USERINTERRUPT");
-    assert_ne!(report.qualification, Qualification::GapQualified);
-    assert_ne!(report.termination.assurance, Assurance::GlobalBound);
+    // A pre-cancelled runner is refused before native setup and cannot claim a result.
+    assert!(matches!(
+        run(&case, &program, SolveIntent::Optimize, false, true),
+        Err(ProblemError::Cancelled)
+    ));
 }
 
 #[test]
@@ -1350,12 +1359,16 @@ fn scip_cancel_flag_is_not_ambient() {
     let flag = Arc::new(AtomicBool::new(false));
     let mut first = execution(false);
     first.cancel = flag.clone();
-    flag.store(true, Ordering::Release);
     let registry = standard_registry().unwrap();
     let case = synthesis(&registry);
     let program = case.program(&FactorableRequest::default());
-    let (status, ..) = scip::testing::raw_status(&program, SolveIntent::Optimize, &first).unwrap();
+    let (status, events, interrupted) =
+        scip::testing::raw_status_with(&program, SolveIntent::Optimize, &first, || {
+            flag.store(true, Ordering::Release)
+        })
+        .unwrap();
     assert_eq!(status, Status::UserInterrupt);
+    assert!(events >= 1 && interrupted);
     let (status, ..) =
         scip::testing::raw_status(&program, SolveIntent::Optimize, &execution(false)).unwrap();
     assert_ne!(status, Status::UserInterrupt);
@@ -2718,7 +2731,7 @@ fn highs_native(case: &Case) -> SolveReport {
     let cancel = Arc::new(AtomicBool::new(false));
     let coefficients = case
         .assembly
-        .coefficients(&case.values, 1024, &cancel)
+        .coefficients(&case.values, COMPLETE_PROOF_WORK, &cancel)
         .unwrap();
     let constants = coefficients.row_constants.clone();
     let problem = crate::CoefficientProblem::from_plan(&case.assembly, coefficients).unwrap();

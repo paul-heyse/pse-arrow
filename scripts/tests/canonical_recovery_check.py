@@ -12,6 +12,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,6 +22,16 @@ from scripts.tests import canonical_recovery_science as science
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+
+def run_effect(command: list[str], *, timeout: float | None = None) -> None:
+    """Join the exact effect scope before maintenance can freeze file owners."""
+    deadline = time.monotonic() + timeout if timeout is not None else None
+    status = server.run_file_effect(
+        command, os.environ.copy(), **server.native_operation.deadline_options(deadline)
+    )
+    if status:
+        raise subprocess.CalledProcessError(status, command)
 
 
 def science_command(state: Path, inputs: Path, receipt: Path, phase: str) -> list[str]:
@@ -504,15 +515,12 @@ def journey(
                         "Started recovery server has no populated owned cgroup"
                     )
                 verify_server_placement(state, allocation, group)
-            subprocess.run(
+            run_effect(
                 [*command, str(state), "--seed", "--creation-intent", str(intent)],
-                check=True,
                 timeout=120,
             )
             if scientific:
-                subprocess.run(
-                    science_command(state, inputs, receipt, "seed"), check=True
-                )
+                run_effect(science_command(state, inputs, receipt, "seed"))
             with server.lifecycle_reservation(state):
                 server.stop(state, config, abrupt=True)
                 if reference:
@@ -571,14 +579,12 @@ def journey(
                         )
                     verify_server_placement(state, expected, group)
                 if scientific:
-                    subprocess.run(
-                        science_command(state, inputs, receipt, "reopen"), check=True
-                    )
+                    run_effect(science_command(state, inputs, receipt, "reopen"))
                 with server.state_lock(state):
                     config["accepting_writes"] = False
                     config["admission"] = "quiesced"
                     server.write_json(state / "config.json", config)
-                subprocess.run([*command, str(state)], check=True, timeout=120)
+                run_effect([*command, str(state)], timeout=120)
                 if server_mib == lower_server_mib:
                     with server.lifecycle_reservation(state):
                         server.stop(state, config)
@@ -591,6 +597,10 @@ def journey(
             server.restore(
                 directory / "backup", restored, server.SUBSTRATE_INTERPRETATION
             )
+            if any(restored.glob(".maintenance-payloads-*.json")):
+                raise server.SupervisorError(
+                    "Clean restore retained its maintenance payload records"
+                )
             restored_config = server.config_for(restored)
             restored_allocation = restored_config["resources"]
             if not isinstance(restored_allocation, dict):
@@ -619,7 +629,7 @@ def journey(
                             "Restored recovery server has no populated owned cgroup"
                         )
                     verify_server_placement(restored, restored_allocation, group)
-                subprocess.run(
+                run_effect(
                     [
                         *command,
                         str(restored),
@@ -627,17 +637,17 @@ def journey(
                         str(intent),
                         "--check-creation",
                     ],
-                    check=True,
                     timeout=120,
                 )
                 if scientific:
-                    subprocess.run(
-                        science_command(restored, inputs, receipt, "restored"),
-                        check=True,
-                    )
+                    run_effect(science_command(restored, inputs, receipt, "restored"))
                     server.stop(restored, restored_config)
                     initializer = science_command(restored, inputs, receipt, "rebuild")
                     server.rebuild(restored, initializer)
+                    if any(restored.glob(".maintenance-payloads-*.json")):
+                        raise server.SupervisorError(
+                            "Clean rebuild retained its maintenance payload records"
+                        )
                     if not (science.input_inventory(inputs) == input_hashes):
                         raise server.SupervisorError(
                             "Scientific authored/physical inputs changed during rebuild"
@@ -648,14 +658,13 @@ def journey(
                             "Scientific rebuild changed the reference allocation"
                         )
                     server.start(restored, restored_config)
-                    subprocess.run(
+                    run_effect(
                         science_command(
                             restored,
                             inputs,
                             receipt.with_suffix(".rebuilt.json"),
                             "verify-rebuild",
                         ),
-                        check=True,
                     )
             finally:
                 server.stop(restored, restored_config)

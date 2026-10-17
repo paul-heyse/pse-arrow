@@ -24,45 +24,110 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
+        self.bound_case_with_lookup_reservation(
+            model,
+            values,
+            states,
+            order,
+            compiler,
+            cancel,
+            |bytes| {
+                self.runtime
+                    .shared
+                    .math()
+                    .reserve("math:bound-lookup", bytes)
+            },
+        )
+        .await
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the optional retention reservation is an independent effect from scientific case preparation"
+    )]
+    async fn bound_case_with_lookup_reservation(
+        &self,
+        model: &ModelingPreparation,
+        values: CaseValues,
+        states: &BTreeMap<SemanticId, ModelingVariableState>,
+        order: DerivativeOrder,
+        compiler: Profile,
+        cancel: &crate::CancelSource,
+        reserve: impl FnOnce(
+            usize,
+        ) -> Result<
+            Arc<pse_columnar::AllocationLease>,
+            crate::math::MathRuntimeError,
+        > + Send,
+    ) -> Result<ModelingCasePreparation, WorkflowError> {
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let product = model.compiled();
-                let bound = product
-                    .bound_structure(states)
+                let lookup = product
+                    .bound_lookup(states, order, compiler, &self.physical.key)
                     .map_err(crate::math::MathRuntimeError::from)?;
-                let key = product.view_key(&bound.structure, order, compiler, &self.physical.key);
+                let key = lookup.key.clone();
+                let tightenings = lookup.tightenings.clone();
+                let identity = product.occurrence_identity();
                 let service = self.runtime.shared.math();
                 let generation = service.modeling_cache.generation();
-                let cached = service.modeling_cache.solver(key);
-                let case = match cached {
-                    Some(view) => service.rebind(&view, values.clone(), cancel).await?,
+                let (case, retain) = match service.modeling_cache.bound_solver(key.clone()) {
+                    Some(cached) => {
+                        let case = service.rebind(&cached.view, values.clone(), cancel).await?;
+                        if cached.identity == identity {
+                            (case, false)
+                        } else {
+                            (service.attribute_modeling_view(&case, model)?, true)
+                        }
+                    }
                     None => {
-                        let view = service
-                            .prepare_modeling_view(
-                                self.numerical_workspace()?,
-                                model.clone(),
-                                bound.structure,
-                                values.clone(),
-                                order,
-                                compiler,
-                                cancel,
-                            )
-                            .await?;
-                        service
-                            .modeling_cache
-                            .retain_solver(generation, key, view.clone());
-                        view
+                        let bound = product
+                            .expand_bound_lookup(lookup)
+                            .map_err(crate::math::MathRuntimeError::from)?;
+                        (
+                            service
+                                .prepare_modeling_view(
+                                    self.numerical_workspace()?,
+                                    model.clone(),
+                                    bound.structure,
+                                    values.clone(),
+                                    order,
+                                    compiler,
+                                    cancel,
+                                )
+                                .await?,
+                            true,
+                        )
                     }
                 };
-                let case = service.attribute_modeling_view(&case, model)?;
+                if retain {
+                    let bytes = key.retained_bytes()
+                        + identity
+                            .iter()
+                            .map(|(_, role, _, _)| 128 + role.capacity())
+                            .sum::<usize>()
+                        + 1024;
+                    // Retention is optional: denial cannot invalidate the scientifically
+                    // admitted current case. The cache's publication is best-effort too.
+                    if let Ok(owner) = reserve(bytes) {
+                        service.modeling_cache.retain_bound_solver(
+                            generation,
+                            key,
+                            Arc::new(crate::math::retention::RetainedBoundSolver {
+                                view: case.clone(),
+                                identity,
+                                _owner: owner,
+                            }),
+                        );
+                    }
+                }
                 Ok(ModelingCasePreparation {
                     model: model.clone(),
                     values: case.compiled().complete(&values),
                     case,
-                    tightenings: bound.tightenings,
+                    tightenings,
                 })
             })
             .await
@@ -182,6 +247,210 @@ impl ModelingPackage {
 mod tests {
     use super::*;
     use pse_diagnostics::observation::{self, ObservationHub, Policy, Value};
+
+    #[tokio::test]
+    async fn denied_bound_lookup_retention_returns_current_case_without_cache_entry() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let runtime = crate::workflow::tests::runtime();
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {var x:Scalar; eq e:x==2;}}",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let model = package
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let x = model
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|s| s.lineage.path.ends_with(".x"))
+            .unwrap()
+            .id;
+        let compiler = crate::workflow::tests::compiler_profile();
+        let states = BTreeMap::new();
+        let key = model
+            .compiled()
+            .bound_lookup(
+                &states,
+                DerivativeOrder::First,
+                compiler,
+                &package.physical.key,
+            )
+            .unwrap()
+            .key;
+        let service = runtime.shared.math();
+        assert!(service.modeling_cache.bound_solver(key.clone()).is_none());
+        let denials = AtomicUsize::new(0);
+        for value in [3., 5.] {
+            let current = package
+                .bound_case_with_lookup_reservation(
+                    &model,
+                    CaseValues {
+                        scalars: BTreeMap::from([(x, value)]),
+                    },
+                    &states,
+                    DerivativeOrder::First,
+                    compiler,
+                    &cancel,
+                    |_| {
+                        denials.fetch_add(1, Ordering::Relaxed);
+                        Err(crate::math::MathRuntimeError::Limit(
+                            "test:lookup-retention-denied",
+                        ))
+                    },
+                )
+                .await
+                .unwrap();
+            assert_eq!(current.values.scalars[&x], value);
+            assert_eq!(current.case.compiled().plan.structure().rows().len(), 1);
+            assert!(service.modeling_cache.bound_solver(key.clone()).is_none());
+        }
+        assert_eq!(
+            denials.load(Ordering::Relaxed),
+            2,
+            "each completed case reached the denied optional reservation"
+        );
+    }
+
+    #[tokio::test]
+    async fn warm_bound_lookup_expands_once_rebinds_values_and_rejects_invalid_bounds() {
+        let runtime = crate::workflow::tests::runtime();
+        let source = "package p {def Root {var x:Scalar; eq e:x==2;}}";
+        let declarations = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let model = package
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let x = model
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|s| s.lineage.path.ends_with(".x"))
+            .unwrap()
+            .id;
+        let compiler = crate::workflow::tests::compiler_profile();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("bound.lookup.hit");
+        let activity = runtime.admit_activity().unwrap();
+        activity
+            .scope(observation::scope(Some(operation.context()), async {
+                let first = package
+                    .bound_case(
+                        &model,
+                        CaseValues {
+                            scalars: BTreeMap::from([(x, 3.)]),
+                        },
+                        &BTreeMap::new(),
+                        DerivativeOrder::First,
+                        compiler,
+                        &cancel,
+                    )
+                    .await
+                    .unwrap();
+                let second = package
+                    .bound_case(
+                        &model,
+                        CaseValues {
+                            scalars: BTreeMap::from([(x, 5.)]),
+                        },
+                        &BTreeMap::new(),
+                        DerivativeOrder::First,
+                        compiler,
+                        &cancel,
+                    )
+                    .await
+                    .unwrap();
+                assert!(Arc::ptr_eq(
+                    &first.case.compiled().plan,
+                    &second.case.compiled().plan
+                ));
+                assert_eq!(first.values.scalars[&x], 3.);
+                assert_eq!(second.values.scalars[&x], 5.);
+                assert_eq!(
+                    first.case.compiled().occurrences.allocation_identity(),
+                    second.case.compiled().occurrences.allocation_identity()
+                );
+                let invalid = BTreeMap::from([(
+                    x,
+                    ModelingVariableState {
+                        lower: Some(Some(9.)),
+                        upper: Some(Some(1.)),
+                        ..Default::default()
+                    },
+                )]);
+                assert!(
+                    package
+                        .bound_case(
+                            &model,
+                            second.values.clone(),
+                            &invalid,
+                            DerivativeOrder::First,
+                            compiler,
+                            &cancel
+                        )
+                        .await
+                        .is_err()
+                );
+            }))
+            .await;
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "compiler.bound_structures")
+                .unwrap()
+                .cumulative,
+            Value::Count(2),
+            "one valid cold expansion and one invalid-bound validation, with no warm-hit expansion"
+        );
+    }
 
     #[tokio::test]
     async fn selected_observation_cache_carries_one_structure_and_rebinds_actual_values() {

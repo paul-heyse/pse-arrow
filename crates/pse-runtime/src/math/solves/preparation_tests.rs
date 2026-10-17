@@ -191,10 +191,14 @@ async fn capped_original_kinsol_root_uses_actual_evaluation_hooks_and_refuses_op
 #[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
 #[tokio::test]
 async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {
+    // Original Value and demanded derivative programs coexist. Their distinct
+    // coordinate sets can retain six scalar constructors at 256 MiB of foreign
+    // allowance each, before workspace/stack/attempt storage. This is the
+    // admission envelope, not a measured allocation or resident-memory estimate.
     let (package, root, runtime) = package_with_runtime(
         "package p { def Root { param size:Power=1{W}; var x:Scalar; var y:Scalar; var on:Indicator in binary; annotation bounds x(0,2); annotation bounds y(0,1); annotation start x(1); annotation start y(1); annotation start on(1{1}); eq link:size*y==size*on; eq floor:x>=y; let cost:Scalar=x*x-3*y; annotation objective cost(minimize); } }",
         fixture::runtime_on(
-            1 << 30,
+            4usize << 30,
             crate::math::MathPolicy {
                 worker_bytes: 16usize << 30,
                 workspace_bytes: 16 << 20,

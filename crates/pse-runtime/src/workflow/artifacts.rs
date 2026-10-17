@@ -491,107 +491,378 @@ impl Runtime {
         cancel: CancellationToken,
     ) -> Result<ScientificArtifact, WorkflowError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            let memory=MemoryConsumer::new("canonical:scientific-artifact-promotion").register(&self.shared.pool());
-            memory.try_grow(128*1024*1024).map_err(pse_engine::EngineError::from)?;
-            let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-selection-response", MetadataResponse::Selection)?;
-            let input=Arc::new(pse_operations::canonical::response_ownership_scope(
-                response.clone(),self.canonical_store()?.read_results(run,attempt),
-            ).await?);
-            let input_owner = Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(), response, input.retained_bytes()?, |owner| input.retain_metadata_owner(owner))?);
+        activity
+            .scope(async {
+                let memory = MemoryConsumer::new("canonical:scientific-artifact-promotion")
+                    .register(&self.shared.pool());
+                memory
+                    .try_grow(128 * 1024 * 1024)
+                    .map_err(pse_engine::EngineError::from)?;
+                self.promote_scientific_artifact_body(
+                    run, attempt, kind, owner_kind, owner, &cancel, &memory,
+                )
+                .await
+            })
+            .await
+    }
+
+    /// Keep the existing activity and prepaid grant around the complete transfer.
+    /// This borrowed boxed body is owned by that scope, including its drop path;
+    /// its non-inlined construction returns before any nested transport is polled.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "artifact selection and durable owner association remain explicit alongside the borrowed cancellation token and prepaid grant"
+    )]
+    #[inline(never)]
+    fn promote_scientific_artifact_body<'a>(
+        &'a self,
+        run: &'a str,
+        attempt: &'a str,
+        kind: ScientificArtifactKind,
+        owner_kind: &'a str,
+        owner: &'a str,
+        cancel: &'a CancellationToken,
+        memory: &'a MemoryReservation,
+    ) -> futures_util::future::BoxFuture<'a, Result<ScientificArtifact, WorkflowError>> {
+        Box::pin(async move {
+            let response = super::connected_results::response_owner(
+                self,
+                "canonical:artifact-promotion-selection-response",
+                MetadataResponse::Selection,
+            )?;
+            let input = Arc::new(
+                pse_operations::canonical::response_ownership_scope(
+                    response.clone(),
+                    self.canonical_store()?.read_results(run, attempt),
+                )
+                .await?,
+            );
+            let input_owner = Arc::new(super::connected_results::retain_protected_metadata(
+                &self.shared.pool(),
+                response,
+                input.retained_bytes()?,
+                |owner| input.retain_metadata_owner(owner),
+            )?);
             input.retain_metadata_owner(input_owner.clone())?;
-            let mut names=vec!["runtime.scientific_contexts","runtime.candidate_assessments","runtime.run_lineage","runtime.resolved_numerics","runtime.modeling_checks","runtime.modeling_reports","runtime.modeling_findings"];
+            let mut names = vec![
+                "runtime.scientific_contexts",
+                "runtime.candidate_assessments",
+                "runtime.run_lineage",
+                "runtime.resolved_numerics",
+                "runtime.modeling_checks",
+                "runtime.modeling_reports",
+                "runtime.modeling_findings",
+            ];
             match kind {
-                ScientificArtifactKind::FinalState=>names.extend(["runtime.trajectory_endpoints","runtime.computation_runs","runtime.solve_variables","runtime.solve_runs"]),
-                ScientificArtifactKind::Trajectory=>names.extend(["runtime.trajectory_endpoints","runtime.simulation_samples","runtime.simulation_events","runtime.modeling_trajectory_modes","runtime.response_sensitivities","runtime.computation_runs"]),
-                ScientificArtifactKind::LocalAnalysis=>names.extend(["runtime.route_decisions","runtime.local_validity","runtime.parametric_sensitivities","runtime.response_sensitivities","runtime.reduced_hessians","runtime.parameter_covariances","runtime.parameter_intervals","runtime.profile_points","runtime.response_directions","runtime.propagated_covariances","runtime.fit_parameters","runtime.fit_observations","runtime.solve_runs","runtime.computation_runs","runtime.solve_metrics"]),
+                ScientificArtifactKind::FinalState => names.extend([
+                    "runtime.trajectory_endpoints",
+                    "runtime.computation_runs",
+                    "runtime.solve_variables",
+                    "runtime.solve_runs",
+                ]),
+                ScientificArtifactKind::Trajectory => names.extend([
+                    "runtime.trajectory_endpoints",
+                    "runtime.simulation_samples",
+                    "runtime.simulation_events",
+                    "runtime.modeling_trajectory_modes",
+                    "runtime.response_sensitivities",
+                    "runtime.computation_runs",
+                ]),
+                ScientificArtifactKind::LocalAnalysis => names.extend([
+                    "runtime.route_decisions",
+                    "runtime.local_validity",
+                    "runtime.parametric_sensitivities",
+                    "runtime.response_sensitivities",
+                    "runtime.reduced_hessians",
+                    "runtime.parameter_covariances",
+                    "runtime.parameter_intervals",
+                    "runtime.profile_points",
+                    "runtime.response_directions",
+                    "runtime.propagated_covariances",
+                    "runtime.fit_parameters",
+                    "runtime.fit_observations",
+                    "runtime.solve_runs",
+                    "runtime.computation_runs",
+                    "runtime.solve_metrics",
+                ]),
             }
-            let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-sources-response", MetadataResponse::Selection)?;
-            let sources=pse_operations::canonical::response_ownership_scope(
-                Arc::new((input.clone(),input_owner.clone(),response)),self.canonical_store()?.analysis_run_sources(run),
-            ).await?;
-            let revision=sources.iter().find(|source|source.key==input.run().revision).ok_or_else(||contract("artifact primary source unavailable"))?;
-            let members=MemoryConsumer::new("canonical:scientific-artifact-member-files").register(&self.shared.pool());
-            let mut copied=Vec::new();
-            let mut contexts=Vec::new();
-            let mut endpoints=Vec::new();
-            let mut selected=Vec::new();
+            let response = super::connected_results::response_owner(
+                self,
+                "canonical:artifact-promotion-sources-response",
+                MetadataResponse::Selection,
+            )?;
+            let sources = pse_operations::canonical::response_ownership_scope(
+                Arc::new((input.clone(), input_owner.clone(), response)),
+                self.canonical_store()?.analysis_run_sources(run),
+            )
+            .await?;
+            let revision = sources
+                .iter()
+                .find(|source| source.key == input.run().revision)
+                .ok_or_else(|| contract("artifact primary source unavailable"))?;
+            let members = MemoryConsumer::new("canonical:scientific-artifact-member-files")
+                .register(&self.shared.pool());
+            let mut copied = Vec::new();
+            let mut contexts = Vec::new();
+            let mut endpoints = Vec::new();
+            let mut selected = Vec::new();
             for name in names {
-                let spec=self.registry().relation(name).ok_or_else(||contract("scientific artifact relation unavailable"))?;
-                let Some(set)=input.sets().iter().find(|set|set.name==spec.id.to_string()) else {continue;};
-                if copied.len().saturating_add(set.batch_count.max(1) as usize)>64 { return Err(contract("scientific artifact exceeds bounded selection; choose a smaller scientific product")); }
-                selected.push((name,set.row_count,set.batches_digest.clone()));
-                if set.batch_count==0 {
-                    let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
-                    let payload=super::result_files::encode_result_file(&datafusion::arrow::record_batch::RecordBatch::new_empty(schema))?;
-                    members.try_grow(payload.capacity()).map_err(pse_engine::EngineError::from)?;
-                    copied.push((name,payload,0,set.batches_digest.clone()));
+                let spec = self
+                    .registry()
+                    .relation(name)
+                    .ok_or_else(|| contract("scientific artifact relation unavailable"))?;
+                let Some(set) = input
+                    .sets()
+                    .iter()
+                    .find(|set| set.name == spec.id.to_string())
+                else {
+                    continue;
+                };
+                if copied.len().saturating_add(set.batch_count.max(1) as usize) > 64 {
+                    return Err(contract(
+                        "scientific artifact exceeds bounded selection; choose a smaller scientific product",
+                    ));
+                }
+                selected.push((name, set.row_count, set.batches_digest.clone()));
+                if set.batch_count == 0 {
+                    let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
+                        .map_err(|error| contract(error.to_string()))?;
+                    let payload = super::result_files::encode_result_file(
+                        &datafusion::arrow::record_batch::RecordBatch::new_empty(schema),
+                    )?;
+                    members
+                        .try_grow(payload.capacity())
+                        .map_err(pse_engine::EngineError::from)?;
+                    copied.push((name, payload, 0, set.batches_digest.clone()));
                 }
                 if set.batch_count != 0 {
-                    let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
-                    let snapshot=super::ResultSnapshot::capture(self,input.clone(),input_owner.clone(),spec.id,&set.key,schema,0,u64::MAX).await?;
+                    let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
+                        .map_err(|error| contract(error.to_string()))?;
+                    let snapshot = super::ResultSnapshot::capture(
+                        self,
+                        input.clone(),
+                        input_owner.clone(),
+                        spec.id,
+                        &set.key,
+                        schema,
+                        0,
+                        u64::MAX,
+                    )
+                    .await?;
                     for block in snapshot.blocks() {
                         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                        let checked=snapshot.read_block(block,&cancel).await?;
+                        let checked = snapshot.read_block(block, cancel).await?;
                         // Encoding scratch is local to this demanded logical batch;
                         // the packed producer file is read through the snapshot cache.
-                        let scratch=MemoryConsumer::new("canonical:scientific-artifact-member-encoding").register(&self.shared.pool());
-                        scratch.try_grow(3*super::result_files::MAX_FILE_BYTES).map_err(pse_engine::EngineError::from)?;
-                        let member=super::result_files::encode_result_file(checked.batch())?;
-                        members.try_grow(member.capacity()).map_err(pse_engine::EngineError::from)?;
-                        if name=="runtime.scientific_contexts" || name=="runtime.trajectory_endpoints" {
-                            memory.try_grow(member.len().saturating_mul(4)).map_err(pse_engine::EngineError::from)?;
+                        let scratch =
+                            MemoryConsumer::new("canonical:scientific-artifact-member-encoding")
+                                .register(&self.shared.pool());
+                        scratch
+                            .try_grow(3 * super::result_files::MAX_FILE_BYTES)
+                            .map_err(pse_engine::EngineError::from)?;
+                        let member = super::result_files::encode_result_file(checked.batch())?;
+                        members
+                            .try_grow(member.capacity())
+                            .map_err(pse_engine::EngineError::from)?;
+                        if name == "runtime.scientific_contexts"
+                            || name == "runtime.trajectory_endpoints"
+                        {
+                            memory
+                                .try_grow(member.len().saturating_mul(4))
+                                .map_err(pse_engine::EngineError::from)?;
                         }
-                        if name=="runtime.scientific_contexts" {contexts.extend(pse_relations::generated::runtime::scientific_contexts::Row::rows(&checked).map_err(super::relation)?);}
-                        if name=="runtime.trajectory_endpoints" {endpoints.extend(pse_relations::generated::runtime::trajectory_endpoints::Row::rows(&checked).map_err(super::relation)?);}
-                        copied.push((name,member,block.rows,block.payload_digest.clone()));
+                        if name == "runtime.scientific_contexts" {
+                            contexts.extend(
+                                pse_relations::generated::runtime::scientific_contexts::Row::rows(
+                                    &checked,
+                                )
+                                .map_err(super::relation)?,
+                            );
+                        }
+                        if name == "runtime.trajectory_endpoints" {
+                            endpoints.extend(
+                                pse_relations::generated::runtime::trajectory_endpoints::Row::rows(
+                                    &checked,
+                                )
+                                .map_err(super::relation)?,
+                            );
+                        }
+                        copied.push((name, member, block.rows, block.payload_digest.clone()));
                     }
                 }
             }
-            if contexts.is_empty() || !selected.iter().any(|(name,rows,_)|*name=="runtime.candidate_assessments" && *rows>0) || !selected.iter().any(|(name,rows,_)|*name=="runtime.run_lineage" && *rows>0) { return Err(contract("scientific artifact lacks original interpretation/assessment/lineage")); }
+            if contexts.is_empty()
+                || !selected
+                    .iter()
+                    .any(|(name, rows, _)| *name == "runtime.candidate_assessments" && *rows > 0)
+                || !selected
+                    .iter()
+                    .any(|(name, rows, _)| *name == "runtime.run_lineage" && *rows > 0)
+            {
+                return Err(contract(
+                    "scientific artifact lacks original interpretation/assessment/lineage",
+                ));
+            }
             for context in &contexts {
-                if context.mode_names.len()!=context.mode_identities.len() || context.configuration.is_empty() || context.state.iter().chain(&context.inputs).chain(&context.outputs).chain(&context.integrals).any(|c|!c.scale.is_finite() || c.scale<=0. || !c.offset.is_finite()) { return Err(contract("scientific artifact coordinate interpretation incomplete")); }
+                if context.mode_names.len() != context.mode_identities.len()
+                    || context.configuration.is_empty()
+                    || context
+                        .state
+                        .iter()
+                        .chain(&context.inputs)
+                        .chain(&context.outputs)
+                        .chain(&context.integrals)
+                        .any(|c| !c.scale.is_finite() || c.scale <= 0. || !c.offset.is_finite())
+                {
+                    return Err(contract(
+                        "scientific artifact coordinate interpretation incomplete",
+                    ));
+                }
             }
             match kind {
-                ScientificArtifactKind::FinalState|ScientificArtifactKind::Trajectory if !endpoints.is_empty()=>{
+                ScientificArtifactKind::FinalState | ScientificArtifactKind::Trajectory
+                    if !endpoints.is_empty() =>
+                {
                     for endpoint in &endpoints {
-                        let context=contexts.iter().find(|context|context.run_id==endpoint.run_id && context.time.is_some()).ok_or_else(||contract("endpoint scientific context absent"))?;
-                        let mode=usize::try_from(endpoint.mode).map_err(|_|contract("endpoint mode extent"))?;
-                        if context.mode_names.get(mode)!=Some(&endpoint.mode_name) || context.mode_identities.get(mode)!=Some(&endpoint.mode_identity) || context.state.iter().map(|c|c.id).collect::<Vec<_>>()!=endpoint.state_ids || context.inputs.iter().map(|c|c.id).collect::<Vec<_>>()!=endpoint.input_ids || context.outputs.iter().map(|c|c.id).collect::<Vec<_>>()!=endpoint.output_ids || context.integrals.len()!=endpoint.integrals.len() || endpoint.state.len()!=endpoint.state_ids.len() || endpoint.inputs.len()!=endpoint.input_ids.len() || endpoint.outputs.len()!=endpoint.output_ids.len() {return Err(contract("endpoint scientific closure differs"));}
+                        let context = contexts
+                            .iter()
+                            .find(|context| {
+                                context.run_id == endpoint.run_id && context.time.is_some()
+                            })
+                            .ok_or_else(|| contract("endpoint scientific context absent"))?;
+                        let mode = usize::try_from(endpoint.mode)
+                            .map_err(|_| contract("endpoint mode extent"))?;
+                        if context.mode_names.get(mode) != Some(&endpoint.mode_name)
+                            || context.mode_identities.get(mode) != Some(&endpoint.mode_identity)
+                            || context.state.iter().map(|c| c.id).collect::<Vec<_>>()
+                                != endpoint.state_ids
+                            || context.inputs.iter().map(|c| c.id).collect::<Vec<_>>()
+                                != endpoint.input_ids
+                            || context.outputs.iter().map(|c| c.id).collect::<Vec<_>>()
+                                != endpoint.output_ids
+                            || context.integrals.len() != endpoint.integrals.len()
+                            || endpoint.state.len() != endpoint.state_ids.len()
+                            || endpoint.inputs.len() != endpoint.input_ids.len()
+                            || endpoint.outputs.len() != endpoint.output_ids.len()
+                        {
+                            return Err(contract("endpoint scientific closure differs"));
+                        }
                     }
                 }
-                ScientificArtifactKind::FinalState=>{
-                    if !selected.iter().any(|(name,rows,_)|*name=="runtime.solve_variables" && *rows>0) || contexts.iter().any(|context|context.time.is_some()) {return Err(contract("final state requires an actual endpoint or complete static candidate"));}
+                ScientificArtifactKind::FinalState => {
+                    if !selected
+                        .iter()
+                        .any(|(name, rows, _)| *name == "runtime.solve_variables" && *rows > 0)
+                        || contexts.iter().any(|context| context.time.is_some())
+                    {
+                        return Err(contract(
+                            "final state requires an actual endpoint or complete static candidate",
+                        ));
+                    }
                 }
-                ScientificArtifactKind::Trajectory=>return Err(contract("trajectory has no actual endpoint interpretation")),
-                ScientificArtifactKind::LocalAnalysis=>{
-                    if !selected.iter().any(|(name,rows,_)|*name=="runtime.local_validity" && *rows>0) {return Err(contract("local analysis lacks original certification/withheld reasons"));}
+                ScientificArtifactKind::Trajectory => {
+                    return Err(contract("trajectory has no actual endpoint interpretation"));
+                }
+                ScientificArtifactKind::LocalAnalysis => {
+                    if !selected
+                        .iter()
+                        .any(|(name, rows, _)| *name == "runtime.local_validity" && *rows > 0)
+                    {
+                        return Err(contract(
+                            "local analysis lacks original certification/withheld reasons",
+                        ));
+                    }
                 }
             }
-            let provenance=serde_json::to_vec(&(1u8,run,attempt,&input.run().revision,input.run().sequence,input.attempt().generation,&input.attempt().outcome,input.manifest(),&selected)).map_err(|error|contract(error.to_string()))?;
-            let bytes=copied.iter().map(|(_,payload,_,_)|payload.len() as u64).sum();
-            let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-header-response", MetadataResponse::Header)?;
-            let mut header=pse_operations::canonical::response_ownership_scope(
-                Arc::new((input.clone(),input_owner.clone(),response)),
-                self.canonical_store()?.new_artifact(revision,kind.name(),provenance,copied.len() as u64,bytes),
-            ).await?;
-            let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))| {
-                let spec=self.registry().relation(name).ok_or_else(||contract("artifact member relation unavailable"))?;
-                Ok::<_,WorkflowError>(pse_operations::canonical_artifacts::artifact_block(&header.key,ordinal as u64,name,payload,&digest,rows).native_file(&spec.id.to_string())?)
-            }).collect::<Result<Vec<_>,_>>()?;
-            pse_operations::canonical_artifacts::seal_artifact_request(&mut header,&sources,std::slice::from_ref(input.as_ref()),&blocks,owner_kind,owner);
+            let provenance = serde_json::to_vec(&(
+                1u8,
+                run,
+                attempt,
+                &input.run().revision,
+                input.run().sequence,
+                input.attempt().generation,
+                &input.attempt().outcome,
+                input.manifest(),
+                &selected,
+            ))
+            .map_err(|error| contract(error.to_string()))?;
+            let bytes = copied
+                .iter()
+                .map(|(_, payload, _, _)| payload.len() as u64)
+                .sum();
+            let response = super::connected_results::response_owner(
+                self,
+                "canonical:artifact-promotion-header-response",
+                MetadataResponse::Header,
+            )?;
+            let mut header = pse_operations::canonical::response_ownership_scope(
+                Arc::new((input.clone(), input_owner.clone(), response)),
+                self.canonical_store()?.new_artifact(
+                    revision,
+                    kind.name(),
+                    provenance,
+                    copied.len() as u64,
+                    bytes,
+                ),
+            )
+            .await?;
+            let blocks = copied
+                .into_iter()
+                .enumerate()
+                .map(|(ordinal, (name, payload, rows, digest))| {
+                    let spec = self
+                        .registry()
+                        .relation(name)
+                        .ok_or_else(|| contract("artifact member relation unavailable"))?;
+                    Ok::<_, WorkflowError>(
+                        pse_operations::canonical_artifacts::artifact_block(
+                            &header.key,
+                            ordinal as u64,
+                            name,
+                            payload,
+                            &digest,
+                            rows,
+                        )
+                        .native_file(&spec.id.to_string())?,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            pse_operations::canonical_artifacts::seal_artifact_request(
+                &mut header,
+                &sources,
+                std::slice::from_ref(input.as_ref()),
+                &blocks,
+                owner_kind,
+                owner,
+            );
             // Prepay the continuing header before publication can acknowledge
             // an independent durable owner; handle clones share this allocation.
             let metadata_owner = retained_artifact_header(self, &header)?;
-            let response=super::connected_results::response_owner(self,"canonical:artifact-promotion-publication-response", MetadataResponse::Selection)?;
+            let response = super::connected_results::response_owner(
+                self,
+                "canonical:artifact-promotion-publication-response",
+                MetadataResponse::Selection,
+            )?;
             pse_operations::canonical::response_ownership_scope(
                 // The SDK owns metadata and the original read follower only;
                 // copied member buffers retain their separate local grant.
-                Arc::new((input.clone(),input_owner.clone(),response)),
-                self.canonical_store()?.persist_artifact(&header,&sources,std::slice::from_ref(input.as_ref()),&blocks,owner_kind,owner),
-            ).await?;
-            Ok(ScientificArtifact {runtime:self.clone(),header:Arc::new(header),_metadata_owner:metadata_owner})
-        }).await
+                Arc::new((input.clone(), input_owner.clone(), response)),
+                self.canonical_store()?.persist_artifact(
+                    &header,
+                    &sources,
+                    std::slice::from_ref(input.as_ref()),
+                    &blocks,
+                    owner_kind,
+                    owner,
+                ),
+            )
+            .await?;
+            Ok(ScientificArtifact {
+                runtime: self.clone(),
+                header: Arc::new(header),
+                _metadata_owner: metadata_owner,
+            })
+        })
     }
 }
 

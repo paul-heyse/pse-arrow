@@ -59,6 +59,21 @@ fn solve(
     controls: &Controls,
     settings: &Settings,
 ) -> SolveReport {
+    solve_with_execution(
+        session,
+        p,
+        controls,
+        settings,
+        Execution::new(Default::default(), controls),
+    )
+}
+fn solve_with_execution(
+    session: &mut Session,
+    p: &CoefficientProblem,
+    controls: &Controls,
+    settings: &Settings,
+    execution: Execution,
+) -> SolveReport {
     session
         .solve(
             p,
@@ -66,7 +81,7 @@ fn solve(
             controls,
             &ResolvedAccuracy::verification(),
             settings,
-            Execution::new(Default::default(), controls),
+            execution,
             &Tolerances {
                 variables: vec![1e-8; p.contract.variables.len()],
                 rows: vec![1e-8; p.contract.rows.len()],
@@ -575,6 +590,19 @@ fn basis_inverse_and_presolve_views() {
 
 #[test]
 fn cut_pool_captured_on_request() {
+    #[derive(Debug, Default)]
+    struct CutCallback(AtomicBool);
+    impl ProgressTap for CutCallback {
+        fn observe(&self, event: &Event) {
+            if event.values.get("kind")
+                == Some(&Metric::Integer(i64::from(
+                    ffi::kHighsCallbackMipGetCutPool,
+                )))
+            {
+                self.0.store(true, Ordering::Release);
+            }
+        }
+    }
     // A multidimensional knapsack whose root relaxation leaves a gap for branching; the
     // cut pool is extracted after root cut generation.
     let mut state = 12345_u64;
@@ -627,7 +655,13 @@ fn cut_pool_captured_on_request() {
         diagnostics: request.clone(),
         ..Settings::default()
     };
-    let report = solve(&mut session, &p, &controls, &settings);
+    let tap = Arc::new(CutCallback::default());
+    let tapped_execution = || {
+        let mut execution = Execution::new(Default::default(), &controls);
+        execution.progress = Arc::new(Progress::tapped(0, tap.clone()));
+        execution
+    };
+    let report = solve_with_execution(&mut session, &p, &controls, &settings, tapped_execution());
     assert_eq!(report.termination.category, Termination::Success);
     let evidence = diagnose(&mut session, &p, request.clone());
     let pool = evidence
@@ -643,18 +677,20 @@ fn cut_pool_captured_on_request() {
     // The pool belongs to one solve: a second request without a new capture is empty.
     let evidence = diagnose(&mut session, &p, request);
     assert!(evidence.cut_pool.is_none() && evidence.unavailable.contains_key("cut_pool"));
+    // The tap sees callback delivery independently of the rolling progress history.
+    assert!(tap.0.swap(false, Ordering::AcqRel));
     // The retained model stops the kind after the requesting solve.
-    let cut_kind = |r: &SolveReport| {
-        r.events.iter().any(|e| {
-            e.values.get("kind")
-                == Some(&Metric::Integer(i64::from(
-                    ffi::kHighsCallbackMipGetCutPool,
-                )))
-        })
-    };
-    assert!(cut_kind(&report));
-    let again = solve(&mut session, &p, &controls, &Settings::default());
-    assert!(!cut_kind(&again));
+    let again = solve_with_execution(
+        &mut session,
+        &p,
+        &controls,
+        &Settings::default(),
+        tapped_execution(),
+    );
+    assert_eq!(again.termination.category, Termination::Success);
+    assert!(!tap.0.load(Ordering::Acquire));
+    let evidence = diagnose(&mut session, &p, settings.diagnostics);
+    assert!(evidence.cut_pool.is_none() && evidence.unavailable.contains_key("cut_pool"));
 }
 
 #[test]

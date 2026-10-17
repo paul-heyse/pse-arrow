@@ -70,6 +70,31 @@ Consume D4's independent small mathematical controls: nonlinear contribution can
 
 Only if a question remains decision-relevant, observe one current 32-block operation after live diagnostics are usable. A single observation can reveal where work occurs and whether construction/proof repeats; it is not a comparative performance estimate or historical-cause proof. Do not reinstate repeated cold sampling, hard latency thresholds or the former campaign. Record what actual evidence supports and leave the historical cause unestablished if it remains so.
 
+## Post-Plan41 corrective prerequisites
+
+The [post-Plan41 review](../design_review/reviews/design_review_post-plan41-simulation-efficiency-and-diagnostics_2026-10-16.md)
+establishes distinct diagnostic retention/export loss and remaining receiver-handoff/terminal
+inspection gaps. Completed [Plan42c](42c-responsibility-diagnostics-and-receiver-discovery.md)
+owns those corrections; [Plan42](42-post-plan41-simulation-efficiency-and-diagnostics.md#rule-decisions)
+owns the explicitly accepted RC01/RC02 and their installed amendments. Its Outcome supplies
+passing fit/shooting summaries, exact managed readiness association under the original observer
+pool and identity-validated last-prefix inspection after exit. These are current selected
+correction passes; missing historical coverage remains missing and this packet retains its
+broader qualification.
+
+E0 must consume C1–C3's actual bounded summary behavior before accepting E1's affected
+inner-attempt-heavy fit/shooting explanation. E2's short-run managed association and terminal
+prefix acceptance consumes C4/C5's implemented ready/reader route. Other ready E1/E2 slices,
+E3 useful profiling/export and E4 locality need not wait for unrelated Plan42 packages.
+Plan42 Q0 and this packet select one execution owner for overlapping journeys; each plan
+keeps its own acceptance conclusion. The numerical managed pass does not establish receiver
+profiling, and a last published prefix does not prove final native drain or science.
+
+E5/E6, the original F01–F06 dispositions and their broader acceptance stay here. No old
+operation is retroactively complete, no omitted metric becomes zero, and no environment/
+provenance proof or statistical timing campaign is revived. Current checkpoints and historical
+Outcomes below keep their original scope; this handoff adds prerequisites, not a second ledger.
+
 ## Work packages
 
 | Packet | Prerequisite | Delivery and acceptance | State |

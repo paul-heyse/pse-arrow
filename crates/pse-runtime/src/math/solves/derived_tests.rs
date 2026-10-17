@@ -2883,6 +2883,8 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
     assert_eq!(retained, blocks.completed_result_bytes(report).unwrap());
     assert!(retained < admitted / 2);
     let tables = completed.tables().unwrap();
+    // Runtime drop disconnects reusable lanes; their actual native/TLS join is async.
+    runtime.native().shutdown_native_lanes().await;
     let retained_sources = pool.reserved();
     drop(completed);
     drop(blocks);
@@ -3218,6 +3220,194 @@ async fn automatic_blocks_execute_complete_nonport_coupled_original_and_keep_act
             .unwrap(),
         0
     );
+}
+
+#[cfg(all(feature = "solver-kinsol", feature = "solver-pounce"))]
+#[tokio::test]
+async fn pounce_block_preparation_refusal_keeps_original_native_profile_and_cap() {
+    use pse_model::generated::enums::{NumericalAttemptObservation, NumericalEventKind};
+    use pse_model::strategy::Phase;
+
+    let runtime = crate::workflow::tests::runtime_with(128 << 20, 1 << 20, 512 << 20);
+    let (runtime, original) = original_order_on(
+        runtime,
+        "package p { def Root { var x:Scalar; var y:Scalar; annotation bounds x(0.5,2); annotation start x(1); annotation start y(2); eq first:x*x==2; eq second:y==x+1; } }",
+        DerivativeOrder::Second,
+        SolverProfile {
+            intent: SolveIntent::FeasiblePoint,
+            selection: SolverSelection::Explicit(Backend::Pounce),
+            controls: Controls {
+                iterations: 64,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .await;
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    assert_eq!(original.backend(), Some(Backend::Pounce));
+    assert_eq!(original.automatic_block_count(&flag).unwrap(), 2);
+    let offers = original.automatic_operations(None, &flag).unwrap();
+    let direct = offers
+        .iter()
+        .find(|offer| offer.candidate.kind == MechanismKind::Direct)
+        .unwrap();
+    let AutomaticBinding::Original(offered) = &direct.binding else {
+        panic!("unchanged original offer required");
+    };
+    assert_eq!(offered.profile.controls, original.profile.controls);
+    assert_eq!(offered.profile.selection, original.profile.selection);
+    assert!(matches!(offered.profile.backend, BackendSettings::Default));
+    assert_eq!(
+        offered.strategy_profile().unwrap(),
+        original.strategy_profile().unwrap()
+    );
+
+    let completed = runtime
+        .native()
+        .solve(original.clone())
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    let report = native_report(&completed.outcome);
+    assert_eq!(report.backend, Backend::Pounce);
+    assert_eq!(report.options["max_iter"], OptionValue::Integer(64));
+    assert!(
+        completed
+            .outcome
+            .candidate_use(&original.numerics.policy)
+            .permits_use()
+    );
+    assert!(completed.strategy.events.iter().any(|event| {
+        completed.strategy.declaration.mechanisms[event.mechanism].kind == MechanismKind::Block
+            && event.kind == NumericalEventKind::Refused
+            && event.phase == Phase::Preparation
+            && event.observation == Some(NumericalAttemptObservation::CapabilityRefusal)
+    }));
+    assert!(
+        completed
+            .strategy
+            .declaration
+            .mechanisms
+            .iter()
+            .all(|mechanism| {
+                mechanism.kind != MechanismKind::Block
+                    || mechanism.position == pse_model::strategy::Position::Preparation
+            })
+    );
+}
+
+#[cfg(all(feature = "solver-kinsol", feature = "solver-pounce"))]
+#[tokio::test]
+async fn block_iteration_gate_uses_contextual_override_route_and_keeps_supported_blocks() {
+    use crate::math::settings::BlockSolveOverride;
+
+    let text = "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(1); annotation start y(2); eq first:x*x==2; eq second:y==x+1; } }";
+    let (runtime, original) = original_order(text, DerivativeOrder::Second).await;
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let Representation::Algebraic(source) = &original.representation else {
+        panic!("authored block source required");
+    };
+    let pse_compiler::workspace::Alternative::Available(schedule) = source
+        .prepared
+        .compiled()
+        .automatic_alternatives(&flag)
+        .unwrap()
+        .initialization
+    else {
+        panic!("complete compiler schedule required");
+    };
+    assert_eq!(schedule.blocks.len(), 2);
+    // The first block remains KINSOL. Refusal of the second must happen
+    // during preparation, before executing even the supported predecessor.
+    for backend in [Some(Backend::Pounce), None] {
+        let mut requested = original.clone();
+        requested.profile.block_overrides.insert(
+            schedule.blocks[1].id,
+            BlockSolveOverride {
+                backend,
+                settings: Some(BackendSettings::Pounce(Default::default())),
+                controls: None,
+            },
+        );
+        assert_eq!(requested.backend(), Some(Backend::Kinsol));
+        let scope = ExecutionScope::new(
+            flag.clone(),
+            Some(Instant::now() + requested.controls().time_limit),
+        );
+        let failure = runtime
+            .native()
+            .prepare_blocks(requested, scope, &crate::CancelSource::new())
+            .await
+            .unwrap_err()
+            .into_problem();
+        assert!(matches!(failure, ProblemError::Unsupported(ref detail)
+            if detail == "POUNCE block aggregate iteration coverage unavailable"));
+    }
+
+    // Conversely, a POUNCE original does not prohibit a schedule whose actual
+    // conditional overrides all select the supported KINSOL iteration getter.
+    let (runtime, mut original) = original_order_on(
+        runtime,
+        text,
+        DerivativeOrder::Second,
+        SolverProfile {
+            intent: SolveIntent::FeasiblePoint,
+            selection: SolverSelection::Explicit(Backend::Pounce),
+            ..Default::default()
+        },
+    )
+    .await;
+    for block in &schedule.blocks {
+        original.profile.block_overrides.insert(
+            block.id,
+            BlockSolveOverride {
+                backend: Some(Backend::Kinsol),
+                settings: None,
+                controls: None,
+            },
+        );
+    }
+    assert_eq!(original.backend(), Some(Backend::Pounce));
+    let scope = ExecutionScope::new(flag, Some(Instant::now() + original.controls().time_limit));
+    let blocks = runtime
+        .native()
+        .prepare_blocks(original, scope, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert_eq!(blocks.block_count(), 2);
+    assert_eq!(blocks.backends(), &[Backend::Kinsol]);
+}
+
+#[cfg(all(feature = "solver-kinsol", feature = "solver-pounce"))]
+#[tokio::test]
+async fn pounce_iteration_gate_preserves_original_constant_evaluation() {
+    let runtime = crate::workflow::tests::runtime_with(128 << 20, 1 << 20, 512 << 20);
+    let (runtime, original) = original_order_on(
+        runtime,
+        "package p { def Root { param fixed:Scalar=2; eq original:fixed==2; } }",
+        DerivativeOrder::Second,
+        SolverProfile {
+            intent: SolveIntent::FeasiblePoint,
+            selection: SolverSelection::Explicit(Backend::Pounce),
+            ..Default::default()
+        },
+    )
+    .await;
+    assert_eq!(original.backend(), None);
+    let completed = runtime
+        .native()
+        .solve(original)
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    let Outcome::Constant(report) = &completed.outcome else {
+        panic!("original analytic evaluation requires no native iteration");
+    };
+    assert_eq!(report.work.iterations, Some(0));
+    assert_eq!(report.component_reports().len(), 0);
 }
 
 #[cfg(feature = "solver-kinsol")]

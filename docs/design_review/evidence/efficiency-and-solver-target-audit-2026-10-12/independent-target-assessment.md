@@ -1,6 +1,6 @@
 # Fresh independent target challenge
 
-Supporting independent assessment for [the principal audit](../../reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md). The following preserves the fresh reviewer's complete judgment for reconciliation; the principal audit owns the integrated scope, decision and evidence limits. This is no separate disposition ledger.
+Supporting independent assessment for [the principal audit](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md). The following preserves the fresh reviewer's complete judgment for reconciliation; the principal audit owns the integrated scope, decision and evidence limits. This is no separate disposition ledger.
 
 **Standard:** Core 3.4 and template 3.4, Efficient Architecture heuristics 1.0, Process Simulator 1.5, with the pse-arrow binding locating the functional target. **Tier/purpose:** design/target. **Baseline:** `main` at `6c368c88acda548d421b44e8fc4f457c95bcec7e`, with the original untracked review/evidence and modified design-review index preserved. **Disposition owner:** the coordinator's eventual owning plan after operator decisions; this audit is not a second status ledger. Source and exact-release interface statements are **Interface-checked**. Revised architecture, remedies, and benefits are **Proposed**. No builds, probes, tests, services, or measurements were run; no performance improvement is Measured.
 

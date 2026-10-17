@@ -7,12 +7,12 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-04, AP-06, AP-07, DP-09, DP-10, DP-15, DP-20, PS-06, PS-08, PS-09, PS-10]
 blueprint: [§15.4, §17.6, §18.6, §18.8, §18.9, §21]
-review: docs/design_review/reviews/design_review_plan38c-native-reuse-and-resources_2026-10-13.md
+review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_plan38c-native-reuse-and-resources_2026-10-13.md
 evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A selected profile cannot reset independent-request numerical policy while preserving its neutral state, or a new method requires different scientific or native resource authority.
-verification: Scoped native, method, mutation, lifetime and memory-refusal controls with exact commands and conditions in docs/plans/38c-native-methods-reuse-and-parallelism.md#verification. Independent original acceptance remains mandatory; assembled scientific/native/durable qualification remains Plan38g.
+verification: Scoped native, method, mutation, lifetime and memory-refusal controls with exact commands and conditions in https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38c-native-methods-reuse-and-parallelism.md#verification. Independent original acceptance remains mandatory; assembled scientific/native/durable qualification remains Plan38g.
 ---
 
 # ADR-0185: Own neutral native reuse, admitted resources and qualified method contracts
@@ -71,7 +71,7 @@ The active default requires a qualified neutral-reset path or enforced fresh fal
 
 ### Confirmation
 
-**Implemented:** scoped reset/fallback, explicit-width, mutation, selected method, child reconstruction and memory-refusal contracts described above. **Tested:** [Plan38c Verification](../plans/38c-native-methods-reuse-and-parallelism.md#verification) owns the exact selected commands, conditions and results, including the maintained fork's application-reset controls; admitted native-solvers controls for Ipopt sequences, KINSOL build/setup, SCIP resources, cold POUNCE-convex batches, HiGHS mutation and strict/same-point response; and authored scalar method controls. These tests do not establish representative comparative performance, broader scientific equivalence or complete child/runtime/assembled qualification. [Plan38c Outcome](../plans/38c-native-methods-reuse-and-parallelism.md#outcome) owns the remaining scope and support decisions; assembled scientific/native/durable qualification remains Plan38g. ADR status remains proposed.
+**Implemented:** scoped reset/fallback, explicit-width, mutation, selected method, child reconstruction and memory-refusal contracts described above. **Tested:** [Plan38c Verification](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38c-native-methods-reuse-and-parallelism.md#verification) owns the exact selected commands, conditions and results, including the maintained fork's application-reset controls; admitted native-solvers controls for Ipopt sequences, KINSOL build/setup, SCIP resources, cold POUNCE-convex batches, HiGHS mutation and strict/same-point response; and authored scalar method controls. These tests do not establish representative comparative performance, broader scientific equivalence or complete child/runtime/assembled qualification. [Plan38c Outcome](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38c-native-methods-reuse-and-parallelism.md#outcome) owns the remaining scope and support decisions; assembled scientific/native/durable qualification remains Plan38g. ADR status remains proposed.
 
 ## Pros and cons
 
@@ -79,7 +79,7 @@ Neutral reuse removes avoidable repeated work while keeping independent scientif
 
 ## More information
 
-[Plan38c](../plans/38c-native-methods-reuse-and-parallelism.md) owns implementation and investigation outcomes; [Plan38](../plans/38-efficiency-and-solver-target.md) owns shared finding dispositions. ADR-0184 owns governing policy and attempt/replay meaning. ARC01 and the accepted rule rows remain the decision boundary; historical review observations are leads, not current qualification.
+[Plan38c](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38c-native-methods-reuse-and-parallelism.md) owns implementation and investigation outcomes; [Plan38](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38-efficiency-and-solver-target.md) owns shared finding dispositions. ADR-0184 owns governing policy and attempt/replay meaning. ARC01 and the accepted rule rows remain the decision boundary; historical review observations are leads, not current qualification.
 
 ## Status history
 

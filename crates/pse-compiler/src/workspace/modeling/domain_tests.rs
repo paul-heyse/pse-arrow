@@ -369,6 +369,40 @@ fn integer_bounds_tightened_inward_and_recorded() {
     let fractional = model.bound_structure(&states(0.5, 5.5)).unwrap();
     let integral = model.bound_structure(&states(1.0, 5.0)).unwrap();
     assert_eq!(fractional.structure.key(), integral.structure.key());
+    let fractional_lookup = model
+        .bound_lookup(
+            &states(0.5, 5.5),
+            DerivativeOrder::First,
+            Profile::default(),
+            &ContentHash::from_bytes([41; 32]),
+        )
+        .unwrap();
+    let integral_lookup = model
+        .bound_lookup(
+            &states(1., 5.),
+            DerivativeOrder::First,
+            Profile::default(),
+            &ContentHash::from_bytes([41; 32]),
+        )
+        .unwrap();
+    assert_eq!(fractional_lookup.key, integral_lookup.key);
+    assert_eq!(
+        (
+            fractional_lookup.tightenings.len(),
+            integral_lookup.tightenings.len()
+        ),
+        (1, 0)
+    );
+    assert!(
+        model
+            .bound_lookup(
+                &states(1.5, 1.7),
+                DerivativeOrder::First,
+                Profile::default(),
+                &ContentHash::from_bytes([41; 32])
+            )
+            .is_err()
+    );
     assert_eq!(
         (fractional.tightenings.len(), integral.tightenings.len()),
         (1, 0)

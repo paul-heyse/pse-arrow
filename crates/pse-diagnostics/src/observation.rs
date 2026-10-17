@@ -44,6 +44,8 @@ pub struct Policy {
     pub detail_capacity: usize,
     /// Time since the latest observation at which an active checkpoint is stale.
     pub stale_after: Duration,
+    /// Operator-selected terminal summary lifetime, independent of recent detail retention.
+    pub summary_retention: Duration,
 }
 impl Default for Policy {
     fn default() -> Self {
@@ -57,6 +59,7 @@ impl Default for Policy {
             max_text_bytes: 128,
             detail_capacity: 256,
             stale_after: Duration::from_secs(5),
+            summary_retention: Duration::from_secs(60),
         }
     }
 }
@@ -429,6 +432,8 @@ pub struct ChildSnapshot {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationSnapshot {
+    /// Producer-declared responsibility and finite copied-output lifetime.
+    pub summary: Option<SummaryPublication>,
     /// Diagnostic identity of the associated operation.
     pub id: OperationId,
     /// Bounded producer-supplied operation or phase description.
@@ -476,10 +481,51 @@ pub struct OperationSnapshot {
     /// Bounded actual-time detail prefix within the requested interval.
     pub detail: Vec<DetailEvent>,
 }
+impl OperationSnapshot {
+    /// Keep producer-owned latest/cumulative facts and attribution, explicitly
+    /// omitting optional recent histories. No aggregate is rebuilt from children.
+    pub fn compact(&mut self) {
+        // Optional phase/history omission must be visible to consumers deriving
+        // comparisons from populations whose completion boundaries may differ.
+        self.coverage.curtailed = true;
+        self.detail_partial |= !self.detail.is_empty();
+        self.coverage.dropped_detail = self
+            .coverage
+            .dropped_detail
+            .saturating_add(self.detail.len() as u64);
+        self.detail = Vec::new();
+        self.phases = Vec::new();
+        self.interval_partial = true;
+        self.coverage.sampled = true;
+        for metric in &mut self.metrics {
+            metric.history_partial = true;
+            metric.history_dropped = metric
+                .history_dropped
+                .saturating_add(metric.history.len() as u64);
+            metric.history = Vec::new();
+            metric.counter_window = None;
+            metric.recent = Value::Unavailable("compact output omits recent intervals".into());
+            metric.recent_partial = true;
+            metric.recent_observed_start = None;
+            metric.recent_observed_end = None;
+        }
+    }
+    /// Reapply the producer-selected semantic output deadline at each local or
+    /// transported read. A retained copied reader does not extend eligibility.
+    pub fn apply_summary_expiry(&mut self, now: Duration) {
+        self.coverage.stale |= self
+            .summary
+            .as_ref()
+            .and_then(|summary| summary.expires_at)
+            .is_some_and(|deadline| now >= deadline);
+    }
+}
 /// Small copied catalogue entry without metric or scientific ownership.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationSummary {
+    /// Producer-declared responsibility and finite copied-output lifetime.
+    pub summary: Option<SummaryPublication>,
     /// Diagnostic identity of the associated operation.
     pub id: OperationId,
     /// Bounded producer-supplied operation or phase description.
@@ -497,6 +543,8 @@ pub struct OperationSummary {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationPage {
+    /// Summary admission and loss facts, separate from scientific metrics.
+    pub summaries: SummaryCoverage,
     /// Bounded current-catalogue page.
     pub operations: Vec<OperationSummary>,
     /// Next current-catalogue offset, when more entries are present.
@@ -505,6 +553,45 @@ pub struct OperationPage {
     pub coverage: Coverage,
 }
 
+/// Generic producer-owned compact explanation; it grants no execution ownership.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SummaryPublication {
+    /// Bounded producer-supplied purpose, never interpreted by the hub.
+    pub purpose: String,
+    /// Finite terminal output deadline; absent for an active declaration or a refused copy.
+    #[schemars(with = "Option<crate::ClosedDuration>")]
+    pub expires_at: Option<Duration>,
+}
+
+/// Explicit lifetime/admission losses for producer-declared compact outputs.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SummaryCoverage {
+    /// Declarations or terminal copies refused by bounds/contention/opt-out.
+    pub refused: u64,
+    /// Outputs whose selected terminal lifetime elapsed.
+    pub expired: u64,
+    /// Oldest terminal outputs displaced to preserve active admission.
+    pub pressure_lost: u64,
+}
+
+struct RetainedSummary {
+    snapshot: OperationSnapshot,
+    clock: Arc<dyn Clock>,
+    hub: Weak<ObservationHub>,
+    _reservation: Reservation,
+}
+impl std::fmt::Debug for RetainedSummary {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("RetainedSummary")
+            .field("snapshot", &self.snapshot)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug)]
 struct Budget {
     used: AtomicUsize,
     limit: usize,
@@ -522,6 +609,7 @@ impl Budget {
             })
     }
 }
+#[derive(Debug)]
 struct Reservation {
     budget: Arc<Budget>,
     bytes: usize,
@@ -538,6 +626,10 @@ pub struct ObservationHub {
     clock: Arc<dyn Clock>,
     process_instance: [u64; 2],
     nodes: Mutex<VecDeque<Arc<Node>>>,
+    summaries: Mutex<VecDeque<Arc<RetainedSummary>>>,
+    summary_refused: AtomicU64,
+    summary_expired: AtomicU64,
+    summary_pressure_lost: AtomicU64,
     budget: Arc<Budget>,
     refused: AtomicU64,
 }
@@ -567,6 +659,10 @@ impl ObservationHub {
                 u64::from(stamp.subsec_nanos()) ^ (u64::from(std::process::id()) << 32) ^ nonce,
             ],
             nodes: Mutex::new(VecDeque::new()),
+            summaries: Mutex::new(VecDeque::new()),
+            summary_refused: AtomicU64::new(0),
+            summary_expired: AtomicU64::new(0),
+            summary_pressure_lost: AtomicU64::new(0),
             refused: AtomicU64::new(0),
         })
     }
@@ -590,9 +686,14 @@ impl ObservationHub {
             bump(&self.refused);
             return OperationGuard { context };
         };
+        let Ok(mut summaries) = self.summaries.try_lock() else {
+            bump(&self.refused);
+            return OperationGuard { context };
+        };
+        self.expire_summaries(&mut summaries);
         // Evict completed catalogue entries, including those with independent readers.
         // Their allocation stays charged until those readers release their diagnostic lease.
-        while nodes.len() >= self.policy.max_operations
+        while nodes.len() + summaries.len() >= self.policy.max_operations
             || self
                 .budget
                 .used
@@ -605,11 +706,13 @@ impl ObservationHub {
                 .position(|node| node.terminal.load(Ordering::Acquire) != 0)
             {
                 nodes.remove(index);
+            } else if summaries.pop_front().is_some() {
+                bump(&self.summary_pressure_lost);
             } else {
                 break;
             }
         }
-        if nodes.len() >= self.policy.max_operations {
+        if nodes.len() + summaries.len() >= self.policy.max_operations {
             bump(&self.refused);
             return OperationGuard { context };
         }
@@ -620,11 +723,13 @@ impl ObservationHub {
         let node = Arc::new(Node {
             id,
             kind: bounded(kind.as_ref(), self.policy.max_text_bytes),
+            hub: Arc::downgrade(self),
             started_at: self.clock.now(),
             terminal: AtomicU8::new(0),
             finished_ns: AtomicU64::new(0),
             phase_sequence: AtomicU64::new(1),
             lost: AtomicU64::new(0),
+            summary: Mutex::new(None),
             policy: self.policy.clone(),
             clock: Arc::clone(&self.clock),
             state: Mutex::new({
@@ -644,6 +749,10 @@ impl ObservationHub {
         let Ok(mut nodes) = self.nodes.try_lock() else {
             return;
         };
+        let Ok(mut summaries) = self.summaries.try_lock() else {
+            return;
+        };
+        self.expire_summaries(&mut summaries);
         while self
             .budget
             .used
@@ -656,6 +765,8 @@ impl ObservationHub {
                 .position(|node| node.terminal.load(Ordering::Acquire) != 0)
             {
                 nodes.remove(index);
+            } else if summaries.pop_front().is_some() {
+                bump(&self.summary_pressure_lost);
             } else {
                 break;
             }
@@ -664,18 +775,38 @@ impl ObservationHub {
     #[must_use]
     /// Borrow independent copied diagnostics without affecting scientific ownership.
     pub fn reader(&self, id: OperationId) -> Option<OperationReader> {
-        self.nodes
+        self.prune_summaries();
+        let node = self
+            .nodes
             .lock()
             .ok()?
             .iter()
             .find(|node| node.id == id)
-            .map(|node| OperationReader {
+            .map(Arc::clone);
+        if let Some(node) = node {
+            return Some(OperationReader {
                 context: ObservationContext {
                     id,
-                    hub: Weak::new(),
-                    node: Some(Arc::clone(node)),
+                    hub: node.hub.clone(),
+                    node: Some(node),
                     absent_enabled: true,
                 },
+                compact: None,
+            });
+        }
+        let mut summaries = self.summaries.lock().ok()?;
+        self.expire_summaries(&mut summaries);
+        summaries
+            .iter()
+            .find(|summary| summary.snapshot.id == id)
+            .map(|summary| OperationReader {
+                context: ObservationContext {
+                    id,
+                    hub: summary.hub.clone(),
+                    node: None,
+                    absent_enabled: true,
+                },
+                compact: Some(Arc::clone(summary)),
             })
     }
     /// Bounded pagination. Offsets describe the current catalogue, not a durable cursor.
@@ -692,28 +823,161 @@ impl ObservationHub {
             coverage.available = false;
             coverage.curtailed = true;
             return OperationPage {
+                summaries: self.summary_coverage(),
                 operations: Vec::new(),
                 next_offset: None,
                 coverage,
             };
         };
+        let Ok(mut summaries) = self.summaries.lock() else {
+            coverage.available = false;
+            coverage.curtailed = true;
+            return OperationPage {
+                summaries: self.summary_coverage(),
+                operations: Vec::new(),
+                next_offset: None,
+                coverage,
+            };
+        };
+        self.expire_summaries(&mut summaries);
         let limit = limit.min(self.policy.max_operations);
         let operations = nodes
             .iter()
+            .map(|node| node.summary())
+            .chain(summaries.iter().map(|summary| {
+                let snapshot = &summary.snapshot;
+                OperationSummary {
+                    summary: snapshot.summary.clone(),
+                    id: snapshot.id,
+                    kind: snapshot.kind.clone(),
+                    started_at: snapshot.started_at,
+                    finished_at: snapshot.finished_at,
+                    outcome: snapshot.outcome,
+                }
+            }))
             .skip(offset)
             .take(limit)
-            .map(|node| node.summary())
             .collect();
         let end = offset.saturating_add(limit);
         OperationPage {
+            summaries: self.summary_coverage(),
             operations,
-            next_offset: (limit != 0 && end < nodes.len()).then_some(end),
+            next_offset: (limit != 0 && end < nodes.len() + summaries.len()).then_some(end),
             coverage,
+        }
+    }
+    fn summary_coverage(&self) -> SummaryCoverage {
+        SummaryCoverage {
+            refused: self.summary_refused.load(Ordering::Relaxed),
+            expired: self.summary_expired.load(Ordering::Relaxed),
+            pressure_lost: self.summary_pressure_lost.load(Ordering::Relaxed),
+        }
+    }
+    fn expire_summaries(&self, summaries: &mut VecDeque<Arc<RetainedSummary>>) {
+        let now = self.clock.now();
+        summaries.retain(|summary| {
+            let keep = summary
+                .snapshot
+                .summary
+                .as_ref()
+                .and_then(|summary| summary.expires_at)
+                .is_some_and(|deadline| now < deadline);
+            if !keep {
+                bump(&self.summary_expired);
+            }
+            keep
+        });
+    }
+    fn prune_summaries(&self) {
+        if let Ok(mut summaries) = self.summaries.lock() {
+            self.expire_summaries(&mut summaries);
+        }
+    }
+    fn retain_summary(&self, node: &Arc<Node>) {
+        let declaration = match node.summary.try_lock() {
+            Ok(summary) => summary.clone(),
+            Err(_) => {
+                bump(&self.summary_refused);
+                return;
+            }
+        };
+        let Some(mut declaration) = declaration else {
+            return;
+        };
+        let Some(deadline) = Duration::from_nanos(node.finished_ns.load(Ordering::Relaxed))
+            .checked_add(self.policy.summary_retention)
+        else {
+            self.refuse_summary(node);
+            return;
+        };
+        if self.policy.summary_retention.is_zero() {
+            self.refuse_summary(node);
+            return;
+        }
+        declaration.expires_at = Some(deadline);
+        let reader = OperationReader {
+            context: ObservationContext {
+                id: node.id,
+                hub: node.hub.clone(),
+                node: Some(Arc::clone(node)),
+                absent_enabled: true,
+            },
+            compact: None,
+        };
+        let mut snapshot = reader.snapshot(WINDOW);
+        if !snapshot.coverage.available {
+            self.refuse_summary(node);
+            return;
+        }
+        snapshot.summary = Some(declaration);
+        snapshot.compact();
+        let bytes = self.policy.node_bytes()
+            + snapshot.metrics.len() * self.policy.metric_bytes()
+            + snapshot.children.len() * self.policy.link_bytes()
+            + snapshot.sources.len() * self.policy.source_bytes();
+        // The original node and independent readers keep their own charges. A failed
+        // copy cannot borrow their allocation or silently retain the rich owner instead.
+        self.trim_completed(bytes);
+        let Some(reservation) = self.budget.reserve(bytes) else {
+            self.refuse_summary(node);
+            return;
+        };
+        let Ok(mut nodes) = self.nodes.try_lock() else {
+            self.refuse_summary(node);
+            return;
+        };
+        let Ok(mut summaries) = self.summaries.try_lock() else {
+            self.refuse_summary(node);
+            return;
+        };
+        self.expire_summaries(&mut summaries);
+        if nodes.len() + summaries.len() >= self.policy.max_operations
+            && !nodes.iter().any(|entry| entry.id == node.id)
+        {
+            self.refuse_summary(node);
+            return;
+        }
+        nodes.retain(|entry| entry.id != node.id);
+        if let Ok(mut publication) = node.summary.try_lock() {
+            *publication = snapshot.summary.clone();
+        }
+        summaries.push_back(Arc::new(RetainedSummary {
+            snapshot,
+            clock: Arc::clone(&self.clock),
+            hub: node.hub.clone(),
+            _reservation: reservation,
+        }));
+    }
+    fn refuse_summary(&self, node: &Node) {
+        bump(&self.summary_refused);
+        if let Ok(mut publication) = node.summary.try_lock() {
+            *publication = None;
         }
     }
     #[must_use]
     /// Reserved worst-case diagnostic bytes, including retained readers and a read clone.
     pub fn retained_bytes(&self) -> usize {
+        self.prune_summaries();
         self.budget.used.load(Ordering::Relaxed)
     }
     #[must_use]
@@ -730,12 +994,14 @@ impl ObservationHub {
 
 struct Node {
     id: OperationId,
+    hub: Weak<ObservationHub>,
     kind: String,
     started_at: Duration,
     terminal: AtomicU8,
     finished_ns: AtomicU64,
     phase_sequence: AtomicU64,
     lost: AtomicU64,
+    summary: Mutex<Option<SummaryPublication>>,
     policy: Policy,
     clock: Arc<dyn Clock>,
     state: Mutex<State>,
@@ -745,6 +1011,7 @@ impl Node {
     fn summary(&self) -> OperationSummary {
         let outcome = Outcome::decode(self.terminal.load(Ordering::Acquire));
         OperationSummary {
+            summary: self.summary.lock().ok().and_then(|summary| summary.clone()),
             id: self.id,
             kind: self.kind.clone(),
             started_at: self.started_at,
@@ -1256,9 +1523,40 @@ impl ObservationContext {
     /// Borrow independent copied diagnostics without affecting scientific ownership.
     #[must_use]
     pub fn reader(&self) -> OperationReader {
+        if let Some(hub) = self.hub.upgrade() {
+            hub.prune_summaries();
+        }
         OperationReader {
             context: self.clone(),
+            compact: None,
         }
+    }
+    /// Declare this producer's bounded current/cumulative facts as a responsibility
+    /// summary. The declaration never changes execution completion or numerical admission.
+    pub fn declare_summary(&self, purpose: impl AsRef<str>) {
+        let Some(hub) = self.hub.upgrade() else {
+            return;
+        };
+        let Some(node) = &self.node else {
+            bump(&hub.summary_refused);
+            return;
+        };
+        if node.terminal.load(Ordering::Acquire) != 0
+            || purpose.as_ref().is_empty()
+            || purpose.as_ref().len() > node.policy.max_text_bytes
+        {
+            bump(&hub.summary_refused);
+            return;
+        }
+        let Ok(mut summary) = node.summary.try_lock() else {
+            bump(&hub.summary_refused);
+            return;
+        };
+        // The bounded purpose fits the string allowance charged with the node.
+        *summary = Some(SummaryPublication {
+            purpose: purpose.as_ref().to_owned(),
+            expires_at: None,
+        });
     }
     #[must_use]
     /// Start and link diagnostic child work without implicitly entering its thread context.
@@ -1590,6 +1888,9 @@ impl OperationGuard {
     pub fn finish(self, outcome: Outcome) {
         if let Some(node) = &self.context.node {
             node.finish(outcome);
+            if let Some(hub) = self.context.hub.upgrade() {
+                hub.retain_summary(node);
+            }
         }
     }
 }
@@ -1599,6 +1900,9 @@ impl Drop for OperationGuard {
             && node.terminal.load(Ordering::Acquire) == 0
         {
             node.finish(Outcome::Interrupted);
+            if let Some(hub) = self.context.hub.upgrade() {
+                hub.retain_summary(node);
+            }
         }
     }
 }
@@ -1708,6 +2012,7 @@ impl Drop for EnterGuard {
 #[derive(Clone, Debug)]
 pub struct OperationReader {
     context: ObservationContext,
+    compact: Option<Arc<RetainedSummary>>,
 }
 impl OperationReader {
     /// Return the operation diagnostic identity.
@@ -1718,8 +2023,19 @@ impl OperationReader {
     #[must_use]
     /// Read a bounded copied snapshot; contended publication returns explicit absent coverage.
     pub fn snapshot(&self, interval: Duration) -> OperationSnapshot {
+        if let Some(hub) = self.context.hub.upgrade() {
+            hub.prune_summaries();
+        }
+        if let Some(compact) = &self.compact {
+            let mut snapshot = compact.snapshot.clone();
+            snapshot.read_at = compact.clock.now();
+            snapshot.requested_interval = interval;
+            snapshot.apply_summary_expiry(snapshot.read_at);
+            return snapshot;
+        }
         let Some(node) = &self.context.node else {
             return OperationSnapshot {
+                summary: None,
                 id: self.context.id,
                 kind: String::new(),
                 started_at: Duration::ZERO,
@@ -1752,6 +2068,7 @@ impl OperationReader {
         let retained_start = now.saturating_sub(WINDOW).max(node.started_at).min(end);
         let empty_intersection = now.saturating_sub(interval) > end;
         let mut result = OperationSnapshot {
+            summary: summary.summary,
             id: node.id,
             kind: node.kind.clone(),
             started_at: node.started_at,
@@ -1778,6 +2095,7 @@ impl OperationReader {
             sources: Vec::new(),
             detail: Vec::new(),
         };
+        result.apply_summary_expiry(now);
         let Ok(state) = node.state.try_lock() else {
             result.coverage.available = false;
             result.coverage.curtailed = true;
@@ -1786,7 +2104,7 @@ impl OperationReader {
             return result;
         };
         result.observed_at = state.last_observed;
-        result.coverage.stale = summary.outcome.is_none()
+        result.coverage.stale |= summary.outcome.is_none()
             && now.saturating_sub(state.last_observed.unwrap_or(node.started_at))
                 > node.policy.stale_after;
         result.coverage.dropped_detail = state.dropped_detail;
@@ -1929,8 +2247,33 @@ impl OperationReader {
             .links
             .iter()
             .map(|link| {
-                if let Some(child) = link.node.upgrade() {
-                    let child = child.summary();
+                let child = link
+                    .node
+                    .upgrade()
+                    .map(|child| child.summary())
+                    .or_else(|| {
+                        let hub = state.hub.upgrade()?;
+                        let reader = hub.reader(link.id)?;
+                        reader
+                            .context
+                            .node
+                            .as_ref()
+                            .map(|node| node.summary())
+                            .or_else(|| {
+                                reader.compact.as_ref().map(|compact| {
+                                    let snapshot = &compact.snapshot;
+                                    OperationSummary {
+                                        summary: snapshot.summary.clone(),
+                                        id: snapshot.id,
+                                        kind: snapshot.kind.clone(),
+                                        started_at: snapshot.started_at,
+                                        finished_at: snapshot.finished_at,
+                                        outcome: snapshot.outcome,
+                                    }
+                                })
+                            })
+                    });
+                if let Some(child) = child {
                     ChildSnapshot {
                         id: child.id,
                         kind: child.kind,
@@ -1984,6 +2327,187 @@ mod tests {
     fn setup(policy: Policy) -> (Arc<ObservationHub>, Arc<TestClock>) {
         let clock = Arc::new(TestClock::default());
         (ObservationHub::with_clock(policy, clock.clone()), clock)
+    }
+    #[test]
+    fn responsibility_survives_many_inner_attempts_as_terminal_compact_output() {
+        let (hub, clock) = setup(Policy {
+            max_operations: 8,
+            ..Policy::default()
+        });
+        let parent = hub.start("composition");
+        let operation = parent
+            .context()
+            .child("responsibility", Relationship::Nested);
+        let id = operation.context().id();
+        operation.context().declare_summary("producer purpose");
+        for _ in 0..1000 {
+            operation.context().count("trials", "count", 1);
+            operation
+                .context()
+                .child("inner", Relationship::Nested)
+                .finish(Outcome::Completed);
+        }
+        clock.set(1000);
+        operation.finish(Outcome::Completed);
+        for _ in 0..1000 {
+            hub.start("inner later").finish(Outcome::Completed);
+        }
+        let snapshot = hub.reader(id).unwrap().snapshot(WINDOW);
+        assert_eq!(snapshot.outcome, Some(Outcome::Completed));
+        assert_eq!(snapshot.finished_at, Some(Duration::from_secs(1)));
+        assert_eq!(metric(&snapshot, "trials").cumulative, Value::Count(1000));
+        assert!(snapshot.detail.is_empty());
+        assert!(
+            snapshot
+                .metrics
+                .iter()
+                .all(|metric| metric.history.is_empty())
+        );
+        assert_eq!(
+            snapshot.summary.unwrap().expires_at,
+            Some(Duration::from_secs(61))
+        );
+        assert!(
+            parent
+                .reader()
+                .snapshot(WINDOW)
+                .children
+                .iter()
+                .any(|child| child.id == id && child.available)
+        );
+        assert!(hub.retained_bytes() <= hub.policy().budget_bytes);
+    }
+    #[test]
+    fn summary_expiry_removes_discovery_but_independent_reader_remains_charged() {
+        let (hub, clock) = setup(Policy::default());
+        let operation = hub.start("responsibility");
+        let id = operation.context().id();
+        operation.context().declare_summary("purpose");
+        operation.finish(Outcome::Completed);
+        let reader = hub.reader(id).unwrap();
+        let charged = hub.retained_bytes();
+        assert!(charged > 0);
+        clock.set(60000);
+        assert!(hub.reader(id).is_none());
+        assert_eq!(hub.list(0, 128).summaries.expired, 1);
+        assert_eq!(hub.retained_bytes(), charged);
+        assert_eq!(reader.snapshot(WINDOW).outcome, Some(Outcome::Completed));
+        drop(reader);
+        assert_eq!(hub.retained_bytes(), 0);
+    }
+    #[test]
+    fn history_heavy_summary_releases_optional_backing_buffers_before_charging_copy() {
+        let (hub, clock) = setup(Policy::default());
+        let operation = hub.start("history-heavy responsibility");
+        let id = operation.context().id();
+        operation
+            .context()
+            .declare_summary("current and cumulative facts");
+        for second in 0..60 {
+            clock.set(second * 1000);
+            operation
+                .context()
+                .gauge("residual", "scaled", second as f64);
+            drop(operation.context().phase("actual phase"));
+        }
+        let rich = operation.reader().snapshot(WINDOW);
+        assert!(metric(&rich, "residual").history.len() >= 50);
+        assert!(!rich.detail.is_empty());
+        operation.finish(Outcome::Completed);
+        let summaries = hub.summaries.lock().unwrap();
+        let copied = &summaries
+            .iter()
+            .find(|summary| summary.snapshot.id == id)
+            .unwrap()
+            .snapshot;
+        assert_eq!(copied.detail.capacity(), 0);
+        assert_eq!(copied.phases.capacity(), 0);
+        assert!(
+            copied
+                .metrics
+                .iter()
+                .all(|metric| metric.history.capacity() == 0 && metric.counter_window.is_none())
+        );
+        assert_eq!(metric(copied, "residual").latest, Value::Number(59.0));
+    }
+    #[test]
+    fn semantic_summary_expiry_applies_to_rich_compact_and_transported_readers() {
+        let (hub, clock) = setup(Policy::default());
+        let operation = hub.start("responsibility");
+        let id = operation.context().id();
+        operation.context().declare_summary("owned facts");
+        let rich = operation.reader();
+        operation.context().count("actual.calls", "calls", 3);
+        operation.finish(Outcome::Completed);
+        let compact = hub.reader(id).unwrap();
+        let frozen_rich = rich.snapshot(WINDOW);
+        let frozen_compact = compact.snapshot(WINDOW);
+        for (milliseconds, expired) in [(59_999, false), (60_000, true)] {
+            clock.set(milliseconds);
+            assert_eq!(rich.snapshot(WINDOW).coverage.stale, expired);
+            assert_eq!(compact.snapshot(WINDOW).coverage.stale, expired);
+            for frozen in [&frozen_rich, &frozen_compact] {
+                let selected = crate::inspection::select_window(
+                    frozen.clone(),
+                    Duration::from_millis(milliseconds),
+                    WINDOW,
+                );
+                assert_eq!(selected.coverage.stale, expired);
+                assert_eq!(
+                    metric(&selected, "actual.calls").cumulative,
+                    Value::Count(3)
+                );
+            }
+        }
+        assert!(hub.reader(id).is_none());
+    }
+    #[test]
+    fn active_admission_preempts_oldest_summary_with_explicit_loss() {
+        let (hub, _) = setup(Policy {
+            max_operations: 2,
+            ..Policy::default()
+        });
+        let operation = hub.start("responsibility");
+        let id = operation.context().id();
+        operation.context().declare_summary("purpose");
+        operation.finish(Outcome::Completed);
+        let first = hub.start("active one");
+        let second = hub.start("active two");
+        assert!(first.context().is_active());
+        assert!(second.context().is_active());
+        assert!(hub.reader(id).is_none());
+        assert_eq!(hub.list(0, 128).summaries.pressure_lost, 1);
+    }
+    #[test]
+    fn summary_opt_out_and_copy_refusal_never_change_completion() {
+        for policy in [
+            Policy {
+                summary_retention: Duration::ZERO,
+                ..Policy::default()
+            },
+            Policy {
+                budget_bytes: Policy::default().node_bytes(),
+                ..Policy::default()
+            },
+        ] {
+            let (hub, _) = setup(policy);
+            let operation = hub.start("responsibility");
+            let reader = operation.reader();
+            operation.context().declare_summary("purpose");
+            operation.finish(Outcome::Completed);
+            assert_eq!(reader.snapshot(WINDOW).outcome, Some(Outcome::Completed));
+            assert_eq!(hub.list(0, 128).summaries.refused, 1);
+            assert!(hub.retained_bytes() <= hub.policy().budget_bytes);
+        }
+        let (hub, _) = setup(Policy {
+            enabled: false,
+            ..Policy::default()
+        });
+        let operation = hub.start("disabled");
+        operation.context().declare_summary("purpose");
+        operation.finish(Outcome::Completed);
+        assert_eq!(hub.list(0, 128).summaries.refused, 1);
+        assert_eq!(hub.retained_bytes(), 0);
     }
     fn metric<'a>(snapshot: &'a OperationSnapshot, name: &str) -> &'a MetricSnapshot {
         snapshot

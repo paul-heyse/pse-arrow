@@ -1,6 +1,6 @@
 # Tooling inquiry for the operational-friction review
 
-Supporting inquiry for the [principal review](../../reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md), not a second disposition ledger. The principal reviewer and coordinator own combined findings, rule impacts and acceptance. This inquiry applies Core 3.4, its Heuristics for Efficient Architecture 1.0 and the pse-arrow binding to tooling operations. Scientific PS gates are outside this inquiry except where tooling must preserve scientific/qualification meanings.
+Supporting inquiry for the [principal review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md), not a second disposition ledger. The principal reviewer and coordinator own combined findings, rule impacts and acceptance. This inquiry applies Core 3.4, its Heuristics for Efficient Architecture 1.0 and the pse-arrow binding to tooling operations. Scientific PS gates are outside this inquiry except where tooling must preserve scientific/qualification meanings.
 
 Baseline: clean `main` at `d5e8606bb4cd9a3f2aeed7b885b8a8c8925d2dda`, verified read-only. Primary window: 2026-10-14 17:35–20:36 UTC / 13:35–16:36 EDT. No repository edits, builds, tests, services, probes, cleanup or captures were performed by this investigator. Only this temporary inquiry and visible-log extracts were written under `/tmp`.
 

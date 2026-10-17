@@ -74,6 +74,48 @@ fn admit(
     .unwrap()
 }
 
+#[tokio::test]
+async fn native_admission_evicts_idle_compiler_workspace_under_pool_pressure() {
+    use crate::workflow::tests as fixture;
+    let memory = 512 << 20;
+    let policy = super::super::MathPolicy {
+        worker_bytes: 1 << 30,
+        workspace_bytes: 128 << 20,
+        foreign_bytes: 1 << 20,
+        inner_session_bytes: 0,
+        ..Default::default()
+    };
+    let overhead = policy.stack_bytes + policy.foreign_bytes + policy.inner_session_bytes;
+    let runtime = fixture::runtime_on(memory, policy);
+    let package = runtime
+        .modeling_package(source(1), fixture::physical())
+        .await
+        .unwrap();
+    let service = runtime.shared.math();
+    let baseline = service.pool.reserved();
+    let workspace = package.pure_workspace().unwrap();
+    let retained = service.pool.reserved() - baseline;
+    assert!(retained >= service.policy.workspace_bytes);
+    service.trim_compiler_lanes();
+    assert_eq!(service.compiler_lanes.lock().unwrap().len(), 1);
+    assert_eq!(service.pool.reserved(), baseline + retained);
+    drop(workspace);
+    let demand = memory - baseline - overhead - (1 << 20);
+    assert!(baseline + retained + demand + overhead > memory);
+    service
+        .job_scoped(
+            1,
+            demand,
+            FlightCancellation::default(),
+            Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
+            |_| Ok(()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(service.pool.reserved(), baseline);
+    assert!(service.compiler_lanes.lock().unwrap().is_empty());
+}
+
 #[test]
 fn historical_and_branch_admission_and_preparation_never_rewind_live_compiler() {
     let service = super::super::tests::service();

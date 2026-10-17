@@ -22,7 +22,10 @@ pub use implicit::{
     AdmittedImplicit, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale,
     ImplicitSelection, SelectionEquivalence, SelectionNeighborhood,
 };
-pub use solve::{BoundStructure, ModelingCaseBindings, ModelingVariableState};
+pub use solve::{
+    BoundLookup, BoundLookupKey, BoundStructure, ModelingCaseBindings, ModelingOccurrenceIdentity,
+    ModelingVariableState,
+};
 
 fn symbol_expression(id: SemanticId) -> Expr {
     Expr {
@@ -1426,6 +1429,10 @@ impl ModelingPreparationFrontier {
 pub struct PreparedModeling {
     semantic: SemanticModeling,
     projection: Arc<Projection>,
+    occurrences: Arc<BTreeMap<SemanticId, Vec<Occurrence>>>,
+    occurrence_identity: Arc<ModelingOccurrenceIdentity>,
+    lookup_structure: ContentHash,
+    solver_rows: Arc<BTreeSet<SemanticId>>,
     owned_implicit_view: Option<pse_math::SharedAllocation<AdmittedModeling>>,
     original: Option<(
         Arc<Projection>,
@@ -1462,6 +1469,14 @@ impl PreparedModeling {
         let mut model = self.clone();
         model.projection = projection.clone();
         model.admitted = admitted.clone();
+        model.lookup_structure = admitted.case.key();
+        model.solver_rows = Arc::new(
+            admitted
+                .outputs
+                .iter()
+                .filter_map(|o| o.constraint().map(|(id, _)| id))
+                .collect(),
+        );
         model.owned_implicit_view = None;
         model.original = None;
         model.portable = self.original_portable.as_ref()?.clone();
@@ -1689,7 +1704,35 @@ impl CompilerWorkspace {
                     .values()
                     .chain(original.iter().flat_map(|(_, view)| view.bodies.values())),
             );
+            let occurrences = Arc::new(PreparedModeling::collect_occurrences(&frontier.model));
+            let occurrence_identity = Arc::new(
+                frontier
+                    .model
+                    .source_occurrences()
+                    .iter()
+                    .map(|(key, value)| {
+                        (
+                            key.declaration,
+                            key.role.clone(),
+                            key.position,
+                            value.source,
+                        )
+                    })
+                    .collect(),
+            );
+            let lookup_structure = admitted.case.key();
+            let solver_rows = Arc::new(
+                admitted
+                    .outputs
+                    .iter()
+                    .filter_map(|o| o.constraint().map(|(id, _)| id))
+                    .collect(),
+            );
             Ok(PreparedModeling {
+                lookup_structure,
+                solver_rows,
+                occurrences,
+                occurrence_identity,
                 semantic: frontier.semantic,
                 projection: frontier.projection,
                 original,
@@ -1736,6 +1779,17 @@ impl PreparedModeling {
                 .as_ref()
                 .map_or(0, |inventory| size_of_val(inventory.as_ref()) + 32)
             + self.model.retained_bytes()
+            + self
+                .occurrences
+                .values()
+                .map(|values| 128 + values.capacity() * size_of::<Occurrence>())
+                .sum::<usize>()
+            + self.solver_rows.len() * 64
+            + self
+                .occurrence_identity
+                .iter()
+                .map(|(_, role, _, _)| 128 + role.capacity())
+                .sum::<usize>()
             + projection_heap(&Ok(self.projection.clone()))
             + admitted_allocation_bytes(&self.admitted)
             + admitted_owner_attachment_bytes(&self.admitted)

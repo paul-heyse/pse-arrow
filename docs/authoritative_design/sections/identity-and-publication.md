@@ -491,7 +491,7 @@ lookup key and compiler physical-context identity.
 Immutable revision receipts remain attributable after explicit source reclamation; range
 markers prevent those receipts from reopening removed content.
 
-**Plan38e target — results.** Registry-admitted Arrow rows use completed uncompressed IPC files in the selected private state's `payloads/<payload_incarnation>/<database>/` root. Compatible batches share one file only within an attempt, relation, schema and interpretation. Packing targets 16 MiB and has a 32 MiB hard encoded-file bound; demanded acknowledgements and live-prefix boundaries flush immediately rather than waiting for unrelated work. Logical descriptors retain original ordering/coordinates and bind unique file instance, encoding digest, batch index, schema and interpretation. JSON seed/completion owners retain their exact declared codecs through the same opaque file tier. File framing/layout/integrity admission precedes decoder allocation; neither file completion nor a submitted write is a catalog acknowledgement. Current implementation and qualified coverage belong to Plan38e until cutover is complete.
+**Sealed payload results.** Registry-admitted Arrow rows use completed uncompressed IPC files in the selected private state's `payloads/<payload_incarnation>/<database>/` root. Compatible batches share one file only within an attempt, relation, schema and interpretation. Packing targets 16 MiB and has a 32 MiB hard encoded-file bound; demanded acknowledgements and live-prefix boundaries flush immediately rather than waiting for unrelated work. Logical descriptors retain original ordering/coordinates and bind unique file instance, encoding digest, batch index, schema and interpretation. JSON seed/completion owners retain their exact declared codecs through the same opaque file tier. File framing/layout/integrity admission precedes decoder allocation; neither file completion nor a submitted write is a catalog acknowledgement. Selected qualified coverage belongs to the Plan39d Outcome (§24.2).
 
 Sparse scalar indexes and dense output descriptors reference the original IPC batch and
 row/field coordinates; they do not replace it with a second scientific payload. Finite
@@ -786,6 +786,15 @@ are probed through fresh connections without selecting a missing catalog context
 credentials. Loopback binding alone does not fence holders of privileged credentials.
 
 
+Startup configuration stays bounded. Frozen payload inventories, failed-target owner/placement
+records and retry placements belong to one immutable private maintenance record, referenced by
+its exact path, extent and digest. Its stable operation identity and original source
+namespace/database/incarnation survive initializer-owner and target changes. Publish the record
+before its configuration pointer; retire only an exact predecessor no longer referenced by the
+current configuration. Missing or changed evidence refuses recovery and deletion. Retain the
+current record through payload cleanup, database disposal and listener drain; durably clear
+pending maintenance before retiring it. Unknown crash-window files remain preserved.
+
 `recover-maintenance` resumes only the durable phase recorded by that owner. Current-version
 restore verifies its backup inventory; clean rebuild verifies current initializer authority.
 Both observe account/database effects before retrying uncertain operations. Restore publishes its fresh closed identity before copying any backup
@@ -1004,8 +1013,8 @@ invent the summary conclusion.
 > placement and actual readback are L7 prerequisites, not RSS guarantees.
 
 **Operational limits.** The target deployment is authenticated local native WebSocket with native
-RocksDB and finite server/native-worker allocations. The Plan38e backup target closes admission and excludes GC before freezing its catalog, drains authenticated file owners and managed work, and copies the stopped database together with its exact required file closure. Acknowledged unpublished/incomplete data and unresolved intents are included; legitimately absent/unsealed staging remains unresolved. Missing required sealed files fail closure. Completion is published last. Restore validates inventory, integrity and interpretation under a fresh root/incarnation/credentials before activation; old-root cleanup still requires authentic drain. This is an offline operator lifecycle.
-These implemented contracts do not claim power-loss durability, remote deployment support,
-assembled worker/reopen/backup qualification, capacity measurements or comprehensive scientific
-qualification. Current acceptance and remaining work belong to the
+RocksDB and finite server/native-worker allocations. Offline backup closes admission and excludes GC before freezing its catalog, drains authenticated file owners and managed work, and copies the stopped database together with its exact required file closure. Acknowledged unpublished/incomplete data and unresolved intents are included; legitimately absent/unsealed staging remains unresolved. Missing required sealed files fail closure. Completion is published last. Restore validates inventory, integrity and interpretation under a fresh root/incarnation/credentials before activation; old-root cleanup still requires authentic drain. This is an offline operator lifecycle.
+These contracts alone do not establish qualification or claim power-loss durability, remote
+deployment support, capacity measurements or comprehensive scientific coverage. Completed selected Plan39/38 acceptance belongs to §24.2 and the Plan39d Outcome.
+Plan28's remaining independent campaign belongs to the
 [current packet](../../plans/28-surrealdb-unified-substrate.md), not this architecture page.

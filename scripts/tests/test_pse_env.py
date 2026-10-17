@@ -16,6 +16,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from scripts import pse_env, surreal_server, test_resources
@@ -23,6 +24,10 @@ from scripts import pse_env, surreal_server, test_resources
 
 def identity(_root: Path, env: dict[str, str]) -> dict[str, str]:
     return dict(env)
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
 
 
 class PseEnvTests(unittest.TestCase):
@@ -286,9 +291,11 @@ class PseEnvTests(unittest.TestCase):
             _environment: dict[str, str],
             *,
             observation: dict[str, object],
+            on_reaped: Callable[[], None],
             **_options: object,
         ) -> int:
             observation.update(child_status=-9, cancellation_deadline=original)
+            on_reaped()
             return 143
 
         with (
@@ -322,6 +329,249 @@ class PseEnvTests(unittest.TestCase):
             )
         self.assertEqual(drain.call_args.kwargs["deadline"], original)
         owner.release.assert_called_once_with(deadline=original)
+
+    @contextlib.contextmanager
+    def native_owned_scope(self) -> Generator[tuple[MagicMock, dict, MagicMock]]:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.nonce = "a" * 32
+        owner.directory = self.root / "admission"
+        owner.release.return_value = True
+        unit = "pse-native-" + "b" * 32 + ".scope"
+        scope = {"unit": unit, "group": "/exact-native", "invocation": "c" * 32}
+        handoff = self.root / "handoff"
+        observer = MagicMock()
+        observer.path = self.root / "observer"
+        child_record = {"scope": scope}
+        observer_record = {}
+        child = MagicMock(pid=424242, returncode=0)
+        child.wait.return_value = 0
+        with (
+            patch.object(pse_env.host, "inherit", return_value=owner),
+            patch.object(
+                pse_env.host,
+                "allocation_metadata",
+                return_value=contextlib.nullcontext(
+                    {"owners": {owner.nonce: {"units": {unit: {}}}}}
+                ),
+            ),
+            patch.object(pse_env.operation, "Operation") as operation,
+            patch.object(pse_env.operation, "prepare_handoff", return_value=handoff),
+            patch.object(
+                pse_env.operation,
+                "_record",
+                side_effect=lambda path: (
+                    child_record if path == handoff else observer_record
+                ),
+            ),
+            patch.object(
+                pse_env.operation, "record_lock", return_value=contextlib.nullcontext()
+            ),
+            patch.object(pse_env.operation, "write_json"),
+            patch.object(pse_env.operation.subprocess, "Popen", return_value=child),
+            patch.object(
+                pse_env.operation,
+                "drained",
+                return_value=pse_env.operation.DrainObservation(
+                    scope,
+                    pse_env.operation.DrainPhase.COMPLETE,
+                    "exact owned scope terminal",
+                ),
+            ) as drain,
+            patch("scripts.native_cache.cache_root", return_value=self.root),
+        ):
+            operation.return_value.__enter__.return_value = observer
+            yield owner, child_record, drain
+
+    def native_scope_command(self) -> list[str]:
+        return [
+            "systemd-run",
+            "--unit=pse-native-" + "b" * 32 + ".scope",
+            "owned-child",
+        ]
+
+    def test_native_owned_scope_joins_transient_active_manager_before_release(
+        self,
+    ) -> None:
+        with self.native_owned_scope() as (owner, record, drain):
+            drain.side_effect = [
+                pse_env.operation.DrainObservation(
+                    record["scope"],
+                    pse_env.operation.DrainPhase.ACTIVE,
+                    "manager still active after reaping",
+                ),
+                pse_env.operation.DrainObservation(
+                    record["scope"],
+                    pse_env.operation.DrainPhase.COMPLETE,
+                    "same manager lifetime now terminal",
+                ),
+            ]
+            with patch.object(pse_env.time, "sleep") as pause:
+                self.assertEqual(
+                    pse_env.owned_scope(self.native_scope_command(), {}), 0
+                )
+            self.assertEqual(drain.call_count, 2)
+            self.assertTrue(
+                all(call.args[0] is record for call in drain.call_args_list)
+            )
+            self.assertEqual(
+                drain.call_args_list[0].kwargs["deadline"],
+                drain.call_args_list[1].kwargs["deadline"],
+            )
+            pause.assert_called_once()
+            owner.release.assert_called_once_with()
+
+    def test_native_owned_scope_unknown_or_mismatched_manager_still_refuses_release(
+        self,
+    ) -> None:
+        for phase in (
+            pse_env.operation.DrainPhase.UNAVAILABLE,
+            pse_env.operation.DrainPhase.MISMATCH,
+        ):
+            with (
+                self.subTest(phase=phase),
+                self.native_owned_scope() as (owner, record, drain),
+            ):
+                owner.release.return_value = False
+                drain.return_value = pse_env.operation.DrainObservation(
+                    record["scope"], phase, "manager identity not established"
+                )
+                with (
+                    patch.object(pse_env.time, "sleep") as pause,
+                    self.assertRaisesRegex(
+                        pse_env.BoundaryError,
+                        "own allocation retained until actual drain",
+                    ),
+                ):
+                    pse_env.owned_scope(self.native_scope_command(), {})
+                drain.assert_called_once()
+                pause.assert_not_called()
+                owner.release.assert_called_once_with()
+
+    def test_native_owned_scope_join_does_not_renew_normal_or_cancellation_clock(
+        self,
+    ) -> None:
+        for cancellation in (None, 100.025):
+            with (
+                self.subTest(cancellation=cancellation),
+                self.native_owned_scope() as (owner, record, drain),
+            ):
+                elapsed = [100.0]
+                if cancellation is not None:
+                    record["cancel_deadline"] = cancellation
+                drain.return_value = pse_env.operation.DrainObservation(
+                    record["scope"],
+                    pse_env.operation.DrainPhase.ACTIVE,
+                    "manager has not settled",
+                )
+
+                def advance(delay: float, clock: list[float] = elapsed) -> None:
+                    clock[0] += delay
+
+                with (
+                    patch.object(
+                        pse_env.time,
+                        "monotonic",
+                        side_effect=lambda clock=elapsed: clock[0],
+                    ),
+                    patch.object(pse_env.time, "sleep", side_effect=advance),
+                    self.assertRaises(pse_env.operation.DeadlineExpiredError),
+                ):
+                    pse_env.owned_scope(self.native_scope_command(), {})
+                expected = cancellation if cancellation is not None else 110.0
+                self.assertEqual(elapsed[0], expected)
+                self.assertGreater(drain.call_count, 1)
+                self.assertTrue(
+                    all(
+                        call.kwargs["deadline"] == expected
+                        for call in drain.call_args_list
+                    )
+                )
+                owner.release.assert_called_once_with(
+                    **({"deadline": cancellation} if cancellation is not None else {})
+                )
+
+    def test_native_owned_scope_first_signal_during_join_keeps_nonraising_handler_and_original_clock(
+        self,
+    ) -> None:
+        with self.native_owned_scope() as (owner, record, drain):
+            original = 100.025
+            previous = signal.getsignal(signal.SIGTERM)
+
+            def observe(
+                _record: dict, *, deadline: float
+            ) -> pse_env.operation.DrainObservation:
+                if drain.call_count == 1:
+                    self.assertEqual(deadline, 110.0)
+                    handler = signal.getsignal(signal.SIGTERM)
+                    if not callable(handler):
+                        self.fail("join lost the non-raising native signal handler")
+                    handler(signal.SIGTERM, None)
+                    return pse_env.operation.DrainObservation(
+                        record["scope"],
+                        pse_env.operation.DrainPhase.ACTIVE,
+                        "first signal arrived while joining",
+                    )
+                self.assertEqual(deadline, original)
+                return pse_env.operation.DrainObservation(
+                    record["scope"],
+                    pse_env.operation.DrainPhase.COMPLETE,
+                    "exact receiver terminal",
+                )
+
+            drain.side_effect = observe
+            with (
+                patch.object(pse_env.time, "monotonic", return_value=100.0),
+                patch.object(pse_env.time, "sleep") as pause,
+                patch.object(
+                    pse_env.operation,
+                    "cancel_foreground",
+                    return_value=(original, signal.SIGTERM),
+                ),
+            ):
+                self.assertEqual(
+                    pse_env.owned_scope(self.native_scope_command(), {}),
+                    128 + signal.SIGTERM,
+                )
+            self.assertEqual(signal.getsignal(signal.SIGTERM), previous)
+            self.assertEqual(drain.call_count, 2)
+            pause.assert_not_called()
+            owner.release.assert_called_once_with(deadline=original)
+
+    def test_native_owned_scope_final_run_handoff_preserves_late_original_clock(
+        self,
+    ) -> None:
+        with self.native_owned_scope() as (owner, _record, _drain):
+            original = time.monotonic() + 1
+            run = pse_env.operation.run
+
+            def finish(
+                command: list[str],
+                environment: dict[str, str],
+                *,
+                observation: dict[str, object],
+                on_reaped: Callable[[], None],
+                cleanup_clock: Callable[[], float | None],
+                foreground: Path,
+            ) -> int:
+                self.assertEqual(
+                    run(
+                        command,
+                        environment,
+                        observation=observation,
+                        on_reaped=on_reaped,
+                        cleanup_clock=cleanup_clock,
+                        foreground=foreground,
+                    ),
+                    0,
+                )
+                observation["cancellation_deadline"] = original
+                return 143
+
+            with patch.object(pse_env.operation, "run", side_effect=finish):
+                self.assertEqual(
+                    pse_env.owned_scope(self.native_scope_command(), {}), 143
+                )
+            owner.release.assert_called_once_with(deadline=original)
 
     def test_new_native_operation_borrows_inherited_allocation_without_release(
         self,

@@ -1224,6 +1224,9 @@ pub(crate) fn declaration_environment(
     context: &TypeContext<'_>,
     id: DeclarationId,
 ) -> Result<BTreeMap<String, Type>> {
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("modeling.declaration_environments", "environments", 1);
+    }
     let mut env = p.named_types(id);
     let mut owner = Some(id);
     let mut vars = BTreeSet::new();
@@ -2614,6 +2617,11 @@ fn check_member_indices(
     if indices.len() != segment.indices.len() {
         return Err(invalid(at, "member index arity"));
     }
+    // Every declaration's enclosing parameter/coordinate/function environment is
+    // independently validated by check_declaration. No index domain consumes it here.
+    if indices.is_empty() {
+        return Ok(());
+    }
     let mut local = declaration_environment(p, c, id)?;
     for (position, (index, (name, _domain))) in segment.indices.iter().zip(indices).enumerate() {
         let (Type::Set(element) | Type::Continuous(_, element)) =
@@ -2997,4 +3005,129 @@ fn objective_members(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod member_index_tests {
+    use super::*;
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+
+    #[test]
+    fn scalar_member_indices_skip_environments_but_nonempty_indices_keep_kind_and_arity_checks() {
+        let (registry, _) = crate::kernel_types::physical();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
+        let context = TypeContext {
+            admissions: None,
+            formula_authority: None,
+            quantities: &registry,
+            preconditions: &preconditions,
+            scope: &crate::PhysicalScope::default(),
+        };
+        let package = crate::check(&crate::kernel_types::source(
+            "package p { entity kind item {} entity item a {} set items:Set<item>={a}; set next[i in items]:Set<item>={i}; def D {var x:Scalar; var y[i in items,j in next[i]]:Scalar;} }"), &context).unwrap();
+        let x = package
+            .declarations
+            .values()
+            .find(|row| row.name == "x")
+            .unwrap()
+            .declaration_id;
+        let y = package
+            .declarations
+            .values()
+            .find(|row| row.name == "y")
+            .unwrap()
+            .declaration_id;
+        let scalar = dsl::PathSegment {
+            name: "x".into(),
+            indices: vec![],
+        };
+        let env = BTreeMap::new();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("checker.member.indices");
+        let owner = operation.context();
+        let _scope = owner.enter();
+        check_member_indices(
+            &scalar,
+            member_indices(&package.declarations[&x]),
+            &env,
+            &package,
+            &context,
+            x,
+            x,
+        )
+        .unwrap();
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert!(
+            !snapshot
+                .metrics
+                .iter()
+                .any(|m| m.name == "modeling.declaration_environments")
+        );
+        let indexed = dsl::PathSegment {
+            name: "y".into(),
+            indices: vec![dsl::parse_expr("a").unwrap(), dsl::parse_expr("a").unwrap()],
+        };
+        check_member_indices(
+            &indexed,
+            member_indices(&package.declarations[&y]),
+            &env,
+            &package,
+            &context,
+            x,
+            y,
+        )
+        .unwrap();
+        let snapshot = operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert!(
+            matches!(snapshot.metrics.iter().find(|m| m.name == "modeling.declaration_environments").unwrap().cumulative, Value::Count(n) if n >= 1)
+        );
+        let wrong = dsl::PathSegment {
+            name: "y".into(),
+            indices: vec![dsl::parse_expr("a").unwrap(), dsl::parse_expr("1").unwrap()],
+        };
+        assert!(
+            check_member_indices(
+                &wrong,
+                member_indices(&package.declarations[&y]),
+                &env,
+                &package,
+                &context,
+                x,
+                y
+            )
+            .is_err()
+        );
+        assert!(
+            check_member_indices(
+                &scalar,
+                member_indices(&package.declarations[&y]),
+                &env,
+                &package,
+                &context,
+                x,
+                y
+            )
+            .is_err()
+        );
+    }
+    #[test]
+    fn scalar_fast_path_does_not_admit_malformed_enclosing_parameter_types() {
+        let (registry, _) = crate::kernel_types::physical();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
+        let context = TypeContext {
+            admissions: None,
+            formula_authority: None,
+            quantities: &registry,
+            preconditions: &preconditions,
+            scope: &crate::PhysicalScope::default(),
+        };
+        let rows = crate::kernel_types::source(
+            "package p {def D(bad:Unknown) {var x:Scalar; eq e:x==1;} }",
+        );
+        assert!(crate::check(&rows, &context).is_err());
+    }
 }

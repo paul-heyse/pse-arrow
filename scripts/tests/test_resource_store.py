@@ -14,11 +14,15 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import host_admission as host
 from scripts import resource_store as files
 from scripts import test_resources as resources
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class ExactStoreTests(unittest.TestCase):
@@ -55,6 +59,106 @@ class ExactStoreTests(unittest.TestCase):
         ):
             self.store.register(["/other", "other", "embedded"], {}, invocation=None)
         self.assertEqual(self.store.lookup(resource).facts, self.facts)
+
+    def test_registration_publishes_three_exact_coordination_states(self) -> None:
+        coordination = self.store.path("invocation-state", self.nonce)
+        publish = files.publish
+        transitions: list[tuple[str, str]] = []
+
+        def observe(path: Path, value: Mapping[str, object]) -> None:
+            publish(path, value)
+            if path == coordination:
+                state = files.read(path)
+                member = next(iter(state["members"].values()))
+                transitions.append((member["phase"], member["publication"]))
+
+        with patch.object(files, "publish", side_effect=observe):
+            resource = self.register()
+        self.assertEqual(
+            transitions,
+            [
+                ("pending", "not-started"),
+                ("pending", "uncertain"),
+                ("registered", "durable"),
+            ],
+        )
+        self.assertEqual(
+            files.read(coordination),
+            {
+                "version": 2,
+                "declaration": self.declaration,
+                "phase": "open",
+                "members": {
+                    resource: {
+                        "phase": "registered",
+                        "identity": self.identity,
+                        "publication": "durable",
+                    }
+                },
+            },
+        )
+        self.assertEqual(self.store.identity_lookup(self.identity), resource)
+        self.assertEqual(self.store.lookup(resource).facts, self.facts)
+        self.assertEqual(self.store.active_ids(), [resource])
+        self.assertFalse(
+            self.store.path("identity-pending", files.digest(self.identity)).exists()
+        )
+
+    def test_final_registration_publication_failure_recovers_at_freeze(self) -> None:
+        coordination = self.store.path("invocation-state", self.nonce)
+        publish = files.publish
+        coordination_writes = 0
+
+        def fail_completion(path: Path, value: Mapping[str, object]) -> None:
+            nonlocal coordination_writes
+            if path == coordination:
+                coordination_writes += 1
+                if coordination_writes == 3:
+                    raise OSError("injected final coordination publication failure")
+            publish(path, value)
+
+        with (
+            patch.object(files, "publish", side_effect=fail_completion),
+            self.assertRaisesRegex(OSError, "final coordination publication"),
+        ):
+            self.register()
+        self.assertEqual(coordination_writes, 3)
+        state = files.read(coordination)
+        resource = next(iter(state["members"]))
+        self.assertEqual(
+            state["members"],
+            {
+                resource: {
+                    "phase": "pending",
+                    "identity": self.identity,
+                    "publication": "uncertain",
+                }
+            },
+        )
+        # Reopen from durable files, without the failed caller's in-memory state.
+        recovered = files.FileStore(self.root)
+        self.assertEqual(recovered.identity_lookup(self.identity), resource)
+        self.assertEqual(recovered.lookup(resource).facts, self.facts)
+        self.assertFalse(
+            recovered.path("identity-pending", files.digest(self.identity)).exists()
+        )
+        terminal = {"exit": None}
+        self.assertEqual(recovered.freeze(self.nonce, terminal), [resource])
+        self.assertEqual(
+            files.read(coordination)["members"],
+            {
+                resource: {
+                    "phase": "registered",
+                    "identity": self.identity,
+                    "publication": "durable",
+                }
+            },
+        )
+        self.assertEqual(
+            recovered.terminal(self.nonce), (files.digest(terminal), terminal)
+        )
+        self.assertEqual(recovered.lookup(resource).facts, self.facts)
+        self.assertEqual(recovered.active_ids(), [resource])
 
     def test_freeze_first_prevents_any_registration_publication(self) -> None:
         self.assertEqual(self.store.freeze(self.nonce, {"exit": 0}), [])

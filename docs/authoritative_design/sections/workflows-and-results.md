@@ -395,6 +395,11 @@ intent without repeating science or inventing durable success. Native study work
 `workflow/staged`, `workflow/run`, `workflow/completion`, `workflow/modeling_results` and
 fitting preparation.
 
+Declared benchmark and diagnostic consumers keep the exact retained prepared model instead
+of detaching its analysis and resolving the same structure again. Diagnostic resolution keeps
+its missing-free-value policy independently of the authored execution procedure; legitimate
+changed demands and contexts still require their own admission.
+
 Workflow assembly checks the actual consumed shared pool, CPU admission and width,
 native runtime, cache service, spill/cache managers and store registry. A supplied factory
 with foreign owners refuses construction; supported custom planning/functions and query
@@ -597,6 +602,15 @@ completion properties now have a separate narrow protected read: terminal/source
 admission and exact completion coverage/digest remain required, while manifest descriptor
 transport and seed discovery are unnecessary. Every independent property read needs fresh
 permission; previously copied completion bytes do not supply it.
+
+Nonempty run-result publication separates homogeneous IPC file packing from metadata
+submission. Checked source batches and large encoder/byte owners survive through sealing and
+actual byte completion, then drain before separately charged immutable append descriptors
+are queued. Compatible sealed files and result sets share the existing bounded append owner,
+with one attempt fence, original operation identities/deadlines and consecutive per-set
+ordinals. Only exact acknowledged final ordinals complete a set. Empty declarations, live
+samples, horizon prefixes and explicit demanded ACK consumers remain flush barriers. Queue
+pressure can flush early; it cannot renew clocks, imply ACKs or weaken closed coverage.
 
 **Retained scientific rows.** Registry-admitted batches are retained once as independent,
 uncompressed, self-contained Arrow IPC streams, each bounded to 512 KiB including schema,
@@ -1291,6 +1305,14 @@ means all per-analysis state was removed behind the source-authority creation fe
 (ADR-0172). An unknown key without valid original creation authority refuses rather than treating absence
 as settlement. The original occurrence key carries its immutable authority and expiry, so it
 can resolve an uncertain final acknowledgement through exact settlement after header deletion.
+Result analysis separates protected selection, artifact promotion and graph assembly into
+narrow borrowed async phases on the ordinary caller. The original result-read protection
+survives the complete artifact transfer and exact release. Connected terminal selection and batch reading likewise separate large borrowed future state
+from outer activity/cancellation polling. Boxed reader state is prepaid by its exact
+allocation extent; that independent grant survives readiness and drops after the child
+allocation. Metadata response and protected snapshot grants retain their separate lifetimes.
+Heap placement does not introduce a spawned task or change cancellation/recovery ownership.
+
 An uncertain publication diagnostic exposes `analysis_key`; a joined Python signal preserves
 the same key even if cancellation arrives after publication dispatch. Local `export_results` writes a complete provenance-bearing
 IPC file under the completion rule in [§19.2](#section-19-2). Public SQL, operational-store,

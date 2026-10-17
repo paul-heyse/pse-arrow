@@ -400,12 +400,8 @@ impl MathService {
             .and_then(|bytes| bytes.checked_add(2 * size_of::<PreparedCase>() + 1024))
             .ok_or(MathRuntimeError::Limit("revision attribution extent"))?;
         let lease = self.reserve("math:revision-attribution", bytes)?;
-        let occurrences = model.compiled().occurrences();
-        if view.compiled().occurrences.as_ref() == &occurrences {
-            return Ok(view.clone());
-        }
         let mut prepared = view.compiled().clone();
-        prepared.occurrences = Arc::new(occurrences).into();
+        prepared.occurrences = model.compiled().shared_occurrences().into();
         self.own_rebind(view, prepared, lease)
     }
     /// Retain each current allocation independently. Reused fields already carry their

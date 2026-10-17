@@ -1,6 +1,6 @@
 # Efficiency and solver target review: supporting evidence
 
-The [principal review](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md) owns the combined architectural judgment, the finding identifiers (`F01`…`F14`), the rule impacts (`RC01`…`RC11`), the decision and the evidence limits. The [solver target](solver-target.md) is a supporting document. It holds the detailed solver target that the principal summarizes in F09–F13 and RC10.
+The [principal review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md) owns the combined architectural judgment, the finding identifiers (`F01`…`F14`), the rule impacts (`RC01`…`RC11`), the decision and the evidence limits. The [solver target](solver-target.md) is a supporting document. It holds the detailed solver target that the principal summarizes in F09–F13 and RC10.
 
 The other documents here are bounded supporting contributions, preserved as returned. They are not plans, competing verdicts or finding ledgers. Their local labels are not finding identifiers. Examples are O1, K1, A1, S1, L and P1, and X2's lettered facts. Recommendations remain *Proposed* until plan creation dispositions them.
 

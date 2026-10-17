@@ -1,14 +1,14 @@
 ---
 title: Implementation friction and Codex effectiveness
-status: in-progress
+status: done
 date: 2026-10-14
 adrs: [ADR-0189]
 review_sources:
-  - docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md
-  - docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md
+  - https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md
+  - https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md
 scenario_sources:
-  - docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md
-  - docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md
+  - https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md
+  - https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md
 doc_owner: docs/plans/39-implementation-friction-and-codex-effectiveness.md
 doc_topics: [architecture, preparation, storage, validation, environment]
 ---
@@ -17,7 +17,7 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 
 ## Scope, basis and authorization
 
-This standalone series adopts the findings, corrective contracts and investigation opportunities of the [implementation-friction review](../design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md), its [product inquiry](../design_review/evidence/implementation-friction-and-codex-effectiveness-2026-10-14/product-inquiry.md), [tooling inquiry](../design_review/evidence/implementation-friction-and-codex-effectiveness-2026-10-14/tooling-inquiry.md) and [observed episodes](../design_review/evidence/implementation-friction-and-codex-effectiveness-2026-10-14/observed-episodes.md). It then executes the **remaining functional Plan 38 scope at the end of the sequence**, through [39d](39d-qualification-and-plan38-cutover.md). It supersedes remaining Plan 38 execution/disposition ownership, not completed 38a–f outcomes or historical evidence. It imports no unrelated Plan 28/32 campaign.
+This standalone series adopts the findings, corrective contracts and investigation opportunities of the [implementation-friction review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md), its [product inquiry](../design_review/evidence/implementation-friction-and-codex-effectiveness-2026-10-14/product-inquiry.md), [tooling inquiry](../design_review/evidence/implementation-friction-and-codex-effectiveness-2026-10-14/tooling-inquiry.md) and [observed episodes](../design_review/evidence/implementation-friction-and-codex-effectiveness-2026-10-14/observed-episodes.md). It then executes the **remaining functional Plan 38 scope at the end of the sequence**, through [39d](39d-qualification-and-plan38-cutover.md). It supersedes remaining Plan 38 execution/disposition ownership, not completed 38a–f outcomes or historical evidence. It imports no unrelated Plan 28/32 campaign.
 
 The target remains the best-in-class process simulator in the profile's Functional target and blueprint §0/§0.2: value edits retain structure; studies, recycles/tears, dynamics, fitting and extensions share scientific definitions; a responsibility builds and tests with its actual dependencies. Core 3.4, Efficient Architecture 1.0 and Process Simulator 1.5 guide decisions. The operational target is this operator's Linux workstation, Codex and the coordinator's model. Other operating systems, agent runtimes and model families are not assumed requirements. Concurrent jobs, process failure, borrowers and unrelated projects still require truthful ownership and recovery.
 
@@ -33,9 +33,9 @@ The 2026-10-15 D4 route uses once-only diagnostic observations to identify unnec
 
 | Document | Owned design and packet progress |
 |---|---|
-| [39a: Local selection and receiver rebinding](39a-local-selection-and-receiver-rebinding.md) | F04/F05 exact inventory access, checked immutable handoff, receiving validity, replay multiplicity and external/reload lookups |
-| [39b: Deployment assurance and preparation](39b-deployment-assurance-and-preparation.md) | F01/F02/F03/F06 startup ownership, assurance investigation, protected role evidence/artifacts, installation, scratch and live diagnostics |
-| [39c: Operational composition and retained evidence](39c-operational-composition-and-retained-evidence.md) | Report verification, pre-effect descriptions, selected-unit observation and actual Codex launch selection |
+| [39a: Local selection and receiver rebinding](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/39a-local-selection-and-receiver-rebinding.md) | F04/F05 exact inventory access, checked immutable handoff, receiving validity, replay multiplicity and external/reload lookups |
+| [39b: Deployment assurance and preparation](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/39b-deployment-assurance-and-preparation.md) | F01/F02/F03/F06 startup ownership, assurance investigation, protected role evidence/artifacts, installation, scratch and live diagnostics |
+| [39c: Operational composition and retained evidence](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/39c-operational-composition-and-retained-evidence.md) | Report verification, pre-effect descriptions, selected-unit observation and actual Codex launch selection |
 | [39d: Qualification and remaining Plan 38 cutover](39d-qualification-and-plan38-cutover.md) | Remaining functional Plan 38 G0–G4 behavior/acceptance, once-only simulation audit, combined disposition and cutover |
 | This coordinator | Shared target, rule decisions, review/opportunity dispositions, prerequisite sequence and combined completion |
 
@@ -86,18 +86,18 @@ Every functional package compiles what it changes, runs meaningful targeted cont
 
 ## Finding dispositions
 
-These are **Proposed** routes, not implementation authorization or evidence. Source scenarios remain at the review; the source finding IDs are not renumbered. Packet progress belongs to the linked companion.
+These are the final selected dispositions; the Outcome below owns their evidence and limits. Source scenarios remain at the review; the source finding IDs are not renumbered. Packet progress belongs to the linked companion.
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
-| [friction/F01](../design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f01) | S04 | Open — implemented; pending D acceptance | 39b B2; final D1–D3 | Actual strict and local worker startup cancellation/deadline/preflight/reservation; no producer on refusal; native drain before release |
-| [friction/F02](../design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f02) | S02 | Implemented bounded correction; further proof target withdrawn | 39b B1/B5; D5 scope reconciliation | Guarded-owner behavior retains its targeted evidence; additional strict/source-completeness acceptance excluded by maintainer |
-| [friction/F03](../design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f03) | S03 | Implemented bounded correction; further proof target withdrawn | 39b B3/B4; D1 functional import; D5 reconciliation | Historical evidence retains its actual scope; exact installer/environment and all-role proof acceptance excluded by maintainer |
-| [friction/F04](../design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f04) | S01/S06/S07 | Open — implemented; pending D acceptance | 39a A1/A2; D2 | Exact absence/shadow/payload/context controls; warm query/checked handoff removes repeated unrelated full scans |
-| [friction/F05](../design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f05) | S05 | Open — implemented; pending D acceptance | 39a A3–A5; D2/D3 | Owned rebind preserves valid source without reparse; changed receiver premises/external malformed bodies retain real admission; fresh explicit ephemeral solve |
-| [friction/F06](../design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f06) | S09 | Open — implemented; pending D acceptance | 39b B6; D1/D2 | Outer log sees child diagnostic before exit; exact JSON/status/cancel/drain semantics unchanged |
+| [friction/F01](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f01) | S04 | Resolved — implemented and selected acceptance complete | 39b B2; final D1–D3 | Actual strict and local worker startup cancellation/deadline/preflight/reservation; no producer on refusal; native drain before release |
+| [friction/F02](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f02) | S02 | Resolved — bounded correction; further proof target eliminated | 39b B1/B5; D5 scope reconciliation | Guarded-owner behavior retains its targeted evidence; additional strict/source-completeness acceptance excluded by maintainer |
+| [friction/F03](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f03) | S03 | Resolved — bounded correction; further proof target eliminated | 39b B3/B4; D1 functional import; D5 reconciliation | Historical evidence retains its actual scope; exact installer/environment and all-role proof acceptance excluded by maintainer |
+| [friction/F04](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f04) | S01/S06/S07 | Resolved — implemented and selected acceptance complete | 39a A1/A2; D2 | Exact absence/shadow/payload/context controls; warm query/checked handoff removes repeated unrelated full scans |
+| [friction/F05](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f05) | S05 | Resolved — implemented and selected acceptance complete | 39a A3–A5; D2/D3 | Owned rebind preserves valid source without reparse; changed receiver premises/external malformed bodies retain real admission; fresh explicit ephemeral solve |
+| [friction/F06](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_implementation-friction-and-codex-effectiveness_2026-10-14.md#f06) | S09 | Resolved — implemented and selected acceptance complete | 39b B6; D1/D2 | Outer log sees child diagnostic before exit; exact JSON/status/cancel/drain semantics unchanged |
 
-The sixteen Plan 38 audit findings (F01–F14/AU01/AU02), nine supporting recommendations, all qualified older contributions, 39 transferred packets and 27 decisions retain delivered foundations and remaining combined acceptance through [39d](39d-qualification-and-plan38-cutover.md#d5--final-reconciliation-documentation-and-retirement). They are not six new defects or a mandate to reimplement completed packages. D5 owns their evidence-backed reconciliation under this coordinator, replacing the historical Plan 38 disposition owner.
+The sixteen Plan 38 audit findings (F01–F14/AU01/AU02), nine supporting recommendations, all qualified older contributions, 39 transferred packets and 27 decisions retain delivered foundations and completed selected combined acceptance through [39d](39d-qualification-and-plan38-cutover.md#d5--final-reconciliation-documentation-and-retirement). They are not six new defects or a mandate to reimplement completed packages. D5 owns their evidence-backed reconciliation under this coordinator, replacing the historical Plan 38 disposition owner.
 
 ## Opportunity and investigation coverage
 
@@ -123,7 +123,7 @@ All six optional principal-review rows and the supporting refinements have an ex
 
 ## Verification, completion and authoring checkpoint
 
-Local target contracts are **Proposed** and use the revealing controls in 39a–c. Final assembled, scientific and measured claims belong to 39d and require current relevant evidence against zero failures, including actual enclosing native/admission/cleanup outcomes. Source tracing can establish removed structural amplification; numerical latency/RSS/throughput benefit requires a named controlled measurement. No universal speed, allocation, full-core or solver-superiority threshold is introduced.
+**Implemented:** local target contracts and selected consumers. **Tested:** the final composed assembled/scientific scope in 39d passes against the zero-failure target, including enclosing native/admission/cleanup outcomes. Statistical performance claims are not selected. Source tracing can establish removed structural amplification; numerical latency/RSS/throughput benefit requires a named controlled measurement. No universal speed, allocation, full-core or solver-superiority threshold is introduced.
 
 Completion requires every adopted contribution/investigation dispositioned, operator-confirmed changes installed before dependence, all selected producers/consumers migrated and replaced paths removed, remaining Plan 38 current-artifact/assembled/scientific/manual scope passing, all eleven selected simulation-audit positions explicitly dispositioned, outstanding scientific obligations qualified, and D5 Outcomes/retirement settled. An unresolved material assurance, receiver, physical or recovery premise limits acceptance; it cannot be hidden by companion completion. Exact qualification conditions and work not run remain visible.
 
@@ -139,7 +139,7 @@ Maintainer-authorized implementation selects all 39b/39c agent-effectiveness sco
 
 ## Remaining-design execution — 2026-10-14
 
-The maintainer authorized all remaining design changes and investigations, with targeted compile/tests/probes, and explicitly deferred the entire final campaign including all-role strict captures and eleven measurements. A1–A5 are implemented with their supported receiving-validity and same-format export decisions at [39a's Outcome](39a-local-selection-and-receiver-rebinding.md#selected-execution-outcome--2026-10-14). Existing 39b/39c work is retained. The finite strict-preparation correction follows the proposed ADR-0189 amendment and its independent bounded target review; [39b's remaining-design Outcome](39b-deployment-assurance-and-preparation.md#remaining-design-execution-outcome--2026-10-14) records the 23 producer controls and 211 tooling controls. The confirmed new-launch public status correction consumes fresh persisted configuration at [39c's remaining-design Outcome](39c-operational-composition-and-retained-evidence.md#remaining-design-execution-outcome--2026-10-14).
+The maintainer authorized all remaining design changes and investigations, with targeted compile/tests/probes, and explicitly deferred the entire final campaign including all-role strict captures and eleven measurements. A1–A5 are implemented with their supported receiving-validity and same-format export decisions at [39a's Outcome](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/39a-local-selection-and-receiver-rebinding.md#selected-execution-outcome--2026-10-14). Existing 39b/39c work is retained. The finite strict-preparation correction follows the proposed ADR-0189 amendment and its independent bounded target review; [39b's remaining-design Outcome](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/39b-deployment-assurance-and-preparation.md#remaining-design-execution-outcome--2026-10-14) records the 23 producer controls and 211 tooling controls. The confirmed new-launch public status correction consumes fresh persisted configuration at [39c's remaining-design Outcome](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/39c-operational-composition-and-retained-evidence.md#remaining-design-execution-outcome--2026-10-14).
 
 This slice completes functional readiness/cutover contributions from 39d without starting D1–D4. The transferred 39 Plan38 packets remain acceptance/disposition obligations, not missing implementations. Final functional finding reconciliation, ordinary installed workflows, assembled science/recovery/signal work, hygiene/manual checks, measurements and D5 retirement remain pending. Additional native/source and strict installation proof targets are withdrawn. Other active-plan campaigns and formal ADR status are unchanged.
 
@@ -166,3 +166,68 @@ acceptance. [39d's correction handoff](39d-qualification-and-plan38-cutover.md#p
 maps the historical observations to that owner. This does not qualify the original eleven-case
 campaign or complete Plan39/Plan40e. Existing companion outcomes and permanently eliminated
 environment/provenance-proof scope are unchanged.
+
+The maintainer authorized the [post-Plan41 simulation audit](39d-qualification-and-plan38-cutover.md#post-plan41-simulation-audit--2026-10-16)
+of those eleven cases with focused controls for newly exercised paths. That section owns
+the completed audit, fresh case positions, AUD39-01–07 reconciliation and proposed
+AUD39-08–15. Default-stack result failures, interrupted sweep/native-cancellation scope
+and diagnostic coverage limits remain explicit. The original audit remains historical
+evidence; production remedies require subsequent authorization and this does not close
+Plan39 or Plan40e.
+
+## Post-Plan41 review corrective handoff — 2026-10-16
+
+The subsequent [design review](../design_review/reviews/design_review_post-plan41-simulation-efficiency-and-diagnostics_2026-10-16.md)
+supplies eight corrective findings and two operator-accepted rule impacts. Newly authored
+[Plan42](42-post-plan41-simulation-efficiency-and-diagnostics.md#finding-dispositions) owns
+those corrective dispositions and bounded investigations; [39d's handoff](39d-qualification-and-plan38-cutover.md#post-plan41-review-corrective-handoff--2026-10-16)
+maps their prerequisites back to this plan's acceptance. The source audit, prior outcomes,
+remaining practical D0–D5 scope and permanently eliminated proof targets are unchanged.
+Plan42's authoring does not implement its corrections or close this plan. Select one
+execution owner for overlapping journeys and retain each plan's separate acceptance boundary.
+
+
+## Current checkpoint
+
+Completed 2026-10-17. All selected Plan39 work and inherited remaining Plan38 scope are
+implemented, reconciled and accepted within the conditions below. D0–D5 are complete.
+The [39d Outcome](39d-qualification-and-plan38-cutover.md#outcome-recorded-after-implementation)
+owns composed acceptance, initial failures and repaired reruns, all eleven once-only case
+positions, scientific recovery and remaining exclusions. Plans28/32/40 keep their separate
+campaigns. Environment/provenance proof and statistical repetition are permanently eliminated.
+
+## Outcome (recorded after implementation)
+
+**Implemented:** exact local selection and receiving validity, owned preparation/startup,
+operational composition and all selected inherited solver/workflow/result targets. The
+complete finding, 27-decision, supporting-recommendation and investigation reconciliation
+belongs to [39d](39d-qualification-and-plan38-cutover.md#final-source-reconciliation--2026-10-17).
+All six friction findings are resolved within the selected scope. F02/F03 retain their
+bounded implementations; further environment/provenance proof has no deferred obligation.
+
+**Tested:** assembled native/managed and installed correctness-Python journeys, both physical
+thousand-point variants, nine IDAES comparisons, actual entered-pull SIGINT, scientific
+process-crash/offline restore/rebuild and all eleven once-only simulation positions pass
+through the composed evidence in 39d. Full continuing Clippy passes in default, no-default
+and linked-native modes. Final hygiene attempts all 28 checks with zero failures; governance,
+documentation/metadata and root turn-end results are recorded in 39d. These use the pinned
+Linux toolchain, explicit Arrow force-validation and original scientific/resource assertions.
+They establish the selected cases, not a fresh monolithic whole-product rerun.
+
+Mistakes corrected include stale fixture premises and alias demand, production invocation
+classification, missing definite-conflict retry, oversized block response accounting,
+undrained initializer transports, Python study stack ownership, incorrect optional POUNCE
+effort eligibility, broad managed file-effect ownership and lifecycle inventories mixed
+into bounded startup configuration. Restore now retains the current pending record after
+configuration refresh instead of overwriting its newly published inventory reference.
+Independent reviews and affected tests accompany the repairs; unknown writes, file ownership,
+original clocks and scientific acceptance remain conservative.
+
+Deliberate deviations: one observation per simulation, no comparative speedup or latency
+threshold, and permanently eliminated environment/provenance proof. Conditional methods,
+bounded rank analysis, inactive general file cache and other unselected capabilities keep
+their explicit support limits. Proposed ADR statuses remain unchanged. Five integrated repair
+worktrees and same-HEAD branches were removed after source comparison and temporary patch
+archival. Eleven eligible completed plans and thirteen resolved reviews retire to immutable
+Git references; supporting evidence/assets and independent plan owners remain preserved.
+Current39/39d and the unarchived highest Plan42 records remain for their live readers.

@@ -5253,7 +5253,19 @@ mod canonical_durable_codec {
     #[tokio::test]
     async fn canonical_seed_chunks_exact_ieee_bits_and_accounted_join() {
         let (operations, fence) = claimed().await;
-        let original = (0..70_019)
+        // Size the scientific seed against the current physical block limit.
+        // Every four-value cycle below encodes at least this many JSON bytes
+        // (replace the opening array bracket with the next cycle's comma).
+        // Keep an uneven tail so joining also checks the final partial chunk.
+        let minimum_cycle = [
+            0x8000000000000000_u64,
+            0x7ff8000000000091,
+            0xfff0000000000000,
+            0,
+        ];
+        let minimum_cycle_bytes = serde_json::to_vec(&minimum_cycle).unwrap().len() - 1;
+        let values = 4 * (RESULT_BATCH_BYTES / minimum_cycle_bytes + 1) + 19;
+        let original = (0..values)
             .map(|i| {
                 f64::from_bits(match i % 4 {
                     0 => 0x8000000000000000,
@@ -5266,6 +5278,8 @@ mod canonical_durable_codec {
         let bytes =
             serde_json::to_vec(&seed_payload(&WarmPayload::Root(original.clone()))).unwrap();
         assert!(bytes.len() > RESULT_BATCH_BYTES);
+        assert_ne!(bytes.len() % RESULT_BATCH_BYTES, 0);
+        let expected_chunks = bytes.len().div_ceil(RESULT_BATCH_BYTES) as u64;
         let acknowledgments = PublicationAcks::new(&operations.pool);
         let first = write_chunks(
             &operations.store,
@@ -5278,6 +5292,7 @@ mod canonical_durable_codec {
         )
         .await
         .unwrap();
+        assert_eq!(first.batch_count, expected_chunks);
         let second = write_chunks(
             &operations.store,
             &fence,
@@ -5289,6 +5304,7 @@ mod canonical_durable_codec {
         )
         .await
         .unwrap();
+        assert_eq!(second.batch_count, expected_chunks);
         let read = admit(&operations, &fence).await;
         let before = operations.pool.reserved();
         let (joined, owner) = read_chunks(

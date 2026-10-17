@@ -303,6 +303,7 @@ pub fn select_window(
     snapshot.coverage.stale |= snapshot.outcome.is_none()
         && read_at.saturating_sub(snapshot.observed_at.unwrap_or(snapshot.started_at))
             > snapshot.stale_after;
+    snapshot.apply_summary_expiry(read_at);
     snapshot
         .detail
         .retain(|event| !empty && event.at >= start && event.at <= end);
@@ -471,6 +472,11 @@ mod window_tests {
             )
         };
         assert!(mean(&active).is_none());
+        let mut compact = active.clone();
+        compact.compact();
+        assert!(compact.phases.is_empty());
+        assert!(compact.coverage.curtailed);
+        assert!(mean(&compact).is_none());
         clock.0.store(6, Ordering::Relaxed);
         drop(second);
         assert!(

@@ -238,23 +238,25 @@ impl NativeExecutionContext {
         state: &SessionState,
         cancel: &CancellationToken,
     ) -> Result<SessionState> {
+        let inherited = state
+            .config()
+            .get_extension::<Self>()
+            .filter(|source| source.inherited);
         Self::execution_state_with_caches(
             state,
             cancel,
-            state
-                .config()
-                .get_extension::<Self>()
-                .filter(|source| source.inherited)
-                .map_or_else(
-                    || Arc::new(super::cache::CacheStore::default()),
-                    |source| source.caches.clone(),
-                ),
+            inherited.as_ref().map_or_else(
+                || Arc::new(super::cache::CacheStore::default()),
+                |source| source.caches.clone(),
+            ),
+            inherited.is_some(),
         )
     }
     pub(super) fn execution_state_with_caches(
         state: &SessionState,
         cancel: &CancellationToken,
         caches: Arc<super::cache::CacheStore>,
+        inherited: bool,
     ) -> Result<SessionState> {
         let Some(source) = state.config().get_extension::<Self>() else {
             return Ok(state.clone());
@@ -270,7 +272,7 @@ impl NativeExecutionContext {
                     .for_scope(caches.4.validation_scope.clone()),
             ),
             caches,
-            inherited: source.inherited,
+            inherited,
             parent_admission: source.parent_admission.clone(),
             query_admission: std::sync::Mutex::default(),
             template: source.template.clone(),

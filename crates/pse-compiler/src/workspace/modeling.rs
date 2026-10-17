@@ -748,11 +748,12 @@ pub use conditional::{AutomaticCausalUnit, ConditionalUnitInventory};
 mod executable;
 mod flow;
 pub use executable::{
-    AdmittedImplicit, AdmittedModeling, BoundStructure, Derivation, Derived, ImplicitAlgorithm,
-    ImplicitCapabilities, ImplicitMeaning, ImplicitScale, ImplicitSelection, ModelingCaseBindings,
-    ModelingExpectationResult, ModelingHint, ModelingOutput, ModelingPointChecks,
-    ModelingPreparationFrontier, ModelingTestValue, ModelingValidityResult, ModelingVariableState,
-    ObjectiveBound, PreparedModeling, SelectionEquivalence, SelectionNeighborhood,
+    AdmittedImplicit, AdmittedModeling, BoundLookup, BoundLookupKey, BoundStructure, Derivation,
+    Derived, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale,
+    ImplicitSelection, ModelingCaseBindings, ModelingExpectationResult, ModelingHint,
+    ModelingOccurrenceIdentity, ModelingOutput, ModelingPointChecks, ModelingPreparationFrontier,
+    ModelingTestValue, ModelingValidityResult, ModelingVariableState, ObjectiveBound,
+    PreparedModeling, SelectionEquivalence, SelectionNeighborhood,
 };
 pub use flow::{
     FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection, SemanticModeling,

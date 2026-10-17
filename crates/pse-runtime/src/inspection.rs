@@ -106,6 +106,8 @@ pub struct DiagnosticListRequest {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DiagnosticProcessSummary {
+    /// Explicit producer-summary admission, expiry and pressure losses when readable.
+    pub summaries: Option<pse_diagnostics::observation::SummaryCoverage>,
     /// Actual checkpoint path.
     pub checkpoint: PathBuf,
     /// Process diagnostic identity, if the image is readable.
@@ -203,6 +205,7 @@ pub fn list_processes(
         .into_iter()
         .map(|checkpoint| match read_checkpoint(&checkpoint) {
             Ok(image) => DiagnosticProcessSummary {
+                summaries: Some(image.summaries),
                 checkpoint,
                 process: Some(image.process),
                 locator: Some(image.locator),
@@ -210,6 +213,7 @@ pub fn list_processes(
                     .operations
                     .into_iter()
                     .map(|op| OperationSummary {
+                        summary: op.summary,
                         id: op.id,
                         kind: op.kind,
                         started_at: op.started_at,
@@ -223,6 +227,7 @@ pub fn list_processes(
                     || !image.registry_coverage.available,
             },
             Err(error) => DiagnosticProcessSummary {
+                summaries: None,
                 checkpoint,
                 process: None,
                 locator: None,
@@ -283,7 +288,8 @@ pub fn inspect_checkpoint(
     let image = read_checkpoint(path)?;
     Ok(inspect_image(path, request, image))
 }
-fn inspect_image(
+/// Inspect this already decoded image without rereading its possibly replaced path.
+pub fn inspect_image(
     path: &Path,
     request: InspectionRequest,
     mut image: ProcessCheckpoint,
@@ -297,7 +303,17 @@ fn inspect_image(
         .iter()
         .position(|op| op.id == request.operation)
         .map(|index| {
-            let op = image.operations.remove(index);
+            let mut op = image.operations.remove(index);
+            if now.is_none()
+                && op
+                    .summary
+                    .as_ref()
+                    .is_some_and(|summary| summary.expires_at.is_some())
+            {
+                // Without current clock projection, terminal-summary eligibility
+                // cannot be established from the old publication timestamp.
+                op.coverage.stale = true;
+            }
             let read_at = now.unwrap_or(op.read_at);
             pse_diagnostics::inspection::select_window(op, read_at, request.window)
         });
@@ -337,7 +353,15 @@ fn inspect_image(
                 let op = remote.operations.into_iter().find(|op| op.id == child.id)?;
                 Some((op, remote_now))
             });
-            if let Some((op, read_at)) = found {
+            if let Some((mut op, read_at)) = found {
+                if read_at.is_none()
+                    && op
+                        .summary
+                        .as_ref()
+                        .is_some_and(|summary| summary.expires_at.is_some())
+                {
+                    op.coverage.stale = true;
+                }
                 let read_at = read_at.unwrap_or(op.read_at);
                 related.push(pse_diagnostics::inspection::select_window(
                     op,
@@ -760,6 +784,34 @@ mod tests {
         assert_eq!(missing.omitted, 1);
         assert!(missing.transport.partial);
         caller.release().unwrap();
+    }
+    #[test]
+    fn unmapped_terminal_summary_eligibility_is_stale_for_selected_and_related_copies() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
+        let parent = owner.hub().start("parent responsibility");
+        parent.context().declare_summary("parent facts");
+        let child = parent
+            .context()
+            .child("child responsibility", Relationship::Nested);
+        child.context().declare_summary("child facts");
+        let child_reader = child.reader();
+        let parent_id = parent.context().id();
+        child.finish(pse_diagnostics::observation::Outcome::Completed);
+        parent.finish(pse_diagnostics::observation::Outcome::Completed);
+        owner.publish().unwrap();
+        let mut image = read_checkpoint(&owner.checkpoint_path()).unwrap();
+        image.clock = None;
+        let document = inspect_image(
+            &owner.checkpoint_path(),
+            InspectionRequest::new(parent_id),
+            image,
+        );
+        assert!(document.operation.unwrap().coverage.stale);
+        assert_eq!(document.related.len(), 1);
+        assert_eq!(document.related[0].id, child_reader.id());
+        assert!(document.related[0].coverage.stale);
+        assert!(document.transport.partial);
     }
     #[test]
     fn inspection_evicted_root_is_absent_while_exact_child_and_reader_remain_available() {

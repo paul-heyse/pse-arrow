@@ -14,7 +14,12 @@ fn native_failure_context(
 ) {
     let report = match result.report() {
         Ok(RunReport::Modeling(reports)) => reports.first().expect("one authored physical case"),
-        other => panic!("case={case} backend={backend:?} presolve={presolve:?}; report={other:?}"),
+        Err(error) => {
+            panic!("case={case} backend={backend:?} presolve={presolve:?}; report={error}")
+        }
+        Ok(_) => panic!(
+            "case={case} backend={backend:?} presolve={presolve:?}; expected an authored modeling report"
+        ),
     };
     if !report.accepted || !result.usable() {
         use pse_relations::columnar::RelationRow;

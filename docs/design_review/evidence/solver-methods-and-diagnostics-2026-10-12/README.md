@@ -1,6 +1,6 @@
 # Solver methods, selection and diagnostics review: supporting evidence
 
-The [principal review](../../reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md) owns:
+The [principal review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md) owns:
 
 - the combined architectural judgment;
 - the finding identifiers (`F01`…`F13`) and rule impacts (`RC01`…`RC13`);

@@ -1,4 +1,4 @@
-> Supporting evidence for [the solver methods, selection and diagnostics review](../../reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md). Principal reviewer's analysis. Current-state facts cite the wave-1 evidence in this folder: [observation-and-persistence-map.md](observation-and-persistence-map.md) (A2) and the B1–B4 library returns. Targets are *Proposed*. Baseline: `ff5a4aa2f` plus the Plan 36 working tree, diff fingerprint `45ceea51b0698679`.
+> Supporting evidence for [the solver methods, selection and diagnostics review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md). Principal reviewer's analysis. Current-state facts cite the wave-1 evidence in this folder: [observation-and-persistence-map.md](observation-and-persistence-map.md) (A2) and the B1–B4 library returns. Targets are *Proposed*. Baseline: `ff5a4aa2f` plus the Plan 36 working tree, diff fingerprint `45ceea51b0698679`.
 
 # Observation, diagnostics and measurement
 

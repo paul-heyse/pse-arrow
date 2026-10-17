@@ -565,7 +565,13 @@ mod canonical_result_retention_server_unit {
         assert!(store.forget_run_results(&request.key).await.is_err());
         assert_eq!(escaped.batch.payload.as_slice(), &[0, 17]);
         drop(escaped);
-        store.result_read_drain.drain().await.unwrap();
+        // Join the result reader's exact cleanup without declaring the still
+        // borrowed independent artifact acquisition globally drained.
+        store
+            .result_read_drain
+            .join_pending_releases()
+            .await
+            .unwrap();
         store.forget_run_results(&request.key).await.unwrap();
         assert_eq!(
             artifact_read.block(0).await.unwrap().payload.as_slice(),

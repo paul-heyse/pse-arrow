@@ -23,7 +23,9 @@ enum Key {
     EncodedBody(SemanticBodyHash),
     Basis(Arc<modeling::BasisKey>),
     Frontier(Arc<modeling::BasisKey>),
-    Solver(PreparedViewHash),
+    #[cfg(test)]
+    PressureControl(PreparedViewHash),
+    BoundSolver(Arc<pse_compiler::workspace::BoundLookupKey>),
     Observation(PreparedViewHash),
     Parametric(PreparedViewHash),
     ResultProjection(crate::workflow::result_export::ProjectionKey),
@@ -37,6 +39,7 @@ impl CacheKey for Key {
                 Self::Numerics(key) => key.retained_bytes(),
                 Self::Selected(request) => request.retained_bytes(),
                 Self::Basis(key) | Self::Frontier(key) => key.retained_bytes(),
+                Self::BoundSolver(key) => key.retained_bytes(),
                 _ => 0,
             })
     }
@@ -55,7 +58,9 @@ enum Product {
     EncodedBody(Arc<portable::EncodedBody>),
     Basis(Arc<modeling::PreparedBasis>),
     Frontier(Arc<modeling::OwnedModelingFrontier>),
-    Solver(Preparation),
+    #[cfg(test)]
+    PressureControl(Preparation),
+    BoundSolver(Arc<RetainedBoundSolver>),
     Program(Arc<ExecutableCase>),
     ResultProjection(Arc<crate::workflow::result_export::RetainedProjection>),
 }
@@ -83,11 +88,27 @@ impl CacheValue for Product {
                 Self::EncodedBody(body) => body.retained_bytes(),
                 Self::Basis(basis) => basis.retained_bytes(),
                 Self::Frontier(frontier) => frontier.retained_bytes(),
-                Self::Solver(p) => p.compiled().retained_bytes(),
+                #[cfg(test)]
+                Self::PressureControl(p) => p.compiled().retained_bytes(),
+                Self::BoundSolver(value) => {
+                    value.view.compiled().retained_bytes()
+                        + value
+                            .identity
+                            .iter()
+                            .map(|(_, role, _, _)| 128 + role.capacity())
+                            .sum::<usize>()
+                }
                 Self::Program(p) => p.assembly.retained_bytes(),
                 Self::ResultProjection(value) => value.retained_bytes(),
             })
     }
+}
+/// Lookup and attribution metadata retain their own allocation, never a model/revision.
+#[derive(Debug)]
+pub(crate) struct RetainedBoundSolver {
+    pub(crate) view: Preparation,
+    pub(crate) identity: Arc<pse_compiler::workspace::ModelingOccurrenceIdentity>,
+    pub(crate) _owner: Arc<pse_columnar::AllocationLease>,
 }
 /// One service-local barrier coordinates pressure, cache publication and weighted trim.
 /// Lock order is this state, then the cache's clear fence, then the native cache lock.
@@ -522,14 +543,34 @@ impl ModelingCache {
     ) {
         self.put(generation, Key::Basis(key), Product::Basis(basis));
     }
-    pub(crate) fn solver(&self, key: PreparedViewHash) -> Option<Preparation> {
-        match self.get(&Key::Solver(key))? {
-            Product::Solver(p) => Some(p),
+    pub(crate) fn bound_solver(
+        &self,
+        key: Arc<pse_compiler::workspace::BoundLookupKey>,
+    ) -> Option<Arc<RetainedBoundSolver>> {
+        match self.get(&Key::BoundSolver(key))? {
+            Product::BoundSolver(value) => Some(value),
             _ => None,
         }
     }
-    pub(crate) fn retain_solver(&self, generation: u64, key: PreparedViewHash, p: Preparation) {
-        self.put(generation, Key::Solver(key), Product::Solver(p));
+    pub(crate) fn retain_bound_solver(
+        &self,
+        generation: u64,
+        key: Arc<pse_compiler::workspace::BoundLookupKey>,
+        value: Arc<RetainedBoundSolver>,
+    ) {
+        self.put(
+            generation,
+            Key::BoundSolver(key),
+            Product::BoundSolver(value),
+        );
+    }
+    #[cfg(test)]
+    fn retain_pressure_control(&self, generation: u64, key: PreparedViewHash, p: Preparation) {
+        self.put(
+            generation,
+            Key::PressureControl(key),
+            Product::PressureControl(p),
+        );
     }
     pub(crate) fn program(
         &self,
@@ -756,9 +797,11 @@ mod pressure_tests {
         let artifact = retained_artifact(&service, 1);
         let (model, _, _) = tests::component_fixture(&service);
         let model_key = PreparedViewHash::from_id(pse_ids::ContentHash::from_bytes([2; 32]));
-        service
-            .modeling_cache
-            .retain_solver(service.modeling_cache.generation(), model_key, model);
+        service.modeling_cache.retain_pressure_control(
+            service.modeling_cache.generation(),
+            model_key,
+            model,
+        );
         let artifact_epoch = service.retention.generation();
         let model_epoch = service.modeling_cache.generation();
         let baseline = service.pool.reserved();
@@ -815,7 +858,7 @@ mod pressure_tests {
             Value::Artifact(artifact.clone()),
         );
         assert_eq!(service.entries.len(), 0);
-        service.modeling_cache.retain_solver(
+        service.modeling_cache.retain_pressure_control(
             service.modeling_cache.generation(),
             model_key,
             model.clone(),

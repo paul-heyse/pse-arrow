@@ -58,6 +58,314 @@ def drain_fixture(complete: bool) -> operation.DrainObservation:
 
 
 class NativeOperationTests(unittest.TestCase):
+    def test_prelaunch_expiry_retires_only_exact_unlaunched_handoff(self) -> None:
+        for mode in (
+            "expired",
+            "sigint",
+            "parent-clock",
+            "parent-sigint",
+            "child-sigint",
+            "mismatch",
+            "missing-owner",
+        ):
+            with self.subTest(mode=mode):
+                self.assert_prelaunch_handoff_case(mode)
+
+    def assert_prelaunch_handoff_case(self, mode: str) -> None:
+        now = [100.0]
+        prepared: list[Path] = []
+        observation: dict[str, object] = {}
+        allocation = MagicMock(spec=host_admission.Allocation)
+        allocation.nonce = "c" * 32
+        allocation.profile = host_admission.select("reference")
+        scope: operation.ScopeOwner = {
+            "unit": "parent.scope",
+            "group": "/parent",
+            "invocation": "b" * 32,
+        }
+        original_prepare = operation.prepare_handoff
+        original_mask = signal.pthread_sigmask
+        handlers = {
+            signum: signal.getsignal(signum)
+            for signum in (signal.SIGINT, signal.SIGTERM)
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            parent = base / ("a" * 32 + ".json")
+            sibling = base / ("handoff-" + "d" * 32 + ".json")
+            operation.write_json(
+                parent,
+                {
+                    "version": operation.VERSION,
+                    "scope": scope,
+                    "admissions": {},
+                    "generations": ["retained-generation"],
+                    "foreground_children": [str(sibling)],
+                },
+            )
+            sibling.write_text("retained sibling evidence")
+
+            def parent_owner(*, deadline: float | None = None) -> Path | None:
+                self.assertIsNotNone(deadline)
+                if mode == "missing-owner" and prepared:
+                    return None
+                return parent
+
+            def prepare(
+                unit: str,
+                *,
+                foreground: bool,
+                deadline: float | None = None,
+            ) -> Path:
+                handoff = original_prepare(
+                    unit,
+                    foreground=foreground,
+                    deadline=deadline,
+                )
+                assert handoff is not None
+                prepared.append(handoff)
+                if mode == "mismatch":
+                    changed = json.loads(handoff.read_text())
+                    changed["handoff"] = "different.scope"
+                    operation.write_json(handoff, changed)
+                if mode == "parent-clock":
+                    changed_parent = json.loads(parent.read_text())
+                    changed_parent["cancel_deadline"] = 105
+                    operation.write_json(parent, changed_parent)
+                if mode in {"parent-sigint", "child-sigint"}:
+                    cancelled_path = parent if mode == "parent-sigint" else handoff
+                    cancelled_record = json.loads(cancelled_path.read_text())
+                    cancelled_record.update(
+                        cancelled=True,
+                        cancel_deadline=105,
+                        cancel_signal=signal.SIGINT,
+                    )
+                    operation.write_json(cancelled_path, cancelled_record)
+                if mode != "sigint":
+                    now[0] = 100.3
+                return handoff
+
+            delivered = False
+
+            def restore_mask(
+                how: int,
+                mask: set[int | signal.Signals],
+            ) -> set[int | signal.Signals]:
+                nonlocal delivered
+                previous = original_mask(how, mask)
+                if (
+                    mode == "sigint"
+                    and prepared
+                    and not delivered
+                    and how == signal.SIG_SETMASK
+                ):
+                    delivered = True
+                    now[0] = 100.1
+                    signal.raise_signal(signal.SIGINT)
+                    now[0] = 100.3
+                return previous
+
+            with (
+                patch.object(host_admission, "inherit", return_value=allocation),
+                patch.object(operation, "scope_owner", return_value=scope),
+                patch.object(operation, "owner_record", side_effect=parent_owner),
+                patch.object(pse_env, "current_memory_ceiling", return_value=4 << 30),
+                patch.object(operation.time, "monotonic", side_effect=lambda: now[0]),
+                patch.object(operation, "prepare_handoff", side_effect=prepare),
+                patch.object(
+                    operation.signal, "pthread_sigmask", side_effect=restore_mask
+                ),
+                patch.object(operation.subprocess, "Popen") as spawn,
+                patch.object(operation, "drained") as drain,
+                patch.object(
+                    operation,
+                    "fence_foreground_handoff",
+                    wraps=operation.fence_foreground_handoff,
+                ) as fence,
+            ):
+                if mode in {"sigint", "parent-sigint", "child-sigint"}:
+                    self.assertEqual(
+                        operation.run_child_scope(
+                            ["never-launched"],
+                            {},
+                            deadline=100.2,
+                            observation=observation,
+                        ),
+                        128 + signal.SIGINT,
+                    )
+                else:
+                    expected = (
+                        subprocess.TimeoutExpired
+                        if mode in {"expired", "parent-clock"}
+                        else ValueError
+                    )
+                    with self.assertRaises(expected):
+                        operation.run_child_scope(
+                            ["never-launched"],
+                            {},
+                            deadline=100.2,
+                            observation=observation,
+                        )
+                spawn.assert_not_called()
+                drain.assert_not_called()
+                allocation.register.assert_called_once()
+                allocation.release.assert_not_called()
+                self.assertEqual(len(prepared), 1)
+                selected = prepared[0]
+                if mode in {
+                    "expired",
+                    "sigint",
+                    "parent-clock",
+                    "parent-sigint",
+                    "child-sigint",
+                }:
+                    self.assertFalse(selected.exists())
+                    self.assertEqual(
+                        json.loads(parent.read_text())["foreground_children"],
+                        [str(sibling)],
+                    )
+                    fence.assert_called_once()
+                    expected_clock = 110.1 if mode == "sigint" else 110.3
+                    if mode in {"parent-sigint", "child-sigint"}:
+                        expected_clock = 105
+                    self.assertEqual(
+                        fence.call_args.kwargs["deadline"],
+                        105 if mode == "parent-clock" else expected_clock,
+                    )
+                    self.assertEqual(
+                        observation["cancellation_deadline"], expected_clock
+                    )
+                    self.assertEqual(observation["owned_drain"], "not-started")
+                else:
+                    self.assertTrue(selected.exists())
+                    self.assertIn(
+                        str(selected),
+                        json.loads(parent.read_text())["foreground_children"],
+                    )
+                    fence.assert_not_called()
+                    self.assertNotEqual(observation["owned_drain"], "not-started")
+                self.assertEqual(sibling.read_text(), "retained sibling evidence")
+                self.assertIsNone(observation["child_pid"])
+                self.assertIsNone(observation["child_status"])
+                self.assertEqual(
+                    observation["forwarded_signal"],
+                    signal.SIGINT
+                    if mode in {"sigint", "parent-sigint", "child-sigint"}
+                    else signal.SIGTERM,
+                )
+        self.assertEqual(
+            {signum: signal.getsignal(signum) for signum in handlers}, handlers
+        )
+
+    def test_workload_deadline_cancels_then_drains_and_preserves_earlier_sigint(
+        self,
+    ) -> None:
+        for mode in (
+            "expired",
+            "sigint",
+            "inherited-sigint",
+            "unbounded",
+            "drain-refused",
+        ):
+            with self.subTest(mode=mode):
+                self.assert_workload_deadline_case(mode)
+
+    def assert_workload_deadline_case(self, mode: str) -> None:
+        now = [100.0]
+        events: list[str] = []
+        observation: dict[str, object] = {}
+
+        class Child:
+            pid = 2147483647
+            returncode: int | None = None
+            waits = 0
+
+            def wait(self, timeout: float) -> int:
+                self.waits += 1
+                if mode == "unbounded":
+                    self.returncode = 0
+                elif mode == "sigint" and self.waits == 1:
+                    signal.raise_signal(signal.SIGINT)
+                    now[0] = 100.3
+                    raise subprocess.TimeoutExpired("controlled", timeout)
+                if self.returncode is not None:
+                    return self.returncode
+                now[0] += timeout
+                raise subprocess.TimeoutExpired("controlled", timeout)
+
+        child = Child()
+
+        def cancel(_child: object, signum: int, *, deadline: float) -> None:
+            events.append("cancel")
+            self.assertEqual(deadline, now[0] + 10)
+            child.returncode = -signum
+
+        def drained() -> None:
+            self.assertIsNotNone(child.returncode)
+            events.append("drained")
+            if mode == "drain-refused":
+                raise ValueError("owned drain unavailable")
+
+        def cancel_foreground(
+            process: object, signum: int, _path: Path, *, deadline: float
+        ) -> tuple[float, int]:
+            cancel(process, signum, deadline=deadline)
+            child.returncode = -signal.SIGINT
+            return 105, signal.SIGINT
+
+        with (
+            patch.object(operation.time, "monotonic", side_effect=lambda: now[0]),
+            patch.object(operation.subprocess, "Popen", return_value=child) as spawn,
+            patch.object(operation, "cancel_children", side_effect=cancel) as cancelled,
+            patch.object(
+                operation, "cancel_foreground", side_effect=cancel_foreground
+            ) as foreground_cancelled,
+        ):
+            if mode in {"expired", "drain-refused"}:
+                expected = (
+                    subprocess.TimeoutExpired if mode == "expired" else ValueError
+                )
+                with self.assertRaises(expected):
+                    operation.run(
+                        ["controlled"],
+                        {},
+                        deadline=100.2,
+                        observation=observation,
+                        on_reaped=drained,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+            else:
+                status = operation.run(
+                    ["controlled"],
+                    {},
+                    deadline=None if mode == "unbounded" else 100.2,
+                    foreground=Path("/owned/handoff")
+                    if mode == "inherited-sigint"
+                    else None,
+                    observation=observation,
+                    on_reaped=drained,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self.assertEqual(status, 0 if mode == "unbounded" else 130)
+        self.assertEqual(events[-1], "drained")
+        self.assertEqual(spawn.call_args.kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(spawn.call_args.kwargs["stderr"], subprocess.DEVNULL)
+        if mode == "unbounded":
+            cancelled.assert_not_called()
+        elif mode == "inherited-sigint":
+            cancelled.assert_not_called()
+            foreground_cancelled.assert_called_once()
+            self.assertEqual(observation["cancellation_deadline"], 105)
+            self.assertEqual(observation["forwarded_signal"], signal.SIGINT)
+        else:
+            cancelled.assert_called_once()
+            self.assertEqual(events, ["cancel", "drained"])
+            if mode == "sigint":
+                self.assertEqual(observation["cancellation_deadline"], 110)
+                self.assertEqual(observation["forwarded_signal"], signal.SIGINT)
+
     def test_original_cancellation_clock_preserves_exact_numeric_authority(
         self,
     ) -> None:
@@ -2116,6 +2424,7 @@ class NativeOperationTests(unittest.TestCase):
             patch.object(host_admission, "inherit", return_value=allocation),
             patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
             patch.object(pse_env, "current_memory_ceiling", return_value=4 << 30),
+            patch.object(operation.time, "monotonic", return_value=100),
             patch.object(
                 operation, "prepare_handoff", return_value=Path("/owned/handoff")
             ),
@@ -2131,11 +2440,18 @@ class NativeOperationTests(unittest.TestCase):
         ):
             self.assertEqual(
                 operation.run_child_scope(
-                    ["observer-workload"], {"PSE_MEMORY_MAX": "140G"}
+                    ["observer-workload"],
+                    {"PSE_MEMORY_MAX": "140G"},
+                    deadline=220,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 ),
                 0,
             )
         self.assertIn(f"--property=MemoryMax={4 << 30}", run.call_args.args[0])
+        self.assertEqual(run.call_args.kwargs["deadline"], 220)
+        self.assertEqual(run.call_args.kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(run.call_args.kwargs["stderr"], subprocess.DEVNULL)
         self.assertNotIn(f"--property=MemoryMax={140 << 30}", run.call_args.args[0])
         allocation.release.assert_not_called()
         for missing in (None, 0):
@@ -2711,6 +3027,24 @@ class NativeOperationTests(unittest.TestCase):
             all(cleanup_handlers[0][name] != before[name] for name in before)
         )
         self.assertEqual({name: signal.getsignal(name) for name in before}, before)
+
+    def test_attempted_spawn_failure_cannot_retire_unlaunched_handoff(self) -> None:
+        failure = OSError("ambiguous spawn failure")
+        reaped = MagicMock()
+        not_started = MagicMock()
+        with (
+            patch.object(operation.subprocess, "Popen", side_effect=failure),
+            self.assertRaises(OSError) as caught,
+        ):
+            operation.run(
+                ["attempted"],
+                {},
+                on_reaped=reaped,
+                on_not_started=not_started,
+            )
+        self.assertIs(caught.exception, failure)
+        reaped.assert_called_once()
+        not_started.assert_not_called()
 
     def test_late_clock_does_not_retry_unknown_selected_scope_authority(self) -> None:
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}

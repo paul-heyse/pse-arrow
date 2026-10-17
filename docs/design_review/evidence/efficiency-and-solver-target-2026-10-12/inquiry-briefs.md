@@ -1,4 +1,4 @@
-> Supporting evidence for [the efficiency and solver target review](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md). The briefs given to every inquiry and challenge. `$REVIEW` denotes the working directory in which the inquiries wrote; the files now live in this folder. Baseline: `main` at `6c368c88a`. This contribution is preserved as returned; its local labels are not finding identifiers, and the principal review owns the judgment.
+> Supporting evidence for [the efficiency and solver target review](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_efficiency-and-solver-target_2026-10-12.md). The briefs given to every inquiry and challenge. `$REVIEW` denotes the working directory in which the inquiries wrote; the files now live in this folder. Baseline: `main` at `6c368c88a`. This contribution is preserved as returned; its local labels are not finding identifiers, and the principal review owns the judgment.
 
 # Briefs: consolidated efficiency and solver target review
 
@@ -97,7 +97,7 @@ Read the following to understand the subject. Do not fit your output to them; th
 **Do not take a position on each prior finding.** The coordinator maps leads after synthesis. The leads:
 
 - `docs/design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md`, its audit `..._audit_2026-10-11.md`, and their evidence under `docs/design_review/evidence/efficiency-alignment-*-2026-10-11/`;
-- `docs/design_review/reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md` and `docs/design_review/evidence/solver-methods-and-diagnostics-2026-10-12/`;
+- `https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/design_review/reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md` and `docs/design_review/evidence/solver-methods-and-diagnostics-2026-10-12/`;
 - the retired Plan 37 review and its evidence, read via `git show e145eb7d2:docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md` and `git show e145eb7d2:docs/design_review/evidence/surrealdb-lifecycle-and-integration-2026-10-12/<file>`;
 - the Plan 36 investigation evidence under `docs/plans/36-investigation-evidence/`.
 

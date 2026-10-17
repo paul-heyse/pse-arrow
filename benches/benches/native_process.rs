@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Application-level case rebuilds; Cargo compilation is untimed cached setup.
-#![recursion_limit = "256"]
+// Match the runtime's finite depth for nested workflow auto-trait proofs.
+#![recursion_limit = "512"]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -51,6 +52,120 @@ use std::{
 
 fn mark(phases: &mut BTreeMap<String, f64>, name: &str, started: Instant) {
     *phases.entry(name.into()).or_default() += started.elapsed().as_secs_f64();
+}
+fn observe_joined_cancellation(
+    result: &pse_runtime::workflow::RunResult,
+    observations: &mut observations::Observations,
+    service: &pse_runtime::math::MathService,
+) {
+    use pse_backend_native::ProblemError;
+    use pse_model::generated::enums::{NumericalAttemptObservation, NumericalEventKind};
+    use pse_model::strategy::{Phase, Scope};
+    use pse_runtime::{math::MathRuntimeError, workflow::WorkflowError};
+    assert!(
+        !result.usable(),
+        "cancelled work cannot establish usable science"
+    );
+    match result.report() {
+        Ok(RunReport::Modeling(reports)) => {
+            assert!(
+                matches!(&reports[0].outcome, pse_runtime::math::solves::Outcome::Native(report)
+                if report.termination.category == Termination::Cancelled)
+            );
+            for (step, report) in reports.iter().enumerate() {
+                observations.modeling(report, step, service);
+            }
+        }
+        Err(WorkflowError::Math(MathRuntimeError::Strategy { cause, trace })) => {
+            let MathRuntimeError::Solve(ProblemError::Math(pse_math::MathError::Typed {
+                cause: provider_cause,
+                ..
+            })) = cause.as_ref()
+            else {
+                panic!("unexpected strategy cancellation cause: {cause}");
+            };
+            assert!(matches!(
+                provider_cause.as_error().downcast_ref::<ProblemError>(),
+                Some(ProblemError::Provider(
+                    pse_kernels::ProviderError::Cancelled
+                ))
+            ));
+            // Automatic blocks retain native facts when cancellation prevents original assessment.
+            let summary = result.attempt_summary().unwrap();
+            assert!(!summary.usable);
+            assert_eq!(summary.omitted_steps, 0);
+            assert_eq!(summary.omitted_native_attempts, 0);
+            let attempt = summary
+                .native_attempts
+                .iter()
+                .find(|attempt| {
+                    attempt.record.backend == Backend::Ipopt
+                        && attempt.record.termination.category == Termination::Cancelled
+                        && attempt
+                            .record
+                            .work
+                            .evaluations
+                            .is_some_and(|count| count > 0)
+                })
+                .expect("entered Ipopt cancellation must retain its native report and work");
+            let step = summary
+                .steps
+                .iter()
+                .find(|step| step.step == attempt.step)
+                .unwrap();
+            assert_eq!(step.omitted_decisions, 0);
+            let (started_index, started) = step
+                .decisions
+                .iter()
+                .enumerate()
+                .find(|(_, event)| {
+                    event.mechanism == attempt.mechanism
+                        && event.phase == Phase::Native
+                        && event.kind == NumericalEventKind::Started
+                })
+                .expect("actual native entry must precede cancellation");
+            assert!(started.decision.is_some());
+            let terminal = |kind| {
+                step.decisions.iter().enumerate().find(|(_, event)| {
+                    event.mechanism == started.mechanism
+                        && event.decision == started.decision
+                        && event.phase == Phase::Native
+                        && event.kind == kind
+                        && event.observation == Some(NumericalAttemptObservation::Cancelled)
+                })
+            };
+            let (finished_index, finished) = terminal(NumericalEventKind::Finished)
+                .expect("entered cancellation must retain its native finish event");
+            let (abandoned_index, abandoned) = terminal(NumericalEventKind::Abandoned)
+                .expect("entered cancellation must retain its original abandonment");
+            assert!(started_index < finished_index && finished_index < abandoned_index);
+            assert!(finished.permission.is_none() && abandoned.permission.is_none());
+            let work = finished
+                .work
+                .expect("native cancellation retains its actual charge");
+            assert_eq!(work.phase, Phase::Native);
+            assert_eq!(work.scope, Scope::Task);
+            assert!(work.observed.attempts > 0);
+            assert!(
+                work.observed
+                    .evaluations
+                    .is_some_and(|count| count >= attempt.record.work.evaluations.unwrap())
+            );
+            assert_eq!(
+                abandoned.work,
+                Some(work),
+                "abandonment preserves the original charging owner and work"
+            );
+            observations.rows(
+                trace
+                    .rows(result.run_id, attempt.step, service, 0..trace.event_count())
+                    .unwrap()
+                    .map(Result::unwrap),
+            );
+        }
+        Ok(_) => panic!("wrong cancellation report family"),
+        Err(error) => panic!("unexpected cancellation failure: {error}"),
+    }
 }
 /// Vary instance count by composing the authored unit, without restating its equations.
 async fn heater_blocks(
@@ -149,6 +264,17 @@ fn process(c: &mut Criterion) {
     let flash = DeclarationId::from_id(
         pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap(),
     );
+    let mut demand = Vec::new();
+    if reuse == "warm" {
+        demand.push(if operation == "flash" {
+            "root.liquid.T".into()
+        } else {
+            "block0.phase.T".into()
+        });
+    }
+    if spec["difficult"].as_bool() == Some(true) {
+        demand.extend(["root.liquid.rho".into(), "root.vapor.rho".into()]);
+    }
     let seed = |owner: &WorkflowRuntime| {
         let target = runtime(owner);
         (
@@ -168,13 +294,19 @@ fn process(c: &mut Criterion) {
             } else {
                 executor.block_on(heater_blocks(&source, blocks))
             };
-            let prepared = executor
-                .block_on(seed_prepare(
-                    &package,
-                    case.into(),
+            let execution = executor
+                .block_on(package.declared_execution_with_demand(
+                    case,
+                    compiler(),
                     profile(Backend::Ipopt, false),
+                    Default::default(),
+                    seed_limits(),
+                    demand.clone(),
                     &audit::cancel_source(),
                 ))
+                .unwrap();
+            let prepared = executor
+                .block_on(package.prepare_declared(&execution, &audit::cancel_source()))
                 .unwrap();
             authored_success(
                 &executor
@@ -203,135 +335,255 @@ fn process(c: &mut Criterion) {
         .sampling_mode(criterion::SamplingMode::Flat)
         .warm_up_time(Duration::from_millis(250))
         .measurement_time(Duration::from_secs(1));
-    group.bench_function(id, |b| b.iter(|| {
-        let _entered = executor.enter();
-        let begin=Instant::now();
-        let local=if retained.is_none() {Some(WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap())} else {None};
-        let owner=match &retained {Some((owner,_,_,_,_))=>owner,None=>local.as_ref().unwrap()};
-        let teardown_begin=audit::with_owner_sync(owner, &executor, || {
-        let _iteration_stage=audit::stage("case_execution");
-        let preparations_before=owner.runtime.math().preparations();
-        owner.runtime.reset_observation_peak();
-        mark(&mut phases,"runtime_admission",begin);
-        let begin=Instant::now();
-        let source_stage=audit::stage("source_admission");
-        let (target,mut package,case)=if let Some((_,source,package,case,target))=&retained {
-            let (package,case)=if reuse=="structure" {executor.block_on(heater_blocks(source,blocks+(iterations as usize%2)))} else {(package.clone(),*case)};(target.clone(),package,case)
-        } else {
-            let (source,target)=seed(owner);
-            let (package,case)=if operation=="flash" {(source,flash)} else {executor.block_on(heater_blocks(&source,blocks))};(target,package,case)
-        };
-        if reuse=="specialization" {
-            let mut rows=executor.block_on(package.declarations()).unwrap().to_vec();
-            let row=rows.iter_mut().find(|r|r.declaration_id==DeclarationId::from_id(pse_ids::SemanticId::parse_hex("0ed2b62ea07d570bb1db5f48ec53354e").unwrap())).unwrap();
-            row.value.contribution.as_mut().unwrap().expression=format!("{}*fraction*recycle",1.0+(iterations+1) as f64*1e-10);
-            package=executor.block_on(package.with_declarations(rows)).unwrap();
-        }
-        mark(&mut phases,"source_admission",begin);
-        drop(source_stage);
-        let prepare_stage=audit::stage("case_preparation");
-        let begin=Instant::now();
-        let cancel=audit::cancel_source();
-        let mut analysis=executor.block_on(package.declared_execution(case,compiler(),profile(Backend::Ipopt,false),Default::default(),seed_limits(),&cancel)).unwrap().analysis;
-        if reuse=="warm" {
-            let path=if operation=="flash" {"root.liquid.T"} else {"block0.phase.T"};
-            analysis.case.values.insert(path.into(),if operation=="flash" {280.0} else {313.15}+(iterations+1) as f64*1e-9);
-        }
-        if spec["difficult"].as_bool()==Some(true) {
-            analysis.case.values.insert("root.liquid.rho".into(),12400.0*1.02);
-            analysis.case.values.insert("root.vapor.rho".into(),1000.0*1.02);
-        }
-        let prepared=executor.block_on(package.prepare_analysis(&analysis,&cancel)).unwrap();
-        variables.insert(prepared.model.case.compiled().plan.structure().free_variables().count());
-        let handle=prepared.start().unwrap();
-        mark(&mut phases,"case_preparation_and_start",begin);
-        drop(prepare_stage);
-        let native_stage=audit::stage("numerical_execution");
-        let begin=Instant::now();
-        if operation=="cancellation" {
-            executor.block_on(async {
-                while handle.progress().0.is_empty() && handle.result().is_none() && !audit::stop_requested() {tokio::task::yield_now().await;}
-                if !audit::stop_requested() { assert!(handle.result().is_none(),"case completed before observable cancellation checkpoint"); }
-            });
-            mark(&mut phases,"native_to_first_event",begin);
-            let stop=Instant::now();
-            handle.cancel();
-            let result=executor.block_on(audit::scope(audit::wait_ref(&handle))).unwrap();
-            mark(&mut phases,"cancellation_to_join",stop);
-            let RunReport::Modeling(report)=result.report().unwrap() else {panic!("wrong report")};
-            assert!(matches!(&report[0].outcome,pse_runtime::math::solves::Outcome::Native(r) if r.termination.category==Termination::Cancelled),"{report:?}");
-            for (step,report) in report.iter().enumerate() {observations.modeling(report,step,owner.runtime.math());}
-            drop(result);
-        } else {
-            let result=executor.block_on(audit::scope(audit::wait_ref(&handle))).unwrap();
-            mark(&mut phases,"native_join",begin);
-            drop(native_stage);
-            let _assessment_stage=audit::stage("original_assessment_and_results");
-            let begin=Instant::now();
-            let report=authored_success(&result);
-            let RunReport::Modeling(reports)=result.report().unwrap() else {panic!("wrong report")};
-            for (step,report) in reports.iter().enumerate() {observations.modeling(report,step,owner.runtime.math());}
-            if let pse_runtime::math::solves::Outcome::Native(report)=&report.outcome {
-                for (name,value) in &report.metrics {
-                    if (name.ends_with(".seconds") || name.starts_with("timing.")) && let Metric::Real(value)=value {
-                        *native_seconds.entry(name.clone()).or_insert(0.0)+=value;
+    group.bench_function(id, |b| {
+        b.iter(|| {
+            let _entered = executor.enter();
+            let begin = Instant::now();
+            let local = if retained.is_none() {
+                Some(WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap())
+            } else {
+                None
+            };
+            let owner = match &retained {
+                Some((owner, _, _, _, _)) => owner,
+                None => local.as_ref().unwrap(),
+            };
+            let teardown_begin = audit::with_owner_sync(owner, &executor, || {
+                let _iteration_stage = audit::stage("case_execution");
+                let preparations_before = owner.runtime.math().preparations();
+                owner.runtime.reset_observation_peak();
+                mark(&mut phases, "runtime_admission", begin);
+                let begin = Instant::now();
+                let source_stage = audit::stage("source_admission");
+                let (target, mut package, case) = if let Some((_, source, package, case, target)) =
+                    &retained
+                {
+                    let (package, case) = if reuse == "structure" {
+                        executor.block_on(heater_blocks(source, blocks + (iterations as usize % 2)))
+                    } else {
+                        (package.clone(), *case)
+                    };
+                    (target.clone(), package, case)
+                } else {
+                    let (source, target) = seed(owner);
+                    let (package, case) = if operation == "flash" {
+                        (source, flash)
+                    } else {
+                        executor.block_on(heater_blocks(&source, blocks))
+                    };
+                    (target, package, case)
+                };
+                if reuse == "specialization" {
+                    let mut rows = executor.block_on(package.declarations()).unwrap().to_vec();
+                    let row = rows
+                        .iter_mut()
+                        .find(|r| {
+                            r.declaration_id
+                                == DeclarationId::from_id(
+                                    pse_ids::SemanticId::parse_hex(
+                                        "0ed2b62ea07d570bb1db5f48ec53354e",
+                                    )
+                                    .unwrap(),
+                                )
+                        })
+                        .unwrap();
+                    row.value.contribution.as_mut().unwrap().expression =
+                        format!("{}*fraction*recycle", 1.0 + (iterations + 1) as f64 * 1e-10);
+                    package = executor.block_on(package.with_declarations(rows)).unwrap();
+                }
+                mark(&mut phases, "source_admission", begin);
+                drop(source_stage);
+                let prepare_stage = audit::stage("case_preparation");
+                let begin = Instant::now();
+                let cancel = audit::cancel_source();
+                let mut execution = executor
+                    .block_on(package.declared_execution_with_demand(
+                        case,
+                        compiler(),
+                        profile(Backend::Ipopt, false),
+                        Default::default(),
+                        seed_limits(),
+                        demand.clone(),
+                        &cancel,
+                    ))
+                    .unwrap();
+                if reuse == "warm" {
+                    let path = if operation == "flash" {
+                        "root.liquid.T"
+                    } else {
+                        "block0.phase.T"
+                    };
+                    execution.analysis.case.values.insert(
+                        path.into(),
+                        if operation == "flash" { 280.0 } else { 313.15 }
+                            + (iterations + 1) as f64 * 1e-9,
+                    );
+                }
+                if spec["difficult"].as_bool() == Some(true) {
+                    execution
+                        .analysis
+                        .case
+                        .values
+                        .insert("root.liquid.rho".into(), 12400.0 * 1.02);
+                    execution
+                        .analysis
+                        .case
+                        .values
+                        .insert("root.vapor.rho".into(), 1000.0 * 1.02);
+                }
+                let prepared = executor
+                    .block_on(package.prepare_declared(&execution, &cancel))
+                    .unwrap();
+                variables.insert(
+                    prepared
+                        .model
+                        .case
+                        .compiled()
+                        .plan
+                        .structure()
+                        .free_variables()
+                        .count(),
+                );
+                let handle = prepared.start().unwrap();
+                mark(&mut phases, "case_preparation_and_start", begin);
+                drop(prepare_stage);
+                let native_stage = audit::stage("numerical_execution");
+                let begin = Instant::now();
+                if operation == "cancellation" {
+                    executor.block_on(async {
+                        while handle.progress().0.is_empty()
+                            && handle.result().is_none()
+                            && !audit::stop_requested()
+                        {
+                            tokio::task::yield_now().await;
+                        }
+                        if !audit::stop_requested() {
+                            assert!(
+                                handle.result().is_none(),
+                                "case completed before observable cancellation checkpoint"
+                            );
+                        }
+                    });
+                    mark(&mut phases, "native_to_first_event", begin);
+                    let stop = Instant::now();
+                    handle.cancel();
+                    let result = executor
+                        .block_on(audit::scope(audit::wait_ref(&handle)))
+                        .unwrap();
+                    mark(&mut phases, "cancellation_to_join", stop);
+                    observe_joined_cancellation(&result, &mut observations, owner.runtime.math());
+                    drop(result);
+                } else {
+                    let result = executor
+                        .block_on(audit::scope(audit::wait_ref(&handle)))
+                        .unwrap();
+                    mark(&mut phases, "native_join", begin);
+                    drop(native_stage);
+                    let _assessment_stage = audit::stage("original_assessment_and_results");
+                    let begin = Instant::now();
+                    let report = authored_success(&result);
+                    let RunReport::Modeling(reports) = result.report().unwrap() else {
+                        panic!("wrong report")
+                    };
+                    for (step, report) in reports.iter().enumerate() {
+                        observations.modeling(report, step, owner.runtime.math());
                     }
+                    if let pse_runtime::math::solves::Outcome::Native(report) = &report.outcome {
+                        for (name, value) in &report.metrics {
+                            if (name.ends_with(".seconds") || name.starts_with("timing."))
+                                && let Metric::Real(value) = value
+                            {
+                                *native_seconds.entry(name.clone()).or_insert(0.0) += value;
+                            }
+                        }
+                    }
+                    std::hint::black_box(result.report().unwrap());
+                    if !matches!(operation, "vessel" | "fit") {
+                        std::hint::black_box(result.table("runtime.solve_variables").unwrap());
+                    }
+                    mark(&mut phases, "physical_validation_and_results", begin);
+                    if operation == "results" {
+                        let _read_stage = audit::stage("connected_result_reads");
+                        let begin = Instant::now();
+                        let run = result.canonical_run_key().unwrap();
+                        let attempt = result.canonical_attempt_key().unwrap();
+                        for _ in 0..spec["result_reads"].as_u64().unwrap_or(1) {
+                            let mut reader = executor
+                                .block_on(target.results(
+                                    run,
+                                    attempt,
+                                    "runtime.solve_variables",
+                                    0,
+                                    u64::MAX,
+                                    pse_columnar::CancellationToken::new(),
+                                ))
+                                .unwrap();
+                            let mut count = 0;
+                            while let Some(batch) = executor.block_on(reader.next_batch()).unwrap()
+                            {
+                                count += batch.num_rows();
+                            }
+                            assert_eq!(
+                                count,
+                                result
+                                    .table("runtime.solve_variables")
+                                    .unwrap()
+                                    .batch()
+                                    .num_rows()
+                            );
+                        }
+                        mark(&mut phases, "connected_result_reopen", begin);
+                    }
+                    drop(result);
                 }
+                let teardown_begin = Instant::now();
+                observations.preparations(preparations_before, owner.runtime.math().preparations());
+                drop(handle);
+                drop(prepared);
+                drop(package);
+                drop(target);
+                teardown_begin
+            });
+            let _teardown_stage = audit::stage("case_teardown");
+            let begin = teardown_begin;
+            if retained.is_none() {
+                let cleanup = executor.block_on(owner.cleanup_fixtures());
+                audit::cleanup_result(cleanup.is_ok());
+                cleanup.unwrap();
             }
-            std::hint::black_box(result.report().unwrap());
-            if !matches!(operation,"vessel"|"fit") {std::hint::black_box(result.table("runtime.solve_variables").unwrap());}
-            mark(&mut phases,"physical_validation_and_results",begin);
-            if operation=="results" {
-                let _read_stage=audit::stage("connected_result_reads");
-                let begin=Instant::now();
-                let run=result.canonical_run_key().unwrap();
-                let attempt=result.canonical_attempt_key().unwrap();
-                for _ in 0..spec["result_reads"].as_u64().unwrap_or(1) {
-                    let mut reader=executor.block_on(target.results(run,attempt,"runtime.solve_variables",0,u64::MAX,pse_columnar::CancellationToken::new())).unwrap();
-                    let mut count=0;
-                    while let Some(batch)=executor.block_on(reader.next_batch()).unwrap(){count+=batch.num_rows();}
-                    assert_eq!(count,result.table("runtime.solve_variables").unwrap().batch().num_rows());
-                }
-                mark(&mut phases,"connected_result_reopen",begin);
-            }
-            drop(result);
-        }
-        let teardown_begin=Instant::now();
-        observations.preparations(preparations_before,owner.runtime.math().preparations());
-        drop(handle);
-        drop(prepared);
-        drop(package);
-        drop(target);
-        teardown_begin
-        });
-        let _teardown_stage=audit::stage("case_teardown");
-        let begin=teardown_begin;
-        if retained.is_none() {
-            let cleanup=executor.block_on(owner.cleanup_fixtures());
-            audit::cleanup_result(cleanup.is_ok());
-            cleanup.unwrap();
-        }
-        peak=peak.max(owner.runtime.observation_peak_bytes());
-        rss=rss.max(owner.runtime.report().unwrap().process_peak_rss_bytes.unwrap());
-        let pool=owner.runtime.pool();
-        retained_bytes=retained_bytes.max(pool.reserved());
-        drop(local);
-        after_teardown_bytes=after_teardown_bytes.max(pool.reserved());
-        mark(&mut phases,"case_teardown",begin);
-        iterations+=1;
-    }));
+            peak = peak.max(owner.runtime.observation_peak_bytes());
+            rss = rss.max(
+                owner
+                    .runtime
+                    .report()
+                    .unwrap()
+                    .process_peak_rss_bytes
+                    .unwrap(),
+            );
+            let pool = owner.runtime.pool();
+            retained_bytes = retained_bytes.max(pool.reserved());
+            drop(local);
+            after_teardown_bytes = after_teardown_bytes.max(pool.reserved());
+            mark(&mut phases, "case_teardown", begin);
+            iterations += 1;
+        })
+    });
     group.finish();
     // Warm samples deliberately retain their original revision and runtime.
     // Observe that owner's release separately from each sample's case teardown.
     let retained_pool = retained
         .as_ref()
         .map(|(owner, _, _, _, _)| owner.runtime.pool());
-    if let Some((owner, _, _, _, _)) = &retained {
+    if let Some((owner, source, package, _, target)) = retained {
+        // These source handles own canonical protection. End their retained
+        // sample lifetime before asking the fixture owner to close its store.
+        drop(source);
+        drop(package);
+        drop(target);
         let cleanup = executor.block_on(owner.cleanup_fixtures());
         audit::cleanup_result(cleanup.is_ok());
         cleanup.unwrap();
     }
-    drop(retained);
     drop(executor);
     let final_retained_runtime_bytes = retained_pool.map(|pool| pool.reserved());
     for value in phases.values_mut() {
@@ -352,7 +604,7 @@ fn process(c: &mut Criterion) {
         "phase_scope":"inclusive synchronous compiler spans; cache hits do not execute spans; absent phases performed no work",
         "unavailable_submetrics":["JIT is not enabled", "native conversion and property-state construction are included in preparation/native execution, without separate clocks"],
         "scope":"case source admission, preparation/rebuild, joined native execution, validation/results, connected result reopening and teardown; application compilation excluded",
-        "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time (extended for slow operations)",
+        "sampling":"Actual operation count is iterations. Statistical mode configures 10 flat Criterion samples, 250 ms warmup and a 1 s target; smoke execution is not a statistical timing estimate.",
         "memory_scope":"pool observation per operation; case teardown retains the warm runtime until sampling ends; final retained-runtime teardown is null for cold cases; process lifetime VmHWM from the dedicated benchmark process"
     })).unwrap()).unwrap();
     audit.complete();

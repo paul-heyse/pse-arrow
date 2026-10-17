@@ -2156,7 +2156,7 @@ impl ResultBlockAppend {
             Some(owner),
         )
     }
-    /// Conservative complete encoded item extent, including payload and request.
+    /// Conservative encoded metadata extent, including file binding and request.
     pub fn encoded_extent(&self) -> usize {
         self.extent
     }
@@ -4877,12 +4877,26 @@ mod canonical_result_admission_unit {
         assert!(validate_append_group(&fence, &duplicate).is_err());
     }
     #[test]
-    fn bounded_append_group_admits_item_bytes_and_refuses_full_envelope_overflow() {
+    fn bounded_append_group_budgets_metadata_separately_from_file_bytes() {
         let fence = ack_fence();
-        let group = (0..6)
+        let files = (0..6)
             .map(|ordinal| append_item(&fence, "values", ordinal, vec![7; RESULT_BATCH_BYTES]))
             .collect::<Vec<_>>();
-        assert!(validate_append_group(&fence, &group[..5]).is_ok());
+        // File contents travel separately; their summed extent is not the
+        // metadata transaction's wire budget.
+        assert!(validate_append_group(&fence, &files).is_ok());
+        let group = (0..8192)
+            .map(|ordinal| append_item(&fence, "values", ordinal, vec![7]))
+            .collect::<Vec<_>>();
+        assert!(group.len() < wire::RESULT_INDEX_RECORDS);
+        assert!(
+            group
+                .iter()
+                .map(ResultBlockAppend::encoded_extent)
+                .sum::<usize>()
+                > crate::canonical::PAYLOAD_BYTES
+        );
+        assert!(validate_append_group(&fence, &group[..16]).is_ok());
         assert!(matches!(
             validate_append_group(&fence, &group),
             Err(CanonicalError::PayloadLimit)

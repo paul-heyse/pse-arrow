@@ -877,6 +877,56 @@ def stop_foreground_handoff(
         )
 
 
+def retire_unlaunched_handoff(
+    path: Path, unit: str, *, deadline: float
+) -> tuple[float, int] | None:
+    """Retire only a fresh handoff whose creator has not attempted Popen."""
+    parent = owner_record(deadline=deadline)
+    if parent is None:
+        raise ValueError("unlaunched handoff lost its native parent")
+    with record_lock(parent, deadline=deadline):
+        registered = _record(parent)
+        children = foreground_children(registered)
+        if str(path) not in children:
+            raise ValueError("unlaunched handoff lost its registered association")
+        with record_lock(path, deadline=deadline):
+            selected = _record(path)
+            if (
+                foreground_parent(selected, path) != parent
+                or selected.get("foreground") is not True
+                or selected.get("handoff") != unit
+                or "scope" not in selected
+                or selected["scope"] is not None
+                or selected.get("operation") is not None
+                or selected.get("admissions") != {}
+                or selected.get("registration") is not None
+            ):
+                raise ValueError("unlaunched handoff identity or phase changed")
+            original: tuple[float, int] | None = None
+            for record in (registered, selected):
+                if record.get("cancel_deadline") is not None:
+                    clock = original_cancellation_clock(record["cancel_deadline"])
+                    deadline = min(deadline, clock)
+                    if "cancel_signal" in record:
+                        signum = record["cancel_signal"]
+                        if signum not in {signal.SIGINT, signal.SIGTERM}:
+                            raise ValueError("invalid unlaunched cancellation signal")
+                        if original is None or clock < original[0]:
+                            original = clock, signum
+        # Binding takes parent -> child exclusion too. The existing fence
+        # prevents any delayed entry from admitting payload before retirement.
+        fenced = fence_foreground_handoff(str(path), parent, deadline=deadline)
+        with record_lock(path, deadline=deadline):
+            if _record(path) != fenced:
+                raise ValueError("unlaunched handoff changed after its fence")
+            registered["foreground_children"] = [
+                name for name in children if name != str(path)
+            ]
+            write_json(parent, registered)
+            path.unlink()
+        return original
+
+
 def cancel_foreground_handoffs(
     *,
     deadline: float | None = None,
@@ -1804,6 +1854,9 @@ def run_child_scope(
     *,
     cwd: Path | None = None,
     observation: dict[str, object] | None = None,
+    deadline: float | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
 ) -> int:
     """Borrow the existing finite allocation for a separately drained workload.
 
@@ -1811,6 +1864,11 @@ def run_child_scope(
     native child entry authenticates its allocation and handoff before payload.
     No allocation is acquired or released here.
     """
+    if deadline is not None:
+        if not math.isfinite(deadline):
+            raise ValueError("Invalid native workload deadline")
+        if time.monotonic() >= deadline:
+            raise subprocess.TimeoutExpired(command, 0)
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
     from scripts.pse_env import (  # noqa: PLC0415 -- reciprocal ownership
         current_memory_ceiling,
@@ -1818,8 +1876,8 @@ def run_child_scope(
 
     process_observation = observation if observation is not None else {}
 
-    allocation = host_admission.inherit(env)
-    if allocation is None or scope_owner() is None:
+    allocation = host_admission.inherit(env, **deadline_options(deadline))
+    if allocation is None or scope_owner(**deadline_options(deadline)) is None:
         raise ValueError("selected native workload requires its admitted parent")
     role_memory = current_memory_ceiling()
     if role_memory is None or role_memory <= 0:
@@ -1830,8 +1888,8 @@ def run_child_scope(
     # allocation's primary ceiling does not grant that role additional memory.
     role_memory = min(role_memory, allocation.profile.memory)
     unit = f"pse-native-{uuid.uuid4().hex}.scope"
-    allocation.register(unit)
-    handoff = prepare_handoff(unit, foreground=True)
+    allocation.register(unit, **deadline_options(deadline))
+    handoff = prepare_handoff(unit, foreground=True, **deadline_options(deadline))
     if handoff is None:
         raise ValueError("selected native workload has no authenticated handoff")
     environment = dict(env)
@@ -1859,6 +1917,23 @@ def run_child_scope(
     ]
 
     normal_deadline: float | None = None
+
+    def settle_not_started() -> tuple[float, int] | None:
+        nonlocal normal_deadline
+        normal_deadline = time.monotonic() + 10
+        clocks = [normal_deadline]
+        record = _record(handoff)
+        selected_clocks = [
+            process_observation.get("cancellation_deadline"),
+            record.get("cancel_deadline"),
+            _record(foreground_parent(record, handoff)).get("cancel_deadline"),
+        ]
+        for value in selected_clocks:
+            if value is not None:
+                clocks.append(original_cancellation_clock(value))
+        original = retire_unlaunched_handoff(handoff, unit, deadline=min(clocks))
+        process_observation["owned_drain"] = "not-started"
+        return original
 
     def settle_scope() -> None:
         nonlocal normal_deadline
@@ -1939,7 +2014,11 @@ def run_child_scope(
         observation=process_observation,
         foreground=handoff,
         on_reaped=settle_scope,
+        on_not_started=settle_not_started,
         cleanup_clock=lambda: normal_deadline,
+        stdout=stdout,
+        stderr=stderr,
+        **deadline_options(deadline),
     )
 
 
@@ -1951,8 +2030,19 @@ def run(
     observation: dict[str, object] | None = None,
     foreground: Path | None = None,
     on_reaped: Callable[[], None] | None = None,
+    on_not_started: Callable[[], tuple[float, int] | None] | None = None,
     cleanup_clock: Callable[[], float | None] | None = None,
+    deadline: float | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
 ) -> int:
+    if deadline is not None and not math.isfinite(deadline):
+        raise ValueError("Invalid native workload deadline")
+    workload_timeout = (
+        max(0, deadline - time.monotonic()) if deadline is not None else 0.0
+    )
+    timed_out = False
+    spawn_attempted = False
     # Only the measured native owner consumes this marker. Its descendants must
     # not overwrite the initial setup or supervisor-return boundaries.
     timing = env.get(BUILD_TIMING)
@@ -1964,6 +2054,7 @@ def run(
         child_env.pop(BUILD_TIMING, None)
         receipt["child_started_monotonic"] = time.monotonic()
     child: subprocess.Popen | None = None
+    status: int | None = None
     child_finished: float | None = None
     if observation is not None:
         observation.update(
@@ -1979,7 +2070,12 @@ def run(
     cancellation_deadline: float | None = None
 
     def cancel(signum: int, _frame: FrameType | None) -> None:
-        nonlocal cancelling, cancel_failure, received_signal, cancellation_deadline
+        nonlocal \
+            cancelling, \
+            cancel_failure, \
+            received_signal, \
+            cancellation_deadline, \
+            timed_out
         if cancelling:
             return
         if received_signal is None:
@@ -2007,6 +2103,16 @@ def run(
                     child, received_signal, foreground, deadline=cancellation_deadline
                 )
                 if isinstance(original, tuple):
+                    if timed_out and (
+                        original[1] != received_signal
+                        or (
+                            cancellation_deadline is not None
+                            and original[0] < cancellation_deadline
+                        )
+                    ):
+                        # A timeout cannot replace a cancellation already owned
+                        # by this exact handoff, including its signal meaning.
+                        timed_out = False
                     cancellation_deadline, received_signal = original
                     if observation is not None:
                         observation.update(
@@ -2025,52 +2131,103 @@ def run(
     finally:
         signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
     try:
-        child = subprocess.Popen(
-            command, env=child_env, cwd=cwd, start_new_session=True
-        )
-        if observation is not None:
-            observation["child_pid"] = child.pid
-        if received_signal is not None:
-            cancel(received_signal, None)
-        escalated = False
-        while True:
-            timeout = 0.1
-            if cancellation_deadline is not None:
-                completion_deadline = cancellation_deadline - 0.5
-                if time.monotonic() >= completion_deadline and not escalated:
-                    # Only this Popen's exact new session is escalation authority.
-                    # Keep reaping out of signal handlers: Popen's waitpid lock
-                    # may belong to the interrupted outer wait at that instant.
-                    with contextlib.suppress(ProcessLookupError):
-                        os.killpg(child.pid, signal.SIGKILL)
-                    escalated = True
-                timeout = max(
-                    0,
-                    min(
-                        0.1,
-                        (cancellation_deadline if escalated else completion_deadline)
-                        - time.monotonic(),
-                    ),
-                )
-            try:
-                status = child.wait(timeout=timeout)
-                child_finished = time.monotonic()
-                break
-            except subprocess.TimeoutExpired:
+        expired_before_spawn = deadline is not None and time.monotonic() >= deadline
+        if expired_before_spawn and on_not_started is not None:
+            # The exact handoff owner can retire this proven no-launch phase.
+            # Select timeout/signal truth after its authenticated settlement.
+            if received_signal is None:
+                timed_out = True
+                cancel(signal.SIGTERM, None)
+        else:
+            if expired_before_spawn and received_signal is None:
+                timed_out = True
+                cancel(signal.SIGTERM, None)
+                raise subprocess.TimeoutExpired(command, workload_timeout)
+            spawn_attempted = True
+            child = subprocess.Popen(
+                command,
+                env=child_env,
+                cwd=cwd,
+                start_new_session=True,
+                stdout=stdout,
+                stderr=stderr,
+            )
+            if observation is not None:
+                observation["child_pid"] = child.pid
+            if received_signal is not None:
+                cancel(received_signal, None)
+            escalated = False
+            while True:
+                # Work expiry initiates the existing owned cancellation/drain. An
+                # earlier caller signal keeps its original clock and exit meaning.
                 if (
-                    cancellation_deadline is not None
-                    and time.monotonic() >= cancellation_deadline
+                    deadline is not None
+                    and received_signal is None
+                    and time.monotonic() >= deadline
                 ):
-                    raise ValueError(
-                        "Owned direct child did not reap within original cancellation clock"
-                    ) from cancel_failure
-        if observation is not None:
-            observation["child_status"] = status
+                    timed_out = True
+                    cancel(signal.SIGTERM, None)
+                timeout = 0.1
+                if deadline is not None and received_signal is None:
+                    timeout = min(timeout, max(0, deadline - time.monotonic()))
+                if cancellation_deadline is not None:
+                    completion_deadline = cancellation_deadline - 0.5
+                    if time.monotonic() >= completion_deadline and not escalated:
+                        # Only this Popen's exact new session is escalation authority.
+                        # Keep reaping out of signal handlers: Popen's waitpid lock
+                        # may belong to the interrupted outer wait at that instant.
+                        with contextlib.suppress(ProcessLookupError):
+                            os.killpg(child.pid, signal.SIGKILL)
+                        escalated = True
+                    timeout = max(
+                        0,
+                        min(
+                            0.1,
+                            (
+                                cancellation_deadline
+                                if escalated
+                                else completion_deadline
+                            )
+                            - time.monotonic(),
+                        ),
+                    )
+                try:
+                    status = child.wait(timeout=timeout)
+                    child_finished = time.monotonic()
+                    break
+                except subprocess.TimeoutExpired:
+                    if (
+                        cancellation_deadline is not None
+                        and time.monotonic() >= cancellation_deadline
+                    ):
+                        raise ValueError(
+                            "Owned direct child did not reap within original cancellation clock"
+                        ) from cancel_failure
+            if observation is not None:
+                observation["child_status"] = status
     finally:
         try:
             # Also runs on spawn/wait failure. Callback invocation is not a
             # reap witness; it must authenticate and observe its own drain.
-            if on_reaped is not None:
+            if not spawn_attempted and on_not_started is not None:
+                original = on_not_started()
+                if original is not None and (
+                    cancellation_deadline is None
+                    or original[0] <= cancellation_deadline
+                ):
+                    if timed_out and (
+                        original[1] != received_signal
+                        or cancellation_deadline is None
+                        or original[0] < cancellation_deadline
+                    ):
+                        timed_out = False
+                    cancellation_deadline, received_signal = original
+                    if observation is not None:
+                        observation.update(
+                            cancellation_deadline=cancellation_deadline,
+                            forwarded_signal=received_signal,
+                        )
+            elif on_reaped is not None:
                 on_reaped()
         finally:
             for signum, handler in old_handlers.items():
@@ -2092,10 +2249,14 @@ def run(
         raise ValueError(
             "native foreground cancellation incomplete"
         ) from cancel_failure
+    if timed_out:
+        raise subprocess.TimeoutExpired(command, workload_timeout)
     # Cleanup can receive the first signal after wait() returned. Choose exit
     # truth only after its physical drain and signal-handler restoration.
     if received_signal is not None:
         return 128 + received_signal
+    if status is None:
+        raise ValueError("native workload has no terminal outcome")
     return 128 - status if status < 0 else status
 
 

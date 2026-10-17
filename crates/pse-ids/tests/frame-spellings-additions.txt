@@ -143,3 +143,9 @@ pse.durable.horizon_request.v2
 pse.canonical-body-content.v1
 pse.canonical-selection-receipt.v1
 pse.canonical-product-descriptor.v1
+
+# Plan 41e E4: explicit scalar evaluator selection in artifact/view identity (ADR-0191).
+# Earlier interpreted-only frame spellings remain frozen above and in the capture.
+pse.compiler.modeling-view.v5
+pse.math.artifact.v6
+pse.math.directional-artifact.v2

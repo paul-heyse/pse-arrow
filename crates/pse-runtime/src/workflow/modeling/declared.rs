@@ -337,12 +337,14 @@ impl ModelingPackage {
             })
             .await
     }
-    /// Carry operation-owned path demand into the one declared specialization.
+    /// Admit every requested case-value path in the original declared specialization.
+    /// Numeric values may then change at these paths without changing the retained
+    /// source, context or structural request used by `prepare_declared`.
     #[expect(
         clippy::too_many_arguments,
         reason = "declared policy and its complete path demand share one admission"
     )]
-    pub(in crate::workflow) async fn declared_execution_with_demand(
+    pub async fn declared_execution_with_demand(
         &self,
         root: DeclarationId,
         compiler: Profile,
@@ -598,6 +600,214 @@ impl ModelingPackage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn declared_path_demand_preserves_numeric_rebinding_and_refuses_new_aliases() {
+        let rows = pse_authoring::language::parse(
+            "package p {def D {var x:Scalar; eq e:x==1;} test inspected fixture {dof 0; route steady; procedure check;} {child root:D=D();}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "inspected")
+            .unwrap()
+            .declaration_id;
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let compiler = crate::workflow::tests::compiler_profile();
+        let mut undemanded = package
+            .declared_execution(
+                root,
+                compiler,
+                Default::default(),
+                Default::default(),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert!(
+            !undemanded
+                .model
+                .compiled()
+                .model
+                .paths
+                .contains_key("root.x")
+        );
+        undemanded.analysis.case.values.insert("root.x".into(), 4.);
+        assert!(
+            package
+                .prepare_declared_diagnostics(&undemanded, &cancel)
+                .await
+                .is_err()
+        );
+
+        let mut execution = package
+            .declared_execution_with_demand(
+                root,
+                compiler,
+                Default::default(),
+                Default::default(),
+                Limits::default(),
+                vec!["root.x".into()],
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let x = execution.model.compiled().model.paths["root.x"];
+        let identity = execution.model.compiled().model.allocation_identity();
+        let admitted = execution.model.compiled().admitted.allocation_identity();
+        let before = runtime.native().preparation_effects();
+        for value in [4., 5.] {
+            execution
+                .analysis
+                .case
+                .values
+                .insert("root.x".into(), value);
+            let prepared = package
+                .prepare_declared_diagnostics(&execution, &cancel)
+                .await
+                .unwrap();
+            assert_eq!(prepared.model.values.scalars[&x], value);
+            assert_eq!(
+                prepared.model.model.compiled().model.allocation_identity(),
+                identity
+            );
+            assert_eq!(
+                prepared
+                    .model
+                    .model
+                    .compiled()
+                    .admitted
+                    .allocation_identity(),
+                admitted
+            );
+        }
+        let effects = runtime.native().preparation_effects().since(before);
+        assert_eq!(
+            effects.frontiers, 0,
+            "numeric edits retain the admitted model"
+        );
+        assert_eq!(
+            effects.completions, 0,
+            "numeric edits cannot respecialize the declaration"
+        );
+        execution
+            .analysis
+            .case
+            .values
+            .insert("root.absent".into(), 6.);
+        assert!(
+            package
+                .prepare_declared_diagnostics(&execution, &cancel)
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn retained_declared_diagnostics_allow_missing_free_and_non_solve_procedures() {
+        let rows = pse_authoring::language::parse(
+            "package p {def D {var x:Scalar; eq e:x==1;} test inspected fixture {dof 0; route steady; procedure check;} {child root:D=D();}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "inspected")
+            .unwrap()
+            .declaration_id;
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let execution = package
+            .declared_execution_with_demand(
+                root,
+                crate::workflow::tests::compiler_profile(),
+                Default::default(),
+                Default::default(),
+                Limits::default(),
+                vec!["root.x".into()],
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert!(matches!(execution.procedure, DeclaredProcedure::Check));
+        assert!(package.prepare_declared(&execution, &cancel).await.is_err());
+        let prepared = package
+            .prepare_declared_diagnostics(&execution, &cancel)
+            .await
+            .unwrap();
+        assert_eq!(
+            prepared.model.model.compiled().model.allocation_identity(),
+            execution.model.compiled().model.allocation_identity()
+        );
+        let symbol = execution
+            .model
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".root.x"))
+            .unwrap();
+        let x = symbol.id;
+        let path = execution
+            .model
+            .compiled()
+            .model
+            .paths
+            .iter()
+            .find(|(_, id)| **id == x)
+            .unwrap()
+            .0
+            .clone();
+        assert!(
+            !prepared.model.values.scalars.contains_key(&x),
+            "diagnostics keep missing free values"
+        );
+        let mut changed = execution.clone();
+        changed.analysis.case.values.insert(path.clone(), 4.);
+        let updated = package
+            .prepare_declared_diagnostics(&changed, &cancel)
+            .await
+            .unwrap();
+        assert_eq!(updated.model.values.scalars[&x], 4.);
+        changed
+            .analysis
+            .bindings
+            .demand
+            .push("root.not_admitted".into());
+        assert!(
+            package
+                .prepare_declared_diagnostics(&changed, &cancel)
+                .await
+                .is_err()
+        );
+        let mut changed = execution.clone();
+        changed.analysis.instance = InstanceId::from_id(SemanticId::NIL);
+        assert!(
+            package
+                .prepare_declared_diagnostics(&changed, &cancel)
+                .await
+                .is_err()
+        );
+        let foreign = runtime
+            .modeling_package(
+                package.declarations().await.unwrap().to_vec(),
+                crate::workflow::tests::physical(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            foreign
+                .prepare_declared_diagnostics(&execution, &cancel)
+                .await
+                .is_err()
+        );
+    }
     #[tokio::test]
     async fn declared_simultaneous_initialization_retains_procedure_and_admits_overrides_once() {
         let source = "package p { def D { var x:Scalar; eq e:x==1; } test initialized fixture { dof 0; route simultaneous; procedure initialize; initialize homotopy(false) step(0.25) minimum(1e-6) growth(1.5) attempts(128) seconds(60); } { child root:D=D(); } test solving fixture { dof 0; route simultaneous; procedure solve; } { child root:D=D(); } }";
