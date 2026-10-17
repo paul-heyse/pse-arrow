@@ -36,7 +36,7 @@ impl CancelSource {
     }
 
     /// Narrow the same driver's clock without renewing it or changing cancellation.
-    pub(crate) fn with_deadline(&self, deadline: Option<std::time::Instant>) -> Self {
+    pub fn with_deadline(&self, deadline: Option<std::time::Instant>) -> Self {
         Self {
             token: self.token.clone(),
             deadline: self.deadline.into_iter().chain(deadline).min(),

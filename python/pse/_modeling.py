@@ -751,7 +751,7 @@ class ModelingPackage:
         maximum_bytes: int = 16 << 20,
         time_limit: float = 30.0,
     ) -> ModelingSourceMapDocument:
-        """Read bounded static source/product attribution without executing a solve."""
+        """Read static attribution under one preparation-and-copy clock, without a solve."""
         return self._handle.diagnostic_source_map(
             case_id.to_hex(), codec.encode_json(settings), maximum_bytes, time_limit
         )

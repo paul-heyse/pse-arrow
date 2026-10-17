@@ -262,8 +262,9 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSourceMap, WorkflowError> {
         if maximum_bytes == 0 || time_limit.is_zero() { return Err(contract("source map requires a positive finite allocation and clock")); }
-        let deadline = std::time::Instant::now().checked_add(time_limit)
+        let local_deadline = std::time::Instant::now().checked_add(time_limit)
             .ok_or_else(|| contract("source map deadline extent"))?;
+        let deadline = cancel.deadline().map_or(local_deadline, |outer| outer.min(local_deadline));
         let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline));
         let check = || -> Result<(), WorkflowError> {
             scope.check().map_err(pse_backend_native::ProblemError::Provider).map_err(crate::math::MathRuntimeError::from)?;

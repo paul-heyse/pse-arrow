@@ -128,6 +128,10 @@ async fn kernel_source_map_finite_byte_clock_and_cancel_refusals_leave_prepared_
     let before = service.test_admission_snapshot();
     assert!(runtime.modeling_diagnostic_source_map(&prepared, 1, Duration::from_secs(10), &cancel).await.is_err());
     assert!(runtime.modeling_diagnostic_source_map(&prepared, 2 << 20, Duration::ZERO, &cancel).await.is_err());
+    let expired = crate::CancelSource::new().with_deadline(Some(std::time::Instant::now()));
+    assert!(runtime.modeling_diagnostic_source_map(&prepared, 2 << 20, Duration::from_secs(10), &expired).await.is_err(),
+        "mapping cannot renew the caller's preparation clock");
+    assert!(!expired.token().is_cancelled(), "deadline remains independent from cancellation");
     let stopped = crate::CancelSource::new(); stopped.cancel();
     assert!(runtime.modeling_diagnostic_source_map(&prepared, 2 << 20, Duration::from_secs(10), &stopped).await.is_err());
     assert_eq!(service.test_admission_snapshot(), before, "refused source inspection releases its own finite permission and no unrelated owner");
