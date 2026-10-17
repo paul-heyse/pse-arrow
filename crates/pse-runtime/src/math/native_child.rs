@@ -735,7 +735,7 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     if actual_parent != Some(parent) {
         return Err(contract("native child parent identity differs"));
     }
-    let startup = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+    let startup = ExecutionScope::new(Cancellation::default(), None);
     let executable =
         pse_buildinfo::FileObservation::capture(&std::env::current_exe().map_err(infrastructure)?)
             .map_err(infrastructure)?;
@@ -773,7 +773,7 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     let deadline = Instant::now()
         .checked_add(request.remaining)
         .ok_or_else(|| contract("native child receiving deadline extent"))?;
-    let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline));
+    let scope = ExecutionScope::new(Cancellation::default(), Some(deadline));
     let registration = diagnostics.register_child(request.diagnostic_parent);
     let context = diagnostic.context();
     if let Some(parent) = request.diagnostic_parent {
@@ -862,7 +862,7 @@ fn reconstruct_and_solve(
         .remaining(options.time_limit)
         .map_err(pse_math::MathError::Scope)?;
     let mut worker = pse_backend_native::implicit::Kinsol.worker();
-    let point = worker.solve(problem, &wire.parameters, &options, scope.cancellation())?;
+    let point = worker.solve(problem, &wire.parameters, &options, scope.cancellation_control())?;
     checkpoint(scope)?;
     Ok(point)
 }

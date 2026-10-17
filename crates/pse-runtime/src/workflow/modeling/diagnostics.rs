@@ -1786,7 +1786,7 @@ impl ModelingPackage {
                         Some((scope.clone(), control)),
                         move |mut worker| {
                             let execution = pse_backend_native::solve::Execution::within(
-                                worker.cancellation().clone(),
+                                scope.cancellation_control().clone(),
                                 &controls,
                                 scope,
                             )?;

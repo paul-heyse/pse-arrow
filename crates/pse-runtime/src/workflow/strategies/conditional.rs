@@ -602,7 +602,7 @@ impl PreparedRecycle {
                 proof_steps: Some(0),
             };
             let rows = execution.counted(evaluation, || {
-                Ok(original_worker.worker().constraints(&candidate)?)
+                Ok(original_worker.worker().constraints(&candidate)?.to_owned())
             })?;
             execution.check()?;
             let objective = execution.counted(evaluation, || {
@@ -1025,7 +1025,7 @@ impl ModelingPackage {
                     resolved.providers.clone(),
                     cancel,
                     None,
-                    move |mut worker| Ok(worker.constraints(&initial_values)?),
+                    move |mut worker| Ok(worker.constraints(&initial_values)?.to_owned()),
                 )
                 .await
                 .map_err(|cause| unit_preparation_error(unit, &request, cause))?;

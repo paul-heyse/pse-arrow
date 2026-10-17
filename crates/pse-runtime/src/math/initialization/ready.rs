@@ -22,7 +22,7 @@ impl MathService {
             .ok_or(MathRuntimeError::Limit(
                 "initialization task deadline extent",
             ))?;
-        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline));
+        let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), Some(deadline));
         let progress = Arc::new(Progress::new(profile.solver.controls.history));
         let report_bytes = prepared.blocks.iter().try_fold(
             original.scalars.len().saturating_mul(64),
@@ -398,7 +398,7 @@ impl MathService {
             .and_then(|bytes| bytes.checked_add(4096))
             .ok_or(MathRuntimeError::Limit("block assessment extent"))?;
         let mut original_execution = Execution::within(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             &original_profile.controls,
             scope.clone(),
         )?;
@@ -451,7 +451,7 @@ impl MathService {
     ) -> Result<bool, MathRuntimeError> {
         let structure = case.assembly.structure().clone();
         let mut execution =
-            Execution::within(scope.cancellation().clone(), controls, scope.clone())?;
+            Execution::within(scope.cancellation_control().clone(), controls, scope.clone())?;
         execution.work_admission = admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
         let control = Cancellation::default();
         let task = pse_kernels::ExecutionScope::new(control.clone(), scope.deadline());

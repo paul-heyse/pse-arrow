@@ -2640,6 +2640,8 @@ impl CaseWorker {
     pub fn cancellation(&self) -> &Arc<AtomicBool> {
         &self.cancel
     }
+    /// Original admitted execution scope, including its notifying stop owner and clock.
+    pub fn execution_scope(&self) -> &pse_kernels::ExecutionScope { &self.scope }
     /// Immutable products shared by the attempt.
     pub fn assembly(&self) -> &Arc<CaseAssembly> {
         &self.assembly

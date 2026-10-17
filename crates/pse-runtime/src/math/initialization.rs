@@ -2033,7 +2033,7 @@ impl BlockAssessor {
         }
         let quality =
             native::quality::observed(&contract, &bounds, &candidate.primal, &values, &tolerance)?;
-        let mut observation = native::quality::Observation::from_values(None, values, bounds)?;
+        let mut observation = native::quality::Observation::from_values(None, values.to_owned(), bounds)?;
         observation.sources = worker.worker().constraint_sources()?;
         self.original.check()?;
         Ok((quality, observation))

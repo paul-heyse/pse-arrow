@@ -660,7 +660,7 @@ impl Staged {
         cancel: &crate::CancelSource,
         work: impl FnOnce(
             &mut pse_backend_native::execution::Retained,
-            &Arc<std::sync::atomic::AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<crate::math::WorkerBudget>,
         ) -> Result<T, crate::math::MathRuntimeError>
         + Send

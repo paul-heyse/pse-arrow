@@ -106,7 +106,7 @@ impl ModelingPackage {
                 let original = CoefficientProblem::from_plan(&plan, coefficients.as_ref().clone())?;
                 let (problem, _) = transport::coefficients(&original, &normalization, None)?;
                 let request = transport::diagnostic_request(&request, &normalization)?;
-                let execution = Execution::new(worker.cancellation().clone(), &controls);
+                let execution = Execution::within(worker.execution_scope().cancellation_control().clone(), &controls, worker.execution_scope().clone())?;
                 let compatibility = Compatibility {
                     layout: problem.contract.identity,
                     profile: accuracy.key()?,

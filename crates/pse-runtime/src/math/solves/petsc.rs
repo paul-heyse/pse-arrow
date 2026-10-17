@@ -462,7 +462,7 @@ impl PreparedSolve {
     }
 }
 
-struct Preparing(Option<pse_diagnostics::Cancellation>);
+struct Preparing(Option<Cancellation>);
 impl Drop for Preparing {
     fn drop(&mut self) {
         if let Some(flag) = &self.0 {
@@ -1262,20 +1262,20 @@ impl native_petsc::BlockOracle for LocalBlock {
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
         self.point(local, ghosts)?;
-        let mut values = self.worker.constraints(&self.prepared.values)?;
+        let values = self.worker.constraints(&self.prepared.values)?;
         if values.len() != out.len() || values.len() != self.prepared.offsets.len() {
             return Err(ProblemError::Contract(
                 "PETSc compiler block residual extent".into(),
             ));
         }
-        for (value, offset) in values.iter_mut().zip(&self.prepared.offsets) {
-            *value -= offset;
-        }
-        if values.iter().any(|v| !v.is_finite()) {
+        if values.iter().zip(&self.prepared.offsets).any(|(value, offset)| !(value-offset).is_finite()) {
             return Err(ProblemError::numerical("nonfinite compiler block residual"));
         }
         self.scope.check().map_err(ProblemError::from)?;
-        out.copy_from_slice(&values);
+        // Validate the whole transformed output before writing the caller's buffer.
+        for ((destination, value), offset) in out.iter_mut().zip(values).zip(&self.prepared.offsets) {
+            *destination = value-offset;
+        }
         Ok(())
     }
     fn jacobian(
