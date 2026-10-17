@@ -812,9 +812,9 @@ impl ModelingPackage {
         let retained = report._owner.clone();
         let sampled = service
             .with_worker(assembly, providers.clone(), cancel, move |worker| {
-                let rows = worker.constraints(&candidate)?;
+                let rows = crate::workflow::dynamics::analysis("diagnostic.original_rows", || worker.constraints(&candidate).map(<[f64]>::to_vec))?;
                 let flag = worker.cancellation().clone();
-                let jacobian = worker.jacobian(&candidate)?;
+                let jacobian = crate::workflow::dynamics::analysis("diagnostic.original_jacobian", || worker.jacobian(&candidate))?;
                 let entries = (0..jacobian.ncols())
                     .flat_map(|j| {
                         jacobian
@@ -824,22 +824,25 @@ impl ModelingPackage {
                     })
                     .map(|(i, j, v)| (i, j, v * scaled_rows[i] / scaled_columns[j]))
                     .collect::<Vec<_>>();
-                let matrix = pse_math::diagnostics::analyze_matrix::<GlobalRow, GlobalCol>(
-                    jacobian.as_ref(),
-                    &scaled_rows,
-                    &scaled_columns,
-                    matrix_policy,
-                    &flag,
-                );
+                let matrix = crate::workflow::dynamics::analysis("diagnostic.full_scaled_svd", || {
+                    pse_math::diagnostics::analyze_matrix::<GlobalRow, GlobalCol>(
+                        jacobian.as_ref(), &scaled_rows, &scaled_columns, matrix_policy, &flag)
+                });
                 // A square Jacobian also gets FERAL's sparse 1-norm condition estimate in the
                 // same scaling, which needs no dense budget (L-N6).
                 let condition = (jacobian.nrows() == jacobian.ncols()).then(|| {
                     let nominals = scaled_columns.iter().map(|s| 1. / s).collect::<Vec<_>>();
-                    pse_backend_native::conditioning::jacobian_condition(
-                        jacobian.as_ref(),
-                        &scaled_rows,
-                        &nominals,
-                    )
+                    crate::workflow::dynamics::analysis("diagnostic.sparse_condition_estimate", || {
+                        if flag.load(std::sync::atomic::Ordering::Acquire) {
+                            return Err(pse_backend_native::ProblemError::Cancelled);
+                        }
+                        let result = pse_backend_native::conditioning::jacobian_condition(
+                            jacobian.as_ref(), &scaled_rows, &nominals)?;
+                        if flag.load(std::sync::atomic::Ordering::Acquire) {
+                            return Err(pse_backend_native::ProblemError::Cancelled);
+                        }
+                        Ok(result)
+                    })
                 });
                 Ok((rows, entries, matrix, condition, retained))
             })
@@ -1411,6 +1414,11 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(report.matrix.as_ref().unwrap().rank, 1);
+        for mode in &report.matrix.as_ref().unwrap().modes {
+            assert!(mode.left_residual <= mode.residual_bound);
+            assert!(mode.right_residual <= mode.residual_bound);
+            assert!(mode.normalization_error < 1e-12);
+        }
         assert!(report.complete);
         let points = vec![
             (
