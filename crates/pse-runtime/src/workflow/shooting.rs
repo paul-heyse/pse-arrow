@@ -1074,6 +1074,14 @@ fn same_execution(a: &Execution, b: &Execution) -> bool {
         }
 }
 impl ShootingOracle {
+    fn derivative_purpose(&self) -> crate::invocation::IntegrationPurpose {
+        match self.purpose {
+            crate::invocation::IntegrationPurpose::PrimalTrial => {
+                crate::invocation::IntegrationPurpose::DerivativeUpgrade
+            }
+            purpose => purpose,
+        }
+    }
     fn prepare_worker(&mut self) -> Result<(), ProblemError> {
         self.execution.check()?;
         let compatible = self.worker.as_ref().is_some_and(|worker| {
@@ -1187,15 +1195,7 @@ impl ShootingOracle {
                     context.boolean("shooting.forward_sensitivities", forward);
                     context.phase("shooting.window")
                 });
-                let purpose = if same
-                    && matches!(
-                        self.purpose,
-                        crate::invocation::IntegrationPurpose::PrimalTrial
-                    ) {
-                    crate::invocation::IntegrationPurpose::DerivativeUpgrade
-                } else {
-                    self.purpose
-                };
+                let purpose = if same { self.derivative_purpose() } else { self.purpose };
                 let observation = crate::invocation::IntegrationObservation::begin(
                     self.observation.clone(),
                     purpose,
@@ -1353,6 +1353,7 @@ impl ShootingOracle {
             }
             return Ok(gradient);
         }
+        let purpose = self.derivative_purpose();
         let p = self.problem.clone();
         let mut total = vec![0.; x.len()];
         if !p.integral.is_empty() && !x.is_empty() {
@@ -1376,7 +1377,7 @@ impl ShootingOracle {
                 };
                 let observation = crate::invocation::IntegrationObservation::begin(
                     self.observation.clone(),
-                    self.purpose,
+                    purpose,
                     false,
                     true,
                     false,

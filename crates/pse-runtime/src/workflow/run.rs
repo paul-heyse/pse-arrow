@@ -583,7 +583,7 @@ impl RunResult {
             Ok(RunReport::Shooting(report)) => products.push(InvocationProduct {
                 role: "shooting_trajectory".into(),
                 step: None,
-                availability: if report.trajectory.is_some() {
+                availability: if report.completion.permits_use() && report.trajectory.is_some() {
                     ProductAvailability::Available
                 } else {
                     ProductAvailability::Unavailable
@@ -596,9 +596,11 @@ impl RunResult {
             let limit = super::AttemptSummaryLimits::default().steps;
             omitted_product_steps = requests.len().saturating_sub(limit);
             for (step, request) in requests.iter().take(limit).enumerate() {
-                let native = self
-                    .modeling_result(step)
-                    .and_then(|result| match &result.outcome {
+                let result = self.modeling_result(step);
+                // Each original completion governs its own scientific products. A
+                // later refused/failed sequence member cannot erase accepted work.
+                let original_permission = result.is_some_and(|result| result.completion.permits_use());
+                let native = result.and_then(|result| match &result.outcome {
                         crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
                         _ => None,
                     });
@@ -608,7 +610,7 @@ impl RunResult {
                 let status = |requested: bool, produced: bool| {
                     if !requested {
                         ProductAvailability::NotRequested
-                    } else if produced {
+                    } else if original_permission && produced {
                         ProductAvailability::Available
                     } else {
                         ProductAvailability::Unavailable
@@ -2042,5 +2044,69 @@ mod cancellation_tests {
         );
         release.send(()).unwrap();
         task.await.unwrap();
+    }
+}
+
+#[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
+mod scientific_product_tests {
+    use super::*;
+    use crate::workflow::modeling::sensitivity_tests as fixture;
+    use pse_backend_native::solve::{Backend, SolverSelection};
+    use crate::invocation::ProductAvailability;
+
+    #[tokio::test]
+    async fn joined_scientific_products_use_each_original_completion_and_keep_native_evidence() {
+        let source = fixture::QUADRATIC.replace(
+            "annotation objective cost(minimize);",
+            "annotation objective cost(minimize); annotation check a(a > 0);",
+        );
+        let (package, root) = fixture::package(&source).await;
+        let cancel = crate::CancelSource::new();
+        let mut analysis = fixture::analysis(root, SolverSelection::Explicit(Backend::Ipopt));
+        analysis.bindings.demand = vec!["a".into(), "b".into()];
+        let plain = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let paths = &plain.model.model.compiled().model.paths;
+        analysis.solver.sensitivity = Some(crate::math::settings::SensitivityRequest {
+            parameters: vec![paths["a"], paths["b"]],
+            reduced_hessian: true,
+            propagation: None,
+        });
+        let good = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        // This remains a well-posed quadratic with computable native derivatives;
+        // its separate authored original-model check is deliberately false.
+        analysis.case.values.insert("a".into(), -1.0);
+        let refused = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        analysis.case.values.insert("a".into(), 1.0);
+        analysis.solver.sensitivity = None;
+        let not_requested = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let result = package.runtime.start_modeling(vec![good, refused, not_requested], false, &cancel)
+            .await.unwrap().wait().await.unwrap();
+        assert!(!result.usable(), "a later original refusal governs the joined result");
+        let accepted = result.modeling_result(0).unwrap();
+        let refused = result.modeling_result(1).unwrap();
+        assert!(accepted.completion.permits_use());
+        assert!(!refused.completion.permits_use());
+        assert!(refused.checks.iter().any(|check| !check.satisfied));
+        for step in [accepted, refused] {
+            let crate::math::solves::Outcome::Native(native) = &step.outcome else {
+                panic!("the control must exercise actual native scientific products");
+            };
+            let sensitivity = native.evidence.sensitivity.as_ref().unwrap();
+            assert!(sensitivity.sensitivities.is_ok(), "raw native derivatives remain diagnostic evidence");
+            assert!(sensitivity.reduced_hessian.as_ref().unwrap().is_ok());
+        }
+        assert!(result.modeling_result(2).is_none());
+        let evidence = result.invocation_evidence().unwrap();
+        for (step, expected) in [(0, ProductAvailability::Available),
+            (1, ProductAvailability::Unavailable), (2, ProductAvailability::NotRequested)] {
+            for role in ["parametric_sensitivity", "reduced_hessian"] {
+                let product = evidence.products.iter()
+                    .find(|product| product.step == Some(step) && product.role == role).unwrap();
+                assert_eq!(product.availability, expected, "step {step}: {role}");
+            }
+        }
+        // Joined original-result availability remains distinct from accepted step products.
+        assert!(evidence.products.iter().any(|product| product.role == "original_scientific_result"
+            && product.availability == ProductAvailability::Unavailable));
     }
 }
