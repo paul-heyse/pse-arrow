@@ -174,6 +174,7 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
     source.producer = Some(record.producer);
     source.producer_generation = Some(record.generation);
     source.producer_sequence = Some(record.sequence);
+    source.producer_family_sequence = record.family_sequence;
     source.observed_at = Some(record.observed_at);
 }
 

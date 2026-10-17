@@ -499,7 +499,8 @@ pub struct Event {
     pub incumbent: Option<IncumbentEvent>,
 }
 /// Owner-supplied semantics and pre-loss identity of a native checkpoint.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct EventSource {
     /// Explicit performing role; independent of family and display phase names.
     pub role: pse_diagnostics::observation::ProducerRole,
@@ -519,7 +520,10 @@ pub struct EventSource {
     pub producer_generation: Option<u64>,
     /// Per-producer sequence, distinct from this Progress stream's sequence.
     pub producer_sequence: Option<u64>,
+    /// Sequence within this exact versioned source family.
+    pub producer_family_sequence: Option<u64>,
     /// Actual event time on the associated operation's process clock.
+    #[schemars(with="Option<pse_diagnostics::ClosedDuration>")]
     pub observed_at: Option<Duration>,
 }
 impl EventSource {
@@ -529,11 +533,11 @@ impl EventSource {
             role: pse_diagnostics::observation::ProducerRole::NativeIteration,
             family: family.into(), generation: 0, sequence: 0,
             coordinates: coordinates.map(str::to_owned), norm: norm.map(str::to_owned),
-            producer: None, producer_generation: None, producer_sequence: None, observed_at: None,
+            producer: None, producer_generation: None, producer_sequence: None, producer_family_sequence:None, observed_at: None,
         }
     }
     /// Copied descriptor extent retained by a native event.
-    pub(crate) fn retained_bytes(&self) -> usize {
+    pub fn retained_bytes(&self) -> usize {
         size_of::<Self>().saturating_add(self.family.capacity())
             .saturating_add(self.coordinates.as_ref().map_or(0, String::capacity))
             .saturating_add(self.norm.as_ref().map_or(0, String::capacity))
