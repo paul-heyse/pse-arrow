@@ -105,9 +105,10 @@ impl PreparedSupport {
         kind: ProductKind,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<CompiledBody, MathError> {
-        self.compile_product_inner(kind, options, limits, cancel, None)
+        scope.check().map_err(crate::error::scope_error)?;
+        self.compile_product_inner(kind, options, limits, scope, None)
     }
     /// Reuse exact scalar preparations while constructing a distinct requested product.
     pub fn compile_product_reusing(
@@ -115,19 +116,22 @@ impl PreparedSupport {
         kind: ProductKind,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         scalars: &library::ScalarProducts,
     ) -> Result<CompiledBody, MathError> {
-        self.compile_product_inner(kind, options, limits, cancel, Some(scalars))
+        scope.check().map_err(crate::error::scope_error)?;
+        self.compile_product_inner(kind, options, limits, scope, Some(scalars))
     }
     fn compile_product_inner(
         &self,
         kind: ProductKind,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         retained: Option<&library::ScalarProducts>,
     ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
+        let cancel = scope.cancellation();
         let required = match kind {
             ProductKind::SelectedPartials => self.order(),
             ProductKind::JacobianAction => DerivativeOrder::First,
@@ -150,7 +154,7 @@ impl PreparedSupport {
                 expressions,
                 options,
                 limits,
-                cancel,
+                scope,
                 retained,
             );
         }
@@ -160,7 +164,7 @@ impl PreparedSupport {
             required,
             options,
             limits,
-            cancel,
+            scope,
             false,
             kind,
             self,
@@ -173,9 +177,11 @@ impl PreparedSupport {
         flattened: Vec<Atom>,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         retained: Option<&library::ScalarProducts>,
     ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
+        let cancel = scope.cancellation();
         let body = self.body();
         let selected = (0..self.outputs().len()).collect::<Vec<_>>();
         let coordinates = self.dense_coordinates()?;
@@ -319,7 +325,7 @@ impl PreparedSupport {
                         &storage,
                         &export,
                         module_bytes,
-                        cancel,
+                        scope,
                     )?)
                 }
                 #[cfg(not(feature = "compiled-evaluator"))]
@@ -371,7 +377,7 @@ impl PreparedSupport {
             DerivativeOrder::Value,
             options,
             limits,
-            cancel,
+            scope,
             false,
             ProductKind::SelectedPartials,
             self,
@@ -487,7 +493,7 @@ impl Worker {
         inputs: &[f64],
         bindings: ProductValues<'_>,
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         output: &mut [f64],
     ) -> Result<(), MathError> {
         let mut trial = TrialEvaluation::default();
@@ -498,7 +504,7 @@ impl Worker {
         inputs: &[f64],
         bindings: ProductValues<'_>,
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         output: &mut [f64],
         trial: &mut TrialEvaluation,
     ) -> Result<(), MathError> {

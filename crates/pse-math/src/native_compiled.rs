@@ -8,9 +8,8 @@ use std::{
     process::{Child, Command, ExitStatus, Stdio},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
+    time::Instant,
 };
 use symbolica::{
     atom::Symbol,
@@ -178,75 +177,131 @@ struct CompilerChild {
 impl CompilerChild {
     fn drain(&mut self) -> std::io::Result<ExitStatus> {
         loop {
-            let _ = rustix::process::kill_process_group(self.group, rustix::process::Signal::KILL);
-            match group_running(self.group.as_raw_pid()) {
-                Ok(false) => break,
-                // Observation errors cannot release resources still used by an
-                // unknown group member. Retain the leader and retry cleanup.
-                Ok(true) | Err(_) => std::thread::sleep(Duration::from_millis(5)),
+            // The leader remains unreaped, reserving the group identity while
+            // every actual member is discovered, signalled and awaited by pidfd.
+            if let Err(error) = rustix::process::kill_process_group(self.group, rustix::process::Signal::KILL)
+                && error != rustix::io::Errno::SRCH
+            { retain_unknown_drain(error); }
+            let members = match group_members(self.group.as_raw_pid()) {
+                Ok(members) => members,
+                Err(error) => retain_unknown_drain(error),
+            };
+            if members.is_empty() { break; }
+            for member in &members {
+                if let Err(error) = rustix::process::pidfd_send_signal(member, rustix::process::Signal::KILL)
+                    && error != rustix::io::Errno::SRCH
+                { retain_unknown_drain(error); }
             }
+            for member in &members {
+                if let Err(error) = wait_exit(member, None) { retain_unknown_drain(error); }
+            }
+            // A member may have forked before its kill. Re-inventory after all
+            // known exits; a child/leader exit is never whole-group drain.
         }
-        let status = self.child.wait()?;
+        let status = match self.child.wait() {
+            Ok(status) => status,
+            Err(error) => retain_unknown_drain(error),
+        };
         self.joined = true;
         Ok(status)
     }
 }
 impl Drop for CompilerChild {
     fn drop(&mut self) {
-        if !self.joined {
-            let _ = self.drain();
-        }
+        if !self.joined { let _ = self.drain(); }
     }
 }
-fn group_running(group: i32) -> std::io::Result<bool> {
+/// No safe readiness source exists after an unproved inventory/drain fault.
+/// Keep this stack, child, stderr reader, directory and admitted caller alive.
+/// Cancellation is not subscribed here: an already requested stop must not spin
+/// or release unknown issued work. There is deliberately no reaper or timer retry.
+fn retain_unknown_drain(error: impl std::fmt::Display) -> ! {
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.text("math.native_compiler_drain_fault", &error.to_string());
+        context.text("math.native_compiler_state", "blocked-unproved-drain");
+    }
+    loop { std::thread::park(); }
+}
+fn proc_identity(stat: &str) -> std::io::Result<(bool, i32, u64)> {
+    let fields = stat.rsplit_once(") ")
+        .map(|(_, tail)| tail.split_whitespace().collect::<Vec<_>>())
+        .ok_or_else(|| std::io::Error::other("malformed compiler group stat"))?;
+    let group = fields.get(2).and_then(|value| value.parse().ok())
+        .ok_or_else(|| std::io::Error::other("missing compiler group identity"))?;
+    let start = fields.get(19).and_then(|value| value.parse().ok())
+        .ok_or_else(|| std::io::Error::other("missing compiler member start identity"))?;
+    Ok((!matches!(fields.first().copied(), Some("Z" | "X")), group, start))
+}
+fn group_members(group: i32) -> std::io::Result<Vec<std::os::fd::OwnedFd>> {
+    let mut members = Vec::new();
     for entry in std::fs::read_dir("/proc")? {
         let entry = entry?;
-        if entry
-            .file_name()
-            .as_encoded_bytes()
-            .iter()
-            .any(|c| !c.is_ascii_digit())
-        {
-            continue;
-        }
-        let stat = match std::fs::read_to_string(entry.path().join("stat")) {
-            Ok(stat) => stat,
+        let Some(pid) = entry.file_name().to_str().and_then(|name| name.parse::<i32>().ok()).and_then(rustix::process::Pid::from_raw) else { continue; };
+        let stat_path = entry.path().join("stat");
+        let before = match std::fs::read_to_string(&stat_path) {
+            Ok(stat) => proc_identity(&stat)?,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => return Err(error),
         };
-        let Some((_, tail)) = stat.rsplit_once(") ") else {
-            continue;
+        if !before.0 || before.1 != group { continue; }
+        let fd = match rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()) {
+            Ok(fd) => fd,
+            Err(rustix::io::Errno::SRCH) => continue,
+            Err(error) => return Err(error.into()),
         };
-        let mut fields = tail.split_whitespace();
-        let state = fields.next();
-        let _parent = fields.next();
-        if fields.next().and_then(|value| value.parse::<i32>().ok()) == Some(group)
-            && !matches!(state, Some("Z" | "X"))
-        {
-            return Ok(true);
+        // Re-read after pidfd_open: numeric PID reuse cannot turn an unrelated
+        // member into permission to signal it. The descriptor owns that identity.
+        let after = match std::fs::read_to_string(&stat_path) {
+            Ok(stat) => proc_identity(&stat)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error),
+        };
+        if after.0 && after.1 == group && after.2 == before.2 { members.push(fd); }
+    }
+    Ok(members)
+}
+fn wait_exit(fd: &std::os::fd::OwnedFd, scope: Option<&pse_kernels::ExecutionScope>) -> Result<(), MathError> {
+    use rustix::{event::{EventfdFlags, PollFd, PollFlags, Timespec}, io::Errno};
+    struct Signal(std::os::fd::OwnedFd);
+    impl std::task::Wake for Signal {
+        fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+        fn wake_by_ref(self: &Arc<Self>) {
+            while let Err(Errno::INTR) = rustix::io::write(&self.0, &1_u64.to_ne_bytes()) {}
         }
     }
-    Ok(false)
-}
-fn wait(compiler: &CompilerChild, cancelled: &AtomicBool) -> Result<(), MathError> {
-    use rustix::process::{WaitId, WaitIdOptions, waitid};
+    let signal = scope.map(|_| rustix::event::eventfd(0, EventfdFlags::CLOEXEC | EventfdFlags::NONBLOCK)
+        .map(|fd| Arc::new(Signal(fd))).map_err(|error| MathError::Library(error.to_string()))).transpose()?;
+    let _watch = scope.zip(signal.as_ref()).map(|(scope, signal)| scope.cancellation_control().watch(&std::task::Waker::from(signal.clone())));
     loop {
-        if cancelled.load(Ordering::Acquire) {
-            return Err(MathError::Cancelled);
+        if let Some(scope) = scope { scope.check().map_err(crate::error::scope_error)?; }
+        let timeout = scope.and_then(pse_kernels::ExecutionScope::deadline)
+            .map(|deadline| Timespec::try_from(deadline.saturating_duration_since(Instant::now())))
+            .transpose().map_err(|error| MathError::Library(error.to_string()))?;
+        let mut descriptors = vec![PollFd::new(fd, PollFlags::IN)];
+        if let Some(signal) = &signal { descriptors.push(PollFd::new(&signal.0, PollFlags::IN)); }
+        match rustix::event::poll(&mut descriptors, timeout.as_ref()) {
+            Err(Errno::INTR) => continue,
+            Err(error) => return Err(MathError::Library(error.to_string())),
+            Ok(_) => {}
         }
-        if waitid(
-            WaitId::Pid(compiler.group),
-            WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT,
-        )
-        .map_err(|e| MathError::Library(e.to_string()))?
-        .is_some()
-        {
-            return Ok(());
-        }
-        std::thread::sleep(Duration::from_millis(5));
+        if let Some(scope) = scope { scope.check().map_err(crate::error::scope_error)?; }
+        let ready = descriptors[0].revents();
+        if ready.contains(PollFlags::NVAL) { return Err(MathError::Library("compiler pidfd invalid".into())); }
+        if ready.intersects(PollFlags::IN | PollFlags::HUP | PollFlags::ERR) { return Ok(()); }
     }
 }
-fn run_compiler(mut command: Command, cancelled: &AtomicBool) -> Result<(), MathError> {
+fn wait(compiler: &CompilerChild, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
+    let fd = rustix::process::pidfd_open(compiler.group, rustix::process::PidfdFlags::empty())
+        .map_err(|error| MathError::Library(error.to_string()))?;
+    wait_exit(&fd, Some(scope))?;
+    // Observe without reaping. The leader continues to anchor the owned PGID
+    // until drain has independently checked every descendant.
+    rustix::process::waitid(rustix::process::WaitId::Pid(compiler.group), rustix::process::WaitIdOptions::EXITED | rustix::process::WaitIdOptions::NOWAIT)
+        .map_err(|error| MathError::Library(error.to_string()))?;
+    scope.check().map_err(crate::error::scope_error)
+}
+fn run_compiler(mut command: Command, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
+    scope.check().map_err(crate::error::scope_error)?;
     command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -284,7 +339,7 @@ fn run_compiler(mut command: Command, cancelled: &AtomicBool) -> Result<(), Math
             }
         })
         .map_err(|e| MathError::Library(e.to_string()))?;
-    let observed = wait(&compiler, cancelled);
+    let observed = wait(&compiler, scope);
     // Always drain before releasing temporary outputs, including driver failure
     // and a nominally successful driver that left an executing child behind.
     let status = compiler.drain();
@@ -292,6 +347,7 @@ fn run_compiler(mut command: Command, cancelled: &AtomicBool) -> Result<(), Math
         .join()
         .map_err(|_| MathError::Library("compiler stderr reader panicked".into()))?
         .map_err(|e| MathError::Library(e.to_string()));
+    scope.check().map_err(crate::error::scope_error)?;
     observed?;
     let status = status.map_err(|e| MathError::Library(e.to_string()))?;
     let diagnostics = diagnostics?;
@@ -321,14 +377,14 @@ pub(crate) fn compile(
     storage: &library::Storage,
     export: &ExportedInstructions<f64>,
     module_bytes: usize,
-    cancelled: &Arc<AtomicBool>,
+    scope: &pse_kernels::ExecutionScope,
 ) -> Result<Evaluator, MathError> {
     compile_prepared_with(
         evaluator,
         storage,
         export,
         module_bytes,
-        cancelled,
+        scope,
         COMPILER,
     )
 }
@@ -337,7 +393,7 @@ fn compile_prepared_with(
     storage: &library::Storage,
     export: &ExportedInstructions<f64>,
     module_bytes: usize,
-    cancelled: &Arc<AtomicBool>,
+    scope: &pse_kernels::ExecutionScope,
     compiler_path: &str,
 ) -> Result<Evaluator, MathError> {
     if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
@@ -345,9 +401,7 @@ fn compile_prepared_with(
             "compiled scalar profile supports Linux x86-64".into(),
         ));
     }
-    if cancelled.load(Ordering::Acquire) {
-        return Err(MathError::Cancelled);
-    }
+    scope.check().map_err(crate::error::scope_error)?;
     let _phase = pse_diagnostics::observation::phase("math.native_scalar_compilation");
     // The caller borrows its already source-admitted instruction inspection,
     // also used for scratch/reset eligibility. No native-module inspection clone
@@ -404,14 +458,14 @@ fn compile_prepared_with(
         .arg(&source_path)
         .arg("-o")
         .arg(&object_path);
-    run_compiler(compile, cancelled)?;
+    run_compiler(compile, scope)?;
     let mut link = compiler_command(compiler_path, code_limit, directory.path());
     link.arg("-shared")
         .arg("-Wl,-z,max-page-size=4096")
         .arg(&object_path)
         .arg("-o")
         .arg(&library_path);
-    run_compiler(link, cancelled)?;
+    run_compiler(link, scope)?;
     let code_bytes = usize::try_from(
         std::fs::metadata(&library_path)
             .map_err(|e| MathError::Library(e.to_string()))?
@@ -423,9 +477,7 @@ fn compile_prepared_with(
             "compiler exceeded enforced output file limit".into(),
         ));
     }
-    if cancelled.load(Ordering::Acquire) {
-        return Err(MathError::Cancelled);
-    }
+    scope.check().map_err(crate::error::scope_error)?;
     let loaded =
         CompiledRealEvaluator::load(&library_path, FUNCTION).map_err(MathError::Library)?;
     if loaded.get_input_len() != evaluator.get_input_len()
@@ -435,9 +487,7 @@ fn compile_prepared_with(
             "compiled scalar library dimensions".into(),
         ));
     }
-    if cancelled.load(Ordering::Acquire) {
-        return Err(MathError::Cancelled);
-    }
+    scope.check().map_err(crate::error::scope_error)?;
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("math.native_scalar_compilations", "count", 1);
         context.gauge(
@@ -458,7 +508,7 @@ fn compile_prepared_with(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::PermissionsExt;
+    use std::{os::unix::fs::PermissionsExt, time::Duration};
     use symbolica::{
         atom::{Atom, AtomCore},
         parse,
@@ -469,7 +519,7 @@ mod tests {
     fn compile_with(
         evaluator: &ExpressionEvaluator<f64>,
         module_bytes: usize,
-        cancelled: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         compiler: &str,
     ) -> Result<Evaluator, MathError> {
         let storage = library::storage(evaluator)?;
@@ -479,16 +529,16 @@ mod tests {
             &storage,
             &export,
             module_bytes,
-            cancelled,
+            scope,
             compiler,
         )
     }
     fn compile(
         evaluator: &ExpressionEvaluator<f64>,
         module_bytes: usize,
-        cancelled: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<Evaluator, MathError> {
-        compile_with(evaluator, module_bytes, cancelled, COMPILER)
+        compile_with(evaluator, module_bytes, scope, COMPILER)
     }
 
     fn arithmetic() -> ExpressionEvaluator<f64> {
@@ -507,18 +557,18 @@ mod tests {
     #[test]
     fn native_scalar_failed_compiler_and_pre_cancel_never_publish() {
         let evaluator = arithmetic();
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = pse_diagnostics::Cancellation::default();
         assert!(matches!(
-            compile_with(&evaluator, 1 << 20, &cancelled, "/bin/false"),
+            compile_with(&evaluator, 1 << 20, &pse_kernels::ExecutionScope::new(cancelled.clone(), None), "/bin/false"),
             Err(MathError::Library(_))
         ));
         assert!(matches!(
-            compile(&evaluator, 1, &cancelled),
+            compile(&evaluator, 1, &pse_kernels::ExecutionScope::new(cancelled.clone(), None)),
             Err(MathError::Limit(_))
         ));
-        cancelled.store(true, Ordering::Release);
+        cancelled.cancel();
         assert!(matches!(
-            compile(&evaluator, 1 << 20, &cancelled),
+            compile(&evaluator, 1 << 20, &pse_kernels::ExecutionScope::new(cancelled.clone(), None)),
             Err(MathError::Cancelled)
         ));
     }
@@ -533,7 +583,7 @@ mod tests {
             command.arg("-c").arg(format!(
                 "sleep 60 &\nprintf '%s\\n' \"$!\" > '{quoted}'\nexit {exit}\n"
             ));
-            let result = run_compiler(command, &AtomicBool::new(false));
+            let result = run_compiler(command, &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
             assert_eq!(result.is_ok(), exit == 0);
             let child = std::fs::read_to_string(marker).unwrap();
             assert_stopped_at_return(child.trim());
@@ -571,7 +621,7 @@ mod tests {
             .export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None))
             .unwrap();
         assert!(source.len() <= bound && source.capacity() <= 2 * bound);
-        let mut compiled = compile(&evaluator, 1 << 20, &Arc::new(AtomicBool::new(false))).unwrap();
+        let mut compiled = compile(&evaluator, 1 << 20, &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
         compiled.instantiate().unwrap();
         let (x, y): (f64, f64) = (1.25, 2.5);
         let expected = [
@@ -655,7 +705,7 @@ mod tests {
             compile_with(
                 &evaluator,
                 bound,
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
                 "/no/compiler"
             ),
             Err(MathError::Limit(
@@ -677,7 +727,7 @@ mod tests {
         let error = compile_with(
             &arithmetic(),
             1 << 20,
-            &Arc::new(AtomicBool::new(false)),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             noisy.to_str().unwrap(),
         );
         let Err(MathError::Library(detail)) = error else {
@@ -691,7 +741,7 @@ mod tests {
             compile_with(
                 &arithmetic(),
                 1 << 20,
-                &Arc::new(AtomicBool::new(false)),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
                 oversized.to_str().unwrap()
             ),
             Err(MathError::Library(_))
@@ -717,7 +767,7 @@ mod tests {
         let quoted_marker = marker.to_string_lossy().replace('\'', "'\"'\"'");
         std::fs::write(&compiler, format!("#!/bin/sh\nfor arg; do case \"$arg\" in *.cpp) printf '%s\\n' \"$arg\" > '{quoted_marker}';; esac; done\nsleep 60 &\nprintf '%s\\n' \"$!\" >> '{quoted_marker}'\nwait\n")).unwrap();
         std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o700)).unwrap();
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = pse_diagnostics::Cancellation::default();
         let flag = cancelled.clone();
         let started = marker.clone();
         let observer = std::thread::spawn(move || {
@@ -726,11 +776,11 @@ mod tests {
                 if let Ok(text) = std::fs::read_to_string(&started)
                     && text.lines().count() == 2
                 {
-                    flag.store(true, Ordering::Release);
+                    flag.cancel();
                     return text;
                 }
                 if std::time::Instant::now() >= deadline {
-                    flag.store(true, Ordering::Release);
+                    flag.cancel();
                     panic!("owned compiler fixture did not start");
                 }
                 std::thread::sleep(Duration::from_millis(5));
@@ -739,7 +789,7 @@ mod tests {
         let result = compile_with(
             &arithmetic(),
             1 << 20,
-            &cancelled,
+            &pse_kernels::ExecutionScope::new(cancelled.clone(), None),
             compiler.to_str().unwrap(),
         );
         assert!(matches!(result, Err(MathError::Cancelled)));

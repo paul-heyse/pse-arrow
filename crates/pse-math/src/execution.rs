@@ -762,8 +762,10 @@ impl PreparedSupport {
         &self,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<library::ScalarProducts, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
+        let cancel = scope.cancellation();
         let _phase = pse_diagnostics::observation::current().map(|context| {
             context.count("math.scalar_preparation_calls", "count", 1);
             context.phase("math.scalar_preparation")
@@ -864,16 +866,17 @@ impl PreparedSupport {
         &self,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         scalars: &library::ScalarProducts,
     ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
         self.body().compile_scope(
             &(0..self.outputs().len()).collect::<Vec<_>>(),
             &self.dense_coordinates()?,
             self.order(),
             options,
             limits,
-            cancel,
+            scope,
             false,
             ProductKind::SelectedPartials,
             self,
@@ -885,9 +888,10 @@ impl PreparedSupport {
         &self,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         scalars: &library::ScalarProducts,
     ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
         if self.order() != DerivativeOrder::First {
             return Err(MathError::Contract(
                 "directional support must admit exactly First".into(),
@@ -899,7 +903,7 @@ impl PreparedSupport {
             self.order(),
             options,
             limits,
-            cancel,
+            scope,
             false,
             ProductKind::JacobianAction,
             self,
@@ -911,15 +915,16 @@ impl PreparedSupport {
         &self,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
         self.body().compile_scope(
             &(0..self.outputs().len()).collect::<Vec<_>>(),
             &self.dense_coordinates()?,
             self.order(),
             options,
             limits,
-            cancel,
+            scope,
             false,
             ProductKind::SelectedPartials,
             self,
@@ -932,8 +937,9 @@ impl PreparedSupport {
         &self,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
         if self.order() != DerivativeOrder::First {
             return Err(MathError::Contract(
                 "directional support must admit exactly First".into(),
@@ -945,7 +951,7 @@ impl PreparedSupport {
             DerivativeOrder::First,
             options,
             limits,
-            cancel,
+            scope,
             false,
             ProductKind::JacobianAction,
             self,
@@ -957,15 +963,16 @@ impl PreparedSupport {
         &self,
         options: Optimization,
         limits: EvaluationLimits,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
         self.body().compile_scope(
             &(0..self.outputs().len()).collect::<Vec<_>>(),
             &self.dense_coordinates()?,
             self.order(),
             options,
             limits,
-            cancel,
+            scope,
             true,
             ProductKind::SelectedPartials,
             self,
@@ -2048,10 +2055,10 @@ impl PreparedBody {
         order: DerivativeOrder,
         options: Optimization,
         limits: EvaluationLimits,
-        cancelled: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<CompiledBody, MathError> {
-        self.prepare_support(outputs, coordinates, order, cancelled)?
-            .compile(options, limits, cancelled)
+        self.prepare_support(outputs, coordinates, order, scope.cancellation())?
+            .compile(options, limits, scope)
     }
     /// Compile derivatives restricted to the strict interior of the selected control path.
     /// Each trial checks separation from every unproved guard boundary, including domain
@@ -2066,10 +2073,10 @@ impl PreparedBody {
         order: DerivativeOrder,
         options: Optimization,
         limits: EvaluationLimits,
-        cancelled: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<CompiledBody, MathError> {
-        self.prepare_support(outputs, coordinates, order, cancelled)?
-            .compile_branch_local(options, limits, cancelled)
+        self.prepare_support(outputs, coordinates, order, scope.cancellation())?
+            .compile_branch_local(options, limits, scope)
     }
     #[allow(
         clippy::too_many_arguments,
@@ -2082,12 +2089,14 @@ impl PreparedBody {
         order: DerivativeOrder,
         options: Optimization,
         limits: EvaluationLimits,
-        cancelled: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         local_branches: bool,
         product: ProductKind,
         prepared_support: &PreparedSupport,
         retained_scalars: Option<&library::ScalarProducts>,
     ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
+        let cancelled = scope.cancellation();
         let directional = product == ProductKind::JacobianAction;
         let hessian_action = product == ProductKind::WeightedHessianAction;
         let _phase = pse_diagnostics::observation::current().map(|context| {
@@ -2273,7 +2282,7 @@ impl PreparedBody {
                 &layout,
                 options,
                 limits,
-                cancelled,
+                scope,
                 &mut allowance,
                 &mut scalars,
             )?;
@@ -4184,10 +4193,12 @@ fn compile_stages(
     layout: &JetLayout,
     options: Optimization,
     limits: EvaluationLimits,
-    cancelled: &Arc<AtomicBool>,
+    execution_scope: &pse_kernels::ExecutionScope,
     allowance: &mut BuildAllowance,
     scalars: &mut library::ScalarCache,
 ) -> Result<Vec<CompiledStage>, MathError> {
+    execution_scope.check().map_err(crate::error::scope_error)?;
+    let cancelled = execution_scope.cancellation();
     let mut result = vec![];
     let mut cursor = 0;
     while cursor < stages.len() {
@@ -4195,9 +4206,7 @@ fn compile_stages(
         let (next, combined, checks) = arithmetic_region(stages, initial, symbols, cancelled)?;
         cursor = next;
         let stage = combined.as_ref().unwrap_or(&stages[initial]);
-        if cancelled.load(Ordering::Relaxed) {
-            return Err(MathError::Cancelled);
-        }
+        execution_scope.check().map_err(crate::error::scope_error)?;
         result.push(match stage {
             Stage::Applicability {
                 stages,
@@ -4224,7 +4233,7 @@ fn compile_stages(
                         &value_layout,
                         options,
                         limits,
-                        cancelled,
+                        execution_scope,
                         allowance,
                         scalars,
                     )?,
@@ -4260,7 +4269,7 @@ fn compile_stages(
                         &value_layout,
                         options,
                         limits,
-                        cancelled,
+                        execution_scope,
                         allowance,
                         scalars,
                     )?,
@@ -4419,7 +4428,7 @@ fn compile_stages(
                                     &storage,
                                     &export,
                                     module_bytes,
-                                    cancelled,
+                                    execution_scope,
                                 )?)
                             }
                             #[cfg(not(feature = "compiled-evaluator"))]
@@ -4479,7 +4488,7 @@ fn compile_stages(
                     layout,
                     options,
                     limits,
-                    cancelled,
+                    execution_scope,
                     allowance,
                     scalars,
                 )?,
@@ -4492,7 +4501,7 @@ fn compile_stages(
                     layout,
                     options,
                     limits,
-                    cancelled,
+                    execution_scope,
                     allowance,
                     scalars,
                 )?,

@@ -1615,7 +1615,7 @@ impl<'a> BodyBuilder<'a> {
         outputs: &[TypedValue],
         order: DerivativeOrder,
         options: Optimization,
-        cancelled: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<CompiledBody, MathError> {
         let body = self.prepare(outputs)?;
         body.compile(
@@ -1624,7 +1624,7 @@ impl<'a> BodyBuilder<'a> {
             order,
             options,
             crate::jets::EvaluationLimits::default(),
-            cancelled,
+            scope,
         )
     }
 }

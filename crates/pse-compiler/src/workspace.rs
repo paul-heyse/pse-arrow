@@ -413,22 +413,22 @@ impl ArtifactRequest {
     /// Prepare original demanded scalar blocks without constructing derivative templates.
     pub fn build_scalars(
         &self,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> std::result::Result<pse_math::library::ScalarProducts, MathError> {
         self.support
-            .prepare_scalars(self.optimization, self.evaluation, cancel)
+            .prepare_scalars(self.optimization, self.evaluation, scope)
     }
     /// Build the actual requested product from retained exact scalar preparations.
     pub fn build_reusing(
         &self,
-        cancel: &Arc<AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         scalars: &pse_math::library::ScalarProducts,
     ) -> std::result::Result<CompiledBody, MathError> {
         let compiled = self.support.compile_product_reusing(
             self.demand.product,
             self.optimization,
             self.evaluation,
-            cancel,
+            scope,
             scalars,
         );
         compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
@@ -453,13 +453,13 @@ impl ArtifactRequest {
             .transpose()
     }
     /// Construct native programs only at the runtime effect boundary.
-    pub fn build(&self, cancel: &Arc<AtomicBool>) -> std::result::Result<CompiledBody, MathError> {
+    pub fn build(&self, scope: &pse_kernels::ExecutionScope) -> std::result::Result<CompiledBody, MathError> {
         let _span = tracing::info_span!("pse.case.program_optimization").entered();
         let compiled = self.support.compile_product(
             self.demand.product,
             self.optimization,
             self.evaluation,
-            cancel,
+            scope,
         );
         compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
     }

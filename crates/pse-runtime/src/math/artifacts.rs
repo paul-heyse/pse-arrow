@@ -101,7 +101,7 @@ impl MathService {
                             None,
                             move |flag| {
                                 let products = request
-                                    .build_scalars(&flag)
+                                    .build_scalars(&pse_kernels::ExecutionScope::new(flag, None))
                                     .map_err(MathRuntimeError::Math)?;
                                 let known = products.retained_bytes();
                                 if known > known_limit {
@@ -189,7 +189,7 @@ impl MathService {
                     let (program, lease) = service
                         .job_retained_construction(cores, construction, cancel, None, move |flag| {
                             let program = request
-                                .build_reusing(&flag, &scalars)
+                                .build_reusing(&pse_kernels::ExecutionScope::new(flag, None), &scalars)
                                 .map_err(MathRuntimeError::Math)?;
                             let known = program.retained_bytes();
                             if known > known_limit {
