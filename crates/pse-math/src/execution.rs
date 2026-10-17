@@ -2040,6 +2040,7 @@ impl PreparedBody {
         let mut retained_instructions = 0usize;
         let mut retained_modules = 0usize;
         let mut order_worker_bytes = EnumMap::<DerivativeOrder, usize>::default();
+        let mut census = EnumMap::<DerivativeOrder, Option<CompiledOrderCensus>>::default();
         let mut remaining_operations = limits.operations;
         let mut remaining_providers = limits.provider_calls;
         let mut scalars = retained_scalars
@@ -2084,11 +2085,13 @@ impl PreparedBody {
                 .checked_mul(layout.width())
                 .ok_or(MathError::Limit("jet frame"))?;
             limits.allocation(frame)?;
+            let remaining_operations_before_order = remaining_operations;
             let mut allowance = BuildAllowance {
                 operations: remaining_operations,
                 providers: remaining_providers,
                 entries: frame,
                 instructions: 0,
+                instruction_count: 0,
                 modules: 0,
                 #[cfg(feature = "compiled-evaluator")]
                 native_prepaid: self.is_flat_arithmetic(),
@@ -2151,6 +2154,23 @@ impl PreparedBody {
                 .and_then(|n| n.checked_add(allowance.instructions))
                 .and_then(|n| n.checked_add(cloned_stage_descriptors(&program)?))
                 .ok_or(MathError::Limit("order worker storage"))?;
+            let mut counts = StageCensus::default();
+            counts.add(&program);
+            census[requested] = Some(CompiledOrderCensus {
+                order: requested,
+                directional,
+                stages: counts.stages,
+                arithmetic_blocks: counts.arithmetic_blocks,
+                native_arithmetic_blocks: counts.native_arithmetic_blocks,
+                provider_stages: counts.provider_stages,
+                control_stages: counts.control_stages,
+                library_operations: remaining_operations_before_order - allowance.operations,
+                library_instructions: allowance.instruction_count,
+                instruction_storage_bytes: allowance.instructions,
+                frame_entries: frame,
+                result_entries: selected.len() * output_width,
+                worker_bytes: order_worker_bytes[requested],
+            });
             layouts[requested] = Some(layout);
             programs[requested] = Some(program);
             order_construction.record("success", true);
@@ -2222,6 +2242,7 @@ impl PreparedBody {
             evaluation_cache_bytes,
             worker_bytes,
             order_worker_bytes,
+            census,
             retained_bytes: retained_numeric
                 .checked_mul(size_of::<f64>())
                 .and_then(|n| {
@@ -2233,6 +2254,7 @@ impl PreparedBody {
                 .and_then(|n| n.checked_add(retained_instructions))
                 .and_then(|n| n.checked_add(retained_modules))
                 .and_then(|n| n.checked_add(descriptor_bytes))
+                .and_then(|n| n.checked_add(size_of::<EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>>()))
                 .and_then(|n| n.checked_add(evidence_bytes))
                 .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
                 .and_then(|n| n.checked_add(scalar_new_bytes))
@@ -2387,6 +2409,73 @@ enum CompiledStage {
         source: SemanticId,
     },
 }
+/// Populations and admitted capacities of one actual immutable evaluator order.
+/// These are construction facts, not allocations measured during execution or RSS.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CompiledOrderCensus {
+    /// Derivative product actually compiled.
+    pub order: DerivativeOrder,
+    /// Whether the product carries one runtime directional axis.
+    pub directional: bool,
+    /// All compiled host stages, including every branch alternative.
+    pub stages: usize,
+    /// Library arithmetic blocks, including nested control scopes.
+    pub arithmetic_blocks: usize,
+    /// Arithmetic blocks whose actual implementation is compiled native code.
+    pub native_arithmetic_blocks: usize,
+    /// Fallible scientific provider stages.
+    pub provider_stages: usize,
+    /// Branch, validity, applicability and requirement barriers.
+    pub control_stages: usize,
+    /// Library-reported operations across arithmetic blocks and provider lifts.
+    pub library_operations: usize,
+    /// Actual exported instruction population, including exported sub-evaluator occurrences.
+    pub library_instructions: usize,
+    /// Conservative retained instruction storage, separate from instruction count.
+    pub instruction_storage_bytes: usize,
+    /// Admitted main numeric frame capacity in scalar entries.
+    pub frame_entries: usize,
+    /// Admitted result capacity in scalar entries, including dense returned partials.
+    pub result_entries: usize,
+    /// Admitted per-order cloned stages and numeric scratch, excluding shared templates.
+    pub worker_bytes: usize,
+}
+#[derive(Default)]
+struct StageCensus {
+    stages: usize,
+    arithmetic_blocks: usize,
+    native_arithmetic_blocks: usize,
+    provider_stages: usize,
+    control_stages: usize,
+}
+impl StageCensus {
+    fn add(&mut self, stages: &[CompiledStage]) {
+        for stage in stages {
+            self.stages += 1;
+            match stage {
+                CompiledStage::Block { evaluator, .. } => {
+                    self.arithmetic_blocks += 1;
+                    match evaluator {
+                        BlockEvaluator::Interpreted(_) => {}
+                        #[cfg(feature = "compiled-evaluator")]
+                        BlockEvaluator::Native(_) => self.native_arithmetic_blocks += 1,
+                    }
+                }
+                CompiledStage::Provider { .. } => self.provider_stages += 1,
+                CompiledStage::Applicability { stages, .. } | CompiledStage::Domain { stages, .. } => {
+                    self.control_stages += 1;
+                    self.add(stages);
+                }
+                CompiledStage::Branch { then, otherwise, .. } => {
+                    self.control_stages += 1;
+                    self.add(then);
+                    self.add(otherwise);
+                }
+                CompiledStage::Require { .. } => self.control_stages += 1,
+            }
+        }
+    }
+}
 /// Immutable library artifact. Clone workers to obtain independent evaluator scratch.
 #[derive(Clone)]
 pub struct CompiledBody {
@@ -2397,6 +2486,7 @@ pub struct CompiledBody {
     evaluation_cache_bytes: usize,
     worker_bytes: usize,
     order_worker_bytes: EnumMap<DerivativeOrder, usize>,
+    census: EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>,
     retained_bytes: usize,
     inputs: usize,
     input_formals: Arc<Vec<usize>>,
@@ -2420,6 +2510,11 @@ impl std::fmt::Debug for CompiledBody {
     }
 }
 impl CompiledBody {
+    /// Compact facts from the actual admitted compilation, without support copies or
+    /// library exports at inspection time. Scalar and dualized orders remain separate.
+    pub fn census(&self) -> impl Iterator<Item = &CompiledOrderCensus> {
+        self.census.values().flatten()
+    }
     /// Exact immutable scalar preparations borrowed by this artifact.
     pub fn scalar_products(&self) -> &library::ScalarProducts {
         &self.scalar_products
@@ -2649,6 +2744,21 @@ impl TrialEvaluation {
         }
     }
 }
+/// Current attempt-owned evaluator realization, distinct from the prepared capacity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WorkerCensus {
+    /// Numeric frame entries currently initialized for admitted orders.
+    pub frame_entries: usize,
+    /// Actual owned vector capacity, in scalar entries.
+    pub frame_capacity: usize,
+    /// Orders whose mutable templates have actually been cloned for this attempt.
+    pub instantiated_orders: [bool; 3],
+    /// Complete prepaid numeric and template-clone allowance.
+    pub admitted_bytes: usize,
+    /// Allowance consumed by current frame and instantiated order populations.
+    /// This is conservative owner accounting, not allocator-observed bytes or RSS.
+    pub used_allowance_bytes: usize,
+}
 /// Worker-local numeric frame and Symbolica scratch.
 pub struct Worker {
     // Private native evaluators and numeric frames must drain before the shared
@@ -2679,6 +2789,20 @@ impl std::fmt::Debug for Worker {
     }
 }
 impl Worker {
+    /// Copy current owner facts without instantiating an unused order or exporting code.
+    pub fn census(&self) -> WorkerCensus {
+        WorkerCensus {
+            frame_entries: self.frame.len(),
+            frame_capacity: self.frame.capacity(),
+            instantiated_orders: [
+                self.programs[DerivativeOrder::Value].is_some(),
+                self.programs[DerivativeOrder::First].is_some(),
+                self.programs[DerivativeOrder::Second].is_some(),
+            ],
+            admitted_bytes: self.prepaid_bytes,
+            used_allowance_bytes: self.used_bytes,
+        }
+    }
     #[cfg(test)]
     pub(crate) fn instantiated_orders(&self) -> Vec<DerivativeOrder> {
         self.programs
@@ -3486,6 +3610,8 @@ struct BuildAllowance {
     entries: usize,
     /// Instruction storage retained by the template and copied by each attempt worker.
     instructions: usize,
+    /// Actual exported instruction population, including provider lifts.
+    instruction_count: usize,
     /// Shared native code/template allowance, never copied into worker charges.
     modules: usize,
     /// Flat arithmetic modules were included by the selected-source preflight.
@@ -3704,6 +3830,9 @@ fn compile_stages(
                     .instructions
                     .checked_add(storage.instruction_bytes)
                     .ok_or(MathError::Limit("evaluator instruction storage"))?;
+                allowance.instruction_count = allowance.instruction_count
+                    .checked_add(storage.instruction_count)
+                    .ok_or(MathError::Limit("evaluator instruction population"))?;
                 // Public exports distinguish registered/sub-evaluator state. Ordinary
                 // builtins also export Fun, so conservatively keep those workers cold.
                 // No private Symbolica stack or external-function API is inspected.
@@ -3869,6 +3998,9 @@ fn compile_stages(
                     .map(|lift| library::storage(&lift.evaluator))
                     .transpose()?;
                 if let Some(storage) = &lift_storage {
+                    allowance.instruction_count = allowance.instruction_count
+                        .checked_add(storage.instruction_count)
+                        .ok_or(MathError::Limit("provider lift instruction population"))?;
                     allowance.instructions = allowance
                         .instructions
                         .checked_add(storage.instruction_bytes)

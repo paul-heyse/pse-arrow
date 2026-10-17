@@ -7,6 +7,7 @@ pub(super) fn observe<T, E: miette::Diagnostic>(
     calls: &'static str,
     elapsed: &'static str,
     failures: &'static str,
+    completed: &'static str,
     operation: impl FnOnce() -> Result<T, E>,
 ) -> Result<T, E> {
     let context = pse_diagnostics::observation::current();
@@ -24,6 +25,8 @@ pub(super) fn observe<T, E: miette::Diagnostic>(
             if let Some(code) = miette::Diagnostic::code(error) {
                 context.text("implicit.last_failure_code", &code.to_string());
             }
+        } else {
+            context.count(completed, "calls", 1);
         }
         if let Some(started) = started {
             context.duration(elapsed, started.elapsed());
@@ -92,9 +95,10 @@ pub(super) fn observe_proof<T: ProofStatus>(
     calls: &'static str,
     elapsed: &'static str,
     failures: &'static str,
+    completed: &'static str,
     operation: impl FnOnce() -> Result<T, crate::MathError>,
 ) -> Result<T, crate::MathError> {
-    let result = observe(phase, calls, elapsed, failures, operation);
+    let result = observe(phase, calls, elapsed, failures, completed, operation);
     if let Some(context) = pse_diagnostics::observation::current() {
         context.text("implicit.proof.last_kind", phase);
         context.text(

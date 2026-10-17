@@ -359,6 +359,10 @@ fn observation_counts_only_actual_requested_provider_work_and_envelope_failure()
                     .unwrap()
             };
             assert_eq!(metric("kernel.provider.calls").cumulative, Value::Count(2));
+            assert_eq!(metric("kernel.provider.completed").cumulative, Value::Count(1));
+            let producer = metric("kernel.provider.calls").producer.unwrap();
+            assert!(snapshot.producers.iter().any(|owner| owner.descriptor.id == producer
+                && owner.descriptor.role == pse_diagnostics::observation::ProducerRole::Provider));
             assert_eq!(
                 metric("kernel.provider.failures").cumulative,
                 Value::Count(1)

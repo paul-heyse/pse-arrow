@@ -7,7 +7,7 @@
 //! only branch selection, obligations and fallible provider calls are project-owned.
 use crate::MathError;
 pub use crate::execution::{
-    CompiledBody, Evaluation, PreparedBody, PreparedSupport, Support, Worker,
+    CompiledBody, CompiledOrderCensus, Evaluation, PreparedBody, PreparedSupport, Support, Worker, WorkerCensus,
 };
 use pse_ids::SemanticId;
 use pse_kernels::{DerivativeOrder, ProviderSpec};

@@ -8,6 +8,7 @@ macro_rules! observed {
             concat!($phase, ".calls"),
             concat!($phase, ".elapsed"),
             concat!($phase, ".failures"),
+            concat!($phase, ".completed"),
             || $body,
         )
     };
@@ -19,6 +20,7 @@ macro_rules! observed_proof {
             concat!($phase, ".calls"),
             concat!($phase, ".elapsed"),
             concat!($phase, ".failures"),
+            concat!($phase, ".completed"),
             || $body,
         )
     };
@@ -1274,8 +1276,26 @@ impl Nested {
                 .remaining(allowance.saturating_sub(started.elapsed()))?;
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("implicit.product.full_reuse", "requests", 1);
+                if product.order > request.order {
+                    context.count("implicit.product.order_projection", "requests", 1);
+                }
             }
             return Ok(out);
+        }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            let reason = match (&self.numerical, self.configuration.fixed_identity()) {
+                (None, _) => "implicit.product.miss.empty",
+                (Some(_), None) => "implicit.product.miss.dynamic_configuration",
+                (Some(product), Some((identity, _))) if product.fixed_configuration != Some(identity) =>
+                    "implicit.product.miss.configuration",
+                (Some(product), _) if product.inputs.len() != inputs.len()
+                    || product.inputs.iter().zip(inputs).any(|(a, b)| *a != b.to_bits()) =>
+                    "implicit.product.miss.inputs",
+                (Some(product), _) if product.order < request.order =>
+                    "implicit.product.miss.order_upgrade",
+                _ => "implicit.product.miss.unestablished",
+            };
+            context.count(reason, "requests", 1);
         }
         let anchor = self
             .selection

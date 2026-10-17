@@ -319,6 +319,8 @@ pub(crate) struct Storage {
     /// Instruction stream, argument lists, output indices and sub-evaluators, in bytes. The
     /// exported instructions are at least as wide as the library's own, so this bounds them.
     pub(crate) instruction_bytes: usize,
+    /// Exported instruction population, including exported sub-evaluator occurrences.
+    pub(crate) instruction_count: usize,
 }
 /// The retained storage of `evaluator`: its numeric stack and its instruction stream.
 pub(crate) fn storage(evaluator: &ExpressionEvaluator<f64>) -> Result<Storage, MathError> {
@@ -331,6 +333,13 @@ pub(crate) fn storage(evaluator: &ExpressionEvaluator<f64>) -> Result<Storage, M
             .ok_or(MathError::Limit("evaluator stack extent"))?,
         instruction_bytes: instruction_bytes(&export)
             .ok_or(MathError::Limit("evaluator instruction extent"))?,
+        instruction_count: instruction_count(&export)
+            .ok_or(MathError::Limit("evaluator instruction population"))?,
+    })
+}
+fn instruction_count<T>(export: &ExportedInstructions<T>) -> Option<usize> {
+    export.sub_evaluators.iter().try_fold(export.instructions.len(), |count, sub| {
+        count.checked_add(instruction_count(&sub.instructions)?)
     })
 }
 fn instruction_bytes<T>(export: &ExportedInstructions<T>) -> Option<usize> {

@@ -12,6 +12,9 @@ use crate::{
     library::Optimization,
     sparse::AssemblyMatrix,
 };
+#[path = "assembly_observation.rs"]
+mod observation;
+use observation::CaseObservation;
 use enum_map::EnumMap;
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{DerivativeOrder, Provider, ProviderKey};
@@ -56,10 +59,14 @@ impl Default for AssemblyLimits {
 }
 /// Which contributions one compiled local demand evaluates.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enum_map::Enum)]
-enum Demand {
+pub enum EvaluationDemand {
+    /// Selected primary objective only.
     Objective,
+    /// Selected constraint outputs only.
     Constraints,
+    /// All selected objective and constraint outputs.
     All,
+    /// One directional constraint action.
     Directional,
 }
 #[derive(Clone, Debug)]
@@ -71,7 +78,7 @@ struct Group {
 /// formal slot of local coordinate `k`, and `columns[k]` its case-global column.
 #[derive(Clone, Debug)]
 struct Instance {
-    groups: EnumMap<Demand, Option<Group>>,
+    groups: EnumMap<EvaluationDemand, Option<Group>>,
     coordinates: Vec<Slot>,
     columns: Vec<GlobalCol>,
 }
@@ -694,7 +701,7 @@ impl CasePlan {
                 };
                 shared_supports.insert(shared_key.clone(), support);
             }
-            let mut groups = EnumMap::<Demand, Option<Group>>::default();
+            let mut groups = EnumMap::<EvaluationDemand, Option<Group>>::default();
             for (demand, group) in &mut groups {
                 let outputs: Vec<_> = binding
                     .contributions
@@ -707,7 +714,7 @@ impl CasePlan {
                 if outputs.is_empty() {
                     continue;
                 }
-                let ceiling = if demand == Demand::All {
+                let ceiling = if demand == EvaluationDemand::All {
                     order
                 } else {
                     order.min(DerivativeOrder::First)
@@ -1138,10 +1145,10 @@ impl CasePlan {
             );
         }
         for instance in &mut instances {
-            if instance.groups[Demand::Directional].is_some() {
+            if instance.groups[EvaluationDemand::Directional].is_some() {
                 continue;
             }
-            let Some(group) = instance.groups[Demand::Constraints].as_ref() else {
+            let Some(group) = instance.groups[EvaluationDemand::Constraints].as_ref() else {
                 continue;
             };
             let original = &requests[group.request];
@@ -1171,7 +1178,7 @@ impl CasePlan {
                 indices.insert(key, index);
                 index
             };
-            instance.groups[Demand::Directional] = Some(Group {
+            instance.groups[EvaluationDemand::Directional] = Some(Group {
                 outputs: group.outputs.clone(),
                 request,
             });
@@ -1294,7 +1301,7 @@ impl CasePlan {
         }
         let mut stronger = BTreeMap::new();
         for instance in self.instances.iter() {
-            if let Some(group) = &instance.groups[Demand::All]
+            if let Some(group) = &instance.groups[EvaluationDemand::All]
                 && !stronger.contains_key(&group.request)
             {
                 stronger.insert(
@@ -1322,7 +1329,7 @@ impl CasePlan {
                         .values()
                         .flatten()
                         .any(|group| group.request == request)
-                        .then(|| instance.groups[Demand::All].as_ref().map(|all| all.request))
+                        .then(|| instance.groups[EvaluationDemand::All].as_ref().map(|all| all.request))
                         .flatten()
                 })
                 .ok_or_else(|| {
@@ -1352,7 +1359,7 @@ impl CasePlan {
                 .map(|mut request| {
                     if !request.directional {
                         let is_all = self.instances.iter().any(|instance| {
-                            instance.groups[Demand::All].as_ref().is_some_and(|group| {
+                            instance.groups[EvaluationDemand::All].as_ref().is_some_and(|group| {
                                 self.requests[group.request].body == request.body
                                     && self.requests[group.request].outputs == request.outputs
                                     && self.requests[group.request].coordinates
@@ -1488,7 +1495,7 @@ impl CasePlan {
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect::<Vec<_>>();
-            let ready = instance.groups[Demand::All]
+            let ready = instance.groups[EvaluationDemand::All]
                 .as_ref()
                 .map(|group| &self.supports[group.request])
                 .filter(|ready| ready.outputs() == outputs);
@@ -1526,7 +1533,7 @@ impl CasePlan {
     /// Conservative body-local incidence for an original contribution and instance.
     /// Value plans hold no derivative support; explicitly prepare First for structure.
     pub fn incidence_for(&self, instance: usize, output: usize) -> Option<&BTreeSet<usize>> {
-        let group = self.instances.get(instance)?.groups[Demand::All].as_ref()?;
+        let group = self.instances.get(instance)?.groups[EvaluationDemand::All].as_ref()?;
         let support = self.supports.get(group.request)?;
         let row = support.outputs().iter().position(|&i| i == output)?;
         support.support().first.get(row)
@@ -1573,7 +1580,7 @@ impl CasePlan {
                 bytes.checked_add(
                     self.instances
                         .len()
-                        .checked_mul(2 * size_of::<EnumMap<Demand, Option<EvalBindings>>>())?,
+                        .checked_mul(2 * size_of::<EnumMap<EvaluationDemand, Option<EvalBindings>>>())?,
                 )
             })
             .and_then(|bytes| {
@@ -1673,7 +1680,7 @@ impl CasePlan {
                 }
                 Ok(groups)
             })
-            .collect::<Result<Vec<EnumMap<Demand, Option<EvalBindings>>>, MathError>>()?;
+            .collect::<Result<Vec<EnumMap<EvaluationDemand, Option<EvalBindings>>>, MathError>>()?;
         let input_bytes = bindings
             .iter()
             .flat_map(|groups| groups.values().flatten())
@@ -1686,7 +1693,7 @@ impl CasePlan {
             })
             .and_then(|bytes| {
                 self.instances.iter().try_fold(bytes, |bytes, instance| {
-                    if instance.groups[Demand::Directional].is_some() {
+                    if instance.groups[EvaluationDemand::Directional].is_some() {
                         bytes.checked_add(
                             instance
                                 .coordinates
@@ -1720,7 +1727,7 @@ impl CasePlan {
                 n.checked_add(
                     self.instances
                         .len()
-                        .checked_mul(size_of::<EnumMap<Demand, Option<GroupCache>>>())?,
+                        .checked_mul(size_of::<EnumMap<EvaluationDemand, Option<GroupCache>>>())?,
                 )
             })
             .and_then(|n| n.checked_add(programs.len().checked_mul(size_of::<Worker>())?))
@@ -1799,7 +1806,7 @@ fn case_patterns(
     let mut jt = vec![];
     let mut ht = vec![];
     for (index, (binding, instance)) in structure.instances().iter().zip(instances).enumerate() {
-        let support = instance.groups[Demand::All]
+        let support = instance.groups[EvaluationDemand::All]
             .as_ref()
             .map(|g| &supports[g.request]);
         for contribution in &binding.contributions {
@@ -1826,7 +1833,7 @@ fn case_patterns(
                     }
                 }
             }
-            if order >= DerivativeOrder::Second && selected(contribution.target, Demand::All) {
+            if order >= DerivativeOrder::Second && selected(contribution.target, EvaluationDemand::All) {
                 let second = support
                     .and_then(|s| s.second_for_output(contribution.output))
                     .ok_or_else(|| MathError::Contract("missing selected Second support".into()))?;
@@ -1896,7 +1903,7 @@ pub struct CaseAssembly {
     plan: Arc<CasePlan>,
     programs: Vec<Arc<CompiledBody>>,
     numeric_worker_bytes: usize,
-    bindings: Vec<EnumMap<Demand, Option<EvalBindings>>>,
+    bindings: Vec<EnumMap<EvaluationDemand, Option<EvalBindings>>>,
     fixed: Vec<SemanticId>,
 }
 
@@ -2004,7 +2011,63 @@ impl std::ops::Deref for CaseAssembly {
         &self.plan
     }
 }
+/// Borrowed compact description of one actual prepared template. Supports and
+/// selections stay with their immutable owners rather than being copied for telemetry.
+#[derive(Clone, Copy, Debug)]
+pub struct PreparedDemandCensus<'a> {
+    /// Index in this assembly's compiler-issued template order.
+    pub template: usize,
+    /// Actual immutable demand, including body and ordered selections.
+    pub demand: &'a LocalDemand,
+    /// Actual selected support, independent of numerical zeros.
+    pub support: &'a PreparedSupport,
+    /// Actual compiled programs and their compact per-order census.
+    pub program: &'a CompiledBody,
+}
+/// Compact case populations; candidate coordinate pairs are not inferred from nnz.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CaseCensus {
+    /// Authored occurrences bound to the case.
+    pub occurrences: usize,
+    /// Deduplicated compiled local templates.
+    pub templates: usize,
+    /// Selected physical solver columns.
+    pub columns: usize,
+    /// Selected physical solver rows.
+    pub rows: usize,
+    /// Emitted ordered Jacobian addends, before duplicate accumulation.
+    pub jacobian_addends: usize,
+    /// Emitted ordered Hessian addends, preserving aliased cross terms.
+    pub hessian_addends: usize,
+    /// Canonical stored Jacobian nonzeros.
+    pub jacobian_nnz: usize,
+    /// Canonical stored Hessian nonzeros.
+    pub hessian_nnz: usize,
+    /// Admitted complete attempt storage, distinct from current instantiated bytes.
+    pub numeric_worker_bytes: usize,
+}
 impl CaseAssembly {
+    /// Counts from actual immutable owners, with no support enumeration or copy.
+    pub fn census(&self) -> CaseCensus {
+        CaseCensus {
+            occurrences: self.instances.len(),
+            templates: self.programs.len(),
+            columns: self.columns.len(),
+            rows: self.rows.len(),
+            jacobian_addends: self.jacobian_terms.len(),
+            hessian_addends: self.hessian_terms.len(),
+            jacobian_nnz: self.jacobian.matrix().val().len(),
+            hessian_nnz: self.hessian.matrix().val().len(),
+            numeric_worker_bytes: self.numeric_worker_bytes,
+        }
+    }
+    /// Borrow prepared template facts without constructing another support population.
+    pub fn demand_census(&self) -> impl Iterator<Item = PreparedDemandCensus<'_>> {
+        self.requests.iter().zip(self.supports.iter()).zip(&self.programs)
+            .enumerate().map(|(template, ((demand, support), program))| PreparedDemandCensus {
+                template, demand, support, program,
+            })
+    }
     /// Exact fixed/parameter reads of the admitted compiled programs.
     pub fn input_ids(&self) -> &[SemanticId] {
         &self.fixed
@@ -2092,13 +2155,13 @@ impl CaseAssembly {
                             bits: vec![
                                 0;
                                 inputs
-                                    + if demand == Demand::Directional {
+                                    + if demand == EvaluationDemand::Directional {
                                         i.coordinates.len()
                                     } else {
                                         0
                                     }
                             ],
-                            direction: if demand == Demand::Directional {
+                            direction: if demand == EvaluationDemand::Directional {
                                 vec![0.; i.coordinates.len()]
                             } else {
                                 Vec::new()
@@ -2124,6 +2187,8 @@ impl CaseAssembly {
             jacobian: Some(self.jacobian.as_ref().clone()),
             hessian: Some(self.hessian.as_ref().clone()),
             recycler: None,
+            observation: None,
+            observation_operation: None,
         }
     }
     /// Exclusively attach reset storage to this exact immutable assembly. The caller
@@ -2164,6 +2229,8 @@ impl CaseAssembly {
             jacobian,
             hessian,
             recycler: None,
+            observation: None,
+            observation_operation: None,
         })
     }
 }
@@ -2175,12 +2242,106 @@ struct GroupCache {
     cache: Option<DerivativeOrder>,
     result: TrialEvaluation,
 }
+/// Independent admission of optional owner-local demand evidence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DemandObservationStatus {
+    /// No observation operation was supplied at this execution boundary.
+    NotRequested,
+    /// Collection was disabled, refused or could not allocate its bounded storage.
+    Unavailable,
+    /// Aggregate facts are collected, but indexed rows were refused independently.
+    AggregateOnly,
+    /// Indexed populations are collected under the actual operation identity.
+    Collected,
+}
+/// Attempt-local counters for one occurrence, demand and requested order.
+/// A set overflow flag makes the saturated values lower bounds, never exact totals.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DemandCounts {
+    /// Calls reaching this occurrence, including binding and evaluation failures.
+    pub calls: u64,
+    /// Calls whose requested result was complete, including valid cache hits.
+    pub completed: u64,
+    /// Calls refused during binding, evaluation or the final scope check.
+    pub failed: u64,
+    /// Actual local evaluator invocations; cache hits are excluded.
+    pub evaluations: u64,
+    /// Successful reuse under exact consumed input bits and sufficient order.
+    pub cache_hits: u64,
+    /// Hits served by a strictly richer derivative order in this same group.
+    pub cache_projections: u64,
+    /// No earlier result existed for this group.
+    pub empty_misses: u64,
+    /// An earlier trial refusal or explicit invalidation cleared this group.
+    pub invalidated_misses: u64,
+    /// A complete cached result consumed different input or direction bits.
+    pub changed_input_misses: u64,
+    /// Same consumed bits, but insufficient completed derivative order.
+    pub order_upgrade_misses: u64,
+    /// No cached result, but indexed history was unavailable to establish why.
+    pub unclassified_misses: u64,
+    /// Complete results by actual achieved order, including richer cache reuse.
+    achieved: [u64; 3],
+    /// At least one local population exceeded its representable bound.
+    pub overflowed: bool,
+}
+impl DemandCounts {
+    fn add(field: &mut u64, overflowed: &mut bool) {
+        if let Some(value) = field.checked_add(1) {
+            *field = value;
+        } else {
+            *overflowed = true;
+        }
+    }
+    fn called(&mut self) { Self::add(&mut self.calls, &mut self.overflowed); }
+    fn failed(&mut self) { Self::add(&mut self.failed, &mut self.overflowed); }
+    fn completed(&mut self, achieved: DerivativeOrder) {
+        Self::add(&mut self.completed, &mut self.overflowed);
+        Self::add(&mut self.achieved[achieved as usize], &mut self.overflowed);
+    }
+    fn hit(&mut self, requested: DerivativeOrder, achieved: DerivativeOrder) {
+        Self::add(&mut self.cache_hits, &mut self.overflowed);
+        if achieved > requested {
+            Self::add(&mut self.cache_projections, &mut self.overflowed);
+        }
+        self.completed(achieved);
+    }
+    fn miss(&mut self, previous: Option<DerivativeOrder>, same: bool, invalidated: Option<bool>) {
+        let field = if previous.is_some() {
+            if same { &mut self.order_upgrade_misses } else { &mut self.changed_input_misses }
+        } else {
+            match invalidated {
+                Some(true) => &mut self.invalidated_misses,
+                Some(false) => &mut self.empty_misses,
+                None => &mut self.unclassified_misses,
+            }
+        };
+        Self::add(field, &mut self.overflowed);
+        Self::add(&mut self.evaluations, &mut self.overflowed);
+    }
+    /// Number of completed results actually carrying this order.
+    pub fn achieved(&self, order: DerivativeOrder) -> u64 { self.achieved[order as usize] }
+}
+/// Borrowed indexed runtime facts, with source occurrence and actual template identity.
+#[derive(Clone, Copy, Debug)]
+pub struct DemandStatistics<'a> {
+    /// Original authored occurrence, preserving repeated uses of one template.
+    pub instance: SemanticId,
+    /// Index in the assembly's immutable template order.
+    pub template: usize,
+    /// Selected local demand; no cross-demand cache projection is implied.
+    pub demand: EvaluationDemand,
+    /// Order actually requested by the caller.
+    pub requested: DerivativeOrder,
+    /// Complete attempt-local populations, including explicit overflow.
+    pub counts: &'a DemandCounts,
+}
 /// Isolated attempt scratch. Failed evaluation clears the failed cache and never publishes output.
 #[derive(Debug)]
 pub struct CaseWorker {
     scope: pse_kernels::ExecutionScope,
     assembly: Arc<CaseAssembly>,
-    groups: Vec<EnumMap<Demand, Option<GroupCache>>>,
+    groups: Vec<EnumMap<EvaluationDemand, Option<GroupCache>>>,
     // Evaluation is serial under &mut self; scratch is shared only inside this attempt.
     workers: Vec<Worker>,
     providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
@@ -2188,6 +2349,8 @@ pub struct CaseWorker {
     jacobian: Option<AssemblyMatrix>,
     hessian: Option<AssemblyMatrix>,
     recycler: Option<ScratchRecycler>,
+    observation: Option<Box<CaseObservation>>,
+    observation_operation: Option<pse_diagnostics::observation::OperationId>,
 }
 struct ScratchRecycler(Box<dyn FnOnce(CaseScratch) + Send>);
 impl std::fmt::Debug for ScratchRecycler {
@@ -2200,7 +2363,7 @@ impl std::fmt::Debug for ScratchRecycler {
 #[derive(Debug)]
 pub struct CaseScratch {
     assembly: Arc<CaseAssembly>,
-    groups: Vec<EnumMap<Demand, Option<GroupCache>>>,
+    groups: Vec<EnumMap<EvaluationDemand, Option<GroupCache>>>,
     workers: Vec<Worker>,
     jacobian: Option<AssemblyMatrix>,
     hessian: Option<AssemblyMatrix>,
@@ -2273,6 +2436,45 @@ pub struct OutputValue {
     pub value: f64,
 }
 impl CaseWorker {
+    /// Actual current evaluator realizations, in the immutable template order.
+    pub fn evaluator_census(&self) -> impl Iterator<Item = (usize, crate::guarded::WorkerCensus)> + '_ {
+        self.workers.iter().enumerate().map(|(template, worker)| (template, worker.census()))
+    }
+    /// Whether indexed diagnostic observations were independently admitted.
+    /// An unavailable collection is never represented by a zero population.
+    pub fn demand_observation_status(&self) -> DemandObservationStatus {
+        if let Some(observation) = &self.observation {
+            if observation.indexed_rows { DemandObservationStatus::Collected }
+            else { DemandObservationStatus::AggregateOnly }
+        } else if self.observation_operation.is_some() { DemandObservationStatus::Unavailable }
+        else { DemandObservationStatus::NotRequested }
+    }
+    /// Borrow indexed observations without scanning or copying mathematical supports.
+    /// Consult `demand_observation_status` before interpreting an empty iterator.
+    pub fn demand_statistics(&self) -> impl Iterator<Item = DemandStatistics<'_>> {
+        self.observation.iter().flat_map(|observation| {
+            observation.rows.iter().zip(self.assembly.instances.iter())
+                .zip(self.assembly.structure.instances()).flat_map(|((groups, local), binding)| {
+                    groups.iter().filter_map(move |(demand, row)| {
+                        row.as_ref().zip(local.groups[demand].as_ref())
+                            .map(|(row, group)| (demand, row, group.request))
+                    }).flat_map(move |(demand, row, template)| {
+                        row.counts.iter().map(move |(requested, counts)| DemandStatistics {
+                            instance: binding.instance, template, demand, requested, counts,
+                        })
+                    })
+                })
+        })
+    }
+    fn bind_observation(&mut self) {
+        let context = pse_diagnostics::observation::current();
+        let operation = context.as_ref().map(pse_diagnostics::observation::ObservationContext::id);
+        if self.observation_operation != operation {
+            self.observation = context.as_ref().and_then(|context| CaseObservation::new(context, &self.assembly));
+            self.observation_operation = operation;
+        }
+        if let Some(observation) = &mut self.observation { observation.begin(); }
+    }
     /// Return storage exactly once when the evaluator and its providers are destroyed.
     /// This only detaches storage; the lane must witness callback/native drain and
     /// precharge/reset before making it available to another attempt.
@@ -2296,6 +2498,7 @@ impl CaseWorker {
     }
     /// Clear numerical results and observation witnesses after a refused trial.
     pub fn invalidate_trial(&mut self) {
+        if let Some(observation) = &mut self.observation { observation.invalidate(); }
         for groups in &mut self.groups {
             for group in groups.values_mut().flatten() {
                 group.cache = None;
@@ -2306,19 +2509,23 @@ impl CaseWorker {
     fn evaluate(
         &mut self,
         values: EvalInputs<'_>,
-        demand: Demand,
+        demand: EvaluationDemand,
         order: DerivativeOrder,
     ) -> Result<(), MathError> {
+        self.bind_observation();
+        let _entered = self.observation.as_ref().map(|observation| observation.producer.context().enter());
+        let _phase = self.observation.as_ref().map(|observation| observation.phase(demand));
         let result = self.evaluate_inner(values, demand, order);
-        if result.is_err() {
-            self.invalidate_trial();
+        if result.is_err() { self.invalidate_trial(); }
+        if let Some(observation) = &mut self.observation {
+            observation.publish(&self.assembly, demand, order);
         }
         result
     }
     fn evaluate_inner(
         &mut self,
         values: EvalInputs<'_>,
-        demand: Demand,
+        demand: EvaluationDemand,
         order: DerivativeOrder,
     ) -> Result<(), MathError> {
         self.scope.check().map_err(crate::error::scope_error)?;
@@ -2339,34 +2546,32 @@ impl CaseWorker {
             let bindings = self.assembly.bindings[i][demand]
                 .as_ref()
                 .ok_or_else(|| MathError::Contract("missing compiled bindings".into()))?;
+            if let Some(observation) = &mut self.observation { observation.called(i, demand, order); }
             if let Err(cause) = values.fill(bindings, &mut worker.inputs) {
+                if let Some(observation) = &mut self.observation { observation.failed(i, demand, order); }
                 worker.cache = None;
                 worker.result.clear();
                 return Err(context(cause));
             }
-            if worker.cache.is_some_and(|o| o >= order)
-                && worker
-                    .bits
-                    .iter()
-                    .zip(&worker.inputs)
-                    .all(|(bits, value)| *bits == value.to_bits())
-            {
+            let same = worker.bits.iter().zip(&worker.inputs)
+                .all(|(bits, value)| *bits == value.to_bits());
+            if let Some(achieved) = worker.cache.filter(|achieved| *achieved >= order && same) {
+                if let Some(observation) = &mut self.observation { observation.hit(i, demand, order, achieved); }
                 continue;
             }
+            if let Some(observation) = &mut self.observation { observation.miss(i, demand, order, worker.cache, same); }
             worker.cache = None;
             for (bits, value) in worker.bits.iter_mut().zip(&worker.inputs) {
                 *bits = value.to_bits();
             }
-            self.workers[group.request]
-                .evaluate_trial_into(
-                    &worker.inputs,
-                    order,
-                    &mut self.providers,
-                    &self.cancel,
-                    &mut worker.result,
-                )
-                .map_err(context)?;
-            self.scope.check().map_err(crate::error::scope_error)?;
+            let evaluated = self.workers[group.request].evaluate_trial_into(
+                &worker.inputs, order, &mut self.providers, &self.cancel, &mut worker.result,
+            ).and_then(|()| self.scope.check().map_err(crate::error::scope_error));
+            if let Err(cause) = evaluated {
+                if let Some(observation) = &mut self.observation { observation.failed(i, demand, order); }
+                return Err(context(cause));
+            }
+            if let Some(observation) = &mut self.observation { observation.completed(i, demand, order); }
             worker.cache = Some(order);
         }
         self.scope.check().map_err(crate::error::scope_error)?;
@@ -2376,7 +2581,7 @@ impl CaseWorker {
         &self,
         instance: usize,
         output: usize,
-        demand: Demand,
+        demand: EvaluationDemand,
     ) -> Result<(&TrialEvaluation, usize), MathError> {
         let group = self.assembly.instances[instance].groups[demand]
             .as_ref()
@@ -2418,12 +2623,12 @@ impl CaseWorker {
     }
     /// Selected objective only, normalized for a minimization oracle.
     pub fn objective<'a>(&mut self, values: impl Into<EvalInputs<'a>>) -> Result<f64, MathError> {
-        self.evaluate(values.into(), Demand::Objective, DerivativeOrder::Value)?;
+        self.evaluate(values.into(), EvaluationDemand::Objective, DerivativeOrder::Value)?;
         let mut value = 0.0;
         for (i, b) in self.assembly.structure.instances().iter().enumerate() {
             for c in &b.contributions {
                 if c.target == Target::PRIMARY {
-                    let (v, r) = self.result(i, c.output, Demand::Objective)?;
+                    let (v, r) = self.result(i, c.output, EvaluationDemand::Objective)?;
                     value += c.scale * v.values[r];
                 }
             }
@@ -2441,12 +2646,12 @@ impl CaseWorker {
         &mut self,
         values: impl Into<EvalInputs<'a>>,
     ) -> Result<Vec<f64>, MathError> {
-        self.evaluate(values.into(), Demand::Constraints, DerivativeOrder::Value)?;
+        self.evaluate(values.into(), EvaluationDemand::Constraints, DerivativeOrder::Value)?;
         let mut out = vec![0.0; self.assembly.rows.len()];
         for (i, b) in self.assembly.structure.instances().iter().enumerate() {
             for c in &b.contributions {
                 if let Target::Row(id) = c.target {
-                    let (v, r) = self.result(i, c.output, Demand::Constraints)?;
+                    let (v, r) = self.result(i, c.output, EvaluationDemand::Constraints)?;
                     out[self.assembly.rows[&id].get()] += c.scale * v.values[r];
                 }
             }
@@ -2464,7 +2669,7 @@ impl CaseWorker {
                 .map(|c| c.output)
                 .collect();
             for output in outputs {
-                let (evaluation, row) = self.result(i, output, Demand::Constraints)?;
+                let (evaluation, row) = self.result(i, output, EvaluationDemand::Constraints)?;
                 out.push(OutputValue {
                     instance: b.instance,
                     output,
@@ -2479,13 +2684,13 @@ impl CaseWorker {
         &mut self,
         values: impl Into<EvalInputs<'a>>,
     ) -> Result<Vec<f64>, MathError> {
-        self.evaluate(values.into(), Demand::Objective, DerivativeOrder::First)?;
+        self.evaluate(values.into(), EvaluationDemand::Objective, DerivativeOrder::First)?;
         let mut out = vec![0.0; self.assembly.columns.len()];
         for (i, b) in self.assembly.structure.instances().iter().enumerate() {
             let local = &self.assembly.instances[i];
             for c in &b.contributions {
                 if c.target == Target::PRIMARY {
-                    let (v, r) = self.result(i, c.output, Demand::Objective)?;
+                    let (v, r) = self.result(i, c.output, EvaluationDemand::Objective)?;
                     for (k, &formal) in local.coordinates.iter().enumerate() {
                         out[local.columns[k].get()] += self.objective_sign()
                             * c.scale
@@ -2502,13 +2707,13 @@ impl CaseWorker {
         &mut self,
         values: impl Into<EvalInputs<'a>>,
     ) -> Result<&faer::sparse::SparseColMat<usize, f64>, MathError> {
-        self.evaluate(values.into(), Demand::Constraints, DerivativeOrder::First)?;
+        self.evaluate(values.into(), EvaluationDemand::Constraints, DerivativeOrder::First)?;
         self.jacobian
             .as_mut()
             .ok_or_else(|| MathError::Contract("detached Jacobian".into()))?
             .clear();
         for (k, t) in self.assembly.jacobian_terms.iter().enumerate() {
-            let (v, r) = self.result(t.instance, t.output, Demand::Constraints)?;
+            let (v, r) = self.result(t.instance, t.output, EvaluationDemand::Constraints)?;
             let n = self.assembly.instances[t.instance].coordinates.len();
             let value = t.scale * v.jacobian[r * n + t.i];
             self.jacobian
@@ -2536,7 +2741,7 @@ impl CaseWorker {
         {
             return Err(MathError::Contract("Lagrangian Hessian demand".into()));
         }
-        self.evaluate(values.into(), Demand::All, DerivativeOrder::Second)?;
+        self.evaluate(values.into(), EvaluationDemand::All, DerivativeOrder::Second)?;
         self.hessian
             .as_mut()
             .ok_or_else(|| MathError::Contract("detached Hessian".into()))?
@@ -2546,7 +2751,7 @@ impl CaseWorker {
                 Target::Objective(_) => objective_weight * self.objective_sign(),
                 Target::Row(id) => multipliers[self.assembly.rows[&id].get()],
             };
-            let (v, r) = self.result(t.instance, t.output, Demand::All)?;
+            let (v, r) = self.result(t.instance, t.output, EvaluationDemand::All)?;
             let value = weight * t.scale * v.second(r, t.i, t.j);
             self.hessian
                 .as_mut()
@@ -2600,13 +2805,27 @@ impl CaseWorker {
         values: EvalInputs<'_>,
         direction: &[f64],
     ) -> Result<Vec<f64>, MathError> {
+        self.bind_observation();
+        let _entered = self.observation.as_ref().map(|observation| observation.producer.context().enter());
+        let _phase = self.observation.as_ref().map(|observation| observation.phase(EvaluationDemand::Directional));
+        let result = self.directional_product_inner(values, direction);
+        if let Some(observation) = &mut self.observation {
+            observation.publish(&self.assembly, EvaluationDemand::Directional, DerivativeOrder::First);
+        }
+        result
+    }
+    fn directional_product_inner(
+        &mut self,
+        values: EvalInputs<'_>,
+        direction: &[f64],
+    ) -> Result<Vec<f64>, MathError> {
         self.scope.check().map_err(crate::error::scope_error)?;
         values.check(&self.assembly)?;
         let mut output = vec![0.0; self.assembly.rows.len()];
         for (index, binding) in self.assembly.structure.instances().iter().enumerate() {
             self.scope.check().map_err(crate::error::scope_error)?;
             let local = &self.assembly.instances[index];
-            let Some(group) = &local.groups[Demand::Directional] else {
+            let Some(group) = &local.groups[EvaluationDemand::Directional] else {
                 continue;
             };
             let context = |cause| MathError::Instance {
@@ -2614,45 +2833,60 @@ impl CaseWorker {
                 checked_members: binding.checked_members.as_ref().clone(),
                 cause: Box::new(cause),
             };
-            let cache = self.groups[index][Demand::Directional]
+            let cache = self.groups[index][EvaluationDemand::Directional]
                 .as_mut()
                 .ok_or_else(|| MathError::Contract("missing directional group".into()))?;
-            let bindings = self.assembly.bindings[index][Demand::Directional]
+            let bindings = self.assembly.bindings[index][EvaluationDemand::Directional]
                 .as_ref()
                 .ok_or_else(|| MathError::Contract("missing directional bindings".into()))?;
-            values.fill(bindings, &mut cache.inputs).map_err(context)?;
-            let formal_direction = &mut cache.direction;
-            for (axis, (&formal, &column)) in
-                local.coordinates.iter().zip(&local.columns).enumerate()
-            {
-                formal_direction[axis] =
-                    finite(binding.slots[formal.get()].scale() * direction[column.get()])
-                        .map_err(context)?;
+            if let Some(observation) = &mut self.observation {
+                observation.called(index, EvaluationDemand::Directional, DerivativeOrder::First);
             }
-            let same = cache.cache.is_some()
-                && cache
-                    .bits
-                    .iter()
-                    .zip(cache.inputs.iter().chain(formal_direction.iter()))
-                    .all(|(bits, value)| *bits == value.to_bits());
-            if !same {
+            let prepared = values.fill(bindings, &mut cache.inputs).and_then(|()| {
+                for (axis, (&formal, &column)) in
+                    local.coordinates.iter().zip(&local.columns).enumerate()
+                {
+                    cache.direction[axis] =
+                        finite(binding.slots[formal.get()].scale() * direction[column.get()])?;
+                }
+                Ok(())
+            });
+            if let Err(cause) = prepared {
+                if let Some(observation) = &mut self.observation {
+                    observation.failed(index, EvaluationDemand::Directional, DerivativeOrder::First);
+                }
+                return Err(context(cause));
+            }
+            let same = cache.bits.iter()
+                .zip(cache.inputs.iter().chain(cache.direction.iter()))
+                .all(|(bits, value)| *bits == value.to_bits());
+            if cache.cache.is_some() && same {
+                if let Some(observation) = &mut self.observation {
+                    observation.hit(index, EvaluationDemand::Directional, DerivativeOrder::First, DerivativeOrder::First);
+                }
+            } else {
+                if let Some(observation) = &mut self.observation {
+                    observation.miss(index, EvaluationDemand::Directional, DerivativeOrder::First, cache.cache, same);
+                }
                 cache.cache = None;
-                for (bits, value) in cache
-                    .bits
-                    .iter_mut()
-                    .zip(cache.inputs.iter().chain(formal_direction.iter()))
+                for (bits, value) in cache.bits.iter_mut()
+                    .zip(cache.inputs.iter().chain(cache.direction.iter()))
                 {
                     *bits = value.to_bits();
                 }
-                self.workers[group.request]
-                    .evaluate_directional_trial_into(
-                        &cache.inputs,
-                        formal_direction,
-                        &mut self.providers,
-                        &self.cancel,
-                        &mut cache.result,
-                    )
-                    .map_err(context)?;
+                let evaluated = self.workers[group.request].evaluate_directional_trial_into(
+                    &cache.inputs, &cache.direction, &mut self.providers, &self.cancel,
+                    &mut cache.result,
+                ).and_then(|()| self.scope.check().map_err(crate::error::scope_error));
+                if let Err(cause) = evaluated {
+                    if let Some(observation) = &mut self.observation {
+                        observation.failed(index, EvaluationDemand::Directional, DerivativeOrder::First);
+                    }
+                    return Err(context(cause));
+                }
+                if let Some(observation) = &mut self.observation {
+                    observation.completed(index, EvaluationDemand::Directional, DerivativeOrder::First);
+                }
                 cache.cache = Some(DerivativeOrder::First);
             }
             if cache.cache.is_none() {
@@ -2676,13 +2910,13 @@ impl CaseWorker {
         Ok(output)
     }
 }
-fn selected(target: Target, demand: Demand) -> bool {
+fn selected(target: Target, demand: EvaluationDemand) -> bool {
     match demand {
-        Demand::Objective => target == Target::PRIMARY,
-        Demand::Constraints => matches!(target, Target::Row(_)),
-        Demand::Directional => false,
+        EvaluationDemand::Objective => target == Target::PRIMARY,
+        EvaluationDemand::Constraints => matches!(target, Target::Row(_)),
+        EvaluationDemand::Directional => false,
         // A later lexicographic objective is projected to coefficients, never evaluated.
-        Demand::All => matches!(target, Target::Row(_)) || target == Target::PRIMARY,
+        EvaluationDemand::All => matches!(target, Target::Row(_)) || target == Target::PRIMARY,
     }
 }
 fn finite(value: f64) -> Result<f64, MathError> {
@@ -2690,5 +2924,20 @@ fn finite(value: f64) -> Result<f64, MathError> {
         Ok(value)
     } else {
         Err(MathError::Contract("nonfinite assembled result".into()))
+    }
+}
+
+#[cfg(test)]
+mod observation_counter_tests {
+    use super::*;
+    #[test]
+    fn demand_counter_overflow_is_explicit_and_never_wraps_to_zero() {
+        let mut counts = DemandCounts { calls: u64::MAX, ..DemandCounts::default() };
+        counts.called();
+        assert_eq!(counts.calls, u64::MAX);
+        assert!(counts.overflowed);
+        counts.completed(DerivativeOrder::First);
+        assert_eq!(counts.completed, 1);
+        assert_eq!(counts.achieved(DerivativeOrder::First), 1);
     }
 }

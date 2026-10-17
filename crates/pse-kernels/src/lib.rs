@@ -754,56 +754,84 @@ impl Provider for Enveloped {
 #[derive(Debug)]
 struct ObservedProvider {
     inner: Box<dyn Provider>,
+    observation: Option<Box<ProviderObservation>>,
+    observation_operation: Option<pse_diagnostics::observation::OperationId>,
+}
+#[derive(Debug)]
+struct ProviderObservation {
+    _reservation: pse_diagnostics::observation::OwnerReservation,
+    producer: pse_diagnostics::observation::Producer,
+    calls: pse_diagnostics::observation::PreparedFact,
+    completed: pse_diagnostics::observation::PreparedFact,
+    failures: pse_diagnostics::observation::PreparedFact,
+    elapsed: pse_diagnostics::observation::PreparedFact,
+    order: pse_diagnostics::observation::PreparedFact,
+    outputs: pse_diagnostics::observation::PreparedFact,
+    failed: pse_diagnostics::observation::PreparedFact,
+    recoverable: pse_diagnostics::observation::PreparedFact,
+    failure_code: pse_diagnostics::observation::PreparedFact,
+}
+impl ProviderObservation {
+    fn new(context: &pse_diagnostics::observation::ObservationContext, spec: &ProviderSpec) -> Option<Box<Self>> {
+        use pse_diagnostics::observation::{FactKind, ProducerRole};
+        let producer = context.producer(ProducerRole::Provider, "scientific provider");
+        if !producer.enabled() { return None; }
+        let reservation = producer.reserve_owner_bytes(size_of::<Self>())?;
+        producer.context().source_ref("kernel.provider", spec.id.as_bytes());
+        producer.context().text("kernel.provider.derivative_source", spec.derivative_source.as_str());
+        Some(Box::new(Self {
+            _reservation: reservation,
+            calls: producer.fact("kernel.provider.calls", "calls", FactKind::Counter),
+            completed: producer.fact("kernel.provider.completed", "calls", FactKind::Counter),
+            failures: producer.fact("kernel.provider.failures", "calls", FactKind::Counter),
+            elapsed: producer.fact("kernel.provider.elapsed", "nanoseconds", FactKind::Duration),
+            order: producer.fact("kernel.provider.requested_order", "derivative-order", FactKind::Gauge),
+            outputs: producer.fact("kernel.provider.requested_outputs", "outputs", FactKind::Counter),
+            failed: producer.fact("kernel.provider.failed", "predicate", FactKind::Gauge),
+            recoverable: producer.fact("kernel.provider.last_failure_recoverable", "predicate", FactKind::Gauge),
+            failure_code: producer.fact("kernel.provider.last_failure_code", "code", FactKind::Gauge),
+            producer,
+        }))
+    }
 }
 impl Provider for ObservedProvider {
-    fn spec(&self) -> &ProviderSpec {
-        self.inner.spec()
-    }
+    fn spec(&self) -> &ProviderSpec { self.inner.spec() }
     fn evaluate(
         &mut self,
         inputs: &[f64],
         request: &ProviderRequest,
         context: &EvaluationContext<'_>,
     ) -> Result<ProviderValues, ProviderError> {
-        let observation = pse_diagnostics::observation::current();
-        let _phase = observation
-            .as_ref()
-            .map(|context| context.phase("kernel.provider.evaluate"));
-        let started = observation.as_ref().map(|_| Instant::now());
-        if let Some(observation) = &observation {
-            observation.count("kernel.provider.calls", "calls", 1);
-            observation.source_ref("kernel.provider", self.spec().id.as_bytes());
-            observation.text(
-                "kernel.provider.derivative_source",
-                self.spec().derivative_source.as_str(),
-            );
-            observation.integer(
-                "kernel.provider.requested_order",
-                "derivative-order",
-                request.order as i64,
-            );
-            observation.count(
-                "kernel.provider.requested_outputs",
-                "outputs",
-                request.outputs.len() as u64,
-            );
+        let current = pse_diagnostics::observation::current();
+        let operation = current.as_ref().map(pse_diagnostics::observation::ObservationContext::id);
+        if self.observation_operation != operation {
+            self.observation = current.as_ref().and_then(|context| ProviderObservation::new(context, self.inner.spec()));
+            self.observation_operation = operation;
+        }
+        let _entered = self.observation.as_ref().map(|observation| observation.producer.context().enter());
+        let _phase = self.observation.as_ref().map(|observation| {
+            observation.producer.context().phase("kernel.provider.evaluate")
+        });
+        let started = self.observation.as_ref().map(|_| Instant::now());
+        if let Some(observation) = &self.observation {
+            observation.calls.count(1);
+            observation.failed.unavailable("provider invocation running; outcome not observed");
+            observation.order.integer(request.order as i64);
+            observation.outputs.count(request.outputs.len() as u64);
         }
         let result = self.inner.evaluate(inputs, request, context);
-        if let Some(observation) = &observation {
-            observation.boolean("kernel.provider.failed", result.is_err());
+        if let Some(observation) = &self.observation {
+            observation.failed.boolean(result.is_err());
             if let Err(error) = &result {
-                observation.count("kernel.provider.failures", "calls", 1);
-                observation.boolean(
-                    "kernel.provider.last_failure_recoverable",
-                    error.recoverable(),
-                );
+                observation.failures.count(1);
+                observation.recoverable.boolean(error.recoverable());
                 if let Some(code) = miette::Diagnostic::code(error) {
-                    observation.text("kernel.provider.last_failure_code", &code.to_string());
+                    observation.failure_code.text(&code.to_string());
                 }
+            } else {
+                observation.completed.count(1);
             }
-            if let Some(started) = started {
-                observation.duration("kernel.provider.elapsed", started.elapsed());
-            }
+            if let Some(started) = started { observation.elapsed.duration(started.elapsed()); }
         }
         result
     }
@@ -947,7 +975,7 @@ impl Registration {
                 }),
                 None => worker,
             };
-            let observed: Box<dyn Provider> = Box::new(ObservedProvider { inner });
+            let observed: Box<dyn Provider> = Box::new(ObservedProvider { inner, observation: None, observation_operation: None });
             Ok(observed)
         })();
         if let Some(observation) = &observation {
