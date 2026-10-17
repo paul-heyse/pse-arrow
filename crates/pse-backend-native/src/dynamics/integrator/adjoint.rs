@@ -364,7 +364,8 @@ impl<'o> Passes<'_, 'o> {
         let mut backward_budget = StepBudget::new(p.max_steps);
         let mut carried: Option<Vec<f64>> = None;
         let mut total = vec![0.0; shared.width()];
-        for (k, (checkpointing, mut solver, seed)) in stored.into_iter().enumerate().rev() {
+        let zero_cotangent = weights.iter().all(|weight| *weight == 0.);
+        for (k, (checkpointing, mut solver, seed)) in stored.into_iter().enumerate().rev().filter(|_| !zero_cotangent) {
             shared.check();
             let problem = &problems[k];
             let (start, stop) = (segments.starts[k], segments.stops[k]);
@@ -477,6 +478,7 @@ impl<'o> Passes<'_, 'o> {
                 "accepted_step_cap_per_trajectory": p.max_steps,
                 "forward_replay_accepted_steps": replay_budget.borrow().used(),
                 "backward_accepted_steps": backward_budget.used(),
+                "zero_cotangent": zero_cotangent,
             }
         }));
         out.gradient = Some(total);

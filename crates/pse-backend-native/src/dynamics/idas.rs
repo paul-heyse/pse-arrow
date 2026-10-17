@@ -2592,6 +2592,12 @@ impl Session<'_> {
         weights: &[f64],
     ) -> Result<(Vec<f64>, Option<SecondOrder>), ProblemError> {
         self.replay_steps = Some(StepBudget::new(p.max_steps));
+        if weights.iter().all(|weight| *weight == 0.) {
+            crate::observation::boolean("idas.adjoint.zero_cotangent", true);
+            let directions = self.backward_mut()?.directions.len();
+            let hessian = (directions > 0).then(|| (faer::Mat::zeros(directions, directions), 0.));
+            return Ok((vec![0.; self.callback.integration.len()], hessian));
+        }
         let n = self.callback.contract.states.len();
         let np = self.callback.contract.parameters.len();
         let width = self.callback.integration.len();

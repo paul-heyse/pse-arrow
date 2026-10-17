@@ -1060,3 +1060,24 @@ fn backward_sample_jumps_do_not_renew_the_complete_trajectory_cap() {
         assert!(matches!(result.report.error, Some(ProblemError::Limit { kind: crate::LimitKind::Work, .. })));
     }
 }
+
+#[test]
+fn zero_functional_preserves_forward_coverage_without_a_reverse_trajectory() {
+    for method in [Method::Diffsol, Method::Idas] {
+        if method == Method::Diffsol && !cfg!(feature = "diffsol")
+            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+        let p = reactor_profile(method, DiffsolMethod::Bdf, false, true);
+        let parameters = reactor_parameters(true);
+        let result = gradient(&mut Reactor::new(false), &p, &parameters,
+            &mut |report: &Report| Ok(vec![0.; report.samples.len() * 2]),
+            Cancellation::default(), 256 << 20).unwrap();
+        assert_eq!(result.report.termination, Termination::Completed, "{:?}", result.report.error);
+        assert_eq!(result.report.coverage.produced(), p.samples.len());
+        assert_eq!(result.gradient, Some(vec![0.; parameters.len()]));
+        let statistics = result.report.statistics.iter().find_map(|v| v.get("adjoint")).unwrap();
+        assert_eq!(statistics["forward_replay_accepted_steps"], 0);
+        if method == Method::Diffsol {
+            assert_eq!(statistics["backward_accepted_steps"], 0);
+        } else { assert!(statistics["backward"].as_array().unwrap().is_empty()); }
+    }
+}
