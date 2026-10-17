@@ -1673,6 +1673,10 @@ impl Runtime {
                 return Err(error.into());
             }
         };
+        let detail = prepared.diagnostics.as_ref().and_then(|selection| super::study_diagnostics::begin_child(selection, &claim.point.study, claim.fence.run(), claim.fence.attempt()));
+        let detail_context = detail.as_ref().map(crate::capture::DetailSession::context);
+        let original_context = pse_diagnostics::observation::current();
+        let outcome = pse_diagnostics::observation::scope(detail_context.or_else(|| original_context.clone()), async {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.source_ref("canonical.run", claim.fence.run().as_bytes());
             context.source_ref("canonical.attempt", claim.fence.attempt().as_bytes());
@@ -1756,17 +1760,11 @@ impl Runtime {
         let held = lane
             .scope()
             .ok_or_else(|| contract("worker native lane source permission absent"))?;
-        let detail = prepared.diagnostics.as_ref().and_then(|selection| super::study_diagnostics::begin_child(selection, &point.study, claim.fence.run(), claim.fence.attempt()));
-        let detail_context = detail.as_ref().map(crate::capture::DetailSession::context);
-        let original_context = pse_diagnostics::observation::current();
-        let result = pse_diagnostics::observation::scope(detail_context.or_else(|| original_context.clone()), held.during(cancel, async {
+        let result = held.during(cancel, async {
             let mut launch = boxed_worker_action(|| prepared.operation.start_attempt(self, cancel, attempt));
             let handle = futures_util::future::poll_fn(|context| poll_worker_action(launch.as_mut(), context)).await?;
             tokio::select! {result=handle.wait()=>result,()=cancel.cancelled()=>{handle.cancel();handle.wait().await}}
-        })).await;
-        // Science/native drain finishes first. Optional collection failures never replace it.
-        super::study_diagnostics::finish_child(detail, original_context);
-        let result = result?;
+        }).await?;
         let record = match result.durability() {
             RunDurability::Durable(record) => record.clone(),
             RunDurability::Ephemeral => {
@@ -1782,6 +1780,11 @@ impl Runtime {
             },
             Some(result),
         )))
+        }).await;
+        // Prediction, native execution, publication and their owned drains finish first.
+        // Optional collection failures never replace the scientific outcome.
+        super::study_diagnostics::finish_child(detail, original_context);
+        outcome
     }
 
     /// A separate rotating cursor gives later active studies bounded recovery
