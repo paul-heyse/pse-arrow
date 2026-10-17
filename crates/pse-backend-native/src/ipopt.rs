@@ -162,8 +162,7 @@ mod tests {
             solve::*,
             solver_tests::{Polynomial, stamp},
         };
-        use std::sync::{Arc, atomic::AtomicBool};
-        let mut oracle = Polynomial::new();
+            let mut oracle = Polynomial::new();
         oracle.c.variables[0].lower = 0.1;
         oracle.c.variables[0].upper = 2.0;
         let controls = Controls::default();

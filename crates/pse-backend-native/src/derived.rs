@@ -1222,7 +1222,7 @@ mod tests {
             normalization::Normalization,
             typed::{Binary, BodyBuilder, BodyLimits},
         };
-        use std::{collections::BTreeMap, sync::atomic::AtomicBool, time::Duration};
+        use std::{collections::BTreeMap, time::Duration};
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
         let unit_id = registry.quantity_type(q).unwrap().canonical_unit;
@@ -1666,7 +1666,7 @@ mod tests {
             normalization::Normalization,
             typed::{Binary, BodyBuilder, BodyLimits},
         };
-        use std::{collections::BTreeMap, sync::atomic::AtomicBool, time::Duration};
+        use std::{collections::BTreeMap, time::Duration};
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
         let unit_id = registry.quantity_type(q).unwrap().canonical_unit;

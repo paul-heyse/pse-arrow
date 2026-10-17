@@ -317,9 +317,8 @@ fn concurrent_gate_cancel_preserves_parent_charge_and_never_claims_compute() {
     let available = Arc::new(AtomicUsize::new(0));
     let attempts = Arc::new(AtomicUsize::new(0));
     let (paused, pause) = mpsc::channel();
-    let mut execution = execution();
-    let cancel = Arc::new(AtomicBool::new(false));
-    execution.cancel = cancel.clone();
+    let execution = execution();
+    let cancel = execution.cancellation.clone();
     let worker_lock = lock.clone();
     let worker_available = available.clone();
     let worker_attempts = attempts.clone();

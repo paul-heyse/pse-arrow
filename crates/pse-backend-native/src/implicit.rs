@@ -982,7 +982,7 @@ mod tests {
             problem: Arc<Problem>,
             _: &[f64],
             _: &Options,
-            _: &Arc<AtomicBool>,
+            _: &pse_diagnostics::Cancellation,
         ) -> Result<Vec<f64>, MathError> {
             Err(MathError::Domain {
                 source_id: problem.id,

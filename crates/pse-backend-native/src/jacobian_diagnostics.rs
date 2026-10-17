@@ -495,7 +495,6 @@ pub fn analyze(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, atomic::AtomicBool};
     #[test]
     fn diagnostic_highs_lp_milp_find_and_verify_a_small_degenerate_set() {
         let matrix = SparseColMat::try_new_from_triplets(

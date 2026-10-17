@@ -302,7 +302,7 @@ impl Case {
     fn continuous_oracle(&self) -> Box<dyn NlpOracle> {
         let worker = self
             .assembly
-            .worker((self.providers)(), Arc::new(AtomicBool::new(false)));
+            .worker((self.providers)(), pse_diagnostics::Cancellation::default());
         Box::new(
             crate::assembled::AlgebraicOracle::new(worker, self.values.clone())
                 .unwrap()
@@ -316,7 +316,7 @@ impl Case {
     fn relaxed_oracle(&self) -> Result<crate::transform::Relaxed, ProblemError> {
         let worker = self
             .assembly
-            .worker((self.providers)(), Arc::new(AtomicBool::new(false)));
+            .worker((self.providers)(), pse_diagnostics::Cancellation::default());
         crate::assembled::AlgebraicOracle::relaxation(
             worker,
             self.values.clone(),
@@ -334,12 +334,12 @@ impl OriginalModel for Original<'_> {
         let case = self.0;
         let mut worker = case
             .assembly
-            .worker((case.providers)(), Arc::new(AtomicBool::new(false)));
+            .worker((case.providers)(), pse_diagnostics::Cancellation::default());
         let mut values = case.values.clone();
         for (c, v) in case.assembly.columns().iter().zip(primal) {
             values.scalars.insert(*c, *v);
         }
-        let constraints = worker.constraints(&values)?;
+        let constraints = worker.constraints(&values)?.to_vec();
         let objective = case
             .assembly
             .structure()
