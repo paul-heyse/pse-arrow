@@ -63,7 +63,7 @@ fn evidence_exact_unsigned_time_and_typed_absence_survive_arrow_projection() {
     assert!(!array::<BooleanArray>(&batch, "boolean_value").value(4));
     assert!(array::<Float64Array>(&batch, "number_value").is_null(6));
     assert_eq!(array::<StringArray>(&batch, "value_kind").value(6), "nonfinite");
-    assert_eq!(array::<StringArray>(&batch, "availability").value(5), "NotSupplied");
+    assert_eq!(array::<StringArray>(&batch, "availability").value(5), "not_supplied");
     assert_eq!(array::<UInt64Array>(&batch, "observed_seconds").value(0), u64::MAX);
     assert_eq!(array::<UInt32Array>(&batch, "observed_nanoseconds").value(0), 987_654_321);
     assert_eq!(array::<UInt64Array>(&batch, "producer").value(0), 29);

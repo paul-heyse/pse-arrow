@@ -25,3 +25,6 @@ miette.workspace = true
 serde.workspace = true
 schemars.workspace = true
 rustix.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
