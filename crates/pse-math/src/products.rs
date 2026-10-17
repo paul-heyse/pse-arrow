@@ -494,7 +494,7 @@ impl Worker {
         inputs: &[f64],
         bindings: ProductValues<'_>,
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
-        scope: &pse_kernels::ExecutionScope,
+        cancel: &Arc<AtomicBool>,
         output: &mut [f64],
     ) -> Result<(), MathError> {
         let mut trial = TrialEvaluation::default();
@@ -505,7 +505,7 @@ impl Worker {
         inputs: &[f64],
         bindings: ProductValues<'_>,
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
-        scope: &pse_kernels::ExecutionScope,
+        cancel: &Arc<AtomicBool>,
         output: &mut [f64],
         trial: &mut TrialEvaluation,
     ) -> Result<(), MathError> {

@@ -765,7 +765,6 @@ impl PreparedSupport {
         scope: &pse_kernels::ExecutionScope,
     ) -> Result<library::ScalarProducts, MathError> {
         scope.check().map_err(crate::error::scope_error)?;
-        let cancel = scope.cancellation();
         let _phase = pse_diagnostics::observation::current().map(|context| {
             context.count("math.scalar_preparation_calls", "count", 1);
             context.phase("math.scalar_preparation")
@@ -777,11 +776,13 @@ impl PreparedSupport {
             symbols: &HashMap<Symbol, usize>,
             options: Optimization,
             limits: EvaluationLimits,
-            cancel: &Arc<AtomicBool>,
+            execution_scope: &pse_kernels::ExecutionScope,
             cache: &mut library::ScalarCache,
         ) -> Result<(), MathError> {
+            let cancel = execution_scope.cancellation();
             let mut cursor = 0;
             while cursor < stages.len() {
+                execution_scope.check().map_err(crate::error::scope_error)?;
                 let initial = cursor;
                 let (next, combined, _) = arithmetic_region(stages, initial, symbols, cancel)?;
                 cursor = next;
@@ -808,7 +809,7 @@ impl PreparedSupport {
                             &scope.symbols,
                             options,
                             limits,
-                            cancel,
+                            execution_scope,
                             cache,
                         )?;
                     }
@@ -822,16 +823,16 @@ impl PreparedSupport {
                             &scope.symbols,
                             options,
                             limits,
-                            cancel,
+                            execution_scope,
                             cache,
                         )?;
                     }
                     Stage::Branch {
                         then, otherwise, ..
                     } => {
-                        collect(then, parameters, symbols, options, limits, cancel, cache)?;
+                        collect(then, parameters, symbols, options, limits, execution_scope, cache)?;
                         collect(
-                            otherwise, parameters, symbols, options, limits, cancel, cache,
+                            otherwise, parameters, symbols, options, limits, execution_scope, cache,
                         )?;
                     }
                     Stage::Provider { .. } | Stage::Require { .. } => {}
@@ -850,7 +851,7 @@ impl PreparedSupport {
             &symbols,
             options,
             limits,
-            cancel,
+            scope,
             &mut cache,
         )?;
         scope.check().map_err(crate::error::scope_error)?;

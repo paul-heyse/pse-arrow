@@ -734,7 +734,7 @@ impl RootSelection {
             candidate,
             order: DerivativeOrder::First,
             time_limit: deadline.saturating_duration_since(std::time::Instant::now()),
-            cancel,
+            cancel: self.scope.cancellation_control(),
         };
         super::observation::request(&request);
         operation(&request)
