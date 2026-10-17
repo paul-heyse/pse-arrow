@@ -595,6 +595,39 @@ fn capture_cpu_graph_and_process_bounds_report_partiality() {
     assert!(document(&state).loss.source_partial);
 }
 #[test]
+fn capture_numerical_history_loss_is_partial_without_metric_or_registry_loss() {
+    use pse_diagnostics::observation::ProducerRole;
+    for refused in [false, true] {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy { record_capacity: 0, ..Policy::default() }, directory.path().to_owned());
+        let root = owner.hub().start("numerical history only");
+        let producer = root.context().producer(ProducerRole::NativeIteration, "numerical owner");
+        for _ in 0..2 {
+            let record = producer.record("history_control.v1", "native progress", None, None, Vec::new());
+            assert!(producer.publish(&record));
+        }
+        owner.publish().unwrap();
+        let mut image = read_checkpoint(&owner.checkpoint_path()).unwrap();
+        let selected = [root.context().id()];
+        assert!(!source_partial(&image, &selected), "CPU attachment coverage is independent from numerical history");
+        assert!(image.operations[0].metrics.is_empty());
+        let coverage = &mut image.operations[0].producers[0].coverage;
+        assert_eq!(coverage.history_dropped, 2);
+        if refused {
+            coverage.history_dropped = 0;
+            coverage.refused = 1;
+            coverage.partial = false;
+        }
+        std::fs::write(owner.checkpoint_path(), serde_json::to_vec(&image).unwrap()).unwrap();
+        let captured = start_capture(request(directory.path(), &owner, root.context().id())).unwrap().wait().unwrap();
+        assert_eq!(captured.status, CaptureStatus::Partial);
+        assert!(captured.loss.source_partial);
+        assert!(!captured.loss.output_exhausted);
+        assert!(captured.errors.is_empty());
+        assert!(root.context().is_active());
+    }
+}
+#[test]
 fn capture_metric_coalescing_and_refusal_survive_timeline_projection() {
     use tracing_perfetto_sdk_schema::debug_annotation;
     let directory = tempfile::tempdir().unwrap();

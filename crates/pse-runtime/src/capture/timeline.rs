@@ -862,6 +862,11 @@ pub(super) fn run(
                                     || operation.detail_partial
                                     || operation.coverage.sampled
                                     || operation.coverage.dropped_detail > 0
+                                    || operation.producers.iter().any(|producer| {
+                                        producer.coverage.partial
+                                            || producer.coverage.refused > 0
+                                            || producer.coverage.history_dropped > 0
+                                    })
                                     || operation.metrics.iter().any(|metric| {
                                         metric.history_partial || metric.history_dropped > 0
                                     }))
