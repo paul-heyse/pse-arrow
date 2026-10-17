@@ -894,7 +894,11 @@
               "$ref": "#/$defs/IpoptLinear",
               "default": {
                 "kind": "mumps",
-                "ordering": "metis"
+                "maximum_pivot_tolerance": 0.1,
+                "memory_percent": 1000,
+                "ordering": "metis",
+                "permuting_scaling": 7,
+                "pivot_tolerance": 1e-6
               },
               "description": "Symmetric-indefinite factorization of the KKT systems."
             },
@@ -2719,14 +2723,45 @@
               "const": "mumps",
               "type": "string"
             },
+            "maximum_pivot_tolerance": {
+              "description": "Maximum refinement-requested pivot tolerance (`mumps_pivtolmax`).",
+              "format": "double",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "memory_percent": {
+              "description": "Extra estimated workspace percentage (`mumps_mem_percent`), zero allowed.",
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
             "ordering": {
               "$ref": "#/$defs/MumpsOrdering",
               "description": "Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7))."
+            },
+            "permuting_scaling": {
+              "description": "Native ICNTL(6) permuting/scaling strategy, inclusive [0,7].",
+              "format": "uint8",
+              "maximum": 7,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "pivot_tolerance": {
+              "description": "Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive [0,1].",
+              "format": "double",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
             }
           },
           "required": [
             "kind",
-            "ordering"
+            "ordering",
+            "pivot_tolerance",
+            "maximum_pivot_tolerance",
+            "memory_percent",
+            "permuting_scaling"
           ],
           "type": "object"
         },
@@ -3408,6 +3443,85 @@
                 }
               ],
               "description": "Native algorithm wall time including callbacks."
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Uno's actual terminal getters; callback ordinals remain separate.",
+          "properties": {
+            "constraint_evaluations": {
+              "description": "Native constraint evaluations.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "cpu_seconds": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Observation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Native process CPU time, including callbacks; overlaps other work and\nis neither exclusive callback CPU nor async task CPU."
+            },
+            "gradient_evaluations": {
+              "description": "Native objective gradient evaluations.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "iterations": {
+              "description": "Actual native major-loop iteration count, when a native return occurred.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "jacobian_evaluations": {
+              "description": "Native constraint Jacobian evaluations.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "kind": {
+              "const": "uno",
+              "type": "string"
+            },
+            "objective_evaluations": {
+              "description": "Native objective evaluations.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "subproblems": {
+              "description": "Actual native subproblem count.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
             }
           },
           "required": [
@@ -4740,7 +4854,7 @@
           "type": "integer"
         },
         "max_steps": {
-          "description": "Maximum native step calls across all segments.",
+          "description": "Maximum accepted advancement steps in each complete trajectory: forward/recording,\nall forward replay of one derivative operation, and each backward direction.\nPhysical segments, checkpoint restores and sample jumps do not renew this cap.\nInterpolation consumes no steps; failed calls and rejected trials are separate work.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -4848,8 +4962,8 @@
           "description": "Behavior required for internal domain failures; terminal when absent."
         },
         "version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "description": "Required execution interpretation version; legacy unversioned requests need readmission.",
           "type": "integer"
         }

@@ -206,6 +206,8 @@ Derived in: pse-backend-native.
 | `NativeContextSnapshotV1` | `pse.native.context-snapshot.v1` | Immutable adapter build and runtime observations consumed by contextual routing. |
 | `MathArtifactV5` | `pse.math.artifact.v5` | Selected mathematical support and evaluator policy under ADR-0152. |
 | `MathArtifactV6` | `pse.math.artifact.v6` | Explicit interpreted/compiled scalar Value execution profile. |
+| `MathProductArtifactV1` | `pse.math.product-artifact.v1` | Exact demanded mathematical product, sparse layout, evaluator and ordered-check policy. |
+| `MathScalarFamilyV2` | `pse.math.scalar-family.v2` | Scalar family under bounded sibling optimization and original ordered finite checks. |
 | `MathDirectionalArtifactV1` | `pse.math.directional-artifact.v1` | Demanded directional evaluator with runtime seed coordinates. |
 | `MathDirectionalArtifactV2` | `pse.math.directional-artifact.v2` | Directional artifact with the explicit scalar evaluator profile. |
 | `ProducerV1` | `pse.producer.v1` | Relevant production units and consumed source/native inputs, separate from outer attestation. |

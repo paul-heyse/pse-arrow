@@ -59,9 +59,9 @@
     "lifecycle": "cancelled"
   },
   "diagnostic_inspection": {
-    "version": 2,
+    "version": 3,
     "request": {
-      "version": 1,
+      "version": 2,
       "operation": {
         "process_instance": [
           1,
@@ -74,7 +74,8 @@
         "nanos": 0
       },
       "include_related": false,
-      "related_limit": 16
+      "related_limit": 16,
+      "numerical_history_policy": null
     },
     "operation": {
       "summary": null,

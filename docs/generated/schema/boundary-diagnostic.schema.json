@@ -983,6 +983,15 @@
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
+        "document": {
+          "default": null,
+          "description": "Actual parser document identity; absence cannot qualify byte offsets.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "end": {
           "description": "UTF-8 exclusive ending byte offset.",
           "format": "uint32",
@@ -994,6 +1003,24 @@
         },
         "name": {
           "description": "Optional authored display name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "occurrence_position": {
+          "default": null,
+          "description": "Original position within that occurrence role.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "occurrence_role": {
+          "default": null,
+          "description": "Compiler-supplied occurrence role, independent of a display name.",
           "type": [
             "string",
             "null"

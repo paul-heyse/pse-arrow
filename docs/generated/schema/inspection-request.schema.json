@@ -21,6 +21,75 @@
       ],
       "type": "object"
     },
+    "NumericalHistoryPolicy": {
+      "additionalProperties": false,
+      "description": "Explicit operator-selected thresholds, not universal convergence criteria.\nThe enclosing inspection request retains this policy beside its statements.",
+      "properties": {
+        "barrier_progress_minimum": {
+          "description": "Minimum relative decrease in barrier accompanying a primal-stall question.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "inertia_fraction_minimum": {
+          "description": "Selected inertia-correction fraction, under one complete factor population.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "minimum_events": {
+          "description": "Required consecutive source events, at least two.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "primal_progress_maximum": {
+          "description": "Maximum relative reduction in the same native primal measure.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "raw_recycle_ratio_minimum": {
+          "description": "Selected consecutive unaccelerated raw-map residual ratio.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "repeated_worst_row": {
+          "description": "Ask whether the same owner-supplied original worst row recurs.",
+          "type": "boolean"
+        },
+        "tiny_step_maximum": {
+          "description": "Tiny native-step question, in the source's declared norm/coordinates.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "version": {
+          "description": "Interpretation version; only version 1 is supported.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "minimum_events",
+        "repeated_worst_row"
+      ],
+      "type": "object"
+    },
     "OperationId": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
@@ -59,6 +128,18 @@
       "description": "Copy bounded directly related operations; deeper navigation selects their exact IDs.",
       "type": "boolean"
     },
+    "numerical_history_policy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NumericalHistoryPolicy"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Explicit selected analytical thresholds; absent means only common factual interpretations."
+    },
     "operation": {
       "$ref": "#/$defs/OperationId",
       "description": "Exact operation selected by its diagnostic process instance and sequence."
@@ -71,8 +152,8 @@
       "type": "integer"
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Standalone diagnostic request encoding.",
       "type": "integer"
     },

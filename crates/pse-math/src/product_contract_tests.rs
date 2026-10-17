@@ -95,7 +95,8 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
         let census = compiled.census().find(|order| order.order == DerivativeOrder::Second).unwrap();
         assert!(!census.direct_weighted); assert_eq!(census.provider_stages, 1);
         let calls = Arc::new(AtomicUsize::new(0));
-        let mut providers: BTreeMap<ProviderKey, Box<dyn Provider>> = BTreeMap::from([(spec.key(), Box::new(Square { spec: spec.clone(), calls: calls.clone() }) as Box<dyn Provider>)]);
+        let provider: Box<dyn Provider> = Box::new(Square { spec: spec.clone(), calls: calls.clone() });
+        let mut providers: BTreeMap<ProviderKey, Box<dyn Provider>> = BTreeMap::from([(spec.key(), provider)]);
         let binding = if kind == ProductKind::WeightedHessian { ProductValues::WeightedHessian { weights: &[2.] } }
             else { ProductValues::WeightedHessianAction { weights: &[2.], direction: &[3.] } };
         let mut worker = compiled.worker(); let mut actual = [97.];

@@ -1074,6 +1074,85 @@
         },
         {
           "additionalProperties": false,
+          "description": "Uno's actual terminal getters; callback ordinals remain separate.",
+          "properties": {
+            "constraint_evaluations": {
+              "description": "Native constraint evaluations.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "cpu_seconds": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Observation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Native process CPU time, including callbacks; overlaps other work and\nis neither exclusive callback CPU nor async task CPU."
+            },
+            "gradient_evaluations": {
+              "description": "Native objective gradient evaluations.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "iterations": {
+              "description": "Actual native major-loop iteration count, when a native return occurred.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "jacobian_evaluations": {
+              "description": "Native constraint Jacobian evaluations.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "kind": {
+              "const": "uno",
+              "type": "string"
+            },
+            "objective_evaluations": {
+              "description": "Native objective evaluations.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "subproblems": {
+              "description": "Actual native subproblem count.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "KINSOL getters for this attempt, excluding independent original assessment.",
           "properties": {
             "fixed_point_iterations": {

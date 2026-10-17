@@ -1195,6 +1195,70 @@ class RuntimeComputationRunsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeDiagnosticCapturesRow:
+    """Declared relation row or nested value."""
+
+    operation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    capture_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    status: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    document_json: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.operation), v.scalar_key(self.capture_kind), v.scalar_key(self.status), v.scalar_key(self.document_json),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeDiagnosticEvidenceFieldsRow:
+    """Declared relation row or nested value."""
+
+    operation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    producer: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    event_sequence: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    family_sequence: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    observed_seconds: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    observed_nanoseconds: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    family: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    phase: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    coordinates: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    norm: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    field_ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    field_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    unit: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    value_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    count_value: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    integer_value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    number_value: b.float = attrs.field(validator=v.finite_float)
+    boolean_value: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    text_value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    availability: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    partial: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.operation), v.scalar_key(self.producer), v.scalar_key(self.generation), v.scalar_key(self.event_sequence), v.scalar_key(self.family_sequence), v.scalar_key(self.observed_seconds), v.scalar_key(self.observed_nanoseconds), v.scalar_key(self.family), v.scalar_key(self.phase), v.scalar_key(self.coordinates), v.scalar_key(self.norm), v.scalar_key(self.field_ordinal), v.scalar_key(self.field_name), v.scalar_key(self.unit), v.scalar_key(self.value_kind), v.scalar_key(self.count_value), v.scalar_key(self.integer_value), v.scalar_key(self.number_value), v.scalar_key(self.boolean_value), v.scalar_key(self.text_value), v.scalar_key(self.availability), v.scalar_key(self.partial),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeDiagnosticInvocationsRow:
+    """Declared relation row or nested value."""
+
+    run: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    attempt: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    operation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    family: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    outcome: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    clock_scope: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    qualification_seconds: b.float = attrs.field(validator=v.finite_float)
+    terminal_seconds: b.float = attrs.field(validator=v.finite_float)
+    response_ready_seconds: b.float = attrs.field(validator=v.finite_float)
+    partial: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    document_json: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run), v.scalar_key(self.attempt), v.scalar_key(self.operation), v.scalar_key(self.family), v.scalar_key(self.outcome), v.scalar_key(self.clock_scope), v.scalar_key(self.qualification_seconds), v.scalar_key(self.terminal_seconds), v.scalar_key(self.response_ready_seconds), v.scalar_key(self.partial), v.scalar_key(self.document_json),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeDiagnosticsFindingsFieldEvidenceRow:
     """Declared relation row or nested value."""
 
@@ -1681,9 +1745,13 @@ class RuntimeModelingDiagnosticsFieldMatrixModesItem:
     value: b.float = attrs.field(validator=v.finite_float)
     left: b.tuple[RuntimeModelingDiagnosticsFieldMatrixModesItemLeftItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixModesItemLeftItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     right: b.tuple[RuntimeModelingDiagnosticsFieldMatrixModesItemRightItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixModesItemRightItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    left_residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    right_residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    normalization_error: b.float = attrs.field(validator=v.finite_float)
+    residual_bound: b.float = attrs.field(validator=v.finite_float)
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.value), v.sequence_key(v.record_key)(self.left), v.sequence_key(v.record_key)(self.right),))
+        return (type(self), (v.scalar_key(self.value), v.sequence_key(v.record_key)(self.left), v.sequence_key(v.record_key)(self.right), v.optional_key(v.scalar_key)(self.left_residual), v.optional_key(v.scalar_key)(self.right_residual), v.scalar_key(self.normalization_error), v.scalar_key(self.residual_bound),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1692,6 +1760,7 @@ class RuntimeModelingDiagnosticsFieldMatrix:
 
     rank: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     cutoff: b.float = attrs.field(validator=v.finite_float)
+    operator_frobenius: b.float = attrs.field(validator=v.finite_float)
     row_norms: b.tuple[RuntimeModelingDiagnosticsFieldMatrixRowNormsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixRowNormsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     column_norms: b.tuple[RuntimeModelingDiagnosticsFieldMatrixColumnNormsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixColumnNormsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     parallel_rows: b.tuple[RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -1699,7 +1768,7 @@ class RuntimeModelingDiagnosticsFieldMatrix:
     modes: b.tuple[RuntimeModelingDiagnosticsFieldMatrixModesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixModesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.rank), v.scalar_key(self.cutoff), v.sequence_key(v.record_key)(self.row_norms), v.sequence_key(v.record_key)(self.column_norms), v.sequence_key(v.record_key)(self.parallel_rows), v.sequence_key(v.record_key)(self.parallel_columns), v.sequence_key(v.record_key)(self.modes),))
+        return (type(self), (v.scalar_key(self.rank), v.scalar_key(self.cutoff), v.scalar_key(self.operator_frobenius), v.sequence_key(v.record_key)(self.row_norms), v.sequence_key(v.record_key)(self.column_norms), v.sequence_key(v.record_key)(self.parallel_rows), v.sequence_key(v.record_key)(self.parallel_columns), v.sequence_key(v.record_key)(self.modes),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1772,13 +1841,16 @@ class RuntimeModelingFindingsFieldLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1912,13 +1984,16 @@ class RuntimeModelingFindingsFieldCausesItemLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2742,13 +2817,16 @@ class RuntimeProfilePointsFieldFailuresItemLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2882,13 +2960,16 @@ class RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -3486,13 +3567,16 @@ class RuntimeSolveStrategyEventsFieldFailuresItemLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -3626,13 +3710,16 @@ class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -4004,13 +4091,16 @@ class RuntimeStudyOutcomesFieldDiagnosticLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -4144,13 +4234,16 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -4338,13 +4431,16 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)
@@ -4478,13 +4574,16 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    document: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    occurrence_role: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    occurrence_position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.occurrence_role), v.optional_key(v.scalar_key)(self.occurrence_position), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
 
 
 @attrs.frozen(kw_only=True)

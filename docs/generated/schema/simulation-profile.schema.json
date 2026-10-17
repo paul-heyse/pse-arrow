@@ -1259,7 +1259,7 @@
       "type": "integer"
     },
     "max_steps": {
-      "description": "Maximum native step calls across all segments.",
+      "description": "Maximum accepted advancement steps in each complete trajectory: forward/recording,\nall forward replay of one derivative operation, and each backward direction.\nPhysical segments, checkpoint restores and sample jumps do not renew this cap.\nInterpolation consumes no steps; failed calls and rejected trials are separate work.",
       "format": "uint",
       "minimum": 0,
       "type": "integer"
@@ -1367,8 +1367,8 @@
       "description": "Behavior required for internal domain failures; terminal when absent."
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Required execution interpretation version; legacy unversioned requests need readmission.",
       "type": "integer"
     }

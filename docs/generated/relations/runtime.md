@@ -1185,6 +1185,70 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 | `validation_error` | `Utf8` | true | `payload` | — | — |
 | `error` | `Utf8` | true | `payload` | — | — |
 
+## `diagnostic_captures`
+
+Immutable optional capture link and its original typed document. Capture failure, output prefixes, loss, symbols and process/thread scope remain independent from scientific result permission.
+
+Version: 1. Snapshot class: `derived`. Primary key: `operation`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `operation` | `Utf8` | false | `key` | — | — |
+| `capture_kind` | `Utf8` | false | `payload` | — | — |
+| `status` | `Utf8` | false | `payload` | — | — |
+| `document_json` | `Utf8` | false | `payload` | — | — |
+
+## `diagnostic_evidence_fields`
+
+Immutable diagnostic field projection. Operation/producer/generation/event identifies one source event; field ordinal is one-based, zero preserves an empty event. Typed values, units, availability and exact monotonic time retain source meaning. Partial never implies complete history; raw source pages remain authority.
+
+Version: 1. Snapshot class: `derived`. Primary key: `operation, producer, generation, event_sequence, field_ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `operation` | `Utf8` | false | `key` | — | — |
+| `producer` | `UInt64` | false | `key` | — | — |
+| `generation` | `UInt64` | false | `key` | — | — |
+| `event_sequence` | `UInt64` | false | `key` | — | — |
+| `family_sequence` | `UInt64` | false | `payload` | — | — |
+| `observed_seconds` | `UInt64` | false | `payload` | — | — |
+| `observed_nanoseconds` | `UInt32` | false | `payload` | — | — |
+| `family` | `Utf8` | false | `payload` | — | — |
+| `phase` | `Utf8` | false | `payload` | — | — |
+| `coordinates` | `Utf8` | false | `payload` | — | — |
+| `norm` | `Utf8` | false | `payload` | — | — |
+| `field_ordinal` | `UInt64` | false | `key` | — | — |
+| `field_name` | `Utf8` | false | `payload` | — | — |
+| `unit` | `Utf8` | false | `payload` | — | — |
+| `value_kind` | `Utf8` | false | `payload` | — | — |
+| `count_value` | `UInt64` | false | `payload` | — | — |
+| `integer_value` | `Int64` | false | `payload` | — | — |
+| `number_value` | `Float64` | false | `payload` | — | — |
+| `boolean_value` | `Boolean` | false | `payload` | — | — |
+| `text_value` | `Utf8` | false | `payload` | — | — |
+| `availability` | `Utf8` | false | `payload` | — | — |
+| `partial` | `Boolean` | false | `payload` | — | — |
+
+## `diagnostic_invocations`
+
+Immutable joined invocation evidence. Endpoints are independently observed supervisor-clock seconds; missing is not zero. The original typed document retains attempts, requested products, coverage, starts and settings; intervals overlap and must not be summed.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run` | `Utf8` | false | `key` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `operation` | `Utf8` | false | `payload` | — | — |
+| `family` | `Utf8` | false | `payload` | — | — |
+| `outcome` | `Utf8` | false | `payload` | — | — |
+| `clock_scope` | `Utf8` | false | `payload` | — | — |
+| `qualification_seconds` | `Float64` | false | `payload` | — | — |
+| `terminal_seconds` | `Float64` | false | `payload` | — | — |
+| `response_ready_seconds` | `Float64` | false | `payload` | — | — |
+| `partial` | `Boolean` | false | `payload` | — | — |
+| `document_json` | `Utf8` | false | `payload` | — | — |
+
 ## `diagnostics_findings`
 
 blueprint §6.13 execution and evidence: diagnostics_findings.
@@ -1539,6 +1603,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `matrix` | `Struct` | true | `payload` | — | — |
 | `matrix.rank` | `Int64` | false | `payload` | — | — |
 | `matrix.cutoff` | `Float64` | false | `payload` | — | — |
+| `matrix.operator_frobenius` | `Float64` | false | `payload` | — | — |
 | `matrix.row_norms` | `List` | false | `payload` | — | — |
 | `matrix.row_norms.item` | `Struct` | false | `payload` | — | — |
 | `matrix.row_norms.item.source_id` | `semantic_id` | false | `payload` | — | — |
@@ -1568,6 +1633,10 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `matrix.modes.item.right.item` | `Struct` | false | `payload` | — | — |
 | `matrix.modes.item.right.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `matrix.modes.item.right.item.value` | `Float64` | false | `payload` | — | — |
+| `matrix.modes.item.left_residual` | `Float64` | true | `payload` | — | — |
+| `matrix.modes.item.right_residual` | `Float64` | true | `payload` | — | — |
+| `matrix.modes.item.normalization_error` | `Float64` | false | `payload` | — | — |
+| `matrix.modes.item.residual_bound` | `Float64` | false | `payload` | — | — |
 
 ## `modeling_findings`
 
@@ -1610,6 +1679,9 @@ Version: 4. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
 | `locations.item` | `Struct` | false | `payload` | — | — |
 | `locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -1698,6 +1770,9 @@ Version: 4. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
 | `causes.item.locations.item` | `Struct` | false | `payload` | — | — |
 | `causes.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `causes.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `causes.item.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `causes.item.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `causes.item.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `causes.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `causes.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `causes.item.locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -2223,6 +2298,9 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, 
 | `failures.item.locations.item` | `Struct` | false | `payload` | — | — |
 | `failures.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `failures.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `failures.item.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `failures.item.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `failures.item.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `failures.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `failures.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `failures.item.locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -2311,6 +2389,9 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, 
 | `failures.item.causes.item.locations.item` | `Struct` | false | `payload` | — | — |
 | `failures.item.causes.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `failures.item.causes.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `failures.item.causes.item.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `failures.item.causes.item.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `failures.item.causes.item.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `failures.item.causes.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `failures.item.causes.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `failures.item.causes.item.locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -2861,6 +2942,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, event`.
 | `failures.item.locations.item` | `Struct` | false | `payload` | — | — |
 | `failures.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `failures.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `failures.item.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `failures.item.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `failures.item.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `failures.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `failures.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `failures.item.locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -2949,6 +3033,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, event`.
 | `failures.item.causes.item.locations.item` | `Struct` | false | `payload` | — | — |
 | `failures.item.causes.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `failures.item.causes.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `failures.item.causes.item.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `failures.item.causes.item.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `failures.item.causes.item.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `failures.item.causes.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `failures.item.causes.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `failures.item.causes.item.locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -3194,6 +3281,9 @@ Version: 2. Snapshot class: `derived`. Primary key: `study_id, point_index`.
 | `diagnostic.locations.item` | `Struct` | false | `payload` | — | — |
 | `diagnostic.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `diagnostic.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `diagnostic.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `diagnostic.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `diagnostic.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `diagnostic.locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -3282,6 +3372,9 @@ Version: 2. Snapshot class: `derived`. Primary key: `study_id, point_index`.
 | `diagnostic.causes.item.locations.item` | `Struct` | false | `payload` | — | — |
 | `diagnostic.causes.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `diagnostic.causes.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `diagnostic.causes.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `diagnostic.causes.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `diagnostic.causes.item.locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -3381,6 +3474,9 @@ Version: 2. Snapshot class: `derived`. Primary key: `study_id, point_index`.
 | `attempts.item.diagnostic.locations.item` | `Struct` | false | `payload` | — | — |
 | `attempts.item.diagnostic.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `attempts.item.diagnostic.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `attempts.item.diagnostic.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `attempts.item.diagnostic.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `attempts.item.diagnostic.locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -3469,6 +3565,9 @@ Version: 2. Snapshot class: `derived`. Primary key: `study_id, point_index`.
 | `attempts.item.diagnostic.causes.item.locations.item` | `Struct` | false | `payload` | — | — |
 | `attempts.item.diagnostic.causes.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `attempts.item.diagnostic.causes.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.document` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.occurrence_role` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.occurrence_position` | `Int64` | true | `payload` | — | — |
 | `attempts.item.diagnostic.causes.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `attempts.item.diagnostic.causes.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `attempts.item.diagnostic.causes.item.locations.item.start` | `Int64` | true | `payload` | — | — |

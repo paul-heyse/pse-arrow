@@ -26,11 +26,15 @@ AttemptOriginalConclusion = Literal["satisfied", "refused", "unavailable"]
 
 Bytes = tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
 
+DerivativeOrder = Literal["value", "first", "second"]
+
 DetailEnd = Literal["window_elapsed", "owner_finished", "stopped", "writer_failed"]
 
 DetailOutcome = Literal["active", "complete", "sampled", "incomplete"]
 
 DetailRequirement = Literal["sampled", "complete"]
+
+EvaluationDemand = Literal["objective", "constraints", "all", "directional", "hessian_action"]
 
 FiniteBound = float
 
@@ -58,6 +62,8 @@ ProducerRole = Literal["native_callback", "coordinate_transport", "original_orac
 
 ProductAvailability = Literal["available", "unavailable", "not_requested"]
 
+ProductKind = Literal["selected_partials", "jacobian_action", "weighted_hessian", "weighted_hessian_action"]
+
 RawMapContextKind = Literal["unavailable", "inapplicable", "frozen"]
 
 RawMapRole = Literal["FixedPointEvaluation", "OriginalAssessment", "Unknown", "RestartScreening"]
@@ -67,6 +73,8 @@ RecordAvailability = Literal["not_requested", "running", "interrupted", "unavail
 ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
 
 ReplayProducerPremise = Literal["blocks", "causal", "multistart", "derived", "surrogate", "petsc", "path"]
+
+SourceMapScope = Literal["static_eligible_alternatives"]
 
 StopFidelity = Literal["EvaluationAndIterationCheckpoints", "EvaluationCheckpoints"]
 
@@ -360,6 +368,53 @@ class AppliedRestart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.mu_init), v.record_key(self.profile),))
+
+
+class ArithmeticMappingScopeOriginalValueChecksForWeightedProduct(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="original_value_checks_for_weighted_product"):
+    """Direct weighted differentiation retains original Value checks. Their ranges
+    do not identify derivative-kernel instructions or assign shared runtime cost.
+    """
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ArithmeticMappingScopeSelectedCompiledProduct(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="selected_compiled_product"):
+    """Actual selected compiled product, including both static branch alternatives."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ArithmeticMappingScopeUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unavailable"):
+    """Arithmetic exists but no original check ranges were supplied by its owner."""
+
+    #: Actual missing owner mapping, never a guessed source.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reason),))
+
+
+class ArithmeticSourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One source check's original range within a potentially shared arithmetic region."""
+
+    #: Actual program order owning these check ranges.
+    check_order: DerivativeOrder
+    #: Exclusive original check-output endpoint.
+    end_output: Annotated[int, msgspec.Meta(ge=0)]
+    #: Physical arithmetic-region ordinal within the stated check program.
+    region: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original body-local source token, joined through checked_members; absent
+    #: when the compiled owner supplied only a generated arithmetic range.
+    source: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Why this range has no original source token, independently of its existence.
+    source_unavailable: str | None = None
+    #: First original check-output ordinal within the shared region.
+    start_output: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.check_order), v.scalar_key(self.end_output), v.scalar_key(self.region), v.optional_key(v.scalar_key)(self.source), v.optional_key(v.scalar_key)(self.source_unavailable), v.scalar_key(self.start_output),))
 
 
 class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3174,6 +3229,19 @@ class CoherentRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.optional_key(v.scalar_key)(self.coordinates), v.scalar_key(self.family), v.optional_key(v.scalar_key)(self.family_sequence), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.norm), v.record_key(self.observed_at), v.scalar_key(self.phase), v.record_key(self.producer), v.scalar_key(self.sequence), v.sequence_key(v.record_key)(self.values),))
 
 
+class ComparisonPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Response bounds, not a scientific or performance acceptance policy."""
+
+    #: Source steps, products, decisions and intervals inspected per collection;
+    #: effective ceiling is 64. Omitted source items remain explicit.
+    source_items: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum returned statements; effective ceiling is 256.
+    statements: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_items), v.scalar_key(self.statements),))
+
+
 class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable semantic projection shared by Arrow, Python and publication."""
 
@@ -4648,10 +4716,10 @@ class InspectionConnection(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 class InspectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One typed interpretation shared by Rust, generated Python and CLI consumers."""
 
-    _pse_required_version: ClassVar[int] = 2
+    _pse_required_version: ClassVar[int] = 3
 
     #: Standalone diagnostic response encoding with explicit producer/record references.
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     #: Statements or requested children omitted by response bounds.
     omitted: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact selected operation, absent when unavailable/evicted rather than invented complete.
@@ -4754,12 +4822,14 @@ class InspectionPort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 class InspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Request for copied diagnostics only; it cannot request scientific work or result admission."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Standalone diagnostic request encoding.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Copy bounded directly related operations; deeper navigation selects their exact IDs.
     include_related: bool = True
+    #: Explicit selected analytical thresholds; absent means only common factual interpretations.
+    numerical_history_policy: NumericalHistoryPolicy | None = None
     #: Exact operation selected by its diagnostic process instance and sequence.
     operation: OperationId
     #: Maximum directly related snapshots; effective ceiling is 32.
@@ -4768,7 +4838,7 @@ class InspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     window: ClosedDuration = msgspec.field(default_factory=lambda: msgspec.convert({"nanos": 0, "secs": 60}, type=ClosedDuration))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.include_related), v.record_key(self.operation), v.scalar_key(self.related_limit), v.record_key(self.window),))
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.include_related), v.optional_key(v.record_key)(self.numerical_history_policy), v.record_key(self.operation), v.scalar_key(self.related_limit), v.record_key(self.window),))
 
 
 class InspectionTransport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4801,6 +4871,54 @@ class IntervalBound(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.outcome), v.optional_key(v.scalar_key)(self.value),))
+
+
+class InvocationComparisonDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable explanation/comparison output over borrowed source documents."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Standalone response contract.
+    version: Literal[1] = 1
+    #: Actual first/source invocation.
+    baseline: InvocationReference
+    #: Actual second invocation, absent for a single-invocation explanation.
+    candidate: InvocationReference | None = None
+    #: Source records not inspected because of this policy's bounds.
+    omitted_source_items: Annotated[int, msgspec.Meta(ge=0)]
+    #: Statements omitted by the response bound.
+    omitted_statements: Annotated[int, msgspec.Meta(ge=0)]
+    #: Source or response bounds/loss prevent complete interpretation.
+    partial: bool
+    #: Effective bounded response policy.
+    policy: ComparisonPolicy
+    #: Explicit policy name; descriptive comparisons do not change science.
+    policy_name: str
+    #: Interpretation algorithm version.
+    policy_version: Annotated[int, msgspec.Meta(ge=0)]
+    #: Evidence-linked interpretations.
+    statements: tuple[InvocationComparisonStatement, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.baseline), v.optional_key(v.record_key)(self.candidate), v.scalar_key(self.omitted_source_items), v.scalar_key(self.omitted_statements), v.scalar_key(self.partial), v.record_key(self.policy), v.scalar_key(self.policy_name), v.scalar_key(self.policy_version), v.sequence_key(v.record_key)(self.statements),))
+
+
+class InvocationComparisonStatement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Shared statement strength and optional next observations retain their existing meanings."""
+
+    #: Stable interpretation code.
+    code: str
+    #: Actual source fields supporting the explanation.
+    evidence: tuple[InvocationEvidenceReference, ...]
+    #: Established fact, hypothesis, or interpretation limitation.
+    kind: enums.StatementKind
+    #: Bounded explanation; no performance winner is selected.
+    message: str
+    #: Discriminating optional observations; never performed by this operation.
+    next: tuple[enums.NextObservation, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.sequence_key(v.record_key)(self.evidence), v.scalar_key(self.kind), v.scalar_key(self.message), v.sequence_key(v.scalar_key)(self.next),))
 
 
 class InvocationEndpoints(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4860,6 +4978,24 @@ class InvocationEvidenceDocument(msgspec.Struct, frozen=True, forbid_unknown_fie
         return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.attempt_id), v.record_key(self.attempts), v.optional_key(v.scalar_key)(self.canonical_attempt), v.optional_key(v.scalar_key)(self.canonical_run), v.scalar_key(self.clock_scope), v.record_key(self.endpoints), v.scalar_key(self.family), v.sequence_key(v.record_key)(self.intervals), v.scalar_key(self.omitted_intervals), v.scalar_key(self.omitted_product_steps), v.optional_key(v.record_key)(self.operation), v.scalar_key(self.outcome), v.optional_key(v.record_key)(self.preparations), v.sequence_key(v.record_key)(self.products), v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.timing_unavailable),))
 
 
+class InvocationEvidenceReference(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A source-native field reference rather than a second invocation or work ledger."""
+
+    #: Performing clock/population meaning, never exclusive wall or inferred wait.
+    clock_scope: str
+    #: JSON pointer into the original InvocationEvidenceDocument.
+    field: str
+    #: Exact source execution/attempt/operation.
+    invocation: InvocationReference
+    #: Relevant retained coverage does not establish a complete population.
+    partial: bool
+    #: Actual field value; missing values remain unavailable.
+    value: Value
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.clock_scope), v.scalar_key(self.field), v.record_key(self.invocation), v.scalar_key(self.partial), v.record_key(self.value),))
+
+
 class InvocationInterval(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One directly observed inclusive owner interval, relative to supervisor entry."""
 
@@ -4890,14 +5026,36 @@ class InvocationProduct(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.scalar_key(self.availability), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.step),))
 
 
+class InvocationReference(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual source document identity. Absence of diagnostics does not invent an operation."""
+
+    #: Durable attempt, only when registered.
+    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Actual admitted diagnostic operation.
+    operation: OperationId | None = None
+    #: Original execution identity.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.operation), v.scalar_key(self.run_id),))
+
+
 class IpoptLinearMumps(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="mumps"):
     """Sequential MUMPS 5.9 (`linear_solver = mumps`)."""
 
+    #: Maximum refinement-requested pivot tolerance (`mumps_pivtolmax`).
+    maximum_pivot_tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
+    #: Extra estimated workspace percentage (`mumps_mem_percent`), zero allowed.
+    memory_percent: Annotated[int, msgspec.Meta(ge=0)]
     #: Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7)).
     ordering: enums.MumpsOrdering
+    #: Native ICNTL(6) permuting/scaling strategy, inclusive [0,7].
+    permuting_scaling: Annotated[int, msgspec.Meta(ge=0, le=7)]
+    #: Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive [0,1].
+    pivot_tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.ordering),))
+        return (type(self), (v.scalar_key(self.maximum_pivot_tolerance), v.scalar_key(self.memory_percent), v.scalar_key(self.ordering), v.scalar_key(self.permuting_scaling), v.scalar_key(self.pivot_tolerance),))
 
 
 class IpoptLinearPardisomkl(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="pardisomkl"):
@@ -4937,7 +5095,7 @@ class IpoptSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Minimum absolute distance of a cold initial point from its bounds (`bound_push`).
     bound_push: Tolerance = 0.01
     #: Symmetric-indefinite factorization of the KKT systems.
-    linear: IpoptLinear = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "mumps", "ordering": "metis"}, type=IpoptLinear))
+    linear: IpoptLinear = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "mumps", "maximum_pivot_tolerance": 0.1, "memory_percent": 1000, "ordering": "metis", "permuting_scaling": 7, "pivot_tolerance": 1e-6}, type=IpoptLinear))
     #: Barrier-parameter update strategy (`mu_strategy`).
     mu_strategy: enums.MuStrategy = enums.MuStrategy.MONOTONE
     #: Restart of a submitted primal-dual seed: barrier and pushes (L-N3).
@@ -5676,6 +5834,46 @@ class ModelingProvenance(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.sequence_key(v.record_key)(self.lineage), v.sequence_key(v.scalar_key)(self.role), v.sequence_key(v.scalar_key)(self.source),))
 
 
+class ModelingSourceMapDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit bounded static source map. It supplies no native dual or stationarity pullback."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Static source-map interpretation version.
+    version: Literal[1] = 1
+    #: Selected original free coordinates in assembly order.
+    columns: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Exact current authored field/document occurrences.
+    fields: tuple[SourceFieldDocument, ...]
+    #: Actually consumed fixed or parameter input identities.
+    fixed_inputs: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Original occurrence bindings into those shared templates.
+    instances: tuple[SourceInstanceDocument, ...]
+    #: Original instantiated member lineages and supplied aliases.
+    members: tuple[SourceMemberDocument, ...]
+    #: Absent mappings are explicit; this source view is not a transformed native attempt.
+    native_pullback_unavailable: str
+    #: Actual frozen numerical-policy identity.
+    numerical_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Objective signs in original objective order; never a native stationarity norm.
+    objective_signs: tuple[float, ...]
+    #: Frozen physical scales of the selected original rows and coordinates.
+    row_nominals: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float], ...]
+    #: Selected original rows in assembly order.
+    rows: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Static source eligibility; it does not establish execution.
+    scope: SourceMapScope
+    #: Actual admitted original case structure identity.
+    source_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Deduplicated selected mathematical products and their source origins.
+    templates: tuple[SourceTemplateDocument, ...]
+    #: Frozen physical coordinate magnitudes in selected column order.
+    variable_nominals: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.columns), v.sequence_key(v.record_key)(self.fields), v.sequence_key(v.scalar_key)(self.fixed_inputs), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.scalar_key(self.native_pullback_unavailable), v.scalar_key(self.numerical_identity), v.sequence_key(v.scalar_key)(self.objective_signs), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.row_nominals), v.sequence_key(v.scalar_key)(self.rows), v.scalar_key(self.scope), v.scalar_key(self.source_identity), v.sequence_key(v.record_key)(self.templates), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.variable_nominals),))
+
+
 class ModelingTypeArenaNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
@@ -5820,6 +6018,29 @@ class NativeCountersKinsol(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.scalar_key(self.fixed_point_iterations), v.optional_key(v.scalar_key)(self.function_evaluations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.jacobian_evaluations), v.optional_key(v.scalar_key)(self.jacobian_products), v.optional_key(v.scalar_key)(self.linear_iterations), v.optional_key(v.scalar_key)(self.preconditioner_evaluations), v.optional_key(v.scalar_key)(self.preconditioner_solves),))
 
 
+class NativeCountersUno(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="uno"):
+    """Uno's actual terminal getters; callback ordinals remain separate."""
+
+    #: Native constraint evaluations.
+    constraint_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native process CPU time, including callbacks; overlaps other work and
+    #: is neither exclusive callback CPU nor async task CPU.
+    cpu_seconds: Observation | None = None
+    #: Native objective gradient evaluations.
+    gradient_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual native major-loop iteration count, when a native return occurred.
+    iterations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native constraint Jacobian evaluations.
+    jacobian_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native objective evaluations.
+    objective_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual native subproblem count.
+    subproblems: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.constraint_evaluations), v.optional_key(v.record_key)(self.cpu_seconds), v.optional_key(v.scalar_key)(self.gradient_evaluations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.jacobian_evaluations), v.optional_key(v.scalar_key)(self.objective_evaluations), v.optional_key(v.scalar_key)(self.subproblems),))
+
+
 class NativeObservations(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact profile and problem witness for native facts; unknown counters remain absent."""
 
@@ -5895,6 +6116,32 @@ class NumericObservationReal(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.value),))
+
+
+class NumericalHistoryPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit operator-selected thresholds, not universal convergence criteria.
+    The enclosing inspection request retains this policy beside its statements.
+    """
+
+    #: Interpretation version; only version 1 is supported.
+    version: Annotated[int, msgspec.Meta(ge=0, le=65535)]
+    #: Minimum relative decrease in barrier accompanying a primal-stall question.
+    barrier_progress_minimum: float | None = None
+    #: Selected inertia-correction fraction, under one complete factor population.
+    inertia_fraction_minimum: float | None = None
+    #: Required consecutive source events, at least two.
+    minimum_events: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum relative reduction in the same native primal measure.
+    primal_progress_maximum: float | None = None
+    #: Selected consecutive unaccelerated raw-map residual ratio.
+    raw_recycle_ratio_minimum: float | None = None
+    #: Ask whether the same owner-supplied original worst row recurs.
+    repeated_worst_row: bool
+    #: Tiny native-step question, in the source's declared norm/coordinates.
+    tiny_step_maximum: float | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.barrier_progress_minimum), v.optional_key(v.scalar_key)(self.inertia_fraction_minimum), v.scalar_key(self.minimum_events), v.optional_key(v.scalar_key)(self.primal_progress_maximum), v.optional_key(v.scalar_key)(self.raw_recycle_ratio_minimum), v.scalar_key(self.repeated_worst_row), v.optional_key(v.scalar_key)(self.tiny_step_maximum),))
 
 
 class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6688,10 +6935,10 @@ class ProductionDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite integration policy. Tolerances apply to the normalized state coordinates."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Required execution interpretation version; legacy unversioned requests need readmission.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Checkpointing of the adjoint backward pass; used only by adjoint gradients.
     adjoint: AdjointSettings = msgspec.field(default_factory=lambda: msgspec.convert({"max_checkpoints": 400, "steps_between_checkpoints": 250, "version": 1}, type=AdjointSettings))
     #: Positive absolute tolerances in normalized state order.
@@ -6712,7 +6959,10 @@ class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
     max_cells: Annotated[int, msgspec.Meta(ge=0)]
     #: Maximum retained event records.
     max_events: Annotated[int, msgspec.Meta(ge=0)]
-    #: Maximum native step calls across all segments.
+    #: Maximum accepted advancement steps in each complete trajectory: forward/recording,
+    #: all forward replay of one derivative operation, and each backward direction.
+    #: Physical segments, checkpoint restores and sample jumps do not renew this cap.
+    #: Interpolation consumes no steps; failed calls and rejected trials are separate work.
     max_steps: Annotated[int, msgspec.Meta(ge=0)]
     #: Native method selected from the required trial semantics; automatic when absent.
     method: enums.DynamicsMethod = enums.DynamicsMethod.AUTO
@@ -8792,6 +9042,40 @@ class SourceChoice(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
         return (type(self), (v.sequence_key(v.record_key)(self.alternatives),))
 
 
+class SourceContributionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One ordered addend before duplicate accumulation, including orientation/weight."""
+
+    #: Original body output ordinal.
+    output: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual signed contribution weight before duplicate accumulation.
+    scale: float
+    #: Selected original row or objective destination.
+    target: SourceContributionTarget
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.output), v.scalar_key(self.scale), v.record_key(self.target),))
+
+
+class SourceContributionTargetObjective(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="objective"):
+    """Original selected objective."""
+
+    #: Objective ordinal, interpreted with objective_signs.
+    ordinal: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.ordinal),))
+
+
+class SourceContributionTargetRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="row"):
+    """Original selected constraint row."""
+
+    #: Original semantic row identity.
+    row: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.row),))
+
+
 class SourceDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An atomic source edit against one exact locally admitted receiver. Omission retains
     inherited objects; deletion must be named explicitly.
@@ -8814,6 +9098,22 @@ class SourceDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
         return (type(self), (v.sequence_key(v.record_key)(self.additions), v.record_key(self.documents), v.record_key(self.fits), v.scalar_key(self.parent), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
 
 
+class SourceDemandDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The original occurrence's actual selected template and selectors."""
+
+    #: Original formal coordinate selectors for this occurrence and demand.
+    coordinates: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Canonical callback demand, distinct from the product kind.
+    demand: EvaluationDemand
+    #: Original output selectors for this occurrence and demand.
+    outputs: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Actual selected compiled template ordinal.
+    template: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.coordinates), v.scalar_key(self.demand), v.sequence_key(v.scalar_key)(self.outputs), v.scalar_key(self.template),))
+
+
 class SourceDocumentDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Parent-qualified document additions, replacements and removals."""
 
@@ -8826,6 +9126,26 @@ class SourceDocumentDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.additions), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
+
+
+class SourceFieldDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One exact current source field, independent of shared mathematical identity."""
+
+    #: Original authored declaration owning this field.
+    declaration: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Actual authoring document identity; absent when unavailable.
+    document: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: UTF-8 exclusive ending byte offset in the supplied document.
+    end: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original position of this repeated field.
+    position: Annotated[int, msgspec.Meta(ge=0)]
+    #: Compiler-supplied declaration-local field role.
+    role: str
+    #: UTF-8 starting byte offset in the supplied document.
+    start: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declaration), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.end), v.scalar_key(self.position), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.start),))
 
 
 class SourceFitDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8842,13 +9162,41 @@ class SourceFitDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.sequence_key(v.record_key)(self.additions), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
 
 
+class SourceInstanceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original semantic occurrence and its concrete coordinate/output gathers."""
+
+    #: Reusable semantic body identity; never an occurrence substitute.
+    body: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Complete body-local source-token to original-member map.
+    checked_members: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]], ...]
+    #: Original ordered output addends, preserving repeated destinations.
+    contributions: tuple[SourceContributionDocument, ...]
+    #: Actual demand-to-template selectors for this occurrence.
+    demands: tuple[SourceDemandDocument, ...]
+    #: Actual semantic occurrence identity.
+    instance: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Original instance-binding ordinal in the assembly.
+    ordinal: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original formal gathers, preserving aliases and affine scales.
+    slots: tuple[SourceSlotDocument, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.body), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.checked_members), v.sequence_key(v.record_key)(self.contributions), v.sequence_key(v.record_key)(self.demands), v.scalar_key(self.instance), v.scalar_key(self.ordinal), v.sequence_key(v.record_key)(self.slots),))
+
+
 class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authored location attached by the owner that has the source map."""
 
+    #: Actual parser document identity; absence cannot qualify byte offsets.
+    document: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
     #: UTF-8 exclusive ending byte offset.
     end: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Optional authored display name.
     name: str | None = None
+    #: Original position within that occurrence role.
+    occurrence_position: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Compiler-supplied occurrence role, independent of a display name.
+    occurrence_role: str | None = None
     #: Definition or document path, never a backend-local node identifier.
     path: str
     #: Immutable source interpretation context; absence is explicitly unattributed.
@@ -8859,7 +9207,23 @@ class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     start: Annotated[int, msgspec.Meta(ge=0)] | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.occurrence_position), v.optional_key(v.scalar_key)(self.occurrence_role), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
+
+
+class SourceMemberDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original instantiated member ownership; a display path never becomes executable identity."""
+
+    #: Original authored declaration.
+    declaration: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Actual owning instance, preserving repeated definition uses.
+    instance: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Actual instantiated semantic member or alias.
+    member: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Current compiler-supplied display path, independent of identity.
+    path: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declaration), v.scalar_key(self.instance), v.scalar_key(self.member), v.scalar_key(self.path),))
 
 
 class SourceRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8887,6 +9251,48 @@ class SourceSettlement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.record_key)(self.acknowledgement), v.scalar_key(self.operation), v.scalar_key(self.problem),))
+
+
+class SourceSlotDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An ordered input gather: aliases deliberately retain separate formal positions."""
+
+    #: The source is absent from this selected assembly’s free columns.
+    fixed: bool
+    #: Original formal input ordinal.
+    formal: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual source coordinate identity.
+    member: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Canonical affine gather offset.
+    offset: float
+    #: Canonical linear gather coefficient.
+    scale: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.fixed), v.scalar_key(self.formal), v.scalar_key(self.member), v.scalar_key(self.offset), v.scalar_key(self.scale),))
+
+
+class SourceTemplateDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One compiler-issued selected product template. Numerical weights/directions are not static identities."""
+
+    #: All original check ranges in the stated program, including static branches.
+    arithmetic: tuple[ArithmeticSourceDocument, ...]
+    #: Limits of the available arithmetic-origin projection.
+    arithmetic_mapping: ArithmeticMappingScope
+    #: Admitted reusable semantic body identity.
+    body: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Ordered original formal derivative selectors; aliases remain distinct.
+    coordinates: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Requested derivative ceiling.
+    order: DerivativeOrder
+    #: Ordered original body output selectors.
+    outputs: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Canonical mathematical product actually prepared.
+    product: ProductKind
+    #: Compiler-issued template ordinal within this assembly.
+    template: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arithmetic), v.record_key(self.arithmetic_mapping), v.scalar_key(self.body), v.sequence_key(v.scalar_key)(self.coordinates), v.scalar_key(self.order), v.sequence_key(v.scalar_key)(self.outputs), v.scalar_key(self.product), v.scalar_key(self.template),))
 
 
 class SourcedRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -9902,6 +10308,8 @@ class WorkingSetTransfer(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 
 AdviceSupport = AdviceSupportCompleteMatched | AdviceSupportBaselineTie
 
+ArithmeticMappingScope = ArithmeticMappingScopeSelectedCompiledProduct | ArithmeticMappingScopeOriginalValueChecksForWeightedProduct | ArithmeticMappingScopeUnavailable
+
 BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings | UnoSettings | PetscSettings
 
 BindingTarget = BindingTargetPath | BindingTargetMember
@@ -9930,7 +10338,7 @@ KinsolEta = KinsolEtaChoice1 | KinsolEtaChoice2 | KinsolEtaConstant
 
 KinsolLinear = KinsolLinearKlu | KinsolLinearDense | KinsolLinearSpgmr | KinsolLinearSpfgmr | KinsolLinearSpbcgs | KinsolLinearSptfqmr
 
-NativeCounters = NativeCountersIpopt | NativeCountersKinsol
+NativeCounters = NativeCountersIpopt | NativeCountersUno | NativeCountersKinsol
 
 NumericObservation = NumericObservationReal | NumericObservationNonfinite
 
@@ -9957,6 +10365,8 @@ ReplayHorizonSignal = ReplayHorizonSignalMeasured | ReplayHorizonSignalEstimated
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
 SeedTransformation = SeedTransformationNormalization | SeedTransformationPresolve | SeedTransformationWorkingSet | SeedTransformationInteriorRestart
+
+SourceContributionTarget = SourceContributionTargetRow | SourceContributionTargetObjective
 
 StartPolicy = StartPolicyFresh | StartPolicyContinuation | StartPolicyExplicit
 
@@ -9998,6 +10408,11 @@ __all__ = [
     "ApplicabilityObservation",
     "ApplicabilityPermission",
     "AppliedRestart",
+    "ArithmeticMappingScope",
+    "ArithmeticMappingScopeOriginalValueChecksForWeightedProduct",
+    "ArithmeticMappingScopeSelectedCompiledProduct",
+    "ArithmeticMappingScopeUnavailable",
+    "ArithmeticSourceDocument",
     "ArrivalDocument",
     "AssemblyLimits",
     "AttemptDecision",
@@ -10162,6 +10577,7 @@ __all__ = [
     "ClockMapping",
     "ClosedDuration",
     "CoherentRecord",
+    "ComparisonPolicy",
     "Completion",
     "CompositionRequest",
     "Conclusion",
@@ -10185,6 +10601,7 @@ __all__ = [
     "Dependency",
     "DependencyOrdering",
     "DependencyUsableResult",
+    "DerivativeOrder",
     "DetailDocument",
     "DetailEnd",
     "DetailEvent",
@@ -10215,6 +10632,7 @@ __all__ = [
     "EndpointRequirement",
     "EstimatorInput",
     "EstimatorOperation",
+    "EvaluationDemand",
     "EvaluationLimits",
     "Evaluator",
     "EvaluatorCompiledScalar",
@@ -10280,11 +10698,15 @@ __all__ = [
     "InspectionRequest",
     "InspectionTransport",
     "IntervalBound",
+    "InvocationComparisonDocument",
+    "InvocationComparisonStatement",
     "InvocationEndpoints",
     "InvocationEvidenceDocument",
+    "InvocationEvidenceReference",
     "InvocationInterval",
     "InvocationOutcome",
     "InvocationProduct",
+    "InvocationReference",
     "IpoptLinear",
     "IpoptLinearMumps",
     "IpoptLinearPardisomkl",
@@ -10340,6 +10762,7 @@ __all__ = [
     "ModelingLineageEntry",
     "ModelingNonlinearPolicy",
     "ModelingProvenance",
+    "ModelingSourceMapDocument",
     "ModelingTypeArenaNode",
     "ModelingTypeArenaNodeExponent",
     "ModelingUnitFactor",
@@ -10348,6 +10771,7 @@ __all__ = [
     "NativeCounters",
     "NativeCountersIpopt",
     "NativeCountersKinsol",
+    "NativeCountersUno",
     "NativeObservations",
     "NativePhase",
     "NativeSnapshot",
@@ -10355,6 +10779,7 @@ __all__ = [
     "NumericObservation",
     "NumericObservationNonfinite",
     "NumericObservationReal",
+    "NumericalHistoryPolicy",
     "NumericalPolicy",
     "NumericalStrategy",
     "NumericalStrategyDocument",
@@ -10411,6 +10836,7 @@ __all__ = [
     "ProducerSnapshot",
     "ProductAvailability",
     "ProductDemand",
+    "ProductKind",
     "ProductionDemand",
     "Profile",
     "ProfileChain",
@@ -10539,12 +10965,23 @@ __all__ = [
     "SolverAdviceInputs",
     "SourceAcknowledgement",
     "SourceChoice",
+    "SourceContributionDocument",
+    "SourceContributionTarget",
+    "SourceContributionTargetObjective",
+    "SourceContributionTargetRow",
     "SourceDelta",
+    "SourceDemandDocument",
     "SourceDocumentDelta",
+    "SourceFieldDocument",
     "SourceFitDelta",
+    "SourceInstanceDocument",
     "SourceLocation",
+    "SourceMapScope",
+    "SourceMemberDocument",
     "SourceRef",
     "SourceSettlement",
+    "SourceSlotDocument",
+    "SourceTemplateDocument",
     "SourcedRequirement",
     "SparseMatrix",
     "StartPolicy",
