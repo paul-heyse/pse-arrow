@@ -153,6 +153,8 @@ Observation effects are classified before any preparation identity is narrowed. 
 settings and resource/reporting consequences remain visible; no identical-deadline-trajectory or
 zero-overhead claim follows.
 
+> Decision: ADR-0196 (proposed; Plan43e target). Retained source-event pages can be projected through the registry-declared `runtime.diagnostic_evidence_fields` relation. Operation/producer/generation/event/field membership, exact time, units, typed values and explicit loss/availability survive projection. Existing source artifacts remain raw authority; finite analytical allocation leases remain attached to escaped Arrow buffers. DataFusion and Python consume this same projection without scientific-store availability, implicit evaluation or a second retention authority. Repeated event identities refuse the derived view rather than silently deduplicate raw evidence.
+
 ### 23.2 Failure taxonomy
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).

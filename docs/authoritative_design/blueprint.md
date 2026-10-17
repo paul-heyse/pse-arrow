@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 186
+revision: 187
 date: 2026-10-17
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 187 | 2026-10-17 | Proposed ADR-0196 (§23.1): registry-declared immutable diagnostic field views, exact event membership and existing leased Arrow/query consumers. | Delegated Plan43 E04 decision; visible `PSE_DESIGN_EDIT=1`; implementation/acceptance remain 43e/43g. |
 | 186 | 2026-10-17 | Proposed ADR-0195 (§14.3/§18.10): one notifying execution cancellation owner, actual permit-release wakeups and owned native exclusion/child readiness. | Delegated Plan43 F02 decision; visible `PSE_DESIGN_EDIT=1`; implementation/acceptance remain 43c/43f. |
 | 185 | 2026-10-17 | Proposed ADR-0193/0194 (§14.3/§13.6): explicit demanded mathematical products and qualified compiled derivatives; output coverage separated from cumulative trajectory advancement. | Maintainer delegates concrete remaining Plan43 choices; visible `PSE_DESIGN_EDIT=1`; implementation and acceptance remain with 43b/43d. |
 | 184 | 2026-10-17 | Proposed ADR-0192 / Plan43a accepted target (§23.1/§21.1): producer-scoped prepared facts, coherent current/recent records, finite selected source coverage and joined invocation endpoints; complete generated boundary migration. | Maintainer-authorized RC01/RC02/RC10 execution; visible `.design-edit`; implementation and scoped acceptance remain Plan43a, formal ADR acceptance separate. |
