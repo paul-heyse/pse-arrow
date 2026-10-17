@@ -1827,15 +1827,27 @@ async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_
     assert!(problem.forward_quadratures());
     let plain = native::dynamics::Anchored::new(simulation.worker(pse_kernels::ExecutionScope::new(
         pse_diagnostics::Cancellation::default(), None)).unwrap(), false).unwrap();
+    let observed = native::dynamics::Anchored::new(simulation.worker(pse_kernels::ExecutionScope::new(
+        pse_diagnostics::Cancellation::default(), None)).unwrap(), true).unwrap();
     let integration = problem.experiment.parameters.clone();
     let anchors = vec![0.; problem.differential.len()];
     for window in &mut problem.windows {
+        // This smooth model has no root/reset events and exactly one scheduled change.
+        // A 1000-event allowance would chiefly measure the observed adjoint's extra
+        // event-state capacity rather than the additional endpoint derivative cells.
+        window.profile.max_events = 1;
         let parameters = IntegratedExperiment::window_parameters(window, &integration, &anchors).unwrap();
         let mut profile = plain.profile(&window.profile);
         profile.sensitivity = DynamicSensitivity::Forward;
         let ordinary = profile.validate_retention(native::dynamics::Oracle::contract(&plain), &parameters,
             native::dynamics::SampleRetention::Full, 0).unwrap();
         window.profile.max_cells = ordinary;
+        let mut old_profile = observed.profile(&window.profile);
+        old_profile.sensitivity = DynamicSensitivity::Adjoint;
+        old_profile.forward_axes = None;
+        let old = old_profile.validate_retention(native::dynamics::Oracle::contract(&observed), &parameters,
+            native::dynamics::SampleRetention::Full, 0).unwrap();
+        assert!(old <= ordinary, "the retained adjoint must independently fit this fixture's limit");
     }
     problem.admit_windows(&simulation).unwrap();
     assert!(!problem.forward_quadratures(), "optional endpoint product must fit in addition to the ordinary trajectory");
