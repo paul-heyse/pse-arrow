@@ -181,6 +181,13 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
             let started = execution.started;
             let abandonment = execution.abandonment.clone();
             let mut oracle = ShootingOracle {
+                observation: pse_diagnostics::observation::current().map(|context| {
+                    context.producer(
+                        pse_diagnostics::observation::ProducerRole::Workflow,
+                        "shooting.products",
+                    )
+                }),
+                purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
                 problem: problem.clone(),
                 execution,
                 point: None,
@@ -331,6 +338,13 @@ async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
         eager.strategy_profile().unwrap()
     );
     let mut oracle = ShootingOracle {
+        observation: pse_diagnostics::observation::current().map(|context| {
+            context.producer(
+                pse_diagnostics::observation::ProducerRole::Workflow,
+                "shooting.products",
+            )
+        }),
+        purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
         problem: demanded.clone(),
         execution: Execution::new(Arc::default(), &solver().controls),
         point: None,
@@ -1484,6 +1498,13 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         let observed = hub.start("retained shooting lane");
         let entered = observed.context().enter();
         let mut oracle = ShootingOracle {
+            observation: pse_diagnostics::observation::current().map(|context| {
+                context.producer(
+                    pse_diagnostics::observation::ProducerRole::Workflow,
+                    "shooting.products",
+                )
+            }),
+            purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
             problem: problem.clone(),
             execution: execution.clone(),
             point: None,
@@ -1527,6 +1548,13 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         }
         drop(entered);
         let mut fresh = ShootingOracle {
+            observation: pse_diagnostics::observation::current().map(|context| {
+                context.producer(
+                    pse_diagnostics::observation::ProducerRole::Workflow,
+                    "shooting.products",
+                )
+            }),
+            purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
             problem,
             execution,
             point: None,
