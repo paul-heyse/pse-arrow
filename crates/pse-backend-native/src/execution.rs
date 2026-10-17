@@ -164,13 +164,29 @@ pub fn scheduler_waiting() -> bool {
     }
 }
 
-/// One registered native-exclusion wait. Registration always precedes inspection;
-/// an unpark token also covers notification between the predicate and parking.
+/// One registered native-exclusion wait. Registration always precedes inspection.
+/// The owner-local latch survives any other blocking code consuming the thread's
+/// unpark token between registration, predicate inspection and this wait.
 #[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc"))]
 pub(crate) struct NativeWait {
+    signal: Arc<NativeWaitSignal>,
     _release: pse_diagnostics::WakeWatch,
     _stop: pse_diagnostics::CancellationWatch,
     _abandonment: Option<pse_diagnostics::WakeWatch>,
+    _owning_thread: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc"))]
+struct NativeWaitSignal {
+    thread: std::thread::Thread,
+    notified: std::sync::atomic::AtomicBool,
+}
+#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc"))]
+impl std::task::Wake for NativeWaitSignal {
+    fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+    fn wake_by_ref(self: &Arc<Self>) {
+        self.notified.store(true, std::sync::atomic::Ordering::Release);
+        self.thread.unpark();
+    }
 }
 #[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc"))]
 impl NativeWait {
@@ -179,28 +195,29 @@ impl NativeWait {
         control: &pse_diagnostics::Cancellation,
         execution: Option<&Execution>,
     ) -> Self {
-        struct WakeThread(std::thread::Thread);
-        impl std::task::Wake for WakeThread {
-            fn wake(self: Arc<Self>) {
-                self.0.unpark();
-            }
-            fn wake_by_ref(self: &Arc<Self>) {
-                self.0.unpark();
-            }
-        }
-        let wake = std::task::Waker::from(Arc::new(WakeThread(std::thread::current())));
+        let signal = Arc::new(NativeWaitSignal {
+            thread: std::thread::current(),
+            notified: std::sync::atomic::AtomicBool::new(false),
+        });
+        let wake = std::task::Waker::from(signal.clone());
         Self {
+            signal,
             _release: released.watch(&wake),
             _stop: control.watch(&wake),
             _abandonment: execution.map(|execution| execution.abandonment.watch(&wake)),
+            _owning_thread: std::marker::PhantomData,
         }
     }
     pub(crate) fn wait(self, deadline: Option<std::time::Instant>) {
-        match deadline {
-            Some(deadline) => std::thread::park_timeout(
-                deadline.saturating_duration_since(std::time::Instant::now()),
-            ),
-            None => std::thread::park(),
+        while !self.signal.notified.load(std::sync::atomic::Ordering::Acquire) {
+            match deadline {
+                Some(deadline) => {
+                    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                    if remaining.is_zero() { return; }
+                    std::thread::park_timeout(remaining);
+                }
+                None => std::thread::park(),
+            }
         }
     }
 }
@@ -229,6 +246,9 @@ mod native_wait_tests {
                     NativeWait::new(&signal, execution.cancellation_control(), Some(&execution));
                 registered.send(()).unwrap();
                 continue_.recv().unwrap();
+                // The thread-wide token may be consumed by unrelated blocking
+                // code. The registered owner's notification must still persist.
+                std::thread::park_timeout(Duration::ZERO);
                 wait.wait(Some(Instant::now() + Duration::from_secs(2)));
                 finished.send(()).unwrap();
             });
