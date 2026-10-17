@@ -238,7 +238,7 @@ impl StudyHandle {
                     if scanned as usize >= MAX_REFERENCES { break; }
                 }
             }
-            Ok(ManagedStudyDiagnosticsDocument { version: Version, study_id: self.study_id, selection: metadata.diagnostics, references, omitted_points: study.point_count.saturating_sub(scanned), scope: "explicit managed child selection; current assigned attempts only, at most 128 occurrence rows; prior retry artifacts retain their exact paths but are not scanned; local capture completeness is not managed-graph completeness".into() })
+            Ok(ManagedStudyDiagnosticsDocument { version: Version, study_id: self.study_id, selection: metadata.diagnostics, references, omitted_points: study.point_count.saturating_sub(scanned), scope: "explicit managed child selection; current assigned attempts only, at most 128 occurrence rows; prior retry artifacts retain their exact paths but are not scanned; canonical references are observed per page, not an atomic graph snapshot; local capture completeness is not managed-graph completeness".into() })
         }).await
     }
 }
