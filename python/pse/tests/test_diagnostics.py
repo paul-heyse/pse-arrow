@@ -521,6 +521,12 @@ def test_run_observation_reader_outlives_joined_handle(
         assert reader.snapshot().id == reader.id
         result = handle.wait()
         assert result.usable
+        origin = result.diagnostic_origin()
+        assert origin.run_id == result.run_id.to_hex()
+        assert origin.operation == result.invocation_evidence.operation
+        assert origin.failure is None
+        with pytest.raises(pse.InspectionError):
+            result.diagnostic_origin(9999)
         joined = reader.snapshot()
         del handle, prepared, result
         gc.collect()

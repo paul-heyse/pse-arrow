@@ -20,6 +20,7 @@ from pse.contracts import documents
 from pse.contracts.enums import (
     DiagnosticCode,
     DiagnosticRule,
+    DiagnosticStage,
     NativeBackend,
     NativeBoundaryClass,
     NativeSolveIntent,
@@ -740,9 +741,22 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     report = package.diagnose(
         declaration(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
     )
-    missing = package.diagnose(
-        declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
+    assert report.origin is None, "standalone diagnostics cannot invent an originating run"
+    original_failure = documents.BoundaryDiagnostic(
+        class_=NativeBoundaryClass.NUMERICAL, code=DiagnosticCode.NATIVE_NUMERICAL,
+        rule=DiagnosticRule.NATIVE_NUMERICAL, stage=DiagnosticStage.NATIVE,
+        sources=(identity(245).to_hex(),), observations={},
     )
+    origin = documents.DiagnosticOrigin(
+        run_id=identity(240).to_hex(), attempt_id=None, step=1,
+        native_attempt=None, operation=None, failure=original_failure,
+    )
+    assert codec.decode_json(codec.encode_json(origin), documents.DiagnosticOrigin) == origin
+    missing = package.diagnose(
+        declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings,
+        origin=origin,
+    )
+    assert missing.origin == origin, "incomplete analysis preserves supplied original context"
     assert missing.statistics()["missing_values"] == 2
     assert not missing.complete
     assert pa.table(missing.table()).to_pylist()[0]["point"] == []
@@ -752,13 +766,30 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
         ((identity(233), {missing_columns[0]: 1.0, missing_columns[1]: -1.0}),),
+        origin=origin,
     )
+    assert supplied.origin == origin
     supplied_report = supplied.result(0)
     assert supplied_report is not None
     assert supplied_report.complete
+    assert supplied_report.origin == origin
+    assert supplied_report.origin.failure == original_failure
+    exported_origin = pa.table(supplied_report.table()).to_pylist()[0]["origin_json"]
+    assert codec.decode_json(exported_origin, documents.DiagnosticOrigin) == origin
+    sample_origin = pa.table(supplied.table()).to_pylist()[0]["origin_json"]
+    assert codec.decode_json(sample_origin, documents.DiagnosticOrigin) == origin
     with pytest.raises(pse.InspectionError, match="missing case value"):
         package.solve_case(
             declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+        )
+    expired = pse.SolveSettings(
+        intent=NativeSolveIntent.ROOT, controls=pse.SolveControls(time_limit=1e-9)
+    )
+    with pytest.raises(pse.InspectionError):
+        package.diagnose(declaration(220), expired, settings, origin=origin)
+    with pytest.raises(pse.InspectionError):
+        package.diagnose_samples(
+            declaration(220), expired, settings, ((identity(230), {}),), origin=origin
         )
     rows, columns = report.coordinates()
     source_settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
@@ -863,9 +894,13 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         controls=pse.JacobianDiagnosticControls(maximum_attempts=4),
+        origin=origin,
     )
+    assert native.origin == origin
     assert len(native.attempts()) == 4
     native_table = native.table()
+    native_origin = pa.table(native_table).to_pylist()[0]["origin_json"]
+    assert codec.decode_json(native_origin, documents.DiagnosticOrigin) == origin
     limited = package.diagnose_jacobian(
         declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
@@ -1001,16 +1036,23 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
     settings = pse.SolveSettings(
         backend=NativeBackend.HIGHS, controls=pse.SolveControls(time_limit=30)
     )
+    origin = documents.DiagnosticOrigin(
+        run_id=identity(240).to_hex(), attempt_id=None, step=2,
+        native_attempt=None, operation=None, failure=None,
+    )
     bad = package.diagnose_linear(
         cases["bad"],
         settings,
         controls=pse.LinearDiagnosticControls(
             iis=True, rays=True, relaxation=(-1, -1, 1)
         ),
+        origin=origin,
     )
+    assert bad.origin == origin
     assert bad.relation == "runtime.modeling_linear_diagnostics"
     assert bad.attempts()[0].termination == "infeasible"
     row = pa.table(bad.table()).to_pylist()[0]
+    assert codec.decode_json(row["origin_json"], documents.DiagnosticOrigin) == origin
     bad_table = bad.table()
     assert not row["iis"]["relaxation_only"]
     assert {r["source_id"] for r in row["iis"]["rows"]} == set(row["rows"])
