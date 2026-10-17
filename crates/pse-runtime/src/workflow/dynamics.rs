@@ -262,6 +262,7 @@ impl DynamicProgram {
         coordinates: &DynamicCoordinates,
     ) -> Option<usize> {
         FrameBinding::allocation_bound(&program.case.assembly)?
+            .checked_add(ActionScratch::allocation_bound(program, coordinates)?)?
             .checked_add(program.rows.len().checked_mul(size_of::<f64>())?)?
             .checked_add(
                 1usize
@@ -550,6 +551,12 @@ impl DynamicWorker {
             worker.key.capacity(),
         )
     }
+    #[cfg(test)]
+    pub(crate) fn action_buffer_identity(&self, mode: usize, function: Function) -> [usize; 4] {
+        let scratch = &self.functions[&(mode, function)].actions;
+        [scratch.seed.as_ptr() as usize, scratch.local.as_ptr() as usize,
+            scratch.multipliers.as_ptr() as usize, scratch.physical.as_ptr() as usize]
+    }
     fn new(
         contract: native::Contract,
         programs: &[FunctionProgram],
@@ -593,6 +600,7 @@ impl DynamicWorker {
                         1 + coordinates.state.len() + coordinates.parameters.len(),
                     ),
                     cache: None,
+                    actions: ActionScratch::new(program, &coordinates),
                     #[cfg(test)]
                     evaluations: 0,
                 },
@@ -644,8 +652,38 @@ struct FunctionWorker {
     values: Vec<f64>,
     key: Vec<u64>,
     cache: Option<bool>,
+    actions: ActionScratch,
     #[cfg(test)]
     evaluations: usize,
+}
+/// One admitted workspace for directional products. The physical candidate is
+/// separate from the caller's output so failed products never publish a prefix.
+#[derive(Debug)]
+struct ActionScratch {
+    seed: Vec<f64>,
+    local: Vec<f64>,
+    multipliers: Vec<f64>,
+    physical: Vec<f64>,
+}
+impl ActionScratch {
+    fn allocation_bound(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Option<usize> {
+        let columns = program.case.assembly.columns().len();
+        let rows = program.case.assembly.structure().rows().len();
+        let physical = coordinates.state.len().checked_add(coordinates.parameters.len())?;
+        columns.checked_add(rows.max(columns))?.checked_add(rows)?
+            .checked_add(program.rows.len().max(physical))?
+            .checked_mul(size_of::<f64>())?.checked_add(size_of::<Self>())
+    }
+    fn new(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Self {
+        let columns = program.case.assembly.columns().len();
+        let rows = program.case.assembly.structure().rows().len();
+        Self {
+            seed: vec![0.; columns],
+            local: vec![0.; rows.max(columns)],
+            multipliers: vec![0.; rows],
+            physical: vec![0.; program.rows.len().max(coordinates.state.len() + coordinates.parameters.len())],
+        }
+    }
 }
 /// Attempt-owned dense physical values; the semantic index is compiled once.
 #[derive(Debug)]
@@ -1139,15 +1177,60 @@ impl Oracle for DynamicWorker {
             || direction.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::Contract("dynamic Jacobian action dimensions or direction".into()));
         }
-        let seed = worker.layout.columns.iter().map(|&axis| direction[axis] * chain[axis]).collect::<Vec<_>>();
-        let mut local = vec![0.; worker.worker.assembly().structure().rows().len()];
+        for (seed, &axis) in worker.actions.seed.iter_mut().zip(&worker.layout.columns) {
+            *seed = direction[axis] * chain[axis];
+        }
         worker.binding.refill(&self.modes[mode].frame)?;
-        worker.worker.jacobian_product(worker.binding.trial()?, &seed, &mut local)?;
-        let candidate = p.rows.iter().enumerate().map(|(i, &row)| {
-            if p.constants.contains_key(&i) { 0. } else { local[row] * p.scales[i] }
-        }).collect::<Vec<_>>();
+        let rows = worker.worker.assembly().structure().rows().len();
+        worker.worker.jacobian_product(worker.binding.trial()?, &worker.actions.seed, &mut worker.actions.local[..rows])?;
+        for (i, &row) in p.rows.iter().enumerate() {
+            worker.actions.physical[i] = if p.constants.contains_key(&i) { 0. } else { worker.actions.local[row] * p.scales[i] };
+        }
+        let candidate = &worker.actions.physical[..output.len()];
         if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite physical Jacobian action")); }
-        output.copy_from_slice(&candidate);
+        self.scope.check().map_err(ProblemError::Provider)?;
+        output.copy_from_slice(candidate);
+        Ok(())
+    }
+    #[allow(clippy::too_many_arguments, reason = "explicit physical point, output weights and direction are separate scientific product bindings")]
+    fn weighted_hessian_action(
+        &mut self, mode: usize, function: Function, time: f64,
+        state: &[f64], parameters: &[f64], weights: &[f64],
+        direction: &[f64], output: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        if self.contract.derivatives < pse_kernels::DerivativeOrder::Second {
+            return Err(ProblemError::unsupported("the dynamic functions were prepared without second derivatives"));
+        }
+        self.bind(mode, function, time, state, parameters)?;
+        let chain = &self.layout.chain;
+        let worker = self.functions.get_mut(&(mode, function))
+            .ok_or_else(|| ProblemError::internal("missing compiled dynamic Hessian action function"))?;
+        let p = &worker.program;
+        if weights.len() != p.rows.len() || direction.len() != chain.len() || output.len() != chain.len()
+            || weights.iter().chain(direction).any(|v| !v.is_finite()) {
+            return Err(ProblemError::Contract("dynamic Hessian action dimensions or bindings".into()));
+        }
+        worker.actions.multipliers.fill(0.);
+        for (i, &row) in p.rows.iter().enumerate() {
+            if !p.constants.contains_key(&i) {
+                worker.actions.multipliers[row] += weights[i] * p.scales[i];
+            }
+        }
+        for (seed, &axis) in worker.actions.seed.iter_mut().zip(&worker.layout.columns) {
+            *seed = direction[axis] * chain[axis];
+        }
+        worker.binding.refill(&self.modes[mode].frame)?;
+        let columns = worker.actions.seed.len();
+        worker.worker.hessian_product(worker.binding.trial()?, 0., &worker.actions.multipliers,
+            &worker.actions.seed, &mut worker.actions.local[..columns])?;
+        worker.actions.physical[..chain.len()].fill(0.);
+        for (local, &axis) in worker.layout.columns.iter().enumerate() {
+            worker.actions.physical[axis] += worker.actions.local[local] * chain[axis];
+        }
+        let candidate = &worker.actions.physical[..output.len()];
+        if candidate.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite physical Hessian action")); }
+        self.scope.check().map_err(ProblemError::Provider)?;
+        output.copy_from_slice(candidate);
         Ok(())
     }
     /// The compiled case's exact Lagrangian Hessian with the function rows' weights as
