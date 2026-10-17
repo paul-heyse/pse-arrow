@@ -6169,6 +6169,18 @@ mod compact_tests {
     }
 
     #[test]
+    fn selected_compilation_keeps_original_deadline_distinct_from_cancellation() {
+        let control = pse_diagnostics::Cancellation::default();
+        let body = analytic_body(4096);
+        let support = body.prepare_support(&[0], &[Y, X], DerivativeOrder::First, &control).unwrap();
+        let scope = pse_kernels::ExecutionScope::new(control.clone(), Some(std::time::Instant::now()));
+        assert!(matches!(support.prepare_scalars(Optimization::default(), EvaluationLimits::default(), &scope), Err(MathError::Scope(pse_kernels::ProviderError::Deadline))));
+        assert!(matches!(support.compile(Optimization::default(), EvaluationLimits::default(), &scope), Err(MathError::Scope(pse_kernels::ProviderError::Deadline))));
+        assert!(matches!(support.compile_product(ProductKind::SelectedPartials, Optimization::default(), EvaluationLimits::default(), &scope), Err(MathError::Scope(pse_kernels::ProviderError::Deadline))));
+        assert!(!control.is_cancelled());
+    }
+
+    #[test]
     fn retained_scalar_products_survive_order_upgrades_and_keep_their_first_owner() {
         #[derive(Debug)]
         struct Owner;
