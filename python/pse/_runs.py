@@ -379,7 +379,6 @@ class RunResult:
         """Read qualification/readiness endpoints and retained attempt evidence."""
         return self._handle.invocation_evidence()
 
-    @property
     def invocation_arrow(self, *, memory_bytes: int = 16 << 20) -> pa.RecordBatch:
         """Project the actual joined invocation with independently missing endpoints."""
         return pa.record_batch(self._handle.invocation_arrow(memory_bytes))

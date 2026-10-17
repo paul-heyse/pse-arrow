@@ -1769,7 +1769,7 @@ impl NativeRunResult {
             .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
     }
-    /// Arrow view of this actual joined invocation, retaining finite independent allocation.
+    /// Pure source-linked explanation of the retained invocation document.
     #[pyo3(signature=(*, policy=None))]
     fn explain_invocation(&self,py:Python<'_>,policy:Option<documents::DocumentInput<pse_runtime::inspection_comparison::ComparisonPolicy>>)
         -> PyResult<documents::DocumentValue<pse_runtime::inspection_comparison::InvocationComparisonDocument>> {
@@ -1785,6 +1785,7 @@ impl NativeRunResult {
         Ok(documents::DocumentValue(pse_runtime::inspection_comparison::compare_invocations(&left,&right,policy.map_or_else(Default::default,|value|value.0))))
     }
     /// Arrow view of this actual joined invocation, retaining finite independent allocation.
+    #[pyo3(signature = (memory_bytes) -> "object")]
     fn invocation_arrow(&self,py:Python<'_>,memory_bytes:usize)->PyResult<pyo3_arrow::PyRecordBatch> {
         let document=self.inner.invocation_evidence().map_err(|error|errors::diagnostic(py,&error))?;
         py.detach(|| {

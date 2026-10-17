@@ -198,6 +198,7 @@ pub(crate) fn diagnostic_detail_records(
 
 /// Finite Arrow projection of retained source records; buffers retain their own admission.
 #[pyfunction]
+#[pyo3(signature = (path, offset, limit, maximum_bytes, memory_bytes) -> "object")]
 pub(crate) fn diagnostic_detail_arrow(
     py:Python<'_>,path:PathBuf,offset:u64,limit:usize,maximum_bytes:u64,memory_bytes:usize,
 )->PyResult<pyo3_arrow::PyRecordBatch> {
@@ -209,6 +210,7 @@ pub(crate) fn diagnostic_detail_arrow(
 }
 /// The original capture document remains independent from this optional view.
 #[pyfunction]
+#[pyo3(signature = (document, memory_bytes) -> "object")]
 pub(crate) fn diagnostic_capture_arrow(
     py:Python<'_>,document:DocumentInput<CaptureDocument>,memory_bytes:usize,
 )->PyResult<pyo3_arrow::PyRecordBatch> {
