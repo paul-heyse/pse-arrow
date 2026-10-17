@@ -113,7 +113,7 @@ impl Sources {
             )?
             .with_cache_service(resources.caches.clone())
             .with_extension(Arc::new(pse_engine::resources::CpuAdmission {
-                permits: Arc::new(tokio::sync::Semaphore::new(1)),
+                permits: Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(1)),
                 workers: std::num::NonZeroU32::new(1).context("positive tool width")?,
             })),
         );

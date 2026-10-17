@@ -155,7 +155,7 @@ impl PreparedExperiments {
             .ok_or_else(|| contract("fit storage"))?;
         // Transactional upgrades retain the complete old numeric point until the
         // replacement succeeds. Admit that additional residency before callbacks.
-        bytes = bytes.checked_add(super::oracle::replacement_point_bytes(
+        bytes = bytes.checked_add(oracle::replacement_point_bytes(
             &experiments, &layout, vars.len(), rows.len(), measurements.len(),
         ).ok_or_else(|| contract("fit replacement point extent"))?)
             .ok_or_else(|| contract("fit transactional point storage"))?;

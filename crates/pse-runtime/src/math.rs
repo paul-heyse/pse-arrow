@@ -51,6 +51,7 @@ use std::{
     sync::{Arc, Mutex, atomic::AtomicUsize},
 };
 /// Await the actual enclosing stop without periodically polling its read flag.
+#[cfg(feature = "solver-petsc")]
 pub(crate) async fn scope_stopped(scope: &pse_kernels::ExecutionScope) -> pse_kernels::ProviderError {
     if let Err(error) = scope.check() { return error; }
     tokio::select! {

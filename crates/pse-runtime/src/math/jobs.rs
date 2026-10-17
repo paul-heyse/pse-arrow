@@ -114,6 +114,7 @@ pub(super) enum ActiveAttempt {
     CpuBusy,
 }
 impl ActiveAttempt {
+    #[cfg(test)]
     pub(super) fn acquired(self) -> Option<ActivePermits> {
         match self { Self::Ready(permit) => Some(permit), Self::JobsBusy | Self::CpuBusy => None }
     }
@@ -334,6 +335,7 @@ impl MathService {
         };
         Ok((lease, active))
     }
+    #[cfg(test)]
     pub(super) fn try_active(&self, cores: u32) -> Result<Option<ActivePermits>, MathRuntimeError> {
         try_active(&self.active_jobs, &self.cpu, cores).map(ActiveAttempt::acquired)
     }

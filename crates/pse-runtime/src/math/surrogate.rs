@@ -65,7 +65,7 @@ impl ActorGate {
     fn lock_wait(
         &self,
         check: impl Fn() -> Result<(), MathRuntimeError>,
-        stop: impl std::future::Future<Output = ()>,
+        stop: impl Future<Output = ()>,
         deadline: Option<Instant>,
     ) -> Result<ActorGateGuard<'_>, MathRuntimeError> {
         struct WakeThread(std::thread::Thread);

@@ -19,6 +19,7 @@ use pse_math::{assembly::CaseWorker, sparse::AssemblyMatrix};
 #[derive(Clone, Default)]
 pub(super) struct UpgradeValidity(Arc<std::sync::atomic::AtomicBool>);
 impl UpgradeValidity {
+    #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
     fn contradicts(&self) { self.0.store(true, std::sync::atomic::Ordering::Release); }
     fn contradicted(&self) -> bool { self.0.load(std::sync::atomic::Ordering::Acquire) }
 }
