@@ -327,32 +327,80 @@ impl ModelingDiagnostics {
         self.findings.push(diagnostic);
     }
 }
-/// Attach only authored lineage supplied by the selected compiler model.
+/// Resolve only compiler-supplied original contributors. This is a source
+/// projection, never a numerical pullback or an instruction to re-evaluate a row.
+fn original_contributors(model: &pse_compiler::workspace::PreparedModeling, id: SemanticId) -> std::collections::BTreeSet<SemanticId> {
+    let mut sources = std::collections::BTreeSet::from([id]);
+    for output in model.admitted.outputs.iter().filter(|output| output.row_id() == id) {
+        match output {
+            ModelingOutput::DynamicRate { state, equations } => { sources.insert(*state); sources.extend(equations); }
+            ModelingOutput::InitialState { state, equation } => { sources.extend([*state, *equation]); }
+            ModelingOutput::Contribution { accumulator, contribution } => { sources.extend([*accumulator, *contribution]); }
+            ModelingOutput::InventoryTransfer { balance, event } => { sources.extend([*balance, *event]); }
+            ModelingOutput::Hint { target, declaration, .. } => { sources.extend([*target, declaration.as_id()]); }
+            ModelingOutput::Term { equation, .. } => { sources.insert(*equation); }
+            ModelingOutput::OriginalEquation(source) | ModelingOutput::Penalty(source)
+            | ModelingOutput::Member(source) | ModelingOutput::Inventory(source)
+            | ModelingOutput::ConditionalBoundary(source) => { sources.insert(*source); }
+            ModelingOutput::Test { id, .. } | ModelingOutput::Equation { id, .. } => { sources.insert(*id); }
+            ModelingOutput::LevelBound { row, .. } => {
+                for level in &model.model.objectives.levels {
+                    if level.bound.as_ref().is_some_and(|bound| bound.row == *row) {
+                        for member in model.model.objectives.members_of(level) {
+                            sources.extend([member.target, member.term, member.lineage.declaration.as_id()]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    sources
+}
+/// Attach every supplied authored lineage and exact current field occurrence,
+/// including aliases and nested causes. Byte ranges always retain their document.
 pub(super) fn attribute(
     diagnostic: &mut BoundaryDiagnostic,
     model: &pse_compiler::workspace::PreparedModeling,
 ) {
-    for id in &diagnostic.sources {
-        let lineage = model.model.symbols.get(id).map(|s| &s.lineage).or_else(|| {
-            model
-                .model
-                .equations
-                .iter()
-                .find(|r| r.id == *id)
-                .map(|r| &r.lineage)
-        });
-        if let Some(l) = lineage {
+    let sources = diagnostic.sources.iter().flat_map(|&id| original_contributors(model, id))
+        .collect::<std::collections::BTreeSet<_>>();
+    diagnostic.sources = sources.iter().copied().collect();
+    let occurrences = model.occurrence_identity();
+    let mut add = |source: SemanticId, lineage: &pse_modeling::specialize::Lineage| {
+        let fields = occurrences.iter().filter(|(declaration, _, _, _)| *declaration == lineage.declaration).collect::<Vec<_>>();
+        let mut append = |document, role, position, start, end| {
+            if diagnostic.locations.iter().any(|location| location.source == source
+                && location.path == lineage.path && location.document == document
+                && location.occurrence_role == role && location.occurrence_position == position
+                && location.start == start && location.end == end) { return; }
             diagnostic.locations.push(SourceLocation {
-                source: *id,
-                revision: None,
-            document: None, occurrence_role: None, occurrence_position: None,
-                path: l.path.clone(),
-                name: None,
-                start: None,
-                end: None,
+                source, revision: None, document, occurrence_role: role, occurrence_position: position,
+                path: lineage.path.clone(), name: None, start, end,
             });
+        };
+        if fields.is_empty() { append(None, None, None, None, None); }
+        for (_, role, position, span) in fields {
+            let document = (span.document_id != SemanticId::NIL).then_some(span.document_id);
+            let ranged = document.is_some() && !span.is_empty();
+            append(document, Some(role.clone()), u32::try_from(*position).ok(),
+                ranged.then_some(span.start), ranged.then_some(span.end));
+        }
+    };
+    for id in sources {
+        if let Some(symbol) = model.model.symbols.get(&id) { add(id, &symbol.lineage); }
+        for row in model.model.equations.iter().filter(|row| row.id == id) { add(id, &row.lineage); }
+        for port in model.model.ports.values().filter(|port| port.id == id || port.symbol == id) { add(port.id, &port.lineage); }
+        for port in model.model.material_ports.values().filter(|port| port.id == id || port.coordinates.values().any(|coordinate| *coordinate == id)) { add(port.id, &port.lineage); }
+        for balance in model.model.inventory_balances.values().filter(|balance| balance.id == id || balance.inventory_id == id || balance.flux_id == id || balance.state == Some(id)) { add(balance.id, &balance.lineage); }
+        for condition in model.model.inventory_initial_conditions.values().filter(|condition| condition.row == id) { add(id, &condition.lineage); }
+        for lowering in model.model.lowerings.iter().filter(|lowering| lowering.rows.contains(&id) || lowering.variables.contains(&id)) {
+            // The retained owner instance prevents a shared form definition from
+            // falsely attributing every other instance that uses that definition.
+            for symbol in model.model.symbols.values().filter(|symbol| symbol.lineage.declaration == lowering.source && symbol.lineage.instance == lowering.instance) { add(id, &symbol.lineage); }
+            for row in model.model.equations.iter().filter(|row| row.lineage.declaration == lowering.source && row.lineage.instance == lowering.instance) { add(id, &row.lineage); }
         }
     }
+    for cause in &mut diagnostic.causes { attribute(cause, model); }
 }
 impl ModelingPackage {
     /// Resolve starts, specifications, source precedence and nested providers without requesting a solve.
@@ -1342,7 +1390,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; var y:Scalar; eq a:x+y==0; eq b:2*x+2*y==0; } }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([83; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -1374,6 +1422,32 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(prepared.model.case.structure().matching.len(), 2);
+        let mut attributed = prepared.model.model.compiled().clone();
+        let mut model = (*attributed.model).clone();
+        let original = model.equations.iter().map(|row| row.id).collect::<Vec<_>>();
+        let variable = model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".x")).unwrap();
+        let variable_id = variable.id;
+        let alias_id = pse_ids::named_id(variable_id, "diagnostic-alias");
+        let mut alias_lineage = variable.lineage.clone();
+        alias_lineage.path.push_str(".supplied_alias");
+        model.ports.insert(alias_id, pse_modeling::specialize::Port {
+            id: alias_id, symbol: variable_id, lineage: alias_lineage,
+        });
+        attributed.model = Arc::new(model).into();
+        let mut combined = finding(FindingKind::JacobianNumericalRankDeficiency,
+            original.iter().copied().chain([variable_id]), None, None);
+        let missing = pse_ids::named_id(root.as_id(), "truly-unmapped");
+        combined.causes.push(finding(FindingKind::EquationLargeResidual, [original[0], missing], None, None));
+        attribute(&mut combined, &attributed);
+        assert!(original.iter().all(|source| combined.locations.iter().any(|location| location.source == *source)));
+        assert!(combined.locations.iter().any(|location| location.source == alias_id && location.path.ends_with(".supplied_alias")));
+        assert!(combined.locations.iter().all(|location| location.document == Some(SemanticId::from_bytes([83; 16]))
+            && location.occurrence_role.is_some() && location.occurrence_position.is_some()));
+        assert!(combined.causes[0].locations.iter().any(|location| location.source == original[0]));
+        assert!(!combined.causes[0].locations.iter().any(|location| location.source == missing));
+        let locations = combined.locations.len();
+        attribute(&mut combined, &attributed);
+        assert_eq!(combined.locations.len(), locations);
         let values = prepared.model.values.clone();
         let p = ModelingDiagnosticPolicy {
             profile: "synthetic".into(),
