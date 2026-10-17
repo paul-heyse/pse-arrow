@@ -266,59 +266,58 @@ fn diffsol_adjoint_live_roles_preserve_counter_epochs_and_scientific_calls() {
     assert_eq!(observed.evaluations.get(), control.evaluations.get());
     assert_eq!(result.gradient, reference.gradient);
     let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+    // Each actual solver owns its counters. A retained donor may publish only
+    // its inherited baseline; source-role strings are not unique producer IDs.
+    let role_ids = |role: &str| snapshot.producers.iter()
+        .filter(|producer| producer.descriptor.name == role)
+        .map(|producer| producer.descriptor.id).collect::<std::collections::HashSet<_>>();
+    let role_metrics = |role: &str, suffix: &str| {
+        let ids = role_ids(role);
+        snapshot.metrics.iter().filter(|metric| metric.name == format!("{role}.{suffix}")
+            && metric.producer.is_some_and(|producer| ids.contains(&producer))).collect::<Vec<_>>()
+    };
     for role in [
         "diffsol.adjoint.forward_record",
         "diffsol.adjoint.backward",
         "diffsol.adjoint.replay",
     ] {
-        let metric = |suffix: &str| {
-            snapshot
-                .metrics
-                .iter()
-                .find(|metric| metric.name == format!("{role}.{suffix}"))
-                .unwrap()
-        };
-        assert!(
-            matches!(metric("number_of_steps").cumulative, Value::Count(value) if value > 0),
-            "{role}"
-        );
-        let checkpoint = snapshot.producers.iter()
-            .filter(|producer| producer.descriptor.name == role)
-            .filter_map(|producer| producer.current.as_ref())
-            .find(|record| record.family == "dynamic_native_step.v1").unwrap();
-        assert_eq!(checkpoint.phase, format!("{role}.native_step"));
-        assert!(checkpoint.values.iter().any(|field| field.name == "physical_time"
-            && matches!(field.value, Value::Number(_))), "{role}");
-        assert!(checkpoint.values.iter().any(|field| field.name == "last_step_returned_success"
-            && field.value == Value::Boolean(true)), "{role}");
-        assert!(snapshot.metrics.iter().any(|metric| metric.name
-            == format!("{role}.number_of_linear_solver_setups_from_checkpoint")));
+        let metrics = role_metrics(role, "number_of_steps");
+        assert!(!metrics.is_empty(), "{role} counter owners unavailable");
+        let active = metrics.iter().filter(|metric| matches!(metric.cumulative, Value::Count(value) if value > 0))
+            .map(|metric| metric.producer.unwrap()).collect::<std::collections::HashSet<_>>();
+        assert!(!active.is_empty(), "{role} performed no observed accepted work");
+        for id in active {
+            let producer = snapshot.producers.iter().find(|producer| producer.descriptor.id == id).unwrap();
+            let checkpoint = producer.current.as_ref().unwrap();
+            assert_eq!(checkpoint.family, "dynamic_native_step.v1");
+            assert_eq!(checkpoint.phase, format!("{role}.native_step"));
+            assert!(checkpoint.values.iter().any(|field| field.name == "physical_time"
+                && matches!(field.value, Value::Number(_))), "{role} {id:?}");
+            assert!(checkpoint.values.iter().any(|field| field.name == "last_step_returned_success"
+                && field.value == Value::Boolean(true)), "{role} {id:?}");
+            assert!(role_metrics(role, "number_of_linear_solver_setups_from_checkpoint").iter()
+                .any(|metric| metric.producer == Some(id)));
+        }
     }
-    let backward = snapshot
-        .metrics
-        .iter()
-        .find(|metric| metric.name == "diffsol.adjoint.backward.number_of_steps")
-        .unwrap();
-    assert!(backward.resets > 0);
-    let forwarded: u64 = result
-        .report
-        .statistics
-        .iter()
-        .filter_map(|value| {
-            value
-                .get("number_of_steps")
-                .and_then(serde_json::Value::as_u64)
-        })
-        .sum();
-    assert_eq!(
-        snapshot
-            .metrics
-            .iter()
-            .find(|metric| metric.name == "diffsol.adjoint.forward_record.number_of_steps")
-            .unwrap()
-            .cumulative,
-        Value::Count(forwarded)
-    );
+    let backward = role_metrics("diffsol.adjoint.backward", "number_of_steps");
+    assert!(backward.len() > 1, "sample jumps create distinct native backward solvers");
+    assert!(backward.iter().all(|metric| metric.resets == 0),
+        "new performing owners must not fabricate resets within another solver's counter epoch");
+    let restored = role_metrics("diffsol.adjoint.replay", "checkpoint_restores");
+    let restore_count: u64 = restored.iter().map(|metric| match metric.cumulative {
+        Value::Count(value) => value, _ => panic!("restore count unavailable"),
+    }).sum();
+    assert!(restore_count > restored.len() as u64,
+        "control restores several checkpoints on at least one retained performing solver");
+    assert!(role_metrics("diffsol.adjoint.replay", "number_of_steps").iter().all(|metric| metric.resets == 0),
+        "state restore retains this native solver's cumulative counter epoch");
+    let forwarded: u64 = result.report.statistics.iter()
+        .filter_map(|value| value.get("number_of_steps").and_then(serde_json::Value::as_u64)).sum();
+    let observed_forwarded: u64 = role_metrics("diffsol.adjoint.forward_record", "number_of_steps").iter()
+        .map(|metric| match metric.cumulative { Value::Count(value) => value, _ => panic!("forward count unavailable") }).sum();
+    assert_eq!(observed_forwarded, forwarded,
+        "only disjoint actual forward segment owners are joined; replay donor snapshots are excluded");
+
 }
 
 /// The adjoint gradient of J = Σ wᵢₒ·yₒ(tᵢ) equals the forward sensitivities contracted

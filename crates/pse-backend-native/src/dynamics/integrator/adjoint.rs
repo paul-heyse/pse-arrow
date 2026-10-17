@@ -850,23 +850,24 @@ impl<'a, 'o: 'a, F: OdeSolverMethod<'a, Equation<'o>> + Counted> OdeSolverMethod
         }
     }
     fn set_state(&mut self, state: Self::State) {
-        self.observations = StepObservations::new(
-            self.observations.role,
-            self.observations.progress.clone(),
-            self.observations.started,
-        );
-        // Checkpoint restores keep native counters, so take their actual retained
-        // baseline rather than pretending a new zero native counter epoch.
+        // Diffsol's BDF/SDIRK/RK set_state changes this solver's state and
+        // Jacobian-update flags, not its cumulative statistics. Retain the same
+        // performing producer and native counter epoch. A cloned solver still
+        // gets its own inherited baseline through StepObservations::clone.
         self.observations.publish(self.inner.statistics());
-        if let Some(context) = pse_diagnostics::observation::current() {
-            context.text(
-                &format!("{}.setup_reason", self.observations.role),
-                "checkpoint state restore",
-            );
-        }
         crate::observation::scoped("diffsol.adjoint.replay.restore", || {
             self.inner.set_state(state.state)
         });
+        self.observations.publish(self.inner.statistics());
+        if let Some(producer) = &self.observations.producer {
+            producer.context().text(
+                &format!("{}.setup_reason", self.observations.role),
+                "checkpoint state restore",
+            );
+            producer.context().count(
+                &format!("{}.checkpoint_restores", self.observations.role), "count", 1,
+            );
+        }
         self.dy = state.dy;
     }
     fn into_state(self) -> Self::State {
