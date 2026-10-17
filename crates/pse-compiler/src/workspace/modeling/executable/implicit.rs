@@ -559,14 +559,17 @@ impl AdmittedImplicit {
             } else {
                 DerivativeOrder::Value
             };
-            let mut bodies = vec![(&residual.body, requirements.residual_compilation)];
+            let mut bodies = vec![
+                (&residual.body, requirements.residual_compilation, false),
+                (&residual.body, requirements.inner_minimum, true),
+            ];
             if matches!(configuration, pse_math::implicit::Configuration::Hints(_)) {
                 bodies.extend(
                     residual
                         .hints
                         .iter()
                         .chain(residual.terms.iter())
-                        .map(|body| (body, DerivativeOrder::Value)),
+                        .map(|body| (body, DerivativeOrder::Value, false)),
                 );
             }
             // Match factory compilation: value anchors and branch-local selectors.
@@ -574,19 +577,22 @@ impl AdmittedImplicit {
                 self.selection
                     .anchors
                     .iter()
-                    .map(|body| (body, DerivativeOrder::Value)),
+                    .map(|body| (body, DerivativeOrder::Value, false)),
             );
-            bodies.extend(self.selection.restriction.iter().map(|body| (body, local)));
+            bodies.extend(self.selection.restriction.iter().map(|body| (body, local, false)));
             if let Some(assessment) = &residual.assessment {
                 bodies.extend([
-                    (&assessment.eligibility, local),
-                    (&assessment.criterion, local),
+                    (&assessment.eligibility, local, false),
+                    (&assessment.criterion, local, false),
                 ]);
             }
-            for (body, order) in bodies {
-                let Some(mut bound) = body
-                    .math
-                    .arithmetic_compilation_allocation_bound(order, limits)?
+            for (body, order, unknown_only) in bodies {
+                let outputs = (0..body.quantities.len()).collect::<Vec<_>>();
+                let coordinates = if order == DerivativeOrder::Value { Vec::new() }
+                    else if unknown_only { (0..self.unknowns.len()).collect() }
+                    else { (0..body.math.input_count()).collect() };
+                let Some(mut bound) = body.math
+                    .arithmetic_selected_compilation_allocation_bound(&outputs, &coordinates, order, limits)?
                 else {
                     return Ok(None);
                 };
@@ -645,7 +651,7 @@ impl AdmittedImplicit {
         configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
         capabilities: ImplicitCapabilities<'_>,
         requested_output: DerivativeOrder,
-        cancel: Arc<AtomicBool>,
+        cancel: pse_diagnostics::Cancellation,
         limits: EvaluationLimits,
     ) -> Result<pse_math::implicit::reconstruction::ReconstructionFactory> {
         use pse_math::implicit::{
@@ -706,7 +712,7 @@ impl AdmittedImplicit {
         mut configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
         capabilities: ImplicitCapabilities<'_>,
         requested_output: DerivativeOrder,
-        cancel: Arc<AtomicBool>,
+        cancel: pse_diagnostics::Cancellation,
         limits: EvaluationLimits,
     ) -> Result<pse_math::implicit::ImplicitFactory> {
         use pse_math::implicit::{Factory, ImplicitFactory, RegimeFactory, RegimeFactoryBranch};
@@ -836,6 +842,14 @@ impl AdmittedImplicit {
                         })
                 })
                 .transpose()?;
+            let unknown_order = branch_solver.minimum_order();
+            let unknown_coordinates = if unknown_order == DerivativeOrder::Value {
+                Vec::new()
+            } else { (0..self.unknowns.len()).collect::<Vec<_>>() };
+            let unknown_body = residual.body.math.compile(
+                &(0..residual.body.quantities.len()).collect::<Vec<_>>(),
+                &unknown_coordinates, unknown_order, Optimization::default(), limits, &cancel,
+            ).map_err(|error| error.with_derivative_body(Some(residual.id), residual.body.spec.key()))?;
             let factory = Factory {
                 selection: pse_math::implicit::Selection {
                     anchor: self
@@ -853,7 +867,10 @@ impl AdmittedImplicit {
                 },
                 requirements,
                 spec,
-                body: compile(&residual.body, requirements.residual_compilation)?,
+                bodies: pse_math::implicit::ResidualBodies {
+                    unknown: Arc::new(unknown_body),
+                    parameter: compile(&residual.body, requirements.residual_compilation)?,
+                },
                 unknowns,
                 rows: residual.rows.clone(),
                 hints: if matches!(configuration, pse_math::implicit::Configuration::Hints(_)) {
@@ -1881,11 +1898,11 @@ impl AdmittedModeling {
                     "bound provider demand source correspondence".into(),
                 ));
             }
-            let order = if demand.directional {
-                order.max(DerivativeOrder::First)
-            } else {
-                order
-            };
+            let order = order.max(match demand.product {
+                pse_math::jets::ProductKind::SelectedPartials => demand.order,
+                pse_math::jets::ProductKind::JacobianAction => DerivativeOrder::First,
+                pse_math::jets::ProductKind::WeightedHessian | pse_math::jets::ProductKind::WeightedHessianAction => DerivativeOrder::Second,
+            });
             for (key, required) in body.math.provider_demands_for_selection(
                 &demand.outputs,
                 &demand.coordinates,

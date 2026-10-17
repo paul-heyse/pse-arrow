@@ -6,7 +6,8 @@ pub(crate) use super::preparation::{
 };
 use super::{MathRuntimeError, MathService, Workspace};
 use pse_authoring::language::Declaration;
-use pse_columnar::{AllocationLease, flight::FlightCancellation};
+use pse_columnar::AllocationLease;
+use pse_diagnostics::Cancellation;
 use pse_compiler::workspace::PreparedModeling;
 use pse_ids::SemanticId;
 use pse_model::HeapUsage;
@@ -225,7 +226,7 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::ModelingPointChecks, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job(
             workspace,
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
@@ -291,7 +292,7 @@ impl MathService {
         if analysis > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit("inner analysis capacity"));
         }
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = async {
             #[cfg(feature = "solver-kinsol")]
             let solver: Arc<dyn pse_math::implicit::InnerSolver> =
@@ -513,7 +514,7 @@ impl MathService {
         policy: pse_math::diagnostics::TermPolicy,
         driver: &crate::CancelSource,
     ) -> Result<ModelingTermEvidence, MathRuntimeError> {
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         // Charge construction, simultaneous earlier reports and the transported input.
         // Summing per-row peaks is conservative: actual findings share one work allowance.
         let bytes = terms.values().try_fold(0usize, |bytes, values| {
@@ -590,7 +591,7 @@ impl MathService {
         if rows.is_empty() && columns.is_empty() {
             return Ok(());
         }
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job(
             workspace,
             super::ConstructionEstimate::Known(pse_structural::incidence::MATCHING_STACK),
@@ -631,8 +632,22 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        self.prepare_modeling_function_products(workspace, model, rows, coordinates, order, vec![], profile, driver).await
+    }
+    /// Explicit action products; ordinary matrix function preparation requests none.
+    pub async fn prepare_modeling_function_products(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: ModelingPreparation,
+        rows: Vec<SemanticId>,
+        coordinates: Vec<SemanticId>,
+        order: pse_kernels::DerivativeOrder,
+        actions: Vec<pse_math::jets::ProductKind>,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job_retained(
             workspace,
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
@@ -640,11 +655,12 @@ impl MathService {
             driver.deadline(),
             move |authority, flag| {
                 let compiler = authority.lock()?;
-                let prepared = compiler.prepare_modeling_functions(
+                let prepared = compiler.prepare_modeling_function_products(
                     model.compiled(),
                     rows,
                     coordinates,
                     order,
+                    &actions,
                     profile,
                     &flag,
                 )?;
@@ -669,7 +685,7 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job_retained(
             workspace,
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
@@ -703,7 +719,7 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job_retained(
             workspace,
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
@@ -743,7 +759,7 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<super::Preparation, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job_retained(
             workspace,
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
@@ -804,7 +820,7 @@ impl MathService {
                 "rebind binding construction capacity",
             ));
         }
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let entry = self.admit_entry(1, binding_demand, &control, deadline, Some(cutoff))?;
         let comparison = self.job_retained_on_entry(
             1,
@@ -843,7 +859,7 @@ impl MathService {
         if demand > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit("rebind construction capacity"));
         }
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let entry = self
             .admit_entry(1, demand, &control, deadline, Some(cutoff))?
             .with_construction(construction);
@@ -901,7 +917,7 @@ impl MathService {
         let service = self.clone();
         let physical = *physical;
         let deadline = driver.deadline();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job(
             workspace.clone(),
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),
@@ -1010,7 +1026,7 @@ impl MathService {
     ) -> Result<pse_compiler::workspace::SemanticModeling, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
         let service = self.clone();
-        let control = FlightCancellation::default();
+        let control = Cancellation::default();
         let operation = self.compiler_job_retained(
             workspace,
             super::ConstructionEstimate::Known(super::WITHIN_WORKSPACE),

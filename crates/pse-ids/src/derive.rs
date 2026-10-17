@@ -443,6 +443,10 @@ frames! {
         MathArtifactV5 => "pse.math.artifact.v5",
         /// Explicit interpreted/compiled scalar Value execution profile.
         MathArtifactV6 => "pse.math.artifact.v6",
+        /// Exact demanded mathematical product, sparse layout, evaluator and ordered-check policy.
+        MathProductArtifactV1 => "pse.math.product-artifact.v1",
+        /// Scalar family under bounded sibling optimization and original ordered finite checks.
+        MathScalarFamilyV2 => "pse.math.scalar-family.v2",
         /// Demanded directional evaluator with runtime seed coordinates.
         MathDirectionalArtifactV1 => "pse.math.directional-artifact.v1",
         /// Directional artifact with the explicit scalar evaluator profile.
