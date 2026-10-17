@@ -393,7 +393,7 @@ mod tests {
                 maximum_cells: 2,
             },
             Execution::new(
-                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                pse_diagnostics::Cancellation::new(false),
                 &Default::default(),
             ),
         )
@@ -414,7 +414,7 @@ mod tests {
                     maximum_cells: 1,
                 },
                 Execution::new(
-                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::new(false),
                     &Default::default(),
                 ),
             )
@@ -564,7 +564,7 @@ mod tests {
                     maximum_cells: 100,
                 },
                 Execution::new(
-                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::new(false),
                     &Default::default(),
                 ),
             )

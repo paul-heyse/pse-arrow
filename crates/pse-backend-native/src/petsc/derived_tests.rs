@@ -304,7 +304,7 @@ impl MassOracle for VariableMass {
     }
 }
 fn execution(controls: &Controls) -> Execution {
-    let mut e = Execution::new(Arc::default(), controls);
+    let mut e = Execution::new(pse_diagnostics::Cancellation::default(), controls);
     e.memory = Some(1 << 20);
     e
 }

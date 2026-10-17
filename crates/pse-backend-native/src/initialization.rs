@@ -446,7 +446,7 @@ mod tests {
         jac: AssemblyMatrix,
         hess: Option<AssemblyMatrix>,
         guard_failure: bool,
-        cancel: Option<Arc<AtomicBool>>,
+        cancel: Option<pse_diagnostics::Cancellation>,
         delay: bool,
         normalization: Option<pse_math::normalization::Normalization>,
     }
@@ -515,7 +515,7 @@ mod tests {
         fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
             out[0] = x[0] * x[0] + x[1] * x[1] + 3.0 * x[0] * x[1];
             if let Some(cancel) = &self.cancel {
-                cancel.store(true, Ordering::Release);
+                cancel.cancel();
             }
             if self.delay {
                 std::thread::sleep(Duration::from_millis(150));
@@ -561,7 +561,7 @@ mod tests {
         }
     }
     fn scope() -> ExecutionScope {
-        ExecutionScope::new(Arc::new(AtomicBool::new(false)), None)
+        ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None)
     }
     #[test]
     fn auxiliary_dimensionless_objective_keeps_original_coordinate_and_row_scales() {
@@ -782,7 +782,7 @@ mod tests {
     }
     #[test]
     fn original_scope_cancellation_and_late_supplier_exit_stop_atomic_publication() {
-        let cancel = Arc::new(AtomicBool::new(true));
+        let cancel = pse_diagnostics::Cancellation::new(true);
         assert!(matches!(
             LeastDeviationOracle::new(
                 Box::new(Source::new(DerivativeOrder::First)),
@@ -793,7 +793,7 @@ mod tests {
             ),
             Err(ProblemError::Provider(ProviderError::Cancelled))
         ));
-        cancel.store(false, Ordering::Release);
+        let cancel = pse_diagnostics::Cancellation::default();
         let mut source = Source::new(DerivativeOrder::First);
         source.cancel = Some(cancel.clone());
         let mut oracle = LeastDeviationOracle::new(
@@ -810,7 +810,7 @@ mod tests {
             Err(ProblemError::Provider(ProviderError::Cancelled))
         ));
         assert_eq!(output, [99.0]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let mut source = Source::new(DerivativeOrder::First);
         source.delay = true;
         let mut oracle = LeastDeviationOracle::new(
@@ -829,6 +829,6 @@ mod tests {
             Err(ProblemError::Provider(ProviderError::Deadline))
         ));
         assert_eq!(output, [99.0]);
-        assert!(!cancel.load(Ordering::Acquire));
+        assert!(!cancel.is_cancelled());
     }
 }

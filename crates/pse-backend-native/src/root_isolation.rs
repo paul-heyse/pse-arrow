@@ -2875,7 +2875,7 @@ mod tests {
         let worker_available = available.clone();
         let worker = std::thread::spawn(move || {
             let execution = crate::solve::Execution::new(
-                Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 &crate::solve::Controls {
                     time_limit: Duration::from_secs(2),
                     ..Default::default()
@@ -2907,7 +2907,7 @@ mod tests {
         drop(holder);
         // This independent active team keeps its compute charge; the quiescent waiter
         // must not hold IBEX while waiting for that charge to become available.
-        let active_team = crate::solve::Execution::new(Arc::default(), &Default::default());
+        let active_team = crate::solve::Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         let _team_control = crate::execution::original_scope(&active_team);
         let start = Instant::now();
         let guard = acquire_library(
@@ -2926,8 +2926,8 @@ mod tests {
     }
     #[test]
     fn ibex_original_control_transport_restores_nested_scope_and_refuses_foreign_cancel() {
-        let original = crate::solve::Execution::new(Arc::default(), &Default::default());
-        let sibling = crate::solve::Execution::new(Arc::default(), &Default::default());
+        let original = crate::solve::Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
+        let sibling = crate::solve::Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         assert!(crate::execution::current_execution(&original.cancel).is_none());
         {
             let _outer = crate::execution::original_scope(&original);
@@ -2962,7 +2962,7 @@ mod tests {
             .is_err()
         );
         let available = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        let execution = crate::solve::Execution::new(Arc::default(), &Default::default());
+        let execution = crate::solve::Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         crate::execution::compute_scoped(
             Box::new(TestCompute {
                 available: available.clone(),
@@ -3000,7 +3000,7 @@ mod tests {
         for mode in 0..3 {
             let available = Arc::new(std::sync::atomic::AtomicUsize::new(0));
             let execution = crate::solve::Execution::new(
-                Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 &crate::solve::Controls {
                     time_limit: Duration::from_millis(10),
                     ..Default::default()
@@ -3017,7 +3017,7 @@ mod tests {
                 || {
                     let held = (mode != 2).then(|| lock.lock().unwrap());
                     if mode == 1 {
-                        execution.cancel.store(true, Ordering::Release);
+                        execution.cancellation_control().cancel();
                     }
                     let result =
                         acquire_library(&lock, || Ok(true), Some(&execution), &execution.cancel);
@@ -3123,7 +3123,7 @@ mod tests {
             ],
             vec![1, 2],
         );
-        let flag = Arc::new(AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let execution = crate::solve::Execution::within(
             flag.clone(),
             &crate::solve::Controls::default(),
@@ -3186,7 +3186,7 @@ mod tests {
             ],
             vec![1],
         );
-        let flag = Arc::new(AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let execution = crate::solve::Execution::within(
             flag.clone(),
             &crate::solve::Controls::default(),
@@ -3313,7 +3313,7 @@ mod tests {
             ],
             vec![1],
         );
-        let flag = Arc::new(AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let execution = crate::solve::Execution::within(
             flag.clone(),
             &crate::solve::Controls::default(),
@@ -3531,7 +3531,7 @@ mod tests {
             }
         }
         let owner = Arc::new(Ledger::default());
-        let mut execution = Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default());
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default());
         execution.work_admission = Some(owner.clone());
         let unsupported = arithmetic_program(
             vec![Node::Aux(0), Node::Const(Constant::Float(0.0))],
@@ -3609,7 +3609,7 @@ mod tests {
         point: &[f64],
     ) -> PointArithmeticEvidence {
         let execution = crate::solve::Execution::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             &crate::solve::Controls::default(),
         );
         let bytes = Ibex::default()
@@ -3749,7 +3749,7 @@ mod tests {
     #[test]
     fn native_point_arithmetic_second_refuses_dense_extent_before_work() {
         let execution = crate::solve::Execution::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             &crate::solve::Controls::default(),
         );
         for (width, outputs) in [(33, 1), (1, 129), (17, 128)] {

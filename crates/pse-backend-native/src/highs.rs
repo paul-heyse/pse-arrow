@@ -2044,7 +2044,7 @@ mod tests {
                         iis: true,
                         ..Default::default()
                     },
-                    &Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+                    &Execution::new(pse_diagnostics::Cancellation::new(false), &controls),
                 )
                 .unwrap();
             assert_eq!(
@@ -2107,7 +2107,7 @@ mod tests {
             .diagnose(
                 &normalized,
                 &request,
-                &Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+                &Execution::new(pse_diagnostics::Cancellation::new(false), &controls),
             )
             .unwrap();
         crate::transport::recover_diagnostics(&mut evidence, &n, &[0.], &normalized.contract)
@@ -2126,7 +2126,7 @@ mod tests {
         let callback_data = Callback {
             observation_context: pse_diagnostics::observation::current(),
             execution: Execution::new(
-                std::sync::Arc::new(AtomicBool::new(true)),
+                pse_diagnostics::Cancellation::new(true),
                 &Controls::default(),
             ),
             panicked: AtomicBool::new(false),

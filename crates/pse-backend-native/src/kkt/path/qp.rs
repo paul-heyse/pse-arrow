@@ -554,7 +554,7 @@ mod tests {
             linear,
             options,
             limits,
-            Execution::new(Arc::default(), &controls),
+            Execution::new(pse_diagnostics::Cancellation::default(), &controls),
         )
     }
     #[derive(Debug, Default)]

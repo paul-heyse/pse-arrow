@@ -314,7 +314,7 @@ fn stub_backend_routes_through_adapter_table() {
                 controls: &controls,
                 accuracy: &ResolvedAccuracy::verification(),
                 execution: Execution::new(
-                    Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::new(false),
                     &controls,
                 ),
                 tolerances: &tolerances,

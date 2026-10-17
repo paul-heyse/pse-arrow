@@ -77,14 +77,14 @@ fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
                 &registry,
                 DerivativeOrder::Second,
                 AssemblyLimits::default(),
-                &Arc::new(AtomicBool::new(false)),
+                &pse_diagnostics::Cancellation::default(),
             )
             .unwrap(),
         )
         .compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &pse_diagnostics::Cancellation::default(),
         )
         .unwrap(),
     );
@@ -99,7 +99,7 @@ fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
 fn split_native_callbacks_and_equality_root_views() {
     pse_math::initialize().unwrap();
     let (a, values) = fixture(ModelingVariableDomain::Continuous);
-    let worker = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let worker = a.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     let mut oracle = assembled::AlgebraicOracle::new(worker, values).unwrap();
     oracle.admit_nle().unwrap();
     let mut out = [-7.0];
@@ -119,7 +119,7 @@ fn split_native_callbacks_and_equality_root_views() {
 fn native_dense_trial_preserves_atomic_failure_and_recovers() {
     let (assembly, values) = fixture(ModelingVariableDomain::Continuous);
     let mut oracle = assembled::AlgebraicOracle::new(
-        assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false))),
+        assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default()),
         values.clone(),
     )
     .unwrap();
@@ -138,14 +138,14 @@ fn integrality_is_explicit_and_continuous_oracles_reject_it() {
     let (a, v) = fixture(ModelingVariableDomain::Integer);
     // Include the bounded construction of the original coefficient-class proof.
     let c = a
-        .coefficients(&v, 1024, &Arc::new(AtomicBool::new(false)))
+        .coefficients(&v, 1024, &pse_diagnostics::Cancellation::default())
         .unwrap();
     let p = CoefficientProblem::from_plan(&a, c).unwrap();
     assert_eq!(p.domains, vec![ModelingVariableDomain::Integer]);
     p.validate_convex(None).unwrap();
     assert!(
         assembled::AlgebraicOracle::new(
-            a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false))),
+            a.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default()),
             v
         )
         .is_err()
@@ -188,7 +188,7 @@ fn shared_conditional_oracle_lends_one_worker_and_keeps_other_owners_private() {
     let create = || {
         assembled::SharedRootOracle::new(
             assembled::AlgebraicOracle::compact(
-                assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false))),
+                assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default()),
                 |id| values.scalars.get(&id).copied(),
             )
             .unwrap(),

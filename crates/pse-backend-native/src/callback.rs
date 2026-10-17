@@ -805,7 +805,7 @@ mod tests {
         let hub = ObservationHub::new(Policy::default());
         let operation = hub.start("native.callback-test");
         let _entered = operation.context().enter();
-        let execution = Execution::new(std::sync::Arc::default(), &Default::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         let mut state = CallbackState::new(execution);
         state.evaluate::<()>("residual", || {
             let snapshot = operation.reader().snapshot(Duration::from_secs(60));
@@ -870,7 +870,7 @@ mod tests {
         let _entered = operation.context().enter();
         for calls in [2, 1] {
             let mut state = CallbackState::new(Execution::new(
-                std::sync::Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 &Default::default(),
             ));
             for _ in 0..calls {
@@ -911,7 +911,7 @@ mod tests {
             admitted: 0.into(),
             observed: 0.into(),
         });
-        let mut execution = Execution::new(Arc::default(), &Default::default());
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         execution.work_admission = Some(admission.clone());
         let mut original =
             CallbackState::new_with_role(execution.clone(), ProducerRole::OriginalOracle);
@@ -1017,7 +1017,7 @@ mod tests {
             .with_record_tap(std::sync::Arc::new(CpuTap));
         let _entered = context.enter();
         let mut state = CallbackState::new(Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &Default::default(),
         ));
         assert_eq!(
@@ -1084,7 +1084,7 @@ mod tests {
         let tap = std::sync::Arc::new(Tap::default());
         let context = operation.context().with_record_tap(tap.clone());
         let _entered = context.enter();
-        let mut execution = Execution::new(std::sync::Arc::default(), &Default::default());
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         execution.callback_work_owner = false;
         execution.callback_role = pse_diagnostics::observation::ProducerRole::CoordinateTransport;
         let mut state = CallbackState::new(execution);
@@ -1116,7 +1116,7 @@ mod tests {
         let operation = hub.start("native.block-populations");
         let _entered = operation.context().enter();
         let mut state = CallbackState::new(Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &Default::default(),
         ));
         for index in 0..1024 {
@@ -1163,7 +1163,7 @@ mod tests {
         let operation = hub.start("off");
         let _entered = operation.context().enter();
         let mut state = CallbackState::new(Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &Default::default(),
         ));
         assert!(state.observation_producer.is_none());
@@ -1180,7 +1180,7 @@ mod tests {
         let mut state = {
             let _entered = source.context().enter();
             CallbackState::new(Execution::new(
-                std::sync::Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 &Default::default(),
             ))
         };
@@ -1212,7 +1212,7 @@ mod tests {
     #[test]
     fn callback_transports_exact_original_execution_only_for_its_synchronous_work() {
         use std::sync::Arc;
-        let execution = Execution::new(Arc::default(), &Default::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Default::default());
         let mut callback = CallbackState::new(execution.clone());
         let result = callback.evaluate("original-control", || {
             let inherited = crate::execution::current_execution(&execution.cancel).unwrap();
@@ -1291,7 +1291,7 @@ mod tests {
                 admitted: 0.into(),
                 observed: 0.into(),
             });
-            let mut execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
+            let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
             execution.work_admission = Some(admission.clone());
             let mut original = CallbackState::new(execution.clone());
             if transported {
@@ -1338,7 +1338,7 @@ mod tests {
     #[test]
     fn original_callback_refusal_survives_transported_native_unwind() {
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         let mut original = CallbackState::new(execution.clone());
@@ -1382,7 +1382,7 @@ mod tests {
     #[test]
     fn stopped_callback_keeps_its_original_typed_cause() {
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         let mut state = CallbackState::new(execution.clone());
@@ -1405,7 +1405,7 @@ mod tests {
     fn callback_abandonment_discards_output_and_counts_owned_work_once() {
         use pse_model::generated::enums::NumericalAttemptObservation as O;
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         let mut state = CallbackState::new(execution.clone());
@@ -1460,7 +1460,7 @@ mod tests {
     #[test]
     fn finish_rejects_late_native_success_without_another_callback() {
         let mut execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         let mut report = report(&execution);
@@ -1487,7 +1487,7 @@ mod tests {
     fn callback_recovery_evidence_survives_empty_history_and_refuses_fatal_failures() {
         use crate::solve::{Assurance, Backend, Controls, NativeTermination, SolveReport};
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &Controls {
                 history: 0,
                 ..Controls::default()
@@ -1567,7 +1567,7 @@ mod tests {
             let original_kind = std::mem::discriminant(&error);
             let original_message = error.to_string();
             let mut state = CallbackState::new(Execution::new(
-                std::sync::Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 &crate::solve::Controls::default(),
             ));
             assert!(state.evaluate::<()>("f", || Err(error)).is_none());
@@ -1600,7 +1600,7 @@ mod tests {
     #[test]
     fn recovered_trials_do_not_poison_success_but_panics_do() {
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         let mut state = CallbackState::new(execution.clone());

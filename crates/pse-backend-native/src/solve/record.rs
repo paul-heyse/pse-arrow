@@ -280,7 +280,7 @@ mod tests {
     use super::*;
     fn report() -> SolveReport {
         let execution = Execution::new(
-            Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &Controls {
                 history: 0,
                 ..Controls::default()

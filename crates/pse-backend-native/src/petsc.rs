@@ -1066,7 +1066,7 @@ mod tests {
                     time_limit: Duration::from_millis(25),
                     ..Default::default()
                 };
-                let execution = Execution::new(Arc::default(), &controls);
+                let execution = Execution::new(pse_diagnostics::Cancellation::default(), &controls);
                 assert!(matches!(
                     Admission::enter(&execution),
                     Err(ProblemError::Limit {
@@ -1148,7 +1148,7 @@ mod tests {
         }
     }
     fn execution(controls: &Controls) -> Execution {
-        Execution::new(Arc::new(AtomicBool::new(false)), controls)
+        Execution::new(pse_diagnostics::Cancellation::new(false), controls)
     }
     fn run(
         oracle: &mut LogOracle,
@@ -1484,7 +1484,7 @@ mod tests {
             Err(ProblemError::Unsupported(_))
         ));
         let queued = execution(&controls);
-        let cancel = queued.cancel.clone();
+        let cancel = queued.cancellation.clone();
         let (ready_tx, ready_rx) = mpsc::channel();
         let worker = std::thread::spawn(move || {
             ready_tx.send(()).unwrap();

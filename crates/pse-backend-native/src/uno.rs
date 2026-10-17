@@ -672,7 +672,7 @@ mod tests {
         value
     }
     fn execution(controls: &Controls) -> Execution {
-        let mut value = Execution::new(Arc::default(), controls);
+        let mut value = Execution::new(pse_diagnostics::Cancellation::default(), controls);
         value.memory = Some(8 << 20);
         value
     }

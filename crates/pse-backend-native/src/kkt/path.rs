@@ -385,7 +385,7 @@ mod tests {
         }
     }
     fn execution() -> Execution {
-        Execution::new(Arc::default(), &Controls::default())
+        Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default())
     }
     // f=1/2(x-p)^2, with either x>=0 as a variable or as row g=x>=0.
     // The parameter is an explicit -e_p equation, distinct from releasable bounds.

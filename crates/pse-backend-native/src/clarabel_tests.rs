@@ -118,7 +118,7 @@ pub(crate) fn run(
             settings,
             controls,
             accuracy: &accuracy,
-            execution: Execution::new(Arc::new(AtomicBool::new(false)), controls),
+            execution: Execution::new(pse_diagnostics::Cancellation::new(false), controls),
             tolerances,
             normalization,
             compatibility: stamp(backend),
@@ -671,7 +671,7 @@ fn clarabel_chordal_matches_undecomposed() {
                 &controls,
                 &accuracy,
                 &settings,
-                Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+                Execution::new(pse_diagnostics::Cancellation::new(false), &controls),
                 &Tolerances {
                     variables: vec![1e-6; 7],
                     rows: vec![1e-6; 11],

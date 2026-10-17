@@ -1227,7 +1227,7 @@ mod tests {
         let q = registry.neutral_dimensionless().unwrap();
         let unit_id = registry.quantity_type(q).unwrap().canonical_unit;
         let unit = registry.unit(unit_id).unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let build = |kind: u8| {
             let mut b = BodyBuilder::new(
                 pse_math::initialize().unwrap(),
@@ -1347,7 +1347,7 @@ mod tests {
                 problem: Arc<pse_math::implicit::Problem>,
                 parameters: &[f64],
                 options: &Options,
-                cancel: &Arc<AtomicBool>,
+                cancel: &pse_diagnostics::Cancellation,
             ) -> Result<Vec<f64>, pse_math::MathError> {
                 self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let point = pse_math::implicit::InnerWorker::solve(
@@ -1671,7 +1671,7 @@ mod tests {
         let q = registry.neutral_dimensionless().unwrap();
         let unit_id = registry.quantity_type(q).unwrap().canonical_unit;
         let unit = registry.unit(unit_id).unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let build = |kind: u8| {
             let mut b = BodyBuilder::new(
                 pse_math::initialize().unwrap(),

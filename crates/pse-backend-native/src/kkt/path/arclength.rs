@@ -1079,7 +1079,7 @@ mod tests {
     }
     fn execution() -> Execution {
         Execution::new(
-            Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls {
                 time_limit: std::time::Duration::from_secs(5),
                 ..crate::solve::Controls::default()
@@ -1368,7 +1368,7 @@ mod tests {
                 &controls,
                 &ResolvedAccuracy::verification(),
                 &crate::ipopt::Settings::default(),
-                Execution::new(Arc::default(), &controls),
+                Execution::new(pse_diagnostics::Cancellation::default(), &controls),
                 &tolerances,
                 None,
                 crate::solver_tests::stamp(Backend::Ipopt),

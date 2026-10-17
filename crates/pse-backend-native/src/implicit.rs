@@ -303,7 +303,7 @@ impl InnerWorker for Kinsol {
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
     ) -> Result<Vec<f64>, MathError> {
         crate::observation::operation("implicit.kinsol.attempt", || {
             if let Some(context) = pse_diagnostics::observation::current() {
@@ -379,7 +379,7 @@ impl InnerWorker for Kinsol {
                 inputs: problem.inputs,
                 parameters: parameters.to_vec(),
                 contract,
-                cancel: cancel.clone(),
+                cancel: cancel.flag(),
             };
             // The nested budgets come from the resolved numerical policy: residuals within
             // their tolerance and steps below the unknowns' tolerance, in original coordinates.
@@ -437,7 +437,7 @@ impl InnerWorker for Kinsol {
                 })?
                 .primal;
             crate::observation::scoped("implicit.kinsol.original_verify", || {
-                problem.verify(parameters, &point, options, cancel)
+                problem.verify(parameters, &point, options, &cancel.flag())
             })?;
             Ok(point)
         })
@@ -600,12 +600,12 @@ mod tests {
             time_limit: std::time::Duration::from_millis(1),
             ..Default::default()
         };
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let execution = Execution::new(cancel.clone(), &controls);
         std::thread::sleep(std::time::Duration::from_millis(2));
         let error = native_failure(execution.check().unwrap_err(), crate::solver_tests::id(96));
         assert!(matches!(error, MathError::Scope(ProviderError::Deadline)));
-        assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+        assert!(!cancel.is_cancelled());
     }
     #[derive(Debug)]
     struct LateOriginalOracle {
@@ -669,7 +669,7 @@ mod tests {
             problem: Arc<Problem>,
             parameters: &[f64],
             options: &Options,
-            cancel: &Arc<AtomicBool>,
+            cancel: &pse_diagnostics::Cancellation,
         ) -> Result<Vec<f64>, MathError> {
             let contract = OracleContract {
                 identity: problem.identity,
@@ -694,7 +694,7 @@ mod tests {
                     inputs: problem.inputs,
                     parameters: parameters.to_vec(),
                     contract,
-                    cancel: cancel.clone(),
+                    cancel: cancel.flag(),
                 },
                 calls: self.calls.clone(),
                 fault: self.fault.clone(),
@@ -765,7 +765,7 @@ mod tests {
             } else {
                 assert!(self.fault.is_none());
             }
-            assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+            assert!(!cancel.is_cancelled());
             Err(report_failure(&report, problem.id).unwrap())
         }
     }
@@ -783,7 +783,7 @@ mod tests {
         let id = pse_ids::named_id(pse_ids::SemanticId::NIL, "implicit-native-deadline");
         let unknown = pse_ids::named_id(id, "unknown");
         let parameter = pse_ids::named_id(id, "parameter");
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let mut builder = pse_math::typed::BodyBuilder::new(
             pse_math::initialize().unwrap(),
             &registry,
@@ -888,7 +888,7 @@ mod tests {
                     &[3.],
                     &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
                     &pse_kernels::EvaluationContext {
-                        cancelled: cancel.as_ref(),
+                        cancelled: cancel.flag().as_ref(),
                         max_result_bytes: 1024,
                     },
                 )
@@ -899,7 +899,7 @@ mod tests {
                 crate::callback::Failure::Stopped(Termination::TimeLimit)
             );
             assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
-            assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+            assert!(!cancel.is_cancelled());
         }
         assert_eq!(
             causes.lock().unwrap().as_slice(),
@@ -926,7 +926,7 @@ mod tests {
                     &[3.],
                     &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
                     &pse_kernels::EvaluationContext {
-                        cancelled: factory.cancel.as_ref(),
+                        cancelled: factory.cancel.flag().as_ref(),
                         max_result_bytes: 1024,
                     },
                 )
@@ -959,7 +959,7 @@ mod tests {
                 crate::callback::Failure::Fatal
             );
             assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
-            assert!(!factory.cancel.load(std::sync::atomic::Ordering::Acquire));
+            assert!(!factory.cancel.is_cancelled());
         }
     }
     #[derive(Debug, Clone)]
@@ -1002,7 +1002,7 @@ mod tests {
                 &[3.],
                 &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
                 &pse_kernels::EvaluationContext {
-                    cancelled: factory.cancel.as_ref(),
+                    cancelled: factory.cancel.flag().as_ref(),
                     max_result_bytes: 1024,
                 },
             )
@@ -1025,7 +1025,7 @@ mod tests {
             crate::callback::Failure::Trial
         );
         assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0);
-        assert!(!factory.cancel.load(std::sync::atomic::Ordering::Acquire));
+        assert!(!factory.cancel.is_cancelled());
     }
     fn problem(deficient: bool) -> Result<Problem, MathError> {
         problem_with(96, deficient)
@@ -1041,7 +1041,7 @@ mod tests {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
         let id = pse_ids::SemanticId::from_bytes([96; 16]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         {
             let mut builder = pse_math::typed::BodyBuilder::new(
                 pse_math::initialize().unwrap(),
@@ -1117,7 +1117,7 @@ mod tests {
     }
     #[test]
     fn implicit_kinsol_first_order_contract_does_not_require_hessians() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let problem = Arc::new(problem_order(100, false, DerivativeOrder::First).unwrap());
         assert_eq!(Kinsol.minimum_order(), DerivativeOrder::First);
         assert_eq!(problem.compiled_order, DerivativeOrder::First);
@@ -1140,7 +1140,7 @@ mod tests {
     }
     #[test]
     fn structural_failure_keeps_rows_and_columns() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let deficient = Arc::new(problem(true).unwrap());
         let error = Kinsol
             .solve(deficient.clone(), &[3.], &options(), &cancel)
@@ -1164,7 +1164,7 @@ mod tests {
     }
     #[test]
     fn implicit_kinsol_preserves_sparse_support_and_refuses_structural_deficiency() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let build = problem;
         let options = Options {
             start: vec![1., 1.],
@@ -1201,7 +1201,7 @@ mod tests {
     /// problem is returned to unique ownership after every solve.
     #[test]
     fn nested_inner_solver_reuses_session() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let mut problem = Arc::new(problem(false).unwrap());
         // The test thread starts with its own empty cache, budgeted as a job would.
         budget_sessions(16 << 20);
@@ -1231,7 +1231,7 @@ mod tests {
         Kinsol.solve(other, &[1.0], &options(), &cancel).unwrap();
         assert_eq!(sessions::created() - before, 2);
         // A cancelled call still returns its session: the next call reuses it.
-        let stopped = Arc::new(AtomicBool::new(true));
+        let stopped = pse_diagnostics::Cancellation::new(true);
         assert!(matches!(
             Kinsol.solve(problem.clone(), &[3.0], &options(), &stopped),
             Err(MathError::Cancelled)
@@ -1244,7 +1244,7 @@ mod tests {
     /// thread without a budget keeps none.
     #[test]
     fn inner_session_cache_bounded_by_bytes() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let first = Arc::new(problem_with(98, false).unwrap());
         let second = Arc::new(problem_with(99, false).unwrap());
         let solve = |p: &Arc<Problem>| Kinsol.solve(p.clone(), &[2.0], &options(), &cancel);
@@ -1292,7 +1292,7 @@ mod tests {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
         let id = pse_ids::SemanticId::from_bytes([95; 16]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let mut builder = pse_math::typed::BodyBuilder::new(
             pse_math::initialize().unwrap(),
             &registry,
@@ -1363,7 +1363,7 @@ mod tests {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
         let id = pse_ids::SemanticId::from_bytes([94; 16]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let mut builder = pse_math::typed::BodyBuilder::new(
             pse_math::initialize().unwrap(),
             &registry,

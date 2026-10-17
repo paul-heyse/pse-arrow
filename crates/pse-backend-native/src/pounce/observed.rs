@@ -418,7 +418,7 @@ mod tests {
         let operation = hub.start("pounce-failed-factor");
         let _entered = operation.context().enter();
         let count = Arc::new(Count::default());
-        let mut execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
         execution.work_admission = Some(count.clone());
         let observer = Observation::new(execution, None, None);
         for end in [true, false] {

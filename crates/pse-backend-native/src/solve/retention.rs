@@ -596,7 +596,7 @@ mod tests {
             derivatives: pse_kernels::DerivativeOrder::First,
             smoothness: pse_kernels::DerivativeOrder::First,
         };
-        let execution = Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default());
         SolveReport::new(
             Backend::Kinsol,
             &contract,

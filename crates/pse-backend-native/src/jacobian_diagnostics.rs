@@ -528,7 +528,7 @@ mod tests {
             &rows,
             policy,
             &controls,
-            Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+            Execution::new(pse_diagnostics::Cancellation::new(false), &controls),
         )
         .unwrap();
         assert!(r.complete);
@@ -583,7 +583,7 @@ mod tests {
             &rows,
             policy,
             &controls,
-            Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+            Execution::new(pse_diagnostics::Cancellation::new(false), &controls),
         )
         .unwrap();
         assert!(r.complete, "{:?}", r.unavailable);

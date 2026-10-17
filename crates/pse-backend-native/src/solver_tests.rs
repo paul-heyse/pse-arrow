@@ -21,7 +21,7 @@ pub(crate) fn contract() -> OracleContract {
 }
 #[cfg(any(feature = "ipopt", feature = "pounce", feature = "kinsol"))]
 pub(crate) fn execution() -> Execution {
-    Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default())
+    Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default())
 }
 /// The exact certificate of a PSD test matrix; panics when it is not certified.
 pub(crate) fn certify(q: &faer::sparse::SparseColMat<usize, f64>, sign: f64) -> GramCertificate {
@@ -184,7 +184,7 @@ fn history_is_bounded_and_deadline_is_distinct_from_cancellation() {
         history: 2,
         ..Controls::default()
     };
-    let e = Execution::new(Arc::new(AtomicBool::new(false)), &c);
+    let e = Execution::new(pse_diagnostics::Cancellation::new(false), &c);
     for _ in 0..5 {
         e.progress.push(Event {
             source: Some(EventSource::new("test_checkpoint", None, None)),
@@ -199,7 +199,7 @@ fn history_is_bounded_and_deadline_is_distinct_from_cancellation() {
     let mut timed = e.clone();
     timed.started = std::time::Instant::now().checked_sub(c.time_limit).unwrap();
     assert_eq!(timed.stopped(), Some(Termination::TimeLimit));
-    e.cancel.store(true, std::sync::atomic::Ordering::Release);
+    e.cancellation_control().cancel();
     assert_eq!(e.stopped(), Some(Termination::Cancelled));
 }
 #[test]

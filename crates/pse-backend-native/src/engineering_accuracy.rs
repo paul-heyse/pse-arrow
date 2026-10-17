@@ -541,7 +541,7 @@ mod tests {
     #[test]
     fn engineering_accuracy_square_affine_amplification_shares_action_and_remains_estimated() {
         let work = Arc::new(Work::default());
-        let mut execution = Execution::new(Arc::default(), &Controls::default());
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         execution.work_admission = Some(work.clone());
         let factor = factor(&execution);
         let estimated = goal(&factor, 10, AccuracyClass::Estimated);
@@ -596,7 +596,7 @@ mod tests {
     }
     #[test]
     fn unresolved_refinable_estimated_goal_retains_adjoint_row_demand() {
-        let execution = Execution::new(Arc::default(), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         let factor = factor(&execution);
         let mut declaration = goal(&factor, 12, AccuracyClass::Estimated);
         declaration.declaration.resolution = Some(0.5);
@@ -632,7 +632,7 @@ mod tests {
     #[test]
     fn fixed_supplier_uncertainty_exhausts_allowance_without_adjoint_work() {
         let work = Arc::new(Work::default());
-        let mut execution = Execution::new(Arc::default(), &Controls::default());
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         execution.work_admission = Some(work.clone());
         let factor = factor(&execution);
         let mut declaration = goal(&factor, 13, AccuracyClass::Estimated);
@@ -668,7 +668,7 @@ mod tests {
     #[test]
     fn residual_and_jacobian_roundoff_propagate_once_and_exhaust_refinement_allowance() {
         let work = Arc::new(Work::default());
-        let mut execution = Execution::new(Arc::default(), &Controls::default());
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         execution.work_admission = Some(work.clone());
         let factor = factor(&execution);
         let mut declaration = goal(&factor, 14, AccuracyClass::Estimated);
@@ -703,7 +703,7 @@ mod tests {
     #[test]
     fn output_first_uncertainty_is_a_fixed_reserve_once_and_missing_is_unavailable() {
         let work = Arc::new(Work::default());
-        let mut execution = Execution::new(Arc::default(), &Controls::default());
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         execution.work_admission = Some(work.clone());
         let factor = factor(&execution);
         let mut declaration = goal(&factor, 17, AccuracyClass::Estimated);
@@ -737,7 +737,7 @@ mod tests {
 
     #[test]
     fn residual_roundoff_is_retained_when_the_nominal_correction_cancels_to_zero() {
-        let execution = Execution::new(Arc::default(), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         let factor = factor(&execution);
         let goal = goal(&factor, 15, AccuracyClass::Estimated);
         let batch = estimate_square(
@@ -762,7 +762,7 @@ mod tests {
 
     #[test]
     fn missing_point_arithmetic_uncertainty_is_unavailable_not_spacing() {
-        let execution = Execution::new(Arc::default(), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         let factor = factor(&execution);
         let goal = goal(&factor, 16, AccuracyClass::Estimated);
         let batch = estimate_square(
@@ -789,7 +789,7 @@ mod tests {
 
     #[test]
     fn engineering_accuracy_square_withholds_missing_uncertainty_and_stale_branch_without_action() {
-        let execution = Execution::new(Arc::default(), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         let factor = factor(&execution);
         let goal = goal(&factor, 10, AccuracyClass::Estimated);
         let validity = Some(SquareValidity {
@@ -839,7 +839,7 @@ mod tests {
     }
     #[test]
     fn engineering_accuracy_square_consumes_residual_after_original_equality_bound() {
-        let execution = Execution::new(Arc::default(), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         let factor = factor_with_bound(&execution, 0.0005);
         let goal = goal(&factor, 10, AccuracyClass::Estimated);
         // .001*x=.0005 has exact root .5. At x=1, subtracting the original
@@ -864,7 +864,7 @@ mod tests {
     }
     #[test]
     fn engineering_accuracy_square_zero_correction_retains_spacing_and_cancellation_cause() {
-        let execution = Execution::new(Arc::default(), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         let factor = factor(&execution);
         let goal = goal(&factor, 10, AccuracyClass::Estimated);
         let validity = Some(SquareValidity {
@@ -909,7 +909,7 @@ mod tests {
 
     #[test]
     fn engineering_accuracy_objective_interval_retains_primal_radius_and_actual_strength() {
-        let execution = Execution::new(Arc::default(), &Controls::default());
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &Controls::default());
         let factor = factor(&execution);
         let mut goal = goal(&factor, 11, AccuracyClass::Certified);
         goal.declaration.subject = AccuracyGoalSubject::OptimalObjective;

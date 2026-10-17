@@ -28,7 +28,7 @@ fn defaults() -> crate::mkl::NestedDefaults {
 }
 fn execution() -> Execution {
     let mut execution = Execution::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         &Controls {
             time_limit: Duration::from_secs(5),
             ..Default::default()
@@ -340,7 +340,7 @@ fn concurrent_gate_cancel_preserves_parent_charge_and_never_claims_compute() {
         );
     });
     pause.recv_timeout(Duration::from_secs(2)).unwrap();
-    cancel.store(true, Ordering::Release);
+    cancel.cancel();
     worker.join().unwrap();
     assert_eq!(available.load(Ordering::Acquire), 1);
     assert_eq!(attempts.load(Ordering::Acquire), 0);
@@ -389,7 +389,7 @@ fn probe_cancellation_joins_actual_thread_before_releasing_separate_stack_charge
     let mut execution = execution();
     let admission = Arc::new(Admission::default());
     execution.work_admission = Some(admission.clone());
-    let cancel = execution.cancel.clone();
+    let cancel = execution.cancellation.clone();
     let (started, start) = mpsc::channel();
     let (finish, finished) = mpsc::channel();
     let state = admission.0.clone();
@@ -402,7 +402,7 @@ fn probe_cancellation_joins_actual_thread_before_releasing_separate_stack_charge
         })
     });
     start.recv_timeout(Duration::from_secs(2)).unwrap();
-    cancel.store(true, Ordering::Release);
+    cancel.cancel();
     assert_eq!(
         admission.0.live.load(Ordering::Acquire),
         DEFAULT_PROBE_STACK

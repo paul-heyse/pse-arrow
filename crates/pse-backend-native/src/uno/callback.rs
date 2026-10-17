@@ -472,7 +472,7 @@ mod tests {
         let execution = crate::solver_tests::execution();
         #[cfg(not(any(feature = "ipopt", feature = "pounce", feature = "kinsol")))]
         let execution = Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         Context::new(oracle, execution, jac, hess)

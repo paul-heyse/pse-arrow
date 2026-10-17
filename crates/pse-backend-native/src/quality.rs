@@ -755,7 +755,7 @@ mod qualification_tests {
             smoothness: pse_kernels::DerivativeOrder::Second,
         };
         let execution = Execution::new(
-            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             &Controls::default(),
         );
         let mut r = SolveReport::new(

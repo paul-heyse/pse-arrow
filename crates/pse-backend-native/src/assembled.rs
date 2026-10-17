@@ -25,6 +25,7 @@ pub struct AlgebraicOracle {
     structure: Option<pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>>,
     root_pattern: Option<faer::sparse::SymbolicSparseColMat<usize>>,
     separator: Option<crate::SolveSeparator>,
+    root_output: Vec<f64>,
 }
 impl AlgebraicOracle {
     /// Attach an owner-issued original-coordinate separator. Native classification
@@ -130,6 +131,7 @@ impl AlgebraicOracle {
             ));
         }
         let contract = contract(assembly);
+        let root_output = vec![0.; contract.rows.len()];
         contract.validate(assembly.order())?;
         let bounds = assembly
             .structure()
@@ -149,6 +151,7 @@ impl AlgebraicOracle {
             structure: None,
             root_pattern: None,
             separator: None,
+            root_output,
         })
     }
     /// Attach a compiler analysis. Native admission checks its complete matching
@@ -494,11 +497,11 @@ impl NlpOracle for AlgebraicOracle {
     }
     fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.trial(x)?;
-        copy(&self.worker.constraints(self.bound.trial(x)?)?, out)
+        copy(self.worker.constraints(self.bound.trial(x)?)?, out)
     }
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.trial(x)?;
-        copy(&self.worker.gradient(self.bound.trial(x)?)?, out)
+        copy(self.worker.gradient(self.bound.trial(x)?)?, out)
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.trial(x)?;
@@ -563,11 +566,12 @@ impl NleOracle for AlgebraicOracle {
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.admit_nle()?;
         self.trial(x)?;
-        let mut values = self.worker.constraints(self.bound.trial(x)?)?;
-        for (v, (l, _)) in values.iter_mut().zip(&self.bounds) {
-            *v -= l;
+        let values = self.worker.constraints(self.bound.trial(x)?)?;
+        for ((out, value), (lower, _)) in self.root_output.iter_mut().zip(values).zip(&self.bounds) {
+            *out = value - lower;
         }
-        copy(&values, out)
+        crate::tnlp::finite(&self.root_output)?;
+        copy(&self.root_output, out)
     }
     fn jacobian_product(
         &mut self,
@@ -577,10 +581,11 @@ impl NleOracle for AlgebraicOracle {
     ) -> Result<(), ProblemError> {
         self.admit_nle()?;
         self.trial(x)?;
-        let mut result = vec![0.0; out.len()];
+        self.root_output.fill(f64::NAN);
         self.worker
-            .jacobian_product(self.bound.trial(x)?, direction, &mut result)?;
-        copy(&result, out)
+            .jacobian_product(self.bound.trial(x)?, direction, &mut self.root_output)?;
+        crate::tnlp::finite(&self.root_output)?;
+        copy(&self.root_output, out)
     }
 }
 /// Native contract preserves every selected variable/row, including isolated vertices. Its

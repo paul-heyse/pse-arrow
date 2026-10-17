@@ -186,7 +186,7 @@ mod tests {
                 &controls,
                 &accuracy,
                 &Settings::default(),
-                Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+                Execution::new(pse_diagnostics::Cancellation::new(false), &controls),
                 &tolerances,
                 None,
                 stamp(Backend::Ipopt),

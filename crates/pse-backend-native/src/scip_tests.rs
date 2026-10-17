@@ -361,7 +361,7 @@ fn tolerances(n: usize, m: usize) -> Tolerances {
     }
 }
 fn execution(cancel: bool) -> Execution {
-    let mut execution = Execution::new(Arc::new(AtomicBool::new(cancel)), &Controls::default());
+    let mut execution = Execution::new(pse_diagnostics::Cancellation::new(cancel), &Controls::default());
     execution.memory = Some(256 << 20);
     execution
 }
@@ -717,7 +717,7 @@ fn scip_interrupt_via_event_handler() {
     let entered = execution(false);
     let (status, events, interrupted) =
         scip::testing::raw_status_with(&program, SolveIntent::Optimize, &entered, || {
-            entered.cancel.store(true, Ordering::Release)
+            entered.cancellation_control().cancel()
         })
         .unwrap();
     assert_eq!(status, Status::UserInterrupt);
@@ -2033,7 +2033,7 @@ fn exact_optimal_objective_transport_requires_original_affine_source() {
         .exact_objective_transport
         .as_ref()
         .unwrap();
-    let execution = Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default());
+    let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &Controls::default());
     let original = case
         .assembly
         .exact_value_factorable_program(&case.values, 256, &execution.cancel)
@@ -2120,7 +2120,7 @@ fn exact_optimal_objective_transport_requires_original_affine_source() {
             .unwrap()
             .is_none()
     );
-    execution.cancel.store(true, Ordering::Release);
+    execution.cancellation_control().cancel();
     assert!(matches!(
         receipt.original_interval(&original, point, &execution),
         Err(ProblemError::Cancelled)

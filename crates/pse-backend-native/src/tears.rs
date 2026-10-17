@@ -642,14 +642,14 @@ mod tests {
         };
         #[derive(Debug)]
         struct StopAtNativeEntry {
-            cancel: Arc<AtomicBool>,
+            cancel: pse_diagnostics::Cancellation,
             entered: AtomicBool,
         }
         impl ProgressTap for StopAtNativeEntry {
             fn observe(&self, event: &Event) {
                 if event.phase == "highs.callback" {
                     self.entered.store(true, Ordering::Release);
-                    self.cancel.store(true, Ordering::Release);
+                    self.cancel.cancel();
                 }
             }
         }
@@ -666,7 +666,7 @@ mod tests {
             ..Controls::default()
         };
         let tap = Arc::new(StopAtNativeEntry {
-            cancel: Arc::default(),
+            cancel: pse_diagnostics::Cancellation::default(),
             entered: AtomicBool::new(false),
         });
         let mut execution = Execution::new(tap.cancel.clone(), &controls);

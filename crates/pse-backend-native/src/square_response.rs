@@ -522,7 +522,7 @@ mod tests {
         let key = key(&request);
         let base = vec![0.; request.parameters.len()];
         let execution = crate::solve::Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         products(
@@ -757,7 +757,7 @@ mod tests {
         let evaluated = std::cell::Cell::new(0);
         let admission = std::sync::Arc::new(StrictStorage::default());
         let mut execution = crate::solve::Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         execution.work_admission = Some(admission.clone());
@@ -817,7 +817,7 @@ mod tests {
         let constructed = std::cell::Cell::new(0);
         let counts = std::sync::Arc::new(ConstructionCount::default());
         let mut execution = crate::solve::Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         execution.work_admission = Some(counts.clone());
@@ -881,7 +881,7 @@ mod tests {
             ))
         };
         let execution = crate::solve::Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         let product = products(
@@ -973,7 +973,7 @@ mod tests {
             },
         ] {
             let execution = crate::solve::Execution::new(
-                std::sync::Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 &crate::solve::Controls::default(),
             );
             let product = products(
@@ -988,7 +988,7 @@ mod tests {
             assert!(product.predictor.unwrap().is_err());
         }
         let execution = crate::solve::Execution::new(
-            std::sync::Arc::default(),
+            pse_diagnostics::Cancellation::default(),
             &crate::solve::Controls::default(),
         );
         let diagonal = faer::sparse::SparseColMat::try_new_from_triplets(
