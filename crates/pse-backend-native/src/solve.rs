@@ -794,10 +794,16 @@ impl Progress {
     pub fn current(&self) -> Option<Event> {
         self.events.try_lock().ok().and_then(|s| s.current.clone())
     }
+    /// Producer events omitted from retained history/current, without copying history.
+    /// This includes intentional history-zero omission; inspect `current` and source
+    /// identity independently to distinguish an available compact checkpoint.
+    pub fn dropped_count(&self) -> u64 {
+        self.dropped.load(Ordering::Relaxed)
+    }
     /// Snapshot retained recent events and explicit history loss. Observation readers
     /// never hold a native producer up; a contended read returns no history with loss.
     pub fn snapshot(&self) -> (Vec<Event>, u64) {
-        let dropped = self.dropped.load(Ordering::Relaxed);
+        let dropped = self.dropped_count();
         self.events.try_lock().map_or_else(
             |_| (Vec::new(), dropped.saturating_add(1)),
             |s| (s.recent.iter().cloned().collect(), dropped),
@@ -809,6 +815,27 @@ impl Progress {
 mod progress_contention_tests {
     use super::*;
     #[test]
+    fn history_zero_retains_current_with_independent_issued_and_loss_counts() {
+        let progress = Progress::new(0);
+        let push = |phase: &str| progress.push(Event {
+            source: Some(EventSource::new("test_checkpoint", None, None)),
+            phase: phase.into(), elapsed: Duration::ZERO, values: BTreeMap::new(), incumbent: None,
+        });
+        assert_eq!(progress.source_identity().1, 0);
+        assert_eq!(progress.dropped_count(), 0);
+        push("first");
+        push("second");
+        assert!(progress.snapshot().0.is_empty());
+        assert_eq!(progress.current().unwrap().phase, "second");
+        assert_eq!(progress.current().unwrap().source.unwrap().sequence, 2);
+        assert_eq!(progress.source_identity().1, 2);
+        assert_eq!(progress.dropped_count(), 2);
+        push(&"oversized".repeat(1024));
+        assert_eq!(progress.current().unwrap().phase, "second");
+        assert_eq!(progress.source_identity().1, 3);
+        assert_eq!(progress.dropped_count(), 3);
+    }
+    #[test]
     fn contended_progress_never_waits_and_reports_loss() {
         let progress = Progress::new(2);
         let held = progress.events.lock().unwrap();
@@ -819,6 +846,8 @@ mod progress_contention_tests {
             incumbent: None,
         });
         assert!(progress.current().is_none());
+        assert_eq!(progress.source_identity().1, 1);
+        assert_eq!(progress.dropped_count(), 1);
         assert_eq!(progress.snapshot().1, 2); // one lost producer event and this unavailable read
         drop(held);
         assert_eq!(progress.snapshot().1, 1);

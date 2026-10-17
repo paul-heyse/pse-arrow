@@ -221,18 +221,19 @@ struct CallbackFacts {
     cpu_samples: u64,
     cpu_missing: bool,
     cpu_requested: bool,
-    completed_count: u64,
     completed_seconds: f64,
 }
 impl CallbackFacts {
-    fn new(producer: &pse_diagnostics::observation::Producer, key: ObservationKey, generation: u64) -> Self {
+    fn new(producer: &pse_diagnostics::observation::Producer, key: ObservationKey) -> Self {
         use pse_diagnostics::observation::FactKind;
         let name = match key {
             ObservationKey::Named(name) => format!("callback.{name}"),
             ObservationKey::Blocks(name) => format!("callback.blocks.{name}"),
         };
-        let completed = producer.fact(&format!("{name}.completed_calls"), "count", FactKind::AbsoluteCounter);
-        completed.count_value(0, generation);
+        let completed = producer.fact(&format!("{name}.completed_calls"), "count", FactKind::Counter);
+        // This producer is a stable population. Count completed boundaries directly;
+        // no absolute/reset generation is needed for its paired wall-duration mean.
+        completed.count(0);
         Self {
             calls: producer.fact(&format!("{name}.calls"), "count", FactKind::Counter),
             completed,
@@ -243,7 +244,6 @@ impl CallbackFacts {
             cpu_seconds: 0.0, cpu_samples: 0, cpu_missing: false,
             cpu_requested: producer.thread_cpu_requested(),
             phase: name,
-            completed_count: 0,
             completed_seconds: 0.0,
         }
     }
@@ -251,7 +251,6 @@ impl CallbackFacts {
 /// Worker-local failure state; recoverable history never becomes a terminal latch.
 #[derive(Debug)]
 pub struct CallbackState {
-    observation_generation: u64,
     observation_producer: Option<pse_diagnostics::observation::Producer>,
     observation_facts: BTreeMap<ObservationKey, CallbackFacts>,
     failure_facts: BTreeMap<&'static str, pse_diagnostics::observation::PreparedFact>,
@@ -303,7 +302,6 @@ impl CallbackState {
                 .boolean(execution.callback_work_owner);
         }
         Self {
-            observation_generation: crate::observation::generation(),
             observation_producer,
             observation_facts: BTreeMap::new(),
             failure_facts: BTreeMap::new(),
@@ -374,7 +372,7 @@ impl CallbackState {
         };
         let phase = self.observation_producer.as_ref().map(|producer| {
             let facts = self.observation_facts.entry(observation_key)
-                .or_insert_with(|| CallbackFacts::new(producer, observation_key, self.observation_generation));
+                .or_insert_with(|| CallbackFacts::new(producer, observation_key));
             facts.calls.count(1);
             producer.context().phase(&facts.phase)
         });
@@ -387,7 +385,6 @@ impl CallbackState {
             let _original = crate::execution::original_scope(&self.execution);
             work()
         }));
-        drop(phase);
         if let Some(admission) = &self.execution.work_admission
             && self.execution.callback_work_owner
         {
@@ -417,9 +414,8 @@ impl CallbackState {
         // callbacks remain inclusive; the work-owner flag states which boundary charges.
         if let Some(producer) = &self.observation_producer {
             if let Some(facts) = self.observation_facts.get_mut(&observation_key) {
-                facts.completed_count = facts.completed_count.saturating_add(1);
                 facts.completed_seconds += elapsed.as_secs_f64();
-                facts.completed.count_value(facts.completed_count, self.observation_generation);
+                facts.completed.count(1);
                 facts.elapsed.duration(elapsed);
                 facts.seconds.gauge(facts.completed_seconds);
                 if !cpu_requested {
@@ -469,6 +465,9 @@ impl CallbackState {
                 self.failure_facts.entry(name).or_insert_with(|| producer.fact(name, "count", pse_diagnostics::observation::FactKind::Counter)).count(1);
             }
         }
+        // Paired completion count and elapsed facts settle while this boundary is
+        // still visibly active. Passive readers must not infer a finished mean mid-update.
+        drop(phase);
         if self.terminal.is_some() {
             self.rejected_evaluations = self.rejected_evaluations.saturating_add(1);
             return None;
@@ -750,12 +749,12 @@ mod tests {
         let snapshot = operation
             .reader()
             .snapshot(std::time::Duration::from_secs(60));
-        let absolute: Vec<_> = snapshot.metrics.iter()
+        let completed: Vec<_> = snapshot.metrics.iter()
             .filter(|m| m.name == "callback.residual.completed_calls").collect();
-        assert_eq!(absolute.len(), 2);
-        assert_ne!(absolute[0].producer, absolute[1].producer);
-        assert!(absolute.iter().all(|metric| metric.resets == 0));
-        assert_eq!(absolute.iter().map(|metric| match metric.cumulative {
+        assert_eq!(completed.len(), 2);
+        assert_ne!(completed[0].producer, completed[1].producer);
+        assert!(completed.iter().all(|metric| metric.resets == 0));
+        assert_eq!(completed.iter().map(|metric| match metric.cumulative {
             Value::Count(count) => count,
             _ => panic!("callback count unavailable"),
         }).sum::<u64>(), 3);
@@ -786,6 +785,12 @@ mod tests {
         assert_eq!(metrics.len(), 2);
         assert_ne!(metrics[0].producer, metrics[1].producer);
         assert!(metrics.iter().all(|m| m.resets == 0 && m.cumulative == Value::Count(2)));
+        for completed in &metrics {
+            let elapsed = snapshot.metrics.iter().find(|m| m.producer == completed.producer && m.name == "callback.jacobian.elapsed_nanoseconds").unwrap();
+            assert_eq!(completed.generation, 0);
+            assert_eq!(elapsed.generation, completed.generation);
+            assert_eq!(elapsed.duration_summary.as_ref().unwrap().samples, 2);
+        }
         assert!(snapshot.producers.iter().any(|p| p.descriptor.role == ProducerRole::OriginalOracle));
         assert!(snapshot.producers.iter().any(|p| p.descriptor.role == ProducerRole::CoordinateTransport));
         let mut final_report = report(&original.execution);
