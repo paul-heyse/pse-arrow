@@ -2631,7 +2631,7 @@ impl CompiledBody {
     /// Independent mutable scratch; caller/attempt owns its provider worker map.
     pub fn worker(&self) -> Worker {
         self.worker_scoped(pse_kernels::ExecutionScope::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
             None,
         ))
     }
@@ -5448,7 +5448,8 @@ mod compact_tests {
     #[test]
     fn trial_result_keeps_second_partials_packed_and_poisons_only_requested_frame() {
         let body = analytic_body(4096);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let program = body
             .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
             .unwrap()
@@ -5501,7 +5502,8 @@ mod compact_tests {
 
     #[test]
     fn trial_buffers_reuse_requested_extents_and_clear_refused_results() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let program = analytic_body(4096)
             .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
             .unwrap()
@@ -5608,7 +5610,8 @@ mod compact_tests {
     fn retained_scalar_products_survive_order_upgrades_and_keep_their_first_owner() {
         #[derive(Debug)]
         struct Owner;
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let body = analytic_body(4096);
         let value = body
             .prepare_support(&[0], &[Y, X], DerivativeOrder::Value, &cancel)
@@ -5796,7 +5799,8 @@ mod compact_tests {
 
     #[test]
     fn directional_compilation_constructs_only_the_consumed_first_template() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let support = analytic_body(4096)
             .prepare_support(&[0], &[Y, X], DerivativeOrder::First, &cancel)
             .unwrap();
@@ -5839,7 +5843,8 @@ mod compact_tests {
 
     #[test]
     fn lazy_order_workers_refuse_before_growth_and_upgrade_only_requested_products() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let program = analytic_body(4096)
             .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
             .unwrap()
@@ -5912,7 +5917,8 @@ mod compact_tests {
 
     #[test]
     fn cloned_warm_worker_is_cold_and_original_verification_has_independent_scope() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let program = analytic_body(4096)
             .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
             .unwrap()
@@ -5922,7 +5928,7 @@ mod compact_tests {
                 &cancel,
             )
             .unwrap();
-        let first_stop = Arc::new(AtomicBool::new(false));
+        let first_stop = pse_diagnostics::Cancellation::default();
         let mut original =
             program.worker_scoped(pse_kernels::ExecutionScope::new(first_stop.clone(), None));
         let expected = eval(&mut original, &[2., 3., 1.], DerivativeOrder::Second).unwrap();
@@ -5930,9 +5936,9 @@ mod compact_tests {
         assert!(clone.frame.is_empty());
         assert!(clone.programs.values().all(Option::is_none));
         assert_eq!(clone.used_bytes, 0);
-        let second_stop = Arc::new(AtomicBool::new(false));
+        let second_stop = pse_diagnostics::Cancellation::default();
         clone.set_scope(pse_kernels::ExecutionScope::new(second_stop.clone(), None));
-        first_stop.store(true, Ordering::Release);
+        first_stop.cancel();
         assert!(eval(&mut original, &[2., 3., 1.], DerivativeOrder::Second).is_err());
         assert!(eval(&mut clone, &[f64::NAN, 3., 1.], DerivativeOrder::Value).is_err());
         assert!(clone.frame.is_empty());
@@ -5940,9 +5946,9 @@ mod compact_tests {
         assert_eq!(actual.values, expected.values);
         assert_eq!(actual.jacobian, expected.jacobian);
         assert!(clone.programs[DerivativeOrder::Second].is_none());
-        assert!(!second_stop.load(Ordering::Acquire));
+        assert!(!second_stop.is_cancelled());
         let mut cancelled_worker = program.worker();
-        cancel.store(true, Ordering::Release);
+        control.cancel();
         assert!(matches!(
             cancelled_worker.evaluate(
                 &[2., 3., 1.],
@@ -5958,7 +5964,8 @@ mod compact_tests {
 
     #[test]
     fn exclusive_scratch_reset_preserves_constants_and_discards_old_scope_values_and_failure() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let program = analytic_body(4096)
             .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
             .unwrap()
@@ -5968,17 +5975,19 @@ mod compact_tests {
                 &cancel,
             )
             .unwrap();
-        let stop = Arc::new(AtomicBool::new(false));
+        let stop_control = pse_diagnostics::Cancellation::default();
+        let stop = stop_control.flag();
         let weak = Arc::downgrade(&stop);
         let mut worker =
-            program.worker_scoped(pse_kernels::ExecutionScope::new(stop.clone(), None));
+            program.worker_scoped(pse_kernels::ExecutionScope::new(stop_control.clone(), None));
         let prior = eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Second).unwrap();
         assert!(eval(&mut worker, &[2., 3., -1.], DerivativeOrder::Value).is_err());
         let frame = worker.frame.as_ptr();
         let used = worker.used_bytes;
         worker.detach_controls();
-        stop.store(true, Ordering::Release);
+        stop_control.cancel();
         drop(stop);
+        drop(stop_control);
         assert!(
             weak.upgrade().is_none(),
             "detached storage cannot retain cancellation"
@@ -5992,7 +6001,7 @@ mod compact_tests {
             "detached scratch is not an evaluator permission"
         );
         worker.set_scope(pse_kernels::ExecutionScope::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
             None,
         ));
         let actual = eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Second).unwrap();
@@ -6037,7 +6046,8 @@ mod compact_tests {
     #[test]
     fn selected_artifact_demand_uses_compact_source_with_original_four_gib_scratch() {
         let body = analytic_body(4096);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let support = body
             .prepare_support(&[0], &[X, Y], DerivativeOrder::First, &cancel)
             .unwrap();
@@ -6084,7 +6094,8 @@ mod compact_tests {
             scratch_bytes: 1 << 20,
             ..Default::default()
         };
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         // All 128 parameters are required value inputs, but x is the only
         // derivative coordinate. The unselected owner must remain distinct.
         assert!(
@@ -6178,7 +6189,8 @@ mod compact_tests {
             PreparedBody::new(21, 31, (21..31).collect(), stages, DerivativeOrder::Second).unwrap();
         let coordinates = (0..9).chain(10..18).collect::<Vec<_>>();
         let outputs = (0..10).collect::<Vec<_>>();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let limits = EvaluationLimits {
             scratch_bytes: 1 << 20,
             ..Default::default()
@@ -6359,7 +6371,8 @@ mod compact_tests {
     #[test]
     fn compact_directional_and_support_upgrade_keep_authored_coordinates() {
         let body = analytic_body(4096);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let value = body
             .prepare_support(&[0], &[Y, X], DerivativeOrder::Value, &cancel)
             .unwrap();
@@ -6687,7 +6700,7 @@ mod compact_tests {
         }
         assert_poisoned(worker.programs[DerivativeOrder::Value].as_ref().unwrap());
         worker.set_scope(pse_kernels::ExecutionScope::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
             None,
         ));
         assert_eq!(
@@ -6769,7 +6782,8 @@ mod compact_tests {
             DerivativeOrder::Second,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let product = body
             .compile(
                 &[1],
@@ -6852,7 +6866,7 @@ mod compact_tests {
         drop(prior_providers);
         scalar.reset_scratch().unwrap();
         scalar.set_scope(pse_kernels::ExecutionScope::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
             None,
         ));
         let mut fresh_providers = BTreeMap::from([(key, fresh_provider())]);
@@ -6911,7 +6925,8 @@ mod compact_tests {
             DerivativeOrder::Second,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let support = body
             .prepare_support(&[0, 1], &[Y, X], DerivativeOrder::Second, &cancel)
             .unwrap();
@@ -6972,7 +6987,8 @@ mod compact_tests {
             DerivativeOrder::First,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let options = Optimization {
             evaluator: library::Evaluator::CompiledScalar {
                 module_bytes: 1 << 20,
@@ -7112,7 +7128,8 @@ mod compact_tests {
             DerivativeOrder::Value,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let program = body
             .compile(
                 &[0],
@@ -7140,7 +7157,7 @@ mod compact_tests {
             Err(MathError::Domain { .. })
         ));
         assert!(eval(&mut worker, &[f64::INFINITY], DerivativeOrder::Value).is_err());
-        cancel.store(true, Ordering::Release);
+        control.cancel();
         assert!(matches!(
             worker.evaluate(&[1.], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel),
             Err(MathError::Cancelled)
@@ -7155,7 +7172,8 @@ mod compact_tests {
         let operation = hub.start("math preparation");
         let context = operation.context();
         let _entered = context.enter();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let support = body
             .prepare_support(&[0], &[Y, X], DerivativeOrder::First, &cancel)
             .unwrap();

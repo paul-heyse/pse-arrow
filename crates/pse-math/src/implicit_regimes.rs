@@ -59,7 +59,7 @@ pub struct RegimeFactory {
     /// Total wall-clock allowance shared by all alternative solves.
     pub time_limit: Duration,
     /// Outer cancellation owner for providers created without a scope.
-    pub cancel: Arc<AtomicBool>,
+    pub cancel: pse_diagnostics::Cancellation,
     /// Validated mathematics injected alongside the numerical root solver.
     pub verifier: Option<Arc<dyn super::SelectionVerifier>>,
 }
@@ -168,6 +168,7 @@ impl RegimeFactory {
         )
         .map_err(super::provider_error)?;
         selection.verifier = self.verifier.clone();
+        selection.control = Some(scope.cancellation_control().clone());
         selection.scope = Some(scope.clone());
         scope.check()?;
         Ok(selection)
@@ -252,9 +253,10 @@ impl pse_kernels::Provider for SelectedProvider {
                 "regime selection requires its admitted outer cancellation owner".into(),
             ));
         }
+        let control = self.selection.execution_control().map_err(super::provider_error)?.clone();
         let selected = self
             .selection
-            .evaluate(inputs, request.order, &self.cancel)
+            .evaluate(inputs, request.order, &control)
             .map_err(super::provider_error)?;
         let values = pse_kernels::ProviderValues {
             values: request
@@ -344,7 +346,7 @@ mod tests {
             problem: Arc<Problem>,
             _: &[f64],
             options: &Options,
-            _: &Arc<AtomicBool>,
+            _: &pse_diagnostics::Cancellation,
         ) -> Result<Vec<f64>, MathError> {
             if self.fail == Some(problem.id) {
                 return Err(MathError::Domain {
@@ -596,36 +598,37 @@ mod tests {
     }
     #[test]
     fn implicit_regimes_group_proof_keeps_failed_rival_and_reuses_neighborhood() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let (mut selected, calls) = group_selection(None, false);
         fail_rival(&mut selected);
         // Value-only operational selection still cannot erase a failed rival.
         assert!(matches!(
-            selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
+            selected.evaluate(&[-2.], DerivativeOrder::Value, &control),
             Err(MathError::Domain {
                 requirement: "controlled nonconvergence",
                 ..
             })
         ));
         let first = selected
-            .evaluate(&[-2.], DerivativeOrder::First, &cancel)
+            .evaluate(&[-2.], DerivativeOrder::First, &control)
             .unwrap();
         assert_eq!(first.values, vec![-1.]);
         assert_eq!((first.examined, first.eligible), (2, 1));
         assert_eq!(calls.load(Ordering::Relaxed), 1);
         selected
-            .evaluate(&[-1.99], DerivativeOrder::Value, &cancel)
+            .evaluate(&[-1.99], DerivativeOrder::Value, &control)
             .unwrap();
         selected
-            .evaluate(&[-1.98], DerivativeOrder::First, &cancel)
-            .unwrap();
-        assert_eq!(calls.load(Ordering::Relaxed), 1);
-        selected
-            .evaluate(&[-1.98], DerivativeOrder::Second, &cancel)
+            .evaluate(&[-1.98], DerivativeOrder::First, &control)
             .unwrap();
         assert_eq!(calls.load(Ordering::Relaxed), 1);
         selected
-            .evaluate(&[-1.5], DerivativeOrder::Second, &cancel)
+            .evaluate(&[-1.98], DerivativeOrder::Second, &control)
+            .unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        selected
+            .evaluate(&[-1.5], DerivativeOrder::Second, &control)
             .unwrap();
         assert_eq!(calls.load(Ordering::Relaxed), 2);
         // Exact physical domains of even a failed rival invalidate the cached chart.
@@ -642,7 +645,7 @@ mod tests {
             None,
         );
         selected
-            .evaluate(&[-1.5], DerivativeOrder::Second, &cancel)
+            .evaluate(&[-1.5], DerivativeOrder::Second, &control)
             .unwrap();
         assert_eq!(calls.load(Ordering::Relaxed), 3);
         let program = selected.alternatives[1].isolation.as_ref().unwrap();
@@ -652,7 +655,7 @@ mod tests {
         ));
         selected.alternatives[1].isolation = Some(Arc::new(changed));
         selected
-            .evaluate(&[-1.5], DerivativeOrder::Second, &cancel)
+            .evaluate(&[-1.5], DerivativeOrder::Second, &control)
             .unwrap();
         assert_eq!(calls.load(Ordering::Relaxed), 4);
         selected.alternatives[1].solver = super::super::SolverWorker::new(&Roots {
@@ -660,7 +663,7 @@ mod tests {
             wrong: false,
         });
         assert!(matches!(
-            selected.evaluate(&[2.], DerivativeOrder::Second, &cancel),
+            selected.evaluate(&[2.], DerivativeOrder::Second, &control),
             Err(MathError::Provider {
                 cause: pse_kernels::ProviderError::RegimeCrossing { .. },
                 ..
@@ -674,26 +677,26 @@ mod tests {
             wrong: true,
         });
         assert!(matches!(
-            selected.evaluate(&[-1.5], DerivativeOrder::Second, &cancel),
+            selected.evaluate(&[-1.5], DerivativeOrder::Second, &control),
             Err(MathError::Domain {
                 requirement: "inner root did not satisfy original residual budgets",
                 ..
             })
         ));
         assert_eq!(calls.load(Ordering::Relaxed), 4);
-        cancel.store(true, Ordering::Release);
+        control.cancel();
         assert!(matches!(
-            selected.evaluate(&[-1.5], DerivativeOrder::Second, &cancel),
+            selected.evaluate(&[-1.5], DerivativeOrder::Second, &control),
             Err(MathError::Cancelled)
         ));
         assert_eq!(calls.load(Ordering::Relaxed), 4);
     }
     #[test]
     fn implicit_regimes_group_proof_does_not_require_regular_losing_roots() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         let mut operational = selection_with_singular_rival([true, true], true);
         assert!(matches!(
-            operational.evaluate(&[-2.], DerivativeOrder::First, &cancel),
+            operational.evaluate(&[-2.], DerivativeOrder::First, &control),
             Err(MathError::Domain { .. })
         ));
         let (mut selected, calls) = group_selection(None, false);
@@ -711,7 +714,7 @@ mod tests {
         projection.residuals = vec![projection.nodes.len() - 1];
         selected.alternatives[1].isolation = Some(Arc::new(projection));
         let result = selected
-            .evaluate(&[-2.], DerivativeOrder::Second, &cancel)
+            .evaluate(&[-2.], DerivativeOrder::Second, &control)
             .unwrap();
         assert_eq!(result.values, vec![-1.]);
         assert_eq!(result.jacobian, vec![0.]);
@@ -739,12 +742,13 @@ mod tests {
             problem: Arc<Problem>,
             _: &[f64],
             _: &Options,
-            cancel: &Arc<AtomicBool>,
+            cancel: &pse_diagnostics::Cancellation,
         ) -> Result<Vec<f64>, MathError> {
+        let control = cancel;
             match self.0 {
                 "resource" => Err(MathError::Limit("controlled root resources")),
                 "cancel" => {
-                    cancel.store(true, Ordering::Release);
+                    control.cancel();
                     Err(MathError::Domain {
                         source_id: problem.id,
                         requirement: "cancelled iterate",
@@ -759,10 +763,10 @@ mod tests {
     #[test]
     fn implicit_regimes_group_proposals_propagate_fatal_errors_without_proof() {
         for failure in ["resource", "cancel", "internal"] {
-            let cancel = Arc::new(AtomicBool::new(false));
+            let control = pse_diagnostics::Cancellation::new(false);
             let (mut selected, calls) = group_selection(None, false);
             selected.alternatives[1].solver = super::super::SolverWorker::new(&FatalRoots(failure));
-            let result = selected.evaluate(&[-2.], DerivativeOrder::First, &cancel);
+            let result = selected.evaluate(&[-2.], DerivativeOrder::First, &control);
             match failure {
                 "resource" => assert!(matches!(
                     result,
@@ -774,7 +778,7 @@ mod tests {
             assert_eq!(calls.load(Ordering::Relaxed), 0);
             assert!(selected.chart.is_none());
         }
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::default();
         let (mut selected, calls) = group_selection(None, false);
         fail_rival(&mut selected);
         let winner = &mut selected.alternatives[0];
@@ -783,7 +787,7 @@ mod tests {
             wrong: false,
         });
         assert!(matches!(
-            selected.evaluate(&[-2.], DerivativeOrder::First, &cancel),
+            selected.evaluate(&[-2.], DerivativeOrder::First, &control),
             Err(MathError::Domain {
                 requirement: "controlled nonconvergence",
                 ..
@@ -793,7 +797,7 @@ mod tests {
     }
     #[test]
     fn implicit_regimes_partial_proof_admission_refuses_local_demand() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         for missing_projection in [false, true] {
             let (mut selected, calls) = group_selection(None, false);
             if missing_projection {
@@ -803,13 +807,13 @@ mod tests {
             }
             assert_eq!(
                 selected
-                    .evaluate(&[-2.], DerivativeOrder::Value, &cancel)
+                    .evaluate(&[-2.], DerivativeOrder::Value, &control)
                     .unwrap()
                     .values,
                 vec![-1.]
             );
             assert!(matches!(
-                selected.evaluate(&[-2.], DerivativeOrder::First, &cancel),
+                selected.evaluate(&[-2.], DerivativeOrder::First, &control),
                 Err(MathError::Contract(_))
             ));
             assert_eq!(calls.load(Ordering::Relaxed), 0);
@@ -817,7 +821,7 @@ mod tests {
     }
     #[test]
     fn implicit_regimes_group_proof_refusals_and_cache_extent_are_bounded() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         for (refusal, oversized) in [
             (Some(super::super::SelectionProofRefusal::Resource), false),
             (None, true),
@@ -825,7 +829,7 @@ mod tests {
             let (mut selected, calls) = group_selection(refusal, oversized);
             for _ in 0..2 {
                 assert!(matches!(
-                    selected.evaluate(&[-2.], DerivativeOrder::First, &cancel),
+                    selected.evaluate(&[-2.], DerivativeOrder::First, &control),
                     Err(MathError::Limit(_))
                 ));
                 assert!(selected.chart.is_none());
@@ -835,13 +839,13 @@ mod tests {
     }
     #[test]
     fn implicit_regimes_choose_verified_eligible_minimum_and_refuse_ties() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         let mut selected = selection([true, true]);
         let negative = selected
-            .evaluate(&[-2.], DerivativeOrder::Value, &cancel)
+            .evaluate(&[-2.], DerivativeOrder::Value, &control)
             .unwrap();
         let positive = selected
-            .evaluate(&[2.], DerivativeOrder::Value, &cancel)
+            .evaluate(&[2.], DerivativeOrder::Value, &control)
             .unwrap();
         assert_eq!(negative.values, vec![-1.]);
         assert_eq!(positive.values, vec![1.]);
@@ -849,20 +853,20 @@ mod tests {
         assert_eq!(positive.examined, 2);
         assert_eq!(positive.eligible, 2);
         assert!(matches!(
-            selected.evaluate(&[0.], DerivativeOrder::Value, &cancel),
+            selected.evaluate(&[0.], DerivativeOrder::Value, &control),
             Err(MathError::Domain {
                 requirement: "implicit regime selection is tied within physical tolerance",
                 ..
             })
         ));
         let jet = selected
-            .evaluate(&[2.], DerivativeOrder::Second, &cancel)
+            .evaluate(&[2.], DerivativeOrder::Second, &control)
             .unwrap();
         assert_eq!(jet.jacobian, vec![0.0]);
         assert_eq!(jet.hessians, vec![0.0]);
         for order in [DerivativeOrder::First, DerivativeOrder::Value] {
             assert!(matches!(
-                selected.evaluate(&[-2.], order, &cancel),
+                selected.evaluate(&[-2.], order, &control),
                 Err(MathError::Provider {
                     cause: pse_kernels::ProviderError::RegimeCrossing { bound, selected: crossed, .. },
                     ..
@@ -872,7 +876,7 @@ mod tests {
         let mut filtered = selection([true, false]);
         assert_eq!(
             filtered
-                .evaluate(&[2.], DerivativeOrder::Value, &cancel)
+                .evaluate(&[2.], DerivativeOrder::Value, &control)
                 .unwrap()
                 .values,
             vec![-1.]
@@ -880,7 +884,7 @@ mod tests {
     }
     #[test]
     fn implicit_regimes_refuse_incomplete_or_invalid_candidate_evidence() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         let mut selected = selection([true, true]);
         let failed = selected.alternatives[1].problem.id;
         selected.alternatives[1].solver = super::super::SolverWorker::new(&Roots {
@@ -888,7 +892,7 @@ mod tests {
             wrong: false,
         });
         assert!(matches!(
-            selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
+            selected.evaluate(&[-2.], DerivativeOrder::Value, &control),
             Err(MathError::Domain {
                 requirement: "controlled nonconvergence",
                 ..
@@ -899,7 +903,7 @@ mod tests {
             wrong: true,
         });
         assert!(matches!(
-            selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
+            selected.evaluate(&[-2.], DerivativeOrder::Value, &control),
             Err(MathError::Domain {
                 requirement: "inner root did not satisfy original residual budgets",
                 ..
@@ -907,7 +911,7 @@ mod tests {
         ));
         let mut empty = selection([false, false]);
         assert!(matches!(
-            empty.evaluate(&[2.], DerivativeOrder::Value, &cancel),
+            empty.evaluate(&[2.], DerivativeOrder::Value, &control),
             Err(MathError::Domain {
                 requirement: "no eligible implicit regime",
                 ..
@@ -915,12 +919,12 @@ mod tests {
         ));
         selected.time_limit = Duration::from_nanos(1);
         assert!(matches!(
-            selected.evaluate(&[2.], DerivativeOrder::Value, &cancel),
+            selected.evaluate(&[2.], DerivativeOrder::Value, &control),
             Err(MathError::Limit(_))
         ));
-        cancel.store(true, Ordering::Release);
+        control.cancel();
         assert!(matches!(
-            empty.evaluate(&[2.], DerivativeOrder::Value, &cancel),
+            empty.evaluate(&[2.], DerivativeOrder::Value, &control),
             Err(MathError::Cancelled)
         ));
     }
@@ -947,7 +951,7 @@ mod tests {
             _: Arc<Problem>,
             parameters: &[f64],
             options: &Options,
-            _: &Arc<AtomicBool>,
+            _: &pse_diagnostics::Cancellation,
         ) -> Result<Vec<f64>, MathError> {
             self.calls.fetch_add(1, Ordering::Relaxed);
             Ok(vec![match self.mode {
@@ -995,7 +999,8 @@ mod tests {
     }
     #[test]
     fn selected_products_promote_without_proposal_or_exclusion_replay_and_accuracy_is_separate() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let (mut selected, proofs) = group_selection(None, false);
         let proposals = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         for regime in &mut selected.alternatives {
@@ -1015,7 +1020,7 @@ mod tests {
             DerivativeOrder::Second,
             DerivativeOrder::First,
         ] {
-            selected.evaluate(&[-2.0], order, &cancel).unwrap();
+            selected.evaluate(&[-2.0], order, &control).unwrap();
         }
         assert_eq!(proposals.load(Ordering::Relaxed), 2);
         assert_eq!(proofs.load(Ordering::Relaxed), 1);
@@ -1032,13 +1037,13 @@ mod tests {
             None,
         );
         selected
-            .evaluate(&[-2.0], DerivativeOrder::Second, &cancel)
+            .evaluate(&[-2.0], DerivativeOrder::Second, &control)
             .unwrap();
         assert_eq!(proposals.load(Ordering::Relaxed), 3);
         assert_eq!(proofs.load(Ordering::Relaxed), 1);
         let original_sheet = selected.sheet;
         selected
-            .evaluate(&[-1.9], DerivativeOrder::Second, &cancel)
+            .evaluate(&[-1.9], DerivativeOrder::Second, &control)
             .unwrap();
         assert_eq!(proposals.load(Ordering::Relaxed), 4);
         assert_eq!(proofs.load(Ordering::Relaxed), 1);
@@ -1056,7 +1061,7 @@ mod tests {
         projection.criterion[1] = projection.nodes.len() - 1;
         selected.alternatives[0].isolation = Some(Arc::new(projection));
         selected
-            .evaluate(&[-1.9], DerivativeOrder::Second, &cancel)
+            .evaluate(&[-1.9], DerivativeOrder::Second, &control)
             .unwrap();
         assert_eq!(proposals.load(Ordering::Relaxed), 6);
         assert_eq!(proofs.load(Ordering::Relaxed), 2);
@@ -1262,21 +1267,21 @@ mod tests {
     }
     #[test]
     fn selected_sheet_moves_with_uniform_chart_and_certified_common_anchor() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         let (mut selected, proposals, proofs) = one_regime(true);
         let first = selected
-            .evaluate(&[0.0], DerivativeOrder::First, &cancel)
+            .evaluate(&[0.0], DerivativeOrder::First, &control)
             .unwrap();
         assert_eq!(first.jacobian, [1.0]);
         let sheet = selected.sheet;
         let nearby = selected
-            .evaluate(&[0.1], DerivativeOrder::First, &cancel)
+            .evaluate(&[0.1], DerivativeOrder::First, &control)
             .unwrap();
         assert_eq!(nearby.values, [0.1]);
         assert_eq!(nearby.jacobian, [1.0]);
         assert_eq!(proofs.load(Ordering::Relaxed), 1);
         let bridged = selected
-            .evaluate(&[0.3], DerivativeOrder::First, &cancel)
+            .evaluate(&[0.3], DerivativeOrder::First, &control)
             .unwrap();
         assert_eq!(bridged.values, [0.3]);
         assert_eq!(selected.sheet, sheet);
@@ -1285,14 +1290,14 @@ mod tests {
     }
     #[test]
     fn finite_chart_chain_transports_sheet_without_replaying_unchanged_exclusion() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         let (mut selected, proposals, proofs) = one_regime(true);
         selected
-            .evaluate(&[0.0], DerivativeOrder::First, &cancel)
+            .evaluate(&[0.0], DerivativeOrder::First, &control)
             .unwrap();
         let sheet = selected.sheet;
         let endpoint = selected
-            .evaluate(&[1.0], DerivativeOrder::First, &cancel)
+            .evaluate(&[1.0], DerivativeOrder::First, &control)
             .unwrap();
         assert_eq!(endpoint.values, [1.0]);
         assert_eq!(endpoint.jacobian, [1.0]);
@@ -1309,24 +1314,24 @@ mod tests {
         assert_eq!(proposals.load(Ordering::Relaxed), 2);
         assert_eq!(proofs.load(Ordering::Relaxed), 2);
         selected
-            .evaluate(&[1.0], DerivativeOrder::First, &cancel)
+            .evaluate(&[1.0], DerivativeOrder::First, &control)
             .unwrap();
         assert_eq!(proposals.load(Ordering::Relaxed), 2);
         assert_eq!(proofs.load(Ordering::Relaxed), 2);
     }
     #[test]
     fn root_sheet_chain_does_not_satisfy_selected_function_coverage() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         let (mut selected, _, _) = one_regime(true);
         selected
             .require_transport_coverage(super::super::ChartChainCoverage::SelectedFunction)
             .unwrap();
         let first = selected
-            .evaluate(&[0.0], DerivativeOrder::First, &cancel)
+            .evaluate(&[0.0], DerivativeOrder::First, &control)
             .unwrap();
         let chart = selected.chart.clone().unwrap();
         assert!(matches!(
-            selected.evaluate(&[1.0], DerivativeOrder::First, &cancel),
+            selected.evaluate(&[1.0], DerivativeOrder::First, &control),
             Err(MathError::Domain {
                 requirement: "selected root chart-chain coverage is not certified",
                 ..
@@ -1349,15 +1354,15 @@ mod tests {
     }
     #[test]
     fn disjoint_winners_in_one_regime_do_not_establish_selected_sheet_continuity() {
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
         let (mut selected, _, _) = one_regime(false);
         let first = selected
-            .evaluate(&[-1.0], DerivativeOrder::First, &cancel)
+            .evaluate(&[-1.0], DerivativeOrder::First, &control)
             .unwrap();
         let sheet = selected.sheet;
         let chart = selected.chart.clone().unwrap();
         assert!(matches!(
-            selected.evaluate(&[1.0], DerivativeOrder::First, &cancel),
+            selected.evaluate(&[1.0], DerivativeOrder::First, &control),
             Err(MathError::Domain {
                 requirement: "selected root chart-chain overlap is not certified",
                 ..
@@ -1390,7 +1395,7 @@ mod tests {
                 "selected root chart-chain overlap is not certified",
             ),
         ] {
-            let cancel = Arc::new(AtomicBool::new(false));
+            let control = pse_diagnostics::Cancellation::new(false);
             let (mut selected, _, proofs) = one_regime(true);
             selected.verifier = Some(Arc::new(UniformProof {
                 moving: true,
@@ -1398,11 +1403,11 @@ mod tests {
                 chain_refusal: Some(reason),
             }));
             selected
-                .evaluate(&[0.0], DerivativeOrder::First, &cancel)
+                .evaluate(&[0.0], DerivativeOrder::First, &control)
                 .unwrap();
             let source = selected.id;
             assert!(matches!(
-                selected.evaluate(&[1.0], DerivativeOrder::First, &cancel),
+                selected.evaluate(&[1.0], DerivativeOrder::First, &control),
                 Err(MathError::Domain { source_id, requirement: observed })
                     if source_id == source && observed == requirement
             ));
@@ -1508,6 +1513,7 @@ pub struct RegimeSelection {
     derivative_branch: Option<SemanticId>,
     verifier: Option<Arc<dyn super::SelectionVerifier>>,
     scope: Option<pse_kernels::ExecutionScope>,
+    control: Option<pse_diagnostics::Cancellation>,
     chart: Option<super::SelectionChart>,
     chart_bytes: usize,
     chain_coverage: super::ChartChainCoverage,
@@ -1581,6 +1587,7 @@ impl RegimeSelection {
             derivative_branch: None,
             verifier: None,
             scope: None,
+            control: None,
             chart: None,
             chart_bytes,
             chain_coverage: super::ChartChainCoverage::RootSheet,
@@ -1608,6 +1615,9 @@ impl RegimeSelection {
         }
         self.chain_coverage = coverage;
         Ok(())
+    }
+    pub(super) fn execution_control(&self) -> Result<&pse_diagnostics::Cancellation, MathError> {
+        self.control.as_ref().ok_or_else(|| MathError::Contract("regime selection has no originating execution control".into()))
     }
     /// Actual most recent chain proof, separate from endpoint selection and accuracy.
     pub fn chart_chain_proof(&self) -> Option<super::ChartChainProof> {
@@ -1645,10 +1655,11 @@ impl RegimeSelection {
         &mut self,
         parameters: &[f64],
         direction: &[f64],
-        cancel: &Arc<AtomicBool>,
+        control: &pse_diagnostics::Cancellation,
     ) -> Result<super::RootActionEvidence, MathError> {
+        let cancel = &control.flag();
         let started = Instant::now();
-        let selected = self.evaluate(parameters, DerivativeOrder::First, cancel)?;
+        let selected = self.evaluate(parameters, DerivativeOrder::First, control)?;
         let chart = self.chart.as_ref().ok_or_else(|| {
             MathError::Contract("selected action requires an original verified root chart".into())
         })?;
@@ -2204,10 +2215,11 @@ impl RegimeSelection {
             .min(deadline.saturating_duration_since(Instant::now()));
         configurations[winner] = options.clone();
         let actual_key = self.product_key(parameters, &configurations);
+        let control = self.execution_control()?.clone();
         let r = &mut self.alternatives[winner];
         let point = r
             .solver
-            .solve(r.problem.clone(), parameters, &options, cancel)?;
+            .solve(r.problem.clone(), parameters, &options, &control)?;
         r.problem.verify(parameters, &point, &options, cancel)?;
         if point
             .iter()
@@ -2331,8 +2343,15 @@ impl RegimeSelection {
         &mut self,
         parameters: &[f64],
         order: DerivativeOrder,
-        cancel: &Arc<AtomicBool>,
+        control: &pse_diagnostics::Cancellation,
     ) -> Result<SelectedRegime, MathError> {
+        if let Some(scope) = &self.scope {
+            if !Arc::ptr_eq(scope.cancellation(), &control.flag()) {
+                return Err(MathError::Contract("regime selection execution control differs from its scope".into()));
+            }
+        }
+        self.control = Some(control.clone());
+        let cancel = &control.flag();
         let before = self.observed_chain;
         let result = observed!("implicit.selection", {
             self.chain_work = None;
@@ -2407,6 +2426,7 @@ impl RegimeSelection {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<SelectedRegime, MathError> {
+        let control = self.execution_control()?.clone();
         let deadline = Instant::now()
             .checked_add(self.time_limit)
             .ok_or(MathError::Limit("implicit regime deadline"))?;
@@ -2525,7 +2545,7 @@ impl RegimeSelection {
                 .unwrap_or_else(|| {
                     regime
                         .solver
-                        .solve(regime.problem.clone(), parameters, options, cancel)
+                        .solve(regime.problem.clone(), parameters, options, &control)
                 })
                 .and_then(|point| {
                     checkpoint()?;
@@ -2978,6 +2998,7 @@ impl RegimeSelection {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<SelectedRegime, MathError> {
+        let control = self.execution_control()?.clone();
         let deadline = Instant::now()
             .checked_add(self.time_limit)
             .ok_or(MathError::Limit("implicit regime deadline"))?;
@@ -3044,7 +3065,7 @@ impl RegimeSelection {
                 Some(point) => point,
                 None => regime
                     .solver
-                    .solve(regime.problem.clone(), parameters, options, cancel)?,
+                    .solve(regime.problem.clone(), parameters, options, &control)?,
             };
             proposals[index] = Some(point.clone());
             checkpoint()?;

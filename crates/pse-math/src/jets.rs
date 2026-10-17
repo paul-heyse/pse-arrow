@@ -13,6 +13,50 @@ use symbolica::{
     evaluate::ExpressionEvaluator,
 };
 
+/// Mathematical output actually consumed by an admitted evaluator.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ProductKind {
+    /// Selected values and coordinate partials through the requested order.
+    SelectedPartials,
+    /// One first directional action with runtime coordinate seeds.
+    JacobianAction,
+    /// Lower sparse Hessian of a runtime-weighted output sum.
+    WeightedHessian,
+    /// Hessian of a runtime-weighted output sum applied to a runtime direction.
+    WeightedHessianAction,
+}
+/// Runtime bindings in the immutable product's selected output/coordinate order.
+#[derive(Clone, Copy, Debug)]
+pub enum ProductValues<'a> {
+    /// No weights or direction are consumed.
+    SelectedPartials,
+    /// Direction entries correspond to selected derivative coordinates.
+    JacobianAction {
+        /// Ordered derivative-coordinate seeds.
+        direction: &'a [f64] },
+    /// Weights correspond to selected output ordinals.
+    WeightedHessian {
+        /// Ordered selected-output coefficients.
+        weights: &'a [f64] },
+    /// Weights and direction are independent runtime bindings.
+    WeightedHessianAction {
+        /// Ordered selected-output coefficients.
+        weights: &'a [f64],
+        /// Ordered derivative-coordinate seeds.
+        direction: &'a [f64] },
+}
+impl ProductValues<'_> {
+    /// Product identity, independent of the numerical binding values.
+    pub fn kind(self) -> ProductKind {
+        match self {
+            Self::SelectedPartials => ProductKind::SelectedPartials,
+            Self::JacobianAction { .. } => ProductKind::JacobianAction,
+            Self::WeightedHessian { .. } => ProductKind::WeightedHessian,
+            Self::WeightedHessianAction { .. } => ProductKind::WeightedHessianAction,
+        }
+    }
+}
+
 /// Explicit resource allowance for one compiled body and its worker.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct EvaluationLimits {

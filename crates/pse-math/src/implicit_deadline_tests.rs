@@ -33,7 +33,7 @@ impl InnerWorker for Root {
         _: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
-        _: &Arc<AtomicBool>,
+        _: &pse_diagnostics::Cancellation,
     ) -> Result<Vec<f64>, MathError> {
         self.calls.fetch_add(1, Ordering::Relaxed);
         self.allowances.lock().unwrap().push(options.time_limit);
@@ -48,7 +48,8 @@ fn factory(delay: Duration) -> (Factory, Arc<AtomicUsize>, Arc<Mutex<Vec<Duratio
     let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
     let id = pse_ids::named_id(SemanticId::NIL, "deadline-root");
     let unknown = pse_ids::named_id(id, "unknown");
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut builder = BodyBuilder::new(
         crate::initialize().unwrap(),
         &registry,
@@ -125,7 +126,7 @@ fn factory(delay: Duration) -> (Factory, Arc<AtomicUsize>, Arc<Mutex<Vec<Duratio
             allowances: allowances.clone(),
             delay,
         }),
-        cancel,
+        cancel: control.clone(),
         max_entries: 100,
         providers: BTreeMap::new(),
     };
@@ -140,8 +141,8 @@ fn implicit_outer_deadline_expiry_avoids_native_and_remains_distinct_from_cancel
         factory.create_scoped(scope.clone()),
         Err(pse_kernels::ProviderError::Deadline)
     ));
-    assert!(!flag.load(Ordering::Acquire));
-    flag.store(true, Ordering::Release);
+    assert!(!flag.is_cancelled());
+    flag.cancel();
     assert!(matches!(
         factory.create_scoped(scope),
         Err(pse_kernels::ProviderError::Cancelled)
@@ -155,7 +156,7 @@ fn implicit_outer_deadline_caps_local_allowance_and_cannot_be_renewed_by_evaluat
     let scope = ExecutionScope::new(factory.cancel.clone(), Some(deadline));
     let mut worker = factory.create_scoped(scope).unwrap();
     let context = pse_kernels::EvaluationContext {
-        cancelled: &factory.cancel,
+        cancelled: &factory.cancel.flag(),
         max_result_bytes: 128,
     };
     let request = pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value);
@@ -172,7 +173,7 @@ fn implicit_outer_deadline_caps_local_allowance_and_cannot_be_renewed_by_evaluat
         Err(pse_kernels::ProviderError::Deadline)
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
-    assert!(!factory.cancel.load(Ordering::Acquire));
+    assert!(!factory.cancel.is_cancelled());
 }
 #[test]
 fn implicit_outer_deadline_rejects_late_positive_native_result() {
@@ -183,7 +184,7 @@ fn implicit_outer_deadline_rejects_late_positive_native_result() {
     );
     let mut worker = factory.create_scoped(scope).unwrap();
     let context = pse_kernels::EvaluationContext {
-        cancelled: &factory.cancel,
+        cancelled: &factory.cancel.flag(),
         max_result_bytes: 128,
     };
     let request = pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value);
@@ -193,7 +194,7 @@ fn implicit_outer_deadline_rejects_late_positive_native_result() {
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
     assert!(allowances.lock().unwrap()[0] <= Duration::from_millis(40));
-    assert!(!factory.cancel.load(Ordering::Acquire));
+    assert!(!factory.cancel.is_cancelled());
 }
 
 #[test]
@@ -213,7 +214,7 @@ fn observation_distinguishes_actual_inner_attempt_from_reused_product_and_origin
             .unwrap();
         assert_eq!(calls.load(Ordering::Relaxed), 0);
         let context = pse_kernels::EvaluationContext {
-            cancelled: &factory.cancel,
+            cancelled: &factory.cancel.flag(),
             max_result_bytes: 128,
         };
         let request = pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value);

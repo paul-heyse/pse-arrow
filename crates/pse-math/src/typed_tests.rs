@@ -538,7 +538,8 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
         residual.quantity().unwrap(),
         ids::quantity("temperature.difference")
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut body = builder
         .finish(
             &[residual],
@@ -1138,7 +1139,8 @@ fn body_construction_allowance_can_be_explicitly_larger_than_default() {
             ));
         } else {
             assert!(failure.is_none());
-            let cancel = Arc::new(AtomicBool::new(false));
+            let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
             let mut worker = builder
                 .finish(
                     &[value],
@@ -1160,7 +1162,8 @@ fn body_construction_allowance_can_be_explicitly_larger_than_default() {
 #[test]
 fn shared_nonlinear_coefficients_preserve_affine_rate_support() {
     let registry = standard_registry().unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     for nonlinear_rate in [false, true] {
         let mut builder = BodyBuilder::new(
             crate::initialize().unwrap(),
@@ -1249,7 +1252,8 @@ fn shared_nonlinear_coefficients_preserve_affine_rate_support() {
 fn exponential_of_nested_logarithms_preserves_values_and_derivatives() {
     crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     for fixed in [false, true] {
         let mut b = BodyBuilder::new(
             crate::initialize().unwrap(),
@@ -1369,7 +1373,8 @@ fn shared_aliases_reuse_slots_but_partial_arguments_remain_independent() {
         .unwrap();
     let derivative = builder.partial(scope, product, &[a], source()).unwrap();
     let body = builder.prepare(&[derivative]).unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let compiled = body
         .compile(
             &[0],

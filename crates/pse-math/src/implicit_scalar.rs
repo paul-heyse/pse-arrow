@@ -69,8 +69,10 @@ impl InnerWorker for BracketedRoot {
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
     ) -> Result<Vec<f64>, MathError> {
+        let control = cancel;
+        let cancel = &control.flag();
         problem.validate_options(options)?;
         if problem.unknowns.len() != 1
             || parameters.len() != self.parameters

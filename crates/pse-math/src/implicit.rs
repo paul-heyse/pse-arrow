@@ -713,7 +713,7 @@ pub trait InnerWorker: std::fmt::Debug + Send {
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
     ) -> Result<Vec<f64>, MathError>;
 }
 
@@ -737,7 +737,7 @@ impl SolverWorker {
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
     ) -> Result<Vec<f64>, MathError> {
         let parent = pse_diagnostics::observation::current();
         let guard = parent.as_ref().map(|context| {
@@ -884,7 +884,7 @@ pub struct Factory {
     /// Injected native solver.
     pub solver: Arc<dyn InnerSolver>,
     /// Outer cancellation owner for providers created without a scope.
-    pub cancel: Arc<AtomicBool>,
+    pub cancel: pse_diagnostics::Cancellation,
     /// Bound on implicit derivative entries.
     pub max_entries: usize,
     /// External provider registrations the residual body calls.
@@ -1344,7 +1344,7 @@ impl Nested {
             }
             None => self
                 .solver
-                .solve(self.problem.clone(), inputs, &options, &self.cancel)
+                .solve(self.problem.clone(), inputs, &options, self.scope.cancellation_control())
                 .map_err(provider_error)?,
         };
         self.scope
@@ -1470,7 +1470,8 @@ mod tests {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let quantity = registry.neutral_dimensionless().unwrap();
         let id = SemanticId::from_bytes([96; 16]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let mut builder = crate::typed::BodyBuilder::new(
             crate::initialize().unwrap(),
             &registry,
@@ -1784,7 +1785,7 @@ mod tests {
             _: Arc<Problem>,
             parameters: &[f64],
             _: &Options,
-            _: &Arc<AtomicBool>,
+            _: &pse_diagnostics::Cancellation,
         ) -> Result<Vec<f64>, MathError> {
             self.0.fetch_add(1, Ordering::Relaxed);
             Ok(vec![parameters[0]])
@@ -1797,7 +1798,8 @@ mod tests {
         let q = registry.neutral_dimensionless().unwrap();
         let unit = registry.quantity_type(q).unwrap().canonical_unit;
         let id = SemanticId::from_bytes([95; 16]);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let mut builder = crate::typed::BodyBuilder::new(
             crate::initialize().unwrap(),
             &registry,
@@ -1873,11 +1875,11 @@ mod tests {
             hints: None,
             terms: None,
             solver: Arc::new(CountedLinear(calls.clone())),
-            cancel: cancel.clone(),
+            cancel: control.clone(),
             max_entries: 100,
             providers: BTreeMap::new(),
         };
-        let admitted = pse_kernels::ExecutionScope::new(cancel.clone(), None)
+        let admitted = pse_kernels::ExecutionScope::new(control.clone(), None)
             .with_admitted_threads(std::num::NonZeroUsize::new(2).unwrap());
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
@@ -2016,7 +2018,7 @@ mod tests {
         }
         assert_eq!(calls.load(Ordering::Relaxed), 6);
         let problem = factory
-            .problem(pse_kernels::ExecutionScope::new(cancel.clone(), None))
+            .problem(pse_kernels::ExecutionScope::new(control.clone(), None))
             .unwrap();
         let key = numerical_product_key(&problem, &[2.0], &options, factory.solver.identity());
         let mut tighter = options;
@@ -2051,7 +2053,8 @@ mod tests {
         let residual = builder
             .binary(crate::typed::Binary::Sub, square, p, None, id)
             .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let body = Arc::new(
             builder
                 .finish(
@@ -2144,7 +2147,7 @@ mod tests {
                 .evaluate(&[16.0], &[4.0], DerivativeOrder::Value, &cancel)
                 .is_err()
         );
-        cancel.store(true, Ordering::Release);
+        control.cancel();
         assert!(matches!(
             problem.evaluate(&[4.0], &[2.0], DerivativeOrder::Value, &cancel),
             Err(MathError::Cancelled)

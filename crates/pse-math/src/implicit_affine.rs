@@ -73,8 +73,10 @@ impl InnerWorker for Affine {
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
     ) -> Result<Vec<f64>, MathError> {
+        let control = cancel;
+        let cancel = &control.flag();
         problem.validate_options(options)?;
         if problem.unknowns.len() != self.unknowns || parameters.len() != self.inputs {
             return Err(MathError::Contract("affine coordinate extent".into()));
@@ -150,7 +152,8 @@ mod tests {
             DerivativeOrder::Second,
         )
         .unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let solver = Accelerators::standard()
             .admit(
                 "affine",
@@ -211,7 +214,7 @@ mod tests {
             [(1.0, 0.5, -0.25, 0.25), (3.0, 0.25, -0.0625, 0.03125)]
         {
             let root = worker
-                .solve(problem.clone(), &[parameter], &options, &cancel)
+                .solve(problem.clone(), &[parameter], &options, &control)
                 .unwrap();
             let jet = problem
                 .derivatives(
@@ -234,19 +237,19 @@ mod tests {
         }
         assert!(
             worker
-                .solve(problem.clone(), &[-1.0], &options, &cancel)
+                .solve(problem.clone(), &[-1.0], &options, &control)
                 .is_err(),
             "singular original matrix"
         );
         assert!(
             worker
-                .solve(problem.clone(), &[-2.0], &options, &cancel)
+                .solve(problem.clone(), &[-2.0], &options, &control)
                 .is_err(),
             "original bound violation"
         );
-        cancel.store(true, Ordering::Release);
+        control.cancel();
         assert!(matches!(
-            worker.solve(problem, &[1.0], &options, &cancel),
+            worker.solve(problem, &[1.0], &options, &control),
             Err(MathError::Cancelled)
         ));
     }
@@ -280,7 +283,8 @@ mod tests {
         let r = b.binary(Binary::Sub, px, one, None, id).unwrap();
         let body = b.prepare(&[r]).unwrap();
         let mut solver = Affine::new(&body, 1).unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let compiled = Arc::new(
             body.compile(
                 &[0],
@@ -318,7 +322,7 @@ mod tests {
             derivative_tolerance: 1e-12,
         };
         let root = solver
-            .solve(problem.clone(), &[2.], &options, &cancel)
+            .solve(problem.clone(), &[2.], &options, &control)
             .unwrap();
         let jet = problem
             .derivatives(&[2.], &root, DerivativeOrder::Second, &options, &cancel)
@@ -328,17 +332,17 @@ mod tests {
         assert_eq!(jet.hessians, vec![0.25]);
         assert!(
             solver
-                .solve(problem.clone(), &[0.], &options, &cancel)
+                .solve(problem.clone(), &[0.], &options, &control)
                 .is_err()
         );
         assert!(
             solver
-                .solve(problem.clone(), &[-1.], &options, &cancel)
+                .solve(problem.clone(), &[-1.], &options, &control)
                 .is_err()
         );
-        cancel.store(true, Ordering::Release);
+        control.cancel();
         assert!(matches!(
-            solver.solve(problem, &[2.], &options, &cancel),
+            solver.solve(problem, &[2.], &options, &control),
             Err(MathError::Cancelled)
         ));
     }

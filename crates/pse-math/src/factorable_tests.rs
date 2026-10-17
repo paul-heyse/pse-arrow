@@ -269,7 +269,7 @@ fn assert_rows_match(
     auxiliary: impl Fn(&[f64]) -> Vec<f64>,
 ) {
     for point in points {
-        let mut worker = assembly.worker(providers(), Arc::new(AtomicBool::new(false)));
+        let mut worker = assembly.worker(providers(), pse_diagnostics::Cancellation::default());
         let values = CaseValues {
             scalars: point
                 .iter()
@@ -284,7 +284,7 @@ fn assert_rows_match(
             .map(|v| values.scalars[&v.id])
             .collect();
         let nodes = program.evaluate(&columns, &auxiliary(point)).unwrap();
-        for (row, expected) in program.rows.iter().zip(&evaluated) {
+        for (row, expected) in program.rows.iter().zip(evaluated) {
             let projected = nodes[row.expression.unwrap()];
             assert!(
                 close(projected, *expected),
@@ -770,7 +770,8 @@ fn assert_projection_budget_refusal(objective: bool) {
     );
     let values = CaseValues::default();
     let request = FactorableRequest::default();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let complete = assembly
         .factorable_program(&values, &request, 100, &cancel)
         .unwrap();
@@ -799,7 +800,7 @@ fn assert_projection_budget_refusal(objective: bool) {
             .presolve_domain_facts(&values, 100, &cancel)
             .is_ok()
     );
-    cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    control.cancel();
     assert!(matches!(
         assembly.factorable_program(&values, &request, 100, &cancel),
         Err(FactorableError::Math(MathError::Cancelled))
@@ -1102,7 +1103,7 @@ fn pcsaft_valid_guard_projects_exactly() {
         BTreeMap::new,
         |_| vec![],
     );
-    let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     let outside = CaseValues {
         scalars: BTreeMap::from([
             (id(1), 300.0),
@@ -2020,7 +2021,8 @@ fn native_power_vocabulary(program: &RootIsolationProgram) -> bool {
 
 #[test]
 fn root_isolation_projects_general_rational_powers_under_original_positive_guards() {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     for exponent in [
         Rational::new(3, 2),
         Rational::new(1, 3),
@@ -2090,7 +2092,8 @@ fn root_isolation_projects_general_rational_powers_under_original_positive_guard
 
 #[test]
 fn root_isolation_raw_dyadic_powers_preserve_zero_and_negative_power_poles() {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     for exponent in [
         Rational::new(3, 2),
         Rational::new(5, 8),
@@ -2174,7 +2177,8 @@ fn root_isolation_raw_dyadic_powers_preserve_zero_and_negative_power_poles() {
 
 #[test]
 fn root_isolation_integer_negative_base_domain_is_unchanged() {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let body = rational_power_body(&Rational::from(-3), false);
     let program = isolation_project(&body, &isolation_true(1)).unwrap();
     assert!(native_power_vocabulary(&program));

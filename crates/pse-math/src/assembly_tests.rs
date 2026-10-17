@@ -139,7 +139,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
 fn aliases_repeated_rows_isolates_and_stable_refill() {
     crate::initialize().unwrap();
     let (a, mut x) = fixture(true, false);
-    let mut w = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut w = a.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert_eq!(a.columns(), &[id(1), id(2)]);
     assert_eq!(w.objective(&x).unwrap(), 4.0);
     assert_eq!(w.gradient(&x).unwrap(), vec![4.0, 0.0]);
@@ -200,7 +200,7 @@ fn presolve_projection_keeps_alias_coefficients_and_parameter_identity() {
 fn distinct_columns_keep_one_off_diagonal_and_coefficient_views() {
     crate::initialize().unwrap();
     let (a, x) = fixture(false, false);
-    let mut w = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut w = a.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert_eq!(w.gradient(&x).unwrap(), vec![3.0, 2.0]);
     let h = w.hessian(&x, 1.0, &[0.0, 0.0]).unwrap().to_dense();
     assert_eq!(h[(1, 0)], 1.0);
@@ -300,11 +300,12 @@ fn numerical_convexity_distinguishes_psd_indefinite_and_inconclusive() {
 fn all_fixed_uses_constant_math_and_parameter_changes_reclassify() {
     crate::initialize().unwrap();
     let (a, mut x) = fixture(true, true);
-    let mut w = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut w = a.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert!(a.columns().is_empty());
     assert_eq!(w.objective(&x).unwrap(), 4.0);
     assert!(w.gradient(&x).unwrap().is_empty());
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let c = a.coefficients(&x, 100_000, &cancel).unwrap();
     assert_eq!(c.objective_constant, 4.0);
     x.scalars.insert(id(1), 3.0);
@@ -559,7 +560,8 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
         )
         .unwrap(),
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let a = Arc::new(
         Arc::new(
             CasePlan::prepare(
@@ -582,7 +584,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
     let mut values = CaseValues {
         scalars: BTreeMap::from([(id(1), 2.0), (id(2), 1.0)]),
     };
-    let mut worker = a.worker(BTreeMap::new(), cancel.clone());
+    let mut worker = a.worker(BTreeMap::new(), control.clone());
     assert_eq!(worker.objective(&values).unwrap(), 49.0);
     assert_eq!(worker.gradient(&values).unwrap(), vec![42.0]);
     assert_eq!(worker.hessian(&values, 1.0, &[0.0]).unwrap().val(), &[18.0]);
@@ -750,12 +752,13 @@ fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
 #[test]
 fn exhausted_factorable_projection_refuses_facts_and_preserves_original_evaluation() {
     let (assembly, values) = fixture(true, false);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     assert!(matches!(
         assembly.presolve_domain_facts(&values, 2, &cancel),
         Err(crate::MathError::Limit("factorable projection extent"))
     ));
-    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![20., 0.]);
     let proof_work = 10_000;
     let complete = assembly
@@ -782,7 +785,7 @@ fn exhausted_factorable_projection_refuses_facts_and_preserves_original_evaluati
             .presolve_facts(&CaseValues::default(), 2, &cancel)
             .is_err()
     );
-    cancel.store(true, std::sync::atomic::Ordering::Release);
+    control.cancel();
     assert!(matches!(
         assembly.presolve_facts(&values, 2, &cancel),
         Err(crate::MathError::Cancelled)
@@ -863,7 +866,8 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
         )
         .unwrap(),
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let plan = CasePlan::prepare(
         structure,
         BTreeMap::from([(key, body)]),
@@ -896,7 +900,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
             )
             .unwrap(),
     );
-    let mut first_worker = first_assembly.worker(BTreeMap::new(), cancel.clone());
+    let mut first_worker = first_assembly.worker(BTreeMap::new(), control.clone());
     let first_values = CaseValues {
         scalars: BTreeMap::from([(id(1), 2.), (id(2), 3.)]),
     };
@@ -937,7 +941,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
             )
             .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
     let values = CaseValues {
         scalars: BTreeMap::from([(id(1), 2.0), (id(2), 3.0)]),
     };
@@ -1078,7 +1082,8 @@ fn lexicographic_structure_projects_every_level() {
     )
     .unwrap();
     assert_ne!(tighter.key(), lexicographic.key());
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let plan = |structure: CaseStructure| {
         CasePlan::prepare(
             Arc::new(structure),
@@ -1104,7 +1109,7 @@ fn lexicographic_structure_projects_every_level() {
             )
             .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
     assert_eq!(worker.objective(&values).unwrap(), -4.0);
     let proof_work = 10_000;
     let coefficients = linear.coefficients(&values, proof_work, &cancel).unwrap();
@@ -1653,7 +1658,8 @@ fn repeated_occurrences_share_serial_scratch_and_keep_bound_caches_under_finite_
     let (original, mut values) = fixture(true, false);
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("neutral");
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut builder = BodyBuilder::new(
         crate::initialize().unwrap(),
         &registry,
@@ -1764,7 +1770,7 @@ fn repeated_occurrences_share_serial_scratch_and_keep_bound_caches_under_finite_
             .assemble(assembly.programs().to_vec())
             .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
     for (x, objective, row, gradient) in [
         (2.0, 416.0, 8320.0, 128.0),
         (5.0, 1088.0, 21760.0, 320.0),
@@ -1819,7 +1825,7 @@ fn repeated_occurrences_share_serial_scratch_and_keep_bound_caches_under_finite_
         );
     }
     // Separate attempts have separate scratch and caches even over the same assembly.
-    let mut other = assembly.worker(BTreeMap::new(), cancel);
+    let mut other = assembly.worker(BTreeMap::new(), control.clone());
     values.scalars.insert(id(1), 5.0);
     assert_eq!(other.objective(&values).unwrap(), 1088.0);
     values.scalars.insert(id(1), 2.0);
@@ -1947,7 +1953,8 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
     let operation = hub.start("math.directional.control");
     let _entered = operation.context().enter();
     let registry = standard_registry().unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     for alias in [false, true] {
         let (reference, values) = fixture(alias, false);
         let value_plan = CasePlan::prepare(
@@ -1984,8 +1991,8 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
                 .compile(Optimization::default(), limits, &cancel)
                 .unwrap(),
         );
-        let mut actual = action.worker(BTreeMap::new(), cancel.clone());
-        let mut assembled = reference.worker(BTreeMap::new(), cancel.clone());
+        let mut actual = action.worker(BTreeMap::new(), control.clone());
+        let mut assembled = reference.worker(BTreeMap::new(), control.clone());
         for direction in [[2.0, -3.0], [-5.0, 7.0], [0.0, 0.0]] {
             let mut expected = [0.0; 2];
             assembled
@@ -2129,7 +2136,8 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
         )
         .unwrap(),
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let values = CaseValues {
         scalars: BTreeMap::from([(id(1), 68.0), (id(2), 300.0)]),
     };
@@ -2174,12 +2182,12 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
     );
     let mut expected = [0.0];
     reference
-        .worker(BTreeMap::new(), cancel.clone())
+        .worker(BTreeMap::new(), control.clone())
         .jacobian_product(&values, &[9.0, 4.0], &mut expected)
         .unwrap();
     let mut output = [0.0];
     direct
-        .worker(BTreeMap::new(), cancel)
+        .worker(BTreeMap::new(), control.clone())
         .jacobian_product(&values, &[9.0, 4.0], &mut output)
         .unwrap();
     assert_eq!(output, expected);
@@ -2255,7 +2263,8 @@ fn conditional_blocks_share_original_coordinates_and_binding_inputs() {
         quantity,
         unit: registry.quantity_type(quantity).unwrap().canonical_unit,
     };
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     for count in [4u8, 24] {
         let mut builder = BodyBuilder::new(
             crate::initialize().unwrap(),
@@ -2424,14 +2433,14 @@ fn conditional_blocks_share_original_coordinates_and_binding_inputs() {
                 )
                 .unwrap(),
         );
-        let mut first = assembly.worker(BTreeMap::new(), cancel.clone());
-        let mut second = assembly.worker(BTreeMap::new(), cancel.clone());
+        let mut first = assembly.worker(BTreeMap::new(), control.clone());
+        let mut second = assembly.worker(BTreeMap::new(), control.clone());
         assert_eq!(first.constraints(&values).unwrap(), [1.5]);
         values.scalars.insert(id(1), 8.0);
         assert_eq!(second.constraints(&values).unwrap(), [8.5]);
         assert_eq!(first.jacobian(&values).unwrap().val(), &[1.0]);
         let slots = Arc::downgrade(&original.structure().instances()[0].slots);
-        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        control.cancel();
         assert!(matches!(
             original.conditional(
                 &BTreeSet::from([id(151)]),
@@ -2464,9 +2473,9 @@ fn dense_trials_preserve_aliases_axes_fixed_rebinding_and_original_assessment() 
                 .map(|id| values.scalars[id])
                 .collect();
             let trial = bound.trial(&coordinates).unwrap();
-            let cancel = Arc::new(AtomicBool::new(false));
-            let mut original = assembly.worker(BTreeMap::new(), cancel.clone());
-            let mut dense = assembly.worker(BTreeMap::new(), cancel);
+            let control = pse_diagnostics::Cancellation::new(false);
+            let mut original = assembly.worker(BTreeMap::new(), control.clone());
+            let mut dense = assembly.worker(BTreeMap::new(), control.clone());
             assert_eq!(
                 dense.objective(trial).unwrap().to_bits(),
                 original.objective(&values).unwrap().to_bits()
@@ -2519,7 +2528,7 @@ fn dense_trials_refuse_other_layout_and_failed_values_clear_observations() {
     let (assembly, values) = fixture(false, false);
     let (other, _) = fixture(false, false);
     let bound = other.bind_values(&values).unwrap();
-    let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert!(worker.objective(bound.trial(&[2.0, 3.0]).unwrap()).is_err());
     worker.objective(&values).unwrap();
     let mut missing = values;
@@ -2542,7 +2551,7 @@ fn compiled_gathers_refuse_duplicate_and_unknown_formals_before_evaluation() {
 #[test]
 fn assembly_first_order_callbacks_leave_second_order_workers_cold() {
     let (assembly, values) = fixture(false, false);
-    let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert!(worker.instantiated_orders().iter().all(Vec::is_empty));
     assert_eq!(worker.objective(&values).unwrap(), 6.0);
     assert_eq!(worker.gradient(&values).unwrap(), vec![3.0, 2.0]);
@@ -2572,7 +2581,7 @@ fn assembly_first_order_callbacks_leave_second_order_workers_cold() {
         1
     );
     assert_eq!(orders.iter().filter(|orders| !orders.is_empty()).count(), 3);
-    let mut independent = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut independent = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert!(independent.instantiated_orders().iter().all(Vec::is_empty));
     assert_eq!(independent.gradient(&values).unwrap(), vec![3.0, 2.0]);
     assert!(
@@ -2656,7 +2665,8 @@ fn operation_demands_use_consumed_ceilings_and_upgrade_all_products() {
 
 #[test]
 fn assembly_reuses_exact_compact_artifacts_after_original_source_expires() {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let registry = standard_registry().unwrap();
     let (original, _) = fixture(false, false);
     let programs = original.programs().to_vec();
@@ -2682,7 +2692,7 @@ fn assembly_reuses_exact_compact_artifacts_after_original_source_expires() {
     }
     let current_plan = Arc::new(CasePlan::clone(&current));
     let reassembled = Arc::new(current_plan.assemble(programs.clone()).unwrap());
-    let mut worker = reassembled.worker(BTreeMap::new(), cancel.clone());
+    let mut worker = reassembled.worker(BTreeMap::new(), control.clone());
     assert_eq!(worker.objective(&values).unwrap(), 6.0);
     assert_eq!(worker.gradient(&values).unwrap(), [3.0, 2.0]);
     assert_eq!(worker.constraints(&values).unwrap(), [25.0, 0.0]);
@@ -2757,7 +2767,7 @@ fn compact_refill_is_atomic_and_hashes_only_consumed_inputs() {
             })
             .unwrap();
         assert_eq!(reads.get(), if alias { 1 } else { 2 });
-        let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+        let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
         let before = bound.input_identity();
         let expected = worker.objective(bound.trial(&[]).unwrap()).unwrap();
         let source = bound
@@ -2813,7 +2823,8 @@ fn compact_refill_is_atomic_and_hashes_only_consumed_inputs() {
 fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     crate::initialize().unwrap();
     let (assembly, mut values) = fixture(false, false);
-    let stop = Arc::new(AtomicBool::new(false));
+    let stop_control = pse_diagnostics::Cancellation::default();
+    let stop = stop_control.flag();
     let old_stop = Arc::downgrade(&stop);
     #[derive(Debug)]
     struct DepartingProvider {
@@ -2866,7 +2877,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     });
     let returned = Arc::new(std::sync::Mutex::new(None));
     let output = returned.clone();
-    let mut worker = assembly.worker(BTreeMap::from([(spec.key(), provider)]), stop.clone());
+    let mut worker = assembly.worker(BTreeMap::from([(spec.key(), provider)]), stop_control.clone());
     worker.recycle_on_drop(move |scratch| {
         assert!(
             dropped.load(std::sync::atomic::Ordering::Acquire),
@@ -2882,6 +2893,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     assert!(worker.objective(&values).is_err());
     drop(worker);
     drop(stop);
+    drop(stop_control);
     assert!(old_stop.upgrade().is_none());
     let raw = returned.lock().unwrap().take().unwrap();
     assert!(raw.compatible(&assembly));
@@ -2895,7 +2907,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
         .worker_from_scratch(
             scratch,
             BTreeMap::new(),
-            pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
         )
         .unwrap();
     assert_eq!(next.instantiated_orders(), warmed);
@@ -2907,7 +2919,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     values.scalars.insert(id(1), 4.0);
     assert_eq!(next.objective(&values).unwrap(), 12.0);
     assert_eq!(next.constraints(&values).unwrap(), vec![35.0, 0.0]);
-    let reference = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let reference = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert!(reference.instantiated_orders().iter().all(Vec::is_empty));
     assert!(returned.lock().unwrap().is_none());
 }
@@ -2990,7 +3002,8 @@ fn affine_original_rows_cancel_across_bodies_before_proof_and_reuse_bound_output
     let mut bodies = original.bodies().clone();
     bodies.insert(second_key, second);
     values.scalars.insert(id(3), 3.0);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let plan = Arc::new(
         CasePlan::prepare(
             Arc::new(structure),
@@ -3028,7 +3041,7 @@ fn affine_original_rows_cancel_across_bodies_before_proof_and_reuse_bound_output
         )
         .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
     for x in [-2.0, 0.0, 5.0] {
         values.scalars.insert(id(1), x);
         assert!(facts.matches(&assembly, &values));
@@ -3469,7 +3482,8 @@ fn selected_functions_prepare_once_keep_contributions_coordinates_and_complete_u
     use std::time::Duration;
     let (original, values) = fixture(false, false);
     let registry = standard_registry().unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut first = original.structure().instances()[0].clone();
     first.contributions = vec![
         Contribution {
@@ -3614,8 +3628,8 @@ fn selected_functions_prepare_once_keep_contributions_coordinates_and_complete_u
         };
         let direct = compile(direct);
         let projected = compile(projected);
-        let mut worker = direct.worker(BTreeMap::new(), cancel.clone());
-        let mut reference = projected.worker(BTreeMap::new(), cancel.clone());
+        let mut worker = direct.worker(BTreeMap::new(), control.clone());
+        let mut reference = projected.worker(BTreeMap::new(), control.clone());
         assert_eq!(worker.constraints(&values).unwrap(), vec![12.0, 10.0]);
         assert_eq!(
             worker.constraints(&values).unwrap(),
@@ -3717,7 +3731,8 @@ fn selected_functions_ignore_unselected_bad_guard_and_preserve_selected_guard() 
     .unwrap();
     let mut bodies = original.bodies().clone();
     bodies.insert(key, guarded.clone());
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     values.scalars.insert(id(1), -2.0);
     let prepare = |rows: &[SemanticId]| {
         let plan = CasePlan::prepare_functions(
@@ -3743,12 +3758,12 @@ fn selected_functions_ignore_unselected_bad_guard_and_preserve_selected_guard() 
     };
     let selected = prepare(&[id(10)]);
     assert_eq!(selected.bodies().len(), 1);
-    let mut worker = selected.worker(BTreeMap::new(), cancel.clone());
+    let mut worker = selected.worker(BTreeMap::new(), control.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![5.0]);
     let selected = prepare(&[id(11)]);
     assert_eq!(selected.bodies().len(), 1);
     assert!(Arc::ptr_eq(&selected.bodies()[&key], &guarded));
-    let mut worker = selected.worker(BTreeMap::new(), cancel);
+    let mut worker = selected.worker(BTreeMap::new(), control.clone());
     assert!(worker.constraints(&values).is_err());
 }
 
@@ -3775,7 +3790,8 @@ fn selected_functions_differentiate_fixed_variables_and_parameters_in_request_or
     )
     .unwrap();
     values.scalars.insert(id(3), 7.0);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let plan = CasePlan::prepare_functions(
         &source,
         |key| original.bodies().get(&key).cloned(),
@@ -3802,7 +3818,7 @@ fn selected_functions_differentiate_fixed_variables_and_parameters_in_request_or
             )
             .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![45.0]);
     assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 0)], 5.0);
     assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 1)], 5.0);
@@ -3814,8 +3830,8 @@ fn demand_observations_distinguish_order_projection_inputs_and_failed_trials() {
     let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
     let operation = hub.start("math.demand.control");
     let _entered = operation.context().enter();
-    let cancel = Arc::new(AtomicBool::new(false));
-    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    let control = pse_diagnostics::Cancellation::new(false);
+    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
     let counts = |worker: &CaseWorker, requested| {
         *worker
             .demand_statistics()
@@ -3854,7 +3870,7 @@ fn demand_observations_distinguish_order_projection_inputs_and_failed_trials() {
         (1, 2)
     );
     assert!(!value.overflowed);
-    cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    control.cancel();
     assert!(worker.objective(&values).is_err());
     assert_eq!(
         counts(&worker, DerivativeOrder::Value),
@@ -3906,7 +3922,7 @@ fn compact_census_borrows_actual_products_and_separates_addends_from_nnz() {
 #[test]
 fn evaluator_census_leaves_unused_derivative_realizations_cold() {
     let (assembly, values) = fixture(false, false);
-    let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert!(worker.evaluator_census().all(|(_, census)| {
         census.frame_entries == 0
             && census.instantiated_orders == [false; 3]
@@ -3936,7 +3952,7 @@ fn evaluator_census_leaves_unused_derivative_realizations_cold() {
 fn demand_collection_refusal_and_operation_rebind_preserve_scientific_reuse() {
     use pse_diagnostics::observation::{ObservationHub, Policy};
     let (assembly, values) = fixture(false, false);
-    let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
     assert_eq!(
         worker.demand_observation_status(),
         DemandObservationStatus::NotRequested
@@ -4044,7 +4060,8 @@ fn selected_demand_rows_preserve_occurrences_and_actual_order_without_eager_work
         CaseLimits::default(),
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let assembly = Arc::new(
         Arc::new(
             CasePlan::prepare(
@@ -4070,7 +4087,7 @@ fn selected_demand_rows_preserve_occurrences_and_actual_order_without_eager_work
     let operation = hub.start("math.selected_demands.control");
     let tap = Arc::new(Tap::default());
     let _entered = operation.context().with_record_tap(tap.clone()).enter();
-    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
     assert_eq!(worker.gradient(&values).unwrap(), vec![6.0, 4.0]);
     assert_eq!(worker.objective(&values).unwrap(), 12.0);
     assert!(
@@ -4133,7 +4150,7 @@ fn indexed_row_pressure_keeps_admitted_aggregate_work_and_science_independent() 
         });
         let operation = hub.start("math.indexed_pressure.control");
         let _entered = operation.context().enter();
-        let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+        let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
         assert_eq!(worker.objective(&values).unwrap(), 6.0);
         if worker.demand_observation_status() == DemandObservationStatus::AggregateOnly {
             observed_aggregate_only = true;
@@ -4158,4 +4175,22 @@ fn indexed_row_pressure_keeps_admitted_aggregate_work_and_science_independent() 
         observed_aggregate_only,
         "bounded pressure must exercise the aggregate-only branch"
     );
+}
+
+#[test]
+fn complete_constraint_and_gradient_results_reuse_owned_storage_after_failed_trial() {
+    let (assembly, mut values) = fixture(false, false);
+    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let constraints = worker.constraints(&values).unwrap().as_ptr();
+    let gradient = worker.gradient(&values).unwrap().as_ptr();
+    values.scalars.insert(id(1), 3.);
+    assert_eq!(worker.constraints(&values).unwrap().as_ptr(), constraints);
+    assert_eq!(worker.gradient(&values).unwrap().as_ptr(), gradient);
+    values.scalars.insert(id(1), f64::NAN);
+    assert!(worker.constraints(&values).is_err());
+    assert!(worker.gradient(&values).is_err());
+    values.scalars.insert(id(1), 2.);
+    assert_eq!(worker.constraints(&values).unwrap().as_ptr(), constraints);
+    assert_eq!(worker.gradient(&values).unwrap().as_ptr(), gradient);
+    assert_eq!(worker.gradient(&values).unwrap(), &[3., 2.]);
 }

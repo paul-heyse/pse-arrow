@@ -86,6 +86,7 @@ struct Instance {
 struct Term {
     instance: usize,
     output: usize,
+    result_row: usize,
     i: usize,
     j: usize,
     scale: f64,
@@ -1727,6 +1728,7 @@ impl CasePlan {
             )
             .and_then(|n| n.checked_add(self.jacobian.retained_bytes()))
             .and_then(|n| n.checked_add(self.hessian.retained_bytes()))
+            .and_then(|n| n.checked_add((self.rows.len() + self.columns.len()).checked_mul(size_of::<f64>())?))
             .and_then(|n| {
                 n.checked_add(
                     self.instances
@@ -1809,10 +1811,13 @@ fn case_patterns(
     let mut hp = Vec::<Entry<GlobalCol, GlobalCol>>::new();
     let mut jt = vec![];
     let mut ht = vec![];
+    let mut support_visits = 0u64;
     for (index, (binding, instance)) in structure.instances().iter().zip(instances).enumerate() {
         let support = instance.groups[EvaluationDemand::All]
             .as_ref()
             .map(|g| &supports[g.request]);
+        let offsets = instance.coordinates.iter().enumerate()
+            .map(|(i, formal)| (formal.get(), i)).collect::<BTreeMap<_, _>>();
         for contribution in &binding.contributions {
             if order >= DerivativeOrder::First
                 && let Target::Row(row) = contribution.target
@@ -1822,19 +1827,19 @@ fn case_patterns(
                     .ok_or_else(|| {
                         MathError::Contract("missing selected First incidence".into())
                     })?;
-                for (i, &formal) in instance.coordinates.iter().enumerate() {
-                    if first.contains(&formal.get()) {
-                        contribution_allowance(jp.len(), hp.len(), limits)?;
-                        jp.push(Entry::new(rows[&row], instance.columns[i]));
-                        jt.push(Term {
-                            instance: index,
-                            output: contribution.output,
-                            i,
-                            j: 0,
-                            scale: contribution.scale * binding.slots[formal.get()].scale(),
-                            target: contribution.target,
-                        });
-                    }
+                let result_row = instance.groups[EvaluationDemand::Constraints].as_ref()
+                    .and_then(|group| group.outputs.binary_search(&contribution.output).ok())
+                    .ok_or_else(|| MathError::Contract("missing prepared constraint output".into()))?;
+                for formal in first {
+                    support_visits = support_visits.checked_add(1).ok_or(MathError::Limit("support contribution count"))?;
+                    let Some(&i) = offsets.get(formal) else { continue; };
+                    contribution_allowance(jp.len(), hp.len(), limits)?;
+                    jp.push(Entry::new(rows[&row], instance.columns[i]));
+                    jt.push(Term {
+                        instance: index, output: contribution.output, result_row, i, j: 0,
+                        scale: contribution.scale * binding.slots[*formal].scale(),
+                        target: contribution.target,
+                    });
                 }
             }
             if order >= DerivativeOrder::Second
@@ -1843,29 +1848,36 @@ fn case_patterns(
                 let second = support
                     .and_then(|s| s.second_for_output(contribution.output))
                     .ok_or_else(|| MathError::Contract("missing selected Second support".into()))?;
-                for (i, &a) in instance.coordinates.iter().enumerate() {
-                    for (j, &b) in instance.coordinates.iter().enumerate() {
-                        let (a, b) = (a.get(), b.get());
-                        if instance.columns[i] >= instance.columns[j]
-                            && second.contains(&(a.min(b), a.max(b)))
-                        {
-                            contribution_allowance(jp.len(), hp.len(), limits)?;
-                            hp.push(Entry::new(instance.columns[i], instance.columns[j]));
-                            ht.push(Term {
-                                instance: index,
-                                output: contribution.output,
-                                i,
-                                j,
-                                scale: contribution.scale
-                                    * binding.slots[a].scale()
-                                    * binding.slots[b].scale(),
-                                target: contribution.target,
-                            });
-                        }
-                    }
+                let result_row = instance.groups[EvaluationDemand::All].as_ref()
+                    .and_then(|group| group.outputs.binary_search(&contribution.output).ok())
+                    .ok_or_else(|| MathError::Contract("missing prepared Hessian output".into()))?;
+                let mut ordered = Vec::new();
+                for &(a, b) in second {
+                    support_visits = support_visits.checked_add(1).ok_or(MathError::Limit("support contribution count"))?;
+                    let (Some(&i), Some(&j)) = (offsets.get(&a), offsets.get(&b)) else { continue; };
+                    if instance.columns[i] >= instance.columns[j] { ordered.push((i, j)); }
+                    // Distinct local axes can alias the same global diagonal. Both
+                    // ordered cross terms contribute, even though support is symmetric.
+                    if i != j && instance.columns[j] >= instance.columns[i] { ordered.push((j, i)); }
+                }
+                ordered.sort_unstable();
+                for (i, j) in ordered {
+                    contribution_allowance(jp.len(), hp.len(), limits)?;
+                    hp.push(Entry::new(instance.columns[i], instance.columns[j]));
+                    ht.push(Term {
+                        instance: index, output: contribution.output, result_row, i, j,
+                        scale: contribution.scale
+                            * binding.slots[instance.coordinates[i].get()].scale()
+                            * binding.slots[instance.coordinates[j].get()].scale(),
+                        target: contribution.target,
+                    });
                 }
             }
         }
+    }
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("math.assembly.support_candidates", "support-entries", support_visits);
+        context.count("math.assembly.emitted_addends", "addends", (jp.len() + hp.len()) as u64);
     }
     Ok(CasePatterns {
         jacobian: AssemblyMatrix::new(rows.len(), columns, &jp, limits.native_index)?,
@@ -2145,7 +2157,7 @@ impl CaseAssembly {
     pub fn worker(
         self: &Arc<Self>,
         providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
-        cancel: Arc<AtomicBool>,
+        cancel: pse_diagnostics::Cancellation,
     ) -> CaseWorker {
         self.worker_scoped(providers, pse_kernels::ExecutionScope::new(cancel, None))
     }
@@ -2201,6 +2213,8 @@ impl CaseAssembly {
             scope,
             jacobian: Some(self.jacobian.as_ref().clone()),
             hessian: Some(self.hessian.as_ref().clone()),
+            constraint_values: vec![f64::NAN; self.rows.len()],
+            gradient_values: vec![f64::NAN; self.columns.len()],
             recycler: None,
             observation: None,
             observation_operation: None,
@@ -2229,6 +2243,8 @@ impl CaseAssembly {
             mut workers,
             jacobian,
             hessian,
+            constraint_values,
+            gradient_values,
             ..
         } = scratch;
         for worker in &mut workers {
@@ -2243,6 +2259,8 @@ impl CaseAssembly {
             cancel: scope.cancellation().clone(),
             jacobian,
             hessian,
+            constraint_values,
+            gradient_values,
             recycler: None,
             observation: None,
             observation_operation: None,
@@ -2373,6 +2391,8 @@ pub struct CaseWorker {
     cancel: Arc<AtomicBool>,
     jacobian: Option<AssemblyMatrix>,
     hessian: Option<AssemblyMatrix>,
+    constraint_values: Vec<f64>,
+    gradient_values: Vec<f64>,
     recycler: Option<ScratchRecycler>,
     observation: Option<Box<CaseObservation>>,
     observation_operation: Option<pse_diagnostics::observation::OperationId>,
@@ -2392,6 +2412,8 @@ pub struct CaseScratch {
     workers: Vec<Worker>,
     jacobian: Option<AssemblyMatrix>,
     hessian: Option<AssemblyMatrix>,
+    constraint_values: Vec<f64>,
+    gradient_values: Vec<f64>,
     reset: bool,
 }
 impl CaseScratch {
@@ -2424,6 +2446,8 @@ impl CaseScratch {
         if let Some(matrix) = &mut self.hessian {
             matrix.poison();
         }
+        self.constraint_values.fill(f64::NAN);
+        self.gradient_values.fill(f64::NAN);
         self.reset = true;
         Ok(self)
     }
@@ -2446,6 +2470,8 @@ impl Drop for CaseWorker {
             workers: std::mem::take(&mut self.workers),
             jacobian: self.jacobian.take(),
             hessian: self.hessian.take(),
+            constraint_values: std::mem::take(&mut self.constraint_values),
+            gradient_values: std::mem::take(&mut self.gradient_values),
             reset: false,
         });
     }
@@ -2736,22 +2762,24 @@ impl CaseWorker {
     pub fn constraints<'a>(
         &mut self,
         values: impl Into<EvalInputs<'a>>,
-    ) -> Result<Vec<f64>, MathError> {
+    ) -> Result<&[f64], MathError> {
         self.evaluate(
             values.into(),
             EvaluationDemand::Constraints,
             DerivativeOrder::Value,
         )?;
-        let mut out = vec![0.0; self.assembly.rows.len()];
+        self.constraint_values.fill(0.0);
         for (i, b) in self.assembly.structure.instances().iter().enumerate() {
             for c in &b.contributions {
                 if let Target::Row(id) = c.target {
                     let (v, r) = self.result(i, c.output, EvaluationDemand::Constraints)?;
-                    out[self.assembly.rows[&id].get()] += c.scale * v.values[r];
+                    let addend = c.scale * v.values[r];
+                    self.constraint_values[self.assembly.rows[&id].get()] += addend;
                 }
             }
         }
-        out.into_iter().map(finite).collect()
+        for &value in &self.constraint_values { finite(value)?; }
+        Ok(&self.constraint_values)
     }
     /// Retain independently visible source terms from the most recent constraint evaluation.
     pub fn constraint_sources(&self) -> Result<Vec<OutputValue>, MathError> {
@@ -2778,28 +2806,36 @@ impl CaseWorker {
     pub fn gradient<'a>(
         &mut self,
         values: impl Into<EvalInputs<'a>>,
-    ) -> Result<Vec<f64>, MathError> {
+    ) -> Result<&[f64], MathError> {
         self.evaluate(
             values.into(),
             EvaluationDemand::Objective,
             DerivativeOrder::First,
         )?;
-        let mut out = vec![0.0; self.assembly.columns.len()];
+        self.gradient_values.fill(0.0);
         for (i, b) in self.assembly.structure.instances().iter().enumerate() {
             let local = &self.assembly.instances[i];
             for c in &b.contributions {
                 if c.target == Target::PRIMARY {
-                    let (v, r) = self.result(i, c.output, EvaluationDemand::Objective)?;
+                    let r = local.groups[EvaluationDemand::Objective].as_ref()
+                        .and_then(|group| group.outputs.binary_search(&c.output).ok())
+                        .ok_or_else(|| MathError::Contract("missing objective output".into()))?;
+                    let v = &self.groups[i][EvaluationDemand::Objective].as_ref()
+                        .filter(|group| group.cache.is_some())
+                        .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?.result;
+                    let sign = self.assembly.structure.objective().map_or(1.0, |o| o.sense.sign());
                     for (k, &formal) in local.coordinates.iter().enumerate() {
-                        out[local.columns[k].get()] += self.objective_sign()
+                        let addend = sign
                             * c.scale
                             * b.slots[formal.get()].scale()
                             * v.jacobian[r * local.coordinates.len() + k];
+                        self.gradient_values[local.columns[k].get()] += addend;
                     }
                 }
             }
         }
-        out.into_iter().map(finite).collect()
+        for &value in &self.gradient_values { finite(value)?; }
+        Ok(&self.gradient_values)
     }
     /// Refill the canonical constraint Jacobian without rebuilding structure.
     pub fn jacobian<'a>(
@@ -2816,7 +2852,10 @@ impl CaseWorker {
             .ok_or_else(|| MathError::Contract("detached Jacobian".into()))?
             .clear();
         for (k, t) in self.assembly.jacobian_terms.iter().enumerate() {
-            let (v, r) = self.result(t.instance, t.output, EvaluationDemand::Constraints)?;
+            let v = &self.groups[t.instance][EvaluationDemand::Constraints].as_ref()
+                .filter(|group| group.cache.is_some())
+                .ok_or_else(|| MathError::Contract("unevaluated Jacobian demand".into()))?.result;
+            let r = t.result_row;
             let n = self.assembly.instances[t.instance].coordinates.len();
             let value = t.scale * v.jacobian[r * n + t.i];
             self.jacobian
@@ -2858,7 +2897,10 @@ impl CaseWorker {
                 Target::Objective(_) => objective_weight * self.objective_sign(),
                 Target::Row(id) => multipliers[self.assembly.rows[&id].get()],
             };
-            let (v, r) = self.result(t.instance, t.output, EvaluationDemand::All)?;
+            let v = &self.groups[t.instance][EvaluationDemand::All].as_ref()
+                .filter(|group| group.cache.is_some())
+                .ok_or_else(|| MathError::Contract("unevaluated Hessian demand".into()))?.result;
+            let r = t.result_row;
             let value = weight * t.scale * v.second(r, t.i, t.j);
             self.hessian
                 .as_mut()

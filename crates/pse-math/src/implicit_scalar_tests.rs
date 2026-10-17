@@ -241,7 +241,8 @@ fn admission_requires_actual_polynomial_formals_and_preserves_original_guards() 
 #[test]
 fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqueness() {
     crate::initialize().unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let x = crate::library::formal(0).unwrap();
     let body = prepared(x.clone().pow(Atom::num(2)) - crate::library::formal(1).unwrap());
     let solver = BracketedRoot::new(&body, &cancel).unwrap();
@@ -283,7 +284,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
     let mut worker = solver.worker();
     for p in [4.0, 1.0, 4.0] {
         let root = worker
-            .solve(problem.clone(), &[p], &options, &cancel)
+            .solve(problem.clone(), &[p], &options, &control)
             .unwrap();
         assert!((root[0] - p.sqrt()).abs() < 1e-10);
         let jet = problem
@@ -292,7 +293,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
         assert!((jet.jacobian[0] - 0.5 / p.sqrt()).abs() < 1e-10);
     }
     let root = worker
-        .solve(problem.clone(), &[0.0], &options, &cancel)
+        .solve(problem.clone(), &[0.0], &options, &control)
         .unwrap();
     assert!(
         problem

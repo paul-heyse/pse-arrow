@@ -419,7 +419,10 @@ impl SupplierSelection {
         let result = observed!("implicit.reconstruction.selection", {
             match self {
                 Self::Root(v) => v.evaluate(parameters, order, cancel),
-                Self::Regimes(v) => v.evaluate(parameters, order, cancel),
+                Self::Regimes(v) => {
+                    let control = v.execution_control()?.clone();
+                    v.evaluate(parameters, order, &control)
+                },
             }
         });
         if let (Some(context), Ok(selected)) = (pse_diagnostics::observation::current(), &result) {
@@ -774,7 +777,7 @@ impl RootSelection {
         options.time_limit = deadline.saturating_duration_since(std::time::Instant::now());
         let point = self
             .solver
-            .solve(self.problem.clone(), parameters, &options, cancel)?;
+            .solve(self.problem.clone(), parameters, &options, self.scope.cancellation_control())?;
         self.problem.verify(parameters, &point, &options, cancel)?;
         self.selection
             .verify(&self.problem, parameters, &point, order, cancel)?;
@@ -1106,7 +1109,7 @@ impl RootSelection {
             .min(deadline.saturating_duration_since(std::time::Instant::now()));
         let point = self
             .solver
-            .solve(self.problem.clone(), parameters, &options, cancel)?;
+            .solve(self.problem.clone(), parameters, &options, self.scope.cancellation_control())?;
         self.problem.verify(parameters, &point, &options, cancel)?;
         self.selection.verify(
             &self.problem,
@@ -2340,7 +2343,8 @@ mod tests {
         let id = pse_ids::SemanticId::from_bytes([91; 16]);
         let parameter = pse_ids::named_id(id, "parameter");
         let row = pse_ids::named_id(id, "row");
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+        let cancel = control.flag();
         let mut builder = BodyBuilder::new(
             crate::initialize().unwrap(),
             &registry,
@@ -2417,7 +2421,7 @@ mod tests {
             hints: None,
             terms: None,
             solver: Arc::new(super::super::Affine::new(&prepared, 1).unwrap()),
-            cancel,
+            cancel: control.clone(),
             max_entries: 100,
             providers: BTreeMap::new(),
         };
@@ -2469,7 +2473,8 @@ mod tests {
     #[test]
     fn genuine_root_reconstruction_applies_nonzero_authored_offset_before_actual_native_ift() {
         let (factory, proof, original, normalization) = source();
-        let flag = factory.cancel.clone();
+        let control = factory.cancel.clone();
+        let flag = control.flag();
         let supplier = ReconstructionFactory::new(
             ImplicitFactory::Root(factory),
             SelectedResidualRealization::AuthoredValues,
@@ -2497,7 +2502,7 @@ mod tests {
             &supplier,
             contract,
             normalization,
-            ExecutionScope::new(flag, None),
+            ExecutionScope::new(control, None),
             &binding,
         )
         .unwrap();

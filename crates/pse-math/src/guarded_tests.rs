@@ -374,7 +374,8 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
         DerivativeOrder::Second,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let limits = crate::jets::EvaluationLimits::default();
     assert_eq!(body.available_order(), DerivativeOrder::Value);
     assert!(

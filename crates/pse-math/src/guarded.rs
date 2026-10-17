@@ -6,6 +6,7 @@
 //! This layer never interprets arithmetic operations. A block is a Symbolica evaluator;
 //! only branch selection, obligations and fallible provider calls are project-owned.
 use crate::MathError;
+pub use crate::jets::{ProductKind, ProductValues};
 pub use crate::execution::{
     CompiledBody, CompiledOrderCensus, Evaluation, PreparedBody, PreparedSupport, Support, Worker,
     WorkerCensus,

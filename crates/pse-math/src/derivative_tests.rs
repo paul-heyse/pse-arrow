@@ -148,7 +148,8 @@ fn shared_branch_snapshots_keep_distinct_alternatives_isolated() {
         [(0, 0), (1, 1)].into_iter().collect()
     );
     assert!(body.expression(0).is_none());
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut worker = body
         .compile(
             &[0],
@@ -219,7 +220,8 @@ fn separately_reconstructed_equal_branch_facts_remain_symbolic() {
         crate::requested_test_support(&body).second[0],
         [(0, 0), (0, 1), (1, 1)].into_iter().collect()
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut worker = body
         .compile(
             &[0],
@@ -268,7 +270,8 @@ fn local_guard_facts_do_not_copy_the_enclosing_slot_inventory() {
     let mut remaining = 25_000;
     let body =
         PreparedBody::new_with_allowance(2, 4096, vec![2, 3], stages, &mut remaining).unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let support = body
         .prepare_support(&[0, 1], &[0, 1], DerivativeOrder::Second, &cancel)
         .unwrap();
@@ -350,7 +353,8 @@ fn shared_domain_snapshots_preserve_dense_support_and_local_isolation() {
         [1].into_iter().collect()
     );
     assert!(crate::requested_test_support(&body).second[1].is_empty());
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut worker = body
         .compile(
             &[0, 1],
@@ -397,7 +401,8 @@ fn opaque_nonlinear_support_refuses_actual_work_and_preserves_complete_pairs() {
         &mut remaining,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let first = weak_body
         .incidence(&[0], &(0..n).collect::<Vec<_>>(), &cancel)
         .unwrap();
@@ -493,7 +498,8 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
     use crate::typed::{Binary, BodyBuilder, BodyLimits};
     use pse_quantity::{IndexSet, standard::StandardInvariantChecker};
     let registry = pse_quantity::standard::standard_registry().unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let (body, ready) = (1..256)
         .find_map(|occurrences| {
             let mut builder = BodyBuilder::new(
@@ -668,7 +674,7 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
         calls, 1,
         "a bounded consumer must stop before another contribution is projected"
     );
-    cancel.store(true, Ordering::Relaxed);
+    control.cancel();
     assert!(matches!(
         plan.visit_dependencies(&cancel, |_| {
             calls += 1;
@@ -685,7 +691,7 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
     assert!(matches!(
         plan.visit_dependencies(&cancel, |_| {
             calls += 1;
-            cancel.store(true, Ordering::Relaxed);
+            control.cancel();
             std::ops::ControlFlow::<()>::Continue(())
         }),
         Err(MathError::Cancelled)
@@ -729,7 +735,7 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
             .conditional_support(&[1], &[0], DerivativeOrder::First, &cancel)
             .is_err()
     );
-    cancel.store(true, Ordering::Release);
+    control.cancel();
     assert!(matches!(
         ready.conditional_support(&[1], &[1], DerivativeOrder::First, &cancel),
         Err(MathError::Cancelled)
@@ -746,7 +752,8 @@ fn conditional_second_reuses_exhausted_support_and_projects_selected_controls() 
     crate::initialize().unwrap();
     let x = library::formal(0).unwrap();
     let y = library::formal(1).unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let support = (1..512)
         .find_map(|allowance| {
             let mut remaining = allowance;
@@ -977,7 +984,8 @@ fn numerica_raw_diagonal_mixed_and_multi_output_derivatives() {
         vec![2, 3],
         DerivativeOrder::Second,
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut worker = body.worker();
     let mut providers = BTreeMap::new();
     let v = worker
@@ -1113,7 +1121,8 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
             .controls
             .contains(&0)
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let key = spec.key();
     let provider: Box<dyn Provider> = Box::new(Cubic {
         spec,
@@ -1163,7 +1172,7 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
         [4.]
     );
     assert_eq!(calls.load(Ordering::Relaxed), before);
-    cancel.store(true, Ordering::Relaxed);
+    control.cancel();
     assert!(matches!(
         guarded.evaluate(&[2.], DerivativeOrder::Second, &mut workers, &cancel),
         Err(MathError::Cancelled)
@@ -1204,7 +1213,8 @@ fn composed_external_partials_use_symbolica_chain_rule_through_nested_calls() {
         let z = b.provider(&admitted, &[y], id(22)).unwrap().remove(0);
         let partial = b.partial(scope, z, &vec![x; partials], id(23)).unwrap();
         let body = b.prepare(&[partial]).unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
         let mut compiled = body
             .compile(
                 &[0],
@@ -1261,7 +1271,8 @@ fn symbolica_composes_provider_partials_after_arithmetic_barriers() {
     ];
     let body = compile(1, 4, stages, vec![3], DerivativeOrder::Second);
     let mut worker = body.worker();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut providers = BTreeMap::from([(spec.key(), provider)]);
     let v = worker
         .evaluate(&[2.0], DerivativeOrder::Second, &mut providers, &cancel)
@@ -1302,7 +1313,8 @@ fn derivative_budget_cancellation_and_numeric_zero_support() {
         DerivativeOrder::Second,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let budget = EvaluationLimits {
         derivative_components: 2,
         ..EvaluationLimits::default()
@@ -1342,7 +1354,7 @@ fn derivative_budget_cancellation_and_numeric_zero_support() {
         vec![0.0]
     );
     assert!(body.support().second[0].contains(&(0, 0)));
-    cancel.store(true, Ordering::Relaxed);
+    control.cancel();
     assert!(matches!(
         worker.evaluate(
             &[2.0],
@@ -1377,7 +1389,8 @@ fn parameter_only_switches_preserve_all_branch_support() {
         DerivativeOrder::Second,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     assert!(
         body.compile(
             &[0],
@@ -1601,7 +1614,8 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
         .unwrap();
     let prepared = b.prepare(&[x, canceled, second[1].clone()]).unwrap();
     assert_eq!(prepared.providers().len(), 1);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut workers = BTreeMap::from([(key, registration.worker().unwrap())]);
     let compile = |outputs: &[usize]| {
         prepared
@@ -1719,7 +1733,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
         )
         .unwrap(),
     );
-    let mut worker = case.worker(workers, cancel);
+    let mut worker = case.worker(workers, control.clone());
     let values = CaseValues {
         scalars: BTreeMap::from([(id(1), 2.0)]),
     };
@@ -1862,7 +1876,8 @@ fn local_taylor_coordinates_preserve_transitive_and_permuted_derivatives() {
     let outputs = (2 * n..3 * n).collect::<Vec<_>>();
     let body = PreparedBody::new(n, 3 * n, outputs, stages, DerivativeOrder::Second).unwrap();
     let coordinates = (0..n).rev().collect::<Vec<_>>();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let compiled = body
         .compile(
             &(0..n).collect::<Vec<_>>(),
@@ -1995,7 +2010,8 @@ fn selected_provider_demand_matches_fixed_coordinate_program_and_authored_partia
             .unwrap()[&spec.key()],
         DerivativeOrder::First
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let mut worker = body
         .compile(
             &[0],
@@ -2101,7 +2117,8 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
     let body = builder
         .prepare(&[opaque, square, effectful_square])
         .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     assert_eq!(
         body.available_order_for_outputs(&[1], &[0]).unwrap(),
         DerivativeOrder::Second
@@ -2297,7 +2314,8 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
         DerivativeOrder::Second,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let support = body
         .prepare_support(
             &[0],
@@ -2371,7 +2389,7 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
             .evaluate_directional(&inputs, &direction[..n - 1], &mut BTreeMap::new(), &cancel)
             .is_err()
     );
-    cancel.store(true, Ordering::Relaxed);
+    control.cancel();
     assert!(
         worker
             .evaluate_directional(&inputs, &direction, &mut BTreeMap::new(), &cancel)
@@ -2410,7 +2428,8 @@ fn demanded_directional_provider_composition_keeps_original_guard_and_first_part
         DerivativeOrder::Second,
     )
     .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let support = body
         .prepare_support(&[0], &[0, 1], DerivativeOrder::First, &cancel)
         .unwrap();
@@ -2459,7 +2478,8 @@ fn structural_taylor_zeros_preserve_complete_second_shape_and_reduce_library_wor
     let layout = crate::jets::JetLayout::new(vec![0, 1], DerivativeOrder::Second, limits).unwrap();
     let expressions = [(&x * &y) + x.sin() + (&y * &y)];
     let parameters = [x, y];
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let build = |zeros: &[(usize, usize)]| {
         library::bounded_evaluator(
             id(1),
@@ -2593,7 +2613,8 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
         )
         .unwrap(),
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let source = CasePlan::prepare(
         structure,
         BTreeMap::from([(key, body)]),
@@ -2638,7 +2659,7 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
         calls: calls.clone(),
     });
     let providers = BTreeMap::from([(spec.key(), selected_provider)]);
-    let mut worker = guarded.worker(providers, cancel.clone());
+    let mut worker = guarded.worker(providers, control.clone());
     let mut values = CaseValues {
         scalars: BTreeMap::from([(id(1), 3.0), (id(2), 2.0)]),
     };
@@ -2660,7 +2681,7 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
     );
     assert_eq!(
         plain
-            .worker(BTreeMap::new(), cancel.clone())
+            .worker(BTreeMap::new(), control.clone())
             .constraints(&values)
             .unwrap(),
         [9.0]

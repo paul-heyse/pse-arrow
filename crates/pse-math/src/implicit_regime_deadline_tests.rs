@@ -34,18 +34,19 @@ impl super::super::SelectionVerifier for DelayedProof {
 }
 #[test]
 fn implicit_regimes_outer_deadline_rejects_late_positive_proof_without_cache_or_branch() {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
     let (mut selected, calls) = tests::group_selection(None, false);
     selected.verifier = Some(Arc::new(DelayedProof {
         inner: selected.verifier.take().unwrap(),
         delay: Duration::from_millis(60),
     }));
     selected.scope = Some(ExecutionScope::new(
-        cancel.clone(),
+        control.clone(),
         Some(Instant::now() + Duration::from_millis(40)),
     ));
     assert!(matches!(
-        selected.evaluate(&[-2.], DerivativeOrder::Second, &cancel),
+        selected.evaluate(&[-2.], DerivativeOrder::Second, &control),
         Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
@@ -53,7 +54,7 @@ fn implicit_regimes_outer_deadline_rejects_late_positive_proof_without_cache_or_
     assert!(selected.derivative_branch.is_none());
     assert!(!cancel.load(Ordering::Acquire));
     assert!(matches!(
-        selected.evaluate(&[-2.], DerivativeOrder::Second, &cancel),
+        selected.evaluate(&[-2.], DerivativeOrder::Second, &control),
         Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);

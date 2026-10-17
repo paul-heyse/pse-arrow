@@ -105,8 +105,10 @@ impl InnerWorker for CubicWorker {
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
-        cancel: &Arc<AtomicBool>,
+        cancel: &pse_diagnostics::Cancellation,
     ) -> Result<Vec<f64>, MathError> {
+        let control = cancel;
+        let cancel = &control.flag();
         problem.validate_options(options)?;
         if parameters.len() != self.parameters
             || problem.unknowns.len() != 1
@@ -298,7 +300,7 @@ mod tests {
         }
     }
 
-    fn admitted() -> (CubicRoots, Arc<Problem>, Options, Arc<AtomicBool>) {
+    fn admitted() -> (CubicRoots, Arc<Problem>, Options, pse_diagnostics::Cancellation) {
         crate::initialize().unwrap();
         admitted_expression(
             crate::library::formal(0).unwrap().pow(Atom::num(2))
@@ -312,9 +314,10 @@ mod tests {
         expression: Atom,
         lower: f64,
         upper: f64,
-    ) -> (CubicRoots, Arc<Problem>, Options, Arc<AtomicBool>) {
+    ) -> (CubicRoots, Arc<Problem>, Options, pse_diagnostics::Cancellation) {
         use crate::guarded::{PreparedBody, Stage};
-        let cancel = Arc::new(AtomicBool::new(false));
+        let control = pse_diagnostics::Cancellation::default();
+        let cancel = control.flag();
         crate::initialize().unwrap();
         let body = PreparedBody::new(
             2,
@@ -365,7 +368,7 @@ mod tests {
             time_limit: Duration::from_secs(2),
             derivative_tolerance: 1e-10,
         };
-        (solver, problem, options, cancel)
+        (solver, problem, options, control)
     }
 
     #[test]
@@ -384,7 +387,7 @@ mod tests {
                 .solve(problem.clone(), &[parameter], &options, &cancel)
                 .unwrap();
             problem
-                .verify(&[parameter], &point, &options, &cancel)
+                .verify(&[parameter], &point, &options, &cancel.flag())
                 .unwrap();
             if parameter == 0.0 {
                 assert_eq!(point, [1.0]);
@@ -426,7 +429,7 @@ mod tests {
         assert_eq!(point, [1.0]);
         assert!(
             problem
-                .derivatives(&[1.0], &point, DerivativeOrder::First, &options, &cancel)
+                .derivatives(&[1.0], &point, DerivativeOrder::First, &options, &cancel.flag())
                 .is_err()
         );
     }
@@ -469,10 +472,10 @@ mod tests {
         );
         assert!(
             problem
-                .derivatives(&[0.0], &[0.0], DerivativeOrder::First, &options, &cancel)
+                .derivatives(&[0.0], &[0.0], DerivativeOrder::First, &options, &cancel.flag())
                 .is_err()
         );
-        cancel.store(true, Ordering::Release);
+        cancel.cancel();
         assert!(matches!(
             first.solve(problem, &[4.0], &options, &cancel),
             Err(MathError::Cancelled)
