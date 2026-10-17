@@ -49,7 +49,14 @@ fn number(record: &CoherentRecord, name: &str) -> Option<f64> {
     match field(record, name)?.value { Value::Number(v) if v.is_finite() => Some(v), _ => None }
 }
 fn count(record: &CoherentRecord, name: &str) -> Option<u64> {
-    match field(record, name)?.value { Value::Count(v) => Some(v), _ => None }
+    // Native integer fields retain their signed source representation. A
+    // checked nonnegative projection is sufficient for exact sequence/count
+    // questions; negative native sentinels never become unsigned observations.
+    match field(record, name)?.value {
+        Value::Count(v) => Some(v),
+        Value::Integer(v) => u64::try_from(v).ok(),
+        _ => None,
+    }
 }
 fn numeric_field<'a>(record: &'a CoherentRecord, ipopt: &'a str, pounce: &'a str) -> Option<&'a str> {
     match text(record, "backend")? { "ipopt" => Some(ipopt), "pounce" => Some(pounce), _ => None }
@@ -181,6 +188,9 @@ mod tests {
         NumericalHistoryPolicy { version: 1, minimum_events: 3, tiny_step_maximum: Some(1e-6), primal_progress_maximum: Some(0.01), barrier_progress_minimum: Some(0.5), inertia_fraction_minimum: None, raw_recycle_ratio_minimum: None, repeated_worst_row: false }
     }
     fn observed(norm: Option<&str>, rows: &[(f64,f64,f64)]) -> OperationSnapshot {
+        observed_iterations(norm, rows, |i| Value::Count(i as u64 + 1))
+    }
+    fn observed_iterations(norm: Option<&str>, rows: &[(f64,f64,f64)], iteration: impl Fn(usize) -> Value) -> OperationSnapshot {
         let hub=ObservationHub::new(Default::default());
         let op=hub.start("policy.control");
         let producer=op.context().producer(ProducerRole::NativeIteration,"actual.owner");
@@ -190,7 +200,7 @@ mod tests {
                 ("checkpoint_kind",Value::Text("native_iteration".into()),"interpretation"),
                 ("iterate_semantics",Value::Text("current_native_iterate".into()),"interpretation"),
                 ("native_phase",Value::Text("main".into()),"phase"),
-                ("iteration",Value::Count(i as u64 + 1),"count"),
+                ("iteration",iteration(i),"count"),
                 ("step_norm_kind",Value::Text(norm.unwrap_or("").into()),"norm"),
                 ("step_coordinates",Value::Text("native_primal_and_slack".into()),"coordinates"),
                 ("step_semantics",Value::Text("search_direction".into()),"interpretation"),
@@ -257,6 +267,56 @@ mod tests {
         let snapshot=observed(Some("infinity"),&[(1.0,1.0,0.1),(0.5,1.0,0.01),(0.1,1.0,0.001)]);
         let statements=explain_numerical_history(&snapshot,&policy());
         assert!(!statements.iter().any(|s|s.code.contains("tiny_step")));
+    }
+
+    #[test]
+    fn native_signed_iteration_suffix_classifies_tiny_steps_and_barrier_without_changing_source_types() {
+        let rows=[(1e-8,1.0,0.1),(2e-8,1.0,0.01),(3e-8,1.0,0.001)];
+        // Actual native Metric::Integer fields arrive as Value::Integer. Also
+        // exercise exact consecutive values beyond float's integer precision.
+        for first in [1, i64::MAX-2] {
+            let snapshot=observed_iterations(Some("infinity"),&rows,|i|Value::Integer(first+i as i64));
+            let original=serde_json::to_vec(&snapshot).unwrap();
+            let statements=explain_numerical_history(&snapshot,&policy());
+            for suffix in [".tiny_step",".barrier_primal"] {
+                let statement=statements.iter().find(|statement|statement.code.ends_with(suffix)).unwrap();
+                assert_eq!(statement.kind,StatementKind::Hypothesis);
+                assert_eq!(statement.evidence.len(),3);
+                assert!(statement.evidence.iter().all(|evidence| evidence.producer.is_some()&&evidence.record_sequence.is_some()));
+            }
+            assert!(snapshot.producers[0].recent.iter().all(|record|matches!(field(record,"iteration").unwrap().value,Value::Integer(_))));
+            assert_eq!(serde_json::to_vec(&snapshot).unwrap(),original,"inspection does not relabel signed native facts into a counter ledger");
+        }
+    }
+    #[test]
+    fn negative_or_unavailable_native_integer_is_not_a_consecutive_iteration_suffix() {
+        let rows=[(1e-8,1.0,0.1),(1e-8,1.0,0.01),(1e-8,1.0,0.001)];
+        for first in [-1,i64::MIN] {
+            let snapshot=observed_iterations(Some("infinity"),&rows,|i|Value::Integer(first+i as i64));
+            let statements=explain_numerical_history(&snapshot,&policy());
+            assert!(!statements.iter().any(|statement|statement.code.ends_with(".tiny_step")||statement.code.ends_with(".barrier_primal")));
+        }
+        let mut snapshot=observed_iterations(Some("infinity"),&rows,|i|Value::Integer(i as i64+1));
+        snapshot.producers[0].recent[1].values.iter_mut().find(|field|field.name=="iteration").unwrap().availability=
+            Some(crate::observation::RecordAvailability::NotSupplied);
+        assert!(!explain_numerical_history(&snapshot,&policy()).iter().any(|statement|statement.kind==StatementKind::Hypothesis));
+    }
+    #[test]
+    fn native_integer_recognition_does_not_bypass_step_availability_or_field_norm_contracts() {
+        let rows=[(1e-8,1.0,0.1),(1e-8,1.0,0.01),(1e-8,1.0,0.001)];
+        for missing_norm in [false,true] {
+            let mut snapshot=observed_iterations(Some("infinity"),&rows,|i|Value::Integer(i as i64+1));
+            let producer=&mut snapshot.producers[0];
+            for record in producer.recent.iter_mut().chain(producer.current.iter_mut()) {
+                if missing_norm { record.values.retain(|field|field.name!="step_norm_kind"); }
+                else { record.values.iter_mut().find(|field|field.name=="step_available").unwrap().value=Value::Boolean(false); }
+            }
+            let statements=explain_numerical_history(&snapshot,&policy());
+            assert!(!statements.iter().any(|statement|statement.code.ends_with(".tiny_step")));
+            assert!(statements.iter().any(|statement|statement.code.ends_with(".tiny_step.unqualified")));
+            assert!(statements.iter().any(|statement|statement.code.ends_with(".barrier_primal")),
+                "the independent native primal/barrier question keeps its own complete source requirements");
+        }
     }
 
 }
