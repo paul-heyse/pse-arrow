@@ -1786,3 +1786,33 @@ async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_dir
     }
     assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
 }
+
+#[cfg(feature = "solver-idas")]
+#[tokio::test]
+async fn shooting_failed_forward_quadrature_upgrade_keeps_completed_weaker_point() {
+    let simulation = tracking(Method::Idas).await;
+    let problem = Arc::new(simulation.shooting(request(&simulation, ShootingMethod::Single, vec![], true)).unwrap());
+    let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+    let memory = problem.runtime.shared.budget().math.foreign_allowance(&solver().controls);
+    execution.memory = Some(memory);
+    let mut oracle = ShootingOracle { observation: None,
+        purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
+        problem, execution, point: None, worker: None };
+    let x = [0.4, 1.2];
+    let value = oracle.objective(&x).unwrap();
+    let samples = oracle.point.as_ref().unwrap().reports[0].samples.iter().map(|s| s.outputs.clone()).collect::<Vec<_>>();
+    oracle.execution.memory = None;
+    let mut gradient = vec![0.; x.len()];
+    assert!(oracle.gradient(&x, &mut gradient).is_err());
+    let point = oracle.point.as_ref().unwrap();
+    assert_eq!(point.achieved, DerivativeOrder::Value);
+    assert!(point.integral_gradient.is_none());
+    assert_eq!(point.objective, value);
+    assert_eq!(point.reports[0].samples.iter().map(|s| s.outputs.clone()).collect::<Vec<_>>(), samples);
+    oracle.execution.memory = Some(memory);
+    oracle.gradient(&x, &mut gradient).unwrap();
+    assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
+    oracle.execution.cancellation_control().cancel();
+    assert!(matches!(oracle.gradient(&x, &mut gradient), Err(ProblemError::Cancelled)));
+    assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some(), "cancelled demand cannot erase a completed product");
+}
