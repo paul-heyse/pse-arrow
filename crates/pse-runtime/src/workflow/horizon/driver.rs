@@ -26,7 +26,7 @@ use pse_ids::{FramedHasher, SemanticId};
 use pse_model::generated::identities::RunId;
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -501,7 +501,7 @@ impl Plant {
             time_limit: self.time_limit,
             ..Default::default()
         };
-        native::solve::Execution::within(scope.cancellation().clone(), &controls, scope)
+        native::solve::Execution::within(scope.cancellation_control().clone(), &controls, scope)
     }
     /// The consistently initialized start at `t₀` under `applied`: the simulation's initial
     /// condition, integrated over the first period sampled at its start only.
@@ -1324,7 +1324,7 @@ impl Loop {
             .flat_map(|e| e.arrival.iter().map(|(_, _, initial)| *initial))
             .collect();
         let plant_scope =
-            pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), cancel.deadline())
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), cancel.deadline())
                 .with_admitted_threads(
                     std::num::NonZeroUsize::new(admitted.threads)
                         .unwrap_or(std::num::NonZeroUsize::MIN),
@@ -2056,7 +2056,7 @@ impl Loop {
         let proposal_scope = prepared
             .solve
             .task_scope()
-            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline)));
+            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline)));
         prepared.solve = c
             .stage
             .package

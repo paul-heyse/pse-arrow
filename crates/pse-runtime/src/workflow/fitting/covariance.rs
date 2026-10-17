@@ -209,6 +209,7 @@ impl FitProblem {
         report: &FitReport,
         approximation: CovarianceApproximation,
     ) -> Result<Vec<f64>, FitWithheld> {
+        crate::workflow::dynamics::analysis("fit.covariance_analysis", || {
         self.estimate_valid(report)?;
         let np = self.free().count();
         let (Some(rank), Some(directions)) = (report.rank, report.directions.as_ref()) else {
@@ -302,6 +303,7 @@ impl FitProblem {
                 Ok(values)
             }
         }
+        })
     }
     /// Wald intervals `θ̂ₖ ± z·√Σₖₖ` with `z` the standard normal quantile of
     /// `(1 + level)/2`; withheld when the covariance is.

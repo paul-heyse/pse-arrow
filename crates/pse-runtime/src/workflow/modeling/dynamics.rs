@@ -966,7 +966,7 @@ impl ModelingSimulation {
             ..Default::default()
         };
         let mut execution = pse_backend_native::solve::Execution::within(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             &controls,
             scope.clone(),
         )?;
@@ -977,7 +977,7 @@ impl ModelingSimulation {
                 &mut worker,
                 profile,
                 &self.parameters,
-                scope.cancellation().clone(),
+                scope.cancellation_control().clone(),
                 progress,
                 &self.snapshot,
             )?;
@@ -1023,7 +1023,7 @@ impl ModelingSimulation {
             &mut worker,
             profile,
             &self.parameters,
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             progress,
             &self.snapshot,
             retention,
@@ -3425,7 +3425,7 @@ mod tests {
     }
     #[test]
     fn sample_output_wait_contains_panic_and_preserves_original_stop() {
-        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let execution =
             pse_backend_native::solve::Execution::new(cancel.clone(), &Default::default());
         assert_eq!(
@@ -3437,7 +3437,7 @@ mod tests {
             Err(ProblemError::Internal(_))
         ));
         let resumed = with_simulation_sample_wait(&execution, || {
-            cancel.store(true, std::sync::atomic::Ordering::Release);
+            cancel.cancel();
             Ok(())
         });
         assert!(matches!(resumed, Err(ProblemError::Cancelled)));
@@ -6342,7 +6342,7 @@ mod tests {
         let access = pse_math::numerics::TargetAccess::new(&policy).unwrap();
         assert!(frozen_allowances(&policy, &access, &prepared.coordinates, &outputs).is_err());
         let scope = pse_kernels::ExecutionScope::new(
-            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             None,
         );
         let mut first = prepared.worker(scope.clone()).unwrap();
@@ -6405,7 +6405,7 @@ mod tests {
         // CSC payload is refilled. A live alias instead keeps its exact old values.
         let mut reuse = prepared
             .worker(pse_kernels::ExecutionScope::new(
-                Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                pse_diagnostics::Cancellation::new(false),
                 None,
             ))
             .unwrap();
@@ -6492,7 +6492,7 @@ mod tests {
         let mut permuted = permuted
             .worker(
                 pse_kernels::ExecutionScope::new(
-                    Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::new(false),
                     None,
                 ),
                 prepared.snapshot_allocator(),
@@ -6589,7 +6589,7 @@ mod tests {
         let rows = simulation_samples::Row::rows(&samples).unwrap();
         assert_eq!(rows.len(), 4);
         assert!((rows.last().unwrap().value - 5.).abs() < 1e-6);
-        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let mut worker = prepared
             .worker(pse_kernels::ExecutionScope::new(flag.clone(), None))
             .unwrap();
@@ -6892,7 +6892,7 @@ mod tests {
             .unwrap();
         let mut worker = prepared
             .worker(pse_kernels::ExecutionScope::new(
-                Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                pse_diagnostics::Cancellation::new(false),
                 None,
             ))
             .unwrap();

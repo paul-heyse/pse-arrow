@@ -13,8 +13,15 @@ use native::{
     solve::{Compatibility, Execution},
 };
 use pse_math::{assembly::CaseWorker, sparse::AssemblyMatrix};
-#[cfg(test)]
-use std::sync::atomic::AtomicBool;
+/// One upgrade's scientific comparison witness, shared only with its joined lanes.
+/// A native/analysis failure alone does not contradict an independently complete
+/// lower product. An actual same-premise comparison failure does.
+#[derive(Clone, Default)]
+pub(super) struct UpgradeValidity(Arc<std::sync::atomic::AtomicBool>);
+impl UpgradeValidity {
+    fn contradicts(&self) { self.0.store(true, std::sync::atomic::Ordering::Release); }
+    fn contradicted(&self) -> bool { self.0.load(std::sync::atomic::Ordering::Acquire) }
+}
 /// Products actually requested at an exact trial point. Native integration still
 /// computes the Jacobians its numerical method requires, independently of fit output demand.
 #[derive(Clone, Copy, Debug, Default)]
@@ -301,17 +308,12 @@ impl FitOracle {
         if same && let Some(point) = &self.point {
             demand = demand.union(point.achieved);
         }
-        // An upgrade recomputes the missing integration products. Completed curvature
-        // has the same immutable scientific premises at this exact point; move it into
-        // the private replacement and publish it only if the whole upgrade succeeds.
-        let mut previous_point = self.point.take().filter(|_| same);
-        let curvatures = previous_point
-            .as_mut()
-            .and_then(|point| point.curvatures.take());
-        #[cfg(feature = "solver-diffsol")]
-        let previous = previous_point.map(|point| point.trajectories);
-        #[cfg(not(feature = "solver-diffsol"))]
-        drop(previous_point);
+        // Keep the complete lower product installed until every replacement product
+        // succeeds. Trajectory Arcs are immutable; the comparison witness invalidates
+        // the lower product only when new scientific evidence contradicts it.
+        if !same { self.point = None; }
+        let validity = UpgradeValidity::default();
+        let previous = self.point.as_ref().map(|point| point.trajectories.clone());
         let mut point = Point {
             achieved: demand,
             x: x.to_vec(),
@@ -322,7 +324,7 @@ impl FitOracle {
             blocks: Vec::new(),
             trajectories: BTreeMap::new(),
             adjoint: demand.adjoint.then(|| vec![0.; x.len()]),
-            curvatures,
+            curvatures: None,
         };
         #[cfg(all(test, feature = "solver-diffsol"))]
         for (ei, experiment) in p.experiments.iter().enumerate() {
@@ -334,10 +336,8 @@ impl FitOracle {
                     usize::from(demand.adjoint && !p.layout.mappings[ei].free_bindings.is_empty());
             }
         }
-        #[cfg(not(feature = "solver-diffsol"))]
-        let previous: Option<BTreeMap<InstanceId, Arc<native::dynamics::Report>>> = None;
         let products = if let Some(team) = &mut self.team {
-            team.evaluate(x, demand, previous.as_ref())?
+            team.evaluate(x, demand, previous.as_ref(), &validity)
         } else {
             p.experiments
                 .iter()
@@ -358,9 +358,17 @@ impl FitOracle {
                             .as_ref()
                             .and_then(|v| v.get(&p.declaration.experiments[ei].experiment_id))
                             .map(Arc::as_ref),
+                        &validity,
                     )
                 })
-                .collect::<Result<Vec<_>, ProblemError>>()?
+                .collect::<Result<Vec<_>, ProblemError>>()
+        };
+        let products = match products {
+            Ok(products) => products,
+            Err(error) => {
+                if validity.contradicted() { self.point = None; }
+                return Err(error);
+            }
         };
         // Publication is atomic; reduction order is the authored experiment declaration
         // order, independent of lane scheduling and completion order.
@@ -426,6 +434,9 @@ impl FitOracle {
             )]),
             incumbent: None,
         });
+        // A complete curvature block is independent of the optimizer's subsequent
+        // objective multiplier and retains the same immutable exact-point premises.
+        point.curvatures = self.point.as_mut().and_then(|previous| previous.curvatures.take());
         self.point = Some(point);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("fit.trials_completed", "count", 1);
@@ -501,6 +512,7 @@ impl FitOracle {
     /// for steady experiments and for transient ones without an included observation or
     /// a free parameter.
     fn transient_curvatures(&mut self, x: &[f64]) -> Result<(), ProblemError> {
+        crate::workflow::dynamics::analysis("fit.exact_transient_curvature", || {
         self.execution.check()?;
         let point = self
             .point
@@ -552,6 +564,7 @@ impl FitOracle {
             context.count("fit.transient_curvature_completions", "count", 1);
         }
         Ok(())
+        })
     }
     #[cfg(feature = "solver-idas")]
     fn transient_curvature(
@@ -928,7 +941,7 @@ impl FitProblem {
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     ) -> Result<(FitReport, Execution), crate::math::MathRuntimeError> {
         let mut execution =
-            Execution::within(scope.cancellation().clone(), &solver.controls, scope)?;
+            Execution::within(scope.cancellation_control().clone(), &solver.controls, scope)?;
         execution.progress = progress;
         execution.work_admission =
             admission.map(|admission| -> Arc<dyn native::solve::WorkAdmission> { admission });
@@ -1030,6 +1043,7 @@ impl FitProblem {
         report: &mut FitReport,
         execution: Execution,
     ) -> Result<(), crate::math::MathRuntimeError> {
+        crate::workflow::dynamics::analysis("fit.original_final_assessment", || {
         let _phase = pse_diagnostics::observation::phase("fit.original_final_assessment");
         if let Some(x) = report.candidate.clone() {
             if let Some(context) = pse_diagnostics::observation::current() {
@@ -1071,6 +1085,7 @@ impl FitProblem {
             }
         }
         Ok(())
+        })
     }
     /// Values and derivative products refer to the same physically compared trial.
     /// Preserve a completed value observation when rank/derivatives are unavailable.
@@ -1177,6 +1192,7 @@ fn rank_scratch(rows: usize, cols: usize, vectors: bool) -> faer::dyn_stack::Sta
 }
 impl FitOracle {
     fn response_rank(&mut self, x: &[f64]) -> Result<RankDiagnostic, ProblemError> {
+        crate::workflow::dynamics::analysis("fit.forward_response_and_identifiability", || {
         // Rank and responses need the response Jacobian: a gradient-only fit reruns the
         // forward sensitivities once, at the candidate (PS-12).
         if self.derivatives != FitDerivatives::Responses {
@@ -1523,6 +1539,7 @@ impl FitOracle {
             directions,
             rank,
         })
+        })
     }
 }
 pub(super) struct ExperimentWorkers<'a> {
@@ -1540,6 +1557,7 @@ pub(super) fn evaluate_experiment(
     execution: &Execution,
     workers: ExperimentWorkers<'_>,
     previous: Option<&native::dynamics::Report>,
+    validity: &UpgradeValidity,
 ) -> Result<ExperimentProducts, ProblemError> {
     let operation = pse_diagnostics::observation::current().map(|parent| {
         parent.count("fit.experiment_attempts", "count", 1);
@@ -1714,6 +1732,15 @@ pub(super) fn evaluate_experiment(
                         )?
                     };
                     if let Some(prior) = previous {
+                        let missing = mapping.observations.iter().any(|&i| {
+                            let observation = &p.measurements[i];
+                            observation.sample_index.and_then(|sample| prior.samples.get(sample))
+                                .and_then(|sample| sample.outputs.get(observation.row)).is_none()
+                        });
+                        if missing || prior.samples.iter().any(|sample| sample.outputs.iter().any(|v| !v.is_finite())) {
+                            validity.contradicts();
+                            return Err(ProblemError::numerical("nonfinite completed fit prediction"));
+                        }
                         let _upgrade = pse_diagnostics::observation::phase(
                             "fit.derivative_upgrade_validation",
                         );
@@ -1757,7 +1784,10 @@ pub(super) fn evaluate_experiment(
                                 .zip(after.get(sample).and_then(|v| v.get(o.row)))
                                 .map(|(a, b)| a + b)
                                 .ok_or_else(|| ProblemError::internal("fit upgrade allowance"))?;
-                            FitOracle::admit_upgrade(old, new, allowance)?;
+                            if let Err(error) = FitOracle::admit_upgrade(old, new, allowance) {
+                                validity.contradicts();
+                                return Err(error);
+                            }
                         }
                     }
                     for &i in &mapping.observations {
@@ -1931,7 +1961,7 @@ mod tests {
         assert!(size_of_val(&preparation) < 64 * 1024);
         let p = preparation.await.unwrap().0;
         let execution =
-            Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+            Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
         let mut oracle = FitOracle::new(p, execution).unwrap();
         let hub = pse_diagnostics::observation::ObservationHub::new(
             pse_diagnostics::observation::Policy {
@@ -2079,7 +2109,7 @@ mod tests {
             .await
             .unwrap()
             .0;
-        let ex = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+        let ex = Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
         let mut o = FitOracle::new(p, ex).unwrap();
         assert!((o.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
         let mut g = [0.0];
@@ -2156,7 +2186,7 @@ mod tests {
                 .await
                 .unwrap()
                 .0;
-            let ex = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+            let ex = Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
             FitOracle::new(p, ex).unwrap()
         };
         let mut gn = oracle(HessianMode::GaussNewton).await;
@@ -2297,7 +2327,7 @@ mod tests {
             .unwrap()
             .0;
         p.profile.max_cells = 0;
-        let ex = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+        let ex = Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
         let mut oracle = FitOracle::new(p, ex).unwrap();
         assert!(oracle.response_rank(&[2.0]).is_err());
         assert!((oracle.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
@@ -2393,7 +2423,7 @@ mod tests {
             let error = prepared
                 .execute(
                     id(99).into(),
-                    pse_kernels::ExecutionScope::new(Arc::default(), None),
+                    pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
                     Arc::new(native::solve::Progress::new(16)),
                     1,
                 )
@@ -2573,7 +2603,7 @@ mod tests {
             .await
             .unwrap()
             .0;
-        let ex = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+        let ex = Execution::new(pse_diagnostics::Cancellation::new(false), &p.profile.solver.controls);
         let mut o = FitOracle::new(p, ex).unwrap();
         let RankDiagnostic {
             responses: response,

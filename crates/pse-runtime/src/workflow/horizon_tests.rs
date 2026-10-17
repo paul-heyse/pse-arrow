@@ -1167,16 +1167,16 @@ async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_ow
     let runtime = horizon_runtime();
     let staged = crate::workflow::staged::Staged::open(&runtime, None).unwrap();
     let cancel = crate::CancelSource::new();
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let deadline = Instant::now() + Duration::from_secs(5);
     let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
     let original = scope.clone();
     let same_owner = flag.clone();
     let observed = staged
         .native_in_task(1, scope, &cancel, move |_, flag, _| {
-            assert!(Arc::ptr_eq(flag, &same_owner));
+            assert!(Arc::ptr_eq(flag, &same_owner.flag()));
             let execution = pse_backend_native::solve::Execution::within(
-                flag.clone(),
+                original.cancellation_control().clone(),
                 &pse_backend_native::solve::Controls::default(),
                 original,
             )?;
@@ -1185,7 +1185,7 @@ async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_ow
         .await
         .unwrap();
     assert_eq!(observed, Some(deadline));
-    assert!(!flag.load(Ordering::Acquire));
+    assert!(!flag.is_cancelled());
     let dispatched = Arc::new(AtomicBool::new(false));
     let effect = dispatched.clone();
     let expired = pse_kernels::ExecutionScope::new(flag.clone(), Some(Instant::now()));
@@ -1197,7 +1197,7 @@ async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_ow
         .await;
     assert!(refused.is_err());
     assert!(!dispatched.load(Ordering::Acquire));
-    assert!(!flag.load(Ordering::Acquire));
+    assert!(!flag.is_cancelled());
     assert!(!cancel.token().is_cancelled());
     staged.close().await;
 }
@@ -1233,7 +1233,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
     let good = first.prepared.clone();
     let mut bad = good.clone();
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
     );
     let admission = crate::math::strategy::admission::TaskAdmission::new(
@@ -1549,7 +1549,7 @@ async fn compact_horizon_bounds_roles_and_keeps_actual_background_permission() {
         .await
         .unwrap();
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
     );
     let admission = crate::math::strategy::admission::TaskAdmission::new(
@@ -2133,7 +2133,7 @@ async fn compact_failed_detail_uses_one_whole_horizon_cap_and_original_outcome()
         .await
         .unwrap();
     let scope = pse_kernels::ExecutionScope::new(
-        Arc::default(),
+        pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
     );
     let admission = crate::math::strategy::admission::TaskAdmission::new(

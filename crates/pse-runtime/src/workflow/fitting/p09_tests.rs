@@ -7,7 +7,6 @@ use native::{
     NlpOracle,
     solve::{Backend, Execution},
 };
-use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Parameter estimates use the frozen physical target. Dynamic derivative actions
 /// are empirical physical-output comparisons, not certified endpoint-error bounds.
@@ -376,7 +375,7 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
         .unwrap();
     assert_eq!(problem.contract.variables.len(), 1);
     let execution = Execution::new(
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         &problem.profile.solver.controls,
     );
     let mut oracle = FitOracle::new(problem, execution).unwrap();
@@ -422,7 +421,7 @@ async fn gauss_newton_fit_admits_transient() {
         .unwrap();
     assert_eq!(problem.contract.derivatives, DerivativeOrder::Second);
     let execution = Execution::new(
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         &problem.profile.solver.controls,
     );
     let mut oracle = FitOracle::new(problem, execution).unwrap();
@@ -700,7 +699,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
         assert_eq!(problem.measurements[0].time, Some(161.));
         assert_eq!(problem.measurements[0].sample_index, Some(1));
         let execution = Execution::new(
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             &problem.profile.solver.controls,
         );
         let mut oracle = FitOracle::new(problem, execution).unwrap();
@@ -968,7 +967,7 @@ async fn transient_fit_deadline_is_time_limit() {
         .unwrap();
     let problem = Arc::new(problem);
     let execution = Execution::new(
-        Arc::new(AtomicBool::new(false)),
+        pse_diagnostics::Cancellation::new(false),
         &problem.profile.solver.controls,
     );
     let mut oracle = FitOracle::new(problem.clone(), execution.clone()).unwrap();
@@ -1004,7 +1003,7 @@ async fn transient_fit_deadline_is_time_limit() {
     );
     // A pre-cancelled attempt refuses native worker construction.
     let cancelled = Execution::new(
-        Arc::new(AtomicBool::new(true)),
+        pse_diagnostics::Cancellation::new(true),
         &problem.profile.solver.controls,
     );
     let error = match FitOracle::new(problem.clone(), cancelled) {
@@ -1017,10 +1016,10 @@ async fn transient_fit_deadline_is_time_limit() {
         native::callback::Failure::Stopped(native::solve::Termination::Cancelled)
     );
     // Cancellation after construction still stops evaluation as a cancellation.
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let active = Execution::new(flag.clone(), &problem.profile.solver.controls);
     let mut oracle = FitOracle::new(problem, active).unwrap();
-    flag.store(true, Ordering::Release);
+    flag.cancel();
     let error = oracle.objective(&[2.]).unwrap_err();
     assert!(matches!(error, ProblemError::Cancelled), "{error:?}");
     assert_eq!(
@@ -1617,10 +1616,13 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
         assert_eq!(oracle.transient_curvature_passes, attempted + 1);
         // Cancellation invalidates the point before any cached scientific product
         // can be served. The original completed block is not retained for retry.
-        oracle.execution.cancel.store(true, Ordering::Release);
+        let original_execution = oracle.execution.clone();
+        oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
+        oracle.execution.cancel = oracle.execution.cancellation.flag();
+        oracle.execution.enclosing_scope = None;
         assert!(oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).is_err());
         assert!(oracle.point.is_none());
-        oracle.execution.cancel.store(false, Ordering::Release);
+        oracle.execution = original_execution;
         oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).unwrap();
         assert_eq!(oracle.transient_curvature_passes, attempted + 2);
     })
@@ -1847,9 +1849,16 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         assert!(oracle.gradient(&[1.5], &mut first).is_err());
         assert!(oracle.point.is_none());
         let memory = oracle.execution.memory.take();
-        oracle.objective(&[1.3]).unwrap();
+        let complete_lower = oracle.objective(&[1.3]).unwrap();
+        let trajectory = oracle.point.as_ref().unwrap().trajectories.values().next().unwrap().clone();
         assert!(oracle.gradient(&[1.3], &mut first).is_err());
-        assert!(oracle.point.is_none());
+        // Missing admission for a richer product is not contradictory scientific
+        // evidence. The exact complete primal product remains reusable.
+        assert!(oracle.point.as_ref().is_some_and(|p| p.adjoint.is_none()));
+        let passes = oracle.transient_passes;
+        assert_eq!(oracle.objective(&[1.3]).unwrap().to_bits(), complete_lower.to_bits());
+        assert_eq!(oracle.transient_passes, passes);
+        assert!(Arc::ptr_eq(&trajectory, oracle.point.as_ref().unwrap().trajectories.values().next().unwrap()));
         oracle.execution.memory = memory;
         oracle.gradient(&[1.3], &mut first).unwrap();
         // Signed zero has a distinct candidate key even with equal numerical values.
@@ -1857,10 +1866,13 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         let passes = oracle.transient_passes;
         oracle.objective(&[-0.]).unwrap();
         assert_eq!(oracle.transient_passes, (passes.0 + 1, passes.1));
-        oracle.execution.cancel.store(true, Ordering::Release);
+        let original_execution = oracle.execution.clone();
+        oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
+        oracle.execution.cancel = oracle.execution.cancellation.flag();
+        oracle.execution.enclosing_scope = None;
         assert!(oracle.gradient(&[-0.], &mut first).is_err());
         assert!(oracle.point.is_none());
-        oracle.execution.cancel.store(false, Ordering::Release);
+        oracle.execution = original_execution;
         // Candidate bits participate in the key; invalid values retire the cache.
         assert!(oracle.gradient(&[f64::NAN], &mut first).is_err());
         assert!(oracle.point.is_none());
@@ -2508,7 +2520,7 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
                 oracle.team.as_ref().unwrap().test_constructions(),
                 vec![1, 1]
             );
-            oracle.execution.cancel.store(true, Ordering::Release);
+            oracle.execution.cancellation_control().cancel();
             assert!(oracle.objective(&[1.0]).is_err());
             assert!(oracle.point.is_none());
         }),

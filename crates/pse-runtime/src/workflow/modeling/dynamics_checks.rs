@@ -118,6 +118,7 @@ impl ModelingSimulation {
         scope: &pse_kernels::ExecutionScope,
         include_samples: bool,
     ) -> SampleChecks {
+        let interval = crate::invocation::stage("dynamic.original_physical_checks");
         let mut result = SampleChecks {
             rows: Vec::new(),
             reports: Vec::new(),
@@ -239,6 +240,9 @@ impl ModelingSimulation {
             }
             Err(error) => result.error = Some(error.boundary_diagnostic()),
         }
+        interval.finish(if result.error.is_none() && result.complete {
+            crate::invocation::InvocationOutcome::Completed
+        } else { crate::invocation::InvocationOutcome::Failed });
         result
     }
 }

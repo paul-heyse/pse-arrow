@@ -160,7 +160,7 @@ async fn covariance_withheld_for_missing_or_malformed_bound_multipliers() {
             &problem.profile.solver,
             prepared.route(),
             pse_kernels::ExecutionScope::new(
-                Arc::default(),
+                pse_diagnostics::Cancellation::default(),
                 std::time::Instant::now().checked_add(problem.profile.solver.controls.time_limit),
             ),
             Arc::new(native::solve::Progress::new(16)),
@@ -406,7 +406,7 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
                 .job(
                     threads,
                     bytes,
-                    pse_columnar::flight::FlightCancellation::default(),
+                    pse_diagnostics::Cancellation::default(),
                     move |flag| {
                         prepared.problem.execute_profile(
                             &prepared.problem.profile.solver,

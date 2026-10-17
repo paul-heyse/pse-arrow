@@ -169,7 +169,7 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
                 upper: Some(2.),
             });
             let problem = Arc::new(simulation.shooting(profile).unwrap());
-            let mut execution = Execution::new(Arc::default(), &solver().controls);
+            let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
             execution.memory = Some(
                 problem
                     .runtime
@@ -326,7 +326,6 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
 
 #[tokio::test]
 async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
-    use std::sync::atomic::Ordering;
     let simulation = tracking(Method::Diffsol).await;
     let mut profile = request(&simulation, ShootingMethod::Single, vec![], true);
     let demanded = Arc::new(simulation.shooting(profile.clone()).unwrap());
@@ -346,7 +345,7 @@ async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
         }),
         purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
         problem: demanded.clone(),
-        execution: Execution::new(Arc::default(), &solver().controls),
+        execution: Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls),
         point: None,
         worker: None,
     };
@@ -372,15 +371,18 @@ async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
     let count = oracle.execution.progress.snapshot().0.len();
     oracle.objective(&[-0., 1.]).unwrap();
     assert_eq!(oracle.execution.progress.snapshot().0.len(), count);
-    oracle.execution.cancel.store(true, Ordering::Release);
+    let original_execution = oracle.execution.clone();
+        oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
+        oracle.execution.cancel = oracle.execution.cancellation.flag();
+        oracle.execution.enclosing_scope = None;
     assert!(matches!(
         oracle.objective(&[-0., 1.]),
         Err(ProblemError::Cancelled)
     ));
-    oracle.execution.cancel.store(false, Ordering::Release);
+    oracle.execution = original_execution;
     // A scope change cannot use an old point or renew the enclosing deadline.
     oracle.execution.enclosing_scope = Some(pse_kernels::ExecutionScope::new(
-        oracle.execution.cancel.clone(),
+        oracle.execution.cancellation_control().clone(),
         Some(Instant::now()),
     ));
     assert!(matches!(
@@ -396,7 +398,7 @@ async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
     oracle.execution.enclosing_scope = None;
     oracle.problem = demanded;
     oracle.objective(&[0.3, 1.]).unwrap();
-    oracle.execution.cancel.store(true, Ordering::Release);
+    oracle.execution.cancellation_control().cancel();
     assert!(matches!(
         oracle.evaluate(&[0.3, 1.], DerivativeOrder::First),
         Err(ProblemError::Cancelled)
@@ -559,7 +561,7 @@ async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
     let error = problem
         .solve(
             id(99).into(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             Arc::new(native::solve::Progress::new(16)),
             None,
             &problem.solver,
@@ -587,7 +589,7 @@ async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
     let error = problem
         .solve(
             id(100).into(),
-            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             Arc::new(native::solve::Progress::new(16)),
             Some(&[]),
             &problem.solver,
@@ -840,7 +842,7 @@ async fn multiple_shooting_continuity_closes() {
                     ))
                     .unwrap(),
             );
-            let execution = Execution::new(Arc::new(AtomicBool::new(false)), &solver().controls);
+            let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &solver().controls);
             let mut initial = problem.initial_point(&execution).unwrap();
             let controls = problem.controls();
             for node in &mut initial[controls..] {
@@ -884,7 +886,7 @@ async fn multiple_shooting_continuity_closes() {
             profile.sensitivity = DynamicSensitivity::None;
             let mut worker = simulation
                 .worker(pse_kernels::ExecutionScope::new(
-                    Arc::new(AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::new(false),
                     Some(Instant::now().checked_add(profile.time_limit).unwrap()),
                 ))
                 .unwrap();
@@ -1481,7 +1483,7 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
                 ))
                 .unwrap(),
         );
-        let mut execution = Execution::new(Arc::default(), &solver().controls);
+        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
         execution.memory = Some(
             problem
                 .runtime
@@ -1578,8 +1580,7 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         }
         oracle
             .execution
-            .cancel
-            .store(true, std::sync::atomic::Ordering::Release);
+            .cancellation_control().cancel();
         assert!(matches!(
             oracle.gradient(&x, &mut gradient),
             Err(ProblemError::Cancelled)

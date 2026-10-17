@@ -249,13 +249,13 @@ impl super::ModelingPackage {
                     execution.analysis.instance,
                     execution.analysis.solver.clone(),
                 )?;
-                let control = pse_columnar::flight::FlightCancellation::default();
+                let control = pse_diagnostics::Cancellation::default();
                 let operation =
                     self.runtime
                         .shared
                         .math()
                         .job(1, 0, control.clone(), move |flag| {
-                            Ok(ShootingProblem::new(&simulation, request, &flag))
+                            Ok(ShootingProblem::new(&simulation, request, &flag.flag()))
                         });
                 tokio::pin!(operation);
                 tokio::select! {
@@ -480,7 +480,7 @@ impl ShootingProblem {
             use native::dynamics::Oracle;
             let mut worker = simulation
                 .worker(pse_kernels::ExecutionScope::new(
-                    Arc::new(AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::new(false),
                     None,
                 ))
                 .map_err(|e| WorkflowError::Math(e.into()))?;
@@ -877,7 +877,7 @@ impl ShootingProblem {
         let worker = |observed| {
             native::dynamics::Anchored::new(
                 simulation.worker(pse_kernels::ExecutionScope::new(
-                    Arc::new(AtomicBool::new(false)),
+                    pse_diagnostics::Cancellation::new(false),
                     None,
                 ))?,
                 observed,
@@ -1567,7 +1567,7 @@ impl ShootingProblem {
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
         let operation_profile = self.operation_profile(solver)?;
         let mut execution =
-            Execution::within(scope.cancellation().clone(), &solver.controls, scope)?;
+            Execution::within(scope.cancellation_control().clone(), &solver.controls, scope)?;
         execution.progress = progress;
         execution.work_admission = Some(admission);
         execution.memory = Some(
@@ -1666,6 +1666,7 @@ impl ShootingProblem {
             checks_complete: false,
             validation_error: None,
         };
+        let original = crate::invocation::stage("shooting.original_assessment_and_trajectory_materialization");
         if let Some(x) = report.candidate.clone() {
             // A fresh evaluation, independent of the native callbacks' cache.
             let mut oracle = ShootingOracle {
@@ -1693,6 +1694,7 @@ impl ShootingProblem {
                     }
                     report.validation_error = Some(diagnostic);
                     self.assess_completion(&mut report);
+                    original.finish(crate::invocation::InvocationOutcome::Failed);
                     return Ok(report);
                 }
             };
@@ -1823,6 +1825,9 @@ impl ShootingProblem {
             report.parameters = Some(integration);
         }
         self.assess_completion(&mut report);
+        original.finish(if report.checks_complete && report.validation_error.is_none() {
+            crate::invocation::InvocationOutcome::Completed
+        } else { crate::invocation::InvocationOutcome::Failed });
         Ok(report)
     }
     fn original_candidate(&self, report: &ShootingReport) -> super::numerics::CandidateDecision {

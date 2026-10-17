@@ -488,7 +488,7 @@ mod tests {
             error: None,
         };
         let scope = pse_kernels::ExecutionScope::new(
-            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             None,
         );
         for (termination, expected) in [
@@ -1481,7 +1481,7 @@ impl ModelingSimulation {
             return Err(ProblemError::memory("dynamic point arithmetic reservation"));
         }
         let mut execution = pse_backend_native::solve::Execution::within(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             &pse_backend_native::solve::Controls::default(),
             scope.clone(),
         )?;
@@ -1993,6 +1993,7 @@ impl ModelingSimulation {
         (native::Report, checks::SampleChecks, Vec<GoalResult>),
         crate::math::MathRuntimeError,
     > {
+        crate::workflow::dynamics::analysis("dynamic.output_accuracy_and_refinement", || {
         let (mut report, checks, accuracy) =
             self.assess_dynamic_accuracy_inner(report, checks, &mut context)?;
         if !context.charges.is_empty() {
@@ -2001,6 +2002,7 @@ impl ModelingSimulation {
                 .push(serde_json::json!({ "accuracy_work_charges": context.charges }));
         }
         Ok((report, checks, accuracy))
+        })
     }
 
     fn assess_dynamic_accuracy_inner(

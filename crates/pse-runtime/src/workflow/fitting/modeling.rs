@@ -994,7 +994,7 @@ impl ModelingPackage {
                     bytes,
                     physical_cells,
                 };
-                let control = pse_columnar::flight::FlightCancellation::default();
+                let control = pse_diagnostics::Cancellation::default();
                 let runtime = self.runtime.clone();
                 let quantities = q.clone();
                 let preconditions = self.physical.preconditions.clone();
@@ -1015,7 +1015,7 @@ impl ModelingPackage {
                                 source,
                                 physical_owner,
                                 reservation,
-                                &flag,
+                                &flag.flag(),
                             ))
                         });
                 tokio::pin!(operation);

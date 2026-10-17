@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Dynamic roles project the shared typed compiler; only attempts own native state.
+/// Observe an actual synchronous workflow analysis under its transferred invocation.
+/// Its inclusive interval is not another work charge or scientific permission.
+pub(crate) fn analysis<T, E>(name: &'static str, work: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+    let stage = crate::invocation::stage(name);
+    let result = work();
+    stage.finish(if result.is_ok() { crate::invocation::InvocationOutcome::Completed }
+        else { crate::invocation::InvocationOutcome::Failed });
+    result
+}
+
 use crate::math::ExecutableCase;
 use pse_backend_native::{
     ProblemError,
@@ -88,7 +98,7 @@ impl GuardWorker {
     /// Observe `check` at `values`, whose guard rows are `rows`; an endpoint or value that is
     /// not finite, or a reversed range, is refused.
     fn observe(
-        &self,
+        program: &GuardProgram,
         check: &RangeCheck,
         rows: &[f64],
         values: &DynamicFrame,
@@ -98,9 +108,7 @@ impl GuardWorker {
                 RangeValue::Input(id) => values
                     .get(*id)
                     .ok_or_else(|| ProblemError::Internal("dynamic range input absent".into())),
-                RangeValue::Output(id) => self
-                    .program
-                    .rows
+                RangeValue::Output(id) => program.rows
                     .get(id)
                     .and_then(|i| rows.get(*i))
                     .copied()
@@ -133,7 +141,7 @@ impl GuardWorker {
                 value,
                 lower,
                 upper,
-            } = self.observe(check, &rows, values)?;
+            } = Self::observe(&self.program, check, rows, values)?;
             if lower.is_some_and(|v| value < v) || upper.is_some_and(|v| value > v) {
                 return Err(pse_math::MathError::OutsideRange {
                     source_id: check.source,
@@ -157,7 +165,7 @@ impl GuardWorker {
         let rows = self.worker.constraints(self.binding.trial()?)?;
         let mut ranges = BTreeMap::new();
         for check in &self.program.checks {
-            let observed = self.observe(check, &rows, values)?;
+            let observed = Self::observe(&self.program, check, rows, values)?;
             let (lower, upper): &mut (f64, f64) = ranges
                 .entry(check.target)
                 .or_insert((f64::NEG_INFINITY, f64::INFINITY));

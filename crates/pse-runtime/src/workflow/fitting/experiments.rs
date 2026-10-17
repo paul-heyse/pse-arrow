@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Finite owner-affine experiment lanes; the existing runtime owns active admission.
-use super::oracle::{Demand, ExperimentProducts, ExperimentWorkers, evaluate_experiment};
+use super::oracle::{Demand, ExperimentProducts, ExperimentWorkers, UpgradeValidity, evaluate_experiment};
 use super::*;
 use native::{ProblemError, solve::Execution};
 use std::{
@@ -32,6 +32,7 @@ struct Request {
     observation: Option<pse_diagnostics::observation::ObservationContext>,
     x: Arc<[f64]>,
     demand: Demand,
+    validity: UpgradeValidity,
     experiments: Vec<(usize, Option<Arc<native::dynamics::Report>>)>,
     reply: SyncSender<(usize, Result<ExperimentProducts, ProblemError>)>,
     #[cfg(all(test, feature = "solver-diffsol"))]
@@ -176,6 +177,7 @@ impl ExperimentTeam {
                                             transient: &mut transient[ei],
                                         },
                                         previous.as_deref(),
+                                        &request.validity,
                                     )
                                 };
                                 let result = catch_unwind(AssertUnwindSafe(|| {
@@ -266,6 +268,7 @@ impl ExperimentTeam {
         x: &[f64],
         demand: Demand,
         previous: Option<&BTreeMap<InstanceId, Arc<native::dynamics::Report>>>,
+        validity: &UpgradeValidity,
     ) -> Result<Vec<ExperimentProducts>, ProblemError> {
         let _phase = pse_diagnostics::observation::phase("fit.experiment_dispatch");
         if let Some(context) = pse_diagnostics::observation::current() {
@@ -295,6 +298,7 @@ impl ExperimentTeam {
                     observation: pse_diagnostics::observation::current(),
                     x: x.clone(),
                     demand,
+                    validity: validity.clone(),
                     experiments,
                     reply: reply.clone(),
                     #[cfg(all(test, feature = "solver-diffsol"))]

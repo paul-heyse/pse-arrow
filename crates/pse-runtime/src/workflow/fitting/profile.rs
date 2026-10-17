@@ -780,6 +780,7 @@ impl FitProblem {
         (route, workers): (native::routing::Route, usize),
         execution: &Execution,
     ) -> Result<Vec<ProfileChain>, FitWithheld> {
+        crate::workflow::dynamics::analysis("fit.profile_likelihood_analysis", || {
         self.estimate_valid(report)?;
         let (Some(estimate), Some(optimum)) = (report.candidate.as_deref(), report.objective)
         else {
@@ -925,6 +926,7 @@ impl FitProblem {
             chain.scheduling_failures = scheduling.clone();
         }
         Ok(result)
+        })
     }
 }
 
@@ -950,7 +952,7 @@ mod worker_tests {
     }
     fn execution() -> Execution {
         Execution::new(
-            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::new(false),
             &Default::default(),
         )
     }
@@ -1151,7 +1153,7 @@ mod worker_tests {
     #[test]
     fn stopped_scope_never_starts_a_scripted_pin() {
         let execution = execution();
-        execution.cancel.store(true, Ordering::Release);
+        execution.cancellation_control().cancel();
         let chain = policy(&execution).run(|_, _| panic!("cancelled profile started a pin"));
         assert_eq!(chain.points.len(), 1);
         assert!(matches!(
@@ -1345,7 +1347,7 @@ mod worker_tests {
         let context = operation.context();
         let _entered = context.enter();
         let execution = execution();
-        execution.cancel.store(true, Ordering::Release);
+        execution.cancellation_control().cancel();
         let chain = policy(&execution).run(|_, _| panic!("cancelled chain called a pin"));
         assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
         let parent = context

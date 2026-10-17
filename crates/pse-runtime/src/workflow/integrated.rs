@@ -233,7 +233,7 @@ impl IntegratedExperiment {
             worker,
             &profile,
             &self.bind(value),
-            execution.cancel.clone(),
+            execution.cancellation_control().clone(),
             std::sync::Arc::new(native::solve::Progress::new(256)),
             &self.snapshot,
         )?;
@@ -337,7 +337,7 @@ impl IntegratedExperiment {
             &profile,
             &self.bind(value),
             cotangent,
-            execution.cancel.clone(),
+            execution.cancellation_control().clone(),
             memory,
             &self.snapshot,
         )?;
@@ -406,7 +406,7 @@ impl IntegratedExperiment {
             &self.bind(value),
             &directions,
             cotangent,
-            execution.cancel.clone(),
+            execution.cancellation_control().clone(),
             memory,
             &self.snapshot,
         )?;
@@ -471,7 +471,7 @@ impl IntegratedExperiment {
             &mut oracle,
             &profile,
             &Self::window_parameters(window, integration, anchors)?,
-            execution.cancel.clone(),
+            execution.cancellation_control().clone(),
             std::sync::Arc::new(native::solve::Progress::new(256)),
             &self.snapshot,
         )?;
@@ -512,7 +512,7 @@ impl IntegratedExperiment {
             &profile,
             &Self::window_parameters(window, integration, anchors)?,
             cotangent,
-            execution.cancel.clone(),
+            execution.cancellation_control().clone(),
             memory,
             &self.snapshot,
         )?;
