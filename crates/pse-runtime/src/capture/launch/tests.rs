@@ -288,9 +288,15 @@ fn launch_capture_late_operation_links_require_exact_published_process_identity(
 
 #[test]
 fn launch_capture_member_identity_handles_comm_delimiters_and_refuses_missing_start() {
-    let stat = format!("123 (worker ) name) S 1 456 {} 987 0", vec!["0"; 16].join(" "));
+    let stat = format!(
+        "123 (worker ) name) S 1 456 {} 987 0",
+        vec!["0"; 16].join(" ")
+    );
     assert_eq!(member_identity(&stat).unwrap(), (true, 456, 987));
-    assert_eq!(member_identity(&stat.replace(") S ", ") Z ")).unwrap(), (false, 456, 987));
+    assert_eq!(
+        member_identity(&stat.replace(") S ", ") Z ")).unwrap(),
+        (false, 456, 987)
+    );
     assert!(member_identity("123 (worker) S 1 456").is_err());
 }
 
@@ -298,10 +304,21 @@ fn launch_capture_member_identity_handles_comm_delimiters_and_refuses_missing_st
 fn launch_capture_owned_group_waits_exact_member_notifications_without_stopping_foreign_child() {
     let directory = tempfile::tempdir().unwrap();
     let marker = directory.path().join("descendant-started");
-    let mut request = request(directory.path(), &["/bin/sh", "-c", "sleep 60 & printf '%s' \"$!\" > \"$1\"; wait", "science"]);
+    let mut request = request(
+        directory.path(),
+        &[
+            "/bin/sh",
+            "-c",
+            "sleep 60 & printf '%s' \"$!\" > \"$1\"; wait",
+            "science",
+        ],
+    );
     request.argv.push(marker.display().to_string());
-    let (mut command, capture) = launch_with(request,
-        |_, _, _, _, ready| { ready.send(Ok(())).unwrap(); Ok(()) }).unwrap();
+    let (mut command, capture) = launch_with(request, |_, _, _, _, ready| {
+        ready.send(Ok(())).unwrap();
+        Ok(())
+    })
+    .unwrap();
     let started = Instant::now();
     while !marker.exists() && started.elapsed() < Duration::from_secs(2) {
         std::thread::sleep(Duration::from_millis(1));
@@ -315,10 +332,19 @@ fn launch_capture_owned_group_waits_exact_member_notifications_without_stopping_
     let _ = foreign.kill();
     foreign.wait().unwrap();
     assert_eq!(result.unwrap(), 137);
-    assert!(foreign_survives, "command drain cannot signal a child outside the owned group");
+    assert!(
+        foreign_survives,
+        "command drain cannot signal a child outside the owned group"
+    );
     for member in &members {
-        let mut descriptors = [rustix::event::PollFd::new(member, rustix::event::PollFlags::IN)];
-        let zero = rustix::event::Timespec { tv_sec: 0, tv_nsec: 0 };
+        let mut descriptors = [rustix::event::PollFd::new(
+            member,
+            rustix::event::PollFlags::IN,
+        )];
+        let zero = rustix::event::Timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
         assert!(rustix::event::poll(&mut descriptors, Some(&zero)).unwrap() > 0);
     }
     capture.wait().unwrap();

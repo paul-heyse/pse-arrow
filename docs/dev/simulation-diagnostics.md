@@ -370,6 +370,12 @@ navigation. It omits retained point/counter arrays from the human view; `--json`
 encoding. Its thin recipe uses the existing checkout/native environment and light workload
 admission, without rebuilding an extension or opening a database.
 
+Implicit derivative observation separates the actual `implicit.derivatives.jet`, `.extraction`,
+`.first_rhs`, `.second_rhs`, `.contraction`, `.verification` and `.expansion` work under the
+existing implicit owner. Each performed stage reports calls, completion/failure and elapsed time;
+opaque factor/solve calls are checked before and after. Cached products do not fabricate repeated
+construction stages. Parent and child times overlap, so these values are not additive partitions.
+
 ## Explicit numerical diagnostic operations
 
 Dense `diagnose`, native `diagnose_linear`/`diagnose_jacobian` and finite `diagnose_samples` share

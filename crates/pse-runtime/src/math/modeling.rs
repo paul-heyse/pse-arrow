@@ -517,7 +517,9 @@ impl MathService {
         if task.driver().token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled);
         }
-        task.scope().check().map_err(pse_backend_native::ProblemError::Provider)?;
+        task.scope()
+            .check()
+            .map_err(pse_backend_native::ProblemError::Provider)?;
         let control = task.scope().cancellation_control().clone();
         // Charge construction, simultaneous earlier reports and the transported input.
         // Summing per-row peaks is conservative: actual findings share one work allowance.

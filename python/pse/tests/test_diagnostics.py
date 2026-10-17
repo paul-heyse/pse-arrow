@@ -780,7 +780,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
                 codec.decode_json(
                     invocation_view.column("document_json")[0].as_py(),
                     InvocationEvidenceDocument,
-    LaunchCaptureRequest,
+                    LaunchCaptureRequest,
                 )
                 == invocation
             )

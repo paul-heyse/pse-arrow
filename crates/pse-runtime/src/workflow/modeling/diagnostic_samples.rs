@@ -29,10 +29,6 @@ pub struct ModelingDiagnosticSamples {
 impl ModelingPackage {
     /// Inspect supplied points without changing starts or generating scientific guesses.
     /// The finding limit and wall allowance apply across the complete sample set.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one campaign binds the prepared model, samples, policy, profile, sample and time budgets and cancellation"
-    )]
     pub async fn diagnose_samples(
         &self,
         prepared: ModelingDiagnosticPreparation,

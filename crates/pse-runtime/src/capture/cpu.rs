@@ -6,7 +6,7 @@ use super::{
     CaptureError, CaptureOutput, CaptureOutputKind, CaptureRequest, CaptureStatus, Shared,
     document, failure, source_partial, target,
 };
-use crate::observation::{ProcessCheckpoint, read_checkpoint};
+use crate::observation::{ProcessCheckpoint, ProcessLocator, read_checkpoint};
 use std::{
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, Read, Write},
@@ -228,8 +228,7 @@ fn start_sampler(
     }
     start_sampler_for(
         request.output.as_path(),
-        image.locator.pid,
-        image.locator.start_ticks,
+        &image.locator,
         allowance,
         files,
         state,
@@ -239,14 +238,15 @@ fn start_sampler(
 }
 fn start_sampler_for(
     output_path: &Path,
-    pid: u32,
-    ticks: Option<u64>,
+    locator: &ProcessLocator,
     allowance: u64,
     files: &mut OwnedFiles,
     state: &Shared,
     control: Option<(&Path, &Path)>,
     sampler_program: &str,
 ) -> Result<Sampler, CaptureError> {
+    let pid = locator.pid;
+    let ticks = locator.start_ticks;
     let label = format!("{}-{:016x}", pid, ticks.unwrap_or(0));
     let raw = output_path.join(format!("{label}.perf.data"));
     let log = output_path.join(format!("{label}.perf.log"));
@@ -680,12 +680,12 @@ fn finalize(
 /// neither creates an observation owner nor makes process samples operation-exclusive.
 pub(super) fn discover_launch(
     directory: &Path,
-    locator: &crate::observation::ProcessLocator,
+    locator: &ProcessLocator,
     checkpoint: &mut Option<PathBuf>,
     cursor: &mut Option<String>,
     state: &Shared,
 ) {
-    let same_process = |candidate: &crate::observation::ProcessLocator| {
+    let same_process = |candidate: &ProcessLocator| {
         candidate.pid == locator.pid
             && locator.start_ticks.is_some()
             && candidate.start_ticks == locator.start_ticks
@@ -783,7 +783,7 @@ impl Drop for ControlPaths {
 /// Start disabled, acknowledge actual sampling activation, then allow caller-owned exec.
 pub(super) fn run_launched(
     request: &super::launch::LaunchCaptureRequest,
-    locator: &crate::observation::ProcessLocator,
+    locator: &ProcessLocator,
     stop: &AtomicBool,
     state: &Shared,
     ready: &std::sync::mpsc::SyncSender<Result<(), String>>,
@@ -792,7 +792,7 @@ pub(super) fn run_launched(
 }
 pub(super) fn run_launched_program(
     request: &super::launch::LaunchCaptureRequest,
-    locator: &crate::observation::ProcessLocator,
+    locator: &ProcessLocator,
     stop: &AtomicBool,
     state: &Shared,
     ready: &std::sync::mpsc::SyncSender<Result<(), String>>,
@@ -823,8 +823,7 @@ pub(super) fn run_launched_program(
     let allowance = request.budget.output_bytes / 4 * 3;
     let mut sampler = start_sampler_for(
         &request.output,
-        locator.pid,
-        locator.start_ticks,
+        locator,
         allowance,
         &mut files,
         state,

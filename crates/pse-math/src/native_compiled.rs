@@ -271,7 +271,7 @@ fn group_members(group: i32) -> std::io::Result<Vec<std::os::fd::OwnedFd>> {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => return Err(error),
         };
-        if !before.0 || before.1 != group {
+        if before.1 != group {
             continue;
         }
         let fd = match rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()) {
@@ -286,8 +286,19 @@ fn group_members(group: i32) -> std::io::Result<Vec<std::os::fd::OwnedFd>> {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => return Err(error),
         };
-        if after.0 && after.1 == group && after.2 == before.2 {
-            members.push(fd);
+        if after.1 == group && after.2 == before.2 {
+            // TGID state Z alone does not establish exit of its remaining threads.
+            let mut readiness = [rustix::event::PollFd::new(&fd, rustix::event::PollFlags::IN)];
+            loop {
+                match rustix::event::poll(&mut readiness, Some(&rustix::event::Timespec { tv_sec: 0, tv_nsec: 0 })) {
+                    Err(rustix::io::Errno::INTR) => continue,
+                    Err(error) => return Err(error.into()),
+                    Ok(_) => break,
+                }
+            }
+            let ready = readiness[0].revents();
+            if ready.contains(rustix::event::PollFlags::NVAL) { return Err(std::io::Error::other("compiler member descriptor invalid")); }
+            if !ready.intersects(rustix::event::PollFlags::IN | rustix::event::PollFlags::HUP | rustix::event::PollFlags::ERR) { members.push(fd); }
         }
     }
     Ok(members)
