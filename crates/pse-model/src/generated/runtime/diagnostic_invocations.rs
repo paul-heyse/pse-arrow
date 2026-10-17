@@ -12,9 +12,9 @@ pub struct RuntimeDiagnosticInvocationsRow {
     ///run
     pub r#run: String,
     ///attempt
-    pub r#attempt: String,
+    pub r#attempt: Option<String>,
     ///operation
-    pub r#operation: String,
+    pub r#operation: Option<String>,
     ///family
     pub r#family: String,
     ///outcome
@@ -22,11 +22,11 @@ pub struct RuntimeDiagnosticInvocationsRow {
     ///clock_scope
     pub r#clock_scope: String,
     ///qualification_seconds
-    pub r#qualification_seconds: f64,
+    pub r#qualification_seconds: Option<f64>,
     ///terminal_seconds
-    pub r#terminal_seconds: f64,
+    pub r#terminal_seconds: Option<f64>,
     ///response_ready_seconds
-    pub r#response_ready_seconds: f64,
+    pub r#response_ready_seconds: Option<f64>,
     ///partial
     pub r#partial: bool,
     ///document_json

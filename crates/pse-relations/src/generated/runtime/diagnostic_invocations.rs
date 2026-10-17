@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    110u8, 205u8, 59u8, 87u8, 137u8, 23u8, 76u8, 156u8, 2u8, 222u8, 164u8, 22u8, 215u8,
-    245u8, 231u8, 185u8, 237u8, 84u8, 104u8, 79u8, 132u8, 110u8, 147u8, 220u8, 137u8,
-    172u8, 127u8, 122u8, 136u8, 234u8, 109u8, 140u8,
+    213u8, 218u8, 126u8, 62u8, 2u8, 253u8, 133u8, 23u8, 233u8, 213u8, 16u8, 102u8, 26u8,
+    60u8, 210u8, 182u8, 93u8, 200u8, 97u8, 203u8, 132u8, 242u8, 13u8, 92u8, 168u8, 241u8,
+    42u8, 127u8, 11u8, 161u8, 110u8, 34u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeDiagnosticInvocationsRow {
     fn append(
@@ -72,14 +72,24 @@ impl crate::columnar::ArrowValue for RuntimeDiagnosticInvocationsRow {
         >(output)?;
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(
             children[10usize].as_mut(),
@@ -98,11 +108,15 @@ impl crate::columnar::ArrowValue for RuntimeDiagnosticInvocationsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#attempt: <String as crate::columnar::ArrowValue>::read(
+            r#attempt: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#operation: <String as crate::columnar::ArrowValue>::read(
+            r#operation: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -118,15 +132,21 @@ impl crate::columnar::ArrowValue for RuntimeDiagnosticInvocationsRow {
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#qualification_seconds: <f64 as crate::columnar::ArrowValue>::read(
+            r#qualification_seconds: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#terminal_seconds: <f64 as crate::columnar::ArrowValue>::read(
+            r#terminal_seconds: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#response_ready_seconds: <f64 as crate::columnar::ArrowValue>::read(
+            r#response_ready_seconds: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
@@ -271,11 +291,25 @@ impl crate::columnar::RelationRow for RuntimeDiagnosticInvocationsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#attempt).len())?,
+            if let Some(value) = (self.r#attempt).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#operation).len())?,
+            if let Some(value) = (self.r#operation).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -291,15 +325,36 @@ impl crate::columnar::RelationRow for RuntimeDiagnosticInvocationsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
+            if (self.r#qualification_seconds).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
+            if (self.r#terminal_seconds).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
+            if (self.r#response_ready_seconds).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,

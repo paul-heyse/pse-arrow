@@ -743,7 +743,7 @@
           ]
         },
         "raw_recycle_ratio_minimum": {
-          "description": "Selected consecutive unaccelerated raw-map residual ratio.",
+          "description": "Selected consecutive absolute residual ratio for each captured raw-map\ncoordinate. Native input points may be accelerated; this is no contraction norm.",
           "format": "double",
           "type": [
             "number",

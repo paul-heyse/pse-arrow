@@ -6133,7 +6133,8 @@ class NumericalHistoryPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=
     minimum_events: Annotated[int, msgspec.Meta(ge=0)]
     #: Maximum relative reduction in the same native primal measure.
     primal_progress_maximum: float | None = None
-    #: Selected consecutive unaccelerated raw-map residual ratio.
+    #: Selected consecutive absolute residual ratio for each captured raw-map
+    #: coordinate. Native input points may be accelerated; this is no contraction norm.
     raw_recycle_ratio_minimum: float | None = None
     #: Ask whether the same owner-supplied original worst row recurs.
     repeated_worst_row: bool

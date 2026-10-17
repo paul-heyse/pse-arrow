@@ -18,7 +18,7 @@ pub struct RuntimeDiagnosticEvidenceFieldsRow {
     ///event_sequence
     pub r#event_sequence: u64,
     ///family_sequence
-    pub r#family_sequence: u64,
+    pub r#family_sequence: Option<u64>,
     ///observed_seconds
     pub r#observed_seconds: u64,
     ///observed_nanoseconds
@@ -28,29 +28,29 @@ pub struct RuntimeDiagnosticEvidenceFieldsRow {
     ///phase
     pub r#phase: String,
     ///coordinates
-    pub r#coordinates: String,
+    pub r#coordinates: Option<String>,
     ///norm
-    pub r#norm: String,
+    pub r#norm: Option<String>,
     ///field_ordinal
     pub r#field_ordinal: u64,
     ///field_name
-    pub r#field_name: String,
+    pub r#field_name: Option<String>,
     ///unit
-    pub r#unit: String,
+    pub r#unit: Option<String>,
     ///value_kind
-    pub r#value_kind: String,
+    pub r#value_kind: Option<String>,
     ///count_value
-    pub r#count_value: u64,
+    pub r#count_value: Option<u64>,
     ///integer_value
-    pub r#integer_value: i64,
+    pub r#integer_value: Option<i64>,
     ///number_value
-    pub r#number_value: f64,
+    pub r#number_value: Option<f64>,
     ///boolean_value
-    pub r#boolean_value: bool,
+    pub r#boolean_value: Option<bool>,
     ///text_value
-    pub r#text_value: String,
+    pub r#text_value: Option<String>,
     ///availability
-    pub r#availability: String,
+    pub r#availability: Option<String>,
     ///partial
     pub r#partial: bool,
 }

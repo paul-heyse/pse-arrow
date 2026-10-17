@@ -1210,23 +1210,23 @@ Version: 1. Snapshot class: `derived`. Primary key: `operation, producer, genera
 | `producer` | `UInt64` | false | `key` | — | — |
 | `generation` | `UInt64` | false | `key` | — | — |
 | `event_sequence` | `UInt64` | false | `key` | — | — |
-| `family_sequence` | `UInt64` | false | `payload` | — | — |
+| `family_sequence` | `UInt64` | true | `payload` | — | — |
 | `observed_seconds` | `UInt64` | false | `payload` | — | — |
 | `observed_nanoseconds` | `UInt32` | false | `payload` | — | — |
 | `family` | `Utf8` | false | `payload` | — | — |
 | `phase` | `Utf8` | false | `payload` | — | — |
-| `coordinates` | `Utf8` | false | `payload` | — | — |
-| `norm` | `Utf8` | false | `payload` | — | — |
+| `coordinates` | `Utf8` | true | `payload` | — | — |
+| `norm` | `Utf8` | true | `payload` | — | — |
 | `field_ordinal` | `UInt64` | false | `key` | — | — |
-| `field_name` | `Utf8` | false | `payload` | — | — |
-| `unit` | `Utf8` | false | `payload` | — | — |
-| `value_kind` | `Utf8` | false | `payload` | — | — |
-| `count_value` | `UInt64` | false | `payload` | — | — |
-| `integer_value` | `Int64` | false | `payload` | — | — |
-| `number_value` | `Float64` | false | `payload` | — | — |
-| `boolean_value` | `Boolean` | false | `payload` | — | — |
-| `text_value` | `Utf8` | false | `payload` | — | — |
-| `availability` | `Utf8` | false | `payload` | — | — |
+| `field_name` | `Utf8` | true | `payload` | — | — |
+| `unit` | `Utf8` | true | `payload` | — | — |
+| `value_kind` | `Utf8` | true | `payload` | — | — |
+| `count_value` | `UInt64` | true | `payload` | — | — |
+| `integer_value` | `Int64` | true | `payload` | — | — |
+| `number_value` | `Float64` | true | `payload` | — | — |
+| `boolean_value` | `Boolean` | true | `payload` | — | — |
+| `text_value` | `Utf8` | true | `payload` | — | — |
+| `availability` | `Utf8` | true | `payload` | — | — |
 | `partial` | `Boolean` | false | `payload` | — | — |
 
 ## `diagnostic_invocations`
@@ -1238,14 +1238,14 @@ Version: 1. Snapshot class: `derived`. Primary key: `run`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run` | `Utf8` | false | `key` | — | — |
-| `attempt` | `Utf8` | false | `payload` | — | — |
-| `operation` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | true | `payload` | — | — |
+| `operation` | `Utf8` | true | `payload` | — | — |
 | `family` | `Utf8` | false | `payload` | — | — |
 | `outcome` | `Utf8` | false | `payload` | — | — |
 | `clock_scope` | `Utf8` | false | `payload` | — | — |
-| `qualification_seconds` | `Float64` | false | `payload` | — | — |
-| `terminal_seconds` | `Float64` | false | `payload` | — | — |
-| `response_ready_seconds` | `Float64` | false | `payload` | — | — |
+| `qualification_seconds` | `Float64` | true | `payload` | — | — |
+| `terminal_seconds` | `Float64` | true | `payload` | — | — |
+| `response_ready_seconds` | `Float64` | true | `payload` | — | — |
 | `partial` | `Boolean` | false | `payload` | — | — |
 | `document_json` | `Utf8` | false | `payload` | — | — |
 
