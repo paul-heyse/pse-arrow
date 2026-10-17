@@ -195,18 +195,26 @@ impl Runtime {
                 add(cell_count(&[1, instance.checked_members.len(), instance.slots.len(), instance.contributions.len()])?, 0)?;
             }
             for demand in assembly.occurrence_demands() { check()?; add(cell_count(&[1, demand.outputs.len(), demand.coordinates.len()])?, 0)?; }
-            let templates = assembly.demand_census().map(|template| {
+            let templates = assembly.demand_census().map(|template| -> Result<_, WorkflowError> {
+                check()?;
+                let mut stopped = None;
                 let mut arithmetic = Vec::with_capacity(template.program.arithmetic_origin_count(template.demand.order));
-                template.program.visit_arithmetic_origins(template.demand.order, |origin| arithmetic.push(ArithmeticSourceDocument {
-                    region: origin.region, source: origin.source, start_output: origin.start_output,
-                    end_output: origin.end_output, check_order: origin.check_order,
-                }));
-                SourceTemplateDocument { template: template.template, body: template.demand.body,
+                template.program.visit_arithmetic_origins(template.demand.order, |origin| {
+                    if stopped.is_some() { return; }
+                    if let Err(error) = check() { stopped = Some(error); return; }
+                    arithmetic.push(ArithmeticSourceDocument {
+                        region: origin.region, source: origin.source, start_output: origin.start_output,
+                        end_output: origin.end_output, check_order: origin.check_order,
+                    });
+                });
+                if let Some(error) = stopped { return Err(error); }
+                Ok(SourceTemplateDocument { template: template.template, body: template.demand.body,
                     order: template.demand.order, product: template.demand.product,
-                    outputs: template.demand.outputs.clone(), coordinates: template.demand.coordinates.clone(), arithmetic }
-            }).collect();
-            let mut instances = assembly.structure().instances().iter().enumerate().map(|(ordinal, instance)| {
-                SourceInstanceDocument {
+                    outputs: template.demand.outputs.clone(), coordinates: template.demand.coordinates.clone(), arithmetic })
+            }).collect::<Result<Vec<_>, WorkflowError>>()?;
+            let mut instances = assembly.structure().instances().iter().enumerate().map(|(ordinal, instance)| -> Result<_, WorkflowError> {
+                check()?;
+                Ok(SourceInstanceDocument {
                     ordinal, instance: instance.instance, body: instance.body,
                     checked_members: instance.checked_members.iter().map(|(local, original)| (*local, *original)).collect(),
                     slots: instance.slots.iter().enumerate().map(|(formal, slot)| SourceSlotDocument {
@@ -218,8 +226,8 @@ impl Runtime {
                         target: match contribution.target { Target::Row(row) => SourceContributionTarget::Row { row },
                             Target::Objective(ordinal) => SourceContributionTarget::Objective { ordinal } },
                     }).collect(), demands: Vec::new(),
-                }
-            }).collect::<Vec<_>>();
+                })
+            }).collect::<Result<Vec<_>, WorkflowError>>()?;
             for demand in assembly.occurrence_demands() {
                 check()?;
                 instances[demand.instance].demands.push(SourceDemandDocument { demand: demand.demand,
