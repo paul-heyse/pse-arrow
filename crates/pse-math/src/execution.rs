@@ -309,7 +309,7 @@ impl PreparedSupport {
         Ok(incidence)
     }
     /// Narrow a known support product to the actual numerical demand ceiling.
-    pub(crate) fn at_order(&self, order: DerivativeOrder) -> Result<Self, MathError> {
+    pub fn at_order(&self, order: DerivativeOrder) -> Result<Self, MathError> {
         if order > self.order() {
             return Err(MathError::Contract(
                 "support ceiling exceeds admission".into(),
