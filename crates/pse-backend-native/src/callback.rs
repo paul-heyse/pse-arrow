@@ -215,6 +215,11 @@ struct CallbackFacts {
     completed: pse_diagnostics::observation::PreparedFact,
     elapsed: pse_diagnostics::observation::PreparedFact,
     seconds: pse_diagnostics::observation::PreparedFact,
+    thread_cpu: pse_diagnostics::observation::PreparedFact,
+    cpu_seconds: f64,
+    cpu_samples: u64,
+    cpu_missing: bool,
+    cpu_requested: bool,
     completed_count: u64,
     completed_seconds: f64,
 }
@@ -232,6 +237,9 @@ impl CallbackFacts {
             completed,
             elapsed: producer.fact(&format!("{name}.elapsed_nanoseconds"), "nanoseconds", FactKind::Duration),
             seconds: producer.fact(&format!("{name}.seconds"), "seconds", FactKind::Gauge),
+            thread_cpu: producer.fact(&format!("{name}.selected_thread_cpu_nanoseconds"), "selected_inclusive_thread_cpu_nanoseconds", FactKind::Duration),
+            cpu_seconds: 0.0, cpu_samples: 0, cpu_missing: false,
+            cpu_requested: producer.thread_cpu_requested(),
             phase: name,
             completed_count: 0,
             completed_seconds: 0.0,
@@ -369,6 +377,10 @@ impl CallbackState {
             producer.context().phase(&facts.phase)
         });
         let start = std::time::Instant::now();
+        // This non-Send sample is strictly local to this synchronous owning thread;
+        // parallel children and migrating async time are not assigned to its CPU.
+        let cpu_requested = self.observation_producer.as_ref().is_some_and(|producer| producer.thread_cpu_requested());
+        let cpu = cpu_requested.then(pse_diagnostics::observation::ThreadCpuSample::start).flatten();
         let result = catch_unwind(AssertUnwindSafe(|| {
             let _original = crate::execution::original_scope(&self.execution);
             work()
@@ -395,6 +407,7 @@ impl CallbackState {
             }
         }
         let elapsed = start.elapsed();
+        let thread_cpu = cpu.as_ref().and_then(pse_diagnostics::observation::ThreadCpuSample::elapsed);
         let count = self.counts.entry(demand).or_default();
         *count = count.saturating_add(1);
         *self.seconds.entry(demand).or_default() += elapsed.as_secs_f64();
@@ -407,6 +420,31 @@ impl CallbackState {
                 facts.completed.count_value(facts.completed_count, self.observation_generation);
                 facts.elapsed.duration(elapsed);
                 facts.seconds.gauge(facts.completed_seconds);
+                if !cpu_requested {
+                    facts.thread_cpu.unavailable("not_requested: synchronous boundary thread CPU");
+                } else if let Some(elapsed) = thread_cpu {
+                    facts.thread_cpu.duration(elapsed);
+                    facts.cpu_seconds += elapsed.as_secs_f64();
+                    facts.cpu_samples = facts.cpu_samples.saturating_add(1);
+                } else {
+                    facts.thread_cpu.unavailable("unsupported: owning-thread CPU clock sample unavailable");
+                    facts.cpu_missing = true;
+                }
+            }
+            if producer.detail_selected("callback_boundary.v1") {
+                use pse_diagnostics::observation::{RecordAvailability, RecordField, Value};
+                let nanos = |duration: std::time::Duration| u64::try_from(duration.as_nanos()).map_or(Value::Overflow, Value::Count);
+                let cpu_value = if let Some(duration) = thread_cpu { nanos(duration) }
+                    else { Value::Unavailable(if cpu_requested { "unsupported" } else { "not_requested" }.into()) };
+                let record = producer.record("callback_boundary.v1", "callback.complete", None, None, vec![
+                    RecordField { name: "demand".into(), unit: "callback_demand".into(), value: Value::Text(demand.to_string()), availability: None },
+                    RecordField { name: "wall_nanoseconds".into(), unit: "inclusive_wall_nanoseconds".into(), value: nanos(elapsed), availability: None },
+                    RecordField { name: "thread_cpu_nanoseconds".into(), unit: "selected_inclusive_thread_cpu_nanoseconds".into(), value: cpu_value,
+                        availability: if thread_cpu.is_some() { None } else { Some(if cpu_requested { RecordAvailability::Unavailable } else { RecordAvailability::NotRequested }) } },
+                    RecordField { name: "oracle_returned_success".into(), unit: "boolean".into(), value: Value::Boolean(matches!(&result, Ok(Ok(_)))), availability: None },
+                    RecordField { name: "scientific_charge_owner".into(), unit: "boolean".into(), value: Value::Boolean(self.execution.callback_work_owner), availability: None },
+                ]);
+                producer.publish(&record);
             }
             let failure = match &result {
                 Ok(Err(error)) => Some(match classify(error) {
@@ -551,6 +589,15 @@ impl CallbackState {
                 .metrics
                 .insert(format!("callback.{role}.{name}.seconds"), Metric::Real(*seconds));
         }
+        for facts in self.observation_facts.values() {
+            let demand = facts.phase.strip_prefix("callback.").unwrap_or(&facts.phase);
+            report.metrics.insert(format!("callback.{role}.{demand}.selected_thread_cpu_seconds"),
+                if !facts.cpu_requested { Metric::Unavailable(crate::solve::UnavailableReason::NotRequested) }
+                else if facts.cpu_missing { Metric::Unavailable(crate::solve::UnavailableReason::Unsupported) }
+                else if facts.cpu_samples == 0 { Metric::Unavailable(crate::solve::UnavailableReason::NotComputed) }
+                else { Metric::Real(facts.cpu_seconds) });
+            report.metrics.insert(format!("callback.{role}.{demand}.selected_thread_cpu_samples"), Metric::Integer(i64::try_from(facts.cpu_samples).unwrap_or(i64::MAX)));
+        }
         if let Some((kind, message)) = &self.terminal {
             report.termination.category = *kind;
             report.termination.assurance = crate::solve::Assurance::None;
@@ -673,6 +720,7 @@ mod tests {
                 .any(|m| m.name == "callback.residual.seconds")
         );
         assert_eq!(state.counts[&CallbackKey::Named("residual")], 1);
+        assert!(matches!(&snapshot.metrics.iter().find(|m| m.name == "callback.residual.selected_thread_cpu_nanoseconds").unwrap().latest, Value::Unavailable(reason) if reason.starts_with("not_requested")));
     }
     #[test]
     fn live_callback_attempts_keep_distinct_populations_and_total_work() {
@@ -738,6 +786,59 @@ mod tests {
         assert!(!final_report.metrics.contains_key("callback.jacobian.calls"));
     }
     #[test]
+    fn selected_thread_cpu_is_inclusive_and_separate_from_wall() {
+        use pse_diagnostics::observation::{CoherentRecord, ObservationHub, Policy, RecordTap, Value};
+        #[derive(Debug)]
+        struct CpuTap;
+        impl RecordTap for CpuTap {
+            fn selected(&self, _: &str) -> bool { false }
+            fn thread_cpu(&self) -> bool { true }
+            fn observe(&self, _: &CoherentRecord) {}
+        }
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("native.selected-cpu");
+        let context = operation.context().with_record_tap(std::sync::Arc::new(CpuTap));
+        let _entered = context.enter();
+        let mut state = CallbackState::new(Execution::new(std::sync::Arc::default(), &Default::default()));
+        assert_eq!(state.evaluate("residual", || Ok(std::hint::black_box(7))), Some(7));
+        let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+        let cpu = snapshot.metrics.iter().find(|m| m.name == "callback.residual.selected_thread_cpu_nanoseconds").unwrap();
+        assert_eq!(cpu.unit, "selected_inclusive_thread_cpu_nanoseconds");
+        match &cpu.latest {
+            Value::Count(_) => assert_eq!(cpu.duration_summary.as_ref().unwrap().samples, 1),
+            Value::Unavailable(reason) => assert!(reason.starts_with("unsupported")),
+            other => panic!("unexpected CPU observation {other:?}"),
+        }
+        assert_eq!(snapshot.metrics.iter().find(|m| m.name == "callback.residual.elapsed_nanoseconds").unwrap().duration_summary.as_ref().unwrap().samples, 1);
+    }
+    #[test]
+    fn selected_callback_boundary_keeps_charge_owner_and_cpu_availability() {
+        use pse_diagnostics::observation::{CoherentRecord, ObservationHub, Policy, RecordAvailability, RecordTap, Value};
+        #[derive(Debug, Default)]
+        struct Tap(std::sync::Mutex<Vec<CoherentRecord>>);
+        impl RecordTap for Tap {
+            fn selected(&self, family: &str) -> bool { family == "callback_boundary.v1" }
+            fn observe(&self, record: &CoherentRecord) { if self.selected(&record.family) { self.0.lock().unwrap().push(record.clone()); } }
+        }
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("native.selected-callback");
+        let tap = std::sync::Arc::new(Tap::default());
+        let context = operation.context().with_record_tap(tap.clone());
+        let _entered = context.enter();
+        let mut execution = Execution::new(std::sync::Arc::default(), &Default::default());
+        execution.callback_work_owner = false;
+        execution.callback_role = pse_diagnostics::observation::ProducerRole::CoordinateTransport;
+        let mut state = CallbackState::new(execution);
+        assert_eq!(state.evaluate("jacobian", || Ok(7)), Some(7));
+        let records = tap.0.lock().unwrap();
+        assert_eq!(records.len(), 1);
+        let field = |name: &str| records[0].values.iter().find(|field| field.name == name).unwrap();
+        assert_eq!(field("demand").value, Value::Text("jacobian".into()));
+        assert_eq!(field("scientific_charge_owner").value, Value::Boolean(false));
+        assert_eq!(field("thread_cpu_nanoseconds").availability, Some(RecordAvailability::NotRequested));
+        assert!(matches!(field("wall_nanoseconds").value, Value::Count(_)));
+    }
+    #[test]
     fn block_demands_publish_bounded_populations_without_losing_local_counts() {
         use pse_diagnostics::observation::{ObservationHub, Policy, Value};
         let hub = ObservationHub::new(Policy::default());
@@ -749,7 +850,7 @@ mod tests {
         }
         assert_eq!(state.counts.len(), 1024);
         let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
-        assert_eq!(snapshot.metrics.len(), 5);
+        assert_eq!(snapshot.metrics.len(), 6);
         assert_eq!(snapshot.metrics.iter().find(|m| m.name == "callback.blocks.jacobian.completed_calls").unwrap().cumulative, Value::Count(1024));
         assert!(snapshot.metrics.iter().all(|m| !m.name.contains("block.0.")));
     }

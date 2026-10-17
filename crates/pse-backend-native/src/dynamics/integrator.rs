@@ -1004,7 +1004,7 @@ fn run<LS: LinearSolver<M>>(
                     drive(&shared, &mut solver, p, r, SegmentContext { stop, boundaries: &boundaries, observation: &mut observation, generation }, &mut steps, output, |solver, generation| live_statistics(solver.get_statistics(), generation))
                 }));
                 r.statistics
-                    .push(segment_statistics(shared, solver.get_statistics(), &p.diffsol, &observation)?);
+                    .push(segment_statistics(&shared, solver.get_statistics(), &p.diffsol, &observation)?);
                 if let Some(statistics) = r
                     .statistics
                     .last_mut()
@@ -1043,7 +1043,7 @@ fn run<LS: LinearSolver<M>>(
                     drive(&shared, &mut solver, p, r, SegmentContext { stop, boundaries: &boundaries, observation: &mut observation, generation }, &mut steps, output, |solver, generation| live_statistics(solver.get_statistics(), generation))
                 }));
                 r.statistics
-                    .push(segment_statistics(shared, solver.get_statistics(), &p.diffsol, &observation)?);
+                    .push(segment_statistics(&shared, solver.get_statistics(), &p.diffsol, &observation)?);
                 match attempt {
                     Ok(result) => result?,
                     Err(payload) => resume_unwind(payload),
