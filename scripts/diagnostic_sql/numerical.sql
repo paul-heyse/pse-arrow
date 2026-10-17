@@ -1,7 +1,10 @@
 -- Whole event rows only. Fields absent at this checkpoint stay NULL.
 SELECT s.track_id, s.ts, s.name AS phase,
+       EXTRACT_ARG(s.arg_set_id, 'debug.operation_id') AS operation_id,
+       (SELECT display_value FROM args WHERE arg_set_id=s.arg_set_id AND key='debug.producer_sequence') AS producer_sequence,
        EXTRACT_ARG(s.arg_set_id, 'debug.family') AS family,
        (SELECT display_value FROM args WHERE arg_set_id=s.arg_set_id AND key='debug.source_sequence') AS source_sequence,
+       (SELECT display_value FROM args WHERE arg_set_id=s.arg_set_id AND key='debug.family_sequence') AS family_sequence,
        EXTRACT_ARG(s.arg_set_id, 'debug.generation') AS generation,
        EXTRACT_ARG(s.arg_set_id, 'debug.history_partial') AS history_partial,
        EXTRACT_ARG(s.arg_set_id, 'debug.iteration') AS iteration,

@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Library-owned requested products. Runtime weights and seeds are ordinary parameters.
 use super::*;
+#[cfg(test)]
+#[path = "product_guard_tests.rs"]
+mod product_guard_tests;
 
 #[derive(Clone)]
 pub(super) struct DirectProduct {

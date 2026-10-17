@@ -63,7 +63,7 @@ pub struct ArithmeticSourceDocument {
 }
 /// Which actual program owns the exposed source-check ranges.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ArithmeticMappingScope {
     /// Actual selected compiled product, including both static branch alternatives.
     SelectedCompiledProduct,
@@ -114,7 +114,7 @@ pub struct SourceSlotDocument {
 }
 /// Actual selected destination of an original ordered output contribution.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SourceContributionTarget {
     /// Original selected constraint row.
     Row {
