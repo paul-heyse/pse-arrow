@@ -6,6 +6,7 @@ use pse_authoring::{
     language::{IdentityPolicy, parse},
 };
 use pse_modeling::specialize::root_instance;
+use pse_diagnostics::Cancellation;
 use std::collections::BTreeSet;
 fn source(text: &str) -> Vec<Declaration> {
     parse(
@@ -327,7 +328,7 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
         )
         .unwrap();
     assert_ne!(original.case.key(), generous.case.key());
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let quantities = workspace.inputs.quantities.clone();
     let mathematics = |admitted: &AdmittedModeling| {
         assert_eq!(admitted.inputs, original.inputs);
@@ -343,7 +344,7 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
             scalars: admitted.inputs.iter().map(|id| (*id, 3.0)).collect(),
         };
         let mut worker = artifact.assembly.worker(BTreeMap::new(), cancel.clone());
-        let residuals = worker.constraints(&values).unwrap();
+        let residuals = worker.constraints(&values).unwrap().to_vec();
         let jacobian = worker.jacobian(&values).unwrap();
         let jacobian = (
             jacobian.nrows(),
@@ -638,7 +639,7 @@ fn kernel_functions_and_repeated_partials_use_library_derivatives() {
         "package p { fn cube(x: Scalar) -> Scalar = x*x*x; def Root { var x: Scalar; eq value: cube(x) == 0; eq first: partial(cube, x)(x) == 0; eq second: partial(cube, x, x)(x) == 0; } }",
     );
     let admitted = admit(&mut workspace, root);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -665,7 +666,7 @@ fn kernel_partial_preserves_erased_division_guard() {
         "package p { fn quotient(x: Scalar) -> Scalar = x/x; def Root { var x: Scalar; eq e: partial(quotient, x)(x) == 0; } }",
     );
     let admitted = admit(&mut workspace, root);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -695,7 +696,7 @@ fn kernel_indexed_functions_and_coordinate_partials() {
     );
     let admitted = admit(&mut workspace, root);
     assert_eq!(admitted.inputs.len(), 2);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -778,7 +779,7 @@ fn kernel_literals_keep_physical_context_after_source_spans_are_removed() {
         .unwrap();
     assert_eq!(admitted.inputs.len(), 1);
     assert_eq!(admitted.outputs.len(), 4);
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -842,14 +843,14 @@ fn kernel_compiled_original_terms_feed_independent_closure() {
     let (mut workspace, _, _, root) = setup(
         "package p { def Root { var x: Scalar; var y: Scalar; accumulate total: Scalar conservation tolerance 0.01; contribute total role inflow = x; contribute total role outflow = y; } }",
     );
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = Cancellation::new(false);
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
             InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
-            flag.clone(),
+            flag.flag().clone(),
         )
         .unwrap();
     let artifact = fixture(
@@ -938,14 +939,14 @@ fn kernel_conservation_assembles_local_derivatives() {
             contribute total role inflow=x*x; contribute total role outflow=y*y*y;
             } }";
     let (mut workspace, _, _, root) = setup(source);
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = Cancellation::new(false);
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
             InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
-            flag.clone(),
+            flag.flag().clone(),
         )
         .unwrap();
     let a = &prepared.admitted;
@@ -1034,7 +1035,7 @@ fn kernel_empty_indexed_polymorphic_sum_retains_physical_type() {
     workspace.publish_modeling(rows, names).unwrap();
     let admitted = admit(&mut workspace, root);
     assert!(admitted.inputs.is_empty());
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -1076,7 +1077,7 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
         .unwrap();
     assert_eq!(prepared.model.functions.len(), 4); // two selected methods and two apply specializations
     let body = prepared.admitted;
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &body,
         workspace.inputs.quantities.clone(),
@@ -1144,7 +1145,7 @@ fn ref_calls_dispatch_one_body_per_concrete_kind() {
     );
     assert_eq!(prepared.model.functions.len(), 3);
     let body = prepared.admitted;
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &body,
         workspace.inputs.quantities.clone(),
@@ -1208,7 +1209,7 @@ fn package_declared_axis_indexes_a_sum_without_a_registered_shaped_type() {
     workspace.publish_modeling(rows, names).unwrap();
     let admitted = admit(&mut workspace, root);
     assert_eq!(admitted.inputs.len(), 3);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let compiled = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -1245,14 +1246,14 @@ fn kernel_original_terms_survive_exact_cancellation_for_scaling() {
     let (mut workspace, _, _, root) = setup(
         "package p { def Root { var x: Scalar; eq balance: x-x == 0; annotation scale balance(inverseSum); } }",
     );
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = Cancellation::new(false);
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
             InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
-            flag.clone(),
+            flag.flag().clone(),
         )
         .unwrap();
     let admitted = &prepared.admitted;
@@ -1316,7 +1317,7 @@ fn kernel_inline_implicit_block_has_explicit_capture_gathers() {
             }
         })
         .collect::<Vec<_>>();
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = Cancellation::new(false);
     let f = fixture(
         &prepared.admitted,
         workspace.inputs.quantities.clone(),
@@ -1365,7 +1366,7 @@ fn kernel_repeated_consumers_share_one_library_body_and_local_gathers() {
         occurrences[0].slots[0].source(),
         occurrences[1].slots[0].source()
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let f = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -1395,7 +1396,7 @@ fn kernel_collocation_preserves_equations_continuity_and_quadrature() {
         );
         let (mut workspace, _, _, root) = setup(&text);
         let admitted = admit(&mut workspace, root);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let f = fixture(
             &admitted,
             workspace.inputs.quantities.clone(),
@@ -1438,7 +1439,7 @@ fn kernel_function_validity_guards_survive_simplification_and_partial_derivative
         );
         let (mut workspace, _, _, root) = setup(&text);
         let admitted = admit(&mut workspace, root);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let f = fixture(
             &admitted,
             workspace.inputs.quantities.clone(),
@@ -1452,7 +1453,7 @@ fn kernel_function_validity_guards_survive_simplification_and_partial_derivative
         };
         let expected = if body.starts_with("partial") { 4. } else { 0. };
         let all = admitted
-            .ordered_values(&worker.constraints(&values(2.)).unwrap())
+            .ordered_values(worker.constraints(&values(2.)).unwrap())
             .unwrap();
         let actual = admitted
             .outputs
@@ -1522,7 +1523,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             _problem: Arc<Problem>,
             inputs: &[f64],
             _options: &Options,
-            _cancel: &Arc<AtomicBool>,
+            _cancel: &Cancellation,
         ) -> std::result::Result<Vec<f64>, MathError> {
             Ok(vec![inputs[0].sqrt()])
         }
@@ -1539,7 +1540,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         let admitted = admit(&mut workspace, root);
         assert_eq!(admitted.inputs.len(), 1);
         assert_eq!(admitted.implicit.len(), 1);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let inner = admitted.implicit.values().next().unwrap();
         let mut accelerators = pse_math::implicit::accelerators::Accelerators::standard();
         accelerators
@@ -1647,10 +1648,10 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             )]),
             cancel.clone(),
         );
-        let rows = unavailable.constraints(&point).unwrap();
+        let row_count = unavailable.constraints(&point).unwrap().len();
         assert!(
             unavailable
-                .hessian(&point, 0., &vec![1.; rows.len()])
+                .hessian(&point, 0., &vec![1.; row_count])
                 .unwrap_err()
                 .to_string()
                 .contains("bound derivative capability")
@@ -1662,7 +1663,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         let values = CaseValues {
             scalars: BTreeMap::from([(admitted.inputs[0], 4.0)]),
         };
-        let rows = worker.constraints(&values).unwrap();
+        let rows = worker.constraints(&values).unwrap().to_vec();
         let public = admitted.ordered_values(&rows).unwrap();
         for (meaning, value) in admitted.outputs.iter().zip(public) {
             match meaning {
@@ -1695,7 +1696,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         };
         assert!(worker.constraints(&coalescing).is_ok());
         assert!(worker.jacobian(&coalescing).is_err());
-        cancel.store(true, Ordering::Release);
+        cancel.cancel();
         assert!(worker.constraints(&values).is_err());
     }
 }
@@ -1781,7 +1782,7 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
             _: Arc<Problem>,
             p: &[f64],
             o: &Options,
-            _: &Arc<AtomicBool>,
+            _: &Cancellation,
         ) -> std::result::Result<Vec<f64>, MathError> {
             Ok(vec![o.start[0].signum() * p[0].sqrt()])
         }
@@ -1834,7 +1835,7 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
             inner.descriptor.spec().revision,
             changed_inner.descriptor.spec().revision
         );
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let configuration = Configuration::Fixed(
             vec![Unknown {
                 id: inner.unknowns[0],
@@ -1930,7 +1931,9 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
         let ImplicitFactory::Root(root_factory) = &factory else {
             panic!("single root factory");
         };
-        assert_eq!(root_factory.body.compiled_order(), DerivativeOrder::First);
+        assert_eq!(root_factory.bodies.parameter.compiled_order(), DerivativeOrder::First);
+        assert_eq!(root_factory.bodies.unknown.compiled_order(), DerivativeOrder::First);
+        assert_eq!(root_factory.bodies.unknown.coordinates(), [0]);
         let mut provider = factory.create().unwrap();
         let values = provider
             .evaluate(
@@ -1966,7 +1969,7 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
     let (mut workspace, _, _, root) = setup(&accelerated);
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let factory = inner
         .factory(
             BTreeMap::from([(
@@ -2073,7 +2076,7 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
             _: Arc<pse_math::implicit::Problem>,
             _: &[f64],
             _: &pse_math::implicit::Options,
-            _: &Arc<AtomicBool>,
+            _: &Cancellation,
         ) -> std::result::Result<Vec<f64>, MathError> {
             Err(MathError::Contract(
                 "compile-only First solver does not execute native solves".into(),
@@ -2099,7 +2102,7 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
             },
         ),
     )]);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
     let factory = inner
         .factory(
@@ -2117,7 +2120,9 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
     let pse_math::implicit::ImplicitFactory::Root(factory) = factory else {
         panic!("single root");
     };
-    assert_eq!(factory.body.compiled_order(), DerivativeOrder::First);
+    assert_eq!(factory.bodies.parameter.compiled_order(), DerivativeOrder::First);
+    assert_eq!(factory.bodies.unknown.compiled_order(), DerivativeOrder::First);
+    assert_eq!(factory.bodies.unknown.coordinates(), [0]);
     let error = inner
         .factory(
             configs,
@@ -2173,7 +2178,7 @@ fn implicit_constructor_bound_uses_residual_minimum_and_requested_output() {
         ),
     )]);
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let limits = EvaluationLimits {
         scratch_bytes: 4usize << 30,
         ..Default::default()
@@ -2242,7 +2247,7 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
             _: Arc<Problem>,
             inputs: &[f64],
             _: &Options,
-            _: &Arc<AtomicBool>,
+            _: &Cancellation,
         ) -> std::result::Result<Vec<f64>, MathError> {
             Ok(vec![inputs[0].sqrt()])
         }
@@ -2267,7 +2272,7 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
             .is_none_or(|o| *o == DerivativeOrder::Value)
     );
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let limits = EvaluationLimits::default();
     let requirements = parent
         .requirements(
@@ -2332,8 +2337,10 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
     let pse_math::implicit::ImplicitFactory::Root(parent_factory) = parent_factory else {
         panic!("single parent");
     };
-    assert_eq!(parent_factory.body.compiled_order(), DerivativeOrder::First);
-    let mut evaluator = parent_factory.body.worker();
+    assert_eq!(parent_factory.bodies.parameter.compiled_order(), DerivativeOrder::First);
+    assert_eq!(parent_factory.bodies.unknown.compiled_order(), DerivativeOrder::First);
+    assert_eq!(parent_factory.bodies.unknown.coordinates(), [0]);
+    let mut evaluator = parent_factory.bodies.parameter.worker();
     let child_value = child
         .factory(
             configs(child),
@@ -2425,7 +2432,7 @@ fn kernel_elastic_variants_preserve_originals_and_normalize_penalties() {
             .count(),
         4
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let f = fixture(
         a,
         workspace.inputs.quantities.clone(),
@@ -2509,7 +2516,7 @@ fn kernel_stage_variants_preserve_variables_and_restore_final_structure() {
     assert_eq!(normal.inputs, stage.inputs);
     assert_ne!(normal.case.key(), stage.case.key());
     assert_eq!(normal, admit(&mut workspace, root));
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     for (a, expected) in [(&normal, 5.0), (&stage, 1.0)] {
         let f = fixture(
             a,
@@ -2539,7 +2546,7 @@ fn kernel_piecewise_proves_boundary_jets_and_keeps_lazy_regions() {
         "package p { fn f(x: Scalar, a: Scalar) -> Scalar piecewise 2 = if x < 0 then 0 else a*x*x*x; def Root { var x: Scalar; param a: Scalar = 2; eq e: f(x,a) == 0; } }",
     );
     let a = admit(&mut workspace, root);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let f = fixture(
         &a,
         workspace.inputs.quantities.clone(),
@@ -2554,7 +2561,7 @@ fn kernel_piecewise_proves_boundary_jets_and_keeps_lazy_regions() {
                 InstanceId::from_id(SemanticId::NIL),
                 Bindings::default(),
                 Limits::default(),
-                cancel.clone(),
+                cancel.flag().clone(),
             )
             .unwrap();
         let values = a
@@ -2719,7 +2726,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     w.publish_modeling(rows.clone(), PhysicalScope::default())
         .unwrap();
     let a = admit(&mut w, root);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let f = fixture(
         &a,
         w.inputs.quantities.clone(),
@@ -2735,7 +2742,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         scalars: a.inputs.iter().map(|id| (*id, 2.0)).collect(),
     };
     let mut values = a
-        .ordered_values(&worker.constraints(&point).unwrap())
+        .ordered_values(worker.constraints(&point).unwrap())
         .unwrap();
     values = equation_values(&a, values);
     values.sort_by(f64::total_cmp);
@@ -2767,7 +2774,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         let names = PhysicalScope::default();
         w.publish_modeling(rows, names).unwrap();
         let a = admit(&mut w, root);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let f = fixture(&a, w.inputs.quantities.clone(), order, &cancel).unwrap();
         let provider: Box<dyn Provider> = Box::new(Vector(spec.clone()));
         let mut worker = f
@@ -2777,7 +2784,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
             scalars: a.inputs.iter().map(|id| (*id, 2.)).collect(),
         };
         let values = a
-            .ordered_values(&worker.constraints(&point).unwrap())
+            .ordered_values(worker.constraints(&point).unwrap())
             .unwrap();
         let values = equation_values(&a, values);
         assert_eq!(values.len(), 2);
@@ -2898,7 +2905,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
     );
     assert_eq!(
         assembly
-            .worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)))
+            .worker(BTreeMap::new(), Cancellation::new(false))
             .constraints(&values)
             .unwrap(),
         vec![0.0]
@@ -3361,7 +3368,7 @@ fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
 struct Fixture {
     admitted: AdmittedModeling,
     assembly: Arc<pse_math::assembly::CaseAssembly>,
-    cancel: Arc<AtomicBool>,
+    cancel: Cancellation,
 }
 struct FixtureWorker<'a> {
     fixture: &'a Fixture,
@@ -3390,7 +3397,7 @@ fn fixture(
     admitted: &AdmittedModeling,
     registry: Arc<QuantityRegistry>,
     order: DerivativeOrder,
-    cancel: &Arc<AtomicBool>,
+    cancel: &Cancellation,
 ) -> Result<Fixture> {
     let plan = admitted.plan(&registry, order, AssemblyLimits::default(), cancel)?;
     let assembly =
@@ -3427,7 +3434,7 @@ impl FixtureWorker<'_> {
                 .zip(values.iter().copied())
                 .collect(),
         };
-        let values = self.worker.constraints(&case)?;
+        let values = self.worker.constraints(&case)?.to_vec();
         if order >= DerivativeOrder::First {
             self.worker.jacobian(&case)?;
         }
@@ -3448,7 +3455,7 @@ fn kernel_validity_obligations_survive_cancellation_and_cover_derived_members() 
         );
         let (mut workspace, _, _, root) = setup(&text);
         let admitted = admit(&mut workspace, root);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let artifact = fixture(
             &admitted,
             workspace.inputs.quantities.clone(),
@@ -3495,7 +3502,7 @@ fn affine_row_demand_keeps_opaque_rows_and_original_domain_execution() {
     let (mut workspace, _, _, root) = setup(
         "package p { fn curved(x:Scalar)->Scalar piecewise 2 = if x < 0 then 0 else x*x*x; def Root { param p:Scalar=1; var x:Scalar; var y:Scalar; eq affine:p*x+y==2; eq opaque:curved(x)+y==2; annotation valid x(0,2); annotation start x(1); annotation start y(1); } }",
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     // Compiler case binding resolves independent values, while authored Start
     // annotations are consumed by runtime initialization rather than case_values.
     let case = ModelingCaseBindings {
@@ -3514,7 +3521,7 @@ fn affine_row_demand_keeps_opaque_rows_and_original_domain_execution() {
             &case,
             DerivativeOrder::First,
             Profile::default(),
-            cancel.clone(),
+            cancel.flag().clone(),
         )
         .unwrap();
     assert!(base.presolve.affine.iter().all(Option::is_none));
@@ -3591,7 +3598,7 @@ fn kernel_pure_authored_tests_use_existing_math_without_runtime_or_solver() {
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -3632,7 +3639,7 @@ fn kernel_expectations_combine_physical_and_relative_tolerances() {
                     scalars: BTreeMap::new(),
                 },
                 Profile::default(),
-                Arc::new(AtomicBool::new(false)),
+                Cancellation::new(false),
             )
             .map(|checks| checks.expectations)
     };
@@ -3693,7 +3700,7 @@ fn kernel_pure_expectations_apply_authored_fixture_values_without_solving() {
                 Limits::default(),
                 &CaseValues { scalars },
                 Profile::default(),
-                Arc::new(AtomicBool::new(cancelled)),
+                Cancellation::new(cancelled),
             )
             .map(|checks| checks.expectations)
     };
@@ -3720,7 +3727,7 @@ fn kernel_piecewise_chained_breakpoints_and_explicit_partials_keep_proved_order(
     let source = "package p { fn f(x: Scalar) -> Scalar piecewise 2 = if x < 0 then 0 else if x < 1 then x*x*x else x*x*x+(x-1)*(x-1)*(x-1); def Root { var x: Scalar; eq e: partial(f,x)(x) == 0; } }";
     let (mut workspace, _, _, root) = setup(source);
     let admitted = admit(&mut workspace, root);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let compiled = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -3814,7 +3821,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
                     scalars: BTreeMap::new(),
                 },
                 Profile::default(),
-                Arc::new(AtomicBool::new(false)),
+                Cancellation::new(false),
             )
             .map(|checks| checks.expectations)
             .unwrap_or_else(|e| panic!("{expectation}: {e}"));
@@ -3955,7 +3962,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
             _: Arc<Problem>,
             inputs: &[f64],
             options: &Options,
-            _: &Arc<AtomicBool>,
+            _: &Cancellation,
         ) -> std::result::Result<Vec<f64>, MathError> {
             Ok(vec![options.start[0].signum() * inputs[0].sqrt()])
         }
@@ -3965,7 +3972,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
     assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Second);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let configs = inner
         .residuals
         .iter()
@@ -4083,7 +4090,7 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
             _: Arc<Problem>,
             _: &[f64],
             options: &Options,
-            _: &Arc<AtomicBool>,
+            _: &Cancellation,
         ) -> std::result::Result<Vec<f64>, MathError> {
             Ok(options.start.clone())
         }
@@ -4104,7 +4111,7 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
     assert!(inner.residuals.iter().all(|r| r.isolation.is_none()));
     assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Value);
     assert_eq!(inner.descriptor.spec().smoothness, DerivativeOrder::Value);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
     // Both points are regular, eligible roots inside the same native regime. The
     // winner's regime ID and its score gap do not distinguish those root choices.
@@ -4254,7 +4261,7 @@ mod nonlinear_selection_isolation_tests {
             _: Arc<Problem>,
             parameters: &[f64],
             options: &Options,
-            _: &Arc<AtomicBool>,
+            _: &Cancellation,
         ) -> std::result::Result<Vec<f64>, MathError> {
             Ok(vec![options.start[0].signum() * parameters[0].sqrt()])
         }
@@ -4467,7 +4474,7 @@ mod nonlinear_selection_isolation_tests {
         assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Second);
         assert_eq!(inner.descriptor.spec().smoothness, DerivativeOrder::Second);
         assert!(inner.residuals.iter().all(|r| r.isolation.is_some()));
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
         let configs = configurations(inner, &cancel);
         for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
@@ -4582,7 +4589,7 @@ mod nonlinear_selection_isolation_tests {
     fn implicit_minimum_score_chart_discharge_permits_analytic_first_and_second() {
         let admitted = bounded_model();
         let inner = admitted.implicit.values().next().unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
         let verifier = Arc::new(ChartStub::new(ProofOutcome::Unique));
         for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
@@ -4644,7 +4651,7 @@ mod nonlinear_selection_isolation_tests {
     fn implicit_minimum_score_multiple_or_incomplete_evidence_refuses_derivatives() {
         let admitted = bounded_model();
         let inner = admitted.implicit.values().next().unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
         for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
             for (outcome, message) in [
@@ -4712,7 +4719,7 @@ mod nonlinear_selection_isolation_tests {
     fn implicit_minimum_score_rejects_incomplete_or_changed_certificate_scope() {
         let admitted = bounded_model();
         let inner = admitted.implicit.values().next().unwrap();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
         for outcome in [
             ProofOutcome::MissingAlternative,
@@ -4782,7 +4789,7 @@ mod nonlinear_selection_isolation_tests {
                 .iter()
                 .all(|residual| residual.isolation.is_some())
         );
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let verifier = Arc::new(ChartStub::new(ProofOutcome::Unique));
         let factory = inner
             .factory(
@@ -4851,7 +4858,7 @@ fn kernel_child_indices_resolve_in_the_authors_import_scope() {
             Limits::default(),
             &CaseValues::default(),
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -4900,7 +4907,7 @@ fn kernel_structural_interface_parameters_bind_effective_members_before_guards()
             Limits::default(),
             &CaseValues::default(),
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -4984,7 +4991,7 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
             Limits::default(),
             &CaseValues::default(),
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -5103,7 +5110,7 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
                 Limits::default(),
                 &CaseValues::default(),
                 Profile::default(),
-                Arc::new(AtomicBool::new(false)),
+                Cancellation::new(false),
             )
             .map(|checks| checks.expectations)
             .unwrap()
@@ -5168,7 +5175,7 @@ fn kernel_imported_table_paths_preserve_rows_columns_and_visibility() {
             Limits::default(),
             &CaseValues::default(),
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -5226,7 +5233,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -5254,7 +5261,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -5301,7 +5308,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
             Limits::default(),
             &CaseValues::default(),
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -5327,7 +5334,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
             Limits::default(),
             &CaseValues::default(),
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap_err();
@@ -5360,7 +5367,7 @@ fn kernel_shared_partials_preserve_lets_and_mixed_derivatives() {
         )
         .unwrap();
     let admitted = admit(&mut workspace, root);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -5407,7 +5414,7 @@ fn kernel_implicit_functions_read_enclosing_indexed_members() {
         .unwrap();
     let admitted = admit(&mut workspace, root);
     assert_eq!(model.equations.len(), 1);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -5463,7 +5470,7 @@ fn kernel_negative_literals_keep_the_expected_physical_contract() {
             Limits::default(),
             &CaseValues::default(),
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -5501,7 +5508,7 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
                 Limits::default(),
                 &CaseValues::default(),
                 Profile::default(),
-                Arc::new(AtomicBool::new(false)),
+                Cancellation::new(false),
             )
             .map(|checks| checks.expectations);
         if accepted {
@@ -5546,7 +5553,7 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
     let mut workspace = CompilerWorkspace::new(inputs.clone(), WorkspaceLimits::default()).unwrap();
     workspace.publish_modeling(rows, names.clone()).unwrap();
     let admitted = admit(&mut workspace, root);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let compiled = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -5671,7 +5678,7 @@ fn kernel_finite_folds_compose_source_functions_and_library_partials() {
                 Limits::default(),
                 &CaseValues::default(),
                 Profile::default(),
-                Arc::new(AtomicBool::new(false)),
+                Cancellation::new(false),
             )
             .map(|checks| checks.expectations)
     };
@@ -5704,14 +5711,14 @@ fn kernel_indexed_accounting_values_are_readable_in_checks_and_ports() {
     let (mut workspace, _, _, root) = setup(
         "package p {entity kind item {} entity item a {} entity item b {} set items:Set<item>={a,b}; def Root {param x[j in items]:Scalar=2; accumulate total[j in items]:Scalar accounting tolerance 0.01; contribute [j in items] total[j] role positive=x[j]; contribute [j in items] total[j] role negative=1; port result[j in items]:Scalar=total[j]; annotation check total(total[j]==1); let combined:Scalar=sum(j in items | total[j]); annotation report combined(\"combined\");}}",
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
             InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
-            cancel.clone(),
+            cancel.flag().clone(),
         )
         .unwrap();
     let a = &prepared.admitted;
@@ -5815,7 +5822,7 @@ fn kernel_pure_function_names_do_not_capture_caller_members() {
             Limits::default(),
             &CaseValues::default(),
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            Cancellation::new(false),
         )
         .map(|checks| checks.expectations)
         .unwrap();
@@ -5828,7 +5835,7 @@ fn kernel_partial_distinguishes_equal_argument_values_through_aliases() {
         "package p { fn pair(a:Scalar,b:Scalar)->Scalar=a*b; fn alias(x:Scalar)->Scalar=x; def Root {var x:Scalar; eq first:partial(pair,a)(alias(x),alias(x))==0; eq mixed:partial(pair,a,b)(alias(x),alias(x))==0;} }",
     );
     let admitted = admit(&mut workspace, root);
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -5881,7 +5888,7 @@ fn kernel_objective_selection_preserves_values_derivatives_and_penalty_direction
                     ObjectiveSense::Maximize
                 }
             );
-            let cancel = Arc::new(AtomicBool::new(false));
+            let cancel = Cancellation::new(false);
             let f = fixture(
                 a,
                 workspace.inputs.quantities.clone(),
@@ -6166,7 +6173,7 @@ fn nested_implicit_factorable_definition_exports_residual_exactly() {
     );
     let bounds = definition.bounds.as_ref().unwrap();
     assert!(bounds.lower[0].is_some() && bounds.upper[0].is_some());
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let f = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -6241,14 +6248,14 @@ fn objective_bound_check_classified() {
         let (mut workspace, _, _, root) = setup(&format!(
             "package p {{ def Root {{ param c: Scalar = 0.5; var x: Scalar; let f: Scalar = x*x; let d: Scalar = 2*c; let e: Scalar = x + c; eq g: x == 1; {annotation} annotation check f({predicate}); }} }}"
         ));
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let prepared = workspace
             .prepare_modeling_cancellable(
                 root,
                 InstanceId::from_id(SemanticId::NIL),
                 Bindings::default(),
                 Limits::default(),
-                cancel.clone(),
+                cancel.flag().clone(),
             )
             .unwrap();
         let a = &prepared.admitted;
@@ -6337,7 +6344,7 @@ fn evaluate_named(
             Limits::default(),
         )
         .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let artifact = fixture(
         &admitted,
         workspace.inputs.quantities.clone(),
@@ -6369,6 +6376,7 @@ fn evaluate_named(
             .assembly
             .worker(BTreeMap::new(), cancel.clone())
             .constraints(&case)
+            .map(<[f64]>::to_vec)
     }
 }
 /// The declaration stating a validity rejection, through its instance attribution.
@@ -6494,14 +6502,14 @@ fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control
     ] {
         let (mut workspace, _, _, root) =
             setup_with_inputs(text, crate::authored_transfer_tests::context());
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let prepared = workspace
             .prepare_modeling_cancellable(
                 root,
                 InstanceId::from_id(SemanticId::NIL),
                 Bindings::default(),
                 Limits::default(),
-                cancel.clone(),
+                cancel.flag().clone(),
             )
             .unwrap();
         let a = &prepared.admitted;
@@ -6752,7 +6760,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
         path: "x".into(),
         quantity,
     }];
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let body = Arc::new(
         Request {
             definition: SemanticId::from_bytes([74; 16]),
@@ -7109,7 +7117,7 @@ fn compiled_conditional_chain_shares_original_universe_and_actual_facts() {
         }
         text.push_str("} }");
         let (mut workspace, _, _, root) = setup(&text);
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = Cancellation::new(false);
         let model = workspace
             .prepare_modeling_cancellable(
                 root,
@@ -7121,7 +7129,7 @@ fn compiled_conditional_chain_shares_original_universe_and_actual_facts() {
                     ..Default::default()
                 },
                 Limits::default(),
-                cancel.clone(),
+                cancel.flag().clone(),
             )
             .unwrap();
         let p = model.model.paths["p"];
@@ -7244,7 +7252,7 @@ fn authored_affine_accelerator_uses_registered_solver_and_original_ift_guards() 
         inner.selection.equivalence,
         SelectionEquivalence::NondegenerateAffine
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Cancellation::new(false);
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
     let factory = inner
         .factory(
