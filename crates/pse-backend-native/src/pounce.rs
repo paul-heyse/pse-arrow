@@ -693,6 +693,7 @@ impl Session {
             app.set_sqp_warm_start(seed);
         }
         let adapter = Rc::new(RefCell::new(Adapter {
+            scratch: crate::tnlp::Scratch::new(n, m, jac.rows.len(), hess.rows.len()),
             normalization: pse_math::normalization::Normalization::identity(
                 oracle.contract().variables.len(),
                 oracle.contract().rows.len(),
@@ -1135,6 +1136,7 @@ mod tests {
     fn adapter() -> Adapter {
         let oracle = Box::new(crate::solver_tests::Polynomial::new());
         Adapter {
+            scratch: crate::tnlp::Scratch::new(1, 1, 1, 1),
             normalization: pse_math::normalization::Normalization::identity(
                 oracle.contract().variables.len(),
                 oracle.contract().rows.len(),

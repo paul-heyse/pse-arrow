@@ -57,9 +57,10 @@ public:
     std::vector<double> lower, upper, row_lower, row_upper, initial, initial_lower, initial_upper, initial_row;
     std::vector<int32_t> jr, jc, hr, hc;
     std::vector<double> primal, lower_dual, upper_dual, constraints, row_dual;
+    std::vector<double> current, lagrangian;
     Sequence(int32_t n_, int32_t m_, int32_t j_, int32_t h_, const pse_ipopt_sequence_callbacks& callbacks_)
         : n(n_), m(m_), jnnz(j_), hnnz(h_), callbacks(callbacks_), initial(n), initial_lower(n), initial_upper(n),
-          initial_row(m), primal(n), lower_dual(n), upper_dual(n), constraints(m), row_dual(m) {}
+          initial_row(m), primal(n), lower_dual(n), upper_dual(n), constraints(m), row_dual(m), current(n), lagrangian(n) {}
     void poll() {
         if (terminal) throw Terminal{};
         switch (callbacks.poll(callbacks.user)) {
@@ -124,12 +125,12 @@ public:
         poll(); result.iterations = iteration; result.iterations_available = 1;
         if (std::isfinite(mu) && mu >= 0.) { result.barrier = mu; result.barrier_available = 1; }
         if (callbacks.iteration) {
-            std::vector<double> current(n), lagrangian(n);
             bool has_current = get_curr_iterate(data, quantities, false, n, current.data(), nullptr, nullptr, m, nullptr, nullptr);
             bool has_lagrangian = get_curr_violations(data, quantities, false, n, nullptr, nullptr, nullptr, nullptr,
                 lagrangian.data(), m, nullptr, nullptr);
             int32_t status = callbacks.iteration(static_cast<int32_t>(mode), iteration, objective, inf_pr, inf_du,
-                mu, step, regularization, alpha_du, alpha_pr, trials, n,
+                mu, step, regularization, alpha_du, alpha_pr, trials,
+                data && Ipopt::IsValid(data->delta()) && Ipopt::IsValid(data->delta()->x()) && Ipopt::IsValid(data->delta()->s()) ? 1 : 0, n,
                 has_current ? current.data() : nullptr, has_lagrangian ? lagrangian.data() : nullptr, callbacks.user);
             if (status != 0) { terminal = PSE_IPOPT_SEQUENCE_TERMINAL; finalized = false; reusable = false; throw Terminal{}; }
             poll();

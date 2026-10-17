@@ -103,6 +103,26 @@ pub enum NativeCounters {
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         wall_seconds: Option<f64>,
     },
+    /// Uno's actual terminal getters; callback ordinals remain separate.
+    Uno {
+        /// Actual native major-loop iteration count, when a native return occurred.
+        iterations: Option<u64>,
+        /// Native objective evaluations.
+        objective_evaluations: Option<u64>,
+        /// Native constraint evaluations.
+        constraint_evaluations: Option<u64>,
+        /// Native objective gradient evaluations.
+        gradient_evaluations: Option<u64>,
+        /// Native constraint Jacobian evaluations.
+        jacobian_evaluations: Option<u64>,
+        /// Actual native subproblem count.
+        subproblems: Option<u64>,
+        /// Native process CPU time, including callbacks; overlaps other work and
+        /// is neither exclusive callback CPU nor async task CPU.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
+        cpu_seconds: Option<f64>,
+    },
     /// KINSOL getters for this attempt, excluding independent original assessment.
     Kinsol {
         /// Fixed-point mode increments before G, so a failed map counts an attempted iteration.

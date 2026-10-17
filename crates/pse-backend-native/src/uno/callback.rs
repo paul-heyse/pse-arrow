@@ -25,10 +25,15 @@ pub(crate) struct Context<'a> {
     pub n: usize,
     pub m: usize,
     pub jac: Pattern,
+    scratch: Scratch,
     #[cfg(feature = "ipopt")]
     pub hess: Pattern,
-    #[cfg(feature = "ipopt")]
     pub current: Option<std::sync::Arc<crate::solve::NativeSnapshot>>,
+}
+/// Complete private callback output, retained for the admitted context lifetime.
+/// Native buffers are updated only after evaluation and finite checks succeed.
+struct Scratch {
+    output: Vec<f64>,
 }
 impl<'a> Context<'a> {
     pub(crate) fn new(
@@ -37,17 +42,20 @@ impl<'a> Context<'a> {
         jac: Pattern,
         hess: Pattern,
     ) -> Self {
-        #[cfg(not(feature = "ipopt"))]
-        let _ = hess;
+        let n = oracle.contract().variables.len();
+        let m = oracle.contract().rows.len();
+        let scratch = Scratch {
+            output: vec![0.; n.max(m).max(jac.rows.len()).max(hess.rows.len())],
+        };
         Self {
-            n: oracle.contract().variables.len(),
-            m: oracle.contract().rows.len(),
+            n,
+            m,
             oracle,
             state: CallbackState::new(execution),
             jac,
+            scratch,
             #[cfg(feature = "ipopt")]
             hess,
-            #[cfg(feature = "ipopt")]
             current: None,
         }
     }
@@ -63,9 +71,9 @@ impl<'a> Context<'a> {
     fn evaluate(
         &mut self,
         demand: &'static str,
-        work: impl FnOnce(&mut dyn NlpOracle) -> Result<(), ProblemError>,
+        work: impl FnOnce(&mut dyn NlpOracle, &mut Scratch) -> Result<(), ProblemError>,
     ) -> i32 {
-        if self.state.evaluate(demand, || work(self.oracle)).is_some() {
+        if self.state.evaluate(demand, || work(self.oracle, &mut self.scratch)).is_some() {
             0
         } else if self.state.terminal.is_none() {
             1
@@ -160,7 +168,7 @@ pub(crate) unsafe extern "C" fn objective(
     let work = |c: &mut Context<'_>| {
         let extent = c.n;
         let valid = c.dimensions(n, None);
-        c.evaluate("objective", |o| {
+        c.evaluate("objective", |o, _| {
             valid?;
             // SAFETY: the bridge supplies this readable vector for the checked variable extent.
             let x = unsafe { input(x, extent) }?;
@@ -183,15 +191,16 @@ pub(crate) unsafe extern "C" fn gradient(
     let work = |c: &mut Context<'_>| {
         let extent = c.n;
         let valid = c.dimensions(n, None);
-        c.evaluate("gradient", |o| {
+        c.evaluate("gradient", |o, scratch| {
             valid?;
-            let mut values = vec![0.; extent];
+            let values = &mut scratch.output[..extent];
+            values.fill(f64::NAN);
             // SAFETY: the bridge supplies this readable vector for the checked variable extent.
             let x = unsafe { input(x, extent) }?;
-            o.gradient(x, &mut values)?;
-            finite(&values)?;
+            o.gradient(x, values)?;
+            finite(values)?;
             // SAFETY: output has the checked variable extent and cannot alias the owned values.
-            unsafe { publish(out, &values) }
+            unsafe { publish(out, values) }
         })
     };
     // SAFETY: the bridge retains the live owned Slot; boundary checks activation
@@ -208,15 +217,16 @@ pub(crate) unsafe extern "C" fn constraints(
     let work = |c: &mut Context<'_>| {
         let (variables, rows) = (c.n, c.m);
         let valid = c.dimensions(n, Some(m));
-        c.evaluate("constraints", |o| {
+        c.evaluate("constraints", |o, scratch| {
             valid?;
-            let mut values = vec![0.; rows];
+            let values = &mut scratch.output[..rows];
+            values.fill(f64::NAN);
             // SAFETY: the bridge supplies this readable vector for the checked variable extent.
             let x = unsafe { input(x, variables) }?;
-            o.constraints(x, &mut values)?;
-            finite(&values)?;
+            o.constraints(x, values)?;
+            finite(values)?;
             // SAFETY: output has the checked row extent and cannot alias the owned values.
-            unsafe { publish(out, &values) }
+            unsafe { publish(out, values) }
         })
     };
     // SAFETY: the bridge retains the live owned Slot; boundary checks activation
@@ -233,18 +243,19 @@ pub(crate) unsafe extern "C" fn jacobian(
     let work = |c: &mut Context<'_>| {
         let (variables, count) = (c.n, c.jac.rows.len());
         let valid = c.dimensions(n, None);
-        c.evaluate("jacobian", |o| {
+        c.evaluate("jacobian", |o, scratch| {
             valid?;
             if usize::try_from(nnz).ok() != Some(count) {
                 return Err(ProblemError::internal("foreign Jacobian extent"));
             }
-            let mut values = vec![0.; count];
+            let values = &mut scratch.output[..count];
+            values.fill(f64::NAN);
             // SAFETY: the bridge supplies this readable vector for the checked variable extent.
             let x = unsafe { input(x, variables) }?;
-            o.jacobian(x, &mut values)?;
-            finite(&values)?;
+            o.jacobian(x, values)?;
+            finite(values)?;
             // SAFETY: output has the checked nonzero extent and cannot alias the owned values.
-            unsafe { publish(out, &values) }
+            unsafe { publish(out, values) }
         })
     };
     // SAFETY: the bridge retains the live owned Slot; boundary checks activation
@@ -265,21 +276,22 @@ pub(crate) unsafe extern "C" fn hessian(
     let work = |c: &mut Context<'_>| {
         let (variables, rows, count) = (c.n, c.m, c.hess.rows.len());
         let valid = c.dimensions(n, Some(m));
-        c.evaluate("hessian", |o| {
+        c.evaluate("hessian", |o, scratch| {
             valid?;
             if usize::try_from(nnz).ok() != Some(count) {
                 return Err(ProblemError::internal("foreign Hessian extent"));
             }
             finite(&[weight])?;
-            let mut values = vec![0.; count];
+            let values = &mut scratch.output[..count];
+            values.fill(f64::NAN);
             // SAFETY: the bridge supplies this readable vector for the checked variable extent.
             let x = unsafe { input(x, variables) }?;
             // SAFETY: the bridge supplies readable multipliers for the checked row extent.
             let multipliers = unsafe { input(multipliers, rows) }?;
-            o.hessian(x, weight, multipliers, &mut values)?;
-            finite(&values)?;
+            o.hessian(x, weight, multipliers, values)?;
+            finite(values)?;
             // SAFETY: output has the checked nonzero extent and cannot alias the owned values.
-            unsafe { publish(out, &values) }
+            unsafe { publish(out, values) }
         })
     };
     // SAFETY: the bridge retains the live owned Slot; boundary checks activation
@@ -331,6 +343,60 @@ pub(crate) fn remaining(execution: &Execution) -> Result<f64, ProblemError> {
         .as_secs_f64())
 }
 
+/// Optional native observations never supply scientific permission or latch a
+/// callback failure. Uno's exact owner supplies accepted/trial semantics; no
+/// native iteration or original-model convergence is inferred from these calls.
+#[cfg(feature = "uno")]
+pub(crate) unsafe extern "C" fn uno_observe(
+    kind: i32, ordinal: u64, n: i32, m: i32, point: *const f64,
+    multiplier: f64, primal: f64, stationarity: f64, complementarity: f64,
+    data: *mut c_void,
+) {
+    // SAFETY: bridge retains the live slot through this synchronous callback.
+    let Some(slot) = (unsafe { data.cast::<Slot>().as_ref() }) else { return; };
+    // SAFETY: activation is exclusive and exists only in with_active.
+    let Some(context) = (unsafe { slot.active.get().cast::<Context<'_>>().as_mut() }) else { return; };
+    let observed = catch_unwind(AssertUnwindSafe(|| -> Result<(), ProblemError> {
+        context.dimensions(n, Some(m))?;
+        let (checkpoint, semantics, ordinal_name) = match kind {
+            1 => ("native_accepted_iterate", "native_accepted_iterate", "accepted.ordinal"),
+            2 => ("native_termination_check", "current_native_trial", "termination_check.ordinal"),
+            _ => return Err(ProblemError::internal("unknown Uno observation kind")),
+        };
+        // SAFETY: native owner supplies n immutable primal coordinates during this callback.
+        let point = unsafe { input(point, context.n) }?;
+        let length = context.n.min(crate::solve::SNAPSHOT_COORDINATES);
+        context.current = Some(std::sync::Arc::new(crate::solve::NativeSnapshot {
+            iteration: None,
+            phase: crate::solve::NativePhase::Unknown,
+            values: context.oracle.contract().variables.iter().zip(point).take(length)
+                .map(|(variable, value)| crate::solve::NativeCoordinate { variable: variable.id, value: *value }).collect(),
+            total_coordinates: context.n,
+            partial: length < context.n,
+        }));
+        let values = std::collections::BTreeMap::from([
+            ("backend".into(), crate::solve::Metric::Text("uno".into())),
+            ("checkpoint_kind".into(), crate::solve::Metric::Text(checkpoint.into())),
+            ("native_phase".into(), crate::solve::Metric::Text("unknown".into())),
+            ("iterate_semantics".into(), crate::solve::Metric::Text(semantics.into())),
+            (ordinal_name.into(), crate::solve::Metric::Integer(i64::try_from(ordinal).unwrap_or(i64::MAX))),
+            ("objective_multiplier.native".into(), crate::solve::Metric::Real(multiplier)),
+            ("primal_feasibility.native".into(), crate::solve::Metric::Real(primal)),
+            ("stationarity.native".into(), crate::solve::Metric::Real(stationarity)),
+            ("complementarity.native".into(), crate::solve::Metric::Real(complementarity)),
+        ]);
+        let execution = &context.state.execution;
+        execution.progress.push(crate::solve::Event {
+            source: Some(crate::solve::EventSource::new("nonlinear_iteration", Some("submitted_oracle"), None)),
+            phase: format!("uno.{checkpoint}"), elapsed: execution.started.elapsed(), values, incumbent: None,
+        });
+        Ok(())
+    }));
+    if !matches!(observed, Ok(Ok(()))) {
+        crate::observation::unavailable("uno.native_checkpoint", "optional native observation failed or extent was unsupported");
+    }
+}
+
 #[cfg(feature = "ipopt")]
 pub(crate) unsafe extern "C" fn iteration(
     mode: i32,
@@ -344,6 +410,7 @@ pub(crate) unsafe extern "C" fn iteration(
     alpha_dual: f64,
     alpha_primal: f64,
     trials: i32,
+    direction_available: i32,
     n: i32,
     current: *const f64,
     lagrangian: *const f64,
@@ -387,7 +454,7 @@ pub(crate) unsafe extern "C" fn iteration(
         }
         let crossings = c.state.complete_iteration();
         let execution = c.state.execution.clone();
-        c.evaluate("intermediate", |_| {
+        c.evaluate("intermediate", |_, _| {
             valid?;
             let mut values = std::collections::BTreeMap::from([
                 (
@@ -421,6 +488,15 @@ pub(crate) unsafe extern "C" fn iteration(
                     crate::solve::Metric::Integer(i64::from(trials)),
                 ),
             ]);
+            crate::observation::iteration_metadata(&mut values, crate::solve::Backend::Ipopt, match mode {
+                0 => crate::solve::NativePhase::Main,
+                1 => crate::solve::NativePhase::Restoration,
+                _ => crate::solve::NativePhase::Unknown,
+            });
+            values.insert("step_norm_kind".into(), crate::solve::Metric::Text("infinity".into()));
+            values.insert("step_coordinates".into(), crate::solve::Metric::Text("native_primal_and_slack".into()));
+            values.insert("step_semantics".into(), crate::solve::Metric::Text("search_direction".into()));
+            values.insert("step_available".into(), crate::solve::Metric::Bool(direction_available == 1));
             if !current.is_null() {
                 // SAFETY: the bridge supplies a nonnull current vector of the checked extent,
                 // immutable for this callback; only copied scalar observations are retained.
@@ -476,6 +552,71 @@ mod tests {
             &crate::solve::Controls::default(),
         );
         Context::new(oracle, execution, jac, hess)
+    }
+    #[cfg(feature = "uno")]
+    #[test]
+    fn uno_checkpoints_keep_owner_semantics_without_inventing_iterations() {
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        let mut context = context(&mut oracle);
+        let slot = Slot::default();
+        let data = slot.data();
+        slot.with_active(&mut context, || {
+            // SAFETY: checked scalar native callback extents and active slot.
+            unsafe { uno_observe(1, 7, 1, 1, &2., 1., 0.2, 0.3, 0.4, data) };
+        });
+        let event = context.state.execution.progress.current().unwrap();
+        assert!(matches!(&event.values["checkpoint_kind"], crate::solve::Metric::Text(v) if v == "native_accepted_iterate"));
+        assert!(matches!(event.values["accepted.ordinal"], crate::solve::Metric::Integer(7)));
+        assert!(!event.values.contains_key("iteration"));
+        let current = context.current.as_ref().unwrap();
+        assert_eq!(current.iteration, None);
+        assert_eq!(current.phase, crate::solve::NativePhase::Unknown);
+        assert_eq!(current.values[0].value, 2.);
+        slot.with_active(&mut context, || {
+            // SAFETY: second callback borrows the same exact live scalar extent.
+            unsafe { uno_observe(2, 9, 1, 1, &3., 0., 0.4, 0.5, 0.6, data) };
+            // SAFETY: invalid dimension is rejected before dereferencing null input.
+            unsafe { uno_observe(1, 8, 2, 1, ptr::null(), 1., 0., 0., 0., data) };
+        });
+        let event = context.state.execution.progress.current().unwrap();
+        assert!(matches!(&event.values["iterate_semantics"], crate::solve::Metric::Text(v) if v == "current_native_trial"));
+        assert!(context.state.terminal.is_none(), "optional diagnostics do not revoke scientific permission");
+        assert_eq!(context.current.as_ref().unwrap().values[0].value, 3.);
+    }
+    #[test]
+    fn prepared_complete_buffers_refresh_without_reallocation_or_partial_publication() {
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        let mut context = context(&mut oracle);
+        let address = context.scratch.output.as_ptr();
+        let slot = Slot::default();
+        let data = slot.data();
+        for x in [2., 3., -2.] {
+            let mut out = 91.;
+            slot.with_active(&mut context, || {
+                // SAFETY: active owned context and exact scalar input/output extents.
+                assert_eq!(unsafe { gradient(1, &x, &mut out, data) }, 0);
+                assert_eq!(out, 2. * x);
+                // SAFETY: the same admitted scalar extents remain live.
+                assert_eq!(unsafe { constraints(1, 1, &x, &mut out, data) }, 0);
+                assert_eq!(out, x * x * x);
+                // SAFETY: one canonical Jacobian nonzero and active context.
+                assert_eq!(unsafe { jacobian(1, 1, &x, &mut out, data) }, 0);
+                assert_eq!(out, 3. * x * x);
+                #[cfg(feature = "ipopt")]
+                for multiplier in [0., 4., -1.] {
+                    // SAFETY: exact scalar point, multiplier and output extents.
+                    assert_eq!(unsafe { hessian(1, 1, 1, &x, 3., &multiplier, &mut out, data) }, 0);
+                    assert_eq!(out, 6. + 6. * x * multiplier);
+                }
+            });
+            assert_eq!(address, context.scratch.output.as_ptr());
+        }
+        let mut out = 91.;
+        slot.with_active(&mut context, || {
+            // SAFETY: the malformed reported nnz is refused before output access.
+            assert_eq!(unsafe { jacobian(1, 2, &2., &mut out, data) }, 2);
+        });
+        assert_eq!(out, 91.);
     }
     #[test]
     fn owned_slot_deactivates_and_failed_partial_output_never_publishes() {

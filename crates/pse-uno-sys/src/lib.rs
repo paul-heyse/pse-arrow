@@ -78,6 +78,7 @@ pub type Constraints = unsafe extern "C" fn(i32, i32, *const f64, *mut f64, *mut
 pub type Gradient = unsafe extern "C" fn(i32, *const f64, *mut f64, *mut c_void) -> i32;
 pub type Jacobian = unsafe extern "C" fn(i32, i32, *const f64, *mut f64, *mut c_void) -> i32;
 pub type Poll = unsafe extern "C" fn(*mut c_void) -> i32;
+pub type Observe = unsafe extern "C" fn(i32, u64, i32, i32, *const f64, f64, f64, f64, f64, *mut c_void);
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Callbacks {
@@ -86,6 +87,7 @@ pub struct Callbacks {
     pub gradient: Option<Gradient>,
     pub jacobian: Option<Jacobian>,
     pub poll: Option<Poll>,
+    pub observe: Option<Observe>,
     pub user: *mut c_void,
 }
 #[repr(C)]
@@ -132,6 +134,7 @@ pub struct Result {
     pub feasibility_primal_tolerance: f64,
 }
 unsafe extern "C" {
+    pub fn pse_uno_notify_waiters();
     pub fn pse_uno_minimum_tolerance() -> f64;
     pub fn pse_uno_create(
         n: i32,
@@ -286,6 +289,7 @@ mod tests {
             gradient: Some(gradient),
             jacobian: None,
             poll: Some(poll),
+            observe: None,
             user: ptr::from_mut(fixture).cast(),
         };
         let mut handle = ptr::null_mut();
@@ -317,6 +321,84 @@ mod tests {
         assert_eq!(unsafe { pse_uno_destroy(handle, ptr::null_mut(), 0) }, OK);
         assert!(handle.is_null());
     }
+    struct GateFixture {
+        cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        evaluations: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        entered: Option<std::sync::mpsc::Sender<()>>,
+        release: Option<std::sync::mpsc::Receiver<()>>,
+        polled: Option<std::sync::mpsc::Sender<()>>,
+    }
+    unsafe extern "C" fn gate_objective(_: i32, x: *const f64, out: *mut f64, data: *mut c_void) -> i32 {
+        // SAFETY: one live exclusively callback-owned fixture and scalar extents.
+        let fixture = unsafe { &mut *data.cast::<GateFixture>() };
+        fixture.evaluations.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        if let Some(entered) = fixture.entered.take() {
+            if entered.send(()).is_err() { return EVAL_TERMINAL; }
+            if fixture.release.as_ref().is_none_or(|release| release.recv_timeout(std::time::Duration::from_secs(5)).is_err()) {
+                return EVAL_TERMINAL;
+            }
+        }
+        // SAFETY: bridge provides one readable/writable scalar for this configured model.
+        unsafe { *out = (*x - 1.).powi(2); }
+        EVAL_OK
+    }
+    unsafe extern "C" fn gate_poll(data: *mut c_void) -> i32 {
+        // SAFETY: fixture remains live and exclusive throughout synchronous solve.
+        let fixture = unsafe { &mut *data.cast::<GateFixture>() };
+        if let Some(polled) = fixture.polled.take() { let _ = polled.send(()); }
+        if fixture.cancel.load(std::sync::atomic::Ordering::Acquire) { SCOPE_CANCEL } else { SCOPE_CONTINUE }
+    }
+    fn gate_solve(mut fixture: GateFixture, seconds: f64) -> i32 {
+        let config = Config { profile: SQP_LBFGS, max_iterations: 30, lbfgs_memory: 4,
+            remaining_seconds: seconds, primal_tolerance: 1e-8, dual_tolerance: 1e-8,
+            trust_radius: 1., materialization_limit_bytes: 8 << 20 };
+        let callbacks = Callbacks { objective: Some(gate_objective), constraints: None,
+            gradient: Some(gradient), jacobian: None, poll: Some(gate_poll), observe: None,
+            user: ptr::from_mut(&mut fixture).cast() };
+        let mut handle = ptr::null_mut();
+        // SAFETY: all exact one-variable extents and callback fixture remain live until destruction.
+        let created = unsafe { pse_uno_create(1,0,0,&-2.,&2.,ptr::null(),ptr::null(),ptr::null(),ptr::null(),
+            &config,&callbacks,&mut handle,ptr::null_mut(),0) };
+        assert_eq!(created, OK);
+        // SAFETY: exclusive live handle, initialized start and callback fixture.
+        let result = unsafe { pse_uno_solve(handle,&0.,1,ptr::null_mut(),0) };
+        destroy(&mut handle);
+        result
+    }
+    #[test]
+    fn global_permit_wait_observes_signal_cancellation_and_absolute_deadline() {
+        use std::sync::{Arc, atomic::{AtomicBool, AtomicUsize, Ordering}, mpsc};
+        for stop in [SCOPE_CANCEL, SCOPE_DEADLINE, SCOPE_CONTINUE] {
+            let (entered, owner_entered) = mpsc::channel();
+            let (release, owner_release) = mpsc::channel();
+            let owner = std::thread::spawn(move || gate_solve(GateFixture {
+                cancel: Arc::new(AtomicBool::new(false)), evaluations: Arc::new(AtomicUsize::new(0)),
+                entered: Some(entered), release: Some(owner_release), polled: None,
+            }, 5.));
+            owner_entered.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+            let cancel = Arc::new(AtomicBool::new(false));
+            let evaluations = Arc::new(AtomicUsize::new(0));
+            let (polled, waiter_polled) = mpsc::channel();
+            let waiter = { let cancel = cancel.clone(); let evaluations = evaluations.clone();
+                std::thread::spawn(move || gate_solve(GateFixture { cancel, evaluations,
+                    entered: None, release: None, polled: Some(polled),
+                }, if stop == SCOPE_DEADLINE { 0.05 } else { 5. })) };
+            waiter_polled.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+            if stop == SCOPE_CANCEL {
+                cancel.store(true, Ordering::Release);
+                // SAFETY: process-global signal owns no handle or fixture pointer.
+                unsafe { pse_uno_notify_waiters() };
+            }
+            if stop == SCOPE_CONTINUE { release.send(()).unwrap(); }
+            let result = waiter.join().unwrap();
+            assert_eq!(result, match stop { SCOPE_CANCEL => CANCELLED, SCOPE_DEADLINE => DEADLINE, _ => OK });
+            if stop != SCOPE_CONTINUE { assert_eq!(evaluations.load(Ordering::Acquire),0); release.send(()).unwrap(); }
+            else { assert!(evaluations.load(Ordering::Acquire)>0); }
+            assert_eq!(owner.join().unwrap(), OK);
+        }
+        // A late safe notification never borrows a destroyed native handle.
+        unsafe { pse_uno_notify_waiters() };
+    }
     #[test]
     fn unsupported_accuracy_refuses_before_native_start() {
         for (primal, dual) in [(1e-11, 1e-8), (1e-8, 1e-11)] {
@@ -343,6 +425,7 @@ mod tests {
                 gradient: Some(gradient),
                 jacobian: None,
                 poll: Some(poll),
+            observe: None,
                 user: ptr::from_mut(&mut fixture).cast(),
             };
             let mut handle = ptr::null_mut();

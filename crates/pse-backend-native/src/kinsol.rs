@@ -306,6 +306,11 @@ impl Constraints {
 fn shifted(u: &[f64], offsets: &[f64], sign: f64) -> Vec<f64> {
     u.iter().zip(offsets).map(|(u, o)| u + sign * o).collect()
 }
+fn shifted_into(u: &[f64], offsets: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+    if u.len() != offsets.len() || out.len() != u.len() { return Err(ProblemError::internal("shifted root coordinates extent")); }
+    for ((out, value), offset) in out.iter_mut().zip(u).zip(offsets) { *out = value + offset; }
+    if out.iter().all(|value| value.is_finite()) { Ok(()) } else { Err(ProblemError::numerical("nonfinite shifted root coordinate")) }
+}
 impl Settings {
     /// The one policy-derived KINSOL configuration (F22). `tolerances` are the original
     /// physical acceptance budgets of the solved coordinates and rows, `normalization` the
@@ -542,6 +547,10 @@ struct Context {
     function: Function,
     state: CallbackState,
     n: usize,
+    /// Prepared private coordinates and complete numerical output. No caller
+    /// buffer is touched until the entire callback succeeds.
+    point: Vec<f64>,
+    output: Vec<f64>,
     rows: Vec<ffi::sunindextype>,
     columns: Vec<ffi::sunindextype>,
     dense: bool,
@@ -710,13 +719,15 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
     let value = c.state.evaluate("residual", || {
         // SAFETY: KINSOL passes null or live serial vectors for the callback, and
         // `values` and `publish` check them against the `n` coordinates.
-        let x = shifted(unsafe { values(x, n) }?, &c.offsets, 1.0);
-        let mut v = vec![0.0; n];
+        shifted_into(unsafe { values(x, n) }?, &c.offsets, &mut c.point)?;
+        let x = &c.point;
+        let v = &mut c.output[..n];
+        v.fill(f64::NAN);
         match &mut c.function {
-            Function::Equations(o) => o.residual(&x, &mut v)?,
-            Function::Picard { oracle, .. } => oracle.residual(&x, &mut v)?,
+            Function::Equations(o) => o.residual(x, v)?,
+            Function::Picard { oracle, .. } => oracle.residual(x, v)?,
             Function::FixedPoint(o) => {
-                let result = crate::quality::contained(|| o.map(&x, &mut v));
+                let result = crate::quality::contained(|| o.map(x, v));
                 let result = result.and_then(|()| {
                     if v.iter().all(|value| value.is_finite()) {
                         Ok(())
@@ -728,8 +739,8 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
                     let failure = result.as_ref().err().map(raw_map_failure);
                     history.record(
                         o.contract(),
-                        &x,
-                        result.is_ok().then_some(v.as_slice()),
+                        x,
+                        result.is_ok().then_some(&*v),
                         RawMapRole::FixedPointEvaluation,
                         failure,
                     );
@@ -823,13 +834,15 @@ unsafe extern "C" fn jacobian(
     };
     let value = c.state.evaluate("jacobian", || {
         // SAFETY: the native callback's checked serial vector in original coordinates.
-        let point = shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0);
-        let mut v = vec![0.0; c.rows.len()];
+        shifted_into(unsafe { values(x, c.n) }?, &c.offsets, &mut c.point)?;
+        let point = &c.point;
+        let v = &mut c.output[..c.rows.len()];
+        v.fill(f64::NAN);
         match &mut c.function {
             Function::Equations(o) => o.jacobian(
                 // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
                 // checks it against the `n` coordinates.
-                &point, &mut v,
+                point, v,
             )?,
             Function::Picard { linear, .. } => v.copy_from_slice(linear.val()),
             Function::FixedPoint(_) => {
@@ -881,10 +894,12 @@ unsafe extern "C" fn jacobian(
                 unsafe { std::ptr::copy_nonoverlapping(v.as_ptr(), p, v.len()) };
             }
         }
-        c.setup = Some(SetupStamp {
-            point,
-            data: c.data,
-        });
+        if let Some(setup) = &mut c.setup {
+            setup.point.clone_from(&c.point);
+            setup.data = c.data;
+        } else {
+            c.setup = Some(SetupStamp { point: c.point.clone(), data: c.data });
+        }
         c.setup_calls = c.setup_calls.saturating_add(1);
         Ok(())
     });
@@ -903,22 +918,26 @@ unsafe extern "C" fn jvp(
         return -1;
     };
     let value = c.state.evaluate("jvp", || {
-        let mut y = vec![0.0; c.n];
+        let y = &mut c.output[..c.n];
+        y.fill(f64::NAN);
         match &mut c.function {
             Function::Equations(o) => o.jacobian_product(
                 // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
                 // checks it against the `n` coordinates.
-                &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
+                { shifted_into(unsafe { values(x, c.n) }?, &c.offsets, &mut c.point)?; &c.point },
                 // SAFETY: as above.
                 unsafe { values(v, c.n) }?,
-                &mut y,
+                y,
             )?,
             Function::Picard { linear, .. } => {
                 // SAFETY: as above.
-                let result = linear.as_ref() * faer::ColRef::from_slice(unsafe { values(v, c.n) }?);
-                for (i, v) in y.iter_mut().enumerate() {
-                    *v = result[i];
-                }
+                let direction = unsafe { values(v, c.n) }?;
+                faer::sparse::linalg::matmul::sparse_dense_matmul(
+                    faer::MatMut::from_column_major_slice_mut(y, c.n, 1),
+                    faer::Accum::Replace, linear.as_ref(),
+                    faer::MatRef::from_column_major_slice(direction, c.n, 1),
+                    1., faer::Par::Seq,
+                );
             }
             Function::FixedPoint(_) => {
                 return Err(ProblemError::Unsupported("map has no residual JVP".into()));
@@ -945,13 +964,15 @@ unsafe extern "C" fn precondition_setup(
     let execution = c.state.execution.clone();
     let value = c.state.evaluate("preconditioner", || {
         // SAFETY: the native callback's checked serial vector in original coordinates.
-        let point = shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0);
-        let mut v = vec![0.0; c.rows.len()];
+        shifted_into(unsafe { values(x, c.n) }?, &c.offsets, &mut c.point)?;
+        let point = &c.point;
+        let v = &mut c.output[..c.rows.len()];
+        v.fill(f64::NAN);
         match &mut c.function {
             Function::Equations(o) => o.jacobian(
                 // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
                 // checks it against the `n` coordinates.
-                &point, &mut v,
+                point, v,
             )?,
             Function::Picard { linear, .. } => v.copy_from_slice(linear.val()),
             Function::FixedPoint(_) => {
@@ -959,6 +980,9 @@ unsafe extern "C" fn precondition_setup(
                     "map has no preconditioner".into(),
                 ));
             }
+        }
+        if v.iter().any(|value| !value.is_finite()) {
+            return Err(ProblemError::numerical("invalid root preconditioner Jacobian"));
         }
         if let Some(blocks) = &mut c.blocks {
             blocks.setup(&v, &execution)?;
@@ -977,10 +1001,12 @@ unsafe extern "C" fn precondition_setup(
                     };
             }
         }
-        c.setup = Some(SetupStamp {
-            point,
-            data: c.data,
-        });
+        if let Some(setup) = &mut c.setup {
+            setup.point.clone_from(&c.point);
+            setup.data = c.data;
+        } else {
+            c.setup = Some(SetupStamp { point: c.point.clone(), data: c.data });
+        }
         c.setup_calls = c.setup_calls.saturating_add(1);
         Ok(())
     });
@@ -1104,6 +1130,8 @@ impl Session {
             (callback.rows.capacity()
                 + callback.columns.capacity()
                 + callback.offsets.capacity()
+                + callback.point.capacity()
+                + callback.output.capacity()
                 + callback.inverse_diagonal.capacity()
                 + callback.setup.as_ref().map_or(0, |s| s.point.capacity()))
             .saturating_mul(8),
@@ -1313,6 +1341,8 @@ impl Session {
             function,
             state: CallbackState::new(execution),
             n,
+            point: vec![0.; n],
+            output: vec![0.; n.max(rows.len())],
             rows,
             columns,
             dense: matches!(settings.method.linear, Linear::Dense { .. }),
@@ -2373,6 +2403,7 @@ mod tests {
                 stamp.clone(),
             )
             .unwrap();
+            let scratch_addresses = (session.callback.point.as_ptr(), session.callback.output.as_ptr());
             let cold = setup_solve(&mut session, 0.0, ReusePolicy::AllowRebuild);
             assert_eq!(cold.termination.category, Termination::Success);
             assert!(metric(&cold, "setup.refreshes") > 0);
@@ -2390,6 +2421,8 @@ mod tests {
             assert_eq!(reused.termination.category, Termination::Success);
             assert_eq!(reused.candidate.as_ref().unwrap().primal, [2.0]);
             assert_eq!(session.linear, native_address);
+            assert_eq!((session.callback.point.as_ptr(), session.callback.output.as_ptr()), scratch_addresses,
+                "changed values reuse complete private callback storage");
             assert!(setups.load(std::sync::atomic::Ordering::SeqCst) > before);
             assert!(metric(&reused, "setup.refreshes") > 0);
             assert_eq!(

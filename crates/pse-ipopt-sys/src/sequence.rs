@@ -45,6 +45,7 @@ pub type Iteration = unsafe extern "C" fn(
     f64,
     i32,
     i32,
+    i32,
     *const f64,
     *const f64,
     *mut c_void,

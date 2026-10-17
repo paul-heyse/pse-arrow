@@ -27,12 +27,19 @@ typedef int32_t (*pse_uno_constraints)(int32_t, int32_t, const double*, double*,
 typedef int32_t (*pse_uno_gradient)(int32_t, const double*, double*, void*);
 typedef int32_t (*pse_uno_jacobian)(int32_t, int32_t, const double*, double*, void*);
 typedef int32_t (*pse_uno_poll)(void*);
+/* kind=1: actual native acceptable-iterate notification; kind=2: termination
+ * check on the current trial iterate. Ordinal counts this callback kind, never
+ * native iterations. Observation cannot grant or revoke scientific permission. */
+typedef void (*pse_uno_observe)(int32_t kind, uint64_t ordinal, int32_t n, int32_t m,
+    const double* primal, double objective_multiplier, double primal_feasibility,
+    double stationarity, double complementarity, void*);
 typedef struct {
     pse_uno_objective objective;
     pse_uno_constraints constraints;
     pse_uno_gradient gradient;
     pse_uno_jacobian jacobian;
     pse_uno_poll poll;
+    pse_uno_observe observe;
     void* user;
 } pse_uno_callbacks;
 typedef struct {
@@ -80,6 +87,8 @@ typedef struct {
  * No borrowed native pointer escapes. Error text is always NUL terminated when
  * error_capacity>0. Every exported function shields all C++ exceptions. */
 /* Library-owned supported floor; no handle or native initialization required. */
+/* Process-global signal only; safe without a handle, including after owner exit. */
+void pse_uno_notify_waiters(void) PSE_UNO_NOEXCEPT;
 double pse_uno_minimum_tolerance(void) PSE_UNO_NOEXCEPT;
 int32_t pse_uno_create(int32_t n, int32_t m, int32_t nnz,
     const double* lower, const double* upper, const double* row_lower, const double* row_upper,

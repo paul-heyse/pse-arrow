@@ -215,6 +215,9 @@ impl Pipeline {
         let source_contract = oracle.contract().clone();
         let want_duals = duals.is_some();
         let original = Rc::new(RefCell::new(Adapter {
+            scratch: crate::tnlp::Scratch::new(
+                source_contract.variables.len(), source_contract.rows.len(), jac.rows.len(), hess.rows.len(),
+            ),
             normalization,
             certification_budget: None,
             oracle,
@@ -691,8 +694,8 @@ impl Pipeline {
             bounds: gl.into_iter().zip(gu).collect(),
             jac,
             hess,
-            nj,
-            nh,
+            jac_values: vec![0.; nj],
+            hess_values: vec![0.; nh],
         };
         // Interval propagation may fix a nonlinear row's last variable while retaining
         // that row. Such a projection can be valid but is not admissible to an
@@ -1171,8 +1174,8 @@ pub struct Transport {
     bounds: Vec<(f64, f64)>,
     jac: AssemblyMatrix,
     hess: AssemblyMatrix,
-    nj: usize,
-    nh: usize,
+    jac_values: Vec<f64>,
+    hess_values: Vec<f64>,
 }
 impl std::fmt::Debug for Transport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1217,15 +1220,16 @@ impl NlpOracle for Transport {
         }
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let mut v = vec![0.0; self.nj];
+        let v = &mut self.jac_values;
+        v.fill(f64::NAN);
         if !self.outer.borrow_mut().eval_jac_g(
             Some(x),
             true,
-            SparsityRequest::Values { values: &mut v },
+            SparsityRequest::Values { values: v },
         ) {
             return Err(failure(&self.original));
         }
-        refill(&mut self.jac, &v, out)
+        refill(&mut self.jac, v, out)
     }
     fn hessian(
         &mut self,
@@ -1234,18 +1238,19 @@ impl NlpOracle for Transport {
         l: &[f64],
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
-        let mut v = vec![0.0; self.nh];
+        let v = &mut self.hess_values;
+        v.fill(f64::NAN);
         if !self.outer.borrow_mut().eval_h(
             Some(x),
             true,
             w,
             Some(l),
             true,
-            SparsityRequest::Values { values: &mut v },
+            SparsityRequest::Values { values: v },
         ) {
             return Err(failure(&self.original));
         }
-        refill(&mut self.hess, &v, out)
+        refill(&mut self.hess, v, out)
     }
 }
 fn refill(matrix: &mut AssemblyMatrix, v: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {

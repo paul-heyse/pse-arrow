@@ -147,6 +147,7 @@ pub fn analyze(
             .count();
     // No Hessian demand or native solver construction is needed for this sample.
     let mut adapter = Adapter {
+        scratch: crate::tnlp::Scratch::new(n, m, jac.rows.len(), 0),
         normalization,
         certification_budget: None,
         normalize_affine: false,

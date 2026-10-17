@@ -132,6 +132,26 @@ pub(crate) fn metrics(phase: &str, values: &std::collections::BTreeMap<String, M
     }
 }
 
+/// The numerical owner supplies semantics; readers never infer these from names.
+pub(crate) fn iteration_metadata(
+    values: &mut std::collections::BTreeMap<String, Metric>,
+    backend: crate::solve::Backend,
+    phase: crate::solve::NativePhase,
+) {
+    for (key, value) in [
+        ("backend", backend.as_str()),
+        ("checkpoint_kind", "native_iteration"),
+        ("native_phase", match phase {
+            crate::solve::NativePhase::Main => "main",
+            crate::solve::NativePhase::Restoration => "restoration",
+            crate::solve::NativePhase::Unknown => "unknown",
+        }),
+        ("iterate_semantics", "current_native_iterate"),
+    ] {
+        values.insert(key.into(), Metric::Text(value.into()));
+    }
+}
+
 pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observation::Producer>) {
     use pse_diagnostics::observation::{RecordAvailability, RecordField, Value};
     let (Some(producer), Some(source)) = (producer, event.source.as_mut()) else {
@@ -574,3 +594,26 @@ mod tests {
         );
     }
 }
+    #[test]
+    fn nonlinear_iteration_semantics_are_explicit_and_preserve_native_values() {
+        for backend in [crate::solve::Backend::Ipopt, crate::solve::Backend::Pounce] {
+            for (phase, name) in [
+                (crate::solve::NativePhase::Main, "main"),
+                (crate::solve::NativePhase::Restoration, "restoration"),
+                (crate::solve::NativePhase::Unknown, "unknown"),
+            ] {
+                let mut values = std::collections::BTreeMap::from([
+                    ("inf_pr".into(), Metric::Real(0.125)),
+                    ("iteration".into(), Metric::Integer(0)),
+                ]);
+                iteration_metadata(&mut values, backend, phase);
+                assert_eq!(values["backend"], Metric::Text(backend.as_str().into()));
+                assert_eq!(values["native_phase"], Metric::Text(name.into()));
+                assert_eq!(values["checkpoint_kind"], Metric::Text("native_iteration".into()));
+                assert_eq!(values["iterate_semantics"], Metric::Text("current_native_iterate".into()));
+                assert_eq!(values["inf_pr"], Metric::Real(0.125));
+                assert_eq!(values["iteration"], Metric::Integer(0));
+                assert!(!values.contains_key("accepted"));
+            }
+        }
+    }

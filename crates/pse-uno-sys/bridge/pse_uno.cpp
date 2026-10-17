@@ -11,7 +11,7 @@
 #include <new>
 #include <set>
 #include <stdexcept>
-#include <thread>
+#include <condition_variable>
 #include <utility>
 #include <vector>
 #include <limits>
@@ -34,6 +34,7 @@ struct pse_uno_handle {
     std::vector<double> lower, upper;
     std::chrono::steady_clock::time_point created;
     double remaining_seconds = 0.;
+    uint64_t accepted_ordinal = 0, termination_ordinal = 0;
     uint64_t materialization_limit = 0, materialization_count = 0, materialization_columns = 0, materialization_numeric_bytes = 0;
     double highs_accuracy[4] = {NAN, NAN, NAN, NAN};
     uint64_t feasibility_calls = 0, feasibility_iterations = 0;
@@ -45,7 +46,13 @@ struct pse_uno_handle {
     }
 };
 namespace {
-std::mutex uno_process_mutex;
+struct ProcessGate {
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool busy = false;
+    uint64_t generation = 0;
+};
+ProcessGate uno_process_gate;
 struct Terminal final : std::exception {
     const char* what() const noexcept override { return "terminal callback or execution scope failure"; }
 };
@@ -81,6 +88,44 @@ void poll(pse_uno_handle& h) {
     }
     throw Terminal{};
 }
+// The permit owns process-global Uno logger/subproblem state. Cancellation
+// notifications carry no handle or borrowed callback pointer.
+struct ProcessPermit {
+    bool acquired = false;
+    explicit ProcessPermit(pse_uno_handle& h) {
+        auto& gate = uno_process_gate;
+        const auto room = std::chrono::steady_clock::time_point::max() - h.created;
+        const auto deadline = h.remaining_seconds >= std::chrono::duration<double>(room).count()
+            ? std::chrono::steady_clock::time_point::max()
+            : h.created + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                std::chrono::duration<double>(h.remaining_seconds));
+        std::unique_lock<std::mutex> lock(gate.mutex);
+        for (;;) {
+            // Poll without the signal mutex: a callback may itself cancel.
+            const auto observed = gate.generation;
+            lock.unlock();
+            poll(h);
+            lock.lock();
+            if (std::chrono::steady_clock::now() >= deadline) {
+                h.terminal = PSE_UNO_DEADLINE;
+                throw Terminal{};
+            }
+            if (!gate.busy) { gate.busy = true; acquired = true; return; }
+            gate.changed.wait_until(lock, deadline, [&] {
+                return !gate.busy || gate.generation != observed;
+            });
+        }
+    }
+    ~ProcessPermit() noexcept {
+        if (!acquired) return;
+        auto& gate = uno_process_gate;
+        { std::lock_guard<std::mutex> lock(gate.mutex);
+            gate.busy = false; ++gate.generation; }
+        gate.changed.notify_all();
+    }
+    ProcessPermit(const ProcessPermit&) = delete;
+    ProcessPermit& operator=(const ProcessPermit&) = delete;
+};
 void subproblem_scope(int32_t reason, void* data) {
     auto& h = *static_cast<pse_uno_handle*>(data);
     if (reason == 1 && h.terminal == PSE_UNO_OK) h.terminal = PSE_UNO_DEADLINE;
@@ -128,10 +173,23 @@ int32_t jacobian(int32_t n, int32_t nnz, const double* x, double* out, void* use
     auto& h = *static_cast<pse_uno_handle*>(user);
     return evaluate(h, [&] { return h.callbacks.jacobian(n, nnz, x, out, h.callbacks.user); });
 }
-int32_t termination(int32_t, int32_t, const double*, const double*, const double*, const double*,
-    double, double, double, double, void* user) {
-    poll(*static_cast<pse_uno_handle*>(user));
-    return 1; // Uno's C termination callback uses zero to request termination.
+void observe(pse_uno_handle& h, int32_t kind, uint64_t& ordinal, int32_t n, int32_t m,
+    const double* x, double multiplier, double primal, double stationarity, double complementarity) {
+    if (ordinal != std::numeric_limits<uint64_t>::max()) ++ordinal;
+    if (h.callbacks.observe) h.callbacks.observe(kind, ordinal, n, m, x,
+        multiplier, primal, stationarity, complementarity, h.callbacks.user);
+}
+void acceptable_iterate(int32_t n, int32_t m, const double* x, const double*, const double*, const double*,
+    double multiplier, double primal, double stationarity, double complementarity, void* user) {
+    auto& h = *static_cast<pse_uno_handle*>(user);
+    observe(h, 1, h.accepted_ordinal, n, m, x, multiplier, primal, stationarity, complementarity);
+}
+int32_t termination(int32_t n, int32_t m, const double* x, const double*, const double*, const double*,
+    double multiplier, double primal, double stationarity, double complementarity, void* user) {
+    auto& h = *static_cast<pse_uno_handle*>(user);
+    observe(h, 2, h.termination_ordinal, n, m, x, multiplier, primal, stationarity, complementarity);
+    poll(h);
+    return 1; // Exact pinned CUserCallbacks implementation uses zero to stop.
 }
 void bounds(int32_t length, const double* lower, const double* upper) {
     require(length == 0 || (lower && upper), "missing bounds");
@@ -144,6 +202,11 @@ void result_available(pse_uno_handle* h) {
     require(h, "null handle");
     if (!h->result) throw std::logic_error("no result for this handle");
 }
+}
+extern "C" void pse_uno_notify_waiters() noexcept {
+    auto& gate = uno_process_gate;
+    { std::lock_guard<std::mutex> lock(gate.mutex); ++gate.generation; }
+    gate.changed.notify_all();
 }
 extern "C" double pse_uno_minimum_tolerance() noexcept { return uno_pse_minimum_tolerance(); }
 extern "C" int32_t pse_uno_create(int32_t n, int32_t m, int32_t nnz,
@@ -220,7 +283,7 @@ extern "C" int32_t pse_uno_create(int32_t n, int32_t m, int32_t nnz,
         accepted(uno_set_solver_double_option(h->solver, "loose_primal_tolerance", c->primal_tolerance));
         accepted(uno_set_solver_double_option(h->solver, "loose_dual_tolerance", c->dual_tolerance));
         accepted(uno_set_solver_double_option(h->solver, "TR_radius", c->trust_radius));
-        accepted(uno_set_solver_callbacks(h->solver, nullptr, termination, h.get()));
+        accepted(uno_set_solver_callbacks(h->solver, acceptable_iterate, termination, h.get()));
         *output = h.release();
     });
 }
@@ -231,8 +294,7 @@ extern "C" int32_t pse_uno_solve(pse_uno_handle* h, const double* initial, int32
         h->started = true;
         for (int32_t i = 0; i < n; ++i) require(std::isfinite(initial[i]) && initial[i] >= h->lower[i]
             && initial[i] <= h->upper[i], "initial iterate outside bounds");
-        std::unique_lock<std::mutex> permit(uno_process_mutex, std::defer_lock);
-        while (!permit.try_lock()) { poll(*h); std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
+        ProcessPermit permit(*h);
         poll(*h);
         const double remaining = h->remaining_seconds - std::chrono::duration<double>(
             std::chrono::steady_clock::now() - h->created).count();

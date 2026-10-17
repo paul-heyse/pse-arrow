@@ -429,6 +429,10 @@ pub struct Roots {
     original: Box<dyn NleOracle>,
     contract: OracleContract,
     normalization: Normalization,
+    point: Vec<f64>,
+    direction: Vec<f64>,
+    output: Vec<f64>,
+    jacobian_nnz: usize,
 }
 impl Roots {
     /// Retain the original oracle and one immutable coordinate map.
@@ -436,10 +440,17 @@ impl Roots {
         original: Box<dyn NleOracle>,
         normalization: Normalization,
     ) -> Result<Self, ProblemError> {
+        let n = original.contract().variables.len();
+        let m = original.contract().rows.len();
+        let jacobian_nnz = original.jacobian_pattern().compute_nnz();
         Ok(Self {
             contract: contract(original.contract(), &normalization)?,
             original,
             normalization,
+            point: vec![0.; n],
+            direction: vec![0.; n],
+            output: vec![0.; m.max(jacobian_nnz)],
+            jacobian_nnz,
         })
     }
 }
@@ -462,25 +473,30 @@ impl NleOracle for Roots {
         self.original.jacobian_pattern()
     }
     fn residual(&mut self, z: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let x = self.normalization.physical_point(z)?;
-        self.original.residual(&x, out)?;
-        values(out, &self.normalization.rows, true)
+        self.normalization.physical_point_into(z, &mut self.point)?;
+        let output = &mut self.output[..self.normalization.rows.len()];
+        output.fill(f64::NAN);
+        self.original.residual(&self.point, output)?;
+        values(output, &self.normalization.rows, true)?;
+        crate::tnlp::copy(output, out)
     }
     fn jacobian(&mut self, z: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let x = self.normalization.physical_point(z)?;
-        self.original.jacobian(&x, out)?;
+        self.normalization.physical_point_into(z, &mut self.point)?;
+        let output = &mut self.output[..self.jacobian_nnz];
+        output.fill(f64::NAN);
+        self.original.jacobian(&self.point, output)?;
         let p = self.original.jacobian_pattern();
         let mut k = 0;
         for c in 0..p.ncols() {
             for r in p.row_idx_of_col(c) {
-                out[k] = div(
-                    mul(out[k], self.normalization.variables[c])?,
+                output[k] = div(
+                    mul(output[k], self.normalization.variables[c])?,
                     self.normalization.rows[r],
                 )?;
                 k += 1;
             }
         }
-        Ok(())
+        crate::tnlp::copy(output, out)
     }
     fn jacobian_product(
         &mut self,
@@ -488,10 +504,13 @@ impl NleOracle for Roots {
         d: &[f64],
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
-        let x = self.normalization.physical_point(z)?;
-        let d = self.normalization.physical_point(d)?;
-        self.original.jacobian_product(&x, &d, out)?;
-        values(out, &self.normalization.rows, true)
+        self.normalization.physical_point_into(z, &mut self.point)?;
+        self.normalization.physical_point_into(d, &mut self.direction)?;
+        let output = &mut self.output[..self.normalization.rows.len()];
+        output.fill(f64::NAN);
+        self.original.jacobian_product(&self.point, &self.direction, output)?;
+        values(output, &self.normalization.rows, true)?;
+        crate::tnlp::copy(output, out)
     }
     fn observe(&self, mut residual: Vec<f64>) -> Result<crate::quality::Observation, ProblemError> {
         values(&mut residual, &self.normalization.rows, false)?;

@@ -292,6 +292,7 @@ pub fn solve(
         gradient: Some(cb::gradient),
         jacobian: Some(cb::jacobian),
         poll: Some(cb::poll),
+        observe: Some(cb::uno_observe),
         user: slot.data(),
     };
     let config = ffi::Config {
@@ -354,9 +355,20 @@ pub fn solve(
         },
     );
     crate::observation::unavailable(
-        "uno.iteration_detail",
-        "patched bridge exposes oracle and cancellation poll, no structured iteration/subproblem hook",
+        "uno.private_subproblem_detail",
+        "native acceptable/trial checkpoints are exposed; private subproblem iteration detail is unsupported",
     );
+    struct NativeWake;
+    impl std::task::Wake for NativeWake {
+        fn wake(self: Arc<Self>) { self.wake_by_ref(); }
+        fn wake_by_ref(self: &Arc<Self>) {
+            // SAFETY: process-global signal retains no handle or callback pointer.
+            unsafe { ffi::pse_uno_notify_waiters() };
+        }
+    }
+    let wake = std::task::Waker::from(Arc::new(NativeWake));
+    let _cancel_watch = context.state.execution.cancellation_control().watch(&wake);
+    let _abandon_watch = context.state.execution.abandonment.watch(&wake);
     let status = crate::observation::scoped("uno.optimize", || {
         slot.with_active(&mut context, || {
             // SAFETY: stable activation lends the oracle only to sequential synchronous
@@ -416,6 +428,24 @@ pub fn solve(
         &context.state.execution,
     );
     report.evidence.start_submitted = warm.is_some();
+    let count = |value| native_known.then(|| u64::try_from(value).ok()).flatten();
+    report.evidence.native_observations = Some(Arc::new(NativeObservations {
+        backend: Backend::Uno,
+        problem: context.oracle.contract().identity,
+        profile: compatibility.profile,
+        coordinates: ObservationCoordinates::SubmittedOracle,
+        stop_fidelity: StopFidelity::EvaluationAndIterationCheckpoints,
+        counters: NativeCounters::Uno {
+            iterations: count(result.iterations),
+            objective_evaluations: count(result.objective_evaluations),
+            constraint_evaluations: count(result.constraint_evaluations),
+            gradient_evaluations: count(result.gradient_evaluations),
+            jacobian_evaluations: count(result.jacobian_evaluations),
+            subproblems: count(result.subproblems),
+            cpu_seconds: native_known.then_some(result.cpu_seconds),
+        },
+        current: context.current.take(),
+    }));
     if native_known {
         report.metrics.insert(
             "uno.iterate_status".into(),

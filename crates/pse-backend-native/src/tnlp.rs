@@ -22,6 +22,22 @@ pub(crate) struct Adapter {
     pub(crate) initial: Vec<f64>,
     pub(crate) duals: Option<(Vec<f64>, Vec<f64>, Vec<f64>)>,
     pub(crate) solution: Option<Candidate>,
+    pub(crate) scratch: Scratch,
+}
+/// Exclusive, prepared transport storage. Numerical failure never publishes it.
+pub(crate) struct Scratch {
+    point: Vec<f64>,
+    multipliers: Vec<f64>,
+    output: Vec<f64>,
+}
+impl Scratch {
+    pub(crate) fn new(n: usize, m: usize, jacobian: usize, hessian: usize) -> Self {
+        Self {
+            point: vec![0.; n],
+            multipliers: vec![0.; m],
+            output: vec![0.; n.max(m).max(jacobian).max(hessian)],
+        }
+    }
 }
 impl pounce_nlp::expression_provider::ExpressionProvider for Adapter {
     fn constraint_expression(&self, i: usize) -> Option<pounce_nlp::expression_provider::FbbtTape> {
@@ -332,9 +348,9 @@ impl TNLP for Adapter {
     }
     fn eval_f(&mut self, x: &[f64], _: bool) -> Option<f64> {
         self.state.evaluate("objective", || {
-            let point = self.normalization.physical_point(x)?;
+            self.normalization.physical_point_into(x, &mut self.scratch.point)?;
             let v = pse_math::normalization::checked_ratio(
-                self.oracle.objective(&point)?,
+                self.oracle.objective(&self.scratch.point)?,
                 self.normalization.objective,
             )?;
             finite(&[v])?;
@@ -344,9 +360,10 @@ impl TNLP for Adapter {
     fn eval_grad_f(&mut self, x: &[f64], _: bool, out: &mut [f64]) -> bool {
         self.state
             .evaluate("gradient", || {
-                let mut v = vec![0.0; out.len()];
-                self.oracle
-                    .gradient(&self.normalization.physical_point(x)?, &mut v)?;
+                self.normalization.physical_point_into(x, &mut self.scratch.point)?;
+                let v = &mut self.scratch.output[..self.normalization.variables.len()];
+                v.fill(f64::NAN);
+                self.oracle.gradient(&self.scratch.point, v)?;
                 for (i, value) in v.iter_mut().enumerate() {
                     *value = pse_math::normalization::checked_ratio(
                         pse_math::normalization::checked_product(
@@ -356,17 +373,18 @@ impl TNLP for Adapter {
                         self.normalization.objective,
                     )?;
                 }
-                finite(&v)?;
-                copy(&v, out)
+                finite(v)?;
+                copy(v, out)
             })
             .is_some()
     }
     fn eval_g(&mut self, x: &[f64], _: bool, out: &mut [f64]) -> bool {
         self.state
             .evaluate("constraints", || {
-                let mut v = vec![0.0; out.len()];
-                self.oracle
-                    .constraints(&self.normalization.physical_point(x)?, &mut v)?;
+                self.normalization.physical_point_into(x, &mut self.scratch.point)?;
+                let v = &mut self.scratch.output[..self.normalization.rows.len()];
+                v.fill(f64::NAN);
+                self.oracle.constraints(&self.scratch.point, v)?;
                 if self.normalize_affine
                     && let Some(f) = self.oracle.presolve_facts()
                 {
@@ -380,8 +398,8 @@ impl TNLP for Adapter {
                     *value =
                         pse_math::normalization::checked_ratio(*value, self.normalization.rows[i])?;
                 }
-                finite(&v)?;
-                copy(&v, out)
+                finite(v)?;
+                copy(v, out)
             })
             .is_some()
     }
@@ -398,9 +416,10 @@ impl TNLP for Adapter {
                     copy(&self.jac.columns, jcol)
                 }
                 SparsityRequest::Values { values } => {
-                    let mut v = vec![0.0; values.len()];
-                    self.oracle
-                        .jacobian(&self.normalization.physical_point(point(x)?)?, &mut v)?;
+                    self.normalization.physical_point_into(point(x)?, &mut self.scratch.point)?;
+                    let v = &mut self.scratch.output[..self.jac.rows.len()];
+                    v.fill(f64::NAN);
+                    self.oracle.jacobian(&self.scratch.point, v)?;
                     for (i, value) in v.iter_mut().enumerate() {
                         *value = pse_math::normalization::checked_ratio(
                             pse_math::normalization::checked_product(
@@ -410,8 +429,8 @@ impl TNLP for Adapter {
                             self.normalization.rows[self.jac.rows[i] as usize],
                         )?;
                     }
-                    finite(&v)?;
-                    copy(&v, values)
+                    finite(v)?;
+                    copy(v, values)
                 }
             })
             .is_some()
@@ -437,7 +456,6 @@ impl TNLP for Adapter {
                     copy(&self.hess.columns, jcol)
                 }
                 SparsityRequest::Values { values } => {
-                    let mut v = vec![0.0; values.len()];
                     let lambda = if self.oracle.contract().rows.is_empty() {
                         &[][..]
                     } else {
@@ -446,19 +464,20 @@ impl TNLP for Adapter {
                     if lambda.len() != self.normalization.rows.len() {
                         return Err(ProblemError::Internal("normalized multipliers".into()));
                     }
-                    let lambda = lambda
-                        .iter()
-                        .zip(&self.normalization.rows)
-                        .map(|(v, s)| pse_math::normalization::checked_ratio(*v, *s))
-                        .collect::<Result<Vec<_>, _>>()?;
+                    for ((out, v), s) in self.scratch.multipliers.iter_mut().zip(lambda).zip(&self.normalization.rows) {
+                        *out = pse_math::normalization::checked_ratio(*v, *s)?;
+                    }
+                    self.normalization.physical_point_into(point(x)?, &mut self.scratch.point)?;
+                    let v = &mut self.scratch.output[..self.hess.rows.len()];
+                    v.fill(f64::NAN);
                     self.oracle.hessian(
-                        &self.normalization.physical_point(point(x)?)?,
+                        &self.scratch.point,
                         pse_math::normalization::checked_ratio(
                             weight,
                             self.normalization.objective,
                         )?,
-                        &lambda,
-                        &mut v,
+                        &self.scratch.multipliers,
+                        v,
                     )?;
                     for (i, value) in v.iter_mut().enumerate() {
                         *value = pse_math::normalization::checked_product(
@@ -469,8 +488,8 @@ impl TNLP for Adapter {
                             self.normalization.variables[self.hess.rows[i] as usize],
                         )?;
                     }
-                    finite(&v)?;
-                    copy(&v, values)
+                    finite(v)?;
+                    copy(v, values)
                 }
             })
             .is_some()
@@ -563,6 +582,10 @@ impl TNLP for Adapter {
                 pounce_nlp::return_codes::AlgorithmMode::RegularMode => "RegularMode",
                 pounce_nlp::return_codes::AlgorithmMode::RestorationPhaseMode => "RestorationPhaseMode",
             }.into()));
+            crate::observation::iteration_metadata(&mut values, crate::solve::Backend::Pounce, match s.mode {
+                pounce_nlp::return_codes::AlgorithmMode::RegularMode => crate::solve::NativePhase::Main,
+                pounce_nlp::return_codes::AlgorithmMode::RestorationPhaseMode => crate::solve::NativePhase::Restoration,
+            });
             execution.progress.push(Event{source: Some(crate::solve::EventSource::new("nonlinear_iteration", Some("native_nlp"), None)), phase:"pounce.iteration".into(),elapsed:execution.started.elapsed(),values,incumbent:None});Ok(())}).is_some()
     }
 }

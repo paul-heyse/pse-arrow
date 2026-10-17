@@ -5,6 +5,7 @@
 #include <petscdmshell.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #if PETSC_VERSION_MAJOR != 3 || PETSC_VERSION_MINOR != 24 || PETSC_VERSION_SUBMINOR != 0
 #error "The project ABI requires PETSc 3.24.0"
@@ -220,8 +221,22 @@ int32_t pse_petsc_mat_create(int32_t n, int32_t m, const int32_t *row_capacity, 
 int32_t pse_petsc_mat_destroy(PsePetscHandle *mat) { REQUIRE(mat); return MatDestroy((Mat *)mat); }
 int32_t pse_petsc_mat_write(PsePetscHandle mat, int32_t n, const int32_t *rows, const int32_t *columns, const double *values) {
   REQUIRE(mat); REQUIRE(rows); REQUIRE(columns); REQUIRE(values); if (n < 0) return PETSC_ERR_ARG_SIZ;
+  PetscInt height, width;
+  TRY(MatGetSize(mat, &height, &width));
+  for (int32_t i = 0; i < n; ++i) {
+    if (rows[i] < 0 || rows[i] >= height || columns[i] < 0 || columns[i] >= width) return PETSC_ERR_ARG_OUTOFRANGE;
+    if (!isfinite(values[i])) return PETSC_ERR_FP;
+  }
   TRY(MatZeroEntries(mat));
-  for (int32_t i = 0; i < n; ++i) TRY(MatSetValues(mat, 1, rows + i, 1, columns + i, values + i, INSERT_VALUES));
+  /* Known native callbacks prepare row-major maps once. Arbitrary COO input
+   * remains valid: strictly increasing columns keep duplicate INSERT_VALUES
+   * in separate, ordered calls so the existing last-write semantics remain. */
+  for (int32_t i = 0; i < n;) {
+    int32_t end = i + 1;
+    while (end < n && rows[end] == rows[i] && columns[end] > columns[end - 1]) ++end;
+    TRY(MatSetValues(mat, 1, rows + i, end - i, columns + i, values + i, INSERT_VALUES));
+    i = end;
+  }
   TRY(MatAssemblyBegin(mat, MAT_FINAL_ASSEMBLY));
   return MatAssemblyEnd(mat, MAT_FINAL_ASSEMBLY);
 }

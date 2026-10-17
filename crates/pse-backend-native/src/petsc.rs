@@ -398,17 +398,21 @@ fn index(n: usize) -> Result<i32, ProblemError> {
 }
 fn read(x: ffi::Handle, n: usize) -> Result<Vec<f64>, ProblemError> {
     let mut values = vec![0.0; n];
+    read_into(x, &mut values)?;
+    Ok(values)
+}
+fn read_into(x: ffi::Handle, values: &mut [f64]) -> Result<(), ProblemError> {
     {
         check(
             // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
-            unsafe { ffi::pse_petsc_vec_read(x, index(n)?, values.as_mut_ptr()) },
+            unsafe { ffi::pse_petsc_vec_read(x, index(values.len())?, values.as_mut_ptr()) },
             "vector read",
         )?;
     }
     if values.iter().any(|v| !v.is_finite()) {
         return Err(ProblemError::numerical("nonfinite PETSc vector"));
     }
-    Ok(values)
+    Ok(())
 }
 struct Context<'a> {
     oracle: &'a mut dyn NleOracle,
@@ -416,6 +420,10 @@ struct Context<'a> {
     n: usize,
     rows: Vec<i32>,
     columns: Vec<i32>,
+    slots: Vec<usize>,
+    point: Vec<f64>,
+    jacobian: Vec<f64>,
+    output: Vec<f64>,
     snes: ffi::Handle,
 }
 impl Context<'_> {
@@ -448,22 +456,24 @@ unsafe extern "C" fn residual(ctx: *mut c_void, x: ffi::Handle, f: ffi::Handle) 
     let context = unsafe { &mut *ctx.cast::<Context<'_>>() };
     let n = context.n;
     let output = context.state.evaluate("residual", || {
-        let x = read(x, n)?;
-        let mut output = vec![0.0; n];
-        context.oracle.residual(&x, &mut output)?;
+        read_into(x, &mut context.point)?;
+        let output = &mut context.output[..n];
+        output.fill(f64::NAN);
+        context.oracle.residual(&context.point, output)?;
         if output.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("nonfinite PETSc residual"));
         }
-        Ok(output)
+        Ok(())
     });
-    let Some(output) = output else {
+    let Some(()) = output else {
         return context.refused();
     };
     // Publication is contained too; any ABI failure becomes a terminal typed cause.
+    let output = context.output.as_ptr();
     context.publish(|| {
         check(
             // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
-            unsafe { ffi::pse_petsc_vec_write(f, index(n)?, output.as_ptr()) },
+            unsafe { ffi::pse_petsc_vec_write(f, index(n)?, output) },
             "residual publication",
         )
     })
@@ -477,24 +487,29 @@ unsafe extern "C" fn jacobian(
     // SAFETY: the owning SNES invokes this context under process admission.
     let context = unsafe { &mut *ctx.cast::<Context<'_>>() };
     let output = context.state.evaluate("jacobian", || {
-        let x = read(x, context.n)?;
-        let mut output = vec![0.0; context.rows.len()];
-        context.oracle.jacobian(&x, &mut output)?;
-        if output.iter().any(|v| !v.is_finite()) {
+        read_into(x, &mut context.point)?;
+        context.jacobian.fill(f64::NAN);
+        context.oracle.jacobian(&context.point, &mut context.jacobian)?;
+        if context.jacobian.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("nonfinite PETSc Jacobian"));
         }
-        Ok(output)
+        for (destination, source) in context.slots.iter().enumerate() {
+            context.output[destination] = context.jacobian[*source];
+        }
+        Ok(())
     });
-    let Some(output) = output else {
+    let Some(()) = output else {
         return context.refused();
     };
     let rows = context.rows.as_ptr();
     let columns = context.columns.as_ptr();
+    let count = context.rows.len();
+    let output = context.output.as_ptr();
     context.publish(|| {
         check(
             // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
             unsafe {
-                ffi::pse_petsc_mat_write(a, index(output.len())?, rows, columns, output.as_ptr())
+                ffi::pse_petsc_mat_write(a, index(count)?, rows, columns, output)
             },
             "Jacobian publication",
         )?;
@@ -504,10 +519,10 @@ unsafe extern "C" fn jacobian(
                 unsafe {
                     ffi::pse_petsc_mat_write(
                         p,
-                        index(output.len())?,
+                        index(count)?,
                         rows,
                         columns,
-                        output.as_ptr(),
+                        output,
                     )
                 },
                 "preconditioner publication",
@@ -660,12 +675,21 @@ pub fn solve(
             .checked_add(1)
             .ok_or_else(|| ProblemError::Contract("PETSc sparse row capacity".into()))?;
     }
+    // The oracle remains in CSC order; native publication groups complete rows.
+    let mut slots: Vec<_> = (0..rows.len()).collect();
+    slots.sort_unstable_by_key(|slot| (rows[*slot], columns[*slot]));
+    let published_rows = slots.iter().map(|slot| rows[*slot]).collect();
+    let published_columns = slots.iter().map(|slot| columns[*slot]).collect();
     let mut context = Box::new(Context {
+        point: vec![0.; n],
+        jacobian: vec![0.; rows.len()],
+        output: vec![0.; n.max(rows.len())],
+        slots,
         oracle,
         state: CallbackState::new(execution.clone()),
         n,
-        rows,
-        columns,
+        rows: published_rows,
+        columns: published_columns,
         snes: ptr::null_mut(),
     });
     let admission = Admission::enter(&execution)?;
@@ -673,8 +697,9 @@ pub fn solve(
     // Validate the initial domain before submitting a native trajectory. Even a typed trial
     // refusal at this point is terminal; no clipping or invented replacement value is used.
     let admitted = context.state.evaluate("initial", || {
-        let mut output = vec![0.0; n];
-        context.oracle.residual(start, &mut output)?;
+        let output = &mut context.output[..n];
+        output.fill(f64::NAN);
+        context.oracle.residual(start, output)?;
         if output.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("nonfinite PETSc initial residual"));
         }
@@ -1083,8 +1108,7 @@ mod tests {
         notify_release();
     }
     use std::sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::Ordering,
         mpsc,
     };
     #[derive(Debug)]

@@ -29,7 +29,7 @@ typedef int32_t (*pse_ipopt_sequence_poll)(void*);
  * provide them, otherwise n readable values valid only during this callback. */
 typedef int32_t (*pse_ipopt_sequence_iteration)(int32_t mode, int32_t iteration, double objective,
     double primal, double dual, double barrier, double step, double regularization,
-    double alpha_dual, double alpha_primal, int32_t line_search_trials, int32_t n,
+    double alpha_dual, double alpha_primal, int32_t line_search_trials, int32_t direction_available, int32_t n,
     const double* current_primal, const double* lagrangian_gradient, void*);
 typedef struct {
     pse_ipopt_sequence_objective objective;
