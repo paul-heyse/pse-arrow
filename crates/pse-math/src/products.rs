@@ -447,4 +447,51 @@ mod tests {
         assert!(matches!(worker.evaluate_product_into(&[2.],ProductValues::WeightedHessian{weights:&[1.]},&mut BTreeMap::new(),&cancel,&mut out),Err(MathError::Cancelled)));
         assert_eq!(out,[93.]);
     }
+    #[test]
+    fn branch_weighted_actions_keep_host_control_and_selected_coordinate_chain() {
+        crate::initialize().unwrap();
+        let x=library::formal(0).unwrap();
+        let y=library::formal(1).unwrap();
+        let source=pse_ids::named_id(SemanticId::NIL,"weighted branch");
+        let body=PreparedBody::new(3,5,vec![4],vec![
+            Stage::Block{expressions:vec![Atom::num(0)],outputs:vec![3],source},
+            Stage::Branch{continuity:DerivativeOrder::Value,comparison:Comparison::Lt,left:3,right:2,
+                then:vec![Stage::Block{expressions:vec![(&x*&y).pow(2)],outputs:vec![4],source}],
+                otherwise:vec![Stage::Block{expressions:vec![x.pow(3)+y.pow(2)],outputs:vec![4],source}]},
+        ],DerivativeOrder::Second).unwrap();
+        let cancel=Arc::new(AtomicBool::new(false));
+        let support=body.prepare_support(&[0],&[1,0],DerivativeOrder::Second,&cancel).unwrap();
+        let compiled=support.compile_product(ProductKind::WeightedHessianAction,Optimization::default(),EvaluationLimits::default(),&cancel).unwrap();
+        let census=compiled.census().find(|c|c.order==DerivativeOrder::Second).unwrap();
+        assert!(!census.direct_weighted,"a control barrier is not flattened into one weighted expression");
+        assert_eq!(census.second_pairs,2);
+        assert_eq!(census.control_stages,1);
+        let mut worker=compiled.worker();
+        let mut output=[f64::NAN;2];
+        let binding=ProductValues::WeightedHessianAction{weights:&[2.],direction:&[5.,7.]};
+        worker.evaluate_product_into(&[2.,3.,1.],binding,&mut BTreeMap::new(),&cancel,&mut output).unwrap();
+        assert_eq!(output,[416.,492.]);
+        worker.evaluate_product_into(&[2.,3.,-1.],binding,&mut BTreeMap::new(),&cancel,&mut output).unwrap();
+        assert_eq!(output,[20.,168.]);
+    }
+    #[cfg(feature="compiled-evaluator")]
+    #[test]
+    fn compiled_first_only_product_does_not_construct_unused_second_programs() {
+        let body=weighted_body();
+        let cancel=Arc::new(AtomicBool::new(false));
+        let support=body.prepare_support(&[0,1],&[1,0],DerivativeOrder::First,&cancel).unwrap();
+        let options=Optimization {evaluator:library::Evaluator::CompiledScalar{module_bytes:1<<20},..Default::default()};
+        let compiled=support.compile_product(ProductKind::SelectedPartials,options,EvaluationLimits::default(),&cancel).unwrap();
+        assert_eq!(compiled.compiled_order(),DerivativeOrder::First);
+        assert!(compiled.programs[DerivativeOrder::Second].is_none());
+        assert_eq!(compiled.census().map(|order|order.native_arithmetic_blocks).sum::<usize>(),2);
+        let mut worker=compiled.worker();
+        let result=worker.evaluate(&[2.,3.],DerivativeOrder::First,&mut BTreeMap::new(),&cancel).unwrap();
+        assert_eq!(result.values,[13.,6.]);
+        assert_eq!(result.jacobian,[6.,4.,2.,3.]);
+        assert!(result.hessians.is_empty());
+        assert!(!worker.census().instantiated_orders[2]);
+        assert!(matches!(worker.evaluate(&[2.,3.],DerivativeOrder::Second,&mut BTreeMap::new(),&cancel),Err(MathError::Contract(_))));
+        assert!(!worker.census().instantiated_orders[2]);
+    }
 }
