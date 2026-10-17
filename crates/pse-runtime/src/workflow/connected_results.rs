@@ -353,7 +353,7 @@ impl CanonicalResultReader {
     /// Decode one admitted member from its exact protected native file.
     /// A late failure is surfaced to the stream; it cannot become normal exhaustion.
     pub async fn next_batch(&mut self) -> Result<Option<RecordBatch>, WorkflowError> {
-        self.next_relation_batch()
+        let result = self.next_relation_batch()
             .await?
             .map(|batch| {
                 batch
@@ -361,7 +361,11 @@ impl CanonicalResultReader {
                     .map_err(pse_engine::EngineError::from)
                     .map_err(Into::into)
             })
-            .transpose()
+            .transpose();
+        if result.is_err() && let Some(operation) = self.observation.take() {
+            operation.finish(pse_diagnostics::observation::Outcome::Failed);
+        }
+        result
     }
     /// Return one admitted registry relation batch for native columnar algorithms.
     /// Shared snapshots retain exact protection for future file reads. Copied
@@ -370,6 +374,7 @@ impl CanonicalResultReader {
         &mut self,
     ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         if let Err(error) = self.cancel.checkpoint() {
+            if let Some(operation) = self.observation.take() { operation.finish(pse_diagnostics::observation::Outcome::Cancelled); }
             self.close();
             return Err(pse_engine::EngineError::from(error).into());
         }
