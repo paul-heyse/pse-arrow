@@ -1735,6 +1735,10 @@ mod tests {
             changed.solve.compatibility().unwrap().data
         );
         assert_eq!(after_artifacts.misses, before_artifacts.misses, "fresh numerical hints perform no new artifact compilation");
+        rt.shared.math().clear_program_cache();
+        let escaped_artifacts = artifact_row(pse_engine::cache_service::CacheComponent::report(rt.shared.math().as_ref()));
+        assert_eq!(escaped_artifacts.entries, 0);
+        assert!(escaped_artifacts.live_bytes.unwrap() > 0, "factory-owned instruction payload keeps original artifact leases after cache clear");
         let inner_unknown = prepared.model.model.compiled().implicit_order().unwrap()[0].unknowns[0];
         let original_options = actual_inner_options(&rt, &prepared, inner_unknown, &prepared.model.values).await;
         let changed_options = actual_inner_options(&rt, &changed, inner_unknown, &changed.model.values).await;

@@ -2915,6 +2915,14 @@ impl CompiledBody {
             DerivativeOrder::Value
         }
     }
+    /// Fresh body wrapper and all possible accounting joins when attaching another
+    /// owner. Evaluator, scalar-map and support payloads remain shared. Arc control
+    /// blocks carry strong/weak counts; each join retains the prior and new owners.
+    pub fn owner_attachment_bytes(&self) -> usize {
+        let controls = 2 * size_of::<usize>();
+        let join = size_of::<(Arc<dyn crate::AllocationOwner>, Arc<dyn crate::AllocationOwner>)>() + controls;
+        size_of::<Self>() + controls + 3 * join
+    }
     /// Attach accounting to the allocation itself so evaluator/worker clones retain it.
     pub fn with_owner(self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
         self.with_owner_and_scalar_foreign_allowance(owner, 0)

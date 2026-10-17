@@ -7521,6 +7521,14 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
     let factory = inner.factory_reusing(configs, capabilities, DerivativeOrder::First, cancel, limits, &programs).unwrap();
     assert_eq!(count.load(Ordering::Relaxed), 1, "factory assembly retains its request-local capability rather than repeating admission");
     assert!(factory.retained_bytes().unwrap() > 0);
+    let (shared, wrappers) = factory.separately_owned_program_bytes(&programs.allocation_identities()).unwrap();
+    assert!(shared > 0 && wrappers > 0);
+    let pse_math::implicit::ImplicitFactory::Root(root_factory) = &factory else { panic!("one branch"); };
+    let expected_wrappers = [&root_factory.bodies.unknown, &root_factory.bodies.parameter].into_iter()
+        .chain(root_factory.selection.restriction.iter()).map(|body| body.owner_attachment_bytes()).sum::<usize>();
+    assert_eq!(wrappers, expected_wrappers, "each factory occurrence retains its own header/owner joins");
+    let local = factory.retained_bytes().unwrap().checked_sub(shared).unwrap().checked_add(wrappers).unwrap();
+    assert!(local >= wrappers, "subtracting shared payload cannot remove the fresh wrapper charge");
     let barrier = Arc::new(std::sync::Barrier::new(2));
     let tasks = [4., 6.].into_iter().enumerate().map(|(lane, input)| {
         let factory = factory.clone();

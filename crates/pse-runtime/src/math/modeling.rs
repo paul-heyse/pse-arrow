@@ -495,8 +495,8 @@ impl MathService {
                             profile.evaluation,
                             &programs,
                         )?;
-                        let shared = factory.factory().separately_owned_program_bytes(&programs.allocation_identities())?;
-                        let local = factory.retained_bytes()?.checked_sub(shared)
+                        let (shared, wrappers) = factory.factory().separately_owned_program_bytes(&programs.allocation_identities())?;
+                        let local = factory.retained_bytes()?.checked_sub(shared).and_then(|bytes| bytes.checked_add(wrappers))
                             .ok_or(MathRuntimeError::Limit("inner shared program accounting"))?;
                         retained = retained
                             .checked_add(local)
