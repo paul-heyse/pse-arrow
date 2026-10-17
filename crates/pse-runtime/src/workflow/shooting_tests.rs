@@ -1658,8 +1658,8 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
             ("dynamics.workflow_worker_constructions", 1),
             ("dynamics.window_ivp_initializations", 6),
             ("dynamics.window_adjoint_initializations", if method == Method::Idas { 0 } else { 2 }),
-            ("dynamics.window_layout_constructions", 1),
-            ("dynamics.window_layout_reuses", 1),
+            ("dynamics.window_layout_constructions", if method == Method::Idas { 0 } else { 1 }),
+            ("dynamics.window_layout_reuses", if method == Method::Idas { 0 } else { 1 }),
         ] {
             assert_eq!(
                 counts.get(name).copied().unwrap_or(0),
