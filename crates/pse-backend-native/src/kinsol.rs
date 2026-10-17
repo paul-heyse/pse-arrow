@@ -571,6 +571,7 @@ struct Context {
     klu_baseline: Option<ffi::SUNLinearSolver_KLUWork>,
     klu_producer: Option<pse_diagnostics::observation::Producer>,
     klu_phases: [Option<pse_diagnostics::observation::PhaseGuard>; 6],
+    klu_observer_installed: bool,
 }
 /// Worker-local allocation retains native layouts across compatible equation values.
 pub struct Session {
@@ -1363,6 +1364,7 @@ impl Session {
             raw_map: None,
             klu: std::ptr::null_mut(), klu_baseline: None, klu_producer: None,
             klu_phases: std::array::from_fn(|_| None),
+            klu_observer_installed: false,
         });
         let mut s = Self {
             ctx: std::ptr::null_mut(),

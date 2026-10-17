@@ -49,15 +49,17 @@ pub(super) fn install(context: &mut Context) {
     // SAFETY: exclusive live owner; the boxed Context stays fixed through the call.
     let status = unsafe { ffi::SUNLinSol_KLUSetObserver(context.klu, Some(phase),
         std::ptr::from_mut(context).cast()) };
+    context.klu_observer_installed = status == 0;
     if status != 0 && let Some(producer) = &context.klu_producer {
         producer.context().unavailable("kinsol.klu.phase", "native observer registration refused");
     }
 }
 pub(super) fn clear(context: &mut Context) {
-    if !context.klu.is_null() {
+    if context.klu_observer_installed && !context.klu.is_null() {
         // SAFETY: the Session retains the live handle until after this clear.
         unsafe { ffi::SUNLinSol_KLUSetObserver(context.klu, None, std::ptr::null_mut()) };
     }
+    context.klu_observer_installed = false;
     for guard in &mut context.klu_phases { *guard = None; }
 }
 fn delta(before: Option<&ffi::SUNLinearSolver_KLUWork>, after: Option<&ffi::SUNLinearSolver_KLUWork>) -> std::collections::BTreeMap<String, Metric> {
