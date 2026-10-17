@@ -3106,7 +3106,7 @@ mod tests {
                 &cancel,
                 move |worker| {
                     Ok((
-                        worker.constraints(&start)?,
+                        worker.constraints(&start)?.to_vec(),
                         worker.jacobian(&start)?.val().to_vec(),
                         worker.objective(&start)?,
                     ))

@@ -2256,7 +2256,7 @@ mod tests {
         let permits = runtime.shared.compiler_cpu();
         let width = permits.available_permits();
         assert!(width > 0);
-        let held = permits.acquire_many(width as u32).await.unwrap();
+        let held = permits.acquire_many_owned(width as u32).await.unwrap();
         let parent = crate::CancelSource::new();
         let handle = runtime
             .start_modeling(vec![prepared], true, &parent)
@@ -2463,7 +2463,7 @@ mod tests {
         let permits = package.runtime.shared.compiler_cpu();
         let width = permits.available_permits();
         assert!(width > 0);
-        let held = permits.acquire_many(width as u32).await.unwrap();
+        let held = permits.acquire_many_owned(width as u32).await.unwrap();
         let parent = crate::CancelSource::new();
         let pending = replay.rerun_with_cancel(&parent).await.unwrap();
         assert!(

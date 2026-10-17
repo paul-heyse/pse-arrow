@@ -233,13 +233,13 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         root: Ok(rebuilt),
     };
     let execution = Execution::within(
-        scope.cancellation().clone(),
+        scope.cancellation_control().clone(),
         &Controls::default(),
         scope.clone(),
     )
     .unwrap();
     let mut portable_execution = Execution::within(
-        scope.cancellation().clone(),
+        scope.cancellation_control().clone(),
         &Controls::default(),
         scope.clone(),
     )

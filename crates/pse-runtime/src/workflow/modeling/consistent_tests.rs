@@ -2,15 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use pse_kernels::ProviderError;
-use std::{
-    sync::atomic::{AtomicBool, Ordering},
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 #[test]
 fn physical_original_initial_rows_use_admitted_scale_offset_and_task_scope() {
     let scope = ExecutionScope::new(
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
         Some(Instant::now() + Duration::from_secs(1)),
     );
     let coordinate = CoordinateBinding {
@@ -282,7 +279,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     ));
     let cancellation = Cancellation::default();
     let scope = ExecutionScope::new(
-        pse_diagnostics::Cancellation::new(false),
+        Cancellation::new(false),
         Some(Instant::now() + Duration::from_secs(5)),
     );
     assert!(

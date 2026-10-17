@@ -894,7 +894,7 @@ async fn multiple_shooting_continuity_closes() {
                 &mut worker,
                 &profile,
                 report.parameters.as_ref().unwrap(),
-                Arc::default(),
+                pse_diagnostics::Cancellation::default(),
             )
             .unwrap();
             let stitched = report.trajectory.as_ref().unwrap();
@@ -1371,7 +1371,7 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
     let permits = simulation.runtime.shared.compiler_cpu();
     let width = permits.available_permits();
     assert!(width > 0);
-    let held = permits.acquire_many(width as u32).await.unwrap();
+    let held = permits.acquire_many_owned(width as u32).await.unwrap();
     let cancel = crate::CancelSource::new();
     let pending = replay.rerun_with_cancel(&cancel).await.unwrap();
     assert!(
@@ -1407,7 +1407,7 @@ async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowan
     let permits = simulation.runtime.shared.compiler_cpu();
     let width = permits.available_permits();
     assert!(width > 0);
-    let held = permits.acquire_many(width as u32).await.unwrap();
+    let held = permits.acquire_many_owned(width as u32).await.unwrap();
     let parent = crate::CancelSource::new();
     let handle = problem
         .start_replay_with_cancel(Some(initial.clone()), &parent)

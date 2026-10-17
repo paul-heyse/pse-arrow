@@ -100,10 +100,7 @@ mod tests {
     use pse_model::strategy::{
         MechanismKind, NumericalStrategy, Position, StartOrigin, Transition, WorkLimits,
     };
-    use std::{
-        sync::Arc,
-        time::{Duration, Instant},
-    };
+    use std::time::{Duration, Instant};
 
     async fn original(text: &str) -> (ModelingPackage, ModelingSolvePreparation) {
         use crate::workflow::tests as fixture;

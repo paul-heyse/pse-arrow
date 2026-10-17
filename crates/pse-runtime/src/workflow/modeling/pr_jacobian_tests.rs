@@ -1126,7 +1126,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
                 &flag,
             )?;
             checkpoint()?;
-            let initial = worker.constraints(&base)?;
+            let initial = worker.constraints(&base)?.to_vec();
             assert_eq!(initial.len(), DIMENSION);
             let all_weights = normalization
                 .rows
