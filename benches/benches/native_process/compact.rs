@@ -328,6 +328,125 @@ async fn implicit_root(owner: &WorkflowRuntime, observations: &mut observations:
     observations.run(&result, owner.runtime.math());
 }
 
+/// Four actual points from the lane-current scientific control in study_execution.rs.
+/// Full and Compact retention preserve the same original values and checks.
+async fn study(owner: &WorkflowRuntime, spec: &Value, observations: &mut observations::Observations) {
+    use pse_model::{generated::enums::StudyPointState, scalars::FiniteBound, study::*};
+    use pse_relations::{columnar::RelationRow, generated::runtime::{modeling_checks, solve_variables, solve_metrics, solve_strategy_events}};
+    use pse_runtime::workflow;
+    let workers = spec["workers"].as_u64().unwrap() as usize;
+    assert!(matches!(workers, 1 | 2));
+    assert_eq!(spec["blocks"].as_u64(), Some(4));
+    assert_eq!(owner.runtime.budget().threads.pool_threads.get(), workers);
+    let continuation = spec["continuation"].as_bool().unwrap_or(false);
+    let compact = match spec["retention"].as_str().unwrap_or("full") {
+        "full" => false, "compact" => true,
+        retention => panic!("unsupported compact study retention {retention}"),
+    };
+    let physical = physical(owner).await;
+    let scalar = physical.quantities().neutral_dimensionless().unwrap();
+    let unit = physical.quantities().quantity_type(scalar).unwrap().canonical_unit.as_id();
+    let rows = pse_authoring::language::parse(
+        "package compact { def Root { param t:Scalar=1; var x:Scalar; eq e:x==2+t; annotation start x(2+t); annotation check x(x>0); } }",
+        id("study-package"), pse_authoring::language::IdentityPolicy::Named, Default::default(),
+    ).unwrap();
+    let root = rows.iter().find(|row| row.name=="Root").unwrap().declaration_id;
+    let runtime = runtime(owner).with_durability(workflow::DurabilitySelection::Ephemeral).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
+    let values = [1.0,2.0,3.0,4.0];
+    let points = values.iter().enumerate().map(|(index,value)| workflow::StudyPoint {
+        operation:workflow::OperationRequest::DeclaredCase(workflow::CaseOperation {
+            case:root, route:pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+            settings:pse_runtime::math::settings::SolveSettings {
+                backend:Some(Backend::Kinsol), intent:SolveIntent::Root,
+                presolve:native::presolve::PolicyKind::Off,
+                controls:native::solve::Controls {threads:1,..Default::default()},
+                ..Default::default()
+            },
+        }),
+        preparation:workflow::PreparationSettings {compiler:compiler(),..Default::default()},
+        overlay:workflow::PointOverlay {assignments:vec![workflow::BindingAssignment {
+            target:workflow::BindingTarget::Path("t".into()),
+            value:workflow::BindingQuantity {magnitude:FiniteBound::try_new(*value).unwrap(),quantity:scalar.as_id(),unit},
+        }]},
+        policy:workflow::StudyPointPolicy {
+            key:OccurrenceKey(index as u32), attempt_limit:1,
+            dependencies:if continuation && index>0 {vec![Dependency::Ordering(OccurrenceKey(index as u32-1))]} else {vec![]},
+            start:if continuation && index>0 {StartPolicy::Continuation(SeedEdge {
+                predecessor:OccurrenceKey(index as u32-1),role:SeedRole::PrimalSolution,
+                permission:ContinuationPermission::RequireUsable,unavailable:UnavailableSeedPolicy::Refuse,
+            })} else {StartPolicy::Fresh},
+        },
+    }).collect::<Vec<_>>();
+    let demand = if compact {workflow::StudyOutputDemand::Compact {
+        detail:workflow::StudyDetailDemand {
+            relations:vec!["runtime.solve_variables".into(),"runtime.modeling_checks".into(),"runtime.solve_metrics".into(),"runtime.solve_strategy_events".into()],
+            maximum_rows:1024,maximum_bytes:1<<20,..Default::default()
+        },failed_detail:Default::default(),
+    }} else {workflow::StudyOutputDemand::Full {}};
+    let cancel = audit::cancel_source();
+    let definition = package.admit_study(&workflow::StudyInputs::Explicit(points),&demand,&cancel).await.unwrap();
+    assert_eq!(definition.points.len(),4);
+    assert_eq!(definition.points.iter().map(|point|point.binding_hash).collect::<BTreeSet<_>>().len(),4);
+    let trim = spec["trim_cache"].as_bool().unwrap_or(false);
+    if trim {owner.runtime.math().clear_program_cache();}
+    let execution = audit::stage("compact_study_joined_execution");
+    // The public future owns cancellation and joins its issued lanes before return.
+    // There is no separate externally cancellable study handle in this route.
+    let report = Box::pin(package.study(&definition,4,&cancel)).await.unwrap();
+    drop(execution);
+    audit::checkpoint();
+    assert_eq!(report.outcomes.len(),4);
+    assert_eq!(report.results.len(),4);
+    if trim {owner.runtime.math().clear_program_cache();}
+    let mut identities = BTreeSet::new();
+    for (index,expected) in values.iter().copied().enumerate() {
+        let outcome = &report.outcomes[index];
+        assert_eq!(outcome.key,OccurrenceKey(index as u32));
+        assert_eq!(outcome.lifecycle,StudyPointState::Completed,"{outcome:?}");
+        assert!(outcome.scientific.usable && outcome.diagnostic.is_none(),"{outcome:?}");
+        assert_eq!(outcome.attempts.len(),1);
+        if continuation && index>0 {
+            assert!(matches!(outcome.start,Some(StartProvenance::Continuation {predecessor,..}) if predecessor==OccurrenceKey(index as u32-1)),"{outcome:?}");
+        } else {assert!(matches!(outcome.start,Some(StartProvenance::Fresh)),"{outcome:?}");}
+        let result = report.results[index].as_ref().unwrap();
+        assert!(identities.insert(result.run_id()));
+        assert!(result.completion().is_ok());
+        let (variables,checks) = match result {
+            workflow::StudyOccurrenceResult::Ephemeral(result) => {
+                assert!(!compact);
+                authored_success(result);
+                observations.run(result,owner.runtime.math());
+                (solve_variables::Row::rows(&result.table("runtime.solve_variables").unwrap()).unwrap(),
+                 modeling_checks::Row::rows(&result.table("runtime.modeling_checks").unwrap()).unwrap())
+            },
+            workflow::StudyOccurrenceResult::Compact(result) => {
+                assert!(compact);
+                let mut variables=Vec::new();
+                let mut cursor=result.table_cursor("runtime.solve_variables").unwrap();
+                while let Some(batch)=cursor.next_batch().await.unwrap() {variables.extend(solve_variables::Row::rows(&batch).unwrap());}
+                let mut checks=Vec::new();
+                let mut cursor=result.table_cursor("runtime.modeling_checks").unwrap();
+                while let Some(batch)=cursor.next_batch().await.unwrap() {checks.extend(modeling_checks::Row::rows(&batch).unwrap());}
+                let mut cursor=result.table_cursor("runtime.solve_metrics").unwrap();
+                while let Some(batch)=cursor.next_batch().await.unwrap() {observations.persisted_metrics(&solve_metrics::Row::rows(&batch).unwrap());}
+                let mut cursor=result.table_cursor("runtime.solve_strategy_events").unwrap();
+                while let Some(batch)=cursor.next_batch().await.unwrap() {observations.rows(&solve_strategy_events::Row::rows(&batch).unwrap());}
+                (variables,checks)
+            },
+            workflow::StudyOccurrenceResult::Retained {..} => panic!("ephemeral compact study returned canonical result"),
+        };
+        let parameters=variables.iter().filter(|row|row.parameter).collect::<Vec<_>>();
+        let unknowns=variables.iter().filter(|row|!row.parameter && !row.fixed).collect::<Vec<_>>();
+        assert_eq!(parameters.len(),1);
+        assert_eq!(unknowns.len(),1);
+        near(parameters[0].value.unwrap(),expected,1e-12);
+        near(unknowns[0].value.unwrap(),2.0+expected,1e-8);
+        assert!(!checks.is_empty());
+        assert!(checks.iter().all(|check|check.satisfied));
+    }
+}
+
 pub(super) async fn run(owner: &WorkflowRuntime, spec: &Value, observations: &mut observations::Observations) {
     match spec["operation"].as_str().unwrap() {
         "compact-root" => roots(owner, spec, observations).await,
@@ -337,6 +456,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, spec: &Value, observations: &mu
         "compact-reference" | "compact-property-value" => reference(owner, spec["operation"].as_str().unwrap(), observations).await,
         "compact-implicit-derivatives" => implicit_derivatives(spec),
         "compact-implicit" => implicit_root(owner, observations).await,
+        "compact-study" => study(owner, spec, observations).await,
         operation => panic!("unknown compact operation {operation}"),
     }
 }

@@ -481,8 +481,14 @@ pub(super) fn measure(
     let name = spec["id"].as_str().unwrap();
     let operation = spec["operation"].as_str().unwrap();
     let size = spec["blocks"].as_u64().unwrap() as usize;
+    let threads = if operation == "compact-study" {
+        let workers = spec["workers"].as_u64().unwrap() as usize;
+        assert!(matches!(workers, 1 | 2));
+        assert_eq!(spec["threads"].as_u64(), Some(workers as u64));
+        workers
+    } else { 1 };
     let executor = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(1)
+        .worker_threads(threads)
         .enable_all()
         .build()
         .unwrap();
@@ -504,7 +510,7 @@ pub(super) fn measure(
             let invocation_begin = Instant::now();
             let mut observations = observations::Observations::default();
             compiler_phases.reset();
-            let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(1).unwrap()).unwrap();
+            let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
             let executed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| audit::with_owner_sync(&owner, &executor, || {
                 let _stage = audit::stage("extended_execution_and_assessment");
                 let (_, counts) = executor.block_on(pse_runtime::invocation::counted(audit::scope(run(
@@ -564,7 +570,7 @@ pub(super) fn measure(
         "after_retained_runtime_teardown_bytes":null,"workload":spec,
         "observations_file":format!("{name}-observations.jsonl"),
         "observation_population":"all executed closures including warmup; Criterion statistics separate; membership unavailable",
-        "threads":1,"native_threads":1,
+        "threads":threads,"native_threads":1,
         "effective_process_parallelism":std::thread::available_parallelism().unwrap().get(),
         "scope":"fresh runtime per iteration; public source/preparation/execution/analytic validation and teardown; value sweep retains one compiler for 1000 revisions; dynamic rebind retains initial preparation",
         "timed_scope":if operation == "shooting" { "fresh runtime, original source/physical admission, IDAS simulation preparation, single-shooting preparation, one native solve, original scientific/transport assessment, fixture and runtime teardown" } else { "complete extended public operation and teardown" },
