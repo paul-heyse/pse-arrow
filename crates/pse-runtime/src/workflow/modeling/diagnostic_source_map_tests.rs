@@ -9,7 +9,7 @@ use std::{collections::BTreeSet, time::Duration};
 async fn prepared_cells(branching: bool) -> (Runtime, ModelingPackage, ModelingDiagnosticPreparation) {
     let runtime = fixture::runtime();
     let source = if branching {
-        "package p { def Cell {param g:Scalar=1; var x:Scalar; let a:Scalar=(if g>0 then log(x) else log(-x)); let b:Scalar=a*a+x; eq e:b==0;} def Root {child left:Cell=Cell(); child right:Cell=Cell();} }"
+        "package p { def Cell {param g:Scalar=1; var x:Scalar; let a:Scalar=(if g>0 then log(x) else log(-x)); let b:Scalar=a*a+x; annotation valid x(-1,1); annotation valid b(-2,2); eq e:b==0;} def Root {child left:Cell=Cell(); child right:Cell=Cell();} }"
     } else {
         "package p { def Cell {var x:Scalar; let a:Scalar=x*x; let b:Scalar=a*a+x; eq e:b==0;} def Root {child left:Cell=Cell(); child right:Cell=Cell();} }"
     };
@@ -58,12 +58,23 @@ async fn kernel_source_map_preserves_shared_occurrences_original_sources_and_sta
     assert_eq!(occurrences.len(), 2);
     assert_eq!(occurrences[0].body, occurrences[1].body, "shared arithmetic retains separate original occurrence bindings");
     assert_ne!(occurrences[0].instance, occurrences[1].instance);
+    // Only explicit validity-check targets own checked-member tokens. All
+    // original locals also remain in the separate instantiated member map;
+    // ordinary consumed inputs are joined through slots, not invented checks.
     let checked = |instance: &SourceInstanceDocument| instance.checked_members.iter().map(|(_, original)| *original).collect::<BTreeSet<_>>();
     let first = checked(occurrences[0]);
     let second = checked(occurrences[1]);
-    assert!(first.len() >= 2 && second.len() >= 2, "computed locals and consumed inputs all retain original attribution");
+    assert!(first.len() >= 2 && second.len() >= 2, "explicitly checked computed locals and consumed inputs all retain original attribution");
     assert!(first.is_disjoint(&second), "a shared source token never substitutes a sibling occurrence's member");
     for instance in occurrences {
+        let equation = document.members.iter().find(|member| member.member == instance.instance).unwrap();
+        let locals = document.members.iter().filter(|member| member.instance == equation.instance
+            && (member.path.ends_with(".a") || member.path.ends_with(".b"))).collect::<Vec<_>>();
+        assert_eq!(locals.len(), 2, "all original computed locals survive independently of check-token eligibility");
+        assert!(instance.checked_members.iter().any(|(_, actual)| locals.iter().any(|local| local.member == *actual && local.path.ends_with(".b"))),
+            "the explicitly checked computed local joins its original instance");
+        assert!(instance.slots.iter().all(|slot| document.members.iter().any(|member| member.member == slot.member
+            && member.instance == equation.instance)), "every consumed input retains the original sibling instance");
         assert!(!instance.demands.is_empty());
         assert!(instance.contributions.iter().any(|contribution| matches!(contribution.target,
             SourceContributionTarget::Row { row } if row == instance.instance)));

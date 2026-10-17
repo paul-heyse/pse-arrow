@@ -6679,6 +6679,9 @@ mod tests {
             super::super::super::tests::compiler_profile(), native::Profile {
                 method: native::Method::Idas,
                 sensitivity: native::DynamicSensitivity::Adjoint,
+                // The native profile names every original parameter, including
+                // the Time-valued initial offset, independently of the state scale.
+                parameter_scales: vec![1.; 2],
                 idas: native::IdasSettings {
                     linear: native::IdasLinear::Spgmr {
                         dimension: pse_model::scalars::PositiveCount::try_new(8).unwrap(),
