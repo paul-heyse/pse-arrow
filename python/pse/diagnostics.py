@@ -537,8 +537,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 status = command.wait()
                 result = session.stop()
             except BaseException:
-                command.cancel()
-                session.stop()
+                try:
+                    command.cancel()
+                finally:
+                    session.stop()
                 raise
             finally:
                 command.close()

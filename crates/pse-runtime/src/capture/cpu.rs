@@ -658,6 +658,14 @@ fn finalize(samplers: &mut [Sampler], state: &Shared, files: &mut OwnedFiles) ->
     Ok(())
 }
 
+// Only fresh capture-owned FIFO nodes; removal never touches raw evidence or science.
+struct ControlPaths([PathBuf; 2]);
+impl Drop for ControlPaths {
+    fn drop(&mut self) {
+        for path in &self.0 { let _ = std::fs::remove_file(path); }
+    }
+}
+
 /// Start disabled, acknowledge actual sampling activation, then allow caller-owned exec.
 pub(super) fn run_launched(
     request: &super::launch::LaunchCaptureRequest,
@@ -677,6 +685,7 @@ pub(super) fn run_launched_program(
     use std::os::unix::fs::OpenOptionsExt;
     let control_path = request.output.join("perf-control.fifo");
     let ack_path = request.output.join("perf-ack.fifo");
+    let _control_paths = ControlPaths([control_path.clone(), ack_path.clone()]);
     for path in [&control_path, &ack_path] {
         rustix::fs::mkfifoat(rustix::fs::CWD, path, rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR).map_err(std::io::Error::from)?;
     }
@@ -736,8 +745,7 @@ pub(super) fn run_launched_program(
     })();
     // Closing/removing the control endpoints affects only perf, never the gated command.
     drop(control); drop(ack);
-    let _ = std::fs::remove_file(control_path);
-    let _ = std::fs::remove_file(ack_path);
+    // Capture-owned FIFO nodes are removed by ControlPaths on every return path.
     if let Err(error) = result {
         let message = error.to_string();
         failure(state, error);
