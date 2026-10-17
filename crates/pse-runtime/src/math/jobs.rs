@@ -1403,6 +1403,127 @@ mod construction_tests {
         drop(held);
         assert_eq!(jobs.available_permits(), 1);
     }
+    #[tokio::test]
+    async fn closed_admission_refuses_while_memory_is_unavailable() {
+        for close_cpu in [false, true] {
+            let service = super::super::tests::service();
+            let baseline = service.pool.reserved();
+            let held = MemoryConsumer::new("test:closed-admission-held-memory")
+                .register(&service.pool);
+            held.try_grow((512 << 20) - baseline).unwrap();
+            let full = service.pool.reserved();
+            let control = Cancellation::default();
+            let worker_control = control.clone();
+            let worker_service = service.clone();
+            let runtime = tokio::runtime::Handle::current();
+            let (registered, registration) = std::sync::mpsc::sync_channel(1);
+            let (send, receive) = std::sync::mpsc::sync_channel(1);
+            let join = std::thread::spawn(move || {
+                use std::future::Future;
+                let pending = worker_service.reserve_active(
+                    "test:closed-admission", 1, 1024, &worker_control,
+                    std::time::Instant::now() + std::time::Duration::from_secs(10),
+                );
+                let mut pending = std::pin::pin!(pending);
+                let mut registered = Some(registered);
+                let result = runtime.block_on(futures_util::future::poll_fn(|context| {
+                    let result = pending.as_mut().poll(context);
+                    if result.is_pending() && let Some(registered) = registered.take() {
+                        registered.send(()).unwrap();
+                    }
+                    result
+                }));
+                send.send(result.map(|_| ())).unwrap();
+            });
+            let registered = registration.recv_timeout(std::time::Duration::from_secs(1));
+            if close_cpu { service.cpu.close(); } else { service.active_jobs.close(); }
+            let result = receive.recv_timeout(std::time::Duration::from_secs(1));
+            if result.is_err() { control.cancel(); }
+            join.join().unwrap();
+            assert!(registered.is_ok(), "memory wait must be registered before closure");
+            assert!(matches!(result.unwrap(), Err(MathRuntimeError::Limit(reason))
+                if reason == if close_cpu { "CPU admission closed" } else { "active jobs closed" }));
+            assert!(!control.is_cancelled());
+            assert_eq!(service.pool.reserved(), full);
+            assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+            assert_eq!(service.cpu.available_permits(), service.cores);
+            drop(held);
+            assert_eq!(service.pool.reserved(), baseline);
+        }
+    }
+    #[tokio::test]
+    async fn quiescent_closed_admission_refuses_while_memory_is_unavailable() {
+        for close_cpu in [false, true] {
+            let service = super::super::tests::service();
+            let baseline = service.pool.reserved();
+            let held = MemoryConsumer::new("test:quiescent-closed-held-memory")
+                .register(&service.pool);
+            held.try_grow((512 << 20) - baseline).unwrap();
+            let full = service.pool.reserved();
+            if close_cpu { service.cpu.close(); } else { service.active_jobs.close(); }
+            let control = Cancellation::default();
+            let worker_control = control.clone();
+            let worker_service = service.clone();
+            let runtime = tokio::runtime::Handle::current();
+            let (send, receive) = std::sync::mpsc::sync_channel(1);
+            let join = std::thread::spawn(move || {
+                let _entered = runtime.enter();
+                let execution = pse_backend_native::solve::Execution::new(
+                    worker_control, &Default::default(),
+                );
+                send.send(worker_service.quiescent_phase_owned_construction(
+                    1, ConstructionEstimate::Known(1024), &execution,
+                    |_| -> () { panic!("closed admission must not execute construction") },
+                )).unwrap();
+            });
+            let result = receive.recv_timeout(std::time::Duration::from_secs(1));
+            if result.is_err() { control.cancel(); }
+            join.join().unwrap();
+            assert!(matches!(result.unwrap(), Err(MathRuntimeError::Limit(reason))
+                if reason == if close_cpu { "CPU admission closed" } else { "active jobs closed" }));
+            assert!(!control.is_cancelled());
+            assert_eq!(service.pool.reserved(), full);
+            assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+            assert_eq!(service.cpu.available_permits(), service.cores);
+            drop(held);
+            assert_eq!(service.pool.reserved(), baseline);
+        }
+    }
+    #[tokio::test]
+    async fn compute_resume_refuses_closed_cpu_while_jobs_remain_owned() {
+        use pse_backend_native::execution::ComputeAdmission;
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let mut owner = super::super::staged::ComputeOwner::new(
+            service.active_jobs.clone(), service.cpu.clone(), 1,
+            service.try_active(1).unwrap().unwrap(), tokio::runtime::Handle::current(),
+        );
+        owner.pause();
+        let held = service.active_jobs.clone()
+            .try_acquire_many_owned(service.policy.jobs as u32).unwrap();
+        service.cpu.close();
+        let control = Cancellation::default();
+        let worker_control = control.clone();
+        let (send, receive) = std::sync::mpsc::sync_channel(1);
+        let join = std::thread::spawn(move || {
+            let execution = pse_backend_native::solve::Execution::new(
+                worker_control, &Default::default(),
+            );
+            send.send(owner.resume(&execution)).unwrap();
+        });
+        let result = receive.recv_timeout(std::time::Duration::from_secs(1));
+        if result.is_err() { control.cancel(); }
+        join.join().unwrap();
+        assert!(matches!(result.unwrap(), Err(pse_backend_native::ProblemError::Limit {
+            kind: pse_backend_native::LimitKind::Memory, detail,
+        }) if detail == "CPU admission closed"));
+        assert!(!control.is_cancelled());
+        assert_eq!(service.active_jobs.available_permits(), 0);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.pool.reserved(), baseline);
+        drop(held);
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+    }
     async fn gated_scoped_job_stops_after_native_join(explicit_cancel: bool) {
         let (service, _cache) = super::super::tests::service_with_policy(
             256 << 20,

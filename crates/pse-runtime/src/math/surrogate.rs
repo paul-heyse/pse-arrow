@@ -932,6 +932,65 @@ mod tests {
         drop(task);
         assert!(destroyed.load(Ordering::Acquire));
     }
+    #[tokio::test]
+    async fn handle_cancel_wakes_scope_waiter_before_actor_gate_release() {
+        use std::{future::Future, time::Duration};
+        let (evaluator, options, _, destroyed) = fixture();
+        let (service, _cache) = super::super::tests::service_with_policy(
+            128 << 20,
+            super::super::MathPolicy {
+                stack_bytes: options.stack_bytes,
+                foreign_bytes: options.foreign_bytes,
+                workspace_bytes: 16 << 20,
+                worker_bytes: 8 << 20,
+                inner_session_bytes: 0,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), None);
+        let handle = Arc::new(service.prepare_surrogate(
+            evaluator, options, scope, &crate::CancelSource::new(),
+        ).await.unwrap());
+        assert!(!Arc::ptr_eq(&handle.scope.cancellation_control().flag(), &handle.control.flag()));
+        let held = handle.actor.gate.lock().unwrap();
+        let waiter = handle.clone();
+        let (registered, registration) = mpsc::sync_channel(1);
+        let (send, receive) = mpsc::sync_channel(1);
+        let join = std::thread::spawn(move || {
+            let control = waiter.scope.cancellation_control().clone();
+            let mut stop = std::pin::pin!(control.cancelled());
+            let mut registered = Some(registered);
+            let stop = futures_util::future::poll_fn(move |context| {
+                let polled = stop.as_mut().poll(context);
+                if polled.is_pending() && let Some(registered) = registered.take() {
+                    registered.send(()).unwrap();
+                }
+                polled
+            });
+            let result = waiter.actor.gate.lock_wait(
+                || waiter.scope.check().map_err(ProblemError::Provider).map_err(Into::into),
+                stop, waiter.scope.deadline(),
+            );
+            send.send(matches!(result, Err(MathRuntimeError::Solve(
+                ProblemError::Provider(pse_kernels::ProviderError::Cancelled)
+            )))).unwrap();
+        });
+        let registration = registration.recv_timeout(Duration::from_secs(1));
+        handle.cancel();
+        let result = receive.recv_timeout(Duration::from_secs(1));
+        // Release and join even on regression: a failed notification must not leak
+        // the waiter or the actor's actual library/pool lifetime out of this test.
+        drop(held);
+        join.join().unwrap();
+        assert!(registration.is_ok(), "waiter must register before cancellation");
+        assert!(result.unwrap(), "scope cancellation must wake the held-gate waiter");
+        assert!(handle.scope.cancellation_control().is_cancelled());
+        assert!(handle.control.is_cancelled());
+        drop(handle);
+        assert!(destroyed.load(Ordering::Acquire));
+        assert_eq!(service.pool.reserved(), baseline);
+    }
     #[test]
     fn actor_refuses_expired_original_scope_before_evaluation_and_joins_failed_construction() {
         let (e, o, threads, destroyed) = fixture();
