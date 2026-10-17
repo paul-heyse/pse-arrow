@@ -103,9 +103,11 @@ impl CacheValue for Product {
             })
     }
 }
-/// Lookup and attribution metadata retain their own allocation, never a model/revision.
+/// Active lane and optional lookup share charged key/attribution metadata, never a
+/// model/revision. The immutable view retains its existing payload allocation owners.
 #[derive(Debug)]
 pub(crate) struct RetainedBoundSolver {
+    pub(crate) key: Arc<pse_compiler::workspace::BoundLookupKey>,
     pub(crate) view: Preparation,
     pub(crate) identity: Arc<pse_compiler::workspace::ModelingOccurrenceIdentity>,
     pub(crate) _owner: Arc<pse_columnar::AllocationLease>,

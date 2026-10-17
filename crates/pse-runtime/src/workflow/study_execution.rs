@@ -2502,34 +2502,116 @@ mod occurrence_execution_tests {
 
     #[tokio::test]
     async fn adjacent_actual_point_preparations_share_one_live_establishment() {
-        let (package, definition) = fixture(&(1..=20).map(f64::from).collect::<Vec<_>>()).await;
-        let math = package.runtime.shared.math();
+        for width in [1, 2] {
+            for compact in [false, true] {
+                let (package, definition) = fixture(&[1., 2., 3., 4.]).await;
+                let math = package.runtime.shared.math();
+                let cancel = crate::CancelSource::new();
+                let mut lanes: Vec<_> = (0..width)
+                    .map(|_| super::super::study_operations::StudyPreparationLane::new())
+                    .collect();
+                let mut identities = vec![None; width];
+                let mut plans = vec![None; width];
+                let mut results = Vec::new();
+                let demand = if compact {
+                    super::super::StudyOutputDemand::Compact {
+                        detail: Default::default(), failed_detail: Default::default(),
+                    }
+                } else {
+                    super::super::StudyOutputDemand::Full {}
+                };
+                for (index, point) in definition.points.iter().enumerate() {
+                    // A deterministic lookup trim, independent of ambient pool pressure.
+                    math.clear_program_cache();
+                    let lane_index = index % width;
+                    let lane = &mut lanes[lane_index];
+                    let prepared = lane
+                        .prepare(&package, &point.operation, &point.binding, &cancel)
+                        .await
+                        .unwrap();
+                    let PreparedStudyOperation::DeclaredCase(case) = &prepared else {
+                        panic!("declared case expected");
+                    };
+                    let actual = case.model.model.compiled().model.allocation_identity();
+                    if let Some(original) = identities[lane_index] {
+                        assert_eq!(actual, original);
+                    } else {
+                        identities[lane_index] = Some(actual);
+                    }
+                    let plan = &case.model.case.compiled().plan;
+                    if let Some(original) = &plans[lane_index] {
+                        assert!(Arc::ptr_eq(plan, original), "trim cannot evict the active lane view");
+                    } else {
+                        plans[lane_index] = Some(plan.clone());
+                    }
+                    for (id, value) in point.binding.values() {
+                        assert_eq!(case.model.values.scalars[&id], value);
+                    }
+                    let result = prepared.start(&package.runtime, &cancel).await.unwrap()
+                        .wait().await.unwrap();
+                    assert!(result.usable(), "{:?}", result.report());
+                    let RunReport::Modeling(solved) = result.report().unwrap() else {
+                        panic!("modeling result expected");
+                    };
+                    let solved = &solved[0];
+                    assert!((solved.values.scalars[&member(solved, "x")]
+                        - (2. + solved.prepared.model.values.scalars[&member(solved, "t")]))
+                        .abs() < 1e-8);
+                    results.push(retain_occurrence(result, &demand, true).await.unwrap());
+                }
+                let departures: Vec<_> = lanes.iter().map(|lane| lane.numerical_view().unwrap()).collect();
+                math.clear_program_cache();
+                for lane in &mut lanes {
+                    lane.close().await.unwrap();
+                    assert!(lane.scope().is_none());
+                }
+                assert!(departures.iter().all(|view| view.upgrade().is_none()),
+                    "retained Full or Compact results do not own lane metadata");
+                assert!(results.iter().all(|result| result.completion().is_ok()));
+                assert!(results.iter().all(|result| matches!(result,
+                    StudyOccurrenceResult::Compact(_)) == compact));
+            }
+        }
+    }
+
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn current_numerical_view_survives_cancellation_until_native_drain() {
+        let (package, definition) = fixture(&[1.]).await;
+        let point = &definition.points[0];
         let cancel = crate::CancelSource::new();
         let mut lane = super::super::study_operations::StudyPreparationLane::new();
-        let mut identity = None;
-        for point in &definition.points {
-            let prepared = lane
-                .prepare(&package, &point.operation, &point.binding, &cancel)
-                .await
-                .unwrap();
-            let PreparedStudyOperation::DeclaredCase(case) = prepared else {
-                panic!("declared case expected");
-            };
-            let actual = case.model.model.compiled().model.allocation_identity();
-            if let Some(original) = identity {
-                assert_eq!(actual, original);
-            } else {
-                identity = Some(actual);
+        let prepared = lane.prepare(&package, &point.operation, &point.binding, &cancel)
+            .await.unwrap();
+        let departure = lane.numerical_view().unwrap();
+        let scope = lane.scope().unwrap();
+        let (started, entered) = tokio::sync::oneshot::channel();
+        let started = std::sync::Mutex::new(Some(started));
+        let (release, gate) = std::sync::mpsc::channel();
+        let gate = std::sync::Mutex::new(gate);
+        let observer = Arc::new(move |_: &Arc<std::sync::atomic::AtomicBool>| {
+            if let Some(started) = started.lock().unwrap().take() {
+                let _ = started.send(());
+                // Cancellation requests a stop, but this real native entry remains
+                // held until the control explicitly permits it to drain.
+                let _ = gate.lock().unwrap().recv_timeout(std::time::Duration::from_secs(30));
             }
-            math.clear_program_cache();
-            let phase = cancel.child_with_deadline(None);
-            lane.scope()
-                .unwrap()
-                .during(&phase, async { Ok(()) })
-                .await
-                .unwrap();
-        }
-        lane.close().await.unwrap();
+        });
+        let work = crate::math::observed_native_task_entry(observer, scope.during(&cancel, async {
+            prepared.start(&package.runtime, &cancel).await?.wait().await
+        }));
+        let controls = async {
+            entered.await.unwrap();
+            package.runtime.shared.math().clear_program_cache();
+            cancel.cancel();
+            let mut close = Box::pin(lane.close());
+            assert!(futures_util::poll!(close.as_mut()).is_pending());
+            assert!(departure.upgrade().is_some(), "cancelled native owner still holds its lane view");
+            release.send(()).unwrap();
+            close.await.unwrap();
+        };
+        let (_result, ()) = tokio::join!(work, controls);
+        assert!(departure.upgrade().is_none(), "actual native drain releases lane metadata");
         assert!(lane.scope().is_none());
     }
     fn result(report: &StudyReport, index: usize) -> &super::super::ModelingResult {

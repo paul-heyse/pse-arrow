@@ -1186,7 +1186,12 @@ fn refusal(
 pub(in crate::workflow) struct StudyPreparationLane {
     current: Option<PreparedLaneInputs>,
 }
+/// One current immutable view; the shared lookup may independently retain the same
+/// charged owner. No mutable provider/evaluator state belongs to this slot.
+pub(in crate::workflow) type CurrentNumericalView =
+    Option<Arc<crate::math::retention::RetainedBoundSolver>>;
 struct PreparedLaneInputs {
+    numerical_view: CurrentNumericalView,
     original: ModelingPackage,
     package: ModelingPackage,
     key: StudyBindingKey,
@@ -1218,6 +1223,7 @@ impl StudyPreparationLane {
                 package: scope.package(package),
                 key,
                 admission: None,
+                numerical_view: None,
                 scope,
             });
         }
@@ -1229,10 +1235,11 @@ impl StudyPreparationLane {
             current.scope.check_active().await?;
             current
                 .package
-                .prepare_bound_operation_with_admission(
+                .prepare_bound_operation_with_current_view(
                     operation,
                     binding,
                     &mut current.admission,
+                    Some(&mut current.numerical_view),
                     cancel,
                 )
                 .await
@@ -1253,6 +1260,12 @@ impl StudyPreparationLane {
         &self,
     ) -> Option<Arc<super::modeling::engagement::HeldPreparationScope>> {
         self.current.as_ref().map(|current| current.scope.clone())
+    }
+    #[cfg(all(test, feature = "solver-kinsol"))]
+    pub(in crate::workflow) fn numerical_view(
+        &self,
+    ) -> Option<std::sync::Weak<crate::math::retention::RetainedBoundSolver>> {
+        self.current.as_ref()?.numerical_view.as_ref().map(Arc::downgrade)
     }
     pub(in crate::workflow) async fn close(&mut self) -> Result<(), WorkflowError> {
         if let Some(current) = &self.current {

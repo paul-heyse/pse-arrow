@@ -188,6 +188,18 @@ impl ModelingPackage {
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
+        self.prepare_bound_operation_with_current_view(operation, binding, admission, None, cancel)
+            .await
+    }
+    /// Borrow the active lane's current immutable view for this point's resolution.
+    pub(in crate::workflow) async fn prepare_bound_operation_with_current_view(
+        &self,
+        operation: &super::StudyOperation,
+        binding: &AdmittedBinding,
+        admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
+        current_view: Option<&mut super::study_operations::CurrentNumericalView>,
+        cancel: &crate::CancelSource,
+    ) -> Result<super::PreparedStudyOperation, WorkflowError> {
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
@@ -220,7 +232,7 @@ impl ModelingPackage {
                     execution.analysis.case.members = binding.values();
                     let analysis = execution.analysis;
                     let resolution = self
-                        .resolve_prepared_case(
+                        .resolve_prepared_case_with_current_view(
                             execution.model,
                             analysis.case,
                             analysis.order,
@@ -229,6 +241,7 @@ impl ModelingPackage {
                             analysis.numerical,
                             super::modeling::cases::CaseOverrides::default(),
                             false,
+                            current_view,
                             cancel,
                         )
                         .await?;

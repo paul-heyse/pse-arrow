@@ -1024,9 +1024,32 @@ impl ModelingPackage {
         order: DerivativeOrder,
         compiler: Profile,
         solver: SolverProfile,
+        numerical: NumericalInputs,
+        overrides: CaseOverrides,
+        allow_missing_free: bool,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingCaseResolution, WorkflowError> {
+        self.resolve_prepared_case_with_current_view(
+            model, case, order, compiler, solver, numerical, overrides, allow_missing_free,
+            None, cancel,
+        ).await
+    }
+    /// Resolve with an explicitly borrowed lane-local immutable numerical view.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the current numerical view is a borrowed lane owner, independent of fresh point inputs"
+    )]
+    pub(in crate::workflow) async fn resolve_prepared_case_with_current_view(
+        &self,
+        model: ModelingPreparation,
+        case: ModelingCaseBindings,
+        order: DerivativeOrder,
+        compiler: Profile,
+        solver: SolverProfile,
         mut numerical: NumericalInputs,
         overrides: CaseOverrides,
         allow_missing_free: bool,
+        current_view: Option<&mut crate::workflow::study_operations::CurrentNumericalView>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
@@ -1124,7 +1147,7 @@ impl ModelingPackage {
             states.entry(*id).or_default().fixed = Some(true);
         }
         let prepared = self
-            .bound_case(&model, values.clone(), &states, order, compiler, cancel)
+            .bound_case_with_current_view(&model, values.clone(), &states, order, compiler, current_view, cancel)
             .await?;
         // Upgrade from the actual bound output/coordinate maps, not every formal
         // input of the original source. Native inner residual minima remain separate.
