@@ -254,6 +254,9 @@ fn independent_selected_logging_controls() {
         }
         assert_eq!(pse_petsc_log_destroy(&mut first.handle), 0);
         assert!(first.handle.is_null());
+        let mut refused = EventPerf { registered: 73, activated: 91, ..EventPerf::default() };
+        assert_ne!(pse_petsc_log_event(first.handle, c"SNESSolve".as_ptr(), &mut refused), 0);
+        assert_eq!((refused.registered, refused.activated), (73,91), "refused getter does not publish registration facts");
         assert_eq!(pse_petsc_snes_solve(fixture.solver.handle, fixture.primal.handle), 0);
         let mut info = EventPerf::default();
         assert_eq!(pse_petsc_log_event(second.handle, c"SNESSolve".as_ptr(), &mut info), 0);
