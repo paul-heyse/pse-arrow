@@ -485,12 +485,15 @@ impl<W: Write> Projection<W> {
                 Value::Boolean(value) => bool_annotation(name,*value),
                 Value::Text(value) => annotation(name,value),
                 Value::Unavailable(reason) => annotation(&format!("{name}.unavailable"),reason),
-                Value::NonFinite(value) => annotation(&format!("{name}.nonfinite"),format!("{value:?}")),
+                Value::NonFinite(value) => annotation(&format!("{name}.nonfinite"),value.as_str()),
                 Value::Overflow => annotation(&format!("{name}.overflow"),"true"),
                 Value::Number(_) => annotation(&format!("{name}.unavailable"),"invalid unclassified nonfinite source number"),
             });
             fields.push(annotation(&format!("{name}.unit"),&field.unit));
-            if let Some(availability)=field.availability { fields.push(annotation(&format!("{name}.availability"),format!("{availability:?}"))); }
+            if let Some(availability)=field.availability {
+                let label=serde_json::to_string(&availability).map_err(std::io::Error::other)?;
+                fields.push(annotation(&format!("{name}.availability"),label.trim_matches('"')));
+            }
         }
         self.event(uuid, at, track_event::Type::Instant, &record.phase, fields)?;
         if let Some(track) = self.tracks.get_mut(key) {

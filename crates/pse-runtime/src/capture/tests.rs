@@ -922,7 +922,7 @@ fn capture_builtin_clock_relationship_precedes_typed_source_events() {
     assert_eq!(annotation("zero"), debug_annotation::Value::DoubleValue(0.));
     assert_eq!(annotation("predicate"), debug_annotation::Value::BoolValue(false));
     assert_eq!(annotation("bad.nonfinite"), debug_annotation::Value::StringValue("Nan".into()));
-    assert_eq!(annotation("absent.availability"), debug_annotation::Value::StringValue("NotSupplied".into()));
+    assert_eq!(annotation("absent.availability"), debug_annotation::Value::StringValue("not_supplied".into()));
     assert!(operation.context().is_active(), "capture has no scientific completion authority");
 }
 
