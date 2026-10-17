@@ -1,6 +1,6 @@
 ---
 title: Execution resources and platform profiles
-status: done
+status: in-progress
 date: 2026-10-17
 adrs: [ADR-0195]
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -42,6 +42,8 @@ Replace avoidable periodic admission/resume/native-child/Uno try-lock retry with
 Uno's process exclusion has a native safety purpose; retain it while improving waiting. Model wake-before-wait, release concurrent with registration, spurious notification, cancelled waiter, timeout/release race and late child completion. Terminal observation does not imply unobserved foreign work has drained. Callers retain typed limit/failure reasons.
 
 Acceptance proves no lost wake or busy periodic retry under the exercised path, correct cancellation/deadline and one eventual release after owned work ends. Observe timer/wake work if useful; source reasoning can establish avoidable polling without an exact latency benchmark. Independent admission tests should not require unrelated solver/store startup.
+
+**Remaining production alignment — 2026-10-17:** notification migration is partial. `root_isolation.rs::acquire_library` still retries IBEX exclusion/compute resume every 1 ms; `scip.rs::ConcurrentAdmission::acquire` retries its concurrent gate/resume every 1 ms; `petsc.rs::Admission::enter` wakes every 10 ms to recheck execution; and `pse-math/src/native_compiled.rs::wait` polls compiler exit with `waitid(NOHANG)` and a 5 ms sleep. These are production admission/resume/child waits, not test watchdogs. Complete event-driven release/exit/cancellation/deadline waiting at the existing owners. Preserve native exclusion, predicate rechecks, original absolute clocks, tentative-permit rollback, process identity and actual issued-work join; conservative uncertain-drain handling must not be weakened merely to remove a timer. Existing job admission/resume, Uno, surrogate and private-readiness notification paths remain implemented.
 
 <a id="f03"></a>
 
@@ -86,14 +88,14 @@ B06 derivative compilation consumes the conservative/selected build contract it 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
 | F01 | Exclusive worker/provider construction and enclosing resource contract; B product slice where needed | Admitted lanes/pools with preserved scientific behavior, selected reduction/error class and actual drain; optional library batching route | done |
-| F02 | Existing wait/admission/native exclusion contracts | Notification-based waiting with race/cancellation/deadline/fairness tests; remove replaced polling without another scheduler | done |
+| F02 | Existing wait/admission/native exclusion contracts | Notification-based waiting with race/cancellation/deadline/fairness tests; remove replaced polling without another scheduler | in progress |
 | F03 | Q06 requirement/actual-context inspection; accepted RC08 route | Explicit selected equivalence profile or conservative retained branch, actual/unknown dispatch facts and qualified boundaries | done |
 | F04 | F03 equivalence; accepted RC09 route; particular provider/allocator requirement | Qualified concrete alternative or supported current-provider/allocator branch, coherent ABI/thread/ownership consumers | done |
 | F05 | F03 where numerical realization changes; actual build/compiler lifecycle | Fitting existing/selected profile and any justified trained optimization with independent correctness; no redundant blanket campaign | done |
 
 ## Verification and checkpoint
 
-**Tested, 2026-10-17:** the Outcome below records complete selected delivery and actual mechanism/consumer controls. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The supported inquiry conclusions below are complete retained/selected branches; they are not pending benchmark or environment-proof work.
+**Interface-checked — production completeness, 2026-10-17:** F01 matches the selected coarse admitted/exclusive lane target; F03–F05 retain the supported conservative build/provider/allocator choices. F02 remains incomplete for the production native gate/resume/compiler-child polling listed above. **Tested, earlier 2026-10-17:** the Outcome below records controls for the implemented paths. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The supported inquiry conclusions below are complete retained/selected branches; they are not pending benchmark or environment-proof work.
 
 ### Q06 / F03–F05 retained-profile decision — 2026-10-17
 
@@ -109,7 +111,7 @@ Retain current allocation after the selected B/C churn corrections. No isolated 
 
 ### What was built
 
-**Implemented:** F01/F02 use existing coarse admitted case/study/session lanes with exclusive mutable workers/provider maps and precharged reset overlap. One notifying cancellation owner and actual permit-release/change notifications replace owned idle polling across job admission, native exclusion/pressure, surrogate serialization and private child readiness. Predicate rechecks, original deadlines, rollback and actual issued-work join remain with their existing owners; no nested scheduler or unadmitted fine-grained teams were added.
+**Implemented — delivered scope; F02 notification migration is partial as recorded above:** F01/F02 use existing coarse admitted case/study/session lanes with exclusive mutable workers/provider maps and precharged reset overlap. One notifying cancellation owner and actual permit-release/change notifications replace owned idle polling across job admission, native exclusion/pressure, surrogate serialization and private child readiness. Predicate rechecks, original deadlines, rollback and actual issued-work join remain with their existing owners; no nested scheduler or unadmitted fine-grained teams were added.
 
 **Tested, 2026-10-17:** six engine resource controls, 20 runtime job/race controls and selected actor/surrogate/private-child wake/cancel/deadline controls passed. The integrated runtime selection passed 76/76. Three actual managed sixteen-owner/equal-occurrence/cancellation studies passed, including no tail start and registered cleanup. [43g Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns combined/native/static acceptance and exact conditions.
 

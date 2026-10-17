@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, DP-21, PS-10]
 blueprint: [§14.3, §18.10]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Tested
+evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A wait cannot observe its actual resource release or stop without renewed polling or another scheduler.
@@ -38,6 +38,10 @@ Awaiting a partially acquired CPU team changes current admission semantics. A se
 The generic cancellation owner lives with shared execution contracts in pse-diagnostics and uses pinned event-listener. Kernel scopes and completion-owned flights carry that same owner; native numerical callbacks receive its read flag. Cancellation publishes stop before notification. A registered Waker may only signal a safe independently owned waiter; it does not execute numerical work or own a native session. Registration-before-state-check prevents lost cancellation. Raw flag construction cannot substitute for the notifying execution owner.
 
 Actual semaphore owners notify after permits are returned, including tentative rollback; no count or queue authority is duplicated. Admission continues to attempt complete resources and release tentative ownership before waiting. Uno retains process-wide exclusion with an owned permit, generation predicate and absolute deadline; `pse_uno_notify_waiters()` safely signals the process-wide gate without a session pointer. Every waiter rechecks its own typed stop. Private child readiness/reaping remains attached to its exact owned descriptors and Child, with cancellation wake and actual wait/drain.
+
+### Production-completeness correction — 2026-10-17
+
+**Interface-checked:** The remaining IBEX/SCIP/PETSc gates register release, cancellation, abandonment and original-deadline wakes before inspecting predicates. Native exclusion and compute admission are acquired as a pair: release tentative native exclusion before blocking on existing compute admission, then retry. Quarantined native failure wakes waiters to refuse even when uncertain teardown retains exclusion. Compiler/proof preparation transports the real notifying execution scope; raw atomic stop references remain only synchronous callback inputs. Linux pidfd/eventfd readiness retains the compiler leader waitable until owned group drain, stderr join and final reap; no stale PID or leader-only exit authorizes resource release.
 
 ### Consequences
 

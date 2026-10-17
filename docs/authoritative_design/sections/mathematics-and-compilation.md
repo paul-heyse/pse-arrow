@@ -791,6 +791,8 @@ check results belong to the owning packet and assembled qualification remains Pl
 > Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md) (proposed) — retain admitted
 > physical operations and normalized scientific witnesses through lowering.
 
+The Plan43 notification correction carries the actual notifying execution scope through compiler/product preparation and standalone validated-mathematics requests. Read-only atomic flags remain appropriate inside synchronous mathematical callbacks; a blocking native/compiler owner cannot reconstruct notification from such a flag. Child readiness preserves the original deadline and actual owned-group drain before resource release (ADR-0195, proposed).
+
 #### 14.3.1 Artifact construction, retention and completion
 
 `ArtifactRequest` is issued only by the compiler; its private fields prevent runtime code

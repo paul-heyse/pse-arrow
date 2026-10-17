@@ -161,6 +161,8 @@ Explicit static source-map inspection retains original document/field/occurrence
 
 Optional Perfetto capture emits actual MONOTONIC/BOOTTIME relationships before events and retains its alignment sampling width. Typed record fields preserve source event membership; independently stoppable bounded query tools consume immutable traces without stopping science. Native KLU detail counts actual issued/completed owner operations; PETSc detail uses an independently owned handler and prepared event populations with inclusive completed-event scope. Unselected hooks do not claim measured zero. Operating routes and tool limitations live in the [diagnostic guide](../../dev/simulation-diagnostics.md).
 
+> Decision: ADR-0192/0196 (proposed; Plan43 production-completeness correction). Explicit numerical diagnostics use one operation clock across preparation, admission and execution and retain optional originating invocation/attempt/failure attribution. Origin conveys no scientific permission. Joined scientific products follow their individual governing original completion; retained raw or partial data remains diagnostic. Launch CPU profiling composes a separately owned command with the existing exporter owner: enable acknowledgement precedes scientific exec, and capture failure/stop never cancels command work. Launch records identify the exact process and leave operation linkage absent until supplied. Changed generated documents/views migrate together. Implementation and current package status remain with Plan43.
+
 ### 23.2 Failure taxonomy
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).

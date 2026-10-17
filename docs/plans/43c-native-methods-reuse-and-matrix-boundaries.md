@@ -113,7 +113,7 @@ R2's six Ipopt deep options have a source-supported current route. Boolean/text 
 
 ## Verification and checkpoint
 
-**Tested, 2026-10-17:** complete packet acceptance and selected supported inquiry branches are recorded in the Outcome below. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The packet table is the native progress owner; formal proposed ADR status does not assert or replace implementation acceptance.
+**Interface-checked — production completeness, 2026-10-17:** C01–C06 match the selected native target: activation-aware coherent facts, prepared bulk transport and witnesses, compatible allocation/symbolic reuse with fresh point-dependent numeric state, effective declared profiles/refinement and owner-safe maintained hooks/copy fixes. The retained numerical choices require no new solver tournament, factor handoff or arena adoption. Residual native exclusion/resume polling is owned by [43f/F02](43f-execution-resources-and-platform-profiles.md#f02). **Tested, earlier 2026-10-17:** packet acceptance and supported inquiry branches remain recorded in the Outcome below. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The packet table is the native progress owner; formal proposed ADR status does not assert or replace implementation acceptance.
 
 ## Outcome (recorded after implementation)
 

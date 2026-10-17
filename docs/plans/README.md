@@ -4,6 +4,12 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
+is active again following its production-completeness audit. The owning
+[current checkpoint](43-solver-diagnostics-and-performance.md#current-checkpoint)
+routes the remaining production corrections and companion integration. Existing numerical
+work and supported retained choices remain; the audit does not introduce an evidence campaign.
+
 [Plan 42: Post-Plan41 simulation efficiency and diagnostics](42-post-plan41-simulation-efficiency-and-diagnostics.md)
 is complete. Its [Outcome](42-post-plan41-simulation-efficiency-and-diagnostics.md#outcome-recorded-after-implementation)
 records F01–F08/RC01–RC02 disposition, seven settled inquiries, selected assembled acceptance and
@@ -107,17 +113,7 @@ backlog, and their open items create no work or scope-transfer obligation. Curre
 execution follows only the explicitly recorded scope of active plans from 28 onward.
 Plan 32 owns workspace content lifecycle work; Plan 28 retains its own scope.
 
-## Latest completed plan
-
-[Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
-is complete (2026-10-17). Its [Outcome](43-solver-diagnostics-and-performance.md#outcome-recorded-after-implementation)
-and [43g qualification](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation)
-record all36 completed packages/eight resolved findings, supported retained inquiry choices,
-selected scientific/native/Python acceptance, repaired composite static/feature results and
-publication limits. Standard accuracies and other plans' scopes/statuses remain unchanged.
-The highest coordinator and consumed companions remain for current qualification and proposed
-ADR verification; formal ADR acceptance is separate.
-
+## Completed plans retained for current qualification
 
 [Plan39](39-implementation-friction-and-codex-effectiveness.md#outcome-recorded-after-implementation)
 is complete (2026-10-17), including all remaining inherited Plan38 scope.

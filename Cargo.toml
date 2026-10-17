@@ -337,6 +337,7 @@ tracing-perfetto-sdk-schema = "=0.13.1"
 prost = "=0.14.4"
 event-listener = "=5.4.2"
 rustix = { version = "=1.1.5", features = [
+  "fs",
   "time",
   "thread",
   "process",

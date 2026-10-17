@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, PS-10]
 blueprint: [§23.1]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Tested
+evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A selected evidence query cannot preserve event membership, explicit unknowns or finite ownership under this declaration.
@@ -36,6 +36,10 @@ Inferring schemas or flattening only numeric values loses meaning. A second pers
 ## Outcome
 
 `runtime.diagnostic_evidence_fields` declares the field projection. `runtime.diagnostic_invocations` and `runtime.diagnostic_captures` preserve the actual joined invocation and optional capture documents, their endpoint/coverage meaning and exact operation links. Event and field ordinals preserve membership; zero field ordinal preserves an empty event. Typed values and explicit unavailable/nonfinite categories remain distinct. Source pages remain the raw authority, and repeated event identities refuse this projection rather than silently deduplicate them.
+
+### Production-completeness correction — 2026-10-17
+
+**Interface-checked:** Launch captures extend the existing capture projection with an explicit process subject and optional operation link; the derived key identifies the actual operation or launched process without inventing a diagnostic operation before execution publishes one. Numerical diagnostic exports retain optional originating invocation/attempt/failure context. These references preserve interpretation only and do not grant scientific use, replay, cancellation or publication permission. Changed view/document versions migrate all actual consumers through the registry and existing generators.
 
 ### Consequences
 

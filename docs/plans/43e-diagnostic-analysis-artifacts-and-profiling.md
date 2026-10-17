@@ -1,6 +1,6 @@
 ---
 title: Diagnostic analysis, artifacts and profiling
-status: done
+status: in-progress
 date: 2026-10-17
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md]
@@ -57,6 +57,10 @@ Top-k original residual/Jacobian/conditioning/near-null probes can do new scienc
 
 Completion is a qualified selected route, or a supported retained-dense/withheld branch after the actual requirement/library question is settled. No unconditional “on failure SVD” is scheduled. Acceptance uses independently constructed rank/near-rank operators, scaled/rectangular/singular cases, source recovery, insufficient budget, failed probe, cancellation and residual-based result qualification.
 
+**Remaining production alignment — 2026-10-17:** two operation-boundary clauses are absent. First, public `diagnose` in `crates/pse-py/src/workflow/modeling.rs` creates an unlimited `CancelSource`; `diagnose_case` in `crates/pse-runtime/src/workflow/modeling/diagnostics.rs` calls `MathService::with_worker`, whose `task=None` route creates an execution scope without a deadline. Full dense SVD and sparse condition estimation have finite size/memory and cancellation, but no governing task clock. Carry one applicable diagnostic clock through preparation, admission and execution, with honest expiry/cancellation limits for opaque library calls and no renewed original scientific permission. The separately clocked Jacobian-optimization route does not supply this missing dense-route contract.
+
+Second, `diagnose_case`, `ModelingDiagnostics` and `ModelingJacobianOptimization` carry their own run/model/numerical/request identities but no originating scientific invocation/attempt/failure relationship. Add the explicitly supplied optional origin through actual Rust/Python requests and retained/exported result declarations, using the existing registry/generator owner. Standalone diagnostics remain legal without an invented origin. A follow-up failure must preserve the originating failure rather than replace or upgrade it. Full residual-qualified faer SVD remains the selected numerical realization; these gaps do not reopen the Q05 algorithm choice.
+
 <a id="e04"></a>
 
 ### E04 — Immutable retained evidence and derived views
@@ -98,19 +102,21 @@ Selected host capability/build changes use the appropriate F route. `perf_event_
 
 Preserve task/descendant overlap, concurrent operation/thread partiality, unknown sampling loss and process-wide resource scope. Wall minus one thread's CPU is not wait time. Capture failure/stop joins only its tools and files, without stopping science or reclaiming another owner's resource.
 
+**Remaining production alignment — 2026-10-17:** launch-time CPU capture remains undelivered. `CaptureRequest` in `crates/pse-runtime/src/capture.rs` requires an existing checkpoint/operation; `capture/cpu.rs::start_sampler` only attaches with `perf record -p`, and the public Python/CLI consumers require that existing target. Production capture/scripts contain no owned CPU launch route. Attachment and preconstruction numerical-detail JSONL cannot recover short-run CPU preparation samples. Complete the specified bounded owned launch route and actual public consumers using the selected profiler stack, preserving raw output, exact child/tool ownership, finite output, truthful preparation coverage and independent profiler stop semantics. Existing attachment/Trace Processor capabilities and Q07 no-adoption decisions remain valid; no all-tools installation or comparative timing campaign is required.
+
 ## Work packages
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
 | E01 | Existing copied facts; A02/A03 only for required iteration history; A04 for comparisons | Pure evidence-linked explanations/policies and common Rust/Python/CLI consumers; no hidden science or automatic solver changes | done |
 | E02 | Actual B/C/D mapping slices; A02 for live records | Many-to-many original-source attribution with valid pullbacks, shared execution charged once and unavailable mapping explicit | done |
-| E03 | Q05 requirement/operator/library decision; fitting math/factor owner; E02 where needed | Explicit selected numerical probe with qualified result or supported withheld/dense branch, original failure preserved | done |
+| E03 | Q05 requirement/operator/library decision; fitting math/factor owner; E02 where needed | Explicit selected numerical probe with qualified result or supported withheld/dense branch, original failure preserved | in progress |
 | E04 | A04 invocation joins; selected A03 detail/B01 census; existing artifact owners | Immutable linked Arrow/query/Trace Processor-derived views and full consumers, no duplicate authority or ordinary-store dependency | done |
-| E05 | Q07 question/feasibility; particular F/C build or hook if needed | Useful existing/new owned capture adapters or supported no-adoption outcomes for considered candidates; honest scope/loss and safe stop | done |
+| E05 | Q07 question/feasibility; particular F/C build or hook if needed | Useful existing/new owned capture adapters or supported no-adoption outcomes for considered candidates; honest scope/loss and safe stop | in progress |
 
 ## Verification and checkpoint
 
-**Tested, 2026-10-17:** the Outcome below records complete selected delivery and actual mechanism/consumer controls. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The supported inquiry conclusions below are complete retained/selected branches; they are not pending benchmark or environment-proof work.
+**Interface-checked — production completeness, 2026-10-17:** E01/E02/E04 match their selected pure-analysis, source-mapping and immutable-view targets. E03 remains incomplete for the dense diagnostic clock and explicit originating-operation linkage; E05 for owned launch-time CPU capture. Q05/Q07 numerical/tool choices remain settled. **Tested, earlier 2026-10-17:** the Outcome below records the implemented mechanism/consumer controls. [43g’s Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) owns assembled/scoped acceptance, repaired composite boundaries, scope-end checks and exclusions. The supported inquiry conclusions below are complete retained/selected branches; they are not pending benchmark or environment-proof work.
 
 ### Q05/Q07 selected branches — 2026-10-17
 
@@ -139,7 +145,7 @@ Q07 selects the existing independent bounded capture owner, Perfetto timeline an
 
 ### What was built
 
-**Implemented:** E01–E05 provide pure evidence-linked explanations/comparisons, actual raw-map/native Integer interpretation, bounded coherent-history policies, static many-to-many source maps and explicit qualified numerical diagnostics. Source-map public preparation/waits/copy share one original deadline and admitted storage; inspection never evaluates science. Full bounded faer SVD publishes independently checked operator residual/normalization and honest rectangular absence. Three registry-declared leased Arrow/DataFusion evidence/invocation/capture views retain exact source keys, unsigned sequences, nullable availability, loss and immutable raw authority. Rust/Python/CLI consumers and optional pinned Trace Processor58.2 queries use the existing finite capture owner and clock relationship.
+**Implemented — delivered scope; E03/E05 retain the production remainders above:** E01–E05 provide pure evidence-linked explanations/comparisons, actual raw-map/native Integer interpretation, bounded coherent-history policies, static many-to-many source maps and explicit qualified numerical diagnostics. Source-map public preparation/waits/copy share one original deadline and admitted storage; inspection never evaluates science. Full bounded faer SVD publishes independently checked operator residual/normalization and honest rectangular absence. Three registry-declared leased Arrow/DataFusion evidence/invocation/capture views retain exact source keys, unsigned sequences, nullable availability, loss and immutable raw authority. Rust/Python/CLI consumers and optional pinned Trace Processor58.2 queries use the existing finite capture owner and clock relationship.
 
 **Tested, 2026-10-17:** all 78 low diagnostics controls and selected 12 policy controls passed. The integrated runtime selection passed 76/76, including 12 comparisons, seven Arrow/query/lease controls, three source maps, producer-only capture loss and the explicitly selected actual Trace Processor consumer. The Python consumer selections passed immutable explanation/comparison/source-linked Arrow/export, history-off current progress and memory-refusal assertions. All six optional Trace Processor adapter unit controls passed. [43g Outcome](43g-qualification-and-design-publication.md#outcome-recorded-after-implementation) records exact commands, repaired composite evidence and exclusions.
 

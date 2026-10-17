@@ -1743,6 +1743,8 @@ Reservations are conservative admission policy, not allocator interception or a
 process RSS ceiling. The workstation sizing rationale and measured behavior are
 qualification matters ([§24.2](operations-and-validation.md#section-24-2)).
 
+IBEX, SCIP and PETSc exclusion waits pair their native gate with existing compute admission. A tentative native gate is released before blocking for compute capacity; release/failure/stop notifications then govern retries under the original absolute deadline. Failed native teardown may retain exclusion, but its failure still wakes pending owners to refuse. This is an extension of ADR-0195's existing notification contract, not a second scheduler or weakened teardown permission; Plan43f owns remaining implementation.
+
 ### 18.9 Capability matrix
 
 > Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; scoped Plan38c implementation).

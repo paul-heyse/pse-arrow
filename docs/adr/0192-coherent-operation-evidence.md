@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, PS-09, PS-10]
 blueprint: [§23.1, §21.1]
 review: docs/design_review/reviews/design_review_solver-diagnostics-and-performance-target_2026-10-17.md
-evidence: Tested
+evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A consumed native event family cannot fit the bounded owner-issued record or a collection setting changes scientific work or admission.
@@ -36,6 +36,12 @@ Retaining shared metric names with generation resets cannot distinguish nested p
 ## Outcome
 
 Each performing owner declares its producer and populations. Source sequence is issued before lossy fan-out; durable append sequence is separate. Current compact records survive optional history zero subject to explicit admission. Selected detail declares finite bounds and family/interval coverage; a dropped or unacknowledged prefix is incomplete. Invocation evidence references existing work and separates qualification, terminal completion, requested products, response readiness and later related access.
+
+### Production-completeness correction — 2026-10-17
+
+**Interface-checked:** Plan43's production-completeness correction gives explicit numerical diagnostic operations one deadline across declaration, preparation, admission and execution, plus optional originating run/attempt/step/operation/failure attribution. Standalone diagnostics have no invented origin. Origin is diagnostic context, never scientific permission. Scientific product availability follows each product's governing original completion; retained raw/partial data and caller readiness remain distinct.
+
+Explicit launch profiling returns separate command and capture owners. A fresh command process waits behind an exec gate until an independently attached profiler acknowledges sampling enablement. Capture startup failure releases the gate with explicit failed telemetry; capture stop/drop never cancels the command. The command owner alone cancels and reaps its work. Launch evidence is process-scoped until an actual operation link exists. Changed documents/relations migrate directly through their existing generators; no fake operation or compatibility reader is introduced.
 
 ### Consequences
 
