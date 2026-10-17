@@ -190,7 +190,22 @@ pub struct Producer {
     index: Option<usize>,
     sequence: Arc<AtomicU64>,
 }
+/// Explicit selected record sink, independent from the ordinary bounded hub.
+/// Implementations must not block numerical callbacks or change scientific permission.
+pub trait RecordTap: Send + Sync + std::fmt::Debug {
+    /// Whether this family belongs to the active selected interval.
+    fn selected(&self, family: &str) -> bool;
+    /// Offer an already-issued source record; losses remain with the selected collector.
+    fn observe(&self, record: &CoherentRecord);
+}
 impl ObservationContext {
+    /// Propagate an explicitly selected finite collector to future performing children.
+    /// This never attaches to already-running work or grants scientific cancellation.
+    #[must_use]
+    pub fn with_record_tap(&self, tap: Arc<dyn RecordTap>) -> Self {
+        let mut context = self.clone(); context.record_tap = Some(tap); context
+    }
+
     /// Register a performing instance once at its actual owner boundary.
     #[must_use]
     pub fn producer(&self, role: ProducerRole, name: &str) -> Producer {
@@ -231,6 +246,11 @@ impl Producer {
         let node = self.context.node.as_ref()?;
         node.state.try_lock().ok()?.budget.reserve(bytes).map(|reservation| OwnerReservation { _reservation: reservation })
     }
+    /// Whether explicitly selected detail consumes this source family now.
+    #[must_use]
+    pub fn detail_selected(&self, family: &str) -> bool {
+        self.context.record_tap.as_ref().is_some_and(|tap| tap.selected(family))
+    }
     /// Prepare a population and unit once; updates use its admitted slot directly.
     #[must_use]
     pub fn fact(&self, name: &str, unit: &str, kind: FactKind) -> PreparedFact {
@@ -264,6 +284,10 @@ impl Producer {
     }
     /// Atomically retain a whole compact checkpoint; rejection never changes science.
     pub fn publish(&self, record: &CoherentRecord) -> bool {
+        if let Some(tap) = &self.context.record_tap {
+            // A user-supplied optional collector must not unwind into native/scientific work.
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tap.observe(record)));
+        }
         let (Some(index), Some(node)) = (self.index, &self.context.node) else { return false; };
         let mut accepted = false;
         node.update(|state, _| {

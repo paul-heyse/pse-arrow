@@ -8,7 +8,7 @@
 
 pub use crate::{NonFinite, OperationOutcome as Outcome, Relationship};
 mod producer;
-pub use producer::{CoherentRecord, DurationSummary, FactKind, PreparedFact, Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability, RecordCoverage, RecordField, OwnerReservation};
+pub use producer::{CoherentRecord, DurationSummary, FactKind, PreparedFact, Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability, RecordCoverage, RecordField, OwnerReservation, RecordTap};
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -700,6 +700,7 @@ impl ObservationHub {
             hub: Arc::downgrade(self),
             node: None,
             absent_enabled: self.policy.enabled,
+            record_tap: None,
             producer: None,
         };
         if !self.policy.enabled {
@@ -813,6 +814,7 @@ impl ObservationHub {
                     hub: node.hub.clone(),
                     node: Some(node),
                     absent_enabled: true,
+            record_tap: None,
                     producer: None,
                 },
                 compact: None,
@@ -829,6 +831,7 @@ impl ObservationHub {
                     hub: summary.hub.clone(),
                     node: None,
                     absent_enabled: true,
+            record_tap: None,
                     producer: None,
                 },
                 compact: Some(Arc::clone(summary)),
@@ -946,6 +949,7 @@ impl ObservationHub {
                 hub: node.hub.clone(),
                 node: Some(Arc::clone(node)),
                 absent_enabled: true,
+            record_tap: None,
                 producer: None,
             },
             compact: None,
@@ -1525,6 +1529,7 @@ pub struct ObservationContext {
     node: Option<Arc<Node>>,
     absent_enabled: bool,
     producer: Option<ProducerId>,
+    record_tap: Option<Arc<dyn RecordTap>>,
 }
 impl ObservationContext {
     /// Return the operation diagnostic identity.
@@ -1582,7 +1587,8 @@ impl ObservationContext {
     /// Start and link diagnostic child work without implicitly entering its thread context.
     pub fn child(&self, kind: impl AsRef<str>, relationship: Relationship) -> OperationGuard {
         if let Some(hub) = self.hub.upgrade() {
-            let child = hub.start(kind);
+            let mut child = hub.start(kind);
+            child.context.record_tap = self.record_tap.clone();
             self.link(&child.context, relationship);
             child
         } else {
@@ -1595,6 +1601,7 @@ impl ObservationContext {
                     hub: Weak::new(),
                     node: None,
                     absent_enabled: self.absent_enabled,
+            record_tap: self.record_tap.clone(),
                     producer: None,
                 },
             }
