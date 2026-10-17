@@ -2351,7 +2351,7 @@ mod admission_tests {
         let first_values = values.clone();
         session
             .run(1, None, &cancel, move |retained, _, budget| {
-                let stop = Arc::new(AtomicBool::new(false));
+                let stop = pse_diagnostics::Cancellation::default();
                 let weak = Arc::downgrade(&stop);
                 let super::super::ExecutionWorker {
                     mut worker,
@@ -3260,7 +3260,7 @@ mod admission_tests {
         }
         assert_eq!(service.jobs.available_permits(), 0);
         let cancel = crate::CancelSource::new();
-        let flag = Arc::new(AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
         let entries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -3352,7 +3352,7 @@ mod admission_tests {
         let observed = entered.clone();
         let worker_service = service.clone();
         let cancel = crate::CancelSource::new();
-        let flag = Arc::new(AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
         let mut sequence =
@@ -3722,7 +3722,7 @@ mod admission_tests {
     async fn supplied_task_scope_keeps_owner_and_normal_completion_does_not_cancel() {
         let service = super::super::tests::service();
         let session = service.open_session().unwrap();
-        let flag = Arc::new(AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(
             flag.clone(),
             Some(std::time::Instant::now() + std::time::Duration::from_secs(2)),
@@ -3769,7 +3769,7 @@ mod admission_tests {
                 result=&mut waiting=>panic!("task dispatched without available CPU: {result:?}"),
                 ()=tokio::time::sleep(std::time::Duration::from_millis(20))=>{},
             }
-            flag.store(true, Ordering::Release);
+            flag.cancel();
             assert!(matches!(
                 waiting.await,
                 Err(MathRuntimeError::Solve(ProblemError::Provider(

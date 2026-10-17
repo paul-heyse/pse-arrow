@@ -967,7 +967,7 @@ mod tests {
             }
         }
         let (e, o, _, _) = fixture();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(
             cancel.clone(),
             Some(Instant::now() + std::time::Duration::from_secs(20)),
@@ -1016,7 +1016,7 @@ mod tests {
             }
         }
         let (e, o, _, _) = fixture();
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(
             cancel.clone(),
             Some(Instant::now() + std::time::Duration::from_secs(20)),

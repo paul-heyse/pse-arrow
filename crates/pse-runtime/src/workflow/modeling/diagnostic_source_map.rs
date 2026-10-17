@@ -232,6 +232,17 @@ fn member_lineages(model: &pse_modeling::specialize::SpecializedModel)
         .chain(model.inventory_balances.values().map(|balance| (balance.id, &balance.lineage)))
         .chain(model.inventory_initial_conditions.values().map(|condition| (condition.row, &condition.lineage)))
 }
+impl ModelingPackage {
+    /// Inspect the retained package's prepared source/product map without running science.
+    /// # Errors
+    /// Invalid allowance/clock, cancellation or actual construction admission refuses.
+    pub async fn modeling_diagnostic_source_map(
+        &self, prepared: &ModelingDiagnosticPreparation, maximum_bytes: usize,
+        time_limit: std::time::Duration, cancel: &crate::CancelSource,
+    ) -> Result<ModelingSourceMap, WorkflowError> {
+        self.runtime.modeling_diagnostic_source_map(prepared, maximum_bytes, time_limit, cancel).await
+    }
+}
 impl Runtime {
     /// Inspect already admitted compiled artifacts under a separate explicit finite
     /// clock/allocation. This never evaluates equations or initiates a native solve.

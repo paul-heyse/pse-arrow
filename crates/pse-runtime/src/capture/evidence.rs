@@ -112,7 +112,7 @@ pub fn invocation_arrow(document:&InvocationEvidenceDocument,pool:&Arc<dyn Memor
     let raw=json(document)?; let run=document.run_id.to_string(); let attempt=document.attempt_id.map(|v|v.to_string());let operation=document.operation.map(|v|v.to_string());let outcome=json(&document.outcome)?;
     let arrays:Vec<ArrayRef>=vec![strings([Some(run.as_str())]),strings([attempt.as_deref()]),strings([operation.as_deref()]),strings([Some(document.family.as_str())]),strings([Some(outcome.trim_matches('"'))]),strings([Some(document.clock_scope.as_str())]),
         Arc::new(Float64Array::from(vec![document.endpoints.qualification_seconds])),Arc::new(Float64Array::from(vec![document.endpoints.terminal_seconds])),Arc::new(Float64Array::from(vec![document.endpoints.response_ready_seconds])),
-        Arc::new(BooleanArray::from(vec![document.omitted_intervals!=0||document.omitted_product_steps!=0||document.timing_unavailable.is_some()])),strings([Some(raw.as_str())])];
+        Arc::new(BooleanArray::from(vec![document.omitted_intervals!=0||document.omitted_product_steps!=0||document.timing_unavailable.is_some()||document.attempts.omitted_steps!=0||document.attempts.omitted_native_attempts!=0||document.attempts.steps.iter().any(|step|step.omitted_decisions!=0||step.omitted_findings!=0)])),strings([Some(raw.as_str())])];
     publish("runtime.diagnostic_invocations",arrays,owner,cancel)
 }
 /// Link raw optional captures and their loss/clock/symbol scope to the exact operation.
