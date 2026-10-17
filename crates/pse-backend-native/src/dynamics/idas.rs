@@ -3678,7 +3678,7 @@ pub(super) fn integrate_with_samples(
 /// selected direction, one copied tolerance plus session tolerance/output vectors;
 /// the shared saved RHS; host offsets/result/chain/product scratch and pointer arrays.
 /// This is accounting for selected storage, not a measured RSS claim.
-pub(super) fn forward_quadrature_workspace(c: &Contract, k: usize) -> Result<usize, ProblemError> {
+pub(super) fn forward_quadrature_workspace(c: &Contract, k: usize, integration_width: usize) -> Result<usize, ProblemError> {
     if k == 0 || c.quadratures.is_empty() { return Ok(0); }
     let nq = c.quadratures.len();
     let header = size_of::<ffi::_generic_N_Vector>() + size_of::<ffi::_generic_N_Vector_Ops>()
@@ -3686,7 +3686,7 @@ pub(super) fn forward_quadrature_workspace(c: &Contract, k: usize) -> Result<usi
     let bytes = nq.checked_mul(k).and_then(|v| v.checked_mul(16))
         .and_then(|v| v.checked_add(c.states.len().checked_mul(2)?.checked_add(c.parameters.len())?.checked_mul(k)?))
         .and_then(|v| v.checked_add(nq.checked_mul(2)?))
-        .and_then(|v| v.checked_add(c.parameters.len().checked_mul(2)?))
+        .and_then(|v| v.checked_add(integration_width.checked_mul(2)?))
         .and_then(|v| v.checked_mul(size_of::<f64>()))
         .and_then(|v| v.checked_add(k.checked_mul(13)?.checked_add(1)?.checked_mul(header)?))
         .and_then(|v| v.checked_add(k.checked_mul(24)?.checked_mul(size_of::<usize>())?))

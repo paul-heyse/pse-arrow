@@ -1877,7 +1877,7 @@ impl Profile {
             }
         }
         self.native_scatter_bytes(layout, DynamicDemand::Base, c.parameters.len())?
-            .checked_add(idas::forward_quadrature_workspace(c, k)?)
+            .checked_add(idas::forward_quadrature_workspace(c, k, self.integration_width(c.parameters.len()))?)
             .ok_or_else(|| ProblemError::memory("forward quadrature workspace extent"))
     }
     /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
