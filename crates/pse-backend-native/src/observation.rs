@@ -9,17 +9,26 @@ pub(crate) fn generation() -> u64 {
     GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
 
-pub(crate) fn report(report: &crate::solve::SolveReport) {
+pub(crate) fn report(report: &mut crate::solve::SolveReport, execution: &crate::solve::Execution, producer: Option<&pse_diagnostics::observation::Producer>) {
     let name = format!("{}.final", format!("{:?}", report.backend).to_lowercase());
     metrics(&name, &report.metrics);
-    if let Some(context) = current() {
-        context.integer(
-            &format!("{name}.status"),
-            "native_status",
-            report.termination.code,
-        );
-        context.text(&format!("{name}.termination"), &report.termination.name);
-    }
+    let event = Event {
+        source: Some(crate::solve::EventSource::new("native_owner_return", None, None)
+            .with_role(execution.callback_role)),
+        phase: name, elapsed: execution.started.elapsed(),
+        values: std::collections::BTreeMap::from([
+            ("status".into(), Metric::Integer(report.termination.code)),
+            ("termination".into(), Metric::Text(report.termination.name.clone())),
+            ("category".into(), Metric::Text(format!("{:?}", report.termination.category))),
+            ("assurance".into(), Metric::Text(format!("{:?}", report.termination.assurance))),
+            ("candidate_present".into(), Metric::Bool(report.candidate.is_some())),
+        ]), incumbent: None,
+    };
+    if let Some(producer) = producer { execution.progress.push_from(event, producer); }
+    else { execution.progress.push(event); }
+    let (events, dropped) = execution.progress.snapshot();
+    report.events = events;
+    report.dropped_events = dropped;
 }
 
 /// Observe an actual synchronous owner call, including failure and unwind duration.

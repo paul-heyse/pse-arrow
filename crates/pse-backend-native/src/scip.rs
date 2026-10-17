@@ -3764,7 +3764,7 @@ pub(crate) fn solve(
     if let Some(mut local) = local.take() {
         local.shutdown()?;
     }
-    crate::observation::report(&report);
+    crate::observation::report(&mut report, r.execution, None);
     Ok(report)
 }
 

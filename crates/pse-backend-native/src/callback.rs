@@ -269,6 +269,7 @@ pub struct CallbackState {
     pub iteration_crossings: usize,
 }
 impl CallbackState {
+    #[cfg(feature = "kinsol")]
     pub(crate) fn progress_producer(&self) -> Option<&pse_diagnostics::observation::Producer> {
         self.observation_producer.as_ref()
     }
@@ -556,7 +557,7 @@ impl CallbackState {
             report.termination.message = Some(message.clone());
         }
         self.retain_failure(report);
-        crate::observation::report(report);
+        crate::observation::report(report, &self.execution, self.observation_producer.as_ref());
         (report.events, report.dropped_events) = self.execution.progress.snapshot();
     }
     /// Retain the actual native-exit witness before independent validation can

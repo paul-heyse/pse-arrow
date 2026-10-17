@@ -1264,7 +1264,7 @@ impl Session {
             restore_objective(ptr, p)?;
             verify_upload(self.model()?, p)?;
         }
-        crate::observation::report(&report);
+        crate::observation::report(&mut report, &execution, None);
         Ok(report)
     }
 }

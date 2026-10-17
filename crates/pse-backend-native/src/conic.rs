@@ -769,7 +769,7 @@ impl Session {
         } else {
             report.termination.assurance = Assurance::None;
         }
-        crate::observation::report(&report);
+        crate::observation::report(&mut report, &execution, None);
         Ok(report)
     }
 }
