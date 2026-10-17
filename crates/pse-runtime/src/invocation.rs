@@ -34,6 +34,8 @@ pub enum ProductAvailability {
 pub struct InvocationProduct {
     /// Stable workflow-owned product role, not a solver status.
     pub role: String,
+    /// Original requested step, absent for a whole-workflow product.
+    pub step: Option<usize>,
     /// The actual governing owner's retained conclusion.
     pub availability: ProductAvailability,
 }
@@ -93,6 +95,8 @@ pub struct InvocationEvidenceDocument {
     pub omitted_intervals: usize,
     /// Actual requested products and their independent availability.
     pub products: Vec<InvocationProduct>,
+    /// Requested per-step product sets beyond the same bounded attempt-summary prefix.
+    pub omitted_product_steps: usize,
     /// Preparations performed in this task-local scope, if the owner established that scope.
     pub preparations: Option<PreparationCounts>,
     /// Existing retained attempt evidence: starts, reuse, configuration, work and coverage.

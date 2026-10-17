@@ -278,6 +278,7 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
     let constructions = body_counts(phases, false);
     let result = prepared.start().unwrap().wait().await.unwrap();
     let rows = original_rows(&result);
+    let invocation = observations::invocation_document(&result);
     drop(result);
     drop(prepared);
     drop(package);
@@ -295,7 +296,7 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
     );
     store.remove_isolated_fixture().await.unwrap();
     json!({"database":options.database,"seconds":started.elapsed().as_secs_f64(),
-        "replay_admission":false,"constructions":constructions,"original_rows":rows,
+        "replay_admission":false,"constructions":constructions,"original_rows":rows,"invocation":invocation,
         "after_runtime_teardown_bytes":pool.reserved(),"runtime_released":warmup.upgrade().is_none()})
 }
 
@@ -350,6 +351,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     let seed_constructions = body_counts(phases, false);
     let result = prepared.start().unwrap().wait().await.unwrap();
     let original = original_rows(&result);
+    let seed_invocation = observations::invocation_document(&result);
     let run = result.canonical_run_key().unwrap().to_owned();
     let attempt = result.canonical_attempt_key().unwrap().to_owned();
     let seed_peak = owner.runtime.observation_peak_bytes();
@@ -413,6 +415,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     let phase = Instant::now();
     let result = prepared.start().unwrap().wait().await.unwrap();
     let reopened = original_rows(&result);
+    let replay_invocation = observations::invocation_document(&result);
     assert_ne!(result.canonical_run_key().unwrap(), run);
     let solve_seconds = phase.elapsed().as_secs_f64();
     let phase = Instant::now();
@@ -494,6 +497,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     let fresh_constructions = body_counts(phases, false);
     let result = prepared.start().unwrap().wait().await.unwrap();
     let fresh_rows = original_rows(&result);
+    let fresh_invocation = observations::invocation_document(&result);
     let fresh_run = result.canonical_run_key().unwrap().to_owned();
     assert_ne!(fresh_run, run);
     let process_peak_rss = owner
@@ -519,6 +523,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         "seed_run":run,"seed_attempt":attempt,"fresh_run":fresh_run,
         "local_identity":local_identity,"runtime_profile":runtime_profile,"untimed_native_warmup":warmup,
         "seed_constructions":seed_constructions,"replay_constructions":replay_constructions,"fresh_constructions":fresh_constructions,
+        "workflow_invocations":{"seed":seed_invocation,"replay":replay_invocation,"fresh_control":fresh_invocation},
         "replay_compiler_phases":replay_phases,"original_rows":original,"reopened_rows":reopened,"fresh_rows":fresh_rows,
         "phase_seconds":{"untimed_native_warmup":warmup["seconds"],"untimed_seed":setup_seconds,"origin_release":release_seconds,"connect_runtime_local_observation":open_seconds,"physical_admission_exact_source_reopen":reopen_seconds,"selected_preparation":preparation_seconds,"native_solve_assessment_append":solve_seconds,"original_exact_history_read":history_seconds,"receiving_release":teardown_seconds,"untimed_fresh_control":fresh_control_seconds,"untimed_database_removal":cleanup_started.elapsed().as_secs_f64()},
         "pool_peak_bytes":peak,"process_peak_rss_bytes":process_peak_rss,"retained_runtime_bytes":retained,"after_runtime_teardown_bytes":pool.reserved()}),

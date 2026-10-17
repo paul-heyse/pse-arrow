@@ -92,7 +92,7 @@ pub(super) struct Observations {
 }
 impl Observations {
     pub(super) fn invocation(&mut self, result: &pse_runtime::workflow::RunResult) {
-        self.invocations.push(serde_json::to_value(result.invocation_evidence().unwrap()).unwrap());
+        self.invocations.push(invocation_document(result));
     }
     pub(super) fn counted_preparations(&mut self, counts: pse_runtime::math::PreparationCounts) {
         for (name, value) in [("views", counts.views), ("observations", counts.observations), ("rebuilt", counts.rebuilt), ("shared", counts.shared)] {
@@ -277,6 +277,14 @@ impl Observations {
             "preparations":{"scope":"actual operation-local task scope; nested scopes overlap and are not independent work totals","counts":self.preparations},
             "aggregation":"totals span only this record collected result observations; null total means no observations or at least one unknown; known subtotals do not qualify unknown work; scientific attempt evidence overlaps native summaries"
         })
+    }
+}
+
+/// Copy retained evidence; optional summary refusal never changes scientific acceptance.
+pub(super) fn invocation_document(result: &pse_runtime::workflow::RunResult) -> Value {
+    match result.invocation_evidence() {
+        Ok(document) => serde_json::to_value(document).unwrap(),
+        Err(error) => json!({"run_id":result.run_id,"status":"unavailable","reason":error.to_string()}),
     }
 }
 

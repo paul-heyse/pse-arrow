@@ -413,17 +413,40 @@ impl RunResult {
         let family = match self.request { RunRequest::Horizon(_) => "horizon", RunRequest::Modeling(_) => "modeling",
             RunRequest::Simulation(_) => "simulation", RunRequest::Fit(_) => "fit",
             #[cfg(feature = "solver-diffsol")] RunRequest::Shooting { .. } => "shooting" };
-        let mut products = vec![InvocationProduct { role: "original_scientific_result".into(), availability: if self.usable() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }];
+        let mut products = vec![InvocationProduct { step: None, role: "original_scientific_result".into(), availability: if self.usable() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }];
         if let RunRequest::Fit(prepared) = &self.request {
             let report = match &self.report { Ok(RunReport::Fit(report)) => Some(report.as_ref()), _ => None };
             let availability = |requested: bool, available: bool| if !requested { ProductAvailability::NotRequested } else if available { ProductAvailability::Available } else { ProductAvailability::Unavailable };
-            products.push(InvocationProduct { role: "response_jacobian".into(), availability: availability(true, report.is_some_and(|r| r.responses.is_some())) });
-            products.push(InvocationProduct { role: "identifiability".into(), availability: availability(true, report.is_some_and(|r| r.rank.is_some())) });
+            products.push(InvocationProduct { step: None, role: "response_jacobian".into(), availability: availability(true, report.is_some_and(|r| r.responses.is_some())) });
+            products.push(InvocationProduct { step: None, role: "identifiability".into(), availability: availability(true, report.is_some_and(|r| r.rank.is_some())) });
             let covariance = report.and_then(|r| r.covariance.as_ref());
-            products.push(InvocationProduct { role: "parameter_covariance".into(), availability: availability(covariance.is_some() || prepared.problem.declaration.parameters.iter().any(|p| !p.fixed), covariance.is_some_and(|r| r.values.is_ok())) });
+            products.push(InvocationProduct { step: None, role: "parameter_covariance".into(), availability: availability(covariance.is_some() || prepared.problem.declaration.parameters.iter().any(|p| !p.fixed), covariance.is_some_and(|r| r.values.is_ok())) });
             let uncertainty = prepared.problem.profile.uncertainty.as_ref();
-            products.push(InvocationProduct { role: "wald_intervals".into(), availability: availability(uncertainty.is_some(), report.and_then(|r| r.wald.as_ref()).is_some_and(Result::is_ok)) });
-            products.push(InvocationProduct { role: "profile_intervals".into(), availability: availability(uncertainty.is_some_and(|u| u.profile.is_some()), report.and_then(|r| r.profiles.as_ref()).is_some_and(Result::is_ok)) });
+            products.push(InvocationProduct { step: None, role: "wald_intervals".into(), availability: availability(uncertainty.is_some(), report.and_then(|r| r.wald.as_ref()).is_some_and(Result::is_ok)) });
+            products.push(InvocationProduct { step: None, role: "profile_intervals".into(), availability: availability(uncertainty.is_some_and(|u| u.profile.is_some()), report.and_then(|r| r.profiles.as_ref()).is_some_and(Result::is_ok)) });
+        }
+        match &self.report {
+            Ok(RunReport::Simulation(trajectory)) => products.push(InvocationProduct { role: "trajectory".into(), step: None, availability: if trajectory.accepted() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }),
+            #[cfg(feature = "solver-diffsol")]
+            Ok(RunReport::Shooting(report)) => products.push(InvocationProduct { role: "shooting_trajectory".into(), step: None, availability: if report.trajectory.is_some() { ProductAvailability::Available } else { ProductAvailability::Unavailable } }),
+            _ => {}
+        }
+        let mut omitted_product_steps = 0;
+        if let RunRequest::Modeling(requests) = &self.request {
+            let limit = super::AttemptSummaryLimits::default().steps;
+            omitted_product_steps = requests.len().saturating_sub(limit);
+            for (step, request) in requests.iter().take(limit).enumerate() {
+                let native = self.modeling_result(step).and_then(|result| match &result.outcome { crate::math::solves::Outcome::Native(native) => Some(native.as_ref()), _ => None });
+                let wanted = request.profile.sensitivity.as_ref();
+                let evidence = native.and_then(|report| report.evidence.sensitivity.as_ref());
+                let root = native.and_then(|report| report.evidence.root_response.as_ref());
+                let status = |requested: bool, produced: bool| if !requested { ProductAvailability::NotRequested } else if produced { ProductAvailability::Available } else { ProductAvailability::Unavailable };
+                products.push(InvocationProduct { role: "parametric_sensitivity".into(), step: Some(step), availability: status(wanted.is_some(), evidence.is_some_and(|e| e.sensitivities.is_ok()) || root.is_some_and(Result::is_ok)) });
+                products.push(InvocationProduct { role: "reduced_hessian".into(), step: Some(step), availability: status(wanted.is_some_and(|w| w.reduced_hessian), evidence.and_then(|e| e.reduced_hessian.as_ref()).is_some_and(Result::is_ok)) });
+                // Propagation is computed by the explicitly requested lazy projection owner;
+                // the immutable joined response must not invent its later completion.
+                products.push(InvocationProduct { role: "propagated_covariance".into(), step: Some(step), availability: status(wanted.is_some_and(|w| w.propagation.is_some()), false) });
+            }
         }
         let attempt_id = match &self.durability { RunDurability::Ephemeral => None,
             RunDurability::Durable(record) => Some(record.attempt_id) };
@@ -433,7 +456,7 @@ impl RunResult {
             canonical_run: self.canonical_run_key().map(str::to_owned), canonical_attempt: self.canonical_attempt_key().map(str::to_owned),
             outcome: if self.invocation_cancelled { InvocationOutcome::Cancelled } else if self.report.is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
             endpoints, intervals, omitted_intervals, preparations,
-            products,
+            products, omitted_product_steps,
             attempts: self.attempt_summary()?, })
     }
     /// Full typed reports and backend-specific metrics; errors preserve their original causes.
