@@ -81,6 +81,23 @@ const RESERVED_METHODS: [&str; 2] = [
     "l1_fallback_on_restoration_failure",
     "l1_exact_penalty_barrier",
 ];
+/// Project only completed native timer accumulators. A disabled timer's zero is
+/// not a measurement; a running timer excludes its active interval.
+fn timer_metric(task: &pounce_common::timing::TimedTask) -> (Metric, &'static str) {
+    if !task.is_enabled() {
+        return (Metric::Unavailable(UnavailableReason::NotRequested), "disabled");
+    }
+    if task.is_started() {
+        return (Metric::Unavailable(UnavailableReason::NotComputed), "running");
+    }
+    let seconds = task.total_wallclock_time();
+    if seconds.is_finite() && seconds >= 0.0 {
+        (Metric::Real(seconds), "completed")
+    } else {
+        (Metric::Unavailable(UnavailableReason::Nonfinite), "nonfinite")
+    }
+}
+
 /// The complete effective option table after a solve, with the registered defaults, read
 /// back from the library as the HiGHS adapter does: every registered option at its current
 /// value, plus any explicitly set prefixed option such as `resto.tol`.
@@ -836,16 +853,17 @@ impl Session {
         let mut statistics = app.statistics();
         let final_barrier = Some(statistics.final_mu)
             .filter(|v| method == Method::InteriorPoint && v.is_finite() && *v > 0.0);
-        let dropped_statistics = statistics.iterations.len().saturating_sub(controls.history);
-        if statistics.iterations.len() > controls.history {
-            statistics
-                .iterations
-                .drain(..statistics.iterations.len() - controls.history);
-        }
-        // The pinned library's serde projection includes all statistics, including
-        // new native fields. JSON null explicitly denotes unavailable/nonfinite data.
+        // Iteration evidence comes from our bounded intermediate-callback Progress,
+        // never from the upstream growing collector or arrays flattened into metrics.
+        statistics.iterations.clear();
+        // Preserve scalar native summaries; null denotes unavailable/nonfinite data.
         match serde_json::to_value(&statistics) {
-            Ok(value) => insert_native_metrics(&mut report.metrics, "statistics", value),
+            Ok(mut value) => {
+                if let Some(fields) = value.as_object_mut() {
+                    fields.remove("iterations");
+                }
+                insert_native_metrics(&mut report.metrics, "statistics", value);
+            },
             Err(error) => {
                 report.metrics.insert(
                     "statistics.encoding_error".into(),
@@ -855,7 +873,13 @@ impl Session {
         }
         report.pounce_statistics = Some(Box::new(statistics));
         let timing = app.timing_stats();
-        macro_rules! times{($($field:ident),*)=>{$(report.metrics.insert(concat!("timing.",stringify!($field)).into(),Metric::Real(timing.$field.total_wallclock_time()));)*}}
+        macro_rules! times {
+            ($($field:ident),*) => {$(
+                let (value, state) = timer_metric(&timing.$field);
+                report.metrics.insert(concat!("timing.", stringify!($field)).into(), value);
+                report.metrics.insert(concat!("timing.", stringify!($field), ".state").into(), Metric::Text(state.into()));
+            )*}
+        }
         times!(
             overall_alg,
             print_problem_statistics,
@@ -998,9 +1022,6 @@ impl Session {
             report.termination.assurance = Assurance::None
         }
         a.state.finish(&mut report);
-        report.dropped_events = report
-            .dropped_events
-            .saturating_add(u64::try_from(dropped_statistics).unwrap_or(u64::MAX));
         let source_abort = observation_scope.abort();
         let source_error = observation.take_error().or_else(|| {
             source_abort.as_ref().map(|abort| match abort {
@@ -1109,6 +1130,21 @@ mod tests {
             duals: None,
             solution: None,
         }
+    }
+    #[test]
+    fn native_timer_activation_is_not_reported_as_measured_zero() {
+        let task = pounce_common::timing::TimedTask::new();
+        task.disable();
+        assert_eq!(timer_metric(&task), (Metric::Unavailable(UnavailableReason::NotRequested), "disabled"));
+        task.enable();
+        task.start();
+        assert_eq!(timer_metric(&task), (Metric::Unavailable(UnavailableReason::NotComputed), "running"));
+        task.end();
+        assert!(matches!(timer_metric(&task), (Metric::Real(value), "completed") if value >= 0.0));
+        let timing = pounce_common::timing::TimingStatistics::new();
+        timing.set_detailed_enabled(false);
+        assert!(matches!(timer_metric(&timing.overall_alg).0, Metric::Real(_)));
+        assert_eq!(timer_metric(&timing.eval_obj).0, Metric::Unavailable(UnavailableReason::NotRequested));
     }
     #[test]
     fn native_tnlp_sparse_and_weighted_hessian_contract() {
