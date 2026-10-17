@@ -1004,7 +1004,7 @@ impl AttemptAbandonment {
         self.changed.watch(waker)
     }
     /// Register an owned one-shot listener now, before checking attempt state.
-    pub fn notified(&self) -> impl std::future::Future<Output = ()> + Send + 'static {
+    pub fn notified(&self) -> impl Future<Output = ()> + Send + 'static {
         self.changed.notified()
     }
     /// Exact recorded reason; absence means the attempt was not abandoned.
@@ -2851,7 +2851,7 @@ mod numerical_tests {
         assert!(source.abandon(O::Stalled).unwrap());
         assert!(wake.0.load(Ordering::Acquire));
         let mut future = std::pin::pin!(future);
-        assert!(std::future::Future::poll(future.as_mut(), &mut std::task::Context::from_waker(&waker)).is_ready());
+        assert!(Future::poll(future.as_mut(), &mut std::task::Context::from_waker(&waker)).is_ready());
         drop(watch);
         wake.0.store(false, Ordering::Release);
         let _watch = source.watch(&waker);
