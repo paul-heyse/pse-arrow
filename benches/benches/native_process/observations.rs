@@ -230,7 +230,7 @@ impl Observations {
     }
     pub(super) fn trajectory(&mut self, report: &pse_backend_native::dynamics::Report) {
         self.unobserved_strategy();
-        self.trajectories.push(json!({"termination":report.termination,"completed_time":report.completed_time,"segment_statistics":report.statistics}));
+        self.trajectories.push(json!({"termination":report.termination,"completed_time":report.completed_time,"forward_axes":report.forward_axes,"segment_statistics":report.statistics}));
     }
     pub(super) fn persisted_metrics(
         &mut self,
@@ -275,7 +275,7 @@ impl Observations {
             "modeling_results":self.results,"observed_strategies":self.strategies,
             "strategy_ledger":{"scope":"actual terminal generated strategy rows; each charging owner counted once per original result, including failed operations","charging_owners":self.charged_operations,"work":self.ledger.json()},
             "persisted_native_metrics":{"scope":"reopened point metrics only; native Evidence work and reuse flag are not persisted here and remain unobserved; do not add to returned report counts","points":self.persisted_points,"native_work":null,"reused_native_state":null,"kinsol_setup_refreshes":self.persisted_refreshes.json(),"kinsol_initial_setup_reused":self.persisted_initial_reused.json()},
-            "trajectories":{"scope":"actual segment statistics preserved with their native names; no inferred cross-backend work totals; nested fit trajectories are not exported","observations":self.trajectories},
+            "trajectories":{"scope":"actual segment statistics preserved with their native names; forward_axes is the retained response layout, not a native execution count; no inferred cross-backend work totals; nested fit trajectories are not exported","observations":self.trajectories},
             "returned_native_reports":{"scope":"inclusive work of returned native reports only; excludes earlier reports visible only in the strategy; do not add to strategy totals","reports":self.native_reports,"work":self.native.json(),"reused_native_state_reports":self.reused_native_reports,"kinsol_setup_refreshes":self.kinsol_refreshes.json(),"kinsol_initial_setup_reused":self.kinsol_initial_reused.json(),"setup_scope":"actual KINSOL setup metrics; refreshes are not factorization counts"},
             "effective_profiles":{"scope":"identities/backend from actual Started strategy rows","observed":self.profiles.values().collect::<Vec<_>>(),"unknown_observations":self.unknown_profiles},
             "path_probe_breakdown":{"scope":"inclusive successful localized probe observations already included in strategy work; do not add to ledger totals; failed or unexported probe breakdowns are unavailable","probes":self.path_probes,"counts":self.path_work},

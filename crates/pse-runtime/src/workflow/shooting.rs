@@ -689,7 +689,10 @@ impl ShootingProblem {
             numerics,
         };
         for k in 0..problem.windows.len() {
-            let axes = problem.windows[k].columns.iter().enumerate()
+            let axes = problem.windows[k]
+                .columns
+                .iter()
+                .enumerate()
                 .filter_map(|(axis, column)| problem.variable(k, column).map(|_| axis))
                 .collect();
             problem.windows[k].profile.forward_axes = Some(axes);
@@ -907,7 +910,9 @@ impl ShootingProblem {
             } else {
                 DynamicSensitivity::None
             };
-            if !forward { profile.forward_axes = None; }
+            if !forward {
+                profile.forward_axes = None;
+            }
             profile
                 .validate(native::dynamics::Oracle::contract(&plain), &parameters)
                 .map_err(problem)?;
@@ -1215,6 +1220,13 @@ impl ShootingOracle {
                     false,
                     false,
                     k as u64,
+                    forward.then(|| {
+                        window
+                            .profile
+                            .forward_axes
+                            .as_ref()
+                            .map_or(window.columns.len(), Vec::len)
+                    }),
                 );
                 let result = p.experiment.integrate_window(
                     worker,
@@ -1231,7 +1243,9 @@ impl ShootingOracle {
         if forward {
             for (window, report) in p.windows.iter().zip(&reports) {
                 if window.profile.forward_axes.as_ref() != Some(&report.forward_axes) {
-                    return Err(ProblemError::internal("shooting selected sensitivity layout unavailable"));
+                    return Err(ProblemError::internal(
+                        "shooting selected sensitivity layout unavailable",
+                    ));
                 }
             }
         }
@@ -1276,8 +1290,9 @@ impl ShootingOracle {
             constraints.push(value);
             if let Some(derivatives) = derivatives {
                 for (axis, d) in reports[k].forward_axes.iter().zip(derivatives) {
-                    let column = p.windows[k].columns.get(*axis)
-                        .ok_or_else(|| ProblemError::internal("shooting physical sensitivity axis"))?;
+                    let column = p.windows[k].columns.get(*axis).ok_or_else(|| {
+                        ProblemError::internal("shooting physical sensitivity axis")
+                    })?;
                     if let Some(v) = p.variable(k, column) {
                         *entries.entry((r, v)).or_default() += d;
                     }
@@ -1317,8 +1332,9 @@ impl ShootingOracle {
                 let sensitivities =
                     &finish.output_sensitivities[o * width(last)..(o + 1) * width(last)];
                 for (axis, d) in reports[last].forward_axes.iter().zip(sensitivities) {
-                    let column = p.windows[last].columns.get(*axis)
-                        .ok_or_else(|| ProblemError::internal("shooting terminal sensitivity axis"))?;
+                    let column = p.windows[last].columns.get(*axis).ok_or_else(|| {
+                        ProblemError::internal("shooting terminal sensitivity axis")
+                    })?;
                     if let Some(v) = p.variable(last, column) {
                         gradient[v] += w * d;
                     }
@@ -1405,6 +1421,7 @@ impl ShootingOracle {
                     true,
                     false,
                     k as u64,
+                    None,
                 );
                 let product = p.experiment.window_gradient(
                     worker,

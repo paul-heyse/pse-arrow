@@ -4946,7 +4946,7 @@ class InvocationComparisonStatement(msgspec.Struct, frozen=True, forbid_unknown_
 
 
 class InvocationEndpoints(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Observed supervisor endpoints. Missing endpoints are unavailable, never zero."""
+    """Observed invocation endpoints. Missing endpoints are unavailable, never zero."""
 
     #: Governing original qualification succeeded; absent on failed qualification.
     qualification_seconds: float | None = None
@@ -4975,7 +4975,7 @@ class InvocationEvidenceDocument(msgspec.Struct, frozen=True, forbid_unknown_fie
     canonical_run: str | None = None
     #: Performing clock boundary; no inferred preparation or native start is included.
     clock_scope: str
-    #: Directly observed endpoints on this invocation's monotonic supervisor clock.
+    #: Directly observed endpoints on this invocation's monotonic pre-dispatch clock.
     endpoints: InvocationEndpoints
     #: Actual workflow family.
     family: str
@@ -5021,15 +5021,15 @@ class InvocationEvidenceReference(msgspec.Struct, frozen=True, forbid_unknown_fi
 
 
 class InvocationInterval(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """One directly observed inclusive owner interval, relative to supervisor entry."""
+    """One directly observed inclusive owner interval, relative to invocation establishment."""
 
-    #: Wall seconds after supervisor entry, absent if the owner never completed.
+    #: Wall seconds after invocation establishment, absent if the owner never completed.
     ended_seconds: float | None = None
     #: Owner outcome, absent while active.
     outcome: InvocationOutcome | None = None
     #: Performing responsibility; nested intervals must not be added together.
     stage: str
-    #: Wall seconds after this invocation's supervisor began.
+    #: Wall seconds after this invocation was established before dispatch.
     started_seconds: float
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -7860,6 +7860,27 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.id), v.scalar_key(self.max_cells), v.record_key(self.preparation), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.scalar_key(self.source), v.optional_key(v.record_key)(self.uncertainty),))
 
 
+class ReplayForwardSelectionPhysicalAxes(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="physical_axes"):
+    """An already selected physical integration request, including scheduled intervals."""
+
+    coordinates: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.coordinates),))
+
+
+class ReplayForwardSelectionSemanticParameters(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="semantic_parameters"):
+    """Consumer inputs resolved to their start-interval axes during preparation."""
+
+    coordinates: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.coordinates),))
+
+    def __post_init__(self) -> None:
+        v.unique(v.scalar_key)(self, None, self.coordinates)
+
+
 class ReplayHorizonConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Full original horizon constructor; an interrupted observation never replaces its requested horizon."""
 
@@ -8167,6 +8188,8 @@ class ReplaySimulationConstructor(msgspec.Struct, frozen=True, forbid_unknown_fi
     case: ReplayCaseInputs
     #: Explicit exact derivative parameter demand.
     exact_parameters: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Original internal forward selection, absent for ordinary full Forward.
+    forward_selection: ReplayForwardSelection | None = None
     #: Original instance identity.
     instance: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: Original requested partial order.
@@ -8183,7 +8206,7 @@ class ReplaySimulationConstructor(msgspec.Struct, frozen=True, forbid_unknown_fi
     source: Annotated[int, msgspec.Meta(ge=0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.bindings), v.record_key(self.case), v.sequence_key(v.scalar_key)(self.exact_parameters), v.scalar_key(self.instance), v.scalar_key(self.order), v.record_key(self.preparation), v.record_key(self.profile), v.sequence_key(v.scalar_key)(self.provisional_quadratures), v.scalar_key(self.root), v.scalar_key(self.source),))
+        return (type(self), (v.sequence_key(v.scalar_key)(self.bindings), v.record_key(self.case), v.sequence_key(v.scalar_key)(self.exact_parameters), v.optional_key(v.record_key)(self.forward_selection), v.scalar_key(self.instance), v.scalar_key(self.order), v.record_key(self.preparation), v.record_key(self.profile), v.sequence_key(v.scalar_key)(self.provisional_quadratures), v.scalar_key(self.root), v.scalar_key(self.source),))
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.exact_parameters)
@@ -10409,6 +10432,8 @@ RawMapFailure = RawMapFailureTrial | RawMapFailureFatal | RawMapFailureStopped
 
 ReplayBoundOverride = ReplayBoundOverrideKeep | ReplayBoundOverrideRemove | ReplayBoundOverrideValue
 
+ReplayForwardSelection = ReplayForwardSelectionSemanticParameters | ReplayForwardSelectionPhysicalAxes
+
 ReplayHorizonSignal = ReplayHorizonSignalMeasured | ReplayHorizonSignalEstimated | ReplayHorizonSignalApplied | ReplayHorizonSignalTrajectory
 
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
@@ -10953,6 +10978,9 @@ __all__ = [
     "ReplayDecisions",
     "ReplayDocument",
     "ReplayFitConstructor",
+    "ReplayForwardSelection",
+    "ReplayForwardSelectionPhysicalAxes",
+    "ReplayForwardSelectionSemanticParameters",
     "ReplayHorizonConstructor",
     "ReplayHorizonController",
     "ReplayHorizonEstimator",

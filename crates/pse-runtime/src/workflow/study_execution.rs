@@ -259,10 +259,12 @@ impl ModelingPackage {
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.declare_summary("study responsibility");
                 }
-                let (report, preparations) = crate::math::counted(local.package.study_inner(
-                    &local.science,
-                    maximum_points,
-                    cancel,
+                // As on the durable route, keep the large coordinator future
+                // behind one pointer in caller-owned observation wrappers.
+                let (report, preparations) = crate::math::counted(Box::pin(
+                    local
+                        .package
+                        .study_inner(&local.science, maximum_points, cancel),
                 ))
                 .await;
                 let mut report = report?;
@@ -2515,7 +2517,8 @@ mod occurrence_execution_tests {
                 let mut results = Vec::new();
                 let demand = if compact {
                     super::super::StudyOutputDemand::Compact {
-                        detail: Default::default(), failed_detail: Default::default(),
+                        detail: Default::default(),
+                        failed_detail: Default::default(),
                     }
                 } else {
                     super::super::StudyOutputDemand::Full {}
@@ -2540,36 +2543,57 @@ mod occurrence_execution_tests {
                     }
                     let plan = &case.model.case.compiled().plan;
                     if let Some(original) = &plans[lane_index] {
-                        assert!(Arc::ptr_eq(plan, original), "trim cannot evict the active lane view");
+                        assert!(
+                            Arc::ptr_eq(plan, original),
+                            "trim cannot evict the active lane view"
+                        );
                     } else {
                         plans[lane_index] = Some(plan.clone());
                     }
                     for (id, value) in point.binding.values() {
                         assert_eq!(case.model.values.scalars[&id], value);
                     }
-                    let result = prepared.start(&package.runtime, &cancel).await.unwrap()
-                        .wait().await.unwrap();
+                    let result = prepared
+                        .start(&package.runtime, &cancel)
+                        .await
+                        .unwrap()
+                        .wait()
+                        .await
+                        .unwrap();
                     assert!(result.usable(), "{:?}", result.report());
                     let RunReport::Modeling(solved) = result.report().unwrap() else {
                         panic!("modeling result expected");
                     };
                     let solved = &solved[0];
-                    assert!((solved.values.scalars[&member(solved, "x")]
-                        - (2. + solved.prepared.model.values.scalars[&member(solved, "t")]))
-                        .abs() < 1e-8);
+                    assert!(
+                        (solved.values.scalars[&member(solved, "x")]
+                            - (2. + solved.prepared.model.values.scalars[&member(solved, "t")]))
+                            .abs()
+                            < 1e-8
+                    );
                     results.push(retain_occurrence(result, &demand, true).await.unwrap());
                 }
-                let departures: Vec<_> = lanes.iter().map(|lane| lane.numerical_view().unwrap()).collect();
+                let departures: Vec<_> = lanes
+                    .iter()
+                    .map(|lane| lane.numerical_view().unwrap())
+                    .collect();
                 math.clear_program_cache();
                 for lane in &mut lanes {
                     lane.close().await.unwrap();
                     assert!(lane.scope().is_none());
                 }
-                assert!(departures.iter().all(|view| view.upgrade().is_none()),
-                    "retained Full or Compact results do not own lane metadata");
+                assert!(
+                    departures.iter().all(|view| view.upgrade().is_none()),
+                    "retained Full or Compact results do not own lane metadata"
+                );
                 assert!(results.iter().all(|result| result.completion().is_ok()));
-                assert!(results.iter().all(|result| matches!(result,
-                    StudyOccurrenceResult::Compact(_)) == compact));
+                assert!(
+                    results
+                        .iter()
+                        .all(
+                            |result| matches!(result, StudyOccurrenceResult::Compact(_)) == compact
+                        )
+                );
             }
         }
     }
@@ -2577,12 +2601,20 @@ mod occurrence_execution_tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn current_numerical_view_survives_cancellation_until_native_drain() {
-        let (package, definition) = fixture(&[1.]).await;
+        // A nonlinear, non-presolved case must actually enter a native session;
+        // the affine default fixture can finish analytically before that boundary.
+        let (package, definition) = fixture_source_with_presolve(
+            &[1.],
+            "package p { def Root { param t:Scalar=1; var x:Scalar; eq e:x*x==2+t; annotation start x(1); annotation check x(x>0); } }",
+            Backend::Kinsol, 1, "Scalar", "1", pse_backend_native::presolve::PolicyKind::Off,
+        ).await;
         let point = &definition.points[0];
         let cancel = crate::CancelSource::new();
         let mut lane = super::super::study_operations::StudyPreparationLane::new();
-        let prepared = lane.prepare(&package, &point.operation, &point.binding, &cancel)
-            .await.unwrap();
+        let prepared = lane
+            .prepare(&package, &point.operation, &point.binding, &cancel)
+            .await
+            .unwrap();
         let departure = lane.numerical_view().unwrap();
         let scope = lane.scope().unwrap();
         let (started, entered) = tokio::sync::oneshot::channel();
@@ -2594,24 +2626,41 @@ mod occurrence_execution_tests {
                 let _ = started.send(());
                 // Cancellation requests a stop, but this real native entry remains
                 // held until the control explicitly permits it to drain.
-                let _ = gate.lock().unwrap().recv_timeout(std::time::Duration::from_secs(30));
+                let _ = gate
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(std::time::Duration::from_secs(30));
             }
         });
-        let work = crate::math::observed_native_task_entry(observer, scope.during(&cancel, async {
-            prepared.start(&package.runtime, &cancel).await?.wait().await
-        }));
+        let work = crate::math::observed_native_task_entry(
+            observer,
+            scope.during(&cancel, async {
+                // Match the production declared-case lane, including its retained
+                // native session, rather than launching a separate run supervisor.
+                let mut staged = Staged::open(&package.runtime, None)?;
+                let result = execute(&package, &mut staged, prepared, 1, &cancel).await;
+                drop(staged);
+                result
+            }),
+        );
         let controls = async {
             entered.await.unwrap();
             package.runtime.shared.math().clear_program_cache();
             cancel.cancel();
             let mut close = Box::pin(lane.close());
             assert!(futures_util::poll!(close.as_mut()).is_pending());
-            assert!(departure.upgrade().is_some(), "cancelled native owner still holds its lane view");
+            assert!(
+                departure.upgrade().is_some(),
+                "cancelled native owner still holds its lane view"
+            );
             release.send(()).unwrap();
             close.await.unwrap();
         };
         let (_result, ()) = tokio::join!(work, controls);
-        assert!(departure.upgrade().is_none(), "actual native drain releases lane metadata");
+        assert!(
+            departure.upgrade().is_none(),
+            "actual native drain releases lane metadata"
+        );
         assert!(lane.scope().is_none());
     }
     fn result(report: &StudyReport, index: usize) -> &super::super::ModelingResult {

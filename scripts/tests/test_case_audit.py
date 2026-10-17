@@ -672,6 +672,159 @@ class AuditTests(unittest.TestCase):
                 case_measure.main()
             self.assertEqual(exit_error.exception.code, 2)
 
+    def test_deadline_requests_cooperative_stop_and_awaits_cleanup(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            program = (
+                "import os,pathlib,time,signal,json\n"
+                "p=pathlib.Path(os.environ['PSE_CASE_AUDIT_DIR'])\n"
+                "signal.signal(signal.SIGTERM,lambda *_: (p/'bad-signal').touch())\n"
+                "while not (p/'stop.request').exists(): time.sleep(.01)\n"
+                "time.sleep(.3)\n"
+                "(p/'cleaned').touch()\n"
+                "(p/'audit-outcome.json').write_text(json.dumps({'status':'interrupted',"
+                "'native_joins_completed':1,'fixture_cleanups_completed':1}))\n"
+                "raise SystemExit(3)\n"
+            )
+            with patch.object(case_audit, "Observer") as observer:
+                observer.return_value.finish.side_effect = lambda: {
+                    "cleanup_visible_at_finish": (
+                        directory / "diagnostics/cleaned"
+                    ).exists()
+                }
+                result = case_audit.run_case(
+                    [sys.executable, "-c", program],
+                    cwd=directory,
+                    env=dict(os.environ),
+                    directory=directory,
+                    deadline_seconds=0.05,
+                )
+            self.assertEqual(result["status"], "interrupted")
+            self.assertEqual(result["exit_code"], 3)
+            self.assertEqual(result["native_joins_completed"], 1)
+            self.assertEqual(result["fixture_cleanups_completed"], 1)
+            self.assertTrue(result["cleanup_visible_at_finish"])
+            self.assertFalse(result["operator_interrupted"])
+            self.assertEqual(result["observation_deadline_seconds"], 0.05)
+            self.assertEqual(
+                result["observer_stop_reason"], "observation deadline reached"
+            )
+            self.assertFalse((directory / "diagnostics/bad-signal").exists())
+
+    def test_deadline_does_not_replace_failed_scientific_outcome(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            program = (
+                "import os,pathlib,time,json\n"
+                "p=pathlib.Path(os.environ['PSE_CASE_AUDIT_DIR'])\n"
+                "while not (p/'stop.request').exists(): time.sleep(.01)\n"
+                "(p/'audit-outcome.json').write_text(json.dumps({'status':'failed',"
+                "'fixture_cleanup_failures':1}))\n"
+                "raise SystemExit(1)\n"
+            )
+            with patch.object(case_audit, "Observer") as observer:
+                observer.return_value.finish.return_value = {}
+                result = case_audit.run_case(
+                    [sys.executable, "-c", program],
+                    cwd=directory,
+                    env=dict(os.environ),
+                    directory=directory,
+                    deadline_seconds=0.01,
+                )
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["fixture_cleanup_failures"], 1)
+            self.assertEqual(
+                result["observer_stop_reason"], "observation deadline reached"
+            )
+
+    def test_deadline_requires_audit_and_finite_positive_interval(self) -> None:
+        for value in ("nan", "inf", "0", "-1"):
+            with (
+                self.subTest(value=value),
+                patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "case_measure",
+                        "out",
+                        "--smoke",
+                        "--audit-diagnostics",
+                        "--case",
+                        "cold-small-1",
+                        "--audit-deadline-seconds",
+                        value,
+                    ],
+                ),
+                patch.object(case_measure, "smoke_campaign") as campaign,
+                self.assertRaises(SystemExit) as exit_error,
+            ):
+                case_measure.main()
+            self.assertEqual(exit_error.exception.code, 2)
+            campaign.assert_not_called()
+        with (
+            patch.object(
+                sys, "argv", ["case_measure", "out", "--audit-deadline-seconds", "60"]
+            ),
+            self.assertRaises(SystemExit) as exit_error,
+        ):
+            case_measure.main()
+        self.assertEqual(exit_error.exception.code, 2)
+
+    def test_compact_audit_selection_preserves_order_and_forwards_deadline(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            cases = ["warm-small-1", "cold-small-1", "sparse-fit-12-1"]
+            with (
+                patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "case_measure",
+                        str(directory / "out"),
+                        "--smoke",
+                        "--audit-diagnostics",
+                        "--audit-deadline-seconds",
+                        "60",
+                        *[argument for case in cases for argument in ("--case", case)],
+                    ],
+                ),
+                patch.object(
+                    case_measure.validation,
+                    "fresh_output",
+                    return_value=directory / "out",
+                ),
+                patch.object(case_measure, "smoke_campaign") as campaign,
+            ):
+                self.assertEqual(case_measure.main(), 0)
+            self.assertEqual(campaign.call_args.args[4], set(cases))
+            self.assertEqual(campaign.call_args.kwargs["audit_order"], cases)
+            self.assertEqual(campaign.call_args.kwargs["audit_deadline_seconds"], 60)
+
+    def test_declared_compact_shapes_keep_output_counts_and_stop_capability(
+        self,
+    ) -> None:
+        declaration = json.loads(
+            (case_measure.ROOT / ".config/process-cases.json").read_text()
+        )
+        compact = [
+            w for w in declaration["workloads"] if w["id"].startswith("compact-")
+        ]
+        self.assertTrue(compact)
+        self.assertEqual(len({w["id"] for w in compact}), len(compact))
+        requested = ["compact-idas-ode-25", "compact-root-coupled-8", "compact-minlp"]
+        selected = case_measure.selected_workloads((declaration,), requested)
+        self.assertEqual({w["id"] for w in selected}, set(requested))
+        by_id = {w["id"]: w for w in selected}
+        self.assertEqual(by_id[requested[0]]["samples"], 25)
+        self.assertEqual(by_id[requested[1]]["blocks"], 8)
+        for workload in compact:
+            self.assertTrue(workload["extended"])
+            self.assertIs(workload["audit_supported"], True)
+            self.assertTrue(workload["case_spec"]["assertions"])
+            self.assertTrue(workload["case_spec"]["observations"])
+
     def test_foreground_interrupt_requests_stop_and_waits_for_child_cleanup(
         self,
     ) -> None:

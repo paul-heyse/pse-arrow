@@ -78,7 +78,8 @@ impl IntegratedExperiment {
         binding: &Binding,
     ) -> Result<f64, ProblemError> {
         let column = report.sensitivity_column(binding.local)?;
-        let offset = row.checked_mul(report.forward_axes.len())
+        let offset = row
+            .checked_mul(report.forward_axes.len())
             .and_then(|start| start.checked_add(column))
             .ok_or_else(|| ProblemError::internal("integrated output sensitivity offset"))?;
         sample

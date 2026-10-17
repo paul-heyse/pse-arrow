@@ -303,12 +303,20 @@ impl<'o> Operator<'o> {
             return Err(ProblemError::internal("dynamic support bounds"));
         }
         // Contract parameter columns become the segment's integration columns.
-        pairs = pairs.into_iter().filter_map(|(row, col)| {
-            if col < n { Some((row, col)) } else {
-                shared.axes.iter().position(|axis| *axis == columns[col - n])
-                    .map(|selected| (row, n + selected))
-            }
-        }).collect();
+        pairs = pairs
+            .into_iter()
+            .filter_map(|(row, col)| {
+                if col < n {
+                    Some((row, col))
+                } else {
+                    shared
+                        .axes
+                        .iter()
+                        .position(|axis| *axis == columns[col - n])
+                        .map(|selected| (row, n + selected))
+                }
+            })
+            .collect();
         if function == Function::Initial {
             // A restarted segment carries every selected state derivative, including
             // axes from inactive earlier intervals. Its seed is not a fresh direct
@@ -345,7 +353,10 @@ impl<'o> Operator<'o> {
             parameter_adjoint_pattern: transpose(&parameter_pattern)?,
             state_pattern,
             parameter_pattern,
-            columns: columns.iter().map(|column| shared.axes.iter().position(|axis| axis == column)).collect(),
+            columns: columns
+                .iter()
+                .map(|column| shared.axes.iter().position(|axis| axis == column))
+                .collect(),
             contract: contract_columns,
             direction: RefCell::new(vec![0.0; n + np]),
             transposed: RefCell::new(vec![0.0; n + np]),
@@ -818,7 +829,9 @@ impl<'o> Shared<'o> {
         let contract_value = oracle.contract().clone();
         let axes = if profile.sensitivity == DynamicSensitivity::Forward {
             profile.forward_axes(contract_value.parameters.len())
-        } else { (0..parameters.len()).collect() };
+        } else {
+            (0..parameters.len()).collect()
+        };
         Ok(Rc::new(Shared {
             oracle: RefCell::new(oracle),
             columns: RefCell::new(
@@ -1026,7 +1039,11 @@ fn run<LS: LinearSolver<M>>(
     // the same integration parameters with its own column map (I6).
     let boundaries = p.boundaries();
     let complete_scales = p.integration_parameters(&p.parameter_scales);
-    let scales = shared.axes.iter().map(|axis| complete_scales[*axis]).collect::<Vec<_>>();
+    let scales = shared
+        .axes
+        .iter()
+        .map(|axis| complete_scales[*axis])
+        .collect::<Vec<_>>();
     let np = shared.contract.parameters.len();
     let mut segment = 0;
     let mut steps = StepBudget::new(p.max_steps);

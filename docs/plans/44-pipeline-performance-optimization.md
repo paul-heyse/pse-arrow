@@ -1,0 +1,141 @@
+---
+title: Short-run pipeline performance optimization
+status: in-progress
+date: 2026-10-17
+adrs: [ADR-0192, ADR-0197]
+review_sources: [docs/design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md]
+scenario_sources: [docs/design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md]
+doc_owner: docs/plans/44-pipeline-performance-optimization.md
+doc_topics: [current-work, design, diagnostics, numerical-execution, preparation, validation]
+---
+
+# Plan 44: Short-run pipeline performance optimization
+
+## Purpose and baseline
+
+This standalone series adopts the [pipeline performance review](../design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md), including all F01–F09, O01–O06, RC01–RC02, preservation constraints and next-round recommendations. Its [case notes](../design_review/evidence/pipeline-performance-optimization-2026-10-17/case-notes.md) and [selected observations](../design_review/evidence/pipeline-performance-optimization-2026-10-17/case-observations.json) supply the bounded initial observations, not a whole-product benchmark baseline.
+
+The target is effective end-to-end execution for the best-in-class Process Simulator: edit/re-solve without rebuilding unchanged structure; studies, sensitivities, optimization and fitting; recycles; dynamics from the same definitions; solver/model extension; and responsibilities testable with their actual dependencies. Core 3.4, Efficient Architecture 1.0 and Process Simulator 1.5 judge design choices. Architecture contracts remain with their existing owners in blueprint §13–§19 and §23–§24.
+
+**Interface-checked:** source and affected contracts on main at `b8c535888075d84bbd9ef54767aacfb283601d5e`, with the uncommitted review, supporting drivers and runner improvements from the preceding inquiry preserved. Those changes are inputs; this authoring does not claim a fresh build or replay. The review selected 37 short observations, at most 4.8064 seconds each, and deliberately limited its causal/profile claims. **At authoring — Proposed:** all product changes, investigations, campaign execution and acceptance in this series. The Current checkpoint records the later authorized execution tranche.
+
+The work includes immediate corrections **and** the initial short-run discovery/optimization campaign. A test is useful when it distinguishes a cause or protects scientific behavior, not because it reaches a prescribed duration. Longer or substantially different experiments belong to a subsequent review/planning process after this campaign has improved and characterized the pipeline. No hard latency SLA, repeated statistical tournament, tighter solve accuracy or environment/provenance proof is introduced.
+
+The practical engineering relative fraction in the reviewed controls is **0.001**. Preserve the ordinary case-owned numerical policy and physical checks; rank-classification thresholds and derivative/backward-error tolerances have their own existing meanings and are not rewritten to match that fraction.
+
+Existing plan files and their index are outside authoring and execution updates in this series. No status is transferred, reconciled or superseded. Additive metadata/publication registration selects only Plan44. Its eventual closeout publishes its own enduring changes; assessment or updating of older plans remains separately scoped after the testing and optimization process.
+
+## Combined target and responsibilities
+
+Consumers request actual values and derivative products; preparation owns compatible immutable structure; existing lanes own live execution state; native libraries own iteration, globalization and factors; independent original assessment governs scientific permission. Diagnostics copy facts from those owners. The campaign analyzes those facts and chooses corrections without becoming a scheduler, mathematical oracle, generic cache or second work ledger.
+
+| Companion | Owned design and packages | Consumed boundary |
+| --- | --- | --- |
+| [44a](44a-invocation-coverage-and-diagnostic-readiness.md) | Invocation coverage, terminal publication and narrowly needed observation support | Existing invocation/operation/producer identities and native dispatch |
+| [44b](44b-selected-sensitivities-and-workflow-products.md) | Selected sensitivity layout, final-product composition, trial/shooting alternatives and trajectory checking | Complete physical values; native integration and original assessment |
+| [44c](44c-active-preparation-and-study-reuse.md) | Active study views, immutable compilation and preparation/unit-cost investigations | Existing admission, lane drain, retention and compiler owners |
+| [44d](44d-sparse-verification-and-native-effectiveness.md) | Sparse IFT verification, KLU reuse, provider products and numerical profiles | Native/math contracts; immutable versus stateful provider premises |
+| [44e](44e-short-run-investigation-and-optimization.md) | Case matrix, repeated short-run analysis/correction rounds and new discoveries | Actual owner facts and the integrated production tree |
+| [44f](44f-integrated-acceptance-and-follow-up.md) | Assembled acceptance, final resweep, enduring publication and follow-up handoff | Completed required corrections and settled investigation branches |
+
+The coordinator owns rule decisions and finding dispositions. Each companion owns its Work packages table. Prefixes such as `44b/B01` identify packages; review F01 identifies a different thing. Campaign observations belong to 44e and affected package outcomes, with links rather than copied live status.
+
+Preserve these distinctions throughout: complete parameter values versus requested directions; physical versus native/scaled coordinates; candidate versus scientifically usable result; independent final assessment versus optimizer cache; immutable structure versus mutable hints/scratch; symbolic versus numeric factors; accepted primal start versus preparation reuse; physical sample time versus internal native steps; optional cache versus active ownership; observation absence versus zero work; inclusive phase versus exclusive cost; logical allowance versus RSS; caller readiness versus actual native/worker drain.
+
+Credible extensions should stay local: adding an unused fixed input changes values without adding sensitivity work; adding a study point reuses a compatible active view; increasing output density adds only required interpolation/check work; substituting an eligible solver changes its adapter/profile rather than the scientific model. These scenarios explain the design, not promises to implement every future model/backend.
+
+## Rule decisions
+
+The operator explicitly accepted both directions during plan preparation on **2026-10-17**. Acceptance selects the stated targets/investigation permission; it does not select an unknown numerical winner or authorize product implementation.
+
+| Item | Decision and consequence | Required route before dependent change |
+| --- | --- | --- |
+| RC01 | Accepted: establish one invocation recorder before dispatch and expand its declared clock/coverage to include early native work; preserve synchronous admission/refusal behavior | 44a/A01: blueprint §23.1 and affected proposed ADR-0192 diagnostic explanation, through the design/decision route; migrate comparisons and all actual consumers together. Accepted records, if any become accepted, require supersession rather than body edits. |
+| RC02 | Accepted: permit a qualified selected forward quadrature-sensitivity route alongside retained adjoints when requested products favor it | 44b/B05: investigate first; before adoption amend blueprint §13.6 through the decision/design route, with a short ADR for a new binding/kernel contract where required. No universal forward preference or broader integral API is authorized. |
+
+F01 evolves an internal all-axis request into an explicit direction contract while preserving ordinary full-Forward semantics. Check actual affected public/schema contracts and follow their decision routes if changed. Dependency updates use ordinary exact-pin policy; no dependency upgrade is required merely to write this plan. Any additional rule impact discovered during authoring/execution needs its concrete per-item decision before dependent work; it is not silently covered by RC01/RC02.
+
+## Execution sequence
+
+1. Establish 44a/A01–A02 coverage/publication corrections and 44e/E01 case specifications. Existing raw streams permit source-led work meanwhile; do not wait for an entire profiler stack. Obtain matched short anchors where an implementation claim needs them.
+2. Start 44e/E02 breadth testing using the shortest representative cases. Before each correction, capture the relevant current work facts when not already established. A slow case is inspected/reduced or its clear cause corrected; it is not a mandatory barrier to every other family.
+3. Implement independent known corrections with their targeted tests: 44b/B01 preflight before B03 final fusion; B02 direction selection feeds fitting and B05; 44c/C01 active-view ownership; 44d/D01 sparse verification; 44b/B06 trajectory checking. B03 does not require B02 if the current full-direction product can safely be fused first.
+4. Execute 44e/E03 mechanism ladders alongside the bounded investigations B04/B05, C02–C04 and D02–D04. Select and integrate supported remedies through E04. Native API feasibility, scientific qualification and beneficial execution are separate premises.
+5. After all selected functional corrections and required short investigations finish, E05 resweeps the integrated tree. Newly exposed material short-run causes return to E03/E04; there is no arbitrary fixed number of optimization rounds.
+6. 44f assembles affected scientific/resource/diagnostic journeys, runs scope-end quality once, publishes enduring changes through their owners and hands remaining questions to a future review. It does not execute long-duration experiments or update older plans.
+
+These are package dependencies, not six document-wide barriers. Shared edits in workflow `run.rs`, fitting/integrated execution, native dynamics, result schemas and study views require explicit single-writer coordination. A worker may investigate a ready independent question without sharing mutable native scratch or borrowing another owner's processes. Use worktrees only for genuinely concurrent edits and integrate/drain before removal.
+
+## Finding dispositions
+
+All source items were **open** at authoring; current dispositions below reflect only the specified-change tranche. An assigned package is a work route, not resolution. Investigations can establish no suitable change; record the supported conclusion and any remaining limitation honestly. A confirmed unresolved defect stays deferred/open with owner and observable trigger rather than becoming resolved because its investigation ended.
+
+| Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
+| --- | --- | --- | --- | --- |
+| F01 selected transient directions | C09; coupled/scheduled free/fixed inputs | resolved | 44b/B02 | Predictions/responses preserved; direction work follows consumed seeds |
+| F02 repeated final fit integrations | C09; successful and derivative-failed final assessment | resolved | 44b/B03 | One fresh admitted final product; independent value fallback |
+| F03 late known rank refusal | C09/C12; extent and worker refusal | resolved | 44b/B01 | Known refusal precedes optional derivative IVP; candidate retained |
+| F04 active study reuse | C10; pressure and retained results | open | 44c/C01/C04 | Rebind under optional-cache eviction; changed keys rebuild; correct drain |
+| F05 dense sparse-IFT verification | C04; eligible sparse first/second derivatives | resolved | 44d/D01 | Sparse support work with unchanged backward-error/finiteness safeguards |
+| F06 repeated KLU symbolic work | C03/C05; retained application, changed coefficients/pattern | open | 44d/D02 | Actual symbolic/numeric observations and supported reuse decision |
+| F07 pre-recorder dispatch | C01/C09/C10; ephemeral/durable/nested invocation | resolved | 44a/A01 | Correct recorder receives early/later native stages and failure endpoints |
+| F08 close-before-terminal publication | C09/C12; terminal success/refusal/cancellation | resolved | 44a/A02 | Current/history and selected raw records preserve final available phase |
+| F09 quadratic sample ordinal lookup | C08/C09; Full/Compact and endpoints | resolved | 44b/B06 | Ordered checking retains identities/coverage without repeated search |
+| O01 eager versus lazy trial products | C09; accepted/rejected trials and direction widths | open | 44b/B04 | Explicit conditional scheduling decision; no blanket overfetch |
+| O02 quadrature sensitivities | C09; few/many controls, schedules and integral objective | open | 44b/B05 | Exact callback and physical qualification; retain adjoint alternative |
+| O03 immutable inner compilation | C02/C04/C10; changed values/hints and stable programs | open | 44c/C02 | Exact compatibility and actual compile/reuse counts |
+| O04 provider weighted products | C04/C05; immutable/stateful providers and weights | open | 44d/D03 | Safe reuse premise or retained barrier with discriminating evidence |
+| O05 numerical profiles | C05/C07; cheap/expensive derivatives and sparse setup | open | 44d/D04 | Work/cost tradeoff at unchanged accuracy; no universal winner |
+| O06 preparation/unit cost | C01/C11; aligned admission/allocation captures | open | 44c/C03 | Attributed repeated work or supported no-change conclusion |
+
+New discoveries receive `N01`, `N02`, etc. in this same table, with cause, scenario, owner, correction/decision and settling evidence described in E04. Do not reuse the review's F/O identifiers or create a second editable backlog. The C01–C12 definitions and run coverage belong to 44e; the source review retains its historical scope unchanged.
+
+## Completion and verification
+
+**Proposed acceptance:** all required short-case cells in 44e are exercised with original assertions, or a genuinely unsupported capability is explicitly classified without claiming its performance coverage. A supported required cell blocked by setup/build/observability remains unfinished until repaired or explicitly rescoped; a refusal fixture is not a substitute for an eligible-case measurement. Known unconditional corrections are integrated, all investigations have supported outcomes, and every discovered material short-run opportunity is corrected, disproved or has a concrete justified disposition. No unresolved cheap discriminating observation is silently transferred to the long-run backlog.
+
+Deferral requires a named premise, experiment or consequential decision unavailable within the short-run scope, or a supported decision that the proposed remedy is unsound or disproportionate. A readily implementable scope-owned correction cannot satisfy completion merely by acquiring an owner and revisit trigger. Keep confirmed unresolved defects explicit even when no acceptable native remedy is selected; do not relabel them resolved.
+
+E05 must find no unaddressed material opportunity diagnosable within the declared short scope. This is a coverage/decision boundary, not a claim that no inefficiency remains anywhere. 44f separates Tested scientific behavior, diagnostic sufficiency and Measured benefit. Passing scientific results alone do not settle AP-07/G9; missing optional telemetry alone does not revoke scientific permission.
+
+During product execution use targeted compile/unit tests and delete replaced mechanisms/callers/tests as their replacements qualify. At functional scope end select relevant integrated journeys, full continuing Clippy modes, Python type/lint checks, codegen/governance and other applicable quality checks under AGENTS.md. New mechanisms get tests in the same change. No full statistical benchmark, release wheel or repeated environmental attestation is a completion condition.
+
+## Current checkpoint
+
+The maintainer authorized the upfront specified-change and reusable test-setup tranche: A01/A02/A04 and directly needed A03 facts; B01/B02/B03/B06; C01; D01; E01 specifications/current-capability setup. Product changes and contribution integration are implemented. The 52-control targeted native-local selection, 84 runner tests, three Python projection tests and four once-only harness readiness controls passed. A04 and E01 setup are complete; A03’s campaign-driven inventory remains open. The four clean contribution worktrees were removed after patch equivalence and integration. The ordinary accuracy policy is unchanged.
+
+B02 integration includes preparation admission, physical/scheduled response-row columns, dynamic-profile framing version10 and one explicit replay selection. A01 establishes inside the entered activity owner before dispatch and retains that context in the supervisor/native worker. A bounded native-worker interval and opt-in case-owned selected detail use existing diagnostics. These are enabling corrections within this tranche, not investigations.
+
+B04/B05, C02–C04, D02–D04, E02–E05 and all 44f qualification remain open and unexecuted. E01 references existing scientific owners for additional contrasts and adds compact route declarations; a declaration or authored test is not measured coverage. No library winner, speedup, broad campaign, tighter accuracy or environment/provenance proof is claimed. Older plans/index remain unchanged.
+**Historical authoring checkpoint — Tested, document scope only:** scoped strict metadata/table/package-reference checks, all 15 open source-item bindings and 27 open package bindings, C01–C12 coverage, local source targets, rendered in-scope anchors and actual pinned mdBook/Pagefind publication passed. Existing tracked plan files/index remained unchanged. A scoped-check premise initially included foreign unbound documents; filtering to this series corrected that check without changing product or prior-plan state. Independent focused design advice checked the combined preservation and dependency boundaries; it is not enclosing-system acceptance. `just adr-index` and `just fmt` passed. At authoring, full `just docs` was blocked by the unchanged external report's missing title/H1, and the default registry's explicit-migration requirement stopped environment bundles. This tranche uses separate test metadata and its actual bundle results are recorded below; no shared registry or unrelated report was modified. Full-site publication was not rerun.
+
+## Outcome: specified changes and test setup
+
+**Implemented — 2026-10-17:** the authorized upfront tranche is integrated: A01/A02/A04 with the directly required A03 facts; B01/B02/B03/B06; C01; D01; and E01 case specifications/setup. The companion checkpoints describe the delivered behaviors and deletions. Invocation establishment and native-worker coverage, selected preparation/replay/public response coordinates, fresh final fitting assessment, active lane ownership, sparse verification and compact declared observation routes compose in the production tree. Enduring contracts are recorded in blueprint §13.6/§23.1 and proposed ADR-0192/0197; formal ADR acceptance is separate. The four contribution worktrees and their branches were removed after clean-tree and integrated patch-equivalence checks. Root integration/document changes remain in the checkout.
+
+**Tested — targeted controls, baseline zero:** all commands below ran with the checkout environment through `scripts/pse-env`. Native commands used `--native=solver,klu,isolation,uno,petsc`; native-local tests used `PSE_TEST_RESOURCE_STATE=/tmp/pse44-test-resources-2hulIR`. This separate test metadata selector preserves the shared registry, whose explicit migration requirement was not overridden. Correctness routes explicitly activate Arrow force-validation.
+
+| Command / mode | Actual scope and result |
+| --- | --- |
+| `just unit-package pse-runtime "$selection" -p pse-math -p pse-backend-native -p pse-ids --features pse-runtime/native-solvers,pse-backend-native/native-solvers --execution-effects native-local` | **52 passed, 0 failed**, 2116 excluded; no compiler warnings in the final run. Invocation/transfer/comparison/failure, rank/final fallback, selected native initial/scheduled/full/empty coordinates, fitting/shooting/preparation/replay/public projection, lane pressure/drain, ordinary caller-stack execution, sparse verification and ordinal checking. |
+| `.venv/bin/python -m unittest scripts.tests.test_case_audit scripts.tests.test_validation` | **84 passed, 0 failed**; declared capability, selection order, diagnostics, cooperative stop/failure/actual-drain and compact specification controls. |
+| `just check-package pse-benches --features native-process --bench native_process` | Passed compile-only; the readiness invocation subsequently builds the actual current harness. Compilation is not an executed case. |
+| `just py-sync-native-correctness dev` | Passed fast editable native correctness refresh and actual API stub check; no release-wheel campaign. |
+| `pytest -q -n 0 --maxfail=0 --basetemp=<fresh-owned-directory> python/pse/tests/test_diagnostics.py::test_selected_native_detail_current_history_zero_and_invocation_endpoints python/pse/tests/test_live_simulation.py::test_compact_explicit_sensitivities_refuse_before_a_live_run_is_returned` through `scripts.test_run.run_python` | **3 passed, 0 failed**, native-local environment; invocation v2/clock endpoints, response-column projection, zero-history/detail and existing Compact sensitivity refusal. The two-case selector expands to three parametrized tests. |
+| `just codegen` | Passed source-owned registry/replay regeneration, Python contracts/annotations and bindings. No generated output was edited directly. |
+| `just ready` | Passed skill-selection and environment checks with the separate test metadata selector; this is environment readiness, not product qualification. |
+| `just turn-end` | Passed ADR index and formatting bundle at closure, baseline zero. This is not full hygiene or 44f qualification. |
+
+For reproducibility, the native `selection` above is:
+
+```text
+test(invocation::tests::) | test(inspection_comparison::tests::) | test(evidence_invocation_and_failed_capture) | test(sparse_verification) | test(dynamics::selected_tests::) | test(forward_initialization_tests) | test(fitting_original_final_assessment) | test(fitting_selected_forward_preparation) | test(transient_fit_demand_cache_and_coherent_upgrade) | test(prepared_fitting_relationships_refill_direct_binding_addends) | test(bounded_rank_diagnostic_does_not_disable_sparse_candidate_evaluation) | test(ordered_check_tests::) | test(lane_current_view) | test(concurrent_lane_views) | test(denied_bound_lookup_retention) | test(adjacent_actual_point_preparations_share_one_live_establishment) | test(current_numerical_view_survives_cancellation_until_native_drain) | test(shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral) | test(kernel_fixture_schedules_inputs) | test(selected_public_parameters_follow_schedule_order_and_physical_axis_identity) | test(simulation_identity_distinguishes_selected_physical_axes) | test(original_fit_failure_withholds_completed_statistical_products_in_invocation) | test(final_fit_derivative_failure_preserves_fresh_original_values) | test(frame_spellings_unchanged) | test(local_study_retains_actual_source_on_ordinary_caller_stack)
+```
+
+**Tested — harness readiness, baseline zero:** `.venv/bin/python -m scripts.case_measure <fresh-output> --smoke --audit-diagnostics --audit-deadline-seconds 60 --case compact-root-diagonal-4 --case compact-diffsol-ode-5 --case compact-implicit-derivatives-4-2 --case compact-study-2-compact-independent` passed all four cases in functional placement with native linking and explicit Arrow validation. A fresh current private substrate supplied registered fixture databases; the owned service stopped normally after original assertions and joined cleanup. `case-audit.json` records four completed outcomes, zero cleanup failures and `measured: false`. The root raw stream reports actual loss and is incomplete; dynamic-only selected detail completed. Direct IFT and affine-study setup select no irrelevant native family. These controls establish setup behavior, not E02 breadth coverage or comparative performance. No selected request alone is treated as complete evidence.
+
+**Mistake corrected:** the initial active-lane cancellation fixture was affine/presolved and then used an arbitrary box refused by KINSOL, so it did not reach the intended native lifetime boundary. The repaired eligible nonlinear fixture enters the production staged lane path, holds actual native work, requests cancellation, and checks that lane close waits for drain. The readiness pass also corrected a root assertion that ignored native component reports under a fresh original structural assessment, and exposed an oversized nested study poll frame. Boxing the selected harness futures and local coordinator (as on the durable route) preserves the ordinary caller stack; no stack limit was widened. The final native selection passes. Replay generation also caught a missing unknown-field refusal on the new typed selection; that source declaration was corrected before regeneration. Python's default temporary root belonged to another owner, so the controls used a fresh owned base rather than changing shared files. The first harness pass also found an obsolete shared substrate interpretation; a fresh private current profile settled that prerequisite without migrating shared data. Four dead creation markers left by the crashed setup attempts were archived and released under standing operator permission, with their failed outcomes/data retained. Normal registered shutdown then completed.
+
+**Deliberate deviations and limits:** preparation admission, replay identity and required public response columns were migrated with B02 because narrower native vectors alone would leave the target incomplete. The selected-direction observation is a request-layout fact, not a fabricated native execution count. Existing scientific fixtures supply wider E01 setups instead of another runner/model authority. Practical engineering accuracy remains 0.001 and case-owned scientific checks remain unchanged. No environment/provenance proof, tighter tolerance, library upgrade, statistical tournament or measured speedup was introduced.
+
+**Not run:** B04/B05, C02–C04, D02–D04, E02–E05 and 44f assembled qualification/quality remain open. A03's campaign-driven inventory remains open. The shared default canonical profile was not regenerated; managed/durable campaign cells retain their fresh-valid-state and worker prerequisites. Full site publication remains outside this tranche (the authoring checkpoint records the unrelated external-report blocker). Older plans and their index were not updated. Next execution starts with the shortest E02 family controls and the open bounded investigations; this is not completion of Plan44.

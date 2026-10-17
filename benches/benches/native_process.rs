@@ -11,10 +11,10 @@
 )]
 #[path = "audit/mod.rs"]
 mod audit;
-#[path = "native_process/curved_fit.rs"]
-mod curved_fit;
 #[path = "native_process/compact.rs"]
 mod compact;
+#[path = "native_process/curved_fit.rs"]
+mod curved_fit;
 #[path = "native_process/extended.rs"]
 mod extended;
 #[path = "../../tests/support/plan14.rs"]

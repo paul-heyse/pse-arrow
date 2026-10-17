@@ -801,7 +801,9 @@ fn check_solve(
         || rhs.nrows() != x.nrows()
         || rhs.ncols() != x.ncols()
     {
-        return Err(MathError::Contract("implicit derivative solve extent".into()));
+        return Err(MathError::Contract(
+            "implicit derivative solve extent".into(),
+        ));
     }
     let refused = || MathError::Domain {
         source_id: id,
@@ -841,7 +843,10 @@ fn check_solve(
         }
         for row in 0..x.nrows() {
             let error = (sums[row] - rhs[(row, column)]).abs();
-            if !error.is_finite() || error > tolerance * scales[row].max(f64::MIN_POSITIVE) {
+            if !error.is_finite()
+                || !scales[row].is_finite()
+                || error > tolerance * scales[row].max(f64::MIN_POSITIVE)
+            {
                 return Err(refused());
             }
         }
@@ -1692,7 +1697,12 @@ mod tests {
             .collect::<Vec<_>>();
         let (pattern, _) = SymbolicSparseColMat::try_new_from_indices(n, n, &indices).unwrap();
         let values = (0..n)
-            .flat_map(|column| pattern.as_ref().row_idx_of_col(column).map(move |row| (row, column)))
+            .flat_map(|column| {
+                pattern
+                    .as_ref()
+                    .row_idx_of_col(column)
+                    .map(move |row| (row, column))
+            })
             .map(|(row, column)| {
                 entries
                     .iter()
@@ -1730,17 +1740,32 @@ mod tests {
             ],
         );
         // Three packed second RHS columns for two independent parameters.
-        let mut x = faer::mat![[1.0, 0.0, -1.0], [2.0, 1.0, 0.0], [3.0, -1.0, 2.0], [4.0, 2.0, -2.0]];
-        let rhs = faer::mat![[2.0, 0.0, -2.0], [11.0, 4.0, -3.0], [8.0, -11.0, 12.0], [53.0, 9.0, -2.0]];
+        let mut x = faer::mat![
+            [1.0, 0.0, -1.0],
+            [2.0, 1.0, 0.0],
+            [3.0, -1.0, 2.0],
+            [4.0, 2.0, -2.0]
+        ];
+        let rhs = faer::mat![
+            [2.0, 0.0, -2.0],
+            [11.0, 4.0, -3.0],
+            [8.0, -11.0, 12.0],
+            [53.0, 9.0, -2.0]
+        ];
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
         let operation = hub.start("implicit.sparse_verification.packed");
         let _entered = operation.context().enter();
         check_solve(&matrix, &x, &rhs, 1e-12, id).unwrap();
         let snapshot = operation.reader().snapshot(Duration::from_secs(60));
-        let visits = snapshot.metrics.iter().find(|metric| {
-            metric.name == "implicit.derivatives.verification.support_visits"
-        }).unwrap();
-        assert_eq!(visits.cumulative, pse_diagnostics::observation::Value::Count(7 * 3));
+        let visits = snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "implicit.derivatives.verification.support_visits")
+            .unwrap();
+        assert_eq!(
+            visits.cumulative,
+            pse_diagnostics::observation::Value::Count(7 * 3)
+        );
         x[(3, 2)] += 0.01;
         assert_verification_refused(check_solve(&matrix, &x, &rhs, 1e-12, id));
     }
@@ -1750,7 +1775,13 @@ mod tests {
         let id = SemanticId::from_bytes([62; 16]);
         let matrix = verification_matrix(
             3,
-            &[(0, 0, 1e16), (0, 1, 1.0), (0, 2, -1e16), (1, 1, 1.0), (2, 2, 1.0)],
+            &[
+                (0, 0, 1e16),
+                (0, 1, 1.0),
+                (0, 2, -1e16),
+                (1, 1, 1.0),
+                (2, 2, 1.0),
+            ],
         );
         let x = Mat::from_fn(3, 1, |_, _| 1.0);
         // Ascending columns yield (1e16 + 1) - 1e16 = 0. The lost unit
@@ -1765,7 +1796,11 @@ mod tests {
         let scalar = verification_matrix(1, &[(0, 0, 1.0)]);
         check_solve(&scalar, &faer::mat![[1.0]], &faer::mat![[1.15]], 0.1, id).unwrap();
         assert_verification_refused(check_solve(
-            &scalar, &faer::mat![[1.0]], &faer::mat![[1.3]], 0.1, id,
+            &scalar,
+            &faer::mat![[1.0]],
+            &faer::mat![[1.3]],
+            0.1,
+            id,
         ));
         // Preserve the minimum-positive scale floor for an all-zero row.
         check_solve(
@@ -1774,7 +1809,8 @@ mod tests {
             &faer::mat![[f64::MIN_POSITIVE / 4.0]],
             0.5,
             id,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1789,21 +1825,46 @@ mod tests {
                 assert_verification_refused(check_solve(&matrix, &x, &Mat::zeros(2, 2), 1e-12, id));
                 let mut rhs = Mat::zeros(2, 2);
                 rhs[(row, 1)] = nonfinite;
-                assert_verification_refused(check_solve(&matrix, &Mat::zeros(2, 2), &rhs, 1e-12, id));
+                assert_verification_refused(check_solve(
+                    &matrix,
+                    &Mat::zeros(2, 2),
+                    &rhs,
+                    1e-12,
+                    id,
+                ));
             }
             assert_verification_refused(check_solve(
                 &verification_matrix(2, &[(0, 0, 1.0), (1, 1, nonfinite)]),
-                &Mat::zeros(2, 1), &Mat::zeros(2, 1), 1e-12, id,
+                &Mat::zeros(2, 1),
+                &Mat::zeros(2, 1),
+                1e-12,
+                id,
             ));
         }
         // Finite inputs can still overflow the action and must be refused.
         assert_verification_refused(check_solve(
             &verification_matrix(1, &[(0, 0, f64::MAX)]),
-            &faer::mat![[2.0]], &faer::mat![[0.0]], 1e-12, id,
+            &faer::mat![[2.0]],
+            &faer::mat![[0.0]],
+            1e-12,
+            id,
+        ));
+        // Cancelling finite actions must not turn an overflowing absolute scale
+        // into an infinite tolerance that accepts an arbitrary finite bad RHS.
+        assert_verification_refused(check_solve(
+            &verification_matrix(2, &[(0, 0, f64::MAX), (0, 1, -f64::MAX)]),
+            &faer::mat![[1.0], [1.0]],
+            &faer::mat![[100.0], [0.0]],
+            1e-12,
+            id,
         ));
         // A structurally empty singular row still independently detects a bad RHS.
         assert_verification_refused(check_solve(
-            &matrix, &Mat::zeros(2, 1), &faer::mat![[0.0], [1.0]], 1e-12, id,
+            &matrix,
+            &Mat::zeros(2, 1),
+            &faer::mat![[0.0], [1.0]],
+            1e-12,
+            id,
         ));
     }
 
@@ -1820,58 +1881,130 @@ mod tests {
             // Each residual is strictly increasing in its own unknown, with one
             // global branch: y_i = (i + 1)p² + pq + q². Admit every formal axis
             // explicitly so the actual first and packed-second IFT paths run.
-            let expressions = (0..n).map(|i| {
-                crate::library::formal(i).unwrap()
-                    - Atom::num((i + 1) as i64) * &p * &p - &p * &q - &q * &q
-            }).collect::<Vec<_>>();
+            let expressions = (0..n)
+                .map(|i| {
+                    crate::library::formal(i).unwrap()
+                        - Atom::num((i + 1) as i64) * &p * &p
+                        - &p * &q
+                        - &q * &q
+                })
+                .collect::<Vec<_>>();
             let outputs = (width..width + n).collect::<Vec<_>>();
             let source = PreparedBody::new(
-                width, width + n, outputs.clone(),
-                vec![Stage::Block { expressions, outputs, source: id }],
+                width,
+                width + n,
+                outputs.clone(),
+                vec![Stage::Block {
+                    expressions,
+                    outputs,
+                    source: id,
+                }],
                 DerivativeOrder::Second,
-            ).unwrap();
+            )
+            .unwrap();
             let control = pse_diagnostics::Cancellation::new(false);
             let cancel = control.flag();
-            let body = Arc::new(source.compile(
-                &(0..n).collect::<Vec<_>>(), &(0..width).collect::<Vec<_>>(),
-                DerivativeOrder::Second, crate::library::Optimization::default(),
-                crate::jets::EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(control.clone(), None),
-            ).unwrap());
+            let body = Arc::new(
+                source
+                    .compile(
+                        &(0..n).collect::<Vec<_>>(),
+                        &(0..width).collect::<Vec<_>>(),
+                        DerivativeOrder::Second,
+                        crate::library::Optimization::default(),
+                        crate::jets::EvaluationLimits::default(),
+                        &pse_kernels::ExecutionScope::new(control.clone(), None),
+                    )
+                    .unwrap(),
+            );
             let problem = Problem::new(
-                id, ContentHash::from_bytes([0; 32]),
-                (0..n).map(|i| Unknown {
-                    id: pse_ids::named_id(id, &format!("unknown.{i}")), lower: -100.0, upper: 100.0,
-                }).collect(),
-                (0..n).map(|i| pse_ids::named_id(id, &format!("row.{i}"))).collect(),
-                2, residual_bodies_for_test(body), 10_000,
-            ).unwrap();
-            let point = (0..n).map(|i| 4.0 * (i + 1) as f64 + 15.0).collect::<Vec<_>>();
+                id,
+                ContentHash::from_bytes([0; 32]),
+                (0..n)
+                    .map(|i| Unknown {
+                        id: pse_ids::named_id(id, &format!("unknown.{i}")),
+                        lower: -100.0,
+                        upper: 100.0,
+                    })
+                    .collect(),
+                (0..n)
+                    .map(|i| pse_ids::named_id(id, &format!("row.{i}")))
+                    .collect(),
+                2,
+                residual_bodies_for_test(body),
+                10_000,
+            )
+            .unwrap();
+            let point = (0..n)
+                .map(|i| 4.0 * (i + 1) as f64 + 15.0)
+                .collect::<Vec<_>>();
             let options = Options {
-                start: point.clone(), variable_nominals: vec![1.0; n],
-                variable_tolerance: vec![1e-9; n], residual_tolerance: vec![1e-10; n],
-                iterations: 30, time_limit: Duration::from_secs(1), derivative_tolerance: 1e-12,
+                start: point.clone(),
+                variable_nominals: vec![1.0; n],
+                variable_tolerance: vec![1e-9; n],
+                residual_tolerance: vec![1e-10; n],
+                iterations: 30,
+                time_limit: Duration::from_secs(1),
+                derivative_tolerance: 1e-12,
             };
             let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
             let operation = hub.start("implicit.sparse_verification.analytic");
             let _entered = operation.context().enter();
-            let jet = problem.derivatives(&[2.0, 3.0], &point, DerivativeOrder::Second, &options, &cancel).unwrap();
+            let jet = problem
+                .derivatives(
+                    &[2.0, 3.0],
+                    &point,
+                    DerivativeOrder::Second,
+                    &options,
+                    &cancel,
+                )
+                .unwrap();
             assert_eq!(jet.values, point);
             for i in 0..n {
-                assert_eq!(&jet.jacobian[2 * i..2 * i + 2], &[4.0 * (i + 1) as f64 + 3.0, 8.0]);
-                assert_eq!(&jet.hessians[4 * i..4 * i + 4], &[2.0 * (i + 1) as f64, 1.0, 1.0, 2.0]);
+                assert_eq!(
+                    &jet.jacobian[2 * i..2 * i + 2],
+                    &[4.0 * (i + 1) as f64 + 3.0, 8.0]
+                );
+                assert_eq!(
+                    &jet.hessians[4 * i..4 * i + 4],
+                    &[2.0 * (i + 1) as f64, 1.0, 1.0, 2.0]
+                );
             }
             let snapshot = operation.reader().snapshot(Duration::from_secs(60));
-            let count = |name: &str| snapshot.metrics.iter().find(|metric| metric.name == name).map(|metric| metric.cumulative.clone());
+            let count = |name: &str| {
+                snapshot
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == name)
+                    .map(|metric| metric.cumulative.clone())
+            };
             use pse_diagnostics::observation::Value;
-            assert_eq!(count("implicit.factor.numeric.completed"), Some(Value::Count(1)));
-            assert_eq!(count("implicit.factor.solve.completed"), Some(Value::Count(2)));
-            assert_eq!(count("implicit.factor.right_hand_sides"), Some(Value::Count(5)));
-            assert_eq!(count("implicit.derivatives.verification.support_visits"), Some(Value::Count((n * 5) as u64)));
+            assert_eq!(
+                count("implicit.factor.numeric.completed"),
+                Some(Value::Count(1))
+            );
+            assert_eq!(
+                count("implicit.factor.solve.completed"),
+                Some(Value::Count(2))
+            );
+            assert_eq!(
+                count("implicit.factor.right_hand_sides"),
+                Some(Value::Count(5))
+            );
+            assert_eq!(
+                count("implicit.derivatives.verification.support_visits"),
+                Some(Value::Count((n * 5) as u64))
+            );
             control.cancel();
-            assert!(matches!(problem.derivatives_at_verified_point(
-                &[2.0, 3.0], &jet.values, DerivativeOrder::Second, &options, &cancel,
-            ), Err(MathError::Cancelled)));
+            assert!(matches!(
+                problem.derivatives_at_verified_point(
+                    &[2.0, 3.0],
+                    &jet.values,
+                    DerivativeOrder::Second,
+                    &options,
+                    &cancel,
+                ),
+                Err(MathError::Cancelled)
+            ));
         }
     }
 

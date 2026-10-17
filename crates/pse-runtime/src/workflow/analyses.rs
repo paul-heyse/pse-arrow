@@ -346,6 +346,9 @@ impl ResponseEvidence {
         let Some(time) = row.time else {
             return false;
         };
+        if row.parameter_column < 0 {
+            return false;
+        }
         let headers = self
             .computations
             .iter()
@@ -567,7 +570,8 @@ fn project_response_evidence(
         let recorded = evidence.transient_recorded(row);
         let parameter = vertex(graph, nodes, row.parameter_id.to_string(), "parameter")?;
         // Each sample retains its own quantitative row locator even when the
-        // semantic output node is shared. Sample/time/unit scope is in that row.
+        // semantic output node is shared. Sample/time/unit and parameter-column
+        // scope are in that row; scheduled axes are never summed here.
         let target = vertex(graph, nodes, row.output_id.to_string(), "output")?;
         // Production provenance describes the output's membership in this
         // retained block. Quantitative claims below still identify every row.

@@ -3240,12 +3240,13 @@ class RuntimeResponseSensitivitiesRow:
     time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     output_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_column: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     output_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     parameter_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.experiment_id), v.scalar_key(self.sample), v.optional_key(v.scalar_key)(self.time), v.scalar_key(self.output_id), v.scalar_key(self.parameter_id), v.scalar_key(self.output_unit_id), v.scalar_key(self.parameter_unit_id), v.scalar_key(self.value),))
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.experiment_id), v.scalar_key(self.sample), v.optional_key(v.scalar_key)(self.time), v.scalar_key(self.output_id), v.scalar_key(self.parameter_id), v.scalar_key(self.parameter_column), v.scalar_key(self.output_unit_id), v.scalar_key(self.parameter_unit_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)

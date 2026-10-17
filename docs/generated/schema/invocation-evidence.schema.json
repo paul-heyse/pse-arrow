@@ -856,7 +856,7 @@
     },
     "InvocationEndpoints": {
       "additionalProperties": false,
-      "description": "Observed supervisor endpoints. Missing endpoints are unavailable, never zero.",
+      "description": "Observed invocation endpoints. Missing endpoints are unavailable, never zero.",
       "properties": {
         "qualification_seconds": {
           "description": "Governing original qualification succeeded; absent on failed qualification.",
@@ -887,10 +887,10 @@
     },
     "InvocationInterval": {
       "additionalProperties": false,
-      "description": "One directly observed inclusive owner interval, relative to supervisor entry.",
+      "description": "One directly observed inclusive owner interval, relative to invocation establishment.",
       "properties": {
         "ended_seconds": {
-          "description": "Wall seconds after supervisor entry, absent if the owner never completed.",
+          "description": "Wall seconds after invocation establishment, absent if the owner never completed.",
           "format": "double",
           "type": [
             "number",
@@ -913,7 +913,7 @@
           "type": "string"
         },
         "started_seconds": {
-          "description": "Wall seconds after this invocation's supervisor began.",
+          "description": "Wall seconds after this invocation was established before dispatch.",
           "format": "double",
           "type": "number"
         }
@@ -3102,7 +3102,7 @@
     },
     "endpoints": {
       "$ref": "#/$defs/InvocationEndpoints",
-      "description": "Directly observed endpoints on this invocation's monotonic supervisor clock."
+      "description": "Directly observed endpoints on this invocation's monotonic pre-dispatch clock."
     },
     "family": {
       "description": "Actual workflow family.",

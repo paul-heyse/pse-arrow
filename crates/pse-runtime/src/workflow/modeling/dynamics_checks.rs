@@ -4,6 +4,49 @@
 use super::*;
 use pse_model::generated::identities::RunId;
 
+/// Merge retained points with their original ordered coverage in one pass. Compact
+/// reports may retain a subset; a separately retained endpoint keeps its live inputs.
+fn check_points<'a>(
+    samples: &'a [native::Sample],
+    coverage: &'a [(f64, usize)],
+    endpoint: Option<&'a native::TrajectoryEndpoint>,
+    include_samples: bool,
+) -> impl Iterator<Item = (usize, &'a native::Sample, Option<&'a [f64]>)> {
+    let endpoint_index = endpoint.map(|end| {
+        coverage
+            .iter()
+            .position(|p| p.0 == end.point.time)
+            .unwrap_or(coverage.len())
+    });
+    let endpoint_in_samples = include_samples
+        && endpoint.is_some_and(|end| samples.iter().any(|s| s.time == end.point.time));
+    let mut points = coverage.iter().enumerate().peekable();
+    let retained = samples
+        .iter()
+        .filter(move |_| include_samples)
+        .map(move |sample| {
+            while points.peek().is_some_and(|(_, p)| p.0 < sample.time) {
+                points.next();
+            }
+            let index = points
+                .peek()
+                .filter(|(_, p)| p.0 == sample.time)
+                .map_or(coverage.len(), |(i, _)| *i);
+            match endpoint.filter(|end| end.point.time == sample.time) {
+                Some(end) => (index, &end.point, Some(end.inputs.as_slice())),
+                None => (index, sample, None),
+            }
+        });
+    let tail = endpoint.filter(|_| !endpoint_in_samples).map(move |end| {
+        (
+            endpoint_index.unwrap_or(coverage.len()),
+            &end.point,
+            Some(end.inputs.as_slice()),
+        )
+    });
+    retained.chain(tail)
+}
+
 pub(in crate::workflow) struct SampleChecks {
     pub rows: Vec<ModelingCheck>,
     pub reports: Vec<ModelingReport>,
@@ -186,27 +229,12 @@ impl ModelingSimulation {
                 }
             }
             let mut workers = self.sample_check_worker(run_id, parameters, scope)?;
-            let endpoint = report.endpoint.as_ref();
-            let mut points = if include_samples {
-                report.samples.iter().map(|s| (s, None)).collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            };
-            if let Some(end) = endpoint {
-                // Replace a coincident grid point's inputs; otherwise evaluate the separate endpoint.
-                if let Some(point) = points.iter_mut().find(|(s, _)| s.time == end.point.time) {
-                    *point = (&end.point, Some(end.inputs.as_slice()));
-                } else {
-                    points.push((&end.point, Some(end.inputs.as_slice())));
-                }
-            }
-            for (sample, endpoint_inputs) in points {
-                let index = report
-                    .coverage
-                    .points
-                    .iter()
-                    .position(|p| p.0 == sample.time)
-                    .unwrap_or(report.coverage.produced());
+            for (index, sample, endpoint_inputs) in check_points(
+                &report.samples,
+                &report.coverage.points,
+                report.endpoint.as_ref(),
+                include_samples,
+            ) {
                 let terminal = sample.time == self.profile.end
                     && report.termination == native::Termination::Completed;
                 workers.check(index, sample, endpoint_inputs, terminal, &mut result)?;
@@ -406,5 +434,59 @@ impl SampleCheckWorker<'_> {
         }
         result.rows.extend(sample_checks);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod ordered_check_tests {
+    use super::*;
+    fn sample(time: f64, mode: usize) -> native::Sample {
+        native::Sample {
+            time,
+            mode,
+            integrals: vec![],
+            state: vec![],
+            outputs: vec![],
+            state_sensitivities: vec![],
+            output_sensitivities: vec![],
+        }
+    }
+    #[test]
+    fn ordered_sample_checks_preserve_sparse_ordinals_and_endpoint_inputs() {
+        let samples = vec![sample(0., 0), sample(2., 0), sample(4., 1)];
+        let coverage = [(0., 0), (1., 0), (2., 0), (3., 1), (4., 1)];
+        let endpoint = native::TrajectoryEndpoint {
+            point: sample(4., 2),
+            event: None,
+            input_columns: vec![0],
+            inputs: vec![7.],
+        };
+        let points = check_points(&samples, &coverage, Some(&endpoint), true).collect::<Vec<_>>();
+        assert_eq!(
+            points.iter().map(|p| p.0).collect::<Vec<_>>(),
+            vec![0, 2, 4]
+        );
+        assert_eq!(points[2].1.mode, 2);
+        assert_eq!(points[2].2, Some([7.].as_slice()));
+        let compact = check_points(&samples, &coverage, Some(&endpoint), false).collect::<Vec<_>>();
+        assert_eq!(compact.len(), 1);
+        assert_eq!(compact[0].0, 4);
+    }
+    #[test]
+    fn ordered_sample_checks_keep_off_grid_endpoint_after_partial_prefix() {
+        let samples = vec![sample(0., 0), sample(1., 0)];
+        let coverage = [(0., 0), (1., 0)];
+        let endpoint = native::TrajectoryEndpoint {
+            point: sample(1.5, 1),
+            event: None,
+            input_columns: vec![],
+            inputs: vec![],
+        };
+        let points = check_points(&samples, &coverage, Some(&endpoint), true).collect::<Vec<_>>();
+        assert_eq!(
+            points.iter().map(|p| (p.0, p.1.time)).collect::<Vec<_>>(),
+            vec![(0, 0.), (1, 1.), (2, 1.5)]
+        );
+        assert_eq!(check_points(&samples, &coverage, None, false).count(), 0);
     }
 }

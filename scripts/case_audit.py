@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import time
@@ -486,9 +487,18 @@ def reconcile_outcome(returncode: int, outcome: dict | None) -> dict:
 
 
 def run_case(
-    command: list[str], *, cwd: Path, env: dict[str, str], directory: Path
+    command: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    directory: Path,
+    deadline_seconds: float | None = None,
 ) -> dict:
     """Observe one owned child. Stop requests are handled by its actual owners."""
+    if deadline_seconds is not None and (
+        not math.isfinite(deadline_seconds) or deadline_seconds <= 0
+    ):
+        raise ValueError("observation deadline must be finite and positive")
     audit = directory / "diagnostics"
     audit.mkdir()
     env = {
@@ -502,6 +512,7 @@ def run_case(
     started = time.monotonic()
     next_read = started
     interrupted = False
+    stop_reason = None
     with (directory / "process.log").open("w") as log:
         with subprocess.Popen(
             command,
@@ -512,18 +523,29 @@ def run_case(
             start_new_session=True,
         ) as child:
             try:
-                while child.poll() is None:
-                    now = time.monotonic()
-                    if now >= next_read:
-                        observer.inspect()
-                        next_read = now + (5 if now - started < 30 else 15)
-                    time.sleep(0.2)
-            except KeyboardInterrupt:
-                # No signal/kill fallback. Native drain and fixture release
-                # remain the child owner's responsibility and are awaited.
-                (audit / "stop.request").write_text("operator interrupted audit\n")
-                child.wait()
-                interrupted = True
+                while True:
+                    try:
+                        if child.poll() is not None:
+                            break
+                        now = time.monotonic()
+                        if (
+                            stop_reason is None
+                            and deadline_seconds is not None
+                            and now - started >= deadline_seconds
+                        ):
+                            stop_reason = "observation deadline reached"
+                            (audit / "stop.request").write_text(stop_reason + "\n")
+                        if now >= next_read:
+                            observer.inspect()
+                            next_read = now + (5 if now - started < 30 else 15)
+                        time.sleep(0.2)
+                    except KeyboardInterrupt:
+                        # Continue observing until the actual owner joins and
+                        # cleans up, even if the operator interrupts again.
+                        interrupted = True
+                        if stop_reason is None:
+                            stop_reason = "operator interrupted audit"
+                            (audit / "stop.request").write_text(stop_reason + "\n")
             finally:
                 observation = observer.finish()
         terminal = audit / "audit-outcome.json"
@@ -531,7 +553,13 @@ def run_case(
             child.returncode,
             json.loads(terminal.read_text()) if terminal.exists() else None,
         )
-        result.update(observation, elapsed_seconds=time.monotonic() - started)
+        result.update(
+            observation,
+            elapsed_seconds=time.monotonic() - started,
+            observation_deadline_seconds=deadline_seconds,
+            observer_stop_reason=stop_reason,
+            operator_interrupted=interrupted,
+        )
         (audit / "observation.json").write_text(json.dumps(result, indent=2) + "\n")
         if interrupted:
             raise KeyboardInterrupt

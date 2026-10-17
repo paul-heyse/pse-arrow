@@ -90,6 +90,7 @@ pub(crate) struct Audit {
     operation: Option<OperationGuard>,
     state: Option<Arc<State>>,
     publisher: Option<JoinHandle<()>>,
+    detail: Option<pse_runtime::capture::DetailSession>,
     completed: bool,
 }
 impl Audit {
@@ -99,6 +100,7 @@ impl Audit {
                 operation: None,
                 state: None,
                 publisher: None,
+                detail: None,
                 completed: false,
             };
         };
@@ -113,7 +115,47 @@ impl Audit {
         );
         let diagnostics = process_diagnostics();
         let operation = diagnostics.hub().start("audit.simulation_case");
-        let context = operation.context();
+        let mut context = operation.context();
+        // Select source sequences before constructing any scientific invocation.
+        // Failure is observational and leaves the ordinary scientific route intact.
+        let mut detail_error = None;
+        let detail = workload
+            .get("detail_families")
+            .and_then(Value::as_array)
+            .filter(|families| !families.is_empty())
+            .and_then(|families| {
+                let families = families
+                    .iter()
+                    .map(|family| family.as_str().map(str::to_owned))
+                    .collect::<Option<Vec<_>>>();
+                let Some(families) = families else {
+                    detail_error =
+                        Some("detail_families must contain source-family strings".to_owned());
+                    return None;
+                };
+                let request = pse_runtime::capture::DetailRequest {
+                    version: pse_model::document::Version,
+                    families,
+                    requirement: pse_runtime::capture::DetailRequirement::Complete,
+                    sample_every: 1,
+                    boundary_thread_cpu: true,
+                    managed_budget: None,
+                    expiry_monotonic_ns: None,
+                    duration: Duration::from_secs(60),
+                    output: directory.join("detail"),
+                    budget: Default::default(),
+                };
+                match pse_runtime::capture::start_detailed_collection(context.clone(), request) {
+                    Ok(session) => {
+                        context = session.context();
+                        Some(session)
+                    }
+                    Err(error) => {
+                        detail_error = Some(error.to_string());
+                        None
+                    }
+                }
+            });
         context.source_ref("audit.case", case.as_bytes());
         context.text("audit.case", case);
         context.text("audit.workload", &workload.to_string());
@@ -135,6 +177,9 @@ impl Audit {
             receiver_drain_failures: AtomicU64::new(0),
             errors: Mutex::new(Vec::new()),
         });
+        if let Some(error) = detail_error {
+            state.error(error);
+        }
         assert!(
             STATE.set(Some(state.clone())).is_ok(),
             "one audit case per benchmark process"
@@ -162,8 +207,11 @@ impl Audit {
                     {
                         source.cancel();
                     }
-                    for (_, control) in worker.math_controls.lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner).iter()
+                    for (_, control) in worker
+                        .math_controls
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .iter()
                     {
                         control.cancel();
                     }
@@ -186,6 +234,7 @@ impl Audit {
             operation: Some(operation),
             state: Some(state),
             publisher: Some(publisher),
+            detail,
             completed: false,
         }
     }
@@ -226,6 +275,21 @@ impl Drop for Audit {
                 "interrupted" => Outcome::Interrupted,
                 _ => Outcome::Failed,
             });
+        }
+        if let Some(detail) = self.detail.take() {
+            let result = if std::thread::panicking() {
+                detail.stop()
+            } else {
+                detail.finish()
+            };
+            match result {
+                Ok(document) => {
+                    if let Err(error) = write(&state.directory, "detail.json", &json!(document)) {
+                        state.error(error);
+                    }
+                }
+                Err(error) => state.error(error),
+            }
         }
         state.snapshot("terminal");
         // Terminal always has its own file even when bounded intermediate retention filled.
@@ -375,15 +439,23 @@ pub(crate) struct MathBinding {
 pub(crate) fn bind_math_control(control: &pse_diagnostics::Cancellation) -> Option<MathBinding> {
     let state = state()?;
     let id = state.next_owner.fetch_add(1, Ordering::Relaxed);
-    let mut controls = state.math_controls.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    if state.stop_requested.load(Ordering::Acquire) { control.cancel(); }
+    let mut controls = state
+        .math_controls
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if state.stop_requested.load(Ordering::Acquire) {
+        control.cancel();
+    }
     controls.push((id, control.clone()));
     Some(MathBinding { id })
 }
 impl Drop for MathBinding {
     fn drop(&mut self) {
         if let Some(state) = state() {
-            state.math_controls.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+            state
+                .math_controls
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .retain(|(id, _)| *id != self.id);
         }
     }

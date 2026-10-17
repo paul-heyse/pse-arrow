@@ -679,8 +679,8 @@ impl RunResult {
             RunDurability::Ephemeral => None,
             RunDurability::Durable(record) => Some(record.attempt_id),
         };
-        Ok(InvocationEvidenceDocument { version: 1, run_id: self.run_id, attempt_id, operation, family: family.into(),
-            clock_scope: "wall seconds from first supervisor poll; pre-dispatch preparation and earlier native execution excluded".into(),
+        Ok(InvocationEvidenceDocument { version: 2, run_id: self.run_id, attempt_id, operation, family: family.into(),
+            clock_scope: "wall seconds from invocation establishment before dispatch; earlier preparation excluded".into(),
             timing_unavailable: self.invocation_timing_unavailable,
             canonical_run: self.canonical_run_key().map(str::to_owned), canonical_attempt: self.canonical_attempt_key().map(str::to_owned),
             outcome: if self.invocation_cancelled { InvocationOutcome::Cancelled } else if self.report.is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
@@ -804,7 +804,7 @@ fn supervised_with_cancel(
     // Box before constructing the supervisor future. Keeping the full scientific
     // future inline makes task-local polling/drop exceed ordinary executor stacks.
     let mut work = Box::pin(work);
-    crate::invocation::scope(async move {
+    crate::invocation::TransferredContext::capture().scope(async move {
         if let Some(parent) = parent {
             tokio::select! {
                 () = &mut work => {},
@@ -904,7 +904,7 @@ impl super::ModelingSimulation {
             options.admit(self.profile())?;
         }
         let activity = self.runtime.admit_activity()?;
-        activity.sync_scope(|| {
+        activity.sync_scope(crate::invocation::start_scope(|| {
             let runtime = self.runtime.clone();
             let run_id: RunId = pse_operations::mint_id();
             let mut durable = attempt_for(&runtime, attempt)?;
@@ -1097,7 +1097,7 @@ impl super::ModelingSimulation {
                 attempt_id,
                 canonical_keys,
             }, cursor))
-        })
+        }))
     }
 }
 
@@ -1143,7 +1143,7 @@ impl super::ShootingProblem {
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
-        activity.sync_scope(|| {
+        activity.sync_scope(crate::invocation::start_scope(|| {
             let runtime = self.runtime.clone();
             let run_id: RunId = pse_operations::mint_id();
             let mut durable = attempt_for(&runtime, None)?;
@@ -1314,7 +1314,7 @@ impl super::ShootingProblem {
                 attempt_id,
                 canonical_keys,
             })
-        })
+        }))
     }
 }
 
@@ -1378,7 +1378,7 @@ impl super::PreparedFit {
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.problem.runtime.admit_activity()?;
-        activity.sync_scope(|| {
+        activity.sync_scope(crate::invocation::start_scope(|| {
             let runtime = self.problem.runtime.clone();
             let prepared = self.clone();
             let run_id: RunId = pse_operations::mint_id();
@@ -1548,7 +1548,7 @@ impl super::PreparedFit {
                 attempt_id,
                 canonical_keys,
             })
-        })
+        }))
     }
 }
 
@@ -1732,7 +1732,7 @@ impl Runtime {
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.admit_activity()?;
-        activity.sync_scope(|| {
+        activity.sync_scope(crate::invocation::start_scope(|| {
         let history = steps
             .iter()
             .map(|s| s.profile.controls.history)
@@ -1865,7 +1865,7 @@ impl Runtime {
             canonical_keys,
         ))
 
-        })
+        }))
     }
 }
 

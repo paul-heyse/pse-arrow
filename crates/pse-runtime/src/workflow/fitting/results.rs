@@ -292,6 +292,7 @@ impl RunResult {
                                 time: o.time,
                                 output_id: o.port.id,
                                 parameter_id: p.declaration.parameters[pi].symbol_id,
+                                parameter_column: j as i64,
                                 output_unit_id: o.port.unit.as_id(),
                                 parameter_unit_id: p.parameter_ports[pi].unit.as_id(),
                                 value: jac[(i, j)],

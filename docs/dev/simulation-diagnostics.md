@@ -211,13 +211,19 @@ available: actual compilation/evaluation counters identify its use by an eligibl
 
 ## Typed inspection and reader ownership
 
-For the eleven selected Plan39 simulation cases, the existing collector offers
+For explicitly admitted compact and historical Plan39 simulation cases, the collector offers
 `just case-measure <fresh-output> --smoke --audit-diagnostics --case <id>`.
 This opt-in route runs one complete case observation with the original assertions,
 retains typed stage/live/terminal inspection documents under each case's `diagnostics/`,
 and captures a bounded CPU/timeline window when an operation remains active long enough
-to inspect. It supports only the explicitly wired cases listed in
-[39d D4](../plans/39d-qualification-and-plan38-cutover.md#d4--development-context-prerequisites-and-once-only-simulation-audit).
+to inspect. It supports only the explicitly wired selectors in `scripts/case_measure.py`;
+case sizes and identities remain declared in `.config/process-cases.json`.
+Add `--audit-deadline-seconds 60` to request cooperative stop after that observation
+interval. This is not a hard execution timeout: observation continues until the actual
+owner exits, retaining native joins, cleanup and the stop reason separately.
+The [short pipeline review](../design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md)
+describes compact cases and their interpretation limits; [39d D4](../plans/39d-qualification-and-plan38-cutover.md#d4--development-context-prerequisites-and-once-only-simulation-audit)
+retains the original campaign's scope.
 The selected reference store must be started inside its existing reference allocation
 owner and drained before that owner exits.
 
@@ -547,6 +553,13 @@ for the same readback; an ephemeral in-process report returns no managed selecti
 `RunResult.invocation_evidence` references existing attempt/work/settings evidence and
 separates qualification completion, scientific terminal completion, response readiness,
 requested-product availability and later related access. Inclusive intervals overlap.
+Version 2 starts its wall clock when the invocation recorder is established inside the
+entered activity owner, before native dispatch; earlier preparation is excluded. Its
+`native.worker_execution` interval is actual inclusive worker time, not exclusive CPU.
+Version-1 supervisor-only documents do not provide this expanded comparison coverage.
+Selected fitting/shooting integration records expose `forward_direction_columns` as a
+physical request-layout count, with explicit NotRequested availability for other products;
+it is not an executed native-vector count. Standalone trajectories retain `forward_axes`.
 The native-process harness retains every invocation, including warmups/failures, separately
 from Criterion statistics; measurement membership is unavailable when the harness does not
 establish it. These records do not introduce performance thresholds or provenance proof.

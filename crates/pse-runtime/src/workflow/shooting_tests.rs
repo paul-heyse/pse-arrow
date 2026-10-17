@@ -248,14 +248,25 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
                     .all(|s| !s.state_sensitivities.is_empty())
             );
             for (k, report) in point.reports.iter().enumerate() {
-                let expected = problem.windows[k].columns.iter().enumerate()
+                let expected = problem.windows[k]
+                    .columns
+                    .iter()
+                    .enumerate()
                     .filter_map(|(axis, column)| problem.variable(k, column).map(|_| axis))
                     .collect::<Vec<_>>();
                 assert_eq!(report.forward_axes, expected);
-                assert_eq!(report.forward_axes.len(), if shooting == ShootingMethod::Single { 2 } else { k + 1 });
+                assert_eq!(
+                    report.forward_axes.len(),
+                    if shooting == ShootingMethod::Single {
+                        2
+                    } else {
+                        k + 1
+                    }
+                );
                 assert!(report.samples.iter().all(|sample| {
                     sample.state_sensitivities.len() == sample.state.len() * expected.len()
-                        && sample.output_sensitivities.len() == sample.outputs.len() * expected.len()
+                        && sample.output_sensitivities.len()
+                            == sample.outputs.len() * expected.len()
                 }));
             }
             assert_eq!(oracle.execution.progress.snapshot().0.len(), 4);

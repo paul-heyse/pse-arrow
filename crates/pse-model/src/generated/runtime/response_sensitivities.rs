@@ -21,6 +21,8 @@ pub struct RuntimeResponseSensitivitiesRow {
     pub r#output_id: pse_ids::SemanticId,
     ///parameter_id
     pub r#parameter_id: pse_ids::SemanticId,
+    ///parameter_column
+    pub r#parameter_column: i64,
     ///output_unit_id
     pub r#output_unit_id: pse_ids::SemanticId,
     ///parameter_unit_id
@@ -40,6 +42,10 @@ impl crate::SemanticEq for RuntimeResponseSensitivitiesRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#parameter_id,
                 &other.r#parameter_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#parameter_column,
+                &other.r#parameter_column,
             )
             && crate::SemanticEq::semantic_eq(
                 &self.r#output_unit_id,
@@ -72,6 +78,8 @@ impl crate::SemanticFrame for RuntimeResponseSensitivitiesRow {
         crate::SemanticFrame::frame(&self.r#output_id, hash);
         hash.str(stringify!(r#parameter_id));
         crate::SemanticFrame::frame(&self.r#parameter_id, hash);
+        hash.str(stringify!(r#parameter_column));
+        crate::SemanticFrame::frame(&self.r#parameter_column, hash);
         hash.str(stringify!(r#output_unit_id));
         crate::SemanticFrame::frame(&self.r#output_unit_id, hash);
         hash.str(stringify!(r#parameter_unit_id));
@@ -89,6 +97,7 @@ impl crate::HeapUsage for RuntimeResponseSensitivitiesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_column))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output_unit_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_unit_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))

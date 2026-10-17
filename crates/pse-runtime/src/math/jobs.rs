@@ -1301,10 +1301,17 @@ impl MathService {
                         pse_backend_native::implicit::budget_sessions(sessions);
                         #[cfg(not(feature = "solver-kinsol"))]
                         let _ = sessions;
-                        pse_backend_native::execution::compute_scoped(
+                        let interval = crate::invocation::stage("native.worker_execution");
+                        let result = pse_backend_native::execution::compute_scoped(
                             Box::new(native_compute),
                             || pse_math::construction::scoped(construction, || work(flag)),
-                        )
+                        );
+                        interval.finish(match &result {
+                            Ok(_) => crate::invocation::InvocationOutcome::Completed,
+                            Err(MathRuntimeError::Cancelled) => crate::invocation::InvocationOutcome::Cancelled,
+                            Err(_) => crate::invocation::InvocationOutcome::Failed,
+                        });
+                        result
                     })
                     .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
                 // Joining witnesses thread-local and native destructor completion.

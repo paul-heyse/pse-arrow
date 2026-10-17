@@ -140,8 +140,12 @@ impl ModelingPackage {
                 } else {
                     let bytes = key.retained_bytes()
                         + identity.capacity()
-                            * size_of::<(DeclarationId, String, usize, pse_authoring::SourceSpan)>()
-                        + identity.iter().map(|(_, role, _, _)| role.capacity()).sum::<usize>()
+                            * size_of::<(DeclarationId, String, usize, pse_authoring::SourceSpan)>(
+                            )
+                        + identity
+                            .iter()
+                            .map(|(_, role, _, _)| role.capacity())
+                            .sum::<usize>()
                         + 1024;
                     // A lane's metadata is part of its admitted live working set.
                     // Without a lane, lookup retention remains wholly optional.
@@ -294,28 +298,52 @@ mod tests {
     use pse_diagnostics::observation::{self, ObservationHub, Policy, Value};
 
     async fn current_view_fixture(
-        runtime: &crate::workflow::Runtime,
+        runtime: &Runtime,
         source: &str,
     ) -> (ModelingPackage, ModelingPreparation, SemanticId) {
         let declarations = pse_authoring::language::parse(
-            source, SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
-        ).unwrap();
-        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-        let package = runtime.modeling_package(declarations, crate::workflow::tests::physical())
-            .await.unwrap();
-        let model = package.prepare(root, pse_modeling::specialize::root_instance(root),
-            Bindings::default(), Limits::default(), &crate::CancelSource::new()).await.unwrap();
-        let x = model.compiled().model.symbols.values()
-            .find(|symbol| symbol.lineage.path.ends_with(".x")).unwrap().id;
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let model = package
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let x = model
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".x"))
+            .unwrap()
+            .id;
         (package, model, x)
     }
 
     #[tokio::test]
     async fn lane_current_view_survives_trim_rebinds_values_and_replaces_complete_key() {
         let runtime = crate::workflow::tests::runtime();
-        let (package, model, x) = current_view_fixture(&runtime,
-            "package p {def Root {var x:Scalar; eq e:x==2;}} ").await;
+        let (package, model, x) =
+            current_view_fixture(&runtime, "package p {def Root {var x:Scalar; eq e:x==2;}} ")
+                .await;
         let cancel = crate::CancelSource::new();
         let compiler = crate::workflow::tests::compiler_profile();
         let service = runtime.shared.math();
@@ -324,9 +352,20 @@ mod tests {
         let mut first = None;
         for value in [3., 5., 7., 9.] {
             service.clear_program_cache();
-            let prepared = package.bound_case_with_current_view(&model,
-                CaseValues { scalars: BTreeMap::from([(x, value)]) }, &BTreeMap::new(),
-                DerivativeOrder::First, compiler, Some(&mut current), &cancel).await.unwrap();
+            let prepared = package
+                .bound_case_with_current_view(
+                    &model,
+                    CaseValues {
+                        scalars: BTreeMap::from([(x, value)]),
+                    },
+                    &BTreeMap::new(),
+                    DerivativeOrder::First,
+                    compiler,
+                    Some(&mut current),
+                    &cancel,
+                )
+                .await
+                .unwrap();
             assert_eq!(prepared.values.scalars[&x], value);
             if let Some(plan) = &first {
                 assert!(Arc::ptr_eq(plan, &prepared.case.compiled().plan));
@@ -334,40 +373,115 @@ mod tests {
                 first = Some(prepared.case.compiled().plan.clone());
             }
         }
-        assert_eq!(service.preparations().views - before, 1,
-            "four compatible values prepare one view despite four explicit lookup trims");
-        let invalid = BTreeMap::from([(x, ModelingVariableState {
-            lower: Some(Some(9.)), upper: Some(Some(1.)), ..Default::default()
-        })]);
-        assert!(package.bound_case_with_current_view(&model,
-            CaseValues { scalars: BTreeMap::from([(x, 4.)]) }, &invalid,
-            DerivativeOrder::First, compiler, Some(&mut current), &cancel).await.is_err());
+        assert_eq!(
+            service.preparations().views - before,
+            1,
+            "four compatible values prepare one view despite four explicit lookup trims"
+        );
+        let invalid = BTreeMap::from([(
+            x,
+            ModelingVariableState {
+                lower: Some(Some(9.)),
+                upper: Some(Some(1.)),
+                ..Default::default()
+            },
+        )]);
+        assert!(
+            package
+                .bound_case_with_current_view(
+                    &model,
+                    CaseValues {
+                        scalars: BTreeMap::from([(x, 4.)])
+                    },
+                    &invalid,
+                    DerivativeOrder::First,
+                    compiler,
+                    Some(&mut current),
+                    &cancel
+                )
+                .await
+                .is_err()
+        );
         let mut changed_compiler = compiler;
         changed_compiler.class_proof_work += 1;
-        let changed_states = BTreeMap::from([(x, ModelingVariableState {
-            lower: Some(Some(-10.)), ..Default::default()
-        })]);
+        let changed_states = BTreeMap::from([(
+            x,
+            ModelingVariableState {
+                lower: Some(Some(-10.)),
+                ..Default::default()
+            },
+        )]);
         let mut changed_context = package.clone();
         // Deliberate key-level control: identical typed inventory under another
         // selected physical identity must never match the old numerical view.
         changed_context.physical.key = pse_ids::ContentHash::from_bytes([99; 32]);
-        let (changed_structure, changed_model, changed_x) = current_view_fixture(&runtime,
-            "package p {def Root {var x:Scalar; eq e:x==3;}} ").await;
+        let (changed_structure, changed_model, changed_x) =
+            current_view_fixture(&runtime, "package p {def Root {var x:Scalar; eq e:x==3;}} ")
+                .await;
         for (source, product, member, states, order, profile) in [
-            (&package, &model, x, BTreeMap::new(), DerivativeOrder::Second, compiler),
-            (&package, &model, x, BTreeMap::new(), DerivativeOrder::Second, changed_compiler),
-            (&package, &model, x, changed_states, DerivativeOrder::Second, changed_compiler),
-            (&changed_context, &model, x, BTreeMap::new(), DerivativeOrder::Second, changed_compiler),
-            (&changed_structure, &changed_model, changed_x, BTreeMap::new(), DerivativeOrder::Second, changed_compiler),
+            (
+                &package,
+                &model,
+                x,
+                BTreeMap::new(),
+                DerivativeOrder::Second,
+                compiler,
+            ),
+            (
+                &package,
+                &model,
+                x,
+                BTreeMap::new(),
+                DerivativeOrder::Second,
+                changed_compiler,
+            ),
+            (
+                &package,
+                &model,
+                x,
+                changed_states,
+                DerivativeOrder::Second,
+                changed_compiler,
+            ),
+            (
+                &changed_context,
+                &model,
+                x,
+                BTreeMap::new(),
+                DerivativeOrder::Second,
+                changed_compiler,
+            ),
+            (
+                &changed_structure,
+                &changed_model,
+                changed_x,
+                BTreeMap::new(),
+                DerivativeOrder::Second,
+                changed_compiler,
+            ),
         ] {
             service.clear_program_cache();
             let previous = Arc::downgrade(current.as_ref().unwrap());
             let previous_key = current.as_ref().unwrap().key.clone();
-            source.bound_case_with_current_view(product,
-                CaseValues { scalars: BTreeMap::from([(member, 4.)]) }, &states,
-                order, profile, Some(&mut current), &cancel).await.unwrap();
+            source
+                .bound_case_with_current_view(
+                    product,
+                    CaseValues {
+                        scalars: BTreeMap::from([(member, 4.)]),
+                    },
+                    &states,
+                    order,
+                    profile,
+                    Some(&mut current),
+                    &cancel,
+                )
+                .await
+                .unwrap();
             assert_ne!(current.as_ref().unwrap().key, previous_key);
-            assert!(previous.upgrade().is_none(), "replacement retains no historical slot");
+            assert!(
+                previous.upgrade().is_none(),
+                "replacement retains no historical slot"
+            );
         }
         service.clear_program_cache();
         let departure = Arc::downgrade(current.as_ref().unwrap());
@@ -378,26 +492,57 @@ mod tests {
     #[tokio::test]
     async fn concurrent_lane_views_share_one_lookup_metadata_owner_with_fresh_values() {
         let runtime = crate::workflow::tests::runtime();
-        let (package, model, x) = current_view_fixture(&runtime,
-            "package p {def Root {var x:Scalar; eq e:x==2;}} ").await;
+        let (package, model, x) =
+            current_view_fixture(&runtime, "package p {def Root {var x:Scalar; eq e:x==2;}} ")
+                .await;
         let cancel = crate::CancelSource::new();
         let compiler = crate::workflow::tests::compiler_profile();
         let states = BTreeMap::new();
-        package.bound_case(&model, CaseValues { scalars: BTreeMap::from([(x, 1.)]) },
-            &states, DerivativeOrder::First, compiler, &cancel).await.unwrap();
+        package
+            .bound_case(
+                &model,
+                CaseValues {
+                    scalars: BTreeMap::from([(x, 1.)]),
+                },
+                &states,
+                DerivativeOrder::First,
+                compiler,
+                &cancel,
+            )
+            .await
+            .unwrap();
         let (mut left, mut right) = (None, None);
         let (a, b) = tokio::join!(
-            package.bound_case_with_current_view(&model,
-                CaseValues { scalars: BTreeMap::from([(x, 3.)]) }, &states,
-                DerivativeOrder::First, compiler, Some(&mut left), &cancel),
-            package.bound_case_with_current_view(&model,
-                CaseValues { scalars: BTreeMap::from([(x, 5.)]) }, &states,
-                DerivativeOrder::First, compiler, Some(&mut right), &cancel),
+            package.bound_case_with_current_view(
+                &model,
+                CaseValues {
+                    scalars: BTreeMap::from([(x, 3.)])
+                },
+                &states,
+                DerivativeOrder::First,
+                compiler,
+                Some(&mut left),
+                &cancel
+            ),
+            package.bound_case_with_current_view(
+                &model,
+                CaseValues {
+                    scalars: BTreeMap::from([(x, 5.)])
+                },
+                &states,
+                DerivativeOrder::First,
+                compiler,
+                Some(&mut right),
+                &cancel
+            ),
         );
         let (a, b) = (a.unwrap(), b.unwrap());
         assert_eq!((a.values.scalars[&x], b.values.scalars[&x]), (3., 5.));
         assert!(Arc::ptr_eq(left.as_ref().unwrap(), right.as_ref().unwrap()));
-        assert!(Arc::ptr_eq(&a.case.compiled().plan, &b.case.compiled().plan));
+        assert!(Arc::ptr_eq(
+            &a.case.compiled().plan,
+            &b.case.compiled().plan
+        ));
         runtime.shared.math().clear_program_cache();
         let shared = Arc::downgrade(left.as_ref().unwrap());
         drop(left);
@@ -409,28 +554,62 @@ mod tests {
     #[tokio::test]
     async fn lane_current_view_reattributes_changed_source_occurrences() {
         let runtime = crate::workflow::tests::runtime();
-        let (package, model, x) = current_view_fixture(&runtime,
-            "package p {def Root {var x:Scalar; eq e:x==2;}} ").await;
-        let (revised, next_model, next_x) = current_view_fixture(&runtime,
-            "package p {def Root {var x:Scalar;       eq e:x==2;}} ").await;
+        let (package, model, x) =
+            current_view_fixture(&runtime, "package p {def Root {var x:Scalar; eq e:x==2;}} ")
+                .await;
+        let (revised, next_model, next_x) = current_view_fixture(
+            &runtime,
+            "package p {def Root {var x:Scalar;       eq e:x==2;}} ",
+        )
+        .await;
         let cancel = crate::CancelSource::new();
         let compiler = crate::workflow::tests::compiler_profile();
         let mut current = None;
-        let first = package.bound_case_with_current_view(&model,
-            CaseValues { scalars: BTreeMap::from([(x, 3.)]) }, &BTreeMap::new(),
-            DerivativeOrder::First, compiler, Some(&mut current), &cancel).await.unwrap();
+        let first = package
+            .bound_case_with_current_view(
+                &model,
+                CaseValues {
+                    scalars: BTreeMap::from([(x, 3.)]),
+                },
+                &BTreeMap::new(),
+                DerivativeOrder::First,
+                compiler,
+                Some(&mut current),
+                &cancel,
+            )
+            .await
+            .unwrap();
         let key = current.as_ref().unwrap().key.clone();
         let identity = current.as_ref().unwrap().identity.clone();
         runtime.shared.math().clear_program_cache();
-        let next = revised.bound_case_with_current_view(&next_model,
-            CaseValues { scalars: BTreeMap::from([(next_x, 5.)]) }, &BTreeMap::new(),
-            DerivativeOrder::First, compiler, Some(&mut current), &cancel).await.unwrap();
+        let next = revised
+            .bound_case_with_current_view(
+                &next_model,
+                CaseValues {
+                    scalars: BTreeMap::from([(next_x, 5.)]),
+                },
+                &BTreeMap::new(),
+                DerivativeOrder::First,
+                compiler,
+                Some(&mut current),
+                &cancel,
+            )
+            .await
+            .unwrap();
         assert_eq!(current.as_ref().unwrap().key, key);
         assert_ne!(current.as_ref().unwrap().identity, identity);
-        assert_eq!(current.as_ref().unwrap().identity, next_model.compiled().occurrence_identity());
-        assert!(Arc::ptr_eq(&first.case.compiled().plan, &next.case.compiled().plan));
-        assert_eq!(next.case.compiled().occurrences.allocation_identity(),
-            Arc::as_ptr(&next_model.compiled().shared_occurrences()) as usize);
+        assert_eq!(
+            current.as_ref().unwrap().identity,
+            next_model.compiled().occurrence_identity()
+        );
+        assert!(Arc::ptr_eq(
+            &first.case.compiled().plan,
+            &next.case.compiled().plan
+        ));
+        assert_eq!(
+            next.case.compiled().occurrences.allocation_identity(),
+            Arc::as_ptr(&next_model.compiled().shared_occurrences()) as usize
+        );
         assert_eq!(next.values.scalars[&next_x], 5.);
     }
 
@@ -519,15 +698,35 @@ mod tests {
             "each completed case reached the denied optional reservation"
         );
         let mut lane = None;
-        let error = package.bound_case_with_lookup_reservation(
-            &model, CaseValues { scalars: BTreeMap::from([(x, 7.)]) }, &states,
-            DerivativeOrder::First, compiler, Some(&mut lane), &cancel,
-            |_| Err(crate::math::MathRuntimeError::Limit("test:lane-metadata-denied")),
-        ).await.unwrap_err();
-        assert!(matches!(error, WorkflowError::Math(crate::math::MathRuntimeError::Limit(
-            "test:lane-metadata-denied"
-        ))));
-        assert!(lane.is_none(), "active ownership is not published without its metadata charge");
+        let error = package
+            .bound_case_with_lookup_reservation(
+                &model,
+                CaseValues {
+                    scalars: BTreeMap::from([(x, 7.)]),
+                },
+                &states,
+                DerivativeOrder::First,
+                compiler,
+                Some(&mut lane),
+                &cancel,
+                |_| {
+                    Err(crate::math::MathRuntimeError::Limit(
+                        "test:lane-metadata-denied",
+                    ))
+                },
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            WorkflowError::Math(crate::math::MathRuntimeError::Limit(
+                "test:lane-metadata-denied"
+            ))
+        ));
+        assert!(
+            lane.is_none(),
+            "active ownership is not published without its metadata charge"
+        );
     }
 
     #[tokio::test]

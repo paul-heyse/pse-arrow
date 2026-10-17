@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    140u8, 206u8, 51u8, 101u8, 236u8, 186u8, 79u8, 89u8, 81u8, 169u8, 131u8, 174u8,
-    252u8, 237u8, 110u8, 27u8, 48u8, 70u8, 234u8, 175u8, 157u8, 180u8, 159u8, 150u8,
-    172u8, 231u8, 201u8, 201u8, 33u8, 246u8, 95u8, 13u8,
+    231u8, 240u8, 159u8, 202u8, 87u8, 239u8, 221u8, 189u8, 165u8, 85u8, 255u8, 28u8,
+    117u8, 77u8, 46u8, 89u8, 216u8, 95u8, 164u8, 14u8, 224u8, 110u8, 128u8, 198u8, 112u8,
+    129u8, 127u8, 54u8, 78u8, 6u8, 121u8, 57u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeResponseSensitivitiesRow {
     fn append(
@@ -48,14 +48,18 @@ impl crate::columnar::ArrowValue for RuntimeResponseSensitivitiesRow {
             children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#output_unit_id,
+            &self.r#parameter_column,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#parameter_unit_id,
+            &self.r#output_unit_id,
             children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#value, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_unit_id,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[9usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -82,13 +86,14 @@ impl crate::columnar::ArrowValue for RuntimeResponseSensitivitiesRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[6usize].as_mut(),
-        )?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[7usize].as_mut(),
         )?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[8usize].as_mut(),
+        )?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -125,16 +130,20 @@ impl crate::columnar::ArrowValue for RuntimeResponseSensitivitiesRow {
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#output_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#parameter_column: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#parameter_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#output_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#value: <f64 as crate::columnar::ArrowValue>::read(
+            r#parameter_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#value: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -209,14 +218,18 @@ impl crate::columnar::RelationRow for RuntimeResponseSensitivitiesRow {
             columns[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#output_unit_id,
+            &self.r#parameter_column,
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#parameter_unit_id,
+            &self.r#output_unit_id,
             columns[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#value, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_unit_id,
+            columns[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#value, columns[9usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -252,10 +265,10 @@ impl crate::columnar::RelationRow for RuntimeResponseSensitivitiesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        24_576_usize + size_of::<Self::Builder>()
+        26_624_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        192usize
+        208usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -292,6 +305,10 @@ impl crate::columnar::RelationRow for RuntimeResponseSensitivitiesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             Ok::<usize, crate::RelationError>(16usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
@@ -312,7 +329,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 10usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -345,18 +362,23 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "output_unit_id",
+        name: "parameter_column",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "parameter_unit_id",
+        name: "output_unit_id",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "value",
+        name: "parameter_unit_id",
         position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "value",
+        position: 9usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -373,12 +395,14 @@ pub mod columns {
     pub const OUTPUT_ID: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///parameter_id
     pub const PARAMETER_ID: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///parameter_column
+    pub const PARAMETER_COLUMN: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///output_unit_id
-    pub const OUTPUT_UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const OUTPUT_UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///parameter_unit_id
-    pub const PARAMETER_UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const PARAMETER_UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///value
-    pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -392,6 +416,7 @@ pub struct RuntimeResponseSensitivitiesView<'a> {
     time_column: &'a arrow_array::Float64Array,
     output_id_column: &'a arrow_array::FixedSizeBinaryArray,
     parameter_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    parameter_column_column: &'a arrow_array::Int64Array,
     output_unit_id_column: &'a arrow_array::FixedSizeBinaryArray,
     parameter_unit_id_column: &'a arrow_array::FixedSizeBinaryArray,
     value_column: &'a arrow_array::Float64Array,
@@ -457,15 +482,18 @@ impl<'a> RuntimeResponseSensitivitiesView<'a> {
             parameter_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(5usize).as_ref())?,
+            parameter_column_column: crate::columnar::array::<
+                arrow_array::Int64Array,
+            >(batch.column(6usize).as_ref())?,
             output_unit_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             parameter_unit_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             value_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -554,6 +582,18 @@ impl<'a> RuntimeResponseSensitivitiesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "parameter_column",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn parameter_column_column(&self) -> &'a arrow_array::Int64Array {
+        self.parameter_column_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "parameter_column", "`.")]
+    pub fn parameter_column_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "output_unit_id",
         "`, including its offsets and validity bitmap.",
     )]
@@ -562,7 +602,7 @@ impl<'a> RuntimeResponseSensitivitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "output_unit_id", "`.")]
     pub fn output_unit_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -576,7 +616,7 @@ impl<'a> RuntimeResponseSensitivitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "parameter_unit_id", "`.")]
     pub fn parameter_unit_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -588,7 +628,7 @@ impl<'a> RuntimeResponseSensitivitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "value", "`.")]
     pub fn value_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -615,6 +655,10 @@ impl<'a> RuntimeResponseSensitivitiesView<'a> {
             )?,
             r#parameter_id: crate::columnar::ArrowValue::read(
                 self.parameter_id_column,
+                index,
+            )?,
+            r#parameter_column: crate::columnar::ArrowValue::read(
+                self.parameter_column_column,
                 index,
             )?,
             r#output_unit_id: crate::columnar::ArrowValue::read(

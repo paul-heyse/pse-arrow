@@ -1413,18 +1413,18 @@ impl Profile {
         if self.sensitivity != DynamicSensitivity::Forward {
             return vec![];
         }
-        self.forward_axes.clone().unwrap_or_else(|| {
-            (0..self.integration_width(parameters)).collect()
-        })
+        self.forward_axes
+            .clone()
+            .unwrap_or_else(|| (0..self.integration_width(parameters)).collect())
     }
     /// Retained forward derivative width, distinct from the complete value width.
     pub fn forward_width(&self, parameters: usize) -> usize {
         if self.sensitivity != DynamicSensitivity::Forward {
             0
         } else {
-            self.forward_axes.as_ref().map_or_else(
-                || self.integration_width(parameters), Vec::len,
-            )
+            self.forward_axes
+                .as_ref()
+                .map_or_else(|| self.integration_width(parameters), Vec::len)
         }
     }
     /// The integration parameter vector's length for `parameters` contract parameters:
@@ -1743,7 +1743,10 @@ impl Profile {
     /// Forward sensitivities are integrated with every sample.
     pub fn forward(&self) -> bool {
         self.sensitivity == DynamicSensitivity::Forward
-            && self.forward_axes.as_ref().is_none_or(|axes| !axes.is_empty())
+            && self
+                .forward_axes
+                .as_ref()
+                .is_none_or(|axes| !axes.is_empty())
     }
     /// The adjoint route's profile limits (ADR-0110 items 3 and 6), refused before native
     /// work: the functional observes sampled outputs only, so declared quadratures need
@@ -2197,9 +2200,14 @@ impl Profile {
         if let Some(axes) = &self.forward_axes {
             if self.sensitivity != DynamicSensitivity::Forward
                 || axes.iter().any(|axis| *axis >= np)
-                || axes.iter().enumerate().any(|(k, axis)| axes[..k].contains(axis))
+                || axes
+                    .iter()
+                    .enumerate()
+                    .any(|(k, axis)| axes[..k].contains(axis))
             {
-                return Err(contract("forward axes must be unique physical integration coordinates"));
+                return Err(contract(
+                    "forward axes must be unique physical integration coordinates",
+                ));
             }
         }
         let scheduled = self
@@ -2698,7 +2706,9 @@ pub struct Report {
 impl Report {
     /// Retained derivative column for one physical integration axis.
     pub fn sensitivity_column(&self, axis: usize) -> Result<usize, ProblemError> {
-        self.forward_axes.iter().position(|a| *a == axis)
+        self.forward_axes
+            .iter()
+            .position(|a| *a == axis)
             .ok_or_else(|| contract("requested physical sensitivity axis is unavailable"))
     }
     /// Evaluate the declared endpoint and observation coverage without inventing samples.

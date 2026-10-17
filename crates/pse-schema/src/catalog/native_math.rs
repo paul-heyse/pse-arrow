@@ -1575,6 +1575,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             "sample",
             "output_id",
             "parameter_id",
+            "parameter_column",
         ],
         vec![
             run_id(),
@@ -1583,11 +1584,12 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             column("time", real()).optional(),
             column("output_id", T::id()),
             column("parameter_id", T::id()),
+            column("parameter_column", ordinal()),
             column("output_unit_id", T::id()),
             column("parameter_unit_id", T::id()),
             column("value", real()),
         ],
-        "Local physical response derivative in output difference units per parameter difference unit, never a confidence interval.",
+        "Local physical response derivative in output difference units per parameter difference unit, never a confidence interval. parameter_column is the physical integration axis for simulation (including distinct scheduled intervals), or the public free-parameter ordinal for fitting.",
     );
     relation(
         b,

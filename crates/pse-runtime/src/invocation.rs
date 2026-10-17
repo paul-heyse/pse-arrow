@@ -42,20 +42,20 @@ pub struct InvocationProduct {
     /// The actual governing owner's retained conclusion.
     pub availability: ProductAvailability,
 }
-/// One directly observed inclusive owner interval, relative to supervisor entry.
+/// One directly observed inclusive owner interval, relative to invocation establishment.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InvocationInterval {
     /// Performing responsibility; nested intervals must not be added together.
     pub stage: String,
-    /// Wall seconds after this invocation's supervisor began.
+    /// Wall seconds after this invocation was established before dispatch.
     pub started_seconds: f64,
-    /// Wall seconds after supervisor entry, absent if the owner never completed.
+    /// Wall seconds after invocation establishment, absent if the owner never completed.
     pub ended_seconds: Option<f64>,
     /// Owner outcome, absent while active.
     pub outcome: Option<InvocationOutcome>,
 }
-/// Observed supervisor endpoints. Missing endpoints are unavailable, never zero.
+/// Observed invocation endpoints. Missing endpoints are unavailable, never zero.
 #[derive(Clone, Debug, Default, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InvocationEndpoints {
@@ -90,7 +90,7 @@ pub struct InvocationEvidenceDocument {
     pub canonical_attempt: Option<String>,
     /// Actual joined invocation outcome; scientific permission remains separate.
     pub outcome: InvocationOutcome,
-    /// Directly observed endpoints on this invocation's monotonic supervisor clock.
+    /// Directly observed endpoints on this invocation's monotonic pre-dispatch clock.
     pub endpoints: InvocationEndpoints,
     /// Bounded directly observed inclusive owner intervals.
     pub intervals: Vec<InvocationInterval>,
@@ -113,7 +113,7 @@ struct State {
     endpoints: InvocationEndpoints,
     preparations: Option<PreparationCounts>,
 }
-/// Supervisor-owned clock and bounded observations; no solver or cleanup authority.
+/// Invocation-owned clock and bounded observations; no solver or cleanup authority.
 #[derive(Debug)]
 pub(crate) struct Recorder {
     started: Instant,
@@ -135,6 +135,19 @@ pub(crate) struct EnteredContext(
     std::marker::PhantomData<std::rc::Rc<()>>,
 );
 impl TransferredContext {
+    fn fresh() -> Self {
+        let recorder = Recorder::new();
+        let unavailable = if recorder.is_some() {
+            None
+        } else {
+            Some(if pse_diagnostics::observation::current().is_some() {
+                pse_diagnostics::observation::RecordAvailability::Refused
+            } else {
+                pse_diagnostics::observation::RecordAvailability::NotRequested
+            })
+        };
+        Self((recorder, unavailable))
+    }
     pub(crate) fn capture() -> Self {
         Self(CURRENT.try_with(Clone::clone).unwrap_or_else(|_| {
             SYNCHRONOUS.with(|scope| scope.borrow().clone()).unwrap_or((
@@ -148,6 +161,23 @@ impl TransferredContext {
             SYNCHRONOUS.with(|scope| scope.replace(Some(self.0.clone()))),
             std::marker::PhantomData,
         )
+    }
+    pub(crate) async fn scope<T>(self, work: impl Future<Output = T>) -> T {
+        CURRENT
+            .scope(self.0, async { crate::math::counted(work).await.0 })
+            .await
+    }
+}
+/// Establish the invocation before a synchronous start can submit native work.
+/// Task-local sync_scope also overrides an enclosing async invocation while constructing
+/// the child; a thread-local fallback alone would incorrectly inherit that parent.
+pub(crate) fn start_scope<T>(work: impl FnOnce() -> T) -> impl FnOnce() -> T {
+    move || {
+        // The caller first enters its RuntimeActivity observation owner. Creating
+        // the recorder while building this closure would capture the outer owner
+        // (or no owner) before that synchronous activity scope is entered.
+        let context = TransferredContext::fresh();
+        CURRENT.sync_scope(context.0, work)
     }
 }
 impl Drop for EnteredContext {
@@ -243,22 +273,8 @@ pub(crate) fn current_unavailability() -> Option<pse_diagnostics::observation::R
         })
     })
 }
-pub(crate) async fn scope<T>(work: impl Future<Output = T>) -> T {
-    let recorder = Recorder::new();
-    let unavailable = if recorder.is_some() {
-        None
-    } else {
-        Some(if pse_diagnostics::observation::current().is_some() {
-            pse_diagnostics::observation::RecordAvailability::Refused
-        } else {
-            pse_diagnostics::observation::RecordAvailability::NotRequested
-        })
-    };
-    CURRENT
-        .scope((recorder, unavailable), async {
-            crate::math::counted(work).await.0
-        })
-        .await
+pub(crate) fn scope<T>(work: impl Future<Output = T>) -> impl Future<Output = T> {
+    TransferredContext::fresh().scope(work)
 }
 /// Count preparation only within the actual operation's task, including nested flights.
 pub async fn counted<T>(work: impl Future<Output = T>) -> (T, PreparationCounts) {
@@ -306,6 +322,53 @@ pub(crate) fn stage(name: &'static str) -> Stage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn invocation_establishment_uses_the_entered_start_owner() {
+        // This matches RuntimeActivity::sync_scope: its observation owner enters
+        // after the argument closure is constructed, and before dispatch occurs.
+        let start = start_scope(|| current().unwrap());
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("invocation.start_owner");
+        let context = operation.context();
+        let _entered = context.enter();
+        let recorder = start();
+        assert_eq!(recorder.operation(), Some(context.id()));
+        assert!(current().is_none());
+    }
+    #[tokio::test]
+    async fn synchronous_dispatch_and_supervisor_share_a_fresh_nested_invocation() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("invocation.pre_dispatch");
+        let context = operation.context();
+        let _entered = context.enter();
+        scope(async {
+            let parent = current().unwrap();
+            let (child, transferred) = start_scope(|| {
+                let child = current().unwrap();
+                assert!(!Arc::ptr_eq(&child, &parent));
+                stage("native.before_supervisor").finish(InvocationOutcome::Completed);
+                (child, TransferredContext::capture())
+            })();
+            assert!(Arc::ptr_eq(&current().unwrap(), &parent));
+            transferred
+                .scope(async {
+                    assert!(Arc::ptr_eq(&current().unwrap(), &child));
+                    stage("original.final_assessment").finish(InvocationOutcome::Completed);
+                    child.terminal();
+                    child.ready();
+                })
+                .await;
+            assert!(Arc::ptr_eq(&current().unwrap(), &parent));
+            let (_, endpoints, intervals, omitted, _) = child.projection();
+            assert_eq!(omitted, 0);
+            assert_eq!(intervals.len(), 2);
+            assert_eq!(intervals[0].stage, "native.before_supervisor");
+            assert!(intervals[1].started_seconds >= intervals[0].started_seconds);
+            assert!(endpoints.response_ready_seconds >= endpoints.terminal_seconds);
+            assert!(parent.projection().2.is_empty());
+        })
+        .await;
+    }
     #[tokio::test]
     async fn invocation_endpoints_keep_failed_qualification_absent_and_clocks_separate() {
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
@@ -361,6 +424,7 @@ mod tests {
             false,
             false,
             0,
+            None,
         )
         .finish(true);
         IntegrationObservation::begin(
@@ -370,6 +434,7 @@ mod tests {
             false,
             false,
             0,
+            Some(2),
         )
         .finish(false);
         let snapshot = operation
@@ -388,6 +453,12 @@ mod tests {
             Value::Text("derivative_upgrade".into())
         );
         assert_eq!(records[3].values[2].value, Value::Boolean(true));
+        assert_eq!(records[3].values[5].value, Value::Count(2));
+        assert!(records[3].values[5].availability.is_none());
+        assert_eq!(
+            records[1].values[5].availability,
+            Some(pse_diagnostics::observation::RecordAvailability::NotRequested)
+        );
         assert!(
             records
                 .windows(2)
@@ -488,6 +559,7 @@ impl IntegrationObservation {
         adjoint: bool,
         curvature: bool,
         member: u64,
+        forward_directions: Option<usize>,
     ) -> Self {
         use pse_diagnostics::observation::{RecordField, Value};
         let producer = producer.filter(pse_diagnostics::observation::Producer::enabled);
@@ -537,6 +609,14 @@ impl IntegrationObservation {
                 unit: "requested product".into(),
                 value: Value::Boolean(curvature),
                 availability: None,
+            },
+            RecordField {
+                name: "forward_direction_columns".into(),
+                unit: "selected physical coordinate request".into(),
+                value: Value::Count(forward_directions.unwrap_or(0) as u64),
+                availability: forward_directions
+                    .is_none()
+                    .then_some(pse_diagnostics::observation::RecordAvailability::NotRequested),
             },
         ];
         let mut observation = Self {

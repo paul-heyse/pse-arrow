@@ -536,11 +536,13 @@ impl ModelingPackage {
                         } else {
                             DerivativeOrder::First
                         };
-                        let free_inputs = local.iter()
+                        let free_inputs = local
+                            .iter()
                             .filter(|(parameter, _)| parameter_columns[**parameter].is_some())
                             .map(|(_, id)| *id)
                             .collect::<BTreeSet<_>>();
-                        let forward_parameters = (integration.sensitivity == native::dynamics::DynamicSensitivity::Forward)
+                        let forward_parameters = (integration.sensitivity
+                            == native::dynamics::DynamicSensitivity::Forward)
                             .then_some(&free_inputs);
                         // The experiment's authored case declares its modes and events.
                         let simulation = self

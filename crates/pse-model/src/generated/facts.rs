@@ -8098,6 +8098,10 @@ impl FactBatch {
                                 &left.r#parameter_id,
                                 &right.r#parameter_id,
                             )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parameter_column,
+                                &right.r#parameter_column,
+                            )
                     }
                     _ => false,
                 }
@@ -9061,6 +9065,7 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#sample, &mut hash);
                 crate::SemanticFrame::frame(&row.r#output_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#parameter_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parameter_column, &mut hash);
             }
             Self::r#RuntimeRouteDecisions(rows) => {
                 let row = rows.get(index)?;

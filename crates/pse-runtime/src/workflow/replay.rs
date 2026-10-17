@@ -2651,7 +2651,9 @@ impl OriginalSimulationInputs {
         provisional_quadratures: &BTreeSet<SemanticId>,
     ) -> Result<Arc<Self>, WorkflowError> {
         if forward_parameters.is_some() && profile.forward_axes.is_some() {
-            return Err(contract("dynamic constructor has competing forward selections"));
+            return Err(contract(
+                "dynamic constructor has competing forward selections",
+            ));
         }
         let bytes = size_of::<Self>()
             .saturating_add(1024)
@@ -2674,7 +2676,10 @@ impl OriginalSimulationInputs {
                 forward_parameters.map_or(0, |parameters| parameters.len().saturating_mul(128)),
             )
             .saturating_add(
-                profile.forward_axes.as_ref().map_or(0, |axes| axes.len().saturating_mul(size_of::<usize>())),
+                profile
+                    .forward_axes
+                    .as_ref()
+                    .map_or(0, |axes| axes.len().saturating_mul(size_of::<usize>())),
             );
         let owner = package
             .runtime
@@ -2683,9 +2688,14 @@ impl OriginalSimulationInputs {
             .reserve("replay:original-simulation-constructor", bytes)?;
         let mut original = profile.clone();
         let forward_selection = if let Some(parameters) = forward_parameters {
-            Some(ReplayForwardSelection::SemanticParameters(parameters.clone()))
+            Some(ReplayForwardSelection::SemanticParameters(
+                parameters.clone(),
+            ))
         } else {
-            original.forward_axes.take().map(ReplayForwardSelection::PhysicalAxes)
+            original
+                .forward_axes
+                .take()
+                .map(ReplayForwardSelection::PhysicalAxes)
         };
         Ok(Arc::new(Self {
             document: ReplaySimulationConstructor {
@@ -2714,7 +2724,12 @@ impl OriginalSimulationInputs {
 /// Replay retains the original internal request without teaching Profile's public
 /// serialization a general selection API. Exactly one coordinate form is authoritative.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
-#[serde(tag = "kind", content = "coordinates", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    content = "coordinates",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 pub enum ReplayForwardSelection {
     /// Consumer inputs resolved to their start-interval axes during preparation.
     SemanticParameters(BTreeSet<SemanticId>),
@@ -2764,7 +2779,9 @@ impl ReplaySimulationConstructor {
             _ => return Err(contract("replay dynamic derivative order invalid")),
         };
         if self.profile.forward_axes.is_some() && self.forward_selection.is_some() {
-            return Err(contract("replay dynamic constructor has competing forward selections"));
+            return Err(contract(
+                "replay dynamic constructor has competing forward selections",
+            ));
         }
         let mut profile = self.profile.clone();
         let forward_parameters = match &self.forward_selection {

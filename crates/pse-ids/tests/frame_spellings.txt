@@ -200,3 +200,6 @@ pse.modeling.table-row.v1
 # Plan 23 explicitly versions typed fit input and analysis-owned source revisions.
 pse.modeling.fit-source.v2
 pse.modeling.source-revision.v4
+
+# ADR-0197: selected physical forward axes participate in dynamic profile identity.
+pse.dynamic.profile.v10

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Thin experiment composition; compiled library derivatives own local mathematics.
 use super::*;
+use faer::linalg::temp_mat_scratch;
 use faer::{
     Mat,
     sparse::{SparseColMat, SymbolicSparseColMatRef},
@@ -645,6 +646,7 @@ impl FitOracle {
             true,
             true,
             ei as u64,
+            None,
         );
         let result = s
             .hessian(
@@ -1105,36 +1107,67 @@ impl FitProblem {
                 context.count("fit.original_final_assessments", "count", 1);
             }
             let x = x.as_slice();
-            // Fresh final evaluation is independent of native callback cache and candidate status.
+            // One fresh final oracle remains independent of optimizer callback state.
+            // Known optional refusal precedes any response IVP; actual rank memory is
+            // acquired only after integration so it does not inflate the IVP peak.
+            let rank = rank_admission(self);
+            let responses = rank.is_ok();
             let mut final_oracle = FitOracle::new(self.clone(), execution)?;
-            match final_oracle.evaluate_demand(
-                x,
-                Demand {
-                    purpose: crate::invocation::IntegrationPurpose::OriginalAssessment,
-                    ..Demand::default()
-                },
-            ) {
+            let demand = Demand {
+                purpose: crate::invocation::IntegrationPurpose::OriginalAssessment,
+                ..if responses {
+                    Demand::responses()
+                } else {
+                    Demand::default()
+                }
+            };
+            let mut derivative_failure = None;
+            let evaluated = match final_oracle.evaluate_demand(x, demand).map(|_| ()) {
+                Err(error) if responses && final_oracle.execution.stopped().is_none() => {
+                    derivative_failure = Some(error);
+                    final_oracle
+                        .evaluate_demand(
+                            x,
+                            Demand {
+                                purpose: crate::invocation::IntegrationPurpose::OriginalAssessment,
+                                ..Demand::default()
+                            },
+                        )
+                        .map(|_| ())
+                }
+                evaluated => evaluated,
+            };
+            match evaluated {
                 Err(e) => report.diagnostic = Some(FitDiagnostic::new(FitRule::FinalEvaluation, e)),
-                Ok(point) => {
+                Ok(()) => {
+                    let point = final_oracle
+                        .point
+                        .as_ref()
+                        .ok_or_else(|| ProblemError::internal("final fit point absent"))?;
                     if !self.install_final_point(report, x, point)? {
                         return Ok(());
                     }
-                    match final_oracle.response_rank(x) {
-                        Ok(diagnostic) => {
-                            if let Some(point) = final_oracle.point.as_ref()
-                                && !self.install_final_point(report, x, point)?
-                            {
-                                return Ok(());
+                    if let Some(error) = derivative_failure {
+                        report.diagnostic = Some(FitDiagnostic::new(FitRule::ResponseRank, error));
+                        return Ok(());
+                    }
+                    match rank {
+                        Err(error) => {
+                            report.diagnostic =
+                                Some(FitDiagnostic::new(FitRule::ResponseRank, error))
+                        }
+                        Ok(plan) => match final_oracle.response_rank_admitted(x, plan) {
+                            Ok(diagnostic) => {
+                                report.responses = Some(diagnostic.responses);
+                                report.singular_values = diagnostic.singular_values;
+                                report.directions = Some(diagnostic.directions);
+                                report.rank = Some(diagnostic.rank);
                             }
-
-                            report.responses = Some(diagnostic.responses);
-                            report.singular_values = diagnostic.singular_values;
-                            report.directions = Some(diagnostic.directions);
-                            report.rank = Some(diagnostic.rank);
-                        }
-                        Err(e) => {
-                            report.diagnostic = Some(FitDiagnostic::new(FitRule::ResponseRank, e));
-                        }
+                            Err(error) => {
+                                report.diagnostic =
+                                    Some(FitDiagnostic::new(FitRule::ResponseRank, error))
+                            }
+                        },
                     }
                 }
             }
@@ -1260,8 +1293,98 @@ fn rank_scratch(rows: usize, cols: usize, vectors: bool) -> faer::dyn_stack::Sta
         Default::default(),
     )
 }
+/// Deterministic optional-product admission, without holding matrix memory over an IVP.
+struct RankAdmission {
+    rows: usize,
+    np: usize,
+    bytes: usize,
+}
+fn rank_admission(p: &FitProblem) -> Result<RankAdmission, ProblemError> {
+    let np = p.parameter_columns.iter().filter(|v| v.is_some()).count();
+    let local_dense = p
+        .experiments
+        .iter()
+        .try_fold(0usize, |cells, experiment| {
+            let Experiment::Steady(s) = experiment else {
+                return Some(cells);
+            };
+            cells.checked_add(
+                s.local_states
+                    .checked_mul(s.local_states.checked_add(np)?)?,
+            )
+        })
+        .and_then(|cells| cells.checked_add(p.measurements.len().checked_mul(np)?))
+        .ok_or_else(|| ProblemError::memory("local response diagnostic extent"))?;
+    if local_dense > p.profile.max_cells {
+        return Err(ProblemError::memory(
+            "local dense response diagnostic allowance; fit candidate remains available",
+        ));
+    }
+    // Dense diagnostics are optional: reserve independently from the sparse
+    // solve, before allocating any matrix. Failure does not lose the candidate.
+    let limit = p.runtime.shared.budget().math.worker_bytes;
+    if local_dense.checked_mul(8).is_none_or(|bytes| bytes > limit) {
+        return Err(ProblemError::memory(
+            "local dense response diagnostic memory allowance",
+        ));
+    }
+    use faer::linalg::temp_mat_scratch;
+    let rows = p.measurements.len();
+    // The response and its weighted copy, and the right singular basis.
+    let mut bytes = temp_mat_scratch::<f64>(rows, np)
+        .size_bytes()
+        .checked_mul(2)
+        .and_then(|b| b.checked_add(temp_mat_scratch::<f64>(np, np).size_bytes()));
+    let mut scratch = rank_scratch(rows, np, true).size_bytes();
+    for experiment in &p.experiments {
+        if let Experiment::Steady(s) = experiment {
+            let n = s.local_states;
+            // Shared response owns its peak matrix, rank, identities and scratch
+            // accounting. Matching's separate thread stack is reserved below;
+            // worker_bytes bounds numeric capacity, not structural recursion.
+            bytes = bytes
+                .and_then(|b| b.checked_add(native::square_response::workspace_bytes(n, np)?))
+                .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
+                .and_then(|b| b.checked_add(n.checked_mul(n)?.checked_mul(128)?))
+                .and_then(|b| b.checked_add(n.checked_mul(np)?.checked_mul(64)?));
+            scratch = scratch.max(rank_scratch(n, n, false).size_bytes());
+        }
+    }
+    // Vector bookkeeping and opaque library metadata, separate from numeric
+    // matrices and library-declared scratch; this is not an RSS measurement.
+    let bytes = bytes
+        .and_then(|b| b.checked_add(scratch))
+        .and_then(|b| b.checked_add(rows.checked_add(np)?.checked_mul(64)?))
+        .and_then(|b| b.checked_add(4 << 20))
+        .filter(|b| *b <= limit)
+        .ok_or_else(|| ProblemError::memory("local dense response diagnostic memory allowance"))?;
+    // Structural analyses run sequentially, so one separately declared matching
+    // stack covers every steady closure without multiplying its peak by experiment.
+    let matching_stack = if p
+        .experiments
+        .iter()
+        .any(|e| matches!(e,Experiment::Steady(s) if s.local_states>0))
+    {
+        pse_structural::incidence::MATCHING_STACK
+    } else {
+        0
+    };
+    let bytes = bytes
+        .checked_add(matching_stack)
+        .ok_or_else(|| ProblemError::memory("response structural stack extent"))?;
+    Ok(RankAdmission { rows, np, bytes })
+}
 impl FitOracle {
+    #[cfg(test)]
     fn response_rank(&mut self, x: &[f64]) -> Result<RankDiagnostic, ProblemError> {
+        let plan = rank_admission(&self.prepared)?;
+        self.response_rank_admitted(x, plan)
+    }
+    fn response_rank_admitted(
+        &mut self,
+        x: &[f64],
+        plan: RankAdmission,
+    ) -> Result<RankDiagnostic, ProblemError> {
         crate::workflow::dynamics::analysis("fit.forward_response_and_identifiability", || {
             // Rank and responses need the response Jacobian: a gradient-only fit reruns the
             // forward sensitivities once, at the candidate (PS-12).
@@ -1280,85 +1403,12 @@ impl FitOracle {
                 .point
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("fit point"))?;
-            let np = p.parameter_columns.iter().filter(|v| v.is_some()).count();
-            let local_dense = p
-                .experiments
-                .iter()
-                .try_fold(0usize, |cells, experiment| {
-                    let Experiment::Steady(s) = experiment else {
-                        return Some(cells);
-                    };
-                    cells.checked_add(s.local_states.checked_mul(s.local_states + np)?)
-                })
-                .and_then(|cells| cells.checked_add(p.measurements.len().checked_mul(np)?))
-                .ok_or_else(|| ProblemError::memory("local response diagnostic extent"))?;
-            if local_dense > p.profile.max_cells {
-                return Err(ProblemError::memory(
-                    "local dense response diagnostic allowance; fit candidate remains available",
-                ));
-            }
-            // Dense diagnostics are optional: reserve independently from the sparse
-            // solve, before allocating any matrix. Failure does not lose the candidate.
-            let limit = p.runtime.shared.budget().math.worker_bytes;
-            if local_dense.checked_mul(8).is_none_or(|bytes| bytes > limit) {
-                return Err(ProblemError::memory(
-                    "local dense response diagnostic memory allowance",
-                ));
-            }
-            use faer::linalg::temp_mat_scratch;
-            let rows = p.measurements.len();
-            // The response and its weighted copy, and the right singular basis.
-            let mut bytes = temp_mat_scratch::<f64>(rows, np)
-                .size_bytes()
-                .checked_mul(2)
-                .and_then(|b| b.checked_add(temp_mat_scratch::<f64>(np, np).size_bytes()));
-            let mut scratch = rank_scratch(rows, np, true).size_bytes();
-            for experiment in &p.experiments {
-                if let Experiment::Steady(s) = experiment {
-                    let n = s.local_states;
-                    // Shared response owns its peak matrix, rank, identities and scratch
-                    // accounting. Matching's separate thread stack is reserved below;
-                    // worker_bytes bounds numeric capacity, not structural recursion.
-                    bytes = bytes
-                        .and_then(|b| {
-                            b.checked_add(native::square_response::workspace_bytes(n, np)?)
-                        })
-                        .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
-                        .and_then(|b| b.checked_add(n.checked_mul(n)?.checked_mul(128)?))
-                        .and_then(|b| b.checked_add(n.checked_mul(np)?.checked_mul(64)?));
-                    scratch = scratch.max(rank_scratch(n, n, false).size_bytes());
-                }
-            }
-            // Vector bookkeeping and opaque library metadata, separate from numeric
-            // matrices and library-declared scratch; this is not an RSS measurement.
-            let bytes = bytes
-                .and_then(|b| b.checked_add(scratch))
-                .and_then(|b| b.checked_add((rows + np).checked_mul(64)?))
-                .and_then(|b| b.checked_add(4 << 20))
-                .filter(|b| *b <= limit)
-                .ok_or_else(|| {
-                    ProblemError::memory("local dense response diagnostic memory allowance")
-                })?;
+            let RankAdmission { rows, np, bytes } = plan;
             let reservation =
                 datafusion::execution::memory_pool::MemoryConsumer::new("fit:response-diagnostic")
                     .register(&p.runtime.shared.pool());
-            // Structural analyses run sequentially, so one separately declared matching
-            // stack covers every steady closure without multiplying its peak by experiment.
-            let matching_stack = if p
-                .experiments
-                .iter()
-                .any(|e| matches!(e,Experiment::Steady(s) if s.local_states>0))
-            {
-                pse_structural::incidence::MATCHING_STACK
-            } else {
-                0
-            };
             reservation
-                .try_grow(
-                    bytes
-                        .checked_add(matching_stack)
-                        .ok_or_else(|| ProblemError::memory("response structural stack extent"))?,
-                )
+                .try_grow(bytes)
                 .map_err(|e| ProblemError::memory(e.to_string()))?;
             let mut response = Mat::zeros(p.measurements.len(), np);
             let free = p
@@ -1655,6 +1705,23 @@ pub(super) fn evaluate_experiment(
             "fit.experiment.products",
         )
     });
+    let selected_axes = match &p.experiments[ei] {
+        Experiment::Transient(s)
+            if demand.responses
+                && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None =>
+        {
+            Some(
+                p.layout.mappings[ei]
+                    .free_bindings
+                    .iter()
+                    .map(|&local| s.bindings[local].local)
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>(),
+            )
+        }
+        _ => None,
+    };
     let integration = (matches!(p.experiments[ei], Experiment::Transient(_))
         && !p.layout.mappings[ei].observations.is_empty())
     .then(|| {
@@ -1665,6 +1732,7 @@ pub(super) fn evaluate_experiment(
             demand.adjoint,
             false,
             ei as u64,
+            selected_axes.as_ref().map(Vec::len),
         )
     });
     let result = (|| {
@@ -1810,6 +1878,7 @@ pub(super) fn evaluate_experiment(
                             } else {
                                 native::dynamics::DynamicSensitivity::None
                             },
+                            selected_axes.as_deref().unwrap_or_default(),
                         )?
                     };
                     if let Some(prior) = previous {
@@ -1904,7 +1973,7 @@ pub(super) fn evaluate_experiment(
                                 })?;
                             result.responses.push((
                                 term.contribution,
-                                s.response(sample, o.row, &s.bindings[term.local])?,
+                                s.response(&report, sample, o.row, &s.bindings[term.local])?,
                             ));
                         }
                     }
@@ -1939,15 +2008,15 @@ pub(super) fn evaluate_experiment(
             }
         }
     }
+    if let Some(integration) = integration {
+        integration.finish(result.is_ok());
+    }
     if let Some(operation) = operation {
         operation.finish(match &result {
             Ok(_) => pse_diagnostics::observation::Outcome::Completed,
             Err(ProblemError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
             Err(_) => pse_diagnostics::observation::Outcome::Failed,
         });
-    }
-    if let Some(integration) = integration {
-        integration.finish(result.is_ok());
     }
     result
 }
@@ -2432,6 +2501,10 @@ mod tests {
         );
         let mut oracle = FitOracle::new(p, ex).unwrap();
         assert!(oracle.response_rank(&[2.0]).is_err());
+        assert!(
+            oracle.point.is_none(),
+            "known rank refusal must not evaluate the point"
+        );
         assert!((oracle.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
         let mut gradient = [0.0];
         oracle.gradient(&[2.0], &mut gradient).unwrap();
@@ -2802,6 +2875,45 @@ mod tests {
     }
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
+    async fn final_fit_derivative_failure_preserves_fresh_original_values() {
+        // sqrt is defined at zero; its derivative is not. The optional response
+        // product must fail without discarding an independently valid value.
+        let package = source_body(false, "param p:Scalar=2; let y:Scalar=sqrt(p);").await;
+        let mut declarations = package.fit_declarations().await.unwrap();
+        declarations.fits[0].parameters[0].lower = Some(0.0);
+        let package = package.with_fit_declarations(declarations).await.unwrap();
+        let (problem, _) = package
+            .prepare_fit_problem(
+                id(32).into(),
+                profile(false),
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        p09_tests::with_admitted_fit_oracle(problem.into(), |oracle| {
+            let problem = oracle.prepared.clone();
+            let mut report = p09_tests::candidate_fit_report(&problem, vec![0.0]);
+            problem
+                .observe(&mut report, oracle.execution.clone())
+                .unwrap();
+            assert_eq!(report.predictions, vec![Some(0.0)]);
+            assert_eq!(report.objective, Some(4.5));
+            assert!(report.quality.as_ref().unwrap().feasible());
+            assert!(matches!(
+                report.diagnostic,
+                Some(FitDiagnostic {
+                    rule: FitRule::ResponseRank,
+                    ..
+                })
+            ));
+            assert!(report.responses.is_none() && report.rank.is_none());
+        })
+        .await;
+    }
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
     async fn original_fit_failure_withholds_completed_statistical_products_in_invocation() {
         use crate::invocation::ProductAvailability;
         use pse_model::scalars::Fraction;
@@ -2846,6 +2958,23 @@ mod tests {
         assert!(report.wald.as_ref().unwrap().is_ok());
         assert!(!result.usable() && !report.estimate_qualified());
         let document = result.invocation_evidence().unwrap();
+        assert_eq!(document.version, 2);
+        assert!(document.timing_unavailable.is_none());
+        assert!(
+            document
+                .intervals
+                .iter()
+                .any(|interval| interval.stage == "native.worker_execution"
+                    && interval.ended_seconds.is_some())
+        );
+        assert!(
+            document
+                .intervals
+                .iter()
+                .any(|interval| interval.stage == "fit.original_final_assessment"
+                    && interval.ended_seconds.is_some()),
+            "native final assessment must reach the returned pre-dispatch invocation"
+        );
         for role in [
             "original_scientific_result",
             "parameter_covariance",

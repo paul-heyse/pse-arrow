@@ -211,7 +211,7 @@
 | `runtime.reduced_hessians` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."reduced_hessians" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.resolved_numerics` | `unique:pk` | `SELECT s."run_id", s."step", s."target_kind", s."target_id" FROM "runtime"."resolved_numerics" s GROUP BY s."run_id", s."step", s."target_kind", s."target_id" HAVING COUNT(*) > 1` |
 | `runtime.response_directions` | `unique:pk` | `SELECT s."run_id", s."direction", s."parameter_id" FROM "runtime"."response_directions" s GROUP BY s."run_id", s."direction", s."parameter_id" HAVING COUNT(*) > 1` |
-| `runtime.response_sensitivities` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id" FROM "runtime"."response_sensitivities" s GROUP BY s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id" HAVING COUNT(*) > 1` |
+| `runtime.response_sensitivities` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id", s."parameter_column" FROM "runtime"."response_sensitivities" s GROUP BY s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id", s."parameter_column" HAVING COUNT(*) > 1` |
 | `runtime.route_decisions` | `unique:pk` | `SELECT s."request_identity", s."step" FROM "runtime"."route_decisions" s GROUP BY s."request_identity", s."step" HAVING COUNT(*) > 1` |
 | `runtime.run_lineage` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."run_lineage" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.scientific_contexts` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."scientific_contexts" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |

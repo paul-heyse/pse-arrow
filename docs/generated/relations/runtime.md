@@ -2559,9 +2559,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, direction, paramete
 
 ## `response_sensitivities`
 
-Local physical response derivative in output difference units per parameter difference unit, never a confidence interval.
+Local physical response derivative in output difference units per parameter difference unit, never a confidence interval. parameter_column is the physical integration axis for simulation (including distinct scheduled intervals), or the public free-parameter ordinal for fitting.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, sample, output_id, parameter_id`.
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, sample, output_id, parameter_id, parameter_column`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2571,6 +2571,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, samp
 | `time` | `Float64` | true | `payload` | — | — |
 | `output_id` | `semantic_id` | false | `key` | — | — |
 | `parameter_id` | `semantic_id` | false | `key` | — | — |
+| `parameter_column` | `Int64` | false | `key` | — | — |
 | `output_unit_id` | `semantic_id` | false | `payload` | — | — |
 | `parameter_unit_id` | `semantic_id` | false | `payload` | — | — |
 | `value` | `Float64` | false | `payload` | — | — |

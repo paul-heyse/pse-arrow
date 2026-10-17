@@ -12,6 +12,11 @@
       ],
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
       ]
     },
     {
@@ -38,6 +43,11 @@
       ],
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
       ]
     },
     {
@@ -51,6 +61,11 @@
       ],
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
       ]
     },
     {
@@ -77,6 +92,11 @@
       ],
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
       ]
     },
     {
@@ -104,6 +124,11 @@
       ],
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
       ]
     },
     {
@@ -291,6 +316,12 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "workflow.integration.v1",
+        "nonlinear_iteration.v1"
       ]
     },
     {
@@ -305,6 +336,12 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "workflow.integration.v1",
+        "nonlinear_iteration.v1"
       ]
     },
     {
@@ -319,6 +356,12 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "workflow.integration.v1",
+        "nonlinear_iteration.v1"
       ]
     },
     {
@@ -346,6 +389,10 @@
       "functional_scopes": [
         "process",
         "lifecycle"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
       ]
     },
     {
@@ -357,6 +404,11 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
       ]
     },
     {
@@ -368,6 +420,10 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
       ]
     },
     {
@@ -379,6 +435,10 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
       ]
     },
     {
@@ -390,6 +450,10 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
       ]
     },
     {
@@ -401,6 +465,10 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
       ]
     },
     {
@@ -412,6 +480,11 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "dynamic_native_return.v1"
       ]
     },
     {
@@ -423,6 +496,29 @@
       "extended": true,
       "functional_scopes": [
         "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "workflow.integration.v1",
+        "nonlinear_iteration.v1"
+      ]
+    },
+    {
+      "id": "sparse-fit-12-1",
+      "operation": "sparse-fit",
+      "reuse": "cold",
+      "blocks": 12,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "workflow.integration.v1",
+        "nonlinear_iteration.v1"
       ]
     },
     {
@@ -461,7 +557,11 @@
         "process",
         "lifecycle"
       ],
-      "samples": 31
+      "samples": 31,
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
     },
     {
       "id": "results-publish-chain-1",
@@ -478,7 +578,11 @@
         "process",
         "lifecycle"
       ],
-      "samples": 31
+      "samples": 31,
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
     },
     {
       "id": "results-publish-small-chain-1",
@@ -558,6 +662,10 @@
         "process",
         "lifecycle",
         "managed-primary"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
       ]
     },
     {
@@ -680,6 +788,903 @@
         "process",
         "lifecycle"
       ]
+    },
+    {
+      "id": "compact-root-diagonal-4",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C03",
+        "question": "How does supported residual/Jacobian and sparse native setup work vary with support?",
+        "assertions": "Every x_i=i+1; authored checks; actual KINSOL backend.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "shape": "diagonal",
+      "backend": "kinsol",
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
+      ]
+    },
+    {
+      "id": "compact-root-banded-4",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C03",
+        "question": "How does supported residual/Jacobian and sparse native setup work vary with support?",
+        "assertions": "Every x_i=i+1; authored checks; actual KINSOL backend.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "shape": "banded",
+      "backend": "kinsol",
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
+      ]
+    },
+    {
+      "id": "compact-root-coupled-4",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C03",
+        "question": "How does supported residual/Jacobian and sparse native setup work vary with support?",
+        "assertions": "Every x_i=i+1; authored checks; actual KINSOL backend.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "shape": "coupled",
+      "backend": "kinsol",
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
+      ]
+    },
+    {
+      "id": "compact-root-diagonal-8",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C03",
+        "question": "How does supported residual/Jacobian and sparse native setup work vary with support?",
+        "assertions": "Every x_i=i+1; authored checks; actual KINSOL backend.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "shape": "diagonal",
+      "backend": "kinsol",
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
+      ]
+    },
+    {
+      "id": "compact-root-banded-8",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C03",
+        "question": "How does supported residual/Jacobian and sparse native setup work vary with support?",
+        "assertions": "Every x_i=i+1; authored checks; actual KINSOL backend.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "shape": "banded",
+      "backend": "kinsol",
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
+      ]
+    },
+    {
+      "id": "compact-root-coupled-8",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C03",
+        "question": "How does supported residual/Jacobian and sparse native setup work vary with support?",
+        "assertions": "Every x_i=i+1; authored checks; actual KINSOL backend.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "shape": "coupled",
+      "backend": "kinsol",
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_evaluation.v1"
+      ]
+    },
+    {
+      "id": "compact-root-petsc-4",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C06",
+        "question": "Does the supported PETSc root route execute without host iteration?",
+        "assertions": "Every x_i=i+1; original checks; actual PETSc backend.",
+        "observations": [
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "shape": "coupled",
+      "backend": "petsc",
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
+    },
+    {
+      "id": "compact-lp",
+      "operation": "compact-lp",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C06",
+        "question": "What class-specific native setup/search work does this smallest qualified case require?",
+        "assertions": "Original objective/feasibility, actual backend; integrality for MILP/MINLP; global bound for MINLP.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
+    },
+    {
+      "id": "compact-milp",
+      "operation": "compact-milp",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C06",
+        "question": "What class-specific native setup/search work does this smallest qualified case require?",
+        "assertions": "Original objective/feasibility, actual backend; integrality for MILP/MINLP; global bound for MINLP.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
+    },
+    {
+      "id": "compact-minlp",
+      "operation": "compact-minlp",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C06",
+        "question": "What class-specific native setup/search work does this smallest qualified case require?",
+        "assertions": "Original objective/feasibility, actual backend; integrality for MILP/MINLP; global bound for MINLP.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
+    },
+    {
+      "id": "compact-uno",
+      "operation": "compact-uno",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C06",
+        "question": "What class-specific native setup/search work does this smallest qualified case require?",
+        "assertions": "Original objective/feasibility, actual backend; integrality for MILP/MINLP; global bound for MINLP.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
+    },
+    {
+      "id": "compact-diffsol-ode-5",
+      "operation": "compact-dynamics",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Separate requested samples, native stepping, initialization and scheduled restart.",
+        "assertions": "Analytic x=1+2t (ODE), x=1+4t and y=4 (DAE); original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Scheduled values remain p=2 here; changed values and failure controls belong to the named dynamics unit fixtures."
+      },
+      "backend": "diffsol",
+      "shape": "ode",
+      "samples": 5,
+      "scheduled": false,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-diffsol-ode-25",
+      "operation": "compact-dynamics",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Separate requested samples, native stepping, initialization and scheduled restart.",
+        "assertions": "Analytic x=1+2t (ODE), x=1+4t and y=4 (DAE); original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Scheduled values remain p=2 here; changed values and failure controls belong to the named dynamics unit fixtures."
+      },
+      "backend": "diffsol",
+      "shape": "ode",
+      "samples": 25,
+      "scheduled": true,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-diffsol-dae-5",
+      "operation": "compact-dynamics",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Separate requested samples, native stepping, initialization and scheduled restart.",
+        "assertions": "Analytic x=1+2t (ODE), x=1+4t and y=4 (DAE); original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Scheduled values remain p=2 here; changed values and failure controls belong to the named dynamics unit fixtures."
+      },
+      "backend": "diffsol",
+      "shape": "dae",
+      "samples": 5,
+      "scheduled": true,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-diffsol-decay-smooth",
+      "operation": "compact-decay",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "How do internal step/setup/rejection counts differ for compact fast and slow time scales?",
+        "assertions": "x(t)=2(1-exp(-t/tau)) at ordinary engineering accuracy; original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "backend": "diffsol",
+      "samples": 5,
+      "stiff": false,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-diffsol-decay-stiff",
+      "operation": "compact-decay",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "How do internal step/setup/rejection counts differ for compact fast and slow time scales?",
+        "assertions": "x(t)=2(1-exp(-t/tau)) at ordinary engineering accuracy; original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "backend": "diffsol",
+      "samples": 25,
+      "stiff": true,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-idas-ode-5",
+      "operation": "compact-dynamics",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Separate requested samples, native stepping, initialization and scheduled restart.",
+        "assertions": "Analytic x=1+2t (ODE), x=1+4t and y=4 (DAE); original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Scheduled values remain p=2 here; changed values and failure controls belong to the named dynamics unit fixtures."
+      },
+      "backend": "idas",
+      "shape": "ode",
+      "samples": 5,
+      "scheduled": false,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-idas-ode-25",
+      "operation": "compact-dynamics",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Separate requested samples, native stepping, initialization and scheduled restart.",
+        "assertions": "Analytic x=1+2t (ODE), x=1+4t and y=4 (DAE); original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Scheduled values remain p=2 here; changed values and failure controls belong to the named dynamics unit fixtures."
+      },
+      "backend": "idas",
+      "shape": "ode",
+      "samples": 25,
+      "scheduled": true,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-idas-dae-5",
+      "operation": "compact-dynamics",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Separate requested samples, native stepping, initialization and scheduled restart.",
+        "assertions": "Analytic x=1+2t (ODE), x=1+4t and y=4 (DAE); original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Scheduled values remain p=2 here; changed values and failure controls belong to the named dynamics unit fixtures."
+      },
+      "backend": "idas",
+      "shape": "dae",
+      "samples": 5,
+      "scheduled": true,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-idas-decay-smooth",
+      "operation": "compact-decay",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "How do internal step/setup/rejection counts differ for compact fast and slow time scales?",
+        "assertions": "x(t)=2(1-exp(-t/tau)) at ordinary engineering accuracy; original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "backend": "idas",
+      "samples": 5,
+      "stiff": false,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-idas-decay-stiff",
+      "operation": "compact-decay",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "How do internal step/setup/rejection counts differ for compact fast and slow time scales?",
+        "assertions": "x(t)=2(1-exp(-t/tau)) at ordinary engineering accuracy; original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "backend": "idas",
+      "samples": 25,
+      "stiff": true,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-simultaneous-4",
+      "operation": "compact-simultaneous",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Compare preparation/mesh work with integrated execution from the same model definitions.",
+        "assertions": "Four backward-Euler elements; independent discrete endpoint, original checks.",
+        "observations": [
+          "preparations",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Discretization error is not native integration error."
+      },
+      "stiff": false,
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
+    },
+    {
+      "id": "compact-reference",
+      "operation": "compact-reference",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C01",
+        "question": "Account for actual reference source and physical admission independently from solve.",
+        "assertions": "Actual sixteen-package seed admission; no numerical claim.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "implicit.derivatives.verification.support_visits"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "detail_families": []
+    },
+    {
+      "id": "compact-property-value",
+      "operation": "compact-property-value",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C04",
+        "question": "Account for real source-owned nitrogen Shomate property evaluation.",
+        "assertions": "Source-owned nitrogen Shomate value and derivative expectations.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "implicit.derivatives.verification.support_visits"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "detail_families": []
+    },
+    {
+      "id": "compact-implicit",
+      "operation": "compact-implicit",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C04",
+        "question": "Account for scalar inner solve, explicit branch selection and outer original assessment.",
+        "assertions": "Positive branch; independently expected outer value4.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "implicit.derivatives.verification.support_visits"
+        ],
+        "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
+      },
+      "detail_families": [
+        "native_owner_return.v1"
+      ]
+    },
+    {
+      "id": "compact-implicit-derivatives-4-1",
+      "operation": "compact-implicit-derivatives",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C04",
+        "question": "Account for sparse verification and first/packed-second factor/solve work.",
+        "assertions": "Analytic implicit first/second responses and explicit backward-error checks.",
+        "observations": [
+          "implicit.derivatives",
+          "implicit.derivatives.verification.support_visits"
+        ],
+        "interpretation_limits": "Direct public IFT at independently known roots; no nonlinear inner iteration or multivariate branch-selection coverage."
+      },
+      "derivative_order": 1,
+      "detail_families": []
+    },
+    {
+      "id": "compact-implicit-derivatives-4-2",
+      "operation": "compact-implicit-derivatives",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C04",
+        "question": "Account for sparse verification and first/packed-second factor/solve work.",
+        "assertions": "Analytic implicit first/second responses and explicit backward-error checks.",
+        "observations": [
+          "implicit.derivatives",
+          "implicit.derivatives.verification.support_visits"
+        ],
+        "interpretation_limits": "Direct public IFT at independently known roots; no nonlinear inner iteration or multivariate branch-selection coverage."
+      },
+      "derivative_order": 2,
+      "detail_families": []
+    },
+    {
+      "id": "compact-implicit-derivatives-8-2",
+      "operation": "compact-implicit-derivatives",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C04",
+        "question": "Account for sparse verification and first/packed-second factor/solve work.",
+        "assertions": "Analytic implicit first/second responses and explicit backward-error checks.",
+        "observations": [
+          "implicit.derivatives",
+          "implicit.derivatives.verification.support_visits"
+        ],
+        "interpretation_limits": "Direct public IFT at independently known roots; no nonlinear inner iteration or multivariate branch-selection coverage."
+      },
+      "derivative_order": 2,
+      "detail_families": []
+    },
+    {
+      "id": "compact-study-1-full-independent",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "workers": 1,
+      "retention": "full",
+      "continuation": false,
+      "trim_cache": true,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Separate lane preparation/rebind reuse, point dependency ordering, native work and retention.",
+        "assertions": "Four distinct nonzero overlays; original x=2+t and t values/checks; Fresh or Continuation provenance; joined usable reports.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "workflow.integration.v1",
+          "audit.join"
+        ],
+        "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
+      },
+      "detail_families": []
+    },
+    {
+      "id": "compact-study-2-compact-independent",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 2,
+      "workers": 2,
+      "retention": "compact",
+      "continuation": false,
+      "trim_cache": true,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Separate lane preparation/rebind reuse, point dependency ordering, native work and retention.",
+        "assertions": "Four distinct nonzero overlays; original x=2+t and t values/checks; Fresh or Continuation provenance; joined usable reports.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "workflow.integration.v1",
+          "audit.join"
+        ],
+        "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
+      },
+      "detail_families": []
+    },
+    {
+      "id": "compact-study-1-compact-continuation",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "workers": 1,
+      "retention": "compact",
+      "continuation": true,
+      "trim_cache": true,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Separate lane preparation/rebind reuse, point dependency ordering, native work and retention.",
+        "assertions": "Four distinct nonzero overlays; original x=2+t and t values/checks; Fresh or Continuation provenance; joined usable reports.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "workflow.integration.v1",
+          "audit.join"
+        ],
+        "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
+      },
+      "detail_families": []
+    },
+    {
+      "id": "compact-study-2-full-continuation",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 2,
+      "workers": 2,
+      "retention": "full",
+      "continuation": true,
+      "trim_cache": true,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Separate lane preparation/rebind reuse, point dependency ordering, native work and retention.",
+        "assertions": "Four distinct nonzero overlays; original x=2+t and t values/checks; Fresh or Continuation provenance; joined usable reports.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "workflow.integration.v1",
+          "audit.join"
+        ],
+        "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
+      },
+      "detail_families": []
     }
   ]
 }

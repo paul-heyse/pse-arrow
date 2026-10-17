@@ -564,6 +564,8 @@ frames! {
         DynamicProfileV7 => "pse.dynamic.profile.v7",
         /// Typed integration profile and resolved method in canonical document framing.
         DynamicProfileV9 => "pse.dynamic.profile.v9",
+        /// Complete dynamic values with an explicitly selected physical sensitivity layout.
+        DynamicProfileV10 => "pse.dynamic.profile.v10",
         /// Historical profile framing with speculative Auto resolution.
         DynamicProfileV8 => "pse.dynamic.profile.v8",
         /// An explicit conic request; its quadratic is certified exactly, so it carries no

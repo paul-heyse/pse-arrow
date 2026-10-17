@@ -15,13 +15,28 @@ impl Coupled {
             differential: vec![true, true],
             parameters: vec![id(3), id(4), id(5), id(6)],
             outputs: vec![id(7)],
-            events: vec![vec![]], signs: vec![], quadratures: vec![], balances: vec![],
+            events: vec![vec![]],
+            signs: vec![],
+            quadratures: vec![],
+            balances: vec![],
             derivatives: pse_kernels::DerivativeOrder::First,
         })
     }
 }
 impl Oracle for Coupled {
-    fn contract(&self) -> &Contract { &self.0 }
+    fn snapshot_owner(
+        &self,
+        bytes: usize,
+    ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+        #[derive(Debug)]
+        struct FixtureSnapshot {
+            _bytes: usize,
+        }
+        Ok(Arc::new(FixtureSnapshot { _bytes: bytes }))
+    }
+    fn contract(&self) -> &Contract {
+        &self.0
+    }
     fn support(&self, _: usize, function: Function) -> Vec<SupportEntry> {
         entries(match function {
             Function::Initial => vec![(0, 3), (0, 5)],
@@ -30,20 +45,43 @@ impl Oracle for Coupled {
             _ => vec![],
         })
     }
-    fn evaluate(&mut self, _: usize, function: Function, _: f64, x: &[f64], p: &[f64], derivative: bool) -> Result<Evaluation, ProblemError> {
+    fn evaluate(
+        &mut self,
+        _: usize,
+        function: Function,
+        _: f64,
+        x: &[f64],
+        p: &[f64],
+        derivative: bool,
+    ) -> Result<Evaluation, ProblemError> {
         // Contract order: scheduled rate, fixed nonzero forcing, coupling, initial factor.
         let (values, partials) = match function {
             Function::Initial => (vec![p[3] * p[1], 1.], vec![(0, 3, p[3]), (0, 5, p[1])]),
-            Function::Rhs => (vec![p[0] + p[1], p[2] * x[0]], vec![(0, 2, 1.), (0, 3, 1.), (1, 0, p[2]), (1, 4, x[0])]),
-            Function::Output => (vec![x[0] + x[1] + 2. * p[0] + 3. * p[1]], vec![(0, 0, 1.), (0, 1, 1.), (0, 2, 2.), (0, 3, 3.)]),
+            Function::Rhs => (
+                vec![p[0] + p[1], p[2] * x[0]],
+                vec![(0, 2, 1.), (0, 3, 1.), (1, 0, p[2]), (1, 4, x[0])],
+            ),
+            Function::Output => (
+                vec![x[0] + x[1] + 2. * p[0] + 3. * p[1]],
+                vec![(0, 0, 1.), (0, 1, 1.), (0, 2, 2.), (0, 3, 3.)],
+            ),
             _ => (vec![], vec![]),
         };
         let jacobian = derivative.then(|| {
-            faer::sparse::SparseColMat::try_new_from_triplets(values.len(), 6,
-                &partials.into_iter().map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v)).collect::<Vec<_>>()
-            ).unwrap()
+            faer::sparse::SparseColMat::try_new_from_triplets(
+                values.len(),
+                6,
+                &partials
+                    .into_iter()
+                    .map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap()
         });
-        Ok(Evaluation { values, jacobian: jacobian.map(|j| Arc::new(j).into()) })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|j| Arc::new(j).into()),
+        })
     }
 }
 fn methods() -> Vec<Method> {
@@ -56,32 +94,60 @@ fn methods() -> Vec<Method> {
 }
 fn profile(method: Method, axes: Option<Vec<usize>>) -> Profile {
     Profile {
-        method, samples: vec![0., 0.25, 0.5, 0.75, 1.],
-        atol: vec![1e-10; 2], rtol: 1e-9, initial_step: 1e-5,
-        sensitivity: DynamicSensitivity::Forward, forward_axes: axes,
+        method,
+        samples: vec![0., 0.25, 0.5, 0.75, 1.],
+        atol: vec![1e-10; 2],
+        rtol: 1e-9,
+        initial_step: 1e-5,
+        sensitivity: DynamicSensitivity::Forward,
+        forward_axes: axes,
         parameter_scales: vec![0.25, 8., 3., 0.6],
-        schedule: vec![ScheduledInput { parameter: 0, times: vec![0.5] }],
+        schedule: vec![ScheduledInput {
+            parameter: 0,
+            times: vec![0.5],
+        }],
         ..Default::default()
     }
 }
 // Physical integration order is forcing, coupling, initial factor, rate[0], rate[1].
 const VALUES: [f64; 5] = [5., 2., 0.4, 1., 3.];
 fn run(profile: &Profile, values: &[f64]) -> Report {
-    let report = integrate(&mut Coupled::new(), profile, values, Cancellation::default()).unwrap();
-    assert_eq!(report.termination, Termination::Completed, "{:?}: {:?}", profile.method, report.error);
+    let report = integrate(
+        &mut Coupled::new(),
+        profile,
+        values,
+        Cancellation::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        report.termination,
+        Termination::Completed,
+        "{:?}: {:?}",
+        profile.method,
+        report.error
+    );
     report
 }
 fn analytic(t: f64, axis: usize) -> (f64, f64, f64) {
     let later = (t - 0.5).max(0.);
     let initial = VALUES[2] * VALUES[0];
-    let integral = initial * t + (VALUES[3] + VALUES[0]) * t * t / 2.
+    let integral = initial * t
+        + (VALUES[3] + VALUES[0]) * t * t / 2.
         + (VALUES[4] - VALUES[3]) * later * later / 2.;
     let (dx, dy, direct) = match axis {
         0 => (VALUES[2] + t, VALUES[1] * (VALUES[2] * t + t * t / 2.), 3.),
         1 => (0., integral, 0.),
         2 => (VALUES[0], VALUES[1] * VALUES[0] * t, 0.),
-        3 => (t.min(0.5), VALUES[1] * (t * t - later * later) / 2., if t < 0.5 { 2. } else { 0. }),
-        4 => (later, VALUES[1] * later * later / 2., if t >= 0.5 { 2. } else { 0. }),
+        3 => (
+            t.min(0.5),
+            VALUES[1] * (t * t - later * later) / 2.,
+            if t < 0.5 { 2. } else { 0. },
+        ),
+        4 => (
+            later,
+            VALUES[1] * later * later / 2.,
+            if t >= 0.5 { 2. } else { 0. },
+        ),
         _ => unreachable!(),
     };
     (dx, dy, dx + dy + direct)
@@ -106,9 +172,18 @@ fn selected_physical_axes_preserve_initial_coupled_scheduled_and_scaled_response
                         (sample.state_sensitivities[width + column], expected.1),
                         (sample.output_sensitivities[column], expected.2),
                     ] {
-                        assert!((actual - exact).abs() < 2e-5, "{method:?} axis {axis} at {}: {actual} vs {exact}", sample.time);
+                        assert!(
+                            (actual - exact).abs() < 2e-5,
+                            "{method:?} axis {axis} at {}: {actual} vs {exact}",
+                            sample.time
+                        );
                     }
-                    assert!((sample.output_sensitivities[column] - reference.output_sensitivities[*axis]).abs() < 2e-5);
+                    assert!(
+                        (sample.output_sensitivities[column]
+                            - reference.output_sensitivities[*axis])
+                            .abs()
+                            < 2e-5
+                    );
                 }
             }
             // Independent value-only central differences at the initial point and endpoint.
@@ -123,8 +198,12 @@ fn selected_physical_axes_preserve_initial_coupled_scheduled_and_scaled_response
                 let plus = run(&primal, &plus);
                 let minus = run(&primal, &minus);
                 for k in [0, report.samples.len() - 1] {
-                    let difference = (plus.samples[k].outputs[0] - minus.samples[k].outputs[0]) / 2e-3;
-                    assert!((difference - report.samples[k].output_sensitivities[column]).abs() < 5e-5, "{method:?} axis {axis}: finite difference {difference}");
+                    let difference =
+                        (plus.samples[k].outputs[0] - minus.samples[k].outputs[0]) / 2e-3;
+                    assert!(
+                        (difference - report.samples[k].output_sensitivities[column]).abs() < 5e-5,
+                        "{method:?} axis {axis}: finite difference {difference}"
+                    );
                 }
             }
         }
@@ -157,7 +236,12 @@ fn selected_anchor_and_later_interval_keep_fixed_anchor_values() {
         let values = [5., 2., 0.4, 2., 1., 1., 3.];
         profile.forward_axes = Some(vec![6, 3]);
         let report = integrate(&mut oracle, &profile, &values, Cancellation::default()).unwrap();
-        assert_eq!(report.termination, Termination::Completed, "{method:?}: {:?}", report.error);
+        assert_eq!(
+            report.termination,
+            Termination::Completed,
+            "{method:?}: {:?}",
+            report.error
+        );
         assert_eq!(report.forward_axes, vec![6, 3]);
         for sample in &report.samples {
             let later = analytic(sample.time, 4);
@@ -165,7 +249,10 @@ fn selected_anchor_and_later_interval_keep_fixed_anchor_values() {
             assert!((sample.state_sensitivities[1] - 1.).abs() < 2e-5);
             assert!((sample.state_sensitivities[3] - 2. * sample.time).abs() < 2e-5);
             assert!((sample.output_sensitivities[1] - (1. + 2. * sample.time)).abs() < 2e-5);
-            assert!(report.sensitivity_column(4).is_err(), "fixed y anchor is a value, not a selected axis");
+            assert!(
+                report.sensitivity_column(4).is_err(),
+                "fixed y anchor is a value, not a selected axis"
+            );
         }
     }
 }
@@ -176,8 +263,16 @@ fn selected_axes_admission_and_identity_use_the_resolved_width() {
         let full = profile(method, None);
         let selected = profile(method, Some(vec![4, 2]));
         assert_ne!(profile_json(&full), profile_json(&selected));
-        assert_eq!(profile_json(&selected)["forward_axes"], serde_json::json!([4, 2]));
-        assert!(serde_json::to_value(&selected).unwrap().get("forward_axes").is_none());
+        assert_eq!(
+            profile_json(&selected)["forward_axes"],
+            serde_json::json!([4, 2])
+        );
+        assert!(
+            serde_json::to_value(&selected)
+                .unwrap()
+                .get("forward_axes")
+                .is_none()
+        );
         assert_eq!(selected.sample_cells(&contract, 5).unwrap(), 45);
         assert_eq!(full.sample_cells(&contract, 5).unwrap(), 90);
         let mut admitted = selected.clone();
@@ -188,7 +283,15 @@ fn selected_axes_admission_and_identity_use_the_resolved_width() {
         for axes in [vec![1, 1], vec![5], vec![usize::MAX]] {
             let invalid = profile(method, Some(axes));
             assert!(invalid.validate(&contract, &VALUES).is_err());
-            assert!(integrate(&mut Coupled::new(), &invalid, &VALUES, Cancellation::default()).is_err());
+            assert!(
+                integrate(
+                    &mut Coupled::new(),
+                    &invalid,
+                    &VALUES,
+                    Cancellation::default()
+                )
+                .is_err()
+            );
         }
         let mut invalid = selected;
         invalid.sensitivity = DynamicSensitivity::Adjoint;

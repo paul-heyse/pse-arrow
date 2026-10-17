@@ -87,7 +87,8 @@
       "model": "scalar-k4",
       "functional_scopes": [
         "preparation"
-      ]
+      ],
+      "audit_supported": true
     },
     {
       "id": "k4-retention-pressure",

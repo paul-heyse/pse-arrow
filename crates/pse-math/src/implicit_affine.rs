@@ -106,8 +106,7 @@ impl InnerWorker for Affine {
         let rhs = delta.clone();
         problem.solve_factor(&mut factor, delta.as_mut(), cancel)?;
         check_solve(
-            &jet.jacobian,
-            width,
+            &matrix,
             &delta,
             &rhs,
             options.derivative_tolerance,

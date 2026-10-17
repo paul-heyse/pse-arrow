@@ -291,7 +291,11 @@ async fn run(
     observations: &mut observations::Observations,
 ) {
     match operation {
-        operation if operation.starts_with("compact-") => compact::run(owner, spec, observations).await,
+        operation if operation.starts_with("compact-") => {
+            // Keep the case dispatcher on the ordinary caller stack without
+            // embedding every compact scientific future in this outer frame.
+            Box::pin(compact::run(owner, spec, observations)).await
+        }
         "shooting" => shooting::run(owner, observations).await,
         "curved-fit" | "curved-gradient" => {
             curved_fit::run(owner, observations, operation == "curved-gradient").await;
@@ -486,7 +490,9 @@ pub(super) fn measure(
         assert!(matches!(workers, 1 | 2));
         assert_eq!(spec["threads"].as_u64(), Some(workers as u64));
         workers
-    } else { 1 };
+    } else {
+        1
+    };
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(threads)
         .enable_all()
@@ -513,13 +519,13 @@ pub(super) fn measure(
             let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
             let executed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| audit::with_owner_sync(&owner, &executor, || {
                 let _stage = audit::stage("extended_execution_and_assessment");
-                let (_, counts) = executor.block_on(pse_runtime::invocation::counted(audit::scope(run(
+                let (_, counts) = executor.block_on(pse_runtime::invocation::counted(audit::scope(Box::pin(run(
                     &owner,
                     operation,
                     size,
                     spec,
                     &mut observations,
-                ))));
+                )))));
                 observations.counted_preparations(counts);
             })));
             if let Err(panic) = executed {

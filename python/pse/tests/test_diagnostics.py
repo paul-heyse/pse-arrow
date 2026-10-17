@@ -724,6 +724,8 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             )
             assert checkpoint.current.sequence is None
             invocation = result.invocation_evidence
+            assert invocation.version == 2
+            assert "before dispatch" in invocation.clock_scope
             invocation_before = codec.encode_json(invocation)
             summary_before = codec.encode_json(result.attempt_summary)
             explanation = result.explain_invocation()

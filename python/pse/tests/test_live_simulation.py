@@ -196,6 +196,7 @@ def test_compact_explicit_sensitivities_refuse_before_a_live_run_is_returned(
         derivatives = pa.table(result.table("runtime.response_sensitivities"))
         assert derivatives.num_rows == len(SAMPLES)
         for row in derivatives.to_pylist():
+            assert row["parameter_column"] == 0
             assert row["value"] == pytest.approx(
                 -row["time"] * math.exp(-0.5 * row["time"]), abs=1e-6
             )

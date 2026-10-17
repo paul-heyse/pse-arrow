@@ -1560,6 +1560,9 @@ class ValidationTests(unittest.TestCase):
         )
         with (
             tempfile.TemporaryDirectory() as directory,
+            patch(
+                "scripts.arrow_validation.compose", side_effect=lambda command: command
+            ) as compose,
             patch.object(
                 case_measure.subprocess,
                 "run",
@@ -1570,6 +1573,7 @@ class ValidationTests(unittest.TestCase):
                 Path(directory), "dev", process, preparation, set(identities)
             )
             calls = run.call_args_list
+            compose.assert_called_once()
             self.assertEqual(len(calls), 3)
             build = calls[0].args[0]
             self.assertEqual(

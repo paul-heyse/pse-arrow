@@ -21,21 +21,6 @@ from scripts import host_admission, validation, validation_receipts
 from scripts.validation_scope import RUST_INPUTS
 
 ROOT = Path(__file__).resolve().parents[1]
-AUDIT_CASES = frozenset(
-    {
-        "k4-scalar-preparation",
-        "cold-large-1",
-        "warm-large-1",
-        "specialization-medium-1",
-        "cancellation-cold-1",
-        "value-sweep-1000-1",
-        "fit-gradient-cold-1",
-        "shooting-single-idas-cold-1",
-        "results-chain-1",
-        "results-publish-chain-1",
-        "k4-study-managed-durable-16",
-    }
-)
 ENVIRONMENT_CONTROLS = (
     "PSE_SURREAL_STATE",
     "PSE_MEMORY_MAX",
@@ -451,6 +436,7 @@ def smoke_campaign(
     selected: set[str],
     *,
     audit_order: list[str] | None = None,
+    audit_deadline_seconds: float | None = None,
 ) -> None:
     """Execute benchmark controls once; this produces no performance qualification."""
     targets = {
@@ -535,6 +521,7 @@ def smoke_campaign(
                     cwd=ROOT,
                     env=env,
                     directory=directory,
+                    deadline_seconds=audit_deadline_seconds,
                 )
             except KeyboardInterrupt:
                 observation = directory / "diagnostics/observation.json"
@@ -696,12 +683,25 @@ def main() -> int:
         help="Observe explicitly selected once-only smoke cases, retaining live diagnostics and cooperative stop support.",
     )
     parser.add_argument(
+        "--audit-deadline-seconds",
+        type=float,
+        help="Request cooperative stop after this finite positive observation interval, then await native join and fixture cleanup; not a hard execution deadline.",
+    )
+    parser.add_argument(
         "--case",
         action="append",
         default=[],
         help="Declared process, preparation or document-admission case; repeat to select several. Defaults to all.",
     )
     args = parser.parse_args()
+    if args.audit_deadline_seconds is not None and (
+        not args.audit_diagnostics
+        or not math.isfinite(args.audit_deadline_seconds)
+        or args.audit_deadline_seconds <= 0
+    ):
+        parser.error(
+            "--audit-deadline-seconds requires --audit-diagnostics and a finite positive interval"
+        )
     if args.audit_diagnostics and (not args.smoke or not args.case):
         parser.error(
             "--audit-diagnostics requires --smoke and explicit --case selection"
@@ -722,10 +722,11 @@ def main() -> int:
     }
     selection = selected_workloads((declaration, preparation, admission), args.case)
     selected = {w["id"] for w in selection}
-    if args.audit_diagnostics and selected - AUDIT_CASES:
+    unsupported = {w["id"] for w in selection if w.get("audit_supported") is not True}
+    if args.audit_diagnostics and unsupported:
         parser.error(
             "diagnostic audit stop/cleanup wiring is not supported for: "
-            + ", ".join(sorted(selected - AUDIT_CASES))
+            + ", ".join(sorted(unsupported))
         )
     if args.smoke:
         if args.functional_from:
@@ -738,6 +739,7 @@ def main() -> int:
             preparation,
             selected,
             audit_order=args.case if args.audit_diagnostics else None,
+            audit_deadline_seconds=args.audit_deadline_seconds,
         )
         return 0
     snapshot = measurement_inputs(validation.sources(ROOT))

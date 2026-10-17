@@ -5899,6 +5899,57 @@
       ],
       "type": "object"
     },
+    "ReplayForwardSelection": {
+      "description": "Replay retains the original internal request without teaching Profile's public\nserialization a general selection API. Exactly one coordinate form is authoritative.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Consumer inputs resolved to their start-interval axes during preparation.",
+          "properties": {
+            "coordinates": {
+              "items": {
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            "kind": {
+              "const": "semantic_parameters",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "coordinates"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An already selected physical integration request, including scheduled intervals.",
+          "properties": {
+            "coordinates": {
+              "items": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "physical_axes",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "coordinates"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "ReplayHorizonConstructor": {
       "additionalProperties": false,
       "description": "Full original horizon constructor; an interrupted observation never replaces its requested horizon.",
@@ -6851,6 +6902,17 @@
           },
           "type": "array",
           "uniqueItems": true
+        },
+        "forward_selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReplayForwardSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original internal forward selection, absent for ordinary full Forward."
         },
         "instance": {
           "description": "Original instance identity.",

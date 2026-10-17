@@ -503,7 +503,13 @@ unsafe fn publish(
 /// the state sensitivities `columns` (one per integration parameter) and the direct
 /// partials, where `P` selects each contract parameter's integration column `map[k]` in the
 /// current segment. One faer sparse × dense product (F12).
-fn chained(j: &Jacobian, columns: &[Vec<f64>], n: usize, map: &[usize], axes: &[usize]) -> faer::Mat<f64> {
+fn chained(
+    j: &Jacobian,
+    columns: &[Vec<f64>],
+    n: usize,
+    map: &[usize],
+    axes: &[usize],
+) -> faer::Mat<f64> {
     let np = columns.len();
     let chain = faer::Mat::from_fn(n + map.len(), np, |i, k| {
         if i < n {
@@ -1616,7 +1622,9 @@ impl<'a> Session<'a> {
             p.forward_axes(s.callback.contract.parameters.len())
         } else if !directions.is_empty() {
             (0..integration.len()).collect()
-        } else { Vec::new() };
+        } else {
+            Vec::new()
+        };
         if forward {
             let j = initial
                 .jacobian
@@ -1626,7 +1634,8 @@ impl<'a> Session<'a> {
             // partials when the first segment uses it, and from zero otherwise.
             for k in 0..s.callback.axes.len() {
                 let mut values = vec![0.0; n];
-                if let Some(contract) = s.callback.map.iter().position(|c| *c == s.callback.axes[k]) {
+                if let Some(contract) = s.callback.map.iter().position(|c| *c == s.callback.axes[k])
+                {
                     for e in symbolic.col_range(n + contract) {
                         values[symbolic.row_idx()[e]] = j.val()[e];
                     }
@@ -1639,7 +1648,8 @@ impl<'a> Session<'a> {
             native!(
                 ffi::IDASensInit(
                     s.mem,
-                    s.callback.axes
+                    s.callback
+                        .axes
                         .len()
                         .try_into()
                         .map_err(|_| ProblemError::unsupported("IDAS parameter extent"))?,

@@ -1030,9 +1030,18 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
         self.resolve_prepared_case_with_current_view(
-            model, case, order, compiler, solver, numerical, overrides, allow_missing_free,
-            None, cancel,
-        ).await
+            model,
+            case,
+            order,
+            compiler,
+            solver,
+            numerical,
+            overrides,
+            allow_missing_free,
+            None,
+            cancel,
+        )
+        .await
     }
     /// Resolve with an explicitly borrowed lane-local immutable numerical view.
     #[expect(

@@ -11,6 +11,7 @@ current_work = [
   "plans/28*.md",
   "plans/32-workspace-content-lifecycle.md",
   "plans/40*.md",
+  "plans/44*.md",
 ]
 assets = [
   "capability-maps/evidence/identity-vectors-adr0050.json",
@@ -26,6 +27,7 @@ asset_bundles = [
   "graph-hash-followups-2026-10-09",
   "native-producer-inputs-2026-10-06",
   "plan36-investigation-evidence",
+  "pipeline-performance-optimization-2026-10-17",
   "unified-state-management-2026-10-10",
 ]
 entrypoints = [
@@ -98,6 +100,11 @@ patterns = [
   "external-review-postgresl-typing-and-other-typing-enhancements.md",
 ]
 scope = "History"
+
+[[asset_bundles]]
+name = "pipeline-performance-optimization-2026-10-17"
+root = "design_review/evidence/pipeline-performance-optimization-2026-10-17"
+files = ["case-observations.json", "short-cases.py", "other-cases.py"]
 
 [[asset_bundles]]
 name = "agent-effectiveness-enhancements-2026-10-09"

@@ -143,6 +143,10 @@ between time points or deactivating a model at selected points have no counterpa
 
 ### 13.6 Native integrators and trajectories
 
+> Decision: ADR-0197 (proposed; Plan44b kernel contract implemented). Complete physical integration values are separate from unique ordered consumed forward-sensitivity axes. Ordinary public Forward selects all axes. Internal fitting/shooting requests may select a subset or no axes; native callbacks, initial/scheduled mappings, retained reports and admission consume one explicit layout. Tied physical contributions retain their conversion and addition. Existing adjoint and hybrid support limits remain. Targeted IDAS/Diffsol, selected preparation/replay, fitting and shooting controls passed; assembled qualification remains with Plan44f.
+
+Response publication (ADR-0197): `runtime.response_sensitivities.parameter_column` identifies the physical integration axis for simulation rows, including distinct scheduled intervals, and the public free-parameter ordinal for fit rows. Parameter IDs and units continue to name the physical quantity. Selected layouts participate in dynamic profile identity. Internal replay preserves the selected semantic-start or explicit-axis request in one typed selection; ordinary public profiles continue to select full Forward. Fitting preflights optional response-rank extents before integration, then independently assesses the final candidate using one fresh response product when admitted. A derivative failure may fall back to fresh values while execution is still live; optional diagnostics do not grant or revoke scientific permission. Ordered trajectory checks retain sample identities and endpoint coverage in linear merge work.
+
 > Decision: [ADR-0194](../../adr/0194-dynamic-coverage-and-trajectory-effort.md) (proposed; maintainer-authorized Plan43 target).
 
 Dynamic Profile Version2 separates requested output coverage from native advancement.

@@ -709,8 +709,9 @@ impl ModelingSimulation {
             self.coordinates.time_scale,
             self.coordinates.time_origin,
         )?);
-        let configuration = serde_json::to_vec(&(1u8, native::profile_json(&self.profile), &self.parameters))
-            .map_err(|error| contract(error.to_string()))?;
+        let configuration =
+            serde_json::to_vec(&(1u8, native::profile_json(&self.profile), &self.parameters))
+                .map_err(|error| contract(error.to_string()))?;
         Ok(pse_model::generated::runtime::scientific_contexts::Row {
             run_id,
             step: 0,
@@ -2400,13 +2401,19 @@ impl ModelingPackage {
             if profile.sensitivity != native::DynamicSensitivity::Forward
                 || selected.iter().any(|id| !parameters.contains(id))
             {
-                return Err(contract("selected forward inputs require admitted physical parameters"));
+                return Err(contract(
+                    "selected forward inputs require admitted physical parameters",
+                ));
             }
             // Resolve consumed semantic inputs only after the complete scheduled value
             // layout exists, before routing, native/result admission and identity.
-            profile.forward_axes = Some(parameters.iter().enumerate()
-                .filter_map(|(parameter, id)| selected.contains(id).then_some(first[parameter]))
-                .collect());
+            profile.forward_axes = Some(
+                parameters
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(parameter, id)| selected.contains(id).then_some(first[parameter]))
+                    .collect(),
+            );
         }
         for (input, authored) in &authored {
             parameter_values
@@ -5349,18 +5356,37 @@ mod tests {
         use pse_relations::{columnar::RelationRow, generated::runtime::response_sensitivities};
         let full_response = response_sensitivities::Row::rows(
             &result.table("runtime.response_sensitivities").unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(full_response.len(), 6);
         for sample in 0..3 {
-            let rows = full_response.iter().filter(|row| row.sample == sample).collect::<Vec<_>>();
-            assert_eq!(rows.iter().map(|row| row.parameter_column).collect::<BTreeSet<_>>(), BTreeSet::from([0, 1]));
-            assert!(rows.iter().all(|row| row.parameter_id == sensitive.contract.parameters[0]));
+            let rows = full_response
+                .iter()
+                .filter(|row| row.sample == sample)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                rows.iter()
+                    .map(|row| row.parameter_column)
+                    .collect::<BTreeSet<_>>(),
+                BTreeSet::from([0, 1])
+            );
+            assert!(
+                rows.iter()
+                    .all(|row| row.parameter_id == sensitive.contract.parameters[0])
+            );
         }
         let mut selected_profile = profile.clone();
         selected_profile.forward_axes = Some(vec![1]);
-        let selected = package.declared_simulation(
-            scheduled, compiler, Some(selected_profile), Limits::default(), &cancel,
-        ).await.unwrap();
+        let selected = package
+            .declared_simulation(
+                scheduled,
+                compiler,
+                Some(selected_profile),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
         assert_ne!(selected.identity(), sensitive.identity());
         let constructor = selected.original_inputs.as_ref().unwrap().document(0);
         assert!(constructor.profile.forward_axes.is_none());
@@ -5373,10 +5399,17 @@ mod tests {
         assert_eq!(reconstructed.parameters, selected.parameters);
         assert_eq!(reconstructed.identity(), selected.identity());
         let selected_result = selected.run(&cancel).await.unwrap();
-        assert!(selected_result.accepted(), "{:?}", selected_result.diagnostic());
+        assert!(
+            selected_result.accepted(),
+            "{:?}",
+            selected_result.diagnostic()
+        );
         let selected_response = response_sensitivities::Row::rows(
-            &selected_result.table("runtime.response_sensitivities").unwrap(),
-        ).unwrap();
+            &selected_result
+                .table("runtime.response_sensitivities")
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(selected_response.len(), 3);
         for row in &selected_response {
             assert_eq!(row.parameter_column, 1);
@@ -5384,8 +5417,11 @@ mod tests {
             let expected = if row.sample == 2 { 0.5 } else { 0. };
             assert!((row.value - expected).abs() < 1e-7);
         }
-        let context = selected.scientific_context(pse_operations::mint_id(), ContentHash::from_bytes([1; 32])).unwrap();
-        let configuration: serde_json::Value = serde_json::from_slice(&context.configuration).unwrap();
+        let context = selected
+            .scientific_context(pse_operations::mint_id(), ContentHash::from_bytes([1; 32]))
+            .unwrap();
+        let configuration: serde_json::Value =
+            serde_json::from_slice(&context.configuration).unwrap();
         assert_eq!(configuration[1]["forward_axes"], serde_json::json!([1]));
         // A profile repeating the authored schedule is accepted; one scheduling the same
         // input differently is refused.

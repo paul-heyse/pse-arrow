@@ -1488,8 +1488,11 @@ impl Oracle for &mut DynamicWorker {
 pub(crate) fn profile_identity(
     p: &SimulationProfile,
 ) -> Result<pse_ids::roles::ProfileHash, ProblemError> {
-    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV9);
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV10);
     pse_ids::document::frame(&mut h, p)
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    h.str("forward_axes");
+    pse_ids::document::frame(&mut h, &p.forward_axes)
         .map_err(|error| ProblemError::Internal(error.to_string()))?;
     h.str("resolved_method");
     pse_ids::document::frame(&mut h, &p.resolved_method().ok())
@@ -1501,6 +1504,22 @@ pub(crate) fn profile_identity(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn simulation_identity_distinguishes_selected_physical_axes() {
+        let full = SimulationProfile::default();
+        let mut keys = std::collections::BTreeSet::new();
+        for axes in [
+            None,
+            Some(vec![]),
+            Some(vec![0]),
+            Some(vec![1]),
+            Some(vec![1, 0]),
+        ] {
+            let mut profile = full.clone();
+            profile.forward_axes = axes;
+            assert!(keys.insert(profile_identity(&profile).unwrap()));
+        }
+    }
     #[test]
     fn simulation_identity_includes_backend_and_trial_policy() {
         let base = SimulationProfile::default();

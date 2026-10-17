@@ -189,7 +189,7 @@ impl Builder {
             document: InvocationComparisonDocument {
                 version: Version,
                 policy_name: "source-linked-invocation-comparison".into(),
-                policy_version: 1,
+                policy_version: 2,
                 policy: policy.bounded(),
                 baseline: a.into(),
                 candidate: b.map(Into::into),
@@ -267,7 +267,7 @@ fn source_partial(doc: &InvocationEvidenceDocument) -> bool {
         || doc.attempts.omitted_native_attempts > 0
 }
 fn source_valid(builder: &mut Builder, doc: &InvocationEvidenceDocument) -> bool {
-    if doc.version == 1 && doc.run_id == doc.attempts.run_id {
+    if doc.version == 2 && doc.run_id == doc.attempts.run_id {
         return true;
     }
     builder.add(StatementKind::Limitation,"invocation.source_identity_unavailable","The joined document version or its retained attempt run identity is incompatible. No joined work or elapsed interpretation is established from this source.",
@@ -772,16 +772,16 @@ pub fn compare_invocations(
                 left.is_finite() && right.is_finite() && *left >= 0. && *right >= 0.
             });
             builder.add(if observed.is_some(){StatementKind::Established}else{StatementKind::Limitation},"comparison.supervisor_endpoint",
-                observed.map_or_else(||"A comparable supervisor endpoint is unavailable; missing qualification is not zero qualification time.".into(),|(left,right)|format!("The same recorded supervisor endpoint changed from {left:.6} to {right:.6} seconds. It excludes work outside the declared clock scope and does not isolate a cause.")),
+                observed.map_or_else(||"A comparable invocation endpoint is unavailable; missing qualification is not zero qualification time.".into(),|(left,right)|format!("The same recorded invocation endpoint changed from {left:.6} to {right:.6} seconds. It excludes work outside the declared clock scope and does not isolate a cause.")),
                 vec![inv(a,&format!("/endpoints/{name}"),seconds(left)),inv(b,&format!("/endpoints/{name}"),seconds(right))],vec![]);
         }
     } else {
-        builder.add(StatementKind::Limitation,"comparison.clock_scope_unavailable","The supervisor clocks have different boundaries or collection was unavailable. Their values cannot establish a shared elapsed-cost comparison.",vec![inv(a,"/clock_scope",text(&a.clock_scope)),inv(b,"/clock_scope",text(&b.clock_scope))],vec![NextObservation::TimelineCapture]);
+        builder.add(StatementKind::Limitation,"comparison.clock_scope_unavailable","The invocation clocks have different boundaries or collection was unavailable. Their values cannot establish a shared elapsed-cost comparison.",vec![inv(a,"/clock_scope",text(&a.clock_scope)),inv(b,"/clock_scope",text(&b.clock_scope))],vec![NextObservation::TimelineCapture]);
     }
     builder.omitted(a.attempts.steps.len());
     builder.omitted(b.attempts.steps.len());
     if a.attempts.steps.is_empty() || b.attempts.steps.is_empty() {
-        builder.add(StatementKind::Limitation,"comparison.unit_cost_unavailable","No paired native step population is retained. Integration-only or omitted records cannot establish native per-unit cost from a supervisor endpoint.",
+        builder.add(StatementKind::Limitation,"comparison.unit_cost_unavailable","No paired native step population is retained. Integration-only or omitted records cannot establish native per-unit cost from an invocation endpoint.",
             vec![counted(a,"/attempts/omitted_steps",Value::Count(a.attempts.omitted_steps as u64),true),counted(b,"/attempts/omitted_steps",Value::Count(b.attempts.omitted_steps as u64),true)],vec![NextObservation::InspectRelated,NextObservation::TimelineCapture]);
     }
     for (ai, left) in a.attempts.steps.iter().take(limit).enumerate() {
@@ -1044,12 +1044,12 @@ mod tests {
             })),
         });
         InvocationEvidenceDocument {
-            version: 1,
+            version: 2,
             run_id,
             attempt_id: None,
             operation: None,
             family: "modeling".into(),
-            clock_scope: "fixture supervisor wall from entry; preparation before entry excluded"
+            clock_scope: "fixture invocation wall from establishment; earlier preparation excluded"
                 .into(),
             timing_unavailable: None,
             canonical_run: None,
@@ -1098,6 +1098,15 @@ mod tests {
             .iter()
             .find(|statement| statement.code == code)
             .unwrap()
+    }
+    #[test]
+    fn invocation_comparison_refuses_the_old_supervisor_only_version() {
+        let mut old = fixture(1, 10, 8.);
+        old.version = 1;
+        let new = fixture(2, 10, 8.);
+        let result = compare_invocations(&old, &new, ComparisonPolicy::default());
+        assert!(has(&result, "invocation.source_identity_unavailable"));
+        assert!(!has(&result, "comparison.supervisor_endpoint"));
     }
     #[test]
     fn invocation_comparison_distinguishes_recorded_more_work_from_descriptive_unit_ratio() {

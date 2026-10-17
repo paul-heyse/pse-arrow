@@ -1265,7 +1265,11 @@ impl StudyPreparationLane {
     pub(in crate::workflow) fn numerical_view(
         &self,
     ) -> Option<std::sync::Weak<crate::math::retention::RetainedBoundSolver>> {
-        self.current.as_ref()?.numerical_view.as_ref().map(Arc::downgrade)
+        self.current
+            .as_ref()?
+            .numerical_view
+            .as_ref()
+            .map(Arc::downgrade)
     }
     pub(in crate::workflow) async fn close(&mut self) -> Result<(), WorkflowError> {
         if let Some(current) = &self.current {

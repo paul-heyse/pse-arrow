@@ -15,6 +15,14 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [diagnostics-led pipeline performance review](reviews/design_review_pipeline-performance-optimization_2026-10-17.md)
+uses short production-path cases, native work counts, selected integration records and
+source inspection to assess execution fit after Plan43. It identifies nine findings,
+bounded further investigations and an integrated target without changing scientific
+accuracy. Its [case notes](evidence/pipeline-performance-optimization-2026-10-17/case-notes.md)
+record what ran and what remains unexamined. The review awaits subsequent plan creation;
+it does not change existing plans' implementation status.
+
 [Plan 41's Outcome](../plans/41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
 records adoption, settled opportunities and affected acceptance of the simulation-pipeline
 review. Its resolved review and six supporting inquiries have retired to Git history;
