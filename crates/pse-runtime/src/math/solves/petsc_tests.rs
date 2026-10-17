@@ -10,7 +10,7 @@ fn native_report(outcome: &Outcome) -> &SolveReport {
 
 use pse_ids::SemanticId;
 use std::{
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
 
@@ -88,7 +88,7 @@ fn flow_profile(source: &PreparedPetscSource) -> SolverProfile {
 }
 fn execute(service: &Arc<MathService>, prepared: &PreparedPetsc, point: &[f64]) -> DerivedAttempt {
     let mut execution = Execution::within(
-        prepared.scope().cancellation().clone(),
+        prepared.scope().cancellation_control().clone(),
         prepared.controls(),
         prepared.scope().clone(),
     )
@@ -281,7 +281,7 @@ async fn actual_compiled_guard_inventory_and_deadline_are_mandatory() {
             .await
             .is_err()
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let expired = ExecutionScope::new(cancel.clone(), Some(Instant::now()));
     assert!(
         service

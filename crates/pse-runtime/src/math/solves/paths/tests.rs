@@ -286,7 +286,7 @@ async fn prepared_first_source_lowers_actual_offset_and_partials_without_square_
         0.
     );
     let execution = Execution::within(
-        path.scope.cancellation().clone(),
+        path.scope.cancellation_control().clone(),
         &path.request.corrector.controls,
         path.scope.clone(),
     )
@@ -574,7 +574,7 @@ async fn genuine_compiled_sheet_binds_prior_origin_then_certifies_actual_target_
         outcome.connected
     );
     let execution = Execution::within(
-        scope.cancellation().clone(),
+        scope.cancellation_control().clone(),
         &path.profile().controls,
         scope.clone(),
     )
@@ -814,7 +814,7 @@ fn event_policy(original: &PreparedSolve) -> EventPolicy {
 fn manufactured_fold_conditions(path: &PreparedPath, service: &Arc<MathService>) {
     let scope = path.task_scope().clone();
     let execution = Execution::within(
-        scope.cancellation().clone(),
+        scope.cancellation_control().clone(),
         &path.original.profile.controls,
         scope,
     )

@@ -120,7 +120,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
         iterations: 100,
         time_limit: Duration::from_secs(10),
     };
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + Duration::from_secs(60)));
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
     let make_factory = |tight| {
@@ -520,7 +520,7 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
     )
     .await;
     let service = runtime.native();
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -637,7 +637,7 @@ async fn actual_shifted_frozen_mass_retains_offset_and_submission_scope() {
     )
     .await;
     let service = runtime.native();
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -727,7 +727,7 @@ async fn least_deviation_preserves_original_rows_metric_roles_and_actual_derivat
         held: vec![],
         metric_source: pse_ids::ContentHash::from_bytes([9; 32]),
     };
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -891,7 +891,7 @@ async fn least_deviation_exact_second_and_named_held_roles_use_actual_source() {
         .unwrap();
     assert_eq!(prepared.family().support().order, DerivativeOrder::Second);
     let execution = Execution::within(
-        scope.cancellation().clone(),
+        scope.cancellation_control().clone(),
         &prepared.profile.controls,
         scope.clone(),
     )
@@ -1345,7 +1345,7 @@ async fn derived_expiry_marker_preserves_actual_native_report_work_and_foreign_f
         .await
         .unwrap();
     let execution = Execution::within(
-        enclosing.cancellation().clone(),
+        enclosing.cancellation_control().clone(),
         prepared.controls(),
         enclosing.clone(),
     )
@@ -1533,7 +1533,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
     assert_eq!(output.scale, 1.0);
     let residual = plan.bodies().get(&binding.body).unwrap();
     assert_eq!(residual.input_count(), 2);
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + Duration::from_secs(30)));
     let support = residual
         .prepare_support(&[output.output], &[0, 1], DerivativeOrder::First, &flag)
@@ -2349,7 +2349,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         .port
         .clone();
     let unit = registry.unit(port.unit).unwrap();
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -2910,7 +2910,7 @@ async fn repeated_completed_blocks_fit_short_pool_and_extracted_components_hold_
         DerivativeOrder::First, fixture::profile()).await;
     let pool = runtime.shared.pool();
     let service = runtime.native();
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(120)),
@@ -2981,7 +2981,7 @@ async fn repeated_completed_blocks_fit_short_pool_and_extracted_components_hold_
 async fn completed_blocks_refuse_excess_capacity_and_keep_unknown_extensions_bounded() {
     let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(0); eq first:x==1; eq second:y==x+1; } }").await;
     let service = runtime.native();
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -3047,7 +3047,7 @@ async fn failed_blocks_release_construction_allowance_and_preserve_original_caus
     let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(0); eq first:x==1; eq second:y==log(x-2); } }").await;
     let service = runtime.native();
     let pool = runtime.shared.pool();
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -3107,7 +3107,7 @@ async fn failed_blocks_release_construction_allowance_and_preserve_original_caus
 async fn automatic_blocks_execute_complete_nonport_coupled_original_and_keep_actual_components() {
     let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; var z:Scalar; annotation start x(0); annotation start y(0); annotation start z(0); eq first:x==1; eq second:y==x+1; eq third:z==2*y; } }").await;
     let service = runtime.native();
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     assert_eq!(original.automatic_block_count(&flag).unwrap(), 3);
     let offers = original.automatic_operations(None, &flag).unwrap();
     assert!(
@@ -3305,7 +3305,7 @@ async fn block_iteration_gate_uses_contextual_override_route_and_keeps_supported
 
     let text = "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(1); annotation start y(2); eq first:x*x==2; eq second:y==x+1; } }";
     let (runtime, original) = original_order(text, DerivativeOrder::Second).await;
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let Representation::Algebraic(source) = &original.representation else {
         panic!("authored block source required");
     };
@@ -3470,7 +3470,7 @@ async fn actual_zero_row_feasibility_retains_objective_and_objective_free_origin
         )
         .await;
         let service = runtime.native();
-        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let scope = ExecutionScope::new(
             flag.clone(),
             Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -3616,7 +3616,7 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
             upper: 2.,
         },
     ];
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -3981,7 +3981,7 @@ async fn automatic_authored_supplier_actions_match_complete_original_equations()
     };
     assert_eq!(suppliers.len(), 2);
     assert_eq!(retained.len(), 1);
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = ExecutionScope::new(
         flag.clone(),
         Some(Instant::now() + std::time::Duration::from_secs(30)),
@@ -4128,7 +4128,7 @@ async fn native_component_records_survive_success_and_failed_block_before_report
     ] {
         let (runtime, original) = original(text).await;
         let service = runtime.native();
-        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = pse_diagnostics::Cancellation::default();
         let scope = ExecutionScope::new(
             flag.clone(),
             Some(Instant::now() + std::time::Duration::from_secs(30)),

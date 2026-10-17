@@ -604,7 +604,7 @@ async fn explicit_ipopt_auto_demands_independent_affine_rows_and_off_preserves_b
         "package p { def Root { var x:Scalar; var y:Scalar; eq linear:x+y==2; eq nonlinear:log(x)+y==1; annotation bounds x(-2,2); annotation valid x(0.25,2); annotation start x(1); annotation start y(1); } }",
     ).await;
     let service = runtime.native();
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     for policy in [
         native::presolve::Policy::Off,
         native::presolve::Policy::Auto,
@@ -1102,7 +1102,7 @@ async fn actual_convex_advice_selects_equivalent_original_profile_before_first_s
 async fn actual_pounce_observed_recovery_precedes_unobserved_profiles() {
     let prepared=prepare("package p { def Root { var x:Scalar; annotation bounds x(-1,2); annotation start x(0.5); let f:Scalar=exp(x); annotation objective f(minimize); eq floor:x>=0; } }",
         SolveIntent::Optimize,SolverSelection::Explicit(Backend::Pounce)).await;
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let inventory = prepared.solve.automatic_operations(None, &flag).unwrap();
     let Representation::Algebraic(source) = &prepared.solve.representation else {
         panic!("algebraic original");
@@ -1219,7 +1219,7 @@ async fn fresh_replay_recursively_detaches_exhausted_original_graph_and_preserve
     original = original.with_start(seed).unwrap();
     let mut limits = original.numerical_strategy().limits;
     limits.attempts = 1;
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let scope = pse_kernels::ExecutionScope::new(
         flag.clone(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
@@ -1254,7 +1254,7 @@ async fn fresh_replay_recursively_detaches_exhausted_original_graph_and_preserve
         _owner: original._owner.clone(),
     }));
     original.automatic_products = vec![PreparedRung::Original(Box::new(leaf))];
-    flag.store(true, std::sync::atomic::Ordering::Release);
+    flag.cancel();
     assert!(original.task_scope().unwrap().check().is_err());
     let request = original.request_identity().unwrap();
     let replay = original.fresh_replay_copy().unwrap();

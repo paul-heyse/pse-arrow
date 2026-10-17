@@ -91,7 +91,7 @@ impl PreparedSolve {
                 return Ok(());
             };
             let mut execution = Execution::within(
-                scope.cancellation().clone(),
+                scope.cancellation_control().clone(),
                 &self.profile.controls,
                 scope.clone(),
             )?;

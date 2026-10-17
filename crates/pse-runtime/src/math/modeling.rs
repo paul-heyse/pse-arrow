@@ -209,7 +209,7 @@ impl pse_math::implicit::InnerWorker for MissingInnerSolver {
         _: Arc<pse_math::implicit::Problem>,
         _: &[f64],
         _: &pse_math::implicit::Options,
-        _: &Arc<std::sync::atomic::AtomicBool>,
+        _: &Cancellation,
     ) -> Result<Vec<f64>, pse_math::MathError> {
         Err(pse_math::MathError::Contract(
             "nested realization requires the KINSOL capability".into(),
@@ -936,7 +936,7 @@ impl MathService {
                     documents,
                     &physical,
                     reservation,
-                    flag,
+                    flag.flag(),
                     &BTreeMap::new(),
                 )
             },
@@ -1035,7 +1035,7 @@ impl MathService {
             move |authority, flag| {
                 let product = service.with_modeling_compiler(authority, &revision, |compiler| {
                     Ok(compiler.prepare_semantic_modeling_cancellable(
-                        root, instance, bindings, limits, flag,
+                        root, instance, bindings, limits, flag.flag(),
                     )?)
                 })?;
                 let bytes = product.retained_bytes();

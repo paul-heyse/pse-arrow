@@ -18,6 +18,7 @@ impl EffortObservation {
         let observed = report.evidence.native_observations.as_ref()?;
         let iterations = match &observed.counters {
             NativeCounters::Ipopt { iterations, .. }
+            | NativeCounters::Uno { iterations, .. }
             | NativeCounters::Kinsol { iterations, .. } => (*iterations)?,
         };
         Some(Self {
@@ -158,6 +159,24 @@ impl StepControl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn uno_effort_uses_only_the_actual_optional_native_iteration_getter() {
+        use pse_backend_native::solve::{Assurance,Backend,Controls,Execution,NativeCounters,NativeObservations,NativeTermination,ObservationCoordinates,SolveReport,StopFidelity,Termination};
+        use pse_ids::ContentHash;
+        use std::sync::Arc;
+        let contract=pse_backend_native::OracleContract {identity:ContentHash::from_bytes([71;32]),variables:vec![],rows:vec![],
+            derivatives:pse_kernels::DerivativeOrder::Value,smoothness:pse_kernels::DerivativeOrder::Value};
+        let execution=Execution::new(pse_diagnostics::Cancellation::default(),&Controls::default());
+        let mut report=SolveReport::new(Backend::Uno,&contract,NativeTermination{code:-1,name:"controlled unavailable outcome".into(),message:None,category:Termination::Numerical,assurance:Assurance::None},&execution);
+        for iterations in [None,Some(7)] {
+            report.evidence.native_observations=Some(Arc::new(NativeObservations {backend:Backend::Uno,problem:contract.identity,profile:ContentHash::from_bytes([72;32]),
+                coordinates:ObservationCoordinates::SubmittedOracle,stop_fidelity:StopFidelity::EvaluationAndIterationCheckpoints,current:None,
+                counters:NativeCounters::Uno {iterations,objective_evaluations:None,constraint_evaluations:None,gradient_evaluations:None,jacobian_evaluations:None,subproblems:None,cpu_seconds:None}}));
+            let observed=EffortObservation::from_report(&report);
+            assert_eq!(observed.map(|value|value.iterations),iterations,"unavailable iterations must not be fabricated from callbacks or status");
+            if let Some(observed)=observed {assert_eq!(observed.profile.backend,Backend::Uno);assert_eq!(observed.profile.key,ContentHash::from_bytes([72;32]));}
+        }
+    }
     #[test]
     fn only_numerical_failure_consumes_subdivision_and_only_acceptance_grows() {
         use NumericalAttemptObservation as O;

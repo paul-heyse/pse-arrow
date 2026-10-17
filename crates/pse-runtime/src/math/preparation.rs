@@ -360,7 +360,7 @@ impl MathService {
                     let product =
                         service.with_modeling_compiler(authority, &revision, |compiler| {
                             Ok(compiler.plan_modeling_cancellable(
-                                root, instance, bindings, limits, flag,
+                                root, instance, bindings, limits, flag.flag(),
                             )?)
                         })?;
                     let bytes = size_of::<OwnedModelingFrontier>() + product.retained_bytes();
@@ -489,7 +489,7 @@ impl MathService {
                         .completions
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let product =
-                        compiler.complete_modeling_cancellable(frontier.product.clone(), flag)?;
+                        compiler.complete_modeling_cancellable(frontier.product.clone(), flag.flag())?;
                     let bytes = product.retained_bytes();
                     Ok((product, bytes))
                 },

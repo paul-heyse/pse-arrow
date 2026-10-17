@@ -648,7 +648,7 @@ impl PreparedSolve {
             return false;
         }
         let Ok(mut execution) =
-            Execution::within(scope.cancellation().clone(), self.controls(), scope.clone())
+            Execution::within(scope.cancellation_control().clone(), self.controls(), scope.clone())
         else {
             return false;
         };
@@ -4391,7 +4391,7 @@ impl MathService {
         previous: Option<Predecessor>,
         attempt: usize,
         retained: &mut Retained,
-        flag: &Arc<std::sync::atomic::AtomicBool>,
+        flag: &pse_diagnostics::Cancellation,
         progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
         owner: &Arc<pse_columnar::AllocationLease>,
@@ -4428,7 +4428,7 @@ impl MathService {
         &self,
         members: Vec<BatchMember>,
         retained: &mut Retained,
-        flag: &Arc<std::sync::atomic::AtomicBool>,
+        flag: &pse_diagnostics::Cancellation,
         progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
         scope: &pse_kernels::ExecutionScope,
@@ -4500,7 +4500,7 @@ impl MathService {
         step: PreparedSolve,
         previous: Option<Predecessor>,
         retained: &mut Retained,
-        flag: &Arc<std::sync::atomic::AtomicBool>,
+        flag: &pse_diagnostics::Cancellation,
         progress: &Arc<Progress>,
         scope: Option<&pse_kernels::ExecutionScope>,
     ) -> Result<Admitted, Outcome> {
@@ -5692,7 +5692,7 @@ impl MathService {
                 },
             )?;
         let mut execution = Execution::within(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             &Controls::default(),
             scope.clone(),
         )
@@ -5874,7 +5874,7 @@ impl MathService {
                 })
             })
             .transpose()?;
-        let constraints = budget.evaluate(|| worker.constraints(&values).map_err(Into::into))?;
+        let constraints = budget.evaluate(|| worker.constraints(&values).map(<[f64]>::to_vec).map_err(Into::into))?;
         let rows = structure
             .rows()
             .iter()
@@ -5962,7 +5962,7 @@ impl execution::OriginalModel for OriginalCase<'_> {
             for (id, value) in self.plan.columns().iter().zip(primal) {
                 trial.scalars.insert(*id, *value);
             }
-            let constraints = original.worker.constraints(&trial)?;
+            let constraints = original.worker.constraints(&trial)?.to_vec();
             let objective = self
                 .plan
                 .structure()

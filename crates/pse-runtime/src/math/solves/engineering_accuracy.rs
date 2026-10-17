@@ -256,7 +256,7 @@ impl PreparedSolve {
             })
             .map_err(MathRuntimeError::into_problem)?;
         let mut execution = Execution::within(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             &self.profile.controls,
             scope.clone(),
         )?;
@@ -734,7 +734,7 @@ mod refinement_tests {
         let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let budget = WorkerBudget::new(64 << 20);
         let execution = Execution::within(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             &prepared.solve.profile.controls,
             scope.clone(),
         )

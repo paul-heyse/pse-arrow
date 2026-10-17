@@ -2309,7 +2309,7 @@ impl MathService {
             (Some(a), Some(b)) => Some(a.min(b)),
             (a, b) => a.or(b),
         };
-        let scope = ExecutionScope::new(execution.cancel.clone(), deadline);
+        let scope = ExecutionScope::new(execution.cancellation.clone(), deadline);
         scope.check().map_err(ProblemError::from)?;
         execution.enclosing_scope = Some(scope.clone());
         if let Some(deadline) = deadline {

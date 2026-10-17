@@ -112,6 +112,7 @@ impl PreparedSolve {
                 worker
                     .worker()
                     .constraints(values)
+                    .map(<[f64]>::to_vec)
                     .map_err(MathRuntimeError::from)
             })
             .map_err(MathRuntimeError::into_problem)?;

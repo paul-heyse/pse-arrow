@@ -295,7 +295,7 @@ impl MathService {
         let mut oracle = native::assembled::AlgebraicOracle::new(worker, case.values.clone())?;
         let contract = NlpOracle::contract(&oracle).clone();
         let execution =
-            Execution::within(scope.cancellation().clone(), &Controls::default(), scope)?;
+            Execution::within(scope.cancellation_control().clone(), &Controls::default(), scope)?;
         Ok(proposal.screen(
             &contract,
             target.original_identity()?,

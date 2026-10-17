@@ -944,7 +944,7 @@ async fn startup_observation_job<T: Send + 'static>(
         service.job_retained_scoped(1, bytes, control.clone(), Some(deadline), move |flag| {
             // Keep the complete work envelope through native join, then transfer
             // only the result's escaped extent without release/reacquisition.
-            match work(flag) {
+            match work(flag.flag()) {
                 Ok((value, retained)) => Ok((Ok(value), retained)),
                 Err(error) => Ok((Err(error), 0)),
             }
@@ -1043,7 +1043,7 @@ async fn native_receiving<T: Send + 'static>(
 ) -> Result<T, PortableError> {
     let control = pse_diagnostics::Cancellation::default();
     let work = service.job_scoped(1, bytes, control.clone(), deadline, move |flag| {
-        operation(flag).map_err(runtime_error)
+        operation(flag.flag()).map_err(runtime_error)
     });
     let stop = async {
         loop {

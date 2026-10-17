@@ -24,7 +24,7 @@ pub(super) trait Dispatch {
         cancel: &'a crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
         ) -> Result<T, MathRuntimeError>
         + Send
@@ -47,7 +47,7 @@ impl Dispatch for NativeSession {
         cancel: &'a crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
         ) -> Result<T, MathRuntimeError>
         + Send
@@ -1432,7 +1432,7 @@ pub(crate) struct LocalOperation<'a> {
     service: Arc<MathService>,
     retained: std::cell::RefCell<&'a mut Retained>,
     context: std::cell::RefCell<&'a mut OperationContext>,
-    flag: Arc<AtomicBool>,
+    flag: pse_diagnostics::Cancellation,
     budget: Arc<WorkerBudget>,
     execution: pse_backend_native::solve::Execution,
     scopes: std::cell::RefCell<execution::SerialScopes>,
@@ -1443,7 +1443,7 @@ impl<'a> LocalOperation<'a> {
         service: Arc<MathService>,
         retained: &'a mut Retained,
         context: &'a mut OperationContext,
-        flag: Arc<AtomicBool>,
+        flag: pse_diagnostics::Cancellation,
         budget: Arc<WorkerBudget>,
         scope: pse_kernels::ExecutionScope,
         controls: pse_backend_native::solve::Controls,
@@ -1603,7 +1603,7 @@ impl Dispatch for LocalOperation<'_> {
         cancel: &'a crate::CancelSource,
         work: impl FnOnce(
             &mut Retained,
-            &Arc<AtomicBool>,
+            &pse_diagnostics::Cancellation,
             &Arc<WorkerBudget>,
         ) -> Result<T, MathRuntimeError>
         + Send

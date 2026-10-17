@@ -4,7 +4,6 @@ use super::*;
 #[cfg(feature = "solver-kinsol")]
 use std::sync::atomic::Ordering;
 use std::{
-    sync::atomic::AtomicBool,
     time::{Duration, Instant},
 };
 
@@ -225,7 +224,7 @@ async fn original_invalid_start_guard_and_task_limits_preserve_causes_without_di
             .is_err()
     );
     assert_eq!(budget.used(), 0);
-    let late = ExecutionScope::new(task.cancellation().clone(), Some(Instant::now()));
+    let late = ExecutionScope::new(task.cancellation_control().clone(), Some(Instant::now()));
     assert!(
         service
             .screen_multistart_worker(&prepared, late, &budget)
@@ -280,7 +279,7 @@ async fn connected_incomplete_and_nonfinite_seeds_are_refused_before_native_work
                 .is_err()
         );
     }
-    let flag = Arc::new(AtomicBool::new(false));
+    let flag = pse_diagnostics::Cancellation::default();
     let expired = ExecutionScope::new(flag.clone(), Some(Instant::now()));
     assert!(
         service

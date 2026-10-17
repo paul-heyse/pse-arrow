@@ -861,7 +861,7 @@ impl MathService {
             .checked_add(request.corrector.controls.time_limit)
             .ok_or_else(|| ProblemError::Contract("path deadline extent".into()))?;
         let scope = ExecutionScope::new(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             Some(scope.deadline().map_or(local, |d| d.min(local))),
         );
         scope.check().map_err(ProblemError::Provider)?;
@@ -2432,7 +2432,7 @@ pub(crate) fn run_path(
             .into_iter()
             .chain(path.scope.deadline())
             .min();
-        execution.enclosing_scope = Some(ExecutionScope::new(execution.cancel.clone(), deadline));
+        execution.enclosing_scope = Some(ExecutionScope::new(execution.cancellation.clone(), deadline));
         path.origin_connected(&start)?;
         let n = start.point.len();
         let mut point = augmented(&start.point, path.program.parameters[0].1);
@@ -3021,7 +3021,7 @@ impl MathService {
         let service = self.clone();
         let scope = path.scope.clone();
         let mut execution = Execution::within(
-            scope.cancellation().clone(),
+            scope.cancellation_control().clone(),
             &path.request.corrector.controls,
             scope.clone(),
         )?;
@@ -3126,7 +3126,7 @@ impl MathService {
                 .checked_add(original.time_limit())
                 .ok_or_else(|| ProblemError::Contract("path proof deadline extent".into()))?;
             let scope = ExecutionScope::new(
-                scope.cancellation().clone(),
+                scope.cancellation_control().clone(),
                 Some(scope.deadline().map_or(local, |d| d.min(local))),
             );
             let mut abandoned = PathCancellation(Some(scope.cancellation_control().clone()));
