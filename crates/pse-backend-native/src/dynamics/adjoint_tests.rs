@@ -823,6 +823,11 @@ fn second_order_adjoint_matches_finite_difference() {
             );
             let backward = statistics["backward"].as_array().unwrap();
             assert_eq!(backward.len(), np, "{case}");
+            for direction in backward {
+                assert_eq!(direction["steps"], direction["accepted_steps_charged"], "accepted native work survives every sample/segment epoch");
+                assert_eq!(direction["accepted_step_allowance"], p.max_steps);
+                assert!(direction["steps"].as_u64().unwrap() <= p.max_steps as u64);
+            }
             eprintln!("{case}: backward Newton counters {backward:?}");
             // Central differences of the forward-sensitivity gradient.
             let mut reference =

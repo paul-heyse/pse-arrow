@@ -1642,6 +1642,10 @@ pub(super) fn evaluate_experiment(
                 for &(row, global) in &s.constraints {
                     result.constraints.push((global.get(), outputs[row.get()]));
                 }
+                for &i in &mapping.observations {
+                    let o = &p.measurements[i];
+                    result.predictions.push((i, outputs[o.row]));
+                }
                 let j = if demand.jacobian || demand.responses || demand.adjoint {
                     Some(worker.jacobian(&values)?.to_owned())
                 } else {
@@ -1661,10 +1665,6 @@ pub(super) fn evaluate_experiment(
                                 .push((term.contribution, j.val()[term.local]));
                         }
                     }
-                }
-                for &i in &mapping.observations {
-                    let o = &p.measurements[i];
-                    result.predictions.push((i, outputs[o.row]));
                 }
                 result.block = j;
             }

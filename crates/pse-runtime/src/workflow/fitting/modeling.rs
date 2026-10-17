@@ -1154,8 +1154,9 @@ impl PreparedFit {
                             let providers=crate::math::attempt_providers(&s.providers,&scope).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))?;
                             let mut worker=program.assembly.worker_scoped(providers,scope.clone());
                             let outputs=worker.constraints(&values).map_err(math)?;
+                            let observed=program.assembly.structure().rows().iter().map(|r|r.id).zip(outputs.iter().copied()).collect();
                             applicability=worker.applicability_observations();
-                            program.assembly.structure().rows().iter().map(|r|r.id).zip(outputs).collect()
+                            observed
                         }else{BTreeMap::new()};
                         let (checks,observations)=checks::assess_observations(run_id,model.compiled(),&values,&observed,&applicability,numerics,&self.problem.quantities,true,None,None)?;
                         rows.extend(checks); reports.extend(observations);
@@ -1178,7 +1179,7 @@ impl PreparedFit {
             checkpoint()?;
             Ok((rows,reports))
         };
-        match assess() {
+        match crate::workflow::dynamics::analysis("fit.original_physical_checks", assess) {
             Ok((checks, reports)) => {
                 report.checks = checks;
                 report.reports = reports;

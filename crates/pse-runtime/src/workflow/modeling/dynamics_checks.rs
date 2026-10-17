@@ -316,15 +316,16 @@ impl SampleCheckWorker<'_> {
         let observed = match (program, active_worker) {
             (Some(program), Some(worker)) => {
                 let evaluated = worker.constraints(&*point).map_err(math)?;
-                applicability = worker.applicability_observations();
-                program
+                let observed = program
                     .assembly
                     .structure()
                     .rows()
                     .iter()
                     .map(|r| r.id)
-                    .zip(evaluated)
-                    .collect::<BTreeMap<_, _>>()
+                    .zip(evaluated.iter().copied())
+                    .collect::<BTreeMap<_, _>>();
+                applicability = worker.applicability_observations();
+                observed
             }
             _ => BTreeMap::new(),
         };
