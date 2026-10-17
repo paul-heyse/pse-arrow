@@ -1430,22 +1430,22 @@ mod tests {
         assert_eq!(prepared.model.case.structure().matching.len(), 2);
         let source_map = rt.modeling_diagnostic_source_map(&prepared, 1 << 20,
             std::time::Duration::from_secs(10), &cancel).await.unwrap();
-        assert_eq!(source_map.document.source_identity, prepared.model.case.compiled().plan.structure().key());
-        assert_eq!(source_map.document.numerical_identity, prepared.numerics.key);
-        assert_eq!(source_map.document.row_nominals.iter().map(|(row, _)| *row).collect::<Vec<_>>(), source_map.document.rows);
-        assert_eq!(source_map.document.variable_nominals.iter().map(|(column, _)| *column).collect::<Vec<_>>(), source_map.document.columns);
-        assert!(!source_map.document.templates.is_empty());
-        assert!(!source_map.document.instances.is_empty());
-        assert!(source_map.document.fields.iter().all(|field| field.document == Some(SemanticId::from_bytes([83; 16]))));
-        assert!(source_map.document.templates.iter().all(|template| !template.arithmetic.is_empty()));
-        assert!(source_map.document.templates.iter().flat_map(|template| &template.arithmetic)
+        assert_eq!(source_map.document().source_identity, prepared.model.case.compiled().plan.structure().key());
+        assert_eq!(source_map.document().numerical_identity, prepared.numerics.key);
+        assert_eq!(source_map.document().row_nominals.iter().map(|(row, _)| *row).collect::<Vec<_>>(), source_map.document().rows);
+        assert_eq!(source_map.document().variable_nominals.iter().map(|(column, _)| *column).collect::<Vec<_>>(), source_map.document().columns);
+        assert!(!source_map.document().templates.is_empty());
+        assert!(!source_map.document().instances.is_empty());
+        assert!(source_map.document().fields.iter().all(|field| field.document == Some(SemanticId::from_bytes([83; 16]))));
+        assert!(source_map.document().templates.iter().all(|template| !template.arithmetic.is_empty()));
+        assert!(source_map.document().templates.iter().flat_map(|template| &template.arithmetic)
             .all(|origin| origin.source.is_some() == origin.source_unavailable.is_none()));
-        for instance in &source_map.document.instances {
+        for instance in &source_map.document().instances {
             assert_eq!(instance.contributions.len(), prepared.model.case.compiled().plan.structure().instances()[instance.ordinal].contributions.len());
             assert!(!instance.demands.is_empty());
-            assert!(instance.demands.iter().all(|demand| source_map.document.templates.iter().any(|template| template.template == demand.template)));
+            assert!(instance.demands.iter().all(|demand| source_map.document().templates.iter().any(|template| template.template == demand.template)));
         }
-        assert!(source_map.document.native_pullback_unavailable.contains("no transformed native attempt"));
+        assert!(source_map.document().native_pullback_unavailable.contains("no transformed native attempt"));
         assert!(rt.modeling_diagnostic_source_map(&prepared, 1,
             std::time::Duration::from_secs(10), &cancel).await.is_err());
         let stopped_map = crate::CancelSource::new();

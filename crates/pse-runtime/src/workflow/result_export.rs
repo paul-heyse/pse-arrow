@@ -1365,7 +1365,7 @@ mod tests {
             .unwrap();
             let service = crate::math::MathService::new(
                 source.pool.clone(),
-                Arc::new(tokio::sync::Semaphore::new(2)),
+                Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(2)),
                 2,
                 crate::math::MathPolicy {
                     artifact_bytes: limit,

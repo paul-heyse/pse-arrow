@@ -344,7 +344,7 @@ fn deployment_check_refuses_foreign_consumed_owners_and_width() {
     check(&normalized).unwrap();
     // In-flight permits do not change configured deployment width.
     let permits = shared.compiler_cpu();
-    let held = permits.try_acquire_many(width.get()).unwrap();
+    let held = permits.clone().try_acquire_many_owned(width.get()).unwrap();
     assert_eq!(permits.available_permits(), 0);
     check(&factory).unwrap();
     drop(held);
