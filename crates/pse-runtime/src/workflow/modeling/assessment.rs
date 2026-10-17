@@ -379,8 +379,9 @@ impl Assessment {
                     .constraints(values)
                     .map_err(crate::math::MathRuntimeError::from)
             })?;
+            let observed = self.rows.iter().copied().zip(observed.iter().copied()).collect();
             applicability = evaluator.worker().applicability_observations();
-            self.rows.iter().copied().zip(observed).collect()
+            observed
         } else {
             BTreeMap::new()
         };

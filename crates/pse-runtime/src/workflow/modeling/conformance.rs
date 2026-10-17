@@ -2224,7 +2224,7 @@ impl ModelingPackage {
                         probe.native_worker(fixture, worker.cancellation());
                     }
                     let execution = pse_backend_native::solve::Execution::within(
-                        worker.cancellation().clone(),
+                        scope.cancellation_control().clone(),
                         &controls,
                         scope,
                     )?;
@@ -3480,13 +3480,13 @@ mod tests {
                 Some((scope.clone(), control)),
                 move |mut worker| {
                     let execution = Execution::within(
-                        worker.cancellation().clone(),
+                        scope.cancellation_control().clone(),
                         &Controls::default(),
                         scope,
                     )?;
                     assert_eq!(execution.scope()?.deadline(), Some(deadline));
                     assert!(Arc::ptr_eq(&execution.cancel, worker.cancellation()));
-                    let rows = worker.constraints(&values)?;
+                    let rows = worker.constraints(&values)?.to_vec();
                     execution.check()?;
                     Ok(rows)
                 },

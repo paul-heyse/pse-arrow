@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit static source inspection; no numerical evaluation or solver activation.
 use super::*;
+use pse_ids::ContentHash;
+use pse_kernels::DerivativeOrder;
 use pse_math::{assembly::EvaluationDemand, binding::Target, jets::ProductKind};
 
 /// Static eligibility includes both branch alternatives and is never execution evidence.
@@ -211,6 +213,12 @@ pub struct ModelingSourceMap {
     _lease: Arc<pse_columnar::AllocationLease>,
 }
 
+impl serde::Serialize for ModelingSourceMap {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(&self.document, serializer)
+    }
+}
+
 fn cell_count(lengths: &[usize]) -> Result<usize, WorkflowError> {
     lengths.iter().try_fold(0usize, |count, length| count.checked_add(*length))
         .ok_or_else(|| contract("source map population extent"))
@@ -254,8 +262,9 @@ impl Runtime {
             // The selected construction has its own declared finite permission;
             // loader artifacts retain their independent existing owners.
             let lease = service.reserve("modeling:source-map", maximum_bytes)?;
-            let assembly = crate::math::MathService::within_task(&scope, cancel,
+            let executable = crate::math::MathService::within_task(&scope, cancel,
                 service.assemble(prepared.model.case.clone())).await?;
+            let assembly = &executable.assembly;
             check()?;
             let model = prepared.model.model.compiled();
             let fields = model.occurrence_identity();

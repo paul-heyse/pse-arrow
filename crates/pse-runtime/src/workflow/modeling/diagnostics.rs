@@ -5,6 +5,7 @@
 #[path = "diagnostic_linear.rs"]
 mod linear;
 use super::*;
+use pse_compiler::workspace::ModelingOutput;
 use crate::math::modeling::ModelingCasePreparation;
 #[cfg(feature = "solver-highs")]
 pub use linear::ModelingLinearDiagnostics;

@@ -11,10 +11,7 @@ use pse_model::generated::enums::{
 };
 use std::{
     collections::BTreeSet,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::Arc,
 };
 
 /// Explicit ephemeral diagnostic: run exclusively pure authored tests without
@@ -127,7 +124,7 @@ pub async fn conform_pure_documents(
         maximum_checks,
     )?;
     report.selection = selection;
-    let flag = Arc::new(AtomicBool::new(token.is_cancelled()));
+    let flag = pse_diagnostics::Cancellation::new(token.is_cancelled());
     let worker_flag = flag.clone();
     let task = tokio::task::spawn_blocking(
         move || -> Result<ModelingConformanceReport, WorkflowError> {
@@ -169,7 +166,7 @@ pub async fn conform_pure_documents(
                 report.note_oracle(oracle, |oracle| revision.release_of(oracle));
                 let data = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
                 if index >= maximum_fixtures
-                    || worker_flag.load(Ordering::Acquire)
+                    || worker_flag.is_cancelled()
                     || !report.complete
                 {
                     report.complete = false;
@@ -200,7 +197,7 @@ pub async fn conform_pure_documents(
                     pse_modeling::specialize::root_instance(fixture),
                     bindings.clone(),
                     limits,
-                    worker_flag.clone(),
+                    worker_flag.flag(),
                 ) {
                     Ok(model) => model,
                     Err(error) => {
@@ -240,7 +237,7 @@ pub async fn conform_pure_documents(
     );
     tokio::pin!(task);
     let joined = tokio::select! { value = &mut task => value, () = cancel.cancelled() => {
-        flag.store(true, Ordering::Release); task.await
+        flag.cancel(); task.await
     }};
     joined.map_err(|error| contract(format!("pure compiler worker failed: {error}")))?
 }

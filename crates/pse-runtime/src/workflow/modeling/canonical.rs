@@ -1880,7 +1880,7 @@ impl ModelingPackage {
                                 Arc::new(documents),
                                 &physical_key,
                                 stamp,
-                                flag,
+                                flag.flag(),
                                 &suppliers,
                             )
                         },

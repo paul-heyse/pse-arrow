@@ -350,7 +350,7 @@ impl ModelingPackage {
                     .with_worker(assembly, providers, cancel, move |worker| {
                         let observed = worker.constraints(&values)?;
                         Ok((
-                            ids.into_iter().zip(observed).collect(),
+                            ids.into_iter().zip(observed.iter().copied()).collect(),
                             worker.applicability_observations(),
                             retained,
                         ))
@@ -3892,14 +3892,14 @@ mod tests {
             assert_eq!(source.source, NumericalSource::Model);
         }
         // Real selected-output projections cannot inherit an inactive equality's budget.
-        let construction = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let construction = pse_diagnostics::Cancellation::default();
         let projection = plan
             .functions(
                 &[scalar_id],
                 plan.columns().to_vec(),
                 registry,
                 DerivativeOrder::First,
-                &construction,
+                &construction.flag(),
             )
             .unwrap();
         let projected = conservation_row_requirements(
@@ -3917,7 +3917,7 @@ mod tests {
                 plan.columns().to_vec(),
                 registry,
                 DerivativeOrder::Value,
-                &construction,
+                &construction.flag(),
             )
             .unwrap();
         assert!(

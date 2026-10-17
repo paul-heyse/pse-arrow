@@ -1369,7 +1369,7 @@ impl Runtime {
                     _ => None,
                 };
                 let mut execution = pse_backend_native::solve::Execution::within(
-                    scope.cancellation().clone(),
+                    scope.cancellation_control().clone(),
                     &pse_backend_native::solve::Controls::default(),
                     scope.clone(),
                 )

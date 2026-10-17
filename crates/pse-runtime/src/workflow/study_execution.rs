@@ -1390,7 +1390,7 @@ pub(in crate::workflow) async fn continuation_start(
                 pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), Some(deadline))
             });
             let mut execution = pse_backend_native::solve::Execution::within(
-                scope.cancellation().clone(),
+                scope.cancellation_control().clone(),
                 &pse_backend_native::solve::Controls::default(),
                 scope.clone(),
             )
@@ -2256,8 +2256,8 @@ mod occurrence_execution_tests {
         let original = original
             .with_primal_start(columns.into_iter().zip(primal.iter().copied()).collect())
             .unwrap();
-        let flag = Arc::default();
-        let flag_departure = Arc::downgrade(&flag);
+        let flag = pse_diagnostics::Cancellation::default();
+        let flag_departure = Arc::downgrade(&flag.flag());
         let scope = pse_kernels::ExecutionScope::new(
             flag,
             Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
