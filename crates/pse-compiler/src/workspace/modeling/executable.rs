@@ -19,7 +19,7 @@ mod solve;
 pub use conformance::{ModelingExpectationResult, ModelingPointChecks, ModelingValidityResult};
 pub use derived::{Derivation, Derived};
 pub use implicit::{
-    AdmittedImplicit, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale,
+    AdmittedImplicit, ImplicitProgramRequest, ImplicitPrograms, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale,
     ImplicitSelection, SelectionEquivalence, SelectionNeighborhood,
 };
 pub use solve::{

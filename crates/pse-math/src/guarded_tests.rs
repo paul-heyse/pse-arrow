@@ -388,7 +388,7 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
         )
         .is_err()
     );
-    let mut worker = body
+    let direct = body
         .compile_branch_local(
             &[0],
             &[0],
@@ -397,8 +397,13 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
             limits,
             &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
-        .unwrap()
-        .worker();
+        .unwrap();
+    let support = body.prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel).unwrap();
+    let scope = pse_kernels::ExecutionScope::new(control.clone(), None);
+    let scalars = support.prepare_scalars(Optimization::default(), limits, &scope).unwrap();
+    let reused = support.compile_branch_local_reusing(Optimization::default(), limits, &scope, &scalars).unwrap();
+    for compiled in [direct, reused] {
+    let mut worker = compiled.worker();
     for (x, slope) in [(-2.0, -1.0), (2.0, 1.0)] {
         let jet = worker
             .evaluate(&[x], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel)
@@ -429,4 +434,5 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
             .values,
         vec![0.0]
     );
+    }
 }

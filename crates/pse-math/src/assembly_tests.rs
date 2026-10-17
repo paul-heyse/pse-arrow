@@ -4590,6 +4590,48 @@ fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partia
 }
 
 #[test]
+fn weighted_provider_products_reexecute_for_changed_weights_points_and_refused_context() {
+    use std::sync::atomic::Ordering;
+    let (provider, control, calls) = controlled_jet_provider();
+    let key = provider.spec.key();
+    let (original, mut values) = overlapping_output_fixture(Some(Box::new(ControlledJetProvider {
+        spec: provider.spec.clone(), control: control.clone(), calls: calls.clone(),
+    })), true);
+    let compile_control = pse_diagnostics::Cancellation::new(false);
+    let plan = original.with_hessian_actions(&compile_control).unwrap();
+    let assembly = Arc::new(Arc::new(plan).compile(Optimization::default(), EvaluationLimits::default(),
+        &pse_kernels::ExecutionScope::new(compile_control.clone(), None)).unwrap());
+    let stop = pse_diagnostics::Cancellation::default();
+    let mut worker = assembly.worker(BTreeMap::from([(key, Box::new(provider) as Box<dyn pse_kernels::Provider>)]), stop.clone());
+    let mut output = [f64::NAN; 2];
+    worker.hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output).unwrap();
+    assert_eq!(output, [258., 176.]);
+    let before = calls.load(Ordering::Relaxed);
+    worker.hessian_product(&values, 2., &[0., 0.], &[5., 7.], &mut output).unwrap();
+    assert_eq!(output, [516., 352.]);
+    assert!(calls.load(Ordering::Relaxed) > before, "changed weights cannot claim a provider-immutable premise");
+    let before = calls.load(Ordering::Relaxed);
+    worker.hessian_product(&values, 2., &[0., 0.], &[10., 14.], &mut output).unwrap();
+    assert_eq!(output, [1032., 704.]);
+    assert!(calls.load(Ordering::Relaxed) > before);
+    values.scalars.insert(id(1), 3.);
+    let before = calls.load(Ordering::Relaxed);
+    worker.hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output).unwrap();
+    assert!(output.iter().all(|value| value.is_finite()));
+    assert!(calls.load(Ordering::Relaxed) > before);
+    let before = calls.load(Ordering::Relaxed);
+    control.store(2, Ordering::Release);
+    assert!(worker.hessian_product(&values, 3., &[0., 0.], &[5., 7.], &mut output).is_err(),
+        "a changed-weight invocation still observes the provider's new refusal");
+    assert!(calls.load(Ordering::Relaxed) > before);
+    worker.hessian_product(&values, 3., &[0., 0.], &[5., 7.], &mut output).unwrap();
+    let before = calls.load(Ordering::Relaxed);
+    stop.cancel();
+    assert!(worker.hessian_product(&values, 4., &[0., 0.], &[5., 7.], &mut output).is_err());
+    assert_eq!(calls.load(Ordering::Relaxed), before, "cancelled context refuses before provider execution");
+}
+
+#[test]
 fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancellation() {
     use std::sync::{Barrier, Mutex, atomic::Ordering};
     #[derive(Debug)]

@@ -944,6 +944,29 @@ impl PreparedSupport {
             None,
         )
     }
+    /// Compile strict-interior derivatives from retained exact scalar preparations.
+    /// Guard-boundary admission remains part of every numerical trial.
+    pub fn compile_branch_local_reusing(
+        &self,
+        options: Optimization,
+        limits: EvaluationLimits,
+        scope: &pse_kernels::ExecutionScope,
+        scalars: &library::ScalarProducts,
+    ) -> Result<CompiledBody, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
+        self.body().compile_scope(
+            &(0..self.outputs().len()).collect::<Vec<_>>(),
+            &self.dense_coordinates()?,
+            self.order(),
+            options,
+            limits,
+            scope,
+            true,
+            ProductKind::SelectedPartials,
+            self,
+            Some(scalars),
+        )
+    }
     /// Compile a first directional action using one Taylor axis. Structural support
     /// still names every admitted formal coordinate; the axis is a computational layout.
     pub fn compile_directional(

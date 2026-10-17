@@ -1081,6 +1081,27 @@ impl ImplicitFactory {
             Self::Regimes(factory) => Self::regime_bytes(factory),
         }
     }
+    /// Immutable program payload already charged by the artifact service. Count
+    /// occurrences exactly as retained_bytes does; mutable scratch remains local.
+    pub fn separately_owned_program_bytes(&self, allocations: &std::collections::BTreeSet<usize>) -> Result<usize, MathError> {
+        let root = |factory: &Factory| {
+            std::iter::once(&factory.bodies.parameter).chain(std::iter::once(&factory.bodies.unknown))
+                .chain(factory.hints.iter()).chain(factory.terms.iter())
+                .chain(factory.selection.anchor.iter()).chain(factory.selection.restriction.iter())
+                .filter(|body| allocations.contains(&(Arc::as_ptr(body) as usize)))
+                .try_fold(0usize, |bytes, body| bytes.checked_add(body.retained_bytes()))
+        };
+        let bytes = match self {
+            Self::Root(factory) => root(factory),
+            Self::Regimes(factory) => factory.alternatives.iter().try_fold(0usize, |bytes, branch| {
+                let extra = [&branch.eligibility, &branch.criterion].into_iter()
+                    .filter(|body| allocations.contains(&(Arc::as_ptr(body) as usize)))
+                    .try_fold(0usize, |bytes, body| bytes.checked_add(body.retained_bytes()))?;
+                bytes.checked_add(root(&branch.residual)?)?.checked_add(extra)
+            }),
+        };
+        bytes.ok_or(MathError::Limit("implicit separately owned program extent"))
+    }
     fn root_bytes(factory: &Factory) -> Option<usize> {
         factory
             .bodies

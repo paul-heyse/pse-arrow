@@ -2223,6 +2223,10 @@ fn implicit_constructor_bound_uses_residual_minimum_and_requested_output() {
     assert_eq!(bound(DerivativeOrder::Value), first);
     assert!(first < bound(DerivativeOrder::Second));
     let solver = pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap();
+    let programs = inner.compile_programs(&configurations, &ImplicitCapabilities {
+        solver: Arc::new(pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap()),
+        verifier: None, accelerators: &accelerators,
+    }, DerivativeOrder::Value, &cancel, limits).unwrap();
     let factory = inner
         .reconstruction_factory(
             configurations,
@@ -2234,6 +2238,7 @@ fn implicit_constructor_bound_uses_residual_minimum_and_requested_output() {
             DerivativeOrder::Value,
             cancel,
             limits,
+            &programs,
         )
         .unwrap();
     assert!(factory.retained_bytes().unwrap() < first);
@@ -7434,4 +7439,45 @@ fn affine_row_rebind_keeps_free_iterates_and_refreshes_parameter_coefficients_wi
         matches!(base.prepare_affine_rows(&values(2.0, 3.0), &cancel),
         Err(CompileError::Math(error)) if matches!(error.as_ref(), MathError::Cancelled))
     );
+}
+
+#[test]
+fn implicit_artifact_requests_separate_program_premises_from_fresh_hint_values() {
+    use pse_math::implicit::{Configuration, HintResolver, Options, Unknown};
+    #[derive(Debug)]
+    struct Hints(u8);
+    impl HintResolver for Hints {
+        fn identity(&self) -> ContentHash { ContentHash::from_bytes([self.0; 32]) }
+        fn retained_bytes(&self) -> usize { size_of::<Self>() }
+        fn time_limit(&self) -> std::time::Duration { std::time::Duration::from_secs(1) }
+        fn resolve(&self, _: &[f64], _: Option<&[f64]>, _: Option<&[f64]>) -> std::result::Result<(Vec<Unknown>, Options), MathError> {
+            Err(MathError::Contract("this test inspects demand, not numerical hint execution".into()))
+        }
+    }
+    let source = "package p { def Root { var x:Scalar; implicit root select branch(y>=0) { var y:Scalar; eq residual:y==x/2; annotation start y(x/2); } realize r on root using nested; eq pin:root.y==2; } }";
+    let (mut workspace, _, _, root) = setup(source);
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    let solver = Arc::new(pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap());
+    let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+    let capabilities = ImplicitCapabilities { solver, verifier: None, accelerators: &accelerators };
+    let cancel = Cancellation::new(false);
+    let limits = EvaluationLimits::default();
+    let configs = |hint| BTreeMap::from([(inner.residuals[0].id, Configuration::Hints(Arc::new(Hints(hint))))]);
+    let requests = |hint, order, limits| inner.program_requests(&configs(hint), &capabilities, order, &cancel, limits).unwrap();
+    let keys = |requests: Vec<ImplicitProgramRequest>| requests.into_iter().map(|request| request.artifact().key()).collect::<Vec<_>>();
+    assert_eq!(keys(requests(1, DerivativeOrder::First, limits)), keys(requests(2, DerivativeOrder::First, limits)),
+        "fresh numerical resolvers cannot recompile stable residual/hint programs");
+    assert_ne!(keys(requests(1, DerivativeOrder::First, limits)), keys(requests(1, DerivativeOrder::Second, limits)));
+    let narrower = EvaluationLimits { operations: limits.operations - 1, ..limits };
+    assert_ne!(keys(requests(1, DerivativeOrder::First, limits)), keys(requests(1, DerivativeOrder::First, narrower)));
+    let (mut changed_workspace, _, _, changed_root) = setup(&source.replace("annotation start y(x/2)", "annotation start y(x/3)"));
+    let changed = admit(&mut changed_workspace, changed_root);
+    let changed_inner = changed.implicit.values().next().unwrap();
+    let changed_configs = BTreeMap::from([(changed_inner.residuals[0].id, Configuration::Hints(Arc::new(Hints(1))))]);
+    let changed_requests = changed_inner.program_requests(&changed_configs, &capabilities, DerivativeOrder::First, &cancel, limits).unwrap();
+    assert_ne!(keys(requests(1, DerivativeOrder::First, limits)), keys(changed_requests), "hint expression changes immutable program demand");
+    let programs = inner.compile_programs(&configs(1), &capabilities, DerivativeOrder::First, &cancel, limits).unwrap();
+    assert!(inner.factory_reusing(configs(2), capabilities.clone(), DerivativeOrder::First, cancel.clone(), narrower, &programs).is_err());
+    assert!(inner.factory_reusing(configs(2), capabilities, DerivativeOrder::Second, cancel, limits, &programs).is_err());
 }

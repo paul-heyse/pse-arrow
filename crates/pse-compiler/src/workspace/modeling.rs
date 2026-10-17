@@ -748,7 +748,7 @@ pub use conditional::{AutomaticCausalUnit, ConditionalUnitInventory};
 mod executable;
 mod flow;
 pub use executable::{
-    AdmittedImplicit, AdmittedModeling, BoundLookup, BoundLookupKey, BoundStructure, Derivation,
+    AdmittedImplicit, AdmittedModeling, ImplicitProgramRequest, ImplicitPrograms, BoundLookup, BoundLookupKey, BoundStructure, Derivation,
     Derived, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale,
     ImplicitSelection, ModelingCaseBindings, ModelingExpectationResult, ModelingHint,
     ModelingOccurrenceIdentity, ModelingOutput, ModelingPointChecks, ModelingPreparationFrontier,

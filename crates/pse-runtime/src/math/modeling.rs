@@ -419,6 +419,34 @@ impl MathService {
                     },
                 )
                 .await?;
+            // Select immutable programs under the existing admitted constructor bound.
+            // The returned request descriptors remain charged while their ordinary
+            // artifact flights compile/share programs independently of fresh hints.
+            let ((inner, solver, verifier, accelerators, provider_demands, requests), _request_owner) = self
+                .job_retained_construction(1, demand, control.clone(), driver.deadline(), move |flag| {
+                    let mut requests = Vec::with_capacity(inner.len());
+                    let mut bytes = 0usize;
+                    for item in &inner {
+                        let source = item.admitted.descriptor.spec().key();
+                        let requested = provider_demands.get(&source).copied().unwrap_or(pse_kernels::DerivativeOrder::Value);
+                        let selected = item.admitted.program_requests(&item.configurations,
+                            &pse_compiler::workspace::ImplicitCapabilities { solver: solver.clone(), verifier: verifier.clone(), accelerators: &accelerators },
+                            requested, &flag, profile.evaluation)?;
+                        for request in &selected { bytes = bytes.checked_add(request.retained_bytes())
+                            .ok_or(MathRuntimeError::Limit("inner request extent"))?; }
+                        requests.push(selected);
+                    }
+                    Ok(((inner, solver, verifier, accelerators, provider_demands, requests), bytes))
+                }).await?;
+            let mut programs = Vec::with_capacity(requests.len());
+            for selected in requests {
+                let mut bound = pse_compiler::workspace::ImplicitPrograms::new(profile.evaluation);
+                for request in selected {
+                    let artifact = Self::preparation_wait(&driver, self.artifact(request.artifact().clone())).await?;
+                    bound.bind(request, artifact.program.clone())?;
+                }
+                programs.push(bound);
+            }
             // Opaque native Rational/optimizer construction retains the separate
             // foreign allowance; the known payload follows actual scientific demand.
             self.job_retained_construction(
@@ -429,7 +457,7 @@ impl MathService {
                 move |flag| {
                     let mut factories = Vec::new();
                     let mut retained = 0usize;
-                    for item in inner {
+                    for (item, programs) in inner.into_iter().zip(programs) {
                         let source_key = item.admitted.descriptor.spec().key();
                         let requested_output = provider_demands
                             .get(&source_key)
@@ -453,9 +481,13 @@ impl MathService {
                             requested_output,
                             flag.clone(),
                             profile.evaluation,
+                            &programs,
                         )?;
+                        let shared = factory.factory().separately_owned_program_bytes(&programs.allocation_identities())?;
+                        let local = factory.retained_bytes()?.checked_sub(shared)
+                            .ok_or(MathRuntimeError::Limit("inner shared program accounting"))?;
                         retained = retained
-                            .checked_add(factory.retained_bytes()?)
+                            .checked_add(local)
                             .ok_or(MathRuntimeError::Limit("inner program extent"))?;
                         let dependencies = item
                             .admitted
